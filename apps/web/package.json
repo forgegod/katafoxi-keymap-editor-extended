@@ -1,0 +1,28 @@
+{
+  "name": "@keymap-editor/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
+    "lint": "svelte-check --tsconfig ./tsconfig.app.json"
+  },
+  "dependencies": {
+    "@fortawesome/fontawesome-free": "^6.7.2",
+    "@keymap-editor/keymap-core": "workspace:*",
+    "@tanstack/svelte-query": "^5.62.8",
+    "fuzzysort": "^3.1.0"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "@tsconfig/svelte": "^5.0.4",
+    "@types/node": "^22.10.2",
+    "svelte": "^5.17.0",
+    "svelte-check": "^4.1.1",
+    "typescript": "~5.7.2",
+    "vite": "^6.0.6"
+  }
+}

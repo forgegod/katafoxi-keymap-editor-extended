@@ -1,0 +1,228 @@
+import behaviorsData from '../data/zmk-behaviors.json' with { type: 'json' }
+import { renderTable } from './layout.js'
+import type { BehaviorDef, KeyBindingNode, LayoutKey, ParsedKeymap } from './types.js'
+
+export class KeymapValidationError extends Error {
+  errors: string[]
+
+  constructor(errors: string[]) {
+    super()
+    this.name = 'KeymapValidationError'
+    this.errors = errors
+  }
+}
+
+const behaviours = behaviorsData as BehaviorDef[]
+const behavioursByBind = Object.fromEntries(behaviours.map(b => [b.code, b]))
+
+export const keymapTemplate = `
+/*
+ * Copyright (c) 2020 The ZMK Contributors
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+
+/* THIS FILE WAS GENERATED!
+ *
+ * This file was generated automatically. You may or may not want to
+ * edit it directly.
+ */
+
+#include <behaviors.dtsi>
+{{behaviour_includes}}
+
+/ {
+    keymap {
+        compatible = "zmk,keymap";
+
+{{rendered_layers}}
+    };
+};
+`
+
+function encodeBindValue(parsed: KeyBindingNode): string {
+  const params = (parsed.params || []).map(encodeBindValue)
+  const paramString = params.length > 0 ? `(${params.join(',')})` : ''
+  return String(parsed.value) + paramString
+}
+
+export function encodeKeyBinding(parsed: KeyBindingNode): string {
+  const { value, params } = parsed
+  return `${value} ${params.map(encodeBindValue).join(' ')}`.trim()
+}
+
+export function encodeKeymap(parsedKeymap: ParsedKeymap) {
+  return {
+    ...parsedKeymap,
+    layers: parsedKeymap.layers.map(layer => layer.map(encodeKeyBinding))
+  }
+}
+
+function getBehavioursUsed(keymap: ParsedKeymap): string[] {
+  const keybinds = keymap.layers.flat()
+  return [...new Set(keybinds.map(b => String(b.value)))]
+}
+
+/**
+ * Parse a bind string into a tree of values and parameters
+ */
+export function parseKeyBinding(binding: string): KeyBindingNode {
+  const paramsPattern = /\((.+)\)/
+
+  function parse(code: string): KeyBindingNode {
+    const value = code.replace(paramsPattern, '')
+    const match = code.match(paramsPattern)
+    const params = (match?.[1] ?? '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => s.length > 0)
+      .map(parse)
+
+    return { value, params }
+  }
+
+  const valueMatch = binding.match(/^(&.+?)\b/)
+  if (!valueMatch) {
+    throw new Error(`Invalid key binding: ${binding}`)
+  }
+  const value = valueMatch[1]
+  const params = binding
+    .replace(/^&.+?\b\s*/, '')
+    .split(' ')
+    .filter(Boolean)
+    .map(parse)
+
+  return { value, params }
+}
+
+export function parseKeymap(keymap: {
+  layers: string[][]
+  [key: string]: unknown
+}): ParsedKeymap {
+  return {
+    ...keymap,
+    layers: keymap.layers.map(layer => layer.map(parseKeyBinding))
+  }
+}
+
+function renderTemplate(
+  template: string,
+  params: {
+    layout: LayoutKey[]
+    behaviourHeaders: string[]
+    layers: string[][]
+    layerNames: string[]
+  }
+): string {
+  const includesPattern = /\{\{\s*behaviour_includes\s*\}\}/
+  const layersPattern = /\{\{\s*rendered_layers\s*\}\}/
+
+  const renderedLayers = params.layers.map((layer, i) => {
+    const name = i === 0 ? 'default_layer' : `layer_${params.layerNames[i] || i}`
+    const rendered = renderTable(params.layout, layer, {
+      linePrefix: '',
+      columnSeparator: ' '
+    })
+
+    return `
+        ${name.replace(/[^a-zA-Z0-9_]/g, '_')} {
+            bindings = <
+${rendered}
+            >;
+        };
+`
+  })
+
+  return template
+    .replace(includesPattern, params.behaviourHeaders.join('\n'))
+    .replace(layersPattern, renderedLayers.join(''))
+}
+
+function generateKeymapCode(
+  layout: LayoutKey[],
+  keymap: ParsedKeymap,
+  encoded: ReturnType<typeof encodeKeymap>,
+  template: string
+): string {
+  const names = (keymap.layer_names as string[]) || []
+  const behaviourHeaders = getBehavioursUsed(keymap).flatMap(
+    bind => behavioursByBind[bind]?.includes ?? []
+  )
+
+  return renderTemplate(template, {
+    layout,
+    behaviourHeaders,
+    layers: encoded.layers as string[][],
+    layerNames: names
+  })
+}
+
+function generateKeymapJSON(
+  layout: LayoutKey[],
+  encoded: ReturnType<typeof encodeKeymap>
+): string {
+  const base = JSON.stringify({ ...encoded, layers: null }, null, 2)
+  const layers = (encoded.layers as string[][]).map(layer => {
+    const rendered = renderTable(layout, layer, {
+      useQuotes: true,
+      linePrefix: '      '
+    })
+    return `[\n${rendered}\n    ]`
+  })
+
+  return base.replace('"layers": null', `"layers": [\n    ${layers.join(', ')}\n  ]`)
+}
+
+export function generateKeymap(
+  layout: LayoutKey[],
+  keymap: ParsedKeymap,
+  template?: string
+): { code: string; json: string } {
+  const encoded = encodeKeymap(keymap)
+  return {
+    code: generateKeymapCode(layout, keymap, encoded, template || keymapTemplate),
+    json: generateKeymapJSON(layout, encoded)
+  }
+}
+
+export function validateKeymapJson(keymap: unknown): void {
+  const errors: string[] = []
+
+  if (typeof keymap !== 'object' || keymap === null) {
+    errors.push('keymap.json root must be an object')
+  } else {
+    const km = keymap as { layers?: unknown }
+    if (!Array.isArray(km.layers)) {
+      errors.push('keymap must include "layers" array')
+    } else {
+      for (let i = 0; i < km.layers.length; i++) {
+        const layer = km.layers[i]
+        if (!Array.isArray(layer)) {
+          errors.push(`Layer at layers[${i}] must be an array`)
+        } else {
+          for (let j = 0; j < layer.length; j++) {
+            const key = layer[j]
+            const keyPath = `layers[${i}][${j}]`
+            if (typeof key !== 'string') {
+              errors.push(`Value at "${keyPath}" must be a string`)
+            } else {
+              const bind = key.match(/^&.+?\b/)
+              if (!(bind && bind[0] in behavioursByBind)) {
+                errors.push(`Key bind at "${keyPath}" has invalid behaviour`)
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (errors.length) {
+    throw new KeymapValidationError(errors)
+  }
+}
+
+export function loadBehaviorsData(): BehaviorDef[] {
+  return behaviours
+}
