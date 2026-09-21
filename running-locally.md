@@ -16,7 +16,7 @@ cmd //c "mklink /J zmk-config C:\path\to\your\zmk-config"
 ln -s ../zmk-keyboard-lark zmk-config
 ```
 
-If `keymap.json` is missing, Local mode still loads the layout; bindings start empty (`&none`) until you edit and **Save Local** (writes `keymap.json` + updates the `.keymap` file). The LARK repo also has `host_keymap/` for later host-compose work.
+If `keymap.json` is missing, Local mode loads bindings from the `.keymap` file automatically. **Save Local** writes both `keymap.json` and updates the `.keymap`. The LARK repo also has `host_keymap/` for later host-compose work.
 4. Install [pnpm](https://pnpm.io/) (Node 20+), then run:
 
 ```bash
