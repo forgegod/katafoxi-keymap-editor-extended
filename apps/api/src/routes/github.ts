@@ -111,9 +111,18 @@ githubRoutes.post('/keyboard-files/:installationId/:repository/:branch', async c
   const { installationId, repository, branch } = c.req.param()
   const { keymap, layout } = await c.req.json()
   try {
-    await commitChanges(installationId, repository, branch, layout, keymap)
-    return c.body(null, 200)
+    const { mode, warnings } = await commitChanges(
+      installationId,
+      repository,
+      branch,
+      layout,
+      keymap
+    )
+    return c.json({ ok: true, mode, warnings })
   } catch (err) {
+    if (err instanceof KeymapValidationError) {
+      return c.json({ name: err.name, errors: err.errors }, 400)
+    }
     return handleGithubError(c, err)
   }
 })

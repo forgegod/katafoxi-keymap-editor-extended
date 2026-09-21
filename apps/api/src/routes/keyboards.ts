@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { generateKeymap, type ParsedKeymap } from '@keymap-editor/keymap-core'
+import { KeymapValidationError, type ParsedKeymap } from '@keymap-editor/keymap-core'
 import * as zmk from '../services/zmk/local-source.js'
 
 export const keyboardsRoutes = new Hono()
@@ -11,17 +11,18 @@ keyboardsRoutes.get('/keymap', c => c.json(zmk.loadKeymap()))
 
 keyboardsRoutes.post('/keymap', async c => {
   const keymap = (await c.req.json()) as ParsedKeymap
-  const layout = zmk.loadLayout()
-  const generatedKeymap = generateKeymap(layout, keymap)
-  const flash = c.req.query('flash') !== undefined
 
   return new Promise<Response>(resolve => {
-    zmk.exportKeymap(generatedKeymap, flash, err => {
+    zmk.saveLocalKeymap(keymap, (err, result) => {
       if (err) {
+        if (err instanceof KeymapValidationError) {
+          resolve(c.json({ name: err.name, errors: err.errors }, 400))
+          return
+        }
         resolve(c.text(String(err), 500))
         return
       }
-      resolve(c.body(null, 200))
+      resolve(c.json({ ok: true, mode: result!.mode, warnings: result!.warnings }))
     })
   })
 })

@@ -1,5 +1,8 @@
 import {
-  generateKeymap,
+  buildKeymapCode,
+  isPrimaryKeymapJson,
+  isUserKeymapFilename,
+  parseDtsKeymap,
   type LayoutKey,
   type ParsedKeymap
 } from '@keymap-editor/keymap-core'
@@ -46,31 +49,59 @@ async function fetchFile(
   }
 }
 
+function parseJsonBody(data: unknown): unknown {
+  if (typeof data === 'string') {
+    return JSON.parse(data)
+  }
+  return data
+}
+
+async function fetchKeymapFromDts(
+  installationToken: string,
+  repository: string,
+  branch?: string
+) {
+  const originalCodeKeymap = await findCodeKeymap(installationToken, repository, branch)
+  const { data: source } = await fetchFile(
+    installationToken,
+    repository,
+    originalCodeKeymap.path,
+    { raw: true, branch }
+  )
+  const text = typeof source === 'string' ? source : String(source)
+  const keymapName = originalCodeKeymap.name.replace(/\.keymap$/i, '')
+  return parseDtsKeymap(text, {
+    keyboard: 'unknown',
+    keymap: keymapName,
+    layout: 'LAYOUT'
+  })
+}
+
 async function fetchKeymap(
   installationToken: string,
   repository: string,
   branch?: string
 ) {
   try {
-    const { data: keymap } = await fetchFile(
-      installationToken,
-      repository,
-      'config/keymap.json',
-      { raw: true, branch }
-    )
-    return keymap
-  } catch (err) {
-    if (err instanceof MissingRepoFile) {
-      return {
-        keyboard: 'unknown',
-        keymap: 'unknown',
-        layout: 'unknown',
-        layer_names: ['default'],
-        layers: [[]] as string[][]
+    const { data } = await fetchFile(installationToken, repository, 'config/keymap.json', {
+      raw: true,
+      branch
+    })
+    try {
+      const parsed = parseJsonBody(data)
+      if (isPrimaryKeymapJson(parsed)) {
+        return parsed
       }
+    } catch {
+      /* unparsable or invalid — fall through to .keymap */
     }
-    throw err
+  } catch (err) {
+    if (!(err instanceof MissingRepoFile)) {
+      throw err
+    }
   }
+
+  return fetchKeymapFromDts(installationToken, repository, branch)
 }
 
 export async function fetchKeyboardFiles(
@@ -100,7 +131,7 @@ export async function findCodeKeymap(
     branch
   })
   const originalCodeKeymap = (directory as Array<{ name: string; path: string }>).find(
-    file => file.name.toLowerCase().endsWith('.keymap')
+    file => isUserKeymapFilename(file.name)
   )
   if (!originalCodeKeymap) {
     throw new MissingRepoFile('config/*.keymap')
@@ -140,8 +171,17 @@ export async function commitChanges(
   const { data } = await auth.createInstallationToken(installationId)
   const installationToken = (data as { token: string }).token
   const template = await findCodeKeymapTemplate(installationToken, repository, branch)
-  const generatedKeymap = generateKeymap(layout, keymap, template)
   const originalCodeKeymap = await findCodeKeymap(installationToken, repository, branch)
+  const { data: originalSourceRaw } = await fetchFile(
+    installationToken,
+    repository,
+    originalCodeKeymap.path,
+    { raw: true, branch }
+  )
+  const originalSource =
+    typeof originalSourceRaw === 'string' ? originalSourceRaw : String(originalSourceRaw)
+
+  const built = buildKeymapCode(layout, keymap, { template, originalSource })
 
   const { data: commitData } = await api.request({
     url: `/repos/${repository}/commits/${branch}`,
@@ -163,13 +203,13 @@ export async function commitChanges(
           path: originalCodeKeymap.path,
           mode: MODE_FILE,
           type: 'blob',
-          content: generatedKeymap.code
+          content: built.code
         },
         {
           path: 'config/keymap.json',
           mode: MODE_FILE,
           type: 'blob',
-          content: generatedKeymap.json
+          content: built.json
         }
       ]
     }
@@ -194,4 +234,6 @@ export async function commitChanges(
     token: installationToken,
     data: { sha: newSha }
   })
+
+  return { mode: built.mode, warnings: built.warnings }
 }

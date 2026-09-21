@@ -286,6 +286,30 @@ export function validateKeymapJson(keymap: unknown): void {
   }
 }
 
+/**
+ * True when keymap.json is non-empty and passes validateKeymapJson.
+ * Empty shells (`[]`, `[[]]`) and invalid binds are not primary — callers fall back to .keymap.
+ */
+export function isPrimaryKeymapJson(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false
+  const layers = (value as { layers?: unknown }).layers
+  if (!Array.isArray(layers) || layers.length === 0) return false
+  if (!layers.some(layer => Array.isArray(layer) && layer.length > 0)) return false
+  try {
+    validateKeymapJson(value)
+    return true
+  } catch (err) {
+    if (err instanceof KeymapValidationError) return false
+    throw err
+  }
+}
+
+/** User `.keymap` only — excludes `*.keymap.template` (case-insensitive). */
+export function isUserKeymapFilename(name: string): boolean {
+  const lower = name.toLowerCase()
+  return lower.endsWith('.keymap') && !lower.endsWith('.keymap.template')
+}
+
 export function loadBehaviorsData(): BehaviorDef[] {
   return behaviours
 }
