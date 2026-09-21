@@ -24,7 +24,7 @@ pnpm install
 pnpm dev
 ```
 
-5. Open `http://localhost:5173` (Vite UI). The API listens on `http://localhost:8080`.
+5. Open `http://127.0.0.1:5173` (Vite UI). The API listens on `http://127.0.0.1:8080`.
 
 Set `PORT` if the API port must change. Enable GitHub by setting `ENABLE_GITHUB=true` and filling the GitHub App fields in `.env`, plus matching `VITE_*` values in `apps/web/.env.development`.
 
