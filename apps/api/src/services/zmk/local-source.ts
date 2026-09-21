@@ -4,6 +4,7 @@ import path from 'node:path'
 import {
   generateKeymap,
   loadBehaviorsData,
+  parseDtsKeymap,
   parseKeymap,
   type LayoutKey,
   type ParsedKeymap
@@ -33,19 +34,48 @@ export function loadLayout(layoutName = 'LAYOUT'): LayoutKey[] {
   return JSON.parse(fs.readFileSync(layoutPath, 'utf8')).layouts[layoutName].layout
 }
 
-export function loadKeymap(): ParsedKeymap {
-  const keymapPath = path.join(config.ZMK_CONFIG_PATH, 'config', 'keymap.json')
-  const keymapContent = fs.existsSync(keymapPath)
-    ? JSON.parse(fs.readFileSync(keymapPath, 'utf8'))
-    : EMPTY_KEYMAP
-  return parseKeymap(keymapContent)
+function findKeymapFile(): string | null {
+  const dir = path.join(config.ZMK_CONFIG_PATH, 'config')
+  if (!fs.existsSync(dir)) return null
+  const files = fs.readdirSync(dir)
+  return (
+    files.find(file => file.endsWith('.keymap') && !file.endsWith('.keymap.template')) ??
+    null
+  )
 }
 
-function findKeymapFile(): string {
-  const files = fs.readdirSync(path.join(config.ZMK_CONFIG_PATH, 'config'))
-  const found = files.find(file => file.endsWith('.keymap'))
-  if (!found) throw new Error('No .keymap file in zmk-config/config')
-  return found
+function loadKeymapFromDts(): ParsedKeymap | null {
+  const keymapFile = findKeymapFile()
+  if (!keymapFile) return null
+  const source = fs.readFileSync(
+    path.join(config.ZMK_CONFIG_PATH, 'config', keymapFile),
+    'utf8'
+  )
+  let keyboard = 'unknown'
+  try {
+    const info = JSON.parse(
+      fs.readFileSync(path.join(config.ZMK_CONFIG_PATH, 'config', 'info.json'), 'utf8')
+    )
+    keyboard = info.id || info.name || keyboard
+  } catch {
+    /* ignore */
+  }
+  const raw = parseDtsKeymap(source, {
+    keyboard,
+    keymap: keymapFile.replace(/\.keymap$/, ''),
+    layout: 'LAYOUT'
+  })
+  return parseKeymap(raw)
+}
+
+export function loadKeymap(): ParsedKeymap {
+  const keymapPath = path.join(config.ZMK_CONFIG_PATH, 'config', 'keymap.json')
+  if (fs.existsSync(keymapPath)) {
+    return parseKeymap(JSON.parse(fs.readFileSync(keymapPath, 'utf8')))
+  }
+  const fromDts = loadKeymapFromDts()
+  if (fromDts) return fromDts
+  return parseKeymap(EMPTY_KEYMAP)
 }
 
 export function exportKeymap(
@@ -53,12 +83,16 @@ export function exportKeymap(
   _flash: boolean,
   callback: (err: Error | null, stdout?: string, stderr?: string) => void
 ) {
-  const keymapPath = path.join(config.ZMK_CONFIG_PATH, 'config')
+  const keymapDir = path.join(config.ZMK_CONFIG_PATH, 'config')
   const keymapFile = findKeymapFile()
+  if (!keymapFile) {
+    callback(new Error('No .keymap file in zmk-config/config'))
+    return
+  }
 
-  if (!fs.existsSync(keymapPath)) fs.mkdirSync(keymapPath, { recursive: true })
-  fs.writeFileSync(path.join(keymapPath, 'keymap.json'), generatedKeymap.json)
-  fs.writeFileSync(path.join(keymapPath, keymapFile), generatedKeymap.code)
+  if (!fs.existsSync(keymapDir)) fs.mkdirSync(keymapDir, { recursive: true })
+  fs.writeFileSync(path.join(keymapDir, 'keymap.json'), generatedKeymap.json)
+  fs.writeFileSync(path.join(keymapDir, keymapFile), generatedKeymap.code)
 
   return execFile('git', ['status'], { cwd: config.ZMK_CONFIG_PATH }, callback)
 }
