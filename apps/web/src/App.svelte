@@ -2,8 +2,6 @@
   import * as config from './lib/config'
   import type { Definitions, LegendMode } from './lib/context'
   import { definitionsStore } from './lib/stores'
-  import { loadKeycodes } from './lib/keycodes'
-  import { loadBehaviours } from './lib/api'
   import KeyboardPicker from './lib/components/Pickers/KeyboardPicker.svelte'
   import Spinner from './lib/components/Common/Spinner.svelte'
   import Keyboard from './lib/components/Keyboard/Keyboard.svelte'
@@ -63,10 +61,21 @@
   }
 
   async function initialize() {
-    const [keycodes, behaviours] = await Promise.all([
-      loadKeycodes(),
-      loadBehaviours()
+    const [keycodesRes, behavioursRes] = await Promise.all([
+      fetch('/keycodes'),
+      fetch('/behaviors')
     ])
+    if (!keycodesRes.ok || !behavioursRes.ok) {
+      throw new Error(
+        `API returned ${keycodesRes.status}/${behavioursRes.status}. Start with pnpm dev (API on :8080).`
+      )
+    }
+    const [rawKeycodes, behaviours] = await Promise.all([
+      keycodesRes.json(),
+      behavioursRes.json()
+    ])
+    const { normalizeZmkKeycodes } = await import('./lib/keycodes')
+    const keycodes = normalizeZmkKeycodes(rawKeycodes)
     const kc = keycodes as Definitions['keycodes']
     const bh = behaviours as Definitions['behaviours']
     kc.indexed = Object.fromEntries(kc.map(k => [k.code, k]))

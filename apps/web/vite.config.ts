@@ -10,14 +10,15 @@ export default defineConfig({
     }
   },
   server: {
+    host: '127.0.0.1',
     port: 5173,
     proxy: {
-      '/health': 'http://localhost:8080',
-      '/behaviors': 'http://localhost:8080',
-      '/keycodes': 'http://localhost:8080',
-      '/layout': 'http://localhost:8080',
-      '/keymap': 'http://localhost:8080',
-      '/github': 'http://localhost:8080'
+      '/health': 'http://127.0.0.1:8080',
+      '/behaviors': 'http://127.0.0.1:8080',
+      '/keycodes': 'http://127.0.0.1:8080',
+      '/layout': 'http://127.0.0.1:8080',
+      '/keymap': 'http://127.0.0.1:8080',
+      '/github': 'http://127.0.0.1:8080'
     }
   }
 })

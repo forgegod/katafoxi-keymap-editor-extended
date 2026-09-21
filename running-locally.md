@@ -6,7 +6,17 @@ This tool helps edit keymap files in repositories already cloned onto your compu
 
 1. Clone this repo and open the new directory in a terminal.
 2. Copy `.env.template` to `.env`. Defaults are enough for local editing (GitHub optional).
-3. Clone a `zmk-config` repo into this directory (or symlink it) so `zmk-config/config/info.json` and `keymap.json` exist.
+3. Point `zmk-config` at a firmware repo with `config/info.json` (and ideally `config/keymap.json`). For this project the LARK board works well:
+
+```bash
+# Windows (junction; no admin required)
+cmd //c "mklink /J zmk-config C:\path\to\your\zmk-config"
+
+# or Git Bash / Unix
+ln -s ../zmk-keyboard-lark zmk-config
+```
+
+If `keymap.json` is missing, Local mode still loads the layout; bindings start empty (`&none`) until you edit and **Save Local** (writes `keymap.json` + updates the `.keymap` file). The LARK repo also has `host_keymap/` for later host-compose work.
 4. Install [pnpm](https://pnpm.io/) (Node 20+), then run:
 
 ```bash

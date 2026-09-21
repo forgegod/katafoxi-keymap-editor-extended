@@ -13,6 +13,7 @@
 
   let loaded = $state(false)
   let delayed = $state(false)
+  let error = $state<string | null>(null)
 
   $effect(() => {
     const loadFn = load
@@ -21,19 +22,28 @@
 
     loaded = false
     delayed = false
+    error = null
 
     timeout = setTimeout(() => {
-      if (!cancelled && !loaded) {
+      if (!cancelled && !loaded && !error) {
         delayed = true
       }
     }, delay)
 
-    loadFn().then(() => {
-      if (cancelled) return
-      if (timeout) clearTimeout(timeout)
-      loaded = true
-      delayed = false
-    })
+    loadFn()
+      .then(() => {
+        if (cancelled) return
+        if (timeout) clearTimeout(timeout)
+        loaded = true
+        delayed = false
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        if (timeout) clearTimeout(timeout)
+        delayed = false
+        error = err instanceof Error ? err.message : String(err)
+        console.error('Loader failed:', err)
+      })
 
     return () => {
       cancelled = true
@@ -44,6 +54,14 @@
 
 {#if loaded}
   {@render children()}
+{:else if error}
+  <Modal>
+    <div class="error">
+      <p><strong>Failed to load API data</strong></p>
+      <p>{error}</p>
+      <p>Is the API running on port 8080? Try <code>pnpm dev</code> from the repo root.</p>
+    </div>
+  </Modal>
 {:else if delayed}
   <Modal>
     <Spinner style="color: white;">
@@ -51,3 +69,17 @@
     </Spinner>
   </Modal>
 {/if}
+
+<style>
+  .error {
+    background: white;
+    color: #333;
+    padding: 24px 32px;
+    max-width: 420px;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  }
+  .error code {
+    font-size: 90%;
+  }
+</style>
