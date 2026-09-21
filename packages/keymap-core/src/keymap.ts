@@ -1,15 +1,23 @@
 import behaviorsData from '../data/zmk-behaviors.json' with { type: 'json' }
+import {
+  keymapBindingsText,
+  macrosAppearInText,
+  parseDefines
+} from './dts-keymap.js'
+import { assertLayerKeyCounts, spliceBindingsIntoDts } from './dts-splice.js'
+import { KeymapValidationError } from './errors.js'
 import { renderTable } from './layout.js'
 import type { BehaviorDef, KeyBindingNode, LayoutKey, ParsedKeymap } from './types.js'
 
-export class KeymapValidationError extends Error {
-  errors: string[]
+export { KeymapValidationError } from './errors.js'
 
-  constructor(errors: string[]) {
-    super()
-    this.name = 'KeymapValidationError'
-    this.errors = errors
-  }
+export type BuildKeymapCodeMode = 'template' | 'splice' | 'default_template'
+
+export interface BuildKeymapCodeResult {
+  code: string
+  json: string
+  mode: BuildKeymapCodeMode
+  warnings: string[]
 }
 
 const behaviours = behaviorsData as BehaviorDef[]
@@ -183,6 +191,61 @@ export function generateKeymap(
   return {
     code: generateKeymapCode(layout, keymap, encoded, template || keymapTemplate),
     json: generateKeymapJSON(layout, encoded)
+  }
+}
+
+/**
+ * Prefer an explicit template, else splice into originalSource, else the default
+ * generated template. Always validates layer key counts first.
+ */
+export function buildKeymapCode(
+  layout: LayoutKey[],
+  keymap: ParsedKeymap,
+  options?: { template?: string; originalSource?: string }
+): BuildKeymapCodeResult {
+  const encoded = encodeKeymap(keymap)
+  const layers = encoded.layers as string[][]
+  assertLayerKeyCounts(layout, layers)
+
+  const layerNames = (keymap.layer_names as string[]) || []
+  const warnings: string[] = []
+  const template = options?.template
+  const originalSource = options?.originalSource
+
+  if (typeof template === 'string' && template.length > 0) {
+    return {
+      code: generateKeymapCode(layout, keymap, encoded, template),
+      json: generateKeymapJSON(layout, encoded),
+      mode: 'template',
+      warnings
+    }
+  }
+
+  if (typeof originalSource === 'string' && originalSource.length > 0) {
+    const macros = parseDefines(originalSource)
+    const bindingsText = keymapBindingsText(originalSource)
+    if (bindingsText && macrosAppearInText(bindingsText, macros)) {
+      warnings.push('macros_expanded')
+    }
+    const code = spliceBindingsIntoDts(originalSource, {
+      layout,
+      layers,
+      layerNames
+    })
+    return {
+      code,
+      json: generateKeymapJSON(layout, encoded),
+      mode: 'splice',
+      warnings
+    }
+  }
+
+  warnings.push('generated_default_template')
+  return {
+    code: generateKeymapCode(layout, keymap, encoded, keymapTemplate),
+    json: generateKeymapJSON(layout, encoded),
+    mode: 'default_template',
+    warnings
   }
 }
 

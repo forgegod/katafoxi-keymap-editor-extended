@@ -1,14 +1,7 @@
 import type { LayoutKey } from './types.js'
+import { InfoValidationError } from './errors.js'
 
-export class InfoValidationError extends Error {
-  errors: string[]
-
-  constructor(errors: string[]) {
-    super()
-    this.name = 'InfoValidationError'
-    this.errors = errors
-  }
-}
+export { InfoValidationError } from './errors.js'
 
 export interface RenderTableOpts {
   useQuotes?: boolean

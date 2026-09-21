@@ -16,6 +16,7 @@ describe('parseDtsKeymap', () => {
 #define VU C_VOL_UP
 / {
   keymap {
+    compatible = "zmk,keymap";
     layer_0 {
       bindings = <
 &kp A &kp VU
@@ -33,5 +34,6 @@ describe('parseDtsKeymap', () => {
     expect(km.layer_names).toEqual(['layer_0', 'layer_1'])
     expect(km.layers[0]).toEqual(['&kp A', '&kp C_VOL_UP'])
     expect(km.layers[1]).toEqual(['&trans', '&mo 1'])
+    expect(km.warnings).toContain('macros_expanded')
   })
 })
