@@ -7,7 +7,8 @@ to fully leverage this app's functionality.
 
 > **This fork** runs as a **pnpm monorepo**: Svelte 5 + Vite UI (`apps/web`),
 > Hono API (`apps/api`), and shared ZMK/compose logic (`packages/keymap-core`).
-> See [running-locally.md](running-locally.md).
+> See [running-locally.md](running-locally.md), [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md),
+> and [AGENTS.md](AGENTS.md).
 
 **Try it now!** Go to the [Keymap Editor] and try it out with the built-in
 [keymap-editor-demo-crkbd] before setting up your own repo.
