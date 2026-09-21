@@ -34,24 +34,34 @@
   }: Props = $props()
 
   let listEl: HTMLUListElement | undefined = $state()
+  /** null = not edited yet; then fall back to current binding value for search */
   let query: string | null = $state(null)
   let highlighted: number | null = $state(null)
   let showAll = $state(false)
 
-  const results = $derived.by(() => {
-    const options = { key: searchKey, limit: 30 }
-    const filtered = fuzzysort.go(query || '', choices, options)
+  const effectiveQuery = $derived(
+    query !== null ? query : String(value ?? '')
+  )
 
-    if (showAll || searchThreshold > choices.length) {
+  const results = $derived.by(() => {
+    if (showAll || choices.length <= searchThreshold) {
       return choices
-    } else if (!query) {
+    }
+
+    const q = effectiveQuery.trim()
+    if (!q) {
       return choices.slice(0, searchThreshold)
     }
 
+    const filtered = fuzzysort.go(q, choices, {
+      key: searchKey,
+      limit: 50
+    })
+
     return filtered.map(result => ({
       ...result.obj,
-      search: result
-    })) as Array<Choice & { search?: { score: number } }>
+      searchHighlight: result.target
+    })) as Array<Choice & { searchHighlight?: string }>
   })
 
   const enableShowAllButton = $derived(
@@ -124,6 +134,7 @@
 
   function handleKeyPress(event: Event) {
     query = (event.target as HTMLInputElement).value
+    highlighted = 0
   }
 
   function handleKeyDown(event: KeyboardEvent) {
@@ -147,6 +158,9 @@
   }
 
   onMount(() => {
+    // Seed search from current binding so opening "&kp M" lists M-matches, not A–J.
+    query = String(value ?? '')
+    highlighted = 0
     document.body.addEventListener('click', handleBodyClick)
     return () => {
       document.body.removeEventListener('click', handleBodyClick)
@@ -161,8 +175,9 @@
     <input
       use:focusSearch
       type="text"
-      value={query !== null ? query : value}
+      value={effectiveQuery}
       oninput={handleKeyPress}
+      placeholder="Type to search…"
     />
   {/if}
   <ul class="results" bind:this={listEl}>
@@ -175,20 +190,21 @@
         onclick={() => handleClickResult(result)}
         onmouseover={() => setHighlightPosition(i)}
       >
-        {#if result.search && typeof (result.search as { highlight?: () => string }).highlight === 'function'}
-          <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-          {@html (result.search as { highlight: () => string }).highlight() || result[searchKey]}
-        {:else}
-          <span>{result[searchKey]}</span>
-        {/if}
+        <span>{result.searchHighlight ?? result[searchKey]}</span>
       </li>
     {/each}
   </ul>
   {#if choices.length > searchThreshold}
     <div class="choices-counter">
       Total choices: {choices.length}.
+      {#if results.length < choices.length && !showAll}
+        Showing {results.length}.
+      {/if}
       {#if enableShowAllButton}
         <button type="button" onclick={() => (showAll = true)}>Show all</button>
+      {/if}
+      {#if choices.length > showAllThreshold && !showAll}
+        <span class="hint"> Type to filter the full list.</span>
       {/if}
     </div>
   {/if}
