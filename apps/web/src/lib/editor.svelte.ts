@@ -9,6 +9,7 @@ import {
   getKeycodeCatalog,
   summarizeKeymapDiff,
   type KeyBindingNode,
+  type KeymapChange,
   type LayoutKey,
   type ParsedKeymap
 } from '@keymap-editor/keymap-core'
@@ -22,6 +23,9 @@ export type SaveNotice = {
 }
 
 export type GithubMeta = { repository: string; branch: string }
+
+/** Max draft snapshots kept for undo / redo. */
+const HISTORY_LIMIT = 50
 
 const WARNING_MESSAGES: Record<string, string> = {
   macros_expanded:
@@ -87,6 +91,9 @@ class EditorState {
   baselineKeymap = $state<ParsedKeymap | null>(null)
   /** Live editor document; always set after load. */
   draftKeymap = $state<ParsedKeymap | null>(null)
+  /** Plain draft snapshots for step undo (not vs baseline). */
+  undoStack = $state<ParsedKeymap[]>([])
+  redoStack = $state<ParsedKeymap[]>([])
   saving = $state(false)
   legendMode = $state<LegendMode>('zmk')
   saveNotice = $state<SaveNotice | null>(null)
@@ -99,11 +106,13 @@ class EditorState {
     return diffKeymaps(this.baselineKeymap, this.draftKeymap).length > 0
   }
 
+  get changes(): KeymapChange[] {
+    if (!this.baselineKeymap || !this.draftKeymap) return []
+    return diffKeymaps(this.baselineKeymap, this.draftKeymap)
+  }
+
   get dirtySummary(): string {
-    if (!this.baselineKeymap || !this.draftKeymap) return ''
-    return summarizeKeymapDiff(
-      diffKeymaps(this.baselineKeymap, this.draftKeymap)
-    )
+    return summarizeKeymapDiff(this.changes)
   }
 
   get statusText(): string {
@@ -115,6 +124,19 @@ class EditorState {
     }
     const summary = this.dirtySummary
     return summary ? `Draft · ${summary}` : 'Draft'
+  }
+
+  get canUndo(): boolean {
+    return this.undoStack.length > 0
+  }
+
+  get canRedo(): boolean {
+    return this.redoStack.length > 0
+  }
+
+  clearHistory() {
+    this.undoStack = []
+    this.redoStack = []
   }
 
   initCatalogs() {
@@ -166,10 +188,38 @@ class EditorState {
       this.baselineKeymap = baseline
       this.draftKeymap = cloneParsedKeymap(baseline)
     }
+    this.clearHistory()
     this.saveNotice = null
   }
 
   updateKeymap(next: ParsedKeymap) {
+    if (this.draftKeymap) {
+      const prev = cloneParsedKeymap(this.draftKeymap)
+      const stack = [...this.undoStack, prev]
+      this.undoStack =
+        stack.length > HISTORY_LIMIT
+          ? stack.slice(stack.length - HISTORY_LIMIT)
+          : stack
+      this.redoStack = []
+    }
+    this.draftKeymap = cloneParsedKeymap(next)
+  }
+
+  undo() {
+    if (!this.draftKeymap || this.undoStack.length === 0) return
+    const stack = this.undoStack
+    const prev = stack[stack.length - 1]
+    this.undoStack = stack.slice(0, -1)
+    this.redoStack = [...this.redoStack, cloneParsedKeymap(this.draftKeymap)]
+    this.draftKeymap = cloneParsedKeymap(prev)
+  }
+
+  redo() {
+    if (!this.draftKeymap || this.redoStack.length === 0) return
+    const stack = this.redoStack
+    const next = stack[stack.length - 1]
+    this.redoStack = stack.slice(0, -1)
+    this.undoStack = [...this.undoStack, cloneParsedKeymap(this.draftKeymap)]
     this.draftKeymap = cloneParsedKeymap(next)
   }
 
@@ -181,6 +231,7 @@ class EditorState {
     const baseline = cloneParsedKeymap(reloaded)
     this.baselineKeymap = baseline
     this.draftKeymap = cloneParsedKeymap(baseline)
+    this.clearHistory()
     const warnings = formatWarnings(
       saveMeta && typeof saveMeta === 'object'
         ? (saveMeta as { warnings?: unknown }).warnings
