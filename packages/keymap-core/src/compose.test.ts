@@ -5,7 +5,8 @@ import {
   parseKeyBinding,
   parseKeymap,
   generateKeymap,
-  normalizeZmkKeycodes
+  normalizeZmkKeycodes,
+  resolveBinding
 } from '../src/index.js'
 
 describe('parseKeyBinding', () => {
@@ -63,15 +64,33 @@ describe('normalizeZmkKeycodes', () => {
   })
 })
 
-describe('composeKey stub', () => {
-  it('returns LARK fixture for KC_A', () => {
-    const legend = composeKey({ keycode: 'KC_A' })
-    expect(legend.primary).toEqual(['a', 'Ф'])
-    expect(legend.altGr).toEqual(['@', 'α'])
-    expect(formatLegendCompact(legend)).toBe('aФ @α')
+describe('resolveBinding / composeKey', () => {
+  it('resolves &kp tap without hold', () => {
+    expect(resolveBinding(parseKeyBinding('&kp A'))).toEqual({ tap: 'A' })
+    const legend = composeKey({ binding: parseKeyBinding('&kp A') })
+    expect(legend?.primary).toEqual(['a', 'Ф'])
+    expect(legend?.hold).toBeUndefined()
+    expect(formatLegendCompact(legend!)).toBe('aФ @α')
   })
 
-  it('handles &kp A', () => {
-    expect(composeKey({ keycode: '&kp A' }).primary[0]).toBe('a')
+  it('puts hold badge only on &mt, not on bare &kp J', () => {
+    const kp = composeKey({ binding: parseKeyBinding('&kp J') })
+    expect(kp?.hold).toBeUndefined()
+    expect(kp?.primary).toEqual(['j', 'О'])
+
+    const mt = composeKey({ binding: parseKeyBinding('&mt LCTRL J') })
+    expect(mt?.primary).toEqual(['j', 'О'])
+    expect(mt?.hold).toBe('⧗LC')
+  })
+
+  it('resolves &lt layer as hold badge', () => {
+    const legend = composeKey({ binding: parseKeyBinding('&lt 1 ESC') })
+    expect(legend?.keycode).toMatch(/ESC/)
+    expect(legend?.hold).toBe('⧗L1')
+  })
+
+  it('returns null for &trans / &none', () => {
+    expect(composeKey({ binding: parseKeyBinding('&trans') })).toBeNull()
+    expect(composeKey({ binding: parseKeyBinding('&none') })).toBeNull()
   })
 })

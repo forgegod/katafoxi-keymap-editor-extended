@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { composeKey } from '@keymap-editor/keymap-core'
+  import { composeKey, type KeyBindingNode } from '@keymap-editor/keymap-core'
   import { getSearchContext, type LegendMode } from '../../../context'
   import { getBehaviourParams } from '../../../hydrate'
   import { getKeyStyles } from '../../../key-units'
@@ -59,19 +59,16 @@
   const normalized = $derived(hydrateTree(value, params, sources))
   const positioningStyle = $derived(getKeyStyles(position, size, rotation))
 
-  const isKpBinding = $derived(typeof value === 'string' && /^&kp\b/.test(value))
   const composedLegend = $derived.by(() => {
-    if (!isKpBinding) return null
-    const paramCode = params[0]?.value
-    const keycode =
-      paramCode !== undefined
-        ? String(paramCode)
-        : String(value).replace(/^&kp\s*/, '').trim()
-    return composeKey({ keycode })
+    if (legendMode !== 'composed') return null
+    return composeKey({
+      binding: {
+        value,
+        params: (params ?? []) as KeyBindingNode[]
+      }
+    })
   })
-  const showComposed = $derived(
-    legendMode === 'composed' && isKpBinding && composedLegend
-  )
+  const showComposed = $derived(legendMode === 'composed' && composedLegend != null)
 
   function onMouseOver(event: MouseEvent) {
     const old = document.querySelector('.code.highlight')
