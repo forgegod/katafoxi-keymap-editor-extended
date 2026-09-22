@@ -1,9 +1,5 @@
 import * as config from './config'
 
-export function healthcheck() {
-  return fetch(`${config.apiBaseUrl}/health`)
-}
-
 export function loadKeymap() {
   return fetch(`${config.apiBaseUrl}/keymap`).then(response => {
     if (!response.ok) {
