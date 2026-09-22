@@ -125,7 +125,9 @@
     {/each}
     <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
     <li onclick={onNewLayer}>
-      <Icon class="index" name="plus" />
+      <span class="index">
+        <Icon name="plus" />
+      </span>
       <span class="name">Add Layer</span>
     </li>
   </ul>
@@ -169,11 +171,21 @@
   }
 
   .layer-selector li .index {
-    overflow: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
     width: 30px;
     height: 30px;
     line-height: 30px;
     text-align: center;
+    vertical-align: top;
+  }
+
+  .layer-selector li .index :global(.icon) {
+    width: 0.85em;
+    height: 0.85em;
+    vertical-align: 0;
   }
 
   .layer-selector li .name {
