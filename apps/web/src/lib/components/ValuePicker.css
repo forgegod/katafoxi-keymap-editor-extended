@@ -39,7 +39,7 @@ ul.results {
   background: white;
   color: black;
 }
-.results :global(li b) {
+.results li b {
   color: red;
 }
 

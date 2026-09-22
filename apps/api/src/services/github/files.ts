@@ -111,12 +111,13 @@ export async function fetchKeyboardFiles(
 ) {
   const { data } = await auth.createInstallationToken(installationId)
   const installationToken = (data as { token: string }).token
-  const { data: info } = await fetchFile(
+  const { data: infoRaw } = await fetchFile(
     installationToken,
     repository,
     'config/info.json',
     { raw: true, branch }
   )
+  const info = parseJsonBody(infoRaw)
   const keymap = await fetchKeymap(installationToken, repository, branch)
   const originalCodeKeymap = await findCodeKeymap(installationToken, repository, branch)
   return { info, keymap, originalCodeKeymap }

@@ -4,7 +4,7 @@
   "version": "2.0.0",
   "description": "ZMK keymap editor (Svelte + Hono monorepo)",
   "scripts": {
-    "dev": "pnpm --parallel --filter @keymap-editor/api --filter @keymap-editor/web dev",
+    "dev": "pnpm --filter @keymap-editor/keymap-core build && pnpm --parallel --filter @keymap-editor/api --filter @keymap-editor/web dev",
     "build": "pnpm --filter @keymap-editor/keymap-core build && pnpm --filter @keymap-editor/web build && pnpm --filter @keymap-editor/api build",
     "start": "pnpm --filter @keymap-editor/api start",
     "test": "pnpm --filter @keymap-editor/keymap-core test",
