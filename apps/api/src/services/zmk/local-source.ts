@@ -6,16 +6,13 @@ import {
   generateKeymap,
   isPrimaryKeymapJson,
   isUserKeymapFilename,
-  loadBehaviorsData,
   parseDtsKeymap,
   parseKeymap,
   type BuildKeymapCodeResult,
   type LayoutKey,
   type ParsedKeymap
 } from '@keymap-editor/keymap-core'
-import { config, REPO_ROOT } from '../../config.js'
-
-const DATA_DIR = path.join(REPO_ROOT, 'packages/keymap-core/data')
+import { config } from '../../config.js'
 
 const EMPTY_KEYMAP = {
   keyboard: 'unknown',
@@ -23,14 +20,6 @@ const EMPTY_KEYMAP = {
   layout: 'unknown',
   layer_names: ['default'],
   layers: [[]] as string[][]
-}
-
-export function loadBehaviors() {
-  return loadBehaviorsData()
-}
-
-export function loadKeycodes() {
-  return JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'zmk-keycodes.json'), 'utf8'))
 }
 
 export function loadLayout(layoutName = 'LAYOUT'): LayoutKey[] {

@@ -4,8 +4,6 @@ import * as zmk from '../services/zmk/local-source.js'
 
 export const keyboardsRoutes = new Hono()
 
-keyboardsRoutes.get('/behaviors', c => c.json(zmk.loadBehaviors()))
-keyboardsRoutes.get('/keycodes', c => c.json(zmk.loadKeycodes()))
 keyboardsRoutes.get('/layout', c => c.json(zmk.loadLayout()))
 keyboardsRoutes.get('/keymap', c => c.json(zmk.loadKeymap()))
 

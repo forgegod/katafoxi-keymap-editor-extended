@@ -42,14 +42,14 @@
   )
 
   const sources = $derived({
-    kc: (definitions?.keycodes.indexed ?? {}) as Record<string, unknown>,
-    code: (definitions?.keycodes.indexed ?? {}) as Record<string, unknown>,
+    kc: (definitions?.keycodes.byCode ?? {}) as Record<string, unknown>,
+    code: (definitions?.keycodes.byCode ?? {}) as Record<string, unknown>,
     mod: Object.fromEntries(
-      (definitions?.keycodes ?? [])
+      (definitions?.keycodes.list ?? [])
         .filter(k => k.isModifier)
         .map(k => [k.code, k])
     ) as Record<string, unknown>,
-    behaviours: (definitions?.behaviours.indexed ?? {}) as Record<
+    behaviours: (definitions?.behaviours.byCode ?? {}) as Record<
       string,
       unknown
     >,
@@ -60,10 +60,10 @@
   })
 
   const searchTargets = $derived({
-    behaviour: definitions?.behaviours ?? [],
+    behaviour: definitions?.behaviours.list ?? [],
     layer: availableLayers,
-    mod: (definitions?.keycodes ?? []).filter(k => k.isModifier),
-    code: definitions?.keycodes ?? []
+    mod: (definitions?.keycodes.list ?? []).filter(k => k.isModifier),
+    code: definitions?.keycodes.list ?? []
   })
 
   $effect(() => {
@@ -92,8 +92,8 @@
   })
 
   const isReady = $derived(
-    Object.keys(definitions?.keycodes.indexed ?? {}).length > 0 &&
-      Object.keys(definitions?.behaviours.indexed ?? {}).length > 0 &&
+    (definitions?.keycodes.list.length ?? 0) > 0 &&
+      (definitions?.behaviours.list.length ?? 0) > 0 &&
       (keymap?.layers?.length ?? 0) > 0
   )
 

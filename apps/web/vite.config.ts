@@ -14,8 +14,6 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/health': 'http://127.0.0.1:8080',
-      '/behaviors': 'http://127.0.0.1:8080',
-      '/keycodes': 'http://127.0.0.1:8080',
       '/layout': 'http://127.0.0.1:8080',
       '/keymap': 'http://127.0.0.1:8080',
       '/github': 'http://127.0.0.1:8080'

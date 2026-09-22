@@ -1,5 +1,9 @@
 import { getContext, setContext } from 'svelte'
-import type { BehaviorDef, NormalizedKeycode } from '@keymap-editor/keymap-core'
+import type {
+  BehaviorCatalog,
+  BehaviorDef,
+  KeycodeCatalog
+} from '@keymap-editor/keymap-core'
 
 const DEFINITIONS_KEY = Symbol('definitions')
 const SEARCH_KEY = Symbol('search')
@@ -7,8 +11,8 @@ const SEARCH_KEY = Symbol('search')
 export type { BehaviorDef }
 
 export interface Definitions {
-  keycodes: NormalizedKeycode[] & { indexed?: Record<string, NormalizedKeycode> }
-  behaviours: BehaviorDef[] & { indexed?: Record<string, BehaviorDef> }
+  keycodes: KeycodeCatalog
+  behaviours: BehaviorCatalog
 }
 
 export interface SearchContextValue {

@@ -57,15 +57,15 @@
 {:else if error}
   <Modal>
     <div class="error">
-      <p><strong>Failed to load API data</strong></p>
+      <p><strong>Failed to load editor</strong></p>
       <p>{error}</p>
-      <p>Is the API running on port 8080? Try <code>pnpm dev</code> from the repo root.</p>
+      <p>Local / GitHub sources still need the API on port 8080 (<code>pnpm dev</code>).</p>
     </div>
   </Modal>
 {:else if delayed}
   <Modal>
     <Spinner style="color: white;">
-      <p>Waiting for API...</p>
+      <p>Loading editor…</p>
     </Spinner>
   </Modal>
 {/if}

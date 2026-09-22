@@ -1,5 +1,10 @@
 <script lang="ts">
-  import type { LayoutKey, ParsedKeymap } from '@keymap-editor/keymap-core'
+  import {
+    getBehaviorCatalog,
+    getKeycodeCatalog,
+    type LayoutKey,
+    type ParsedKeymap
+  } from '@keymap-editor/keymap-core'
   import * as config from './lib/config'
   import {
     setDefinitionsContext,
@@ -133,26 +138,12 @@
   }
 
   async function initialize() {
-    const [keycodesRes, behavioursRes] = await Promise.all([
-      fetch('/keycodes'),
-      fetch('/behaviors')
-    ])
-    if (!keycodesRes.ok || !behavioursRes.ok) {
-      throw new Error(
-        `API returned ${keycodesRes.status}/${behavioursRes.status}. Start with pnpm dev (API on :8080).`
-      )
+    // Catalogs ship in keymap-core — no API round-trip (ADR 0001 browser-first).
+    const definitions: Definitions = {
+      keycodes: getKeycodeCatalog(),
+      behaviours: getBehaviorCatalog()
     }
-    const [rawKeycodes, behaviours] = await Promise.all([
-      keycodesRes.json(),
-      behavioursRes.json()
-    ])
-    const { normalizeZmkKeycodes } = await import('./lib/keycodes')
-    const keycodes = normalizeZmkKeycodes(rawKeycodes)
-    const kc = keycodes as Definitions['keycodes']
-    const bh = behaviours as Definitions['behaviours']
-    kc.indexed = Object.fromEntries(kc.map(k => [k.code, k]))
-    bh.indexed = Object.fromEntries(bh.map(b => [b.code, b]))
-    definitionsBox.current = { keycodes: kc, behaviours: bh }
+    definitionsBox.current = definitions
   }
 
   function handleUpdateKeymap(next: ParsedKeymap) {
