@@ -1,16 +1,10 @@
 import { getContext, setContext } from 'svelte'
-import type { NormalizedKeycode } from '@keymap-editor/keymap-core'
+import type { BehaviorDef, NormalizedKeycode } from '@keymap-editor/keymap-core'
 
 const DEFINITIONS_KEY = Symbol('definitions')
 const SEARCH_KEY = Symbol('search')
 
-export interface BehaviorDef {
-  code: string
-  description?: string
-  params?: unknown[]
-  commands?: Array<{ code: string; additionalParams?: unknown[]; [key: string]: unknown }>
-  [key: string]: unknown
-}
+export type { BehaviorDef }
 
 export interface Definitions {
   keycodes: NormalizedKeycode[] & { indexed?: Record<string, NormalizedKeycode> }
@@ -22,19 +16,28 @@ export interface SearchContextValue {
   sources: Record<string, Record<string, unknown>>
 }
 
-export function setDefinitionsContext(value: Definitions | null) {
-  setContext(DEFINITIONS_KEY, value)
+/** Reactive box so context stays reactive under Svelte 5 runes. */
+export interface DefinitionsBox {
+  current: Definitions | null
 }
 
-export function getDefinitionsContext(): Definitions | null {
+export interface SearchBox {
+  current: SearchContextValue | null
+}
+
+export function setDefinitionsContext(box: DefinitionsBox) {
+  setContext(DEFINITIONS_KEY, box)
+}
+
+export function getDefinitionsContext(): DefinitionsBox {
   return getContext(DEFINITIONS_KEY)
 }
 
-export function setSearchContext(value: SearchContextValue) {
-  setContext(SEARCH_KEY, value)
+export function setSearchContext(box: SearchBox) {
+  setContext(SEARCH_KEY, box)
 }
 
-export function getSearchContext(): SearchContextValue {
+export function getSearchContext(): SearchBox {
   return getContext(SEARCH_KEY)
 }
 

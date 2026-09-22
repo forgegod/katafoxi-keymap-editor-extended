@@ -1,28 +1,12 @@
 <script lang="ts">
+  import type { KeyBindingNode, LayoutKey } from '@keymap-editor/keymap-core'
   import Key from './Keys/Key.svelte'
   import type { LegendMode } from '../../context'
 
-  interface LayoutKey {
-    x: number
-    y: number
-    w?: number
-    u?: number
-    h?: number
-    rx?: number
-    ry?: number
-    r?: number
-    label?: string
-  }
-
-  interface Binding {
-    value: string | number
-    params?: Array<{ value?: string | number; params?: unknown[] }>
-  }
-
   interface Props {
     layout: LayoutKey[]
-    bindings: Binding[]
-    onUpdate: (bindings: Binding[]) => void
+    bindings: KeyBindingNode[]
+    onUpdate: (bindings: KeyBindingNode[]) => void
     legendMode?: LegendMode
   }
 
@@ -43,7 +27,7 @@
     return { u: u ?? 1, h: h ?? 1 }
   }
 
-  function handleUpdateBind(keyIndex: number, updateBinding: Binding) {
+  function handleUpdateBind(keyIndex: number, updateBinding: KeyBindingNode) {
     onUpdate([
       ...normalized.slice(0, keyIndex),
       updateBinding,
@@ -62,7 +46,12 @@
       value={normalized[i].value}
       params={normalized[i].params}
       {legendMode}
-      onUpdate={bind => handleUpdateBind(i, bind as Binding)}
+      onUpdate={bind =>
+        handleUpdateBind(i, {
+          value: bind.value ?? '&none',
+          params: bind.params as KeyBindingNode[]
+        })
+      }
     />
   {/each}
 </div>

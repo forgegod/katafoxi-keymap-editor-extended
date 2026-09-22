@@ -1,7 +1,11 @@
 <script lang="ts">
+  import type { LayoutKey, ParsedKeymap } from '@keymap-editor/keymap-core'
   import * as config from './lib/config'
-  import type { Definitions, LegendMode } from './lib/context'
-  import { definitionsStore } from './lib/stores'
+  import {
+    setDefinitionsContext,
+    type Definitions,
+    type LegendMode
+  } from './lib/context'
   import KeyboardPicker from './lib/components/Pickers/KeyboardPicker.svelte'
   import Spinner from './lib/components/Common/Spinner.svelte'
   import Keyboard from './lib/components/Keyboard/Keyboard.svelte'
@@ -9,15 +13,16 @@
   import Loader from './lib/components/Common/Loader.svelte'
   import github from './lib/github/api'
 
-  let definitions = $state<Definitions | null>(null)
+  const definitionsBox = $state<{ current: Definitions | null }>({
+    current: null
+  })
+  setDefinitionsContext(definitionsBox)
+
   let source = $state<string | null>(null)
   let sourceOther = $state<Record<string, unknown> | null>(null)
-  let layout = $state<unknown[] | null>(null)
-  let keymap = $state<{
-    layer_names?: string[]
-    layers: Array<Array<{ value: string | number; params?: unknown[] }>>
-  } | null>(null)
-  let editingKeymap = $state<typeof keymap>(null)
+  let layout = $state<LayoutKey[] | null>(null)
+  let keymap = $state<ParsedKeymap | null>(null)
+  let editingKeymap = $state<ParsedKeymap | null>(null)
   let saving = $state(false)
   let legendMode = $state<LegendMode>('zmk')
   let saveNotice = $state<{
@@ -25,9 +30,7 @@
     messages: string[]
   } | null>(null)
 
-  $effect(() => {
-    definitionsStore.set(definitions)
-  })
+  const definitions = $derived(definitionsBox.current)
 
   const WARNING_MESSAGES: Record<string, string> = {
     macros_expanded:
@@ -120,8 +123,8 @@
     const { source: _s, layout: nextLayout, keymap: nextKeymap, ...other } =
       event
     sourceOther = other
-    layout = (nextLayout as unknown[]) || null
-    const km = nextKeymap as typeof keymap
+    layout = (nextLayout as LayoutKey[]) || null
+    const km = nextKeymap as ParsedKeymap | null
     if (km && !km.layer_names) {
       km.layer_names = km.layers.map((_, i) => `Layer ${i}`)
     }
@@ -149,10 +152,10 @@
     const bh = behaviours as Definitions['behaviours']
     kc.indexed = Object.fromEntries(kc.map(k => [k.code, k]))
     bh.indexed = Object.fromEntries(bh.map(b => [b.code, b]))
-    definitions = { keycodes: kc, behaviours: bh }
+    definitionsBox.current = { keycodes: kc, behaviours: bh }
   }
 
-  function handleUpdateKeymap(next: NonNullable<typeof keymap>) {
+  function handleUpdateKeymap(next: ParsedKeymap) {
     editingKeymap = next
   }
 </script>
@@ -202,7 +205,7 @@
   </div>
   {#if definitions && layout && keymap}
     <Keyboard
-      layout={layout as never}
+      {layout}
       keymap={editingKeymap || keymap}
       onUpdate={handleUpdateKeymap}
       {legendMode}

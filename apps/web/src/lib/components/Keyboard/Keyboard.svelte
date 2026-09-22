@@ -1,44 +1,32 @@
 <script lang="ts">
-  import { getDefinitionsContext, type LegendMode } from '../../context'
-  import { definitionsStore, searchStore } from '../../stores'
+  import type { KeyBindingNode, LayoutKey, ParsedKeymap } from '@keymap-editor/keymap-core'
+  import {
+    getDefinitionsContext,
+    setSearchContext,
+    type LegendMode,
+    type SearchContextValue
+  } from '../../context'
   import { getKeyBoundingBox } from '../../key-units'
   import LayerSelector from './LayerSelector.svelte'
   import KeyboardLayout from './KeyboardLayout.svelte'
 
-  interface LayoutKey {
-    x: number
-    y: number
-    w?: number
-    u?: number
-    h?: number
-    rx?: number
-    ry?: number
-    r?: number
-    label?: string
-  }
-
-  export interface Keymap {
-    layer_names?: string[]
-    layers: Array<Array<{ value: string | number; params?: unknown[] }>>
-  }
-
   interface Props {
     layout: LayoutKey[]
-    keymap: Keymap
-    onUpdate: (keymap: Keymap) => void
+    keymap: ParsedKeymap
+    onUpdate: (keymap: ParsedKeymap) => void
     legendMode?: LegendMode
   }
 
   let { layout, keymap, onUpdate, legendMode = 'zmk' }: Props = $props()
 
   let activeLayer = $state(0)
-  let definitions = $state(getDefinitionsContext())
+  const definitionsBox = getDefinitionsContext()
+  const definitions = $derived(definitionsBox.current)
 
-  $effect(() => {
-    return definitionsStore.subscribe(v => {
-      if (v) definitions = v
-    })
+  const searchBox = $state<{ current: SearchContextValue | null }>({
+    current: null
   })
+  setSearchContext(searchBox)
 
   const layerNames = $derived(
     keymap.layer_names ?? keymap.layers.map((_, i) => `Layer ${i}`)
@@ -81,7 +69,7 @@
   $effect(() => {
     const targets = searchTargets
     const src = sources
-    searchStore.set({
+    searchBox.current = {
       sources: src,
       getSearchTargets: (param: unknown, behaviour: string | number) => {
         if (param && typeof param === 'object' && 'enum' in (param as object)) {
@@ -100,7 +88,7 @@
         }
         return (targets as Record<string, unknown[]>)[param as string] ?? []
       }
-    })
+    }
   })
 
   const isReady = $derived(
@@ -133,7 +121,7 @@
 
   function handleCreateLayer() {
     const layer = keymap.layers.length
-    const makeKeycode = () => ({ value: '&trans', params: [] as unknown[] })
+    const makeKeycode = (): KeyBindingNode => ({ value: '&trans', params: [] })
     const newLayer = Array.from({ length: layout.length }, makeKeycode)
     onUpdate({
       ...keymap,
@@ -144,7 +132,7 @@
 
   function handleUpdateLayer(
     layerIndex: number,
-    updatedLayer: Array<{ value: string | number; params?: unknown[] }>
+    updatedLayer: KeyBindingNode[]
   ) {
     const layers = [
       ...keymap.layers.slice(0, layerIndex),
@@ -188,10 +176,7 @@
   {#if isReady}
     <KeyboardLayout
       {layout}
-      bindings={keymap.layers[activeLayer] as Array<{
-        value: string | number
-        params?: Array<{ value?: string | number; params?: unknown[] }>
-      }>}
+      bindings={keymap.layers[activeLayer]}
       {legendMode}
       onUpdate={event => handleUpdateLayer(activeLayer, event)}
     />

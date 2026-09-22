@@ -1,7 +1,6 @@
 <script lang="ts">
   import { composeKey } from '@keymap-editor/keymap-core'
-  import { type LegendMode } from '../../../context'
-  import { searchStore } from '../../../stores'
+  import { getSearchContext, type LegendMode } from '../../../context'
   import { getBehaviourParams } from '../../../hydrate'
   import { getKeyStyles } from '../../../key-units'
   import {
@@ -41,16 +40,8 @@
     legendMode = 'zmk'
   }: Props = $props()
 
-  let search = $state<{
-    getSearchTargets: (param: unknown, behaviour: string | number) => unknown[]
-    sources: Record<string, Record<string, unknown>>
-  } | null>(null)
-
-  $effect(() => {
-    return searchStore.subscribe(v => {
-      search = v
-    })
-  })
+  const searchBox = getSearchContext()
+  const search = $derived(searchBox.current)
 
   let editing = $state<{
     target: EventTarget | null
