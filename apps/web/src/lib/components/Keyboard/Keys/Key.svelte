@@ -12,7 +12,7 @@
     makeIndex,
     type HydratedNode
   } from '../../../hydrate'
-  import { cloneDeep, get, pick } from '../../../utils'
+  import { get, pick } from '../../../utils'
   import KeyParamlist from './KeyParamlist.svelte'
   import KeyCap from '../../KeyCap.svelte'
   import Modal from '../../Common/Modal.svelte'
@@ -124,18 +124,27 @@
     }
   }
 
+  /** Clone bind tree without `source` — those are $state proxies and break structuredClone. */
+  function cloneBindTree(node: HydratedNode): HydratedNode {
+    return {
+      value: node.value,
+      params: (node.params ?? []).map(cloneBindTree)
+    }
+  }
+
   function handleSelectValue(sourceChoice: { code?: string | number }) {
     if (!editing) return
     const { codeIndex } = editing
-    const updated = cloneDeep(normalized)
+    const updated = cloneBindTree(normalized)
     const idx = makeIndex(updated)
     const targetCode = idx[codeIndex]
+    if (!targetCode) {
+      editing = null
+      return
+    }
 
     targetCode.value = sourceChoice.code
     targetCode.params = []
-    idx.forEach(node => {
-      delete node.source
-    })
 
     editing = null
     onUpdate(pick(updated, ['value', 'params']))

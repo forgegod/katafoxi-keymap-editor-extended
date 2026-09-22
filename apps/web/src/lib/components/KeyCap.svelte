@@ -35,9 +35,11 @@
     min-height: 2.5em;
     padding: 4px;
     box-sizing: border-box;
+    font-family: Quicksand, avenir, sans-serif;
     font-size: 85%;
+    font-weight: 500;
     line-height: 1.1;
-    color: #333;
+    color: #666;
   }
 
   .slot {

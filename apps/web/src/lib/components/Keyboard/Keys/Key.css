@@ -4,9 +4,10 @@
   justify-content: center;
   align-items: center;
   color: #999;
-  background-color: whitesmoke;
+  background-color: var(--key-face, whitesmoke);
   font-size: 110%;
   border-radius: 5px;
+  box-sizing: border-box;
 }
 .key:hover {
   background-color: var(--hover-selection);

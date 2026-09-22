@@ -211,4 +211,23 @@
   .layer-selector li.active .name {
     cursor: text;
   }
+
+  .layer-selector button {
+    width: 30px;
+    height: 30px;
+    line-height: 30px;
+    padding: 0;
+    text-align: center;
+    border-radius: 15px;
+    border: none;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .layer-selector > p {
+    margin: 4px 2px;
+    font-size: 90%;
+    color: #555;
+  }
 </style>

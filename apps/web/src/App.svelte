@@ -159,14 +159,15 @@
 
 <Loader load={initialize}>
   <KeyboardPicker onSelect={handleKeyboardSelected} />
-  <div id="legend-mode">
-    <label>
+  <div id="legend-mode" role="radiogroup" aria-label="Legend mode">
+    <span class="legend-mode-label">Legend:</span>
+    <label class:active={legendMode === 'zmk'}>
       <input type="radio" bind:group={legendMode} value="zmk" />
       ZMK code
     </label>
-    <label>
+    <label class:active={legendMode === 'composed'}>
       <input type="radio" bind:group={legendMode} value="composed" />
-      Host composed preview
+      Host composed
     </label>
   </div>
   <div id="actions">
@@ -217,15 +218,44 @@
     right: 20px;
     z-index: 5;
     display: flex;
-    gap: 12px;
+    align-items: center;
+    gap: 6px;
     font-size: 90%;
   }
 
-  #actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 8px;
+  .legend-mode-label {
+    color: var(--muted, #555);
+    margin-right: 4px;
+  }
+
+  #legend-mode label {
+    cursor: pointer;
+    user-select: none;
+    background-color: rgba(201, 201, 201, 0.85);
+    color: darkgray;
+    border-radius: 15px;
+    height: 30px;
+    line-height: 30px;
+    padding: 0 12px;
+    margin: 0;
+  }
+
+  #legend-mode label:hover {
+    background-color: var(--hover-selection);
+    color: white;
+  }
+
+  #legend-mode label.active {
+    background-color: var(--selection);
+    color: white;
+  }
+
+  #legend-mode input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
   }
 
   .save-notice {
@@ -234,6 +264,8 @@
     padding: 8px 12px;
     font-size: 90%;
     line-height: 1.4;
+    border-radius: 5px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   }
 
   .save-notice p {

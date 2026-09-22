@@ -45,6 +45,7 @@ ul.results {
 
 .choices-counter {
   font-size: 10px;
+  color: #666;
 }
 
 .choices-counter button {
@@ -56,4 +57,9 @@ ul.results {
   padding: 0;
   margin-left: 4px;
   font-size: inherit;
+  font-family: inherit;
+}
+
+.choices-counter .hint {
+  color: #888;
 }

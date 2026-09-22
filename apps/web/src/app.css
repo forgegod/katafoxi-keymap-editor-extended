@@ -1,12 +1,17 @@
 :root {
+  color-scheme: light;
   --dark-red: #910e0e;
   --dark-blue: #6d99c6;
   --selection: rgb(60, 179, 113);
   --hover-selection: rgba(60, 179, 113, 0.85);
+  --key-face: whitesmoke;
+  --page-bg: #fff;
+  --muted: #555;
 }
 
 html {
   font-family: Quicksand, avenir, sans-serif;
+  font-weight: 500;
 }
 
 html,
@@ -16,6 +21,8 @@ body {
   overflow: auto;
   padding: 0;
   margin: 0;
+  background: var(--page-bg);
+  color: #333;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -29,20 +36,47 @@ code {
   min-height: 100%;
 }
 
+/* Source / repo / branch pickers — match original Selector look */
+#app-root select {
+  font-family: Quicksand, avenir, sans-serif;
+  font-size: 100%;
+  font-weight: 500;
+  color: #333;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 4px 8px;
+  min-height: 28px;
+}
+
+#app-root select:focus {
+  outline: 2px solid var(--hover-selection);
+  outline-offset: 1px;
+}
+
 #actions {
   position: absolute;
   bottom: 5px;
   right: 20px;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: min(480px, calc(100vw - 40px));
 }
 
 #actions button {
   cursor: pointer;
   background-color: var(--hover-selection);
   color: white;
+  font-family: Quicksand, avenir, sans-serif;
   font-size: 16px;
+  font-weight: 500;
   border: none;
   border-radius: 5px;
-  padding: 5px;
+  padding: 5px 10px;
   margin: 2px;
 }
 
@@ -64,4 +98,21 @@ code {
   padding: 5px 10px;
   text-decoration: none;
   color: royalblue;
+}
+
+.github-link:hover {
+  color: #1a4fc4;
+}
+
+/* Dialog dismiss button (original DialogBox had unstyled browser button) */
+.dialog > button {
+  cursor: pointer;
+  background-color: var(--hover-selection);
+  color: white;
+  font-family: Quicksand, avenir, sans-serif;
+  font-size: 16px;
+  border: none;
+  border-radius: 5px;
+  padding: 6px 16px;
+  margin-top: 12px;
 }
