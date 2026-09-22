@@ -47,14 +47,22 @@ interface RequestError extends Error {
   response?: { status: number; data?: unknown }
 }
 
+interface RequestExtras {
+  /** Skip authentication-failed emit (e.g. session probe on init). */
+  suppressAuthEmit?: boolean
+}
+
 export class API extends EventEmitter {
-  token = $state<string | null>(null)
+  authorized = $state(false)
   initialized = $state(false)
   installations = $state<unknown[] | null>(null)
   repositories = $state<GitHubRepo[] | null>(null)
   repoInstallationMap = $state<Record<string, string> | null>(null)
 
-  async _request(options: string | RequestOptions): Promise<{ data: unknown }> {
+  async _request(
+    options: string | RequestOptions,
+    extras: RequestExtras = {}
+  ): Promise<{ data: unknown }> {
     let opts: RequestOptions =
       typeof options === 'string' ? { url: options } : { ...options }
 
@@ -63,9 +71,6 @@ export class API extends EventEmitter {
     }
 
     const headers: Record<string, string> = { ...(opts.headers || {}) }
-    if (this.token && !headers.Authorization) {
-      headers.Authorization = `Bearer ${this.token}`
-    }
 
     const method = (opts.method || 'GET').toUpperCase()
     const bodyPayload = opts.body ?? opts.data
@@ -80,7 +85,12 @@ export class API extends EventEmitter {
           : JSON.stringify(bodyPayload)
     }
 
-    const response = await fetch(opts.url, { method, headers, body })
+    const response = await fetch(opts.url, {
+      method,
+      headers,
+      body,
+      credentials: 'include'
+    })
     const contentType = response.headers.get('content-type') || ''
     const data = contentType.includes('application/json')
       ? await response.json()
@@ -89,7 +99,7 @@ export class API extends EventEmitter {
     if (!response.ok) {
       const err = new Error(`Request failed: ${response.status}`) as RequestError
       err.response = { status: response.status, data }
-      if (response.status === 401) {
+      if (response.status === 401 && !extras.suppressAuthEmit) {
         console.error('Authentication failed.')
         this.emit('authentication-failed', err.response)
       }
@@ -104,16 +114,13 @@ export class API extends EventEmitter {
       return
     }
 
-    const installationUrl = `${config.apiBaseUrl}/github/installation`
-    const param = new URLSearchParams(window.location.search).get('token')
-    if (!localStorage.auth_token && param) {
-      window.history.replaceState({}, '', window.location.pathname)
-      localStorage.auth_token = param
-    }
+    // Migrate away from legacy client JWT storage.
+    localStorage.removeItem('auth_token')
 
-    if (localStorage.auth_token) {
-      this.token = localStorage.auth_token
-      const { data } = (await this._request(installationUrl)) as {
+    try {
+      const { data } = (await this._request('/github/installation', {
+        suppressAuthEmit: true
+      })) as {
         data: {
           installation?: unknown
           installations: unknown[]
@@ -121,6 +128,8 @@ export class API extends EventEmitter {
           repoInstallationMap: Record<string, string>
         }
       }
+
+      this.authorized = true
       this.emit('authenticated')
 
       this.installations = data.installations
@@ -130,13 +139,18 @@ export class API extends EventEmitter {
       if (!this.isAppInstalled()) {
         console.warn('No GitHub app installation found for authenticated user.')
       }
+    } catch (err) {
+      const requestErr = err as RequestError
+      if (requestErr.response?.status !== 401) {
+        console.error('Failed to probe GitHub session.', err)
+      }
+      this.authorized = false
     }
 
     this.initialized = true
   }
 
   beginLoginFlow() {
-    localStorage.removeItem('auth_token')
     window.location.href = `${config.apiBaseUrl}/github/authorize`
   }
 
@@ -145,11 +159,27 @@ export class API extends EventEmitter {
   }
 
   isGitHubAuthorized() {
-    return !!this.token
+    return this.authorized
   }
 
   isAppInstalled() {
     return !!(this.installations?.length && this.repositories?.length)
+  }
+
+  async logout() {
+    try {
+      await this._request(
+        { url: '/github/logout', method: 'POST' },
+        { suppressAuthEmit: true }
+      )
+    } catch (err) {
+      console.error('GitHub logout failed.', err)
+    }
+
+    this.authorized = false
+    this.installations = null
+    this.repositories = null
+    this.repoInstallationMap = null
   }
 
   async fetchRepoBranches(repo: GitHubRepo) {
@@ -166,16 +196,13 @@ export class API extends EventEmitter {
   async fetchLayoutAndKeymap(repo: string, branch?: string | null) {
     const installation = encodeURIComponent(this.repoInstallationMap![repo])
     const repository = encodeURIComponent(repo)
-    const url = new URL(
-      `${config.apiBaseUrl}/github/keyboard-files/${installation}/${repository}`
-    )
-
+    let path = `/github/keyboard-files/${installation}/${repository}`
     if (branch) {
-      url.search = new URLSearchParams({ branch }).toString()
+      path += `?${new URLSearchParams({ branch }).toString()}`
     }
 
     try {
-      const { data } = (await this._request(url.toString())) as {
+      const { data } = (await this._request(path)) as {
         data: {
           info: { layouts: Record<string, { layout: unknown }> }
           keymap: unknown
