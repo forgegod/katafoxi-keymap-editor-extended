@@ -48,11 +48,11 @@ interface RequestError extends Error {
 }
 
 export class API extends EventEmitter {
-  token: string | null = null
-  initialized = false
-  installations: unknown[] | null = null
-  repositories: GitHubRepo[] | null = null
-  repoInstallationMap: Record<string, string> | null = null
+  token = $state<string | null>(null)
+  initialized = $state(false)
+  installations = $state<unknown[] | null>(null)
+  repositories = $state<GitHubRepo[] | null>(null)
+  repoInstallationMap = $state<Record<string, string> | null>(null)
 
   async _request(options: string | RequestOptions): Promise<{ data: unknown }> {
     let opts: RequestOptions =
@@ -123,14 +123,13 @@ export class API extends EventEmitter {
       }
       this.emit('authenticated')
 
-      if (!data.installation) {
-        console.warn('No GitHub app installation found for authenticated user.')
-        this.emit('app-not-installed')
-      }
-
       this.installations = data.installations
       this.repositories = data.repositories
       this.repoInstallationMap = data.repoInstallationMap
+
+      if (!this.isAppInstalled()) {
+        console.warn('No GitHub app installation found for authenticated user.')
+      }
     }
 
     this.initialized = true

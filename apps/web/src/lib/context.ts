@@ -4,11 +4,12 @@ import type {
   BehaviorDef,
   KeycodeCatalog
 } from '@keymap-editor/keymap-core'
+import type { LegendMode } from './editor.svelte.js'
 
 const DEFINITIONS_KEY = Symbol('definitions')
 const SEARCH_KEY = Symbol('search')
 
-export type { BehaviorDef }
+export type { BehaviorDef, LegendMode }
 
 export interface Definitions {
   keycodes: KeycodeCatalog
@@ -44,5 +45,3 @@ export function setSearchContext(box: SearchBox) {
 export function getSearchContext(): SearchBox {
   return getContext(SEARCH_KEY)
 }
-
-export type LegendMode = 'zmk' | 'composed'

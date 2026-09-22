@@ -1,5 +1,5 @@
 <script lang="ts">
-  import github from '../../../github/api'
+  import github from '../../../github/api.svelte.js'
   import * as storage from '../../../github/storage'
   import { findBy, mapProp } from '../../../utils'
   import ValidationErrors from './ValidationErrors.svelte'
@@ -17,7 +17,6 @@
 
   let { onSelect }: Props = $props()
 
-  let initialized = $state(false)
   let selectedRepoId: number | null = $state(null)
   let selectedBranchName: string | null = $state(null)
   let branches: Array<{ name: string }> = $state([])
@@ -44,26 +43,25 @@
     }
   }
 
-  async function loadKeyboard() {
-    const available = github.repositories
-    const repository = findBy(available ?? [], { id: selectedRepoId })?.full_name
+  async function reloadKeyboard() {
+    const repository = findBy(github.repositories ?? [], {
+      id: selectedRepoId
+    })?.full_name
     const branch = selectedBranchName
-
     if (!repository || !branch) return
 
     loadingKeyboard = true
     loadError = null
-
     try {
       const response = await github.fetchLayoutAndKeymap(repository, branch)
-      loadingKeyboard = false
       lintKeyboard(response as { layout: Array<Record<string, unknown>> })
-
       onSelect({
         github: { repository, branch },
         ...response
       })
     } catch {
+      /* validation errors arrive via repo-validation-error */
+    } finally {
       loadingKeyboard = false
     }
   }
@@ -83,7 +81,6 @@
       }
 
       selectedRepoId = nextId
-      initialized = true
     })
     return () => {
       cancelled = true
@@ -111,6 +108,8 @@
 
     storage.setPersistedRepository(repoId)
     let cancelled = false
+    selectedBranchName = null
+    branches = []
 
     ;(async () => {
       loadingBranches = true
@@ -119,22 +118,26 @@
         loadingBranches = false
         return
       }
-      const nextBranches = await github.fetchRepoBranches(repository)
-      if (cancelled) return
+      try {
+        const nextBranches = await github.fetchRepoBranches(repository)
+        if (cancelled) return
 
-      branches = nextBranches
-      loadingBranches = false
+        branches = nextBranches
+        loadingBranches = false
 
-      const available = mapProp(nextBranches, 'name')
-      const defaultBranch = repository.default_branch
-      const previousBranch = storage.getPersistedBranch(repoId)
-      const onlyBranch = nextBranches.length === 1 ? nextBranches[0].name : null
+        const available = mapProp(nextBranches, 'name')
+        const defaultBranch = repository.default_branch
+        const previousBranch = storage.getPersistedBranch(repoId)
+        const onlyBranch = nextBranches.length === 1 ? nextBranches[0].name : null
 
-      for (const branch of [onlyBranch, previousBranch, defaultBranch]) {
-        if (branch && available.includes(branch)) {
-          selectedBranchName = branch
-          break
+        for (const branch of [onlyBranch, previousBranch, defaultBranch]) {
+          if (branch && available.includes(branch)) {
+            selectedBranchName = branch
+            break
+          }
         }
+      } catch {
+        if (!cancelled) loadingBranches = false
       }
     })()
 
@@ -144,9 +147,41 @@
   })
 
   $effect(() => {
-    if (!selectedRepoId || !selectedBranchName) return
-    storage.setPersistedBranch(selectedRepoId, selectedBranchName)
-    loadKeyboard()
+    const repoId = selectedRepoId
+    const branch = selectedBranchName
+    if (!repoId || !branch) return
+
+    storage.setPersistedBranch(repoId, branch)
+    let cancelled = false
+
+    loadingKeyboard = true
+    loadError = null
+
+    const repository = findBy(github.repositories ?? [], { id: repoId })
+      ?.full_name
+    if (!repository) {
+      loadingKeyboard = false
+      return
+    }
+
+    github
+      .fetchLayoutAndKeymap(repository, branch)
+      .then(response => {
+        if (cancelled) return
+        loadingKeyboard = false
+        lintKeyboard(response as { layout: Array<Record<string, unknown>> })
+        onSelect({
+          github: { repository, branch },
+          ...response
+        })
+      })
+      .catch(() => {
+        if (!cancelled) loadingKeyboard = false
+      })
+
+    return () => {
+      cancelled = true
+    }
   })
 
   const repositoryChoices = $derived(
@@ -162,17 +197,21 @@
       name: branch.name
     }))
   )
+
+  const authorized = $derived(github.isGitHubAuthorized())
+  const appInstalled = $derived(github.isAppInstalled())
+  const ready = $derived(github.initialized)
 </script>
 
-{#if initialized}
-  {#if !github.isGitHubAuthorized()}
+{#if ready}
+  {#if !authorized}
     <IconButton
       collection="brands"
       icon="github"
       text="Login with GitHub"
       onclick={() => github.beginLoginFlow()}
     />
-  {:else if !github.isAppInstalled()}
+  {:else if !appInstalled}
     <IconButton
       collection="brands"
       icon="github"
@@ -223,7 +262,7 @@
     {/if}
 
     {#if selectedBranchName && !loadingKeyboard}
-      <IconButton icon="sync" onclick={loadKeyboard} />
+      <IconButton icon="sync" onclick={reloadKeyboard} />
     {/if}
   {/if}
 {/if}

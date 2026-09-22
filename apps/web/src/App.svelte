@@ -1,88 +1,36 @@
 <script lang="ts">
-  import {
-    getBehaviorCatalog,
-    getKeycodeCatalog,
-    type LayoutKey,
-    type ParsedKeymap
-  } from '@keymap-editor/keymap-core'
   import * as config from './lib/config'
-  import {
-    setDefinitionsContext,
-    type Definitions,
-    type LegendMode
-  } from './lib/context'
+  import { setDefinitionsContext } from './lib/context'
+  import { editor, type KeyboardSelection } from './lib/editor.svelte.js'
   import KeyboardPicker from './lib/components/Pickers/KeyboardPicker.svelte'
   import Spinner from './lib/components/Common/Spinner.svelte'
   import Keyboard from './lib/components/Keyboard/Keyboard.svelte'
   import GitHubLink from './lib/components/GitHubLink.svelte'
   import Loader from './lib/components/Common/Loader.svelte'
-  import github from './lib/github/api'
+  import github from './lib/github/api.svelte.js'
 
-  const definitionsBox = $state<{ current: Definitions | null }>({
-    current: null
-  })
-  setDefinitionsContext(definitionsBox)
-
-  let source = $state<string | null>(null)
-  let sourceOther = $state<Record<string, unknown> | null>(null)
-  let layout = $state<LayoutKey[] | null>(null)
-  let keymap = $state<ParsedKeymap | null>(null)
-  let editingKeymap = $state<ParsedKeymap | null>(null)
-  let saving = $state(false)
-  let legendMode = $state<LegendMode>('zmk')
-  let saveNotice = $state<{
-    kind: 'warning' | 'error'
-    messages: string[]
-  } | null>(null)
-
-  const definitions = $derived(definitionsBox.current)
-
-  const WARNING_MESSAGES: Record<string, string> = {
-    macros_expanded:
-      'Macros were expanded to raw keycodes (for example VU → C_VOL_UP). #define lines in the keymap may now be unused.',
-    generated_default_template:
-      'No existing keymap or template was used, so the file was saved from the default generated template.'
-  }
-
-  function formatWarnings(warnings: unknown): string[] {
-    if (!Array.isArray(warnings) || warnings.length === 0) return []
-    return warnings.map(code => {
-      const key = String(code)
-      return WARNING_MESSAGES[key] ?? key
-    })
-  }
-
-  function extractErrorMessages(data: unknown): string[] {
-    if (
-      data &&
-      typeof data === 'object' &&
-      Array.isArray((data as { errors?: unknown }).errors)
-    ) {
-      return (data as { errors: unknown[] }).errors.map(String)
+  // Proxy so context consumers stay reactive to editor.definitions ($state).
+  setDefinitionsContext({
+    get current() {
+      return editor.definitions
+    },
+    set current(value) {
+      editor.definitions = value
     }
-    return ['Save failed.']
-  }
+  })
 
-  function applySaveSuccess(data: unknown) {
-    const warnings =
-      data && typeof data === 'object'
-        ? formatWarnings((data as { warnings?: unknown }).warnings)
-        : []
-    saveNotice = warnings.length > 0 ? { kind: 'warning', messages: warnings } : null
-  }
-
-  function applySaveFailure(data: unknown) {
-    saveNotice = { kind: 'error', messages: extractErrorMessages(data) }
+  async function initialize() {
+    editor.initCatalogs()
   }
 
   async function handleCompile() {
-    if (saving) return
-    saving = true
+    if (editor.saving || !editor.isDirty) return
+    editor.saving = true
     try {
       const response = await fetch(`${config.apiBaseUrl}/keymap`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingKeymap || keymap)
+        body: JSON.stringify(editor.activeKeymap)
       })
       const contentType = response.headers.get('content-type') || ''
       const data = contentType.includes('application/json')
@@ -90,116 +38,92 @@
         : null
 
       if (!response.ok) {
-        applySaveFailure(data)
+        editor.applySaveFailure(data)
         return
       }
-      applySaveSuccess(data)
+      editor.applySaveSuccess(data)
     } catch {
-      applySaveFailure(null)
+      editor.applySaveFailure(null)
     } finally {
-      saving = false
+      editor.saving = false
     }
   }
 
   async function handleCommitChanges() {
-    const gh = sourceOther?.github as { repository: string; branch: string }
-    if (!gh || !layout || !editingKeymap) return
-    saving = true
+    const gh = editor.githubMeta
+    if (!gh || !editor.layout || !editor.editingKeymap) return
+    editor.saving = true
     try {
       const result = await github.commitChanges(
         gh.repository,
         gh.branch,
-        layout,
-        editingKeymap
+        editor.layout,
+        editor.editingKeymap
       )
-      applySaveSuccess(result.data)
-      keymap = editingKeymap
-      editingKeymap = null
+      editor.applySaveSuccess(result.data)
     } catch (err) {
       const requestErr = err as { response?: { data?: unknown } }
-      applySaveFailure(requestErr.response?.data ?? null)
+      editor.applySaveFailure(requestErr.response?.data ?? null)
     } finally {
-      saving = false
+      editor.saving = false
     }
-  }
-
-  function handleKeyboardSelected(event: Record<string, unknown>) {
-    source = (event.source as string) || null
-    const { source: _s, layout: nextLayout, keymap: nextKeymap, ...other } =
-      event
-    sourceOther = other
-    layout = (nextLayout as LayoutKey[]) || null
-    const km = nextKeymap as ParsedKeymap | null
-    if (km && !km.layer_names) {
-      km.layer_names = km.layers.map((_, i) => `Layer ${i}`)
-    }
-    keymap = km || null
-    editingKeymap = null
-  }
-
-  async function initialize() {
-    // Catalogs ship in keymap-core — no API round-trip (ADR 0001 browser-first).
-    const definitions: Definitions = {
-      keycodes: getKeycodeCatalog(),
-      behaviours: getBehaviorCatalog()
-    }
-    definitionsBox.current = definitions
-  }
-
-  function handleUpdateKeymap(next: ParsedKeymap) {
-    editingKeymap = next
   }
 </script>
 
 <Loader load={initialize}>
-  <KeyboardPicker onSelect={handleKeyboardSelected} />
+  <KeyboardPicker
+    onSelect={event => editor.selectKeyboard(event as KeyboardSelection)}
+  />
   <div id="legend-mode" role="radiogroup" aria-label="Legend mode">
     <span class="legend-mode-label">Legend:</span>
-    <label class:active={legendMode === 'zmk'}>
-      <input type="radio" bind:group={legendMode} value="zmk" />
+    <label class:active={editor.legendMode === 'zmk'}>
+      <input type="radio" bind:group={editor.legendMode} value="zmk" />
       ZMK code
     </label>
-    <label class:active={legendMode === 'composed'}>
-      <input type="radio" bind:group={legendMode} value="composed" />
+    <label class:active={editor.legendMode === 'composed'}>
+      <input type="radio" bind:group={editor.legendMode} value="composed" />
       Host composed
     </label>
   </div>
   <div id="actions">
-    {#if source === 'local'}
-      <button disabled={!editingKeymap || saving} onclick={handleCompile}>
-        {saving ? 'Saving' : 'Save Local'}
-        {#if saving}<Spinner />{/if}
+    {#if editor.source === 'local'}
+      <button
+        disabled={!editor.isDirty || editor.saving}
+        onclick={handleCompile}
+      >
+        {editor.saving ? 'Saving' : 'Save Local'}
+        {#if editor.saving}<Spinner />{/if}
       </button>
     {/if}
-    {#if source === 'github'}
+    {#if editor.source === 'github'}
       <button
         title="Commit keymap changes to GitHub repository"
-        disabled={!editingKeymap || saving}
+        disabled={!editor.isDirty || editor.saving}
         onclick={handleCommitChanges}
       >
-        {saving ? 'Saving' : 'Commit Changes'}
-        {#if saving}<Spinner />{/if}
+        {editor.saving ? 'Saving' : 'Commit Changes'}
+        {#if editor.saving}<Spinner />{/if}
       </button>
     {/if}
-    {#if saveNotice}
+    {#if editor.saveNotice}
       <div
         class="save-notice"
-        class:warning={saveNotice.kind === 'warning'}
-        class:error={saveNotice.kind === 'error'}
-        role={saveNotice.kind === 'error' ? 'alert' : 'status'}
+        class:warning={editor.saveNotice.kind === 'warning'}
+        class:error={editor.saveNotice.kind === 'error'}
+        role={editor.saveNotice.kind === 'error' ? 'alert' : 'status'}
       >
-        {#each saveNotice.messages as message}
+        {#each editor.saveNotice.messages as message}
           <p>{message}</p>
         {/each}
       </div>
     {/if}
   </div>
-  {#if definitions && layout && keymap}
+  {#if editor.definitions && editor.layout && editor.keymap}
     <Keyboard
-      {layout}
-      keymap={editingKeymap || keymap}
-      onUpdate={handleUpdateKeymap}
-      {legendMode}
+      layout={editor.layout}
+      keymap={editor.activeKeymap!}
+      onUpdate={next => editor.updateKeymap(next)}
+      legendMode={editor.legendMode}
     />
   {/if}
 </Loader>
