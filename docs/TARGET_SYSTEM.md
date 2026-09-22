@@ -51,11 +51,13 @@ packages/keymap-core   Pure TS — parse/generate/splice .keymap, layout validat
 - **Composed preview**: quadrant-style host legend (base/shift language pair + AltGr pair + hold badge), driven by a `ComposedLegend` model in core.
 - Full host-layout editors and XKB/KLC export are product steps *after* round-trip safety and a stable compose model.
 
-## Keymap file contract (target)
+## Keymap file contract
 
-- Prefer preserving user `.keymap` preamble (`#define`, includes, `&mt` / `&lt` blocks) on save via **template** or **in-place bindings splice** (see hardening plan / future ADR).
-- Import from DTS may expand macros (`VU` → `C_VOL_UP`); that lossiness must be documented and warned, not silent forever.
-- `keymap.json` is an editor interchange format; after save it may become the preferred reload source.
+Accepted in [ADR 0002](adr/0002-keymap-file-contract.md):
+
+- Preserve user `.keymap` preamble on Save via **template** or **in-place bindings splice** (else default template + warning).
+- DTS import expands `#define` aliases in bindings (`VU` → `C_VOL_UP`); Save writes expanded tokens; UI shows `macros_expanded` (no reverse-sub yet).
+- `keymap.json` is the editor interchange format and becomes the preferred reload source after Save.
 
 ## Out of scope (for now)
 

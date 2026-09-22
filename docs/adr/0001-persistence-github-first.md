@@ -34,7 +34,7 @@ The only hard requirement for a backend today is **keeping GitHub App / OAuth se
 
 - Dev-local and GitHub can drift if adapters are not kept on the same core contracts — must share parse/generate/splice and tests.
 - File System Access / Clipboard are not fully restored in this tree yet; until they are, GitHub + optional dev-local remain the practical paths.
-- Saving via GitHub still needs careful `.keymap` preservation (template or splice); that is a separate ADR / hardening workstream.
+- Saving via GitHub still needs careful `.keymap` preservation (template or splice); see [ADR 0002](0002-keymap-file-contract.md).
 
 ## References
 

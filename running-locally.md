@@ -40,7 +40,7 @@ Click **Save Local** to write `keymap.json` and update the `.keymap` in `zmk-con
 2. Otherwise, if a `.keymap` already exists, Save splices bindings only inside `keymap { compatible = "zmk,keymap"; }`. `#define`, `#include`, and `&mt` / `&lt` blocks outside those bindings stay.
 3. If there is no template and no original `.keymap` text, Save uses the default generated template and the API returns a warning (not the LARK path).
 
-Import from `.keymap` expands simple macros (`VU` → `C_VOL_UP`, `BT1` → `BT_SEL 1`). After Save, bindings are the expanded tokens, so `#define` lines can be left unused; the editor warns when that happens (no reverse substitution).
+Import from `.keymap` expands simple `#define` aliases (`VU` → `C_VOL_UP`, `BT1` → `BT_SEL 1`). After Save, bindings are the expanded tokens, so `#define` lines can be left unused; the editor warns when that happens (no reverse substitution). Decision record: [docs/adr/0002-keymap-file-contract.md](docs/adr/0002-keymap-file-contract.md).
 
 Do not commit a Save into the LARK firmware repo (`zmk-keyboard-lark`) without reviewing `git diff` on the `.keymap` (and `keymap.json` if it appears).
 
