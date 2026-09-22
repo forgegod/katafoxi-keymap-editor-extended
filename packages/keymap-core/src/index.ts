@@ -1,6 +1,7 @@
 export * from './types.js'
 export * from './layout.js'
 export * from './keymap.js'
+export * from './keymap-diff.js'
 export * from './keycodes.js'
 export * from './catalog.js'
 export * from './compose.js'

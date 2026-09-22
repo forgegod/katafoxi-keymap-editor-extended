@@ -2,12 +2,14 @@
   import * as config from './lib/config'
   import { setDefinitionsContext } from './lib/context'
   import { editor, type KeyboardSelection } from './lib/editor.svelte.js'
+  import { reloadLocalKeyboard } from './lib/api'
   import KeyboardPicker from './lib/components/Pickers/KeyboardPicker.svelte'
   import Spinner from './lib/components/Common/Spinner.svelte'
   import Keyboard from './lib/components/Keyboard/Keyboard.svelte'
   import GitHubLink from './lib/components/GitHubLink.svelte'
   import Loader from './lib/components/Common/Loader.svelte'
   import github from './lib/github/api.svelte.js'
+  import type { LayoutKey, ParsedKeymap } from '@keymap-editor/keymap-core'
 
   // Proxy so context consumers stay reactive to editor.definitions ($state).
   setDefinitionsContext({
@@ -23,14 +25,17 @@
     editor.initCatalogs()
   }
 
-  async function handleCompile() {
-    if (editor.saving || !editor.isDirty) return
+  async function handleWriteFiles() {
+    if (editor.saving || !editor.isDirty || !editor.draftKeymap) return
     editor.saving = true
+    const token = editor.beginPublish()
+    const sourceAtStart = editor.source
+    const githubAtStart = editor.githubMeta
     try {
       const response = await fetch(`${config.apiBaseUrl}/keymap`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editor.activeKeymap)
+        body: JSON.stringify(editor.draftKeymap)
       })
       const contentType = response.headers.get('content-type') || ''
       const data = contentType.includes('application/json')
@@ -41,7 +46,22 @@
         editor.applySaveFailure(data)
         return
       }
-      editor.applySaveSuccess(data)
+
+      try {
+        const reloaded = await reloadLocalKeyboard()
+        if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {
+          return
+        }
+        if (reloaded.layout) {
+          editor.layout = reloaded.layout as LayoutKey[]
+        }
+        editor.applyPublished(reloaded.keymap as ParsedKeymap, data)
+      } catch {
+        if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {
+          return
+        }
+        editor.applyReloadFailure(sourceAtStart)
+      }
     } catch {
       editor.applySaveFailure(null)
     } finally {
@@ -49,18 +69,39 @@
     }
   }
 
-  async function handleCommitChanges() {
+  async function handleCommitToGitHub() {
     const gh = editor.githubMeta
-    if (!gh || !editor.layout || !editor.editingKeymap) return
+    if (!gh || !editor.layout || !editor.draftKeymap || !editor.isDirty) return
     editor.saving = true
+    const token = editor.beginPublish()
+    const sourceAtStart = editor.source
+    const githubAtStart = editor.githubMeta
     try {
       const result = await github.commitChanges(
         gh.repository,
         gh.branch,
         editor.layout,
-        editor.editingKeymap
+        editor.draftKeymap
       )
-      editor.applySaveSuccess(result.data)
+
+      try {
+        const reloaded = await github.fetchLayoutAndKeymap(
+          gh.repository,
+          gh.branch
+        )
+        if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {
+          return
+        }
+        if (reloaded.layout) {
+          editor.layout = reloaded.layout as LayoutKey[]
+        }
+        editor.applyPublished(reloaded.keymap as ParsedKeymap, result.data)
+      } catch {
+        if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {
+          return
+        }
+        editor.applyReloadFailure(sourceAtStart)
+      }
     } catch (err) {
       const requestErr = err as { response?: { data?: unknown } }
       editor.applySaveFailure(requestErr.response?.data ?? null)
@@ -86,12 +127,17 @@
     </label>
   </div>
   <div id="actions">
+    {#if editor.draftKeymap}
+      <span class="publish-status" class:dirty={editor.isDirty}>
+        {editor.statusText}
+      </span>
+    {/if}
     {#if editor.source === 'local'}
       <button
         disabled={!editor.isDirty || editor.saving}
-        onclick={handleCompile}
+        onclick={handleWriteFiles}
       >
-        {editor.saving ? 'Saving' : 'Save Local'}
+        {editor.saving ? 'Saving' : 'Write files'}
         {#if editor.saving}<Spinner />{/if}
       </button>
     {/if}
@@ -99,9 +145,9 @@
       <button
         title="Commit keymap changes to GitHub repository"
         disabled={!editor.isDirty || editor.saving}
-        onclick={handleCommitChanges}
+        onclick={handleCommitToGitHub}
       >
-        {editor.saving ? 'Saving' : 'Commit Changes'}
+        {editor.saving ? 'Saving' : 'Commit to GitHub'}
         {#if editor.saving}<Spinner />{/if}
       </button>
     {/if}
@@ -118,10 +164,10 @@
       </div>
     {/if}
   </div>
-  {#if editor.definitions && editor.layout && editor.keymap}
+  {#if editor.definitions && editor.layout && editor.draftKeymap}
     <Keyboard
       layout={editor.layout}
-      keymap={editor.activeKeymap!}
+      keymap={editor.draftKeymap}
       onUpdate={next => editor.updateKeymap(next)}
       legendMode={editor.legendMode}
     />
@@ -174,6 +220,17 @@
     width: 0;
     height: 0;
     pointer-events: none;
+  }
+
+  .publish-status {
+    align-self: center;
+    font-size: 90%;
+    color: var(--muted, #555);
+    margin-right: 8px;
+  }
+
+  .publish-status.dirty {
+    color: #664d03;
   }
 
   .save-notice {
