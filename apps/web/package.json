@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "vitest run",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "lint": "svelte-check --tsconfig ./tsconfig.app.json"
   },
@@ -19,9 +20,12 @@
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
     "@tsconfig/svelte": "^5.0.4",
     "@types/node": "^22.10.2",
+    "fake-indexeddb": "^6.0.0",
+    "happy-dom": "^15.11.7",
     "svelte": "^5.17.0",
     "svelte-check": "^4.1.1",
     "typescript": "~5.7.2",
-    "vite": "^6.0.6"
+    "vite": "^6.0.6",
+    "vitest": "^2.1.8"
   }
 }

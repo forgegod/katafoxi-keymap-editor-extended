@@ -416,6 +416,25 @@ class EditorState {
   applySaveFailure(data: unknown) {
     this.saveNotice = { kind: 'error', messages: extractErrorMessages(data) }
   }
+
+  /** Reset singleton between vitest cases. */
+  resetForTests() {
+    this.#cancelPersistTimer()
+    this.#persistGeneration += 1
+    this.#selectGeneration += 1
+    this.#publishGeneration += 1
+    this.#handledDraftIdentityKey = null
+    this.definitions = null
+    this.source = null
+    this.githubMeta = null
+    this.layout = null
+    this.baselineKeymap = null
+    this.draftKeymap = null
+    this.clearHistory()
+    this.saving = false
+    this.legendMode = 'zmk'
+    this.saveNotice = null
+  }
 }
 
 export const editor = new EditorState()
