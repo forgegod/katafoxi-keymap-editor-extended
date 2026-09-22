@@ -62,6 +62,18 @@ describe('normalizeZmkKeycodes', () => {
     expect(result.some(k => k.code === 'A')).toBe(true)
     expect(result.some(k => k.code === 'LC' && k.params.includes('code'))).toBe(true)
   })
+
+  it('uses digit symbols for number-row aliases like N1', () => {
+    const result = normalizeZmkKeycodes([
+      {
+        names: ['NUMBER_1', 'N1'],
+        description: '1 and ! [Exclamation]',
+        symbol: '1'
+      }
+    ])
+    const n1 = result.find(k => k.code === 'N1')
+    expect(n1?.symbol).toBe('1')
+  })
 })
 
 describe('resolveBinding / composeKey', () => {
