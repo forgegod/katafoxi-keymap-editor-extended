@@ -57,7 +57,6 @@
   )
   const behaviourParams = $derived(getBehaviourParams(params, behaviour as never))
   const normalized = $derived(hydrateTree(value, params, sources))
-  const index = $derived(makeIndex(normalized))
   const positioningStyle = $derived(getKeyStyles(position, size, rotation))
 
   const isKpBinding = $derived(typeof value === 'string' && /^&kp\b/.test(value))
@@ -169,7 +168,7 @@
     {/if}
     <KeyParamlist
       root={true}
-      {index}
+      parentCodeIndex={0}
       params={behaviourParams}
       values={normalized.params}
       onSelect={handleSelectCode}

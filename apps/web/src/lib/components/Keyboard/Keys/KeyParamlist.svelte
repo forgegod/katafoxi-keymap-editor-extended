@@ -1,11 +1,11 @@
 <script lang="ts">
   import KeyValue from './KeyValue.svelte'
   import KeyParamlist from './KeyParamlist.svelte'
-  import type { HydratedNode } from '../../../hydrate'
+  import { childCodeIndex, type HydratedNode } from '../../../hydrate'
   import { get } from '../../../utils'
 
   interface Props {
-    index: HydratedNode[]
+    parentCodeIndex: number
     params: unknown[]
     values: HydratedNode[]
     onSelect: (event: {
@@ -17,14 +17,21 @@
     root?: boolean
   }
 
-  let { index, params, values, onSelect, root = false }: Props = $props()
+  let {
+    parentCodeIndex,
+    params,
+    values,
+    onSelect,
+    root = false
+  }: Props = $props()
 </script>
 
 <span class="params" data-is-root={!!root} data-param-count={params.length}>
   {#each params as param, i}
+    {@const codeIndex = childCodeIndex(parentCodeIndex, values, i)}
     <span class="param">
       <KeyValue
-        index={index.indexOf(values[i])}
+        index={codeIndex}
         {param}
         value={get(values[i], 'value') as string | number | undefined}
         source={get(values[i], 'source') as Record<string, unknown> | null}
@@ -32,7 +39,7 @@
       />
       {#if ((get(values[i], 'source.params.length') as number) || 0) > 0}
         <KeyParamlist
-          {index}
+          parentCodeIndex={codeIndex}
           params={get(values[i], 'source.params') as unknown[]}
           values={get(values[i], 'params') as HydratedNode[]}
           {onSelect}

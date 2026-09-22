@@ -40,6 +40,28 @@ export function makeIndex(tree: HydratedNode): HydratedNode[] {
   return index
 }
 
+/** Nodes in a hydrated subtree (node + nested params), matching makeIndex DFS order. */
+export function subtreeSize(node: HydratedNode | undefined): number {
+  if (!node) return 1
+  return 1 + (node.params ?? []).reduce((sum, child) => sum + subtreeSize(child), 0)
+}
+
+/**
+ * Flat makeIndex position of values[paramIndex] when parent sits at parentCodeIndex.
+ * Avoids Array.indexOf reference equality (fragile with Svelte proxies).
+ */
+export function childCodeIndex(
+  parentCodeIndex: number,
+  values: HydratedNode[],
+  paramIndex: number
+): number {
+  let offset = parentCodeIndex + 1
+  for (let i = 0; i < paramIndex; i++) {
+    offset += subtreeSize(values[i])
+  }
+  return offset
+}
+
 export function isSimple(normalized: HydratedNode): boolean {
   const [first] = normalized.params
   const symbol = String(
