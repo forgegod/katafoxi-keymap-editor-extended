@@ -1,5 +1,4 @@
 import { mount } from 'svelte'
-import '@fortawesome/fontawesome-free/css/all.css'
 import './app.css'
 import App from './App.svelte'
 

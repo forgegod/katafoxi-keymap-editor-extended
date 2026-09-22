@@ -12,7 +12,6 @@
     "lint": "svelte-check --tsconfig ./tsconfig.app.json"
   },
   "dependencies": {
-    "@fortawesome/fontawesome-free": "^6.7.2",
     "@keymap-editor/keymap-core": "workspace:*",
     "fuzzysort": "^3.1.0"
   },

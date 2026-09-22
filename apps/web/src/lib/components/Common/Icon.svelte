@@ -1,12 +1,10 @@
 <script lang="ts">
-  const faCollections: Record<string, string> = {
-    brands: 'fab',
-    default: 'fa'
-  }
+  import { resolveIcon } from '../../icons'
 
   interface Props {
     name: string
     class?: string
+    /** Kept for call-site compat; only `brands` + github is special-cased. */
     collection?: string
     onclick?: (event: MouseEvent) => void
     title?: string
@@ -20,13 +18,30 @@
     title
   }: Props = $props()
 
-  const groupClass = $derived(faCollections[collection] || faCollections.default)
-  const iconClass = $derived(`fa-${name}`)
+  const icon = $derived(resolveIcon(name, collection))
 </script>
 
-<span
-  class="{className} {groupClass} {iconClass}"
-  {onclick}
-  {title}
-  role={onclick ? 'button' : undefined}
-></span>
+{#if icon}
+  <svg
+    class="icon {className}"
+    viewBox={icon.viewBox}
+    aria-hidden={title ? undefined : 'true'}
+    aria-label={title}
+    role={onclick ? 'button' : title ? 'img' : undefined}
+    {onclick}
+  >
+    {#each icon.paths as d}
+      <path fill="currentColor" {d} />
+    {/each}
+  </svg>
+{/if}
+
+<style>
+  .icon {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    vertical-align: -0.125em;
+    flex-shrink: 0;
+  }
+</style>
