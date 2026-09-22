@@ -1,0 +1,72 @@
+import { describe, expect, it } from 'vitest'
+import { buildKeymapCode, parseKeymap, renderTable } from './index.js'
+import type { LayoutKey } from './types.js'
+
+/** Thumb-cluster style: physical row 1 unused in matrix numbering. */
+const GAPPED_LAYOUT: LayoutKey[] = [
+  { x: 0, y: 0, row: 0, col: 0 },
+  { x: 1, y: 0, row: 0, col: 1 },
+  { x: 0, y: 2, row: 2, col: 0 },
+  { x: 1, y: 2, row: 2, col: 1 }
+]
+
+describe('renderTable', () => {
+  it('keeps all bindings when layout row indices are non-contiguous', () => {
+    const layer = ['&kp A', '&kp B', '&kp C', '&kp D']
+    const rendered = renderTable(GAPPED_LAYOUT, layer, { columnSeparator: ' ' })
+
+    expect(rendered).toContain('&kp A')
+    expect(rendered).toContain('&kp B')
+    expect(rendered).toContain('&kp C')
+    expect(rendered).toContain('&kp D')
+    expect(rendered.trim()).not.toBe('')
+  })
+
+  it('renders contiguous rows as before', () => {
+    const layout: LayoutKey[] = [
+      { x: 0, y: 0, row: 0, col: 0 },
+      { x: 1, y: 0, row: 0, col: 1 },
+      { x: 0, y: 1, row: 1, col: 0 },
+      { x: 1, y: 1, row: 1, col: 1 }
+    ]
+    const rendered = renderTable(layout, ['&kp A', '&kp B', '&kp C', '&kp D'], {
+      columnSeparator: ' '
+    })
+    const lines = rendered.split('\n').map(l => l.trim()).filter(Boolean)
+    expect(lines).toHaveLength(2)
+    expect(lines[0]).toMatch(/&kp A\s+&kp B/)
+    expect(lines[1]).toMatch(/&kp C\s+&kp D/)
+  })
+})
+
+describe('buildKeymapCode with gapped rows', () => {
+  it('splices a full bindings block instead of an empty one', () => {
+    const original = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        default_layer {
+            bindings = <
+&kp A &kp B
+&kp C &kp D
+            >;
+        };
+    };
+};
+`
+    const result = buildKeymapCode(
+      GAPPED_LAYOUT,
+      parseKeymap({
+        layers: [['&kp Z', '&kp B', '&kp C', '&kp D']],
+        layer_names: ['default']
+      }),
+      { originalSource: original }
+    )
+
+    expect(result.mode).toBe('splice')
+    expect(result.code).toContain('&kp Z')
+    expect(result.code).toContain('&kp B')
+    expect(result.code).toContain('&kp C')
+    expect(result.code).toContain('&kp D')
+    expect(result.json).toContain('&kp Z')
+  })
+})

@@ -85,3 +85,7 @@ zmk-config
 
 private-key.pem
 .env
+# Monorepo build outputs
+apps/*/dist
+packages/*/dist
+app/
