@@ -1,4 +1,3 @@
-import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import {
@@ -85,14 +84,12 @@ export function loadKeymap(): ParsedKeymap {
 }
 
 export function saveLocalKeymap(
-  keymap: ParsedKeymap,
-  callback: (err: Error | null, result?: Pick<BuildKeymapCodeResult, 'mode' | 'warnings'>) => void
-) {
+  keymap: ParsedKeymap
+): Pick<BuildKeymapCodeResult, 'mode' | 'warnings'> {
   const keymapDir = path.join(config.ZMK_CONFIG_PATH, 'config')
   const keymapFile = findKeymapFile()
   if (!keymapFile) {
-    callback(new Error('No .keymap file in zmk-config/config'))
-    return
+    throw new Error('No .keymap file in zmk-config/config')
   }
 
   const layout = loadLayout()
@@ -107,40 +104,13 @@ export function saveLocalKeymap(
       ? fs.readFileSync(path.join(keymapDir, templateFile), 'utf8')
       : undefined
 
-  let built: BuildKeymapCodeResult
-  try {
-    built = buildKeymapCode(layout, keymap, { template, originalSource })
-  } catch (err) {
-    callback(err instanceof Error ? err : new Error(String(err)))
-    return
-  }
+  const built = buildKeymapCode(layout, keymap, { template, originalSource })
 
   if (!fs.existsSync(keymapDir)) fs.mkdirSync(keymapDir, { recursive: true })
   fs.writeFileSync(path.join(keymapDir, 'keymap.json'), built.json)
   fs.writeFileSync(keymapPath, built.code)
 
-  return execFile('git', ['status'], { cwd: config.ZMK_CONFIG_PATH }, err => {
-    callback(err, { mode: built.mode, warnings: built.warnings })
-  })
-}
-
-export function exportKeymap(
-  generatedKeymap: { json: string; code: string },
-  _flash: boolean,
-  callback: (err: Error | null, stdout?: string, stderr?: string) => void
-) {
-  const keymapDir = path.join(config.ZMK_CONFIG_PATH, 'config')
-  const keymapFile = findKeymapFile()
-  if (!keymapFile) {
-    callback(new Error('No .keymap file in zmk-config/config'))
-    return
-  }
-
-  if (!fs.existsSync(keymapDir)) fs.mkdirSync(keymapDir, { recursive: true })
-  fs.writeFileSync(path.join(keymapDir, 'keymap.json'), generatedKeymap.json)
-  fs.writeFileSync(path.join(keymapDir, keymapFile), generatedKeymap.code)
-
-  return execFile('git', ['status'], { cwd: config.ZMK_CONFIG_PATH }, callback)
+  return { mode: built.mode, warnings: built.warnings }
 }
 
 export { generateKeymap }

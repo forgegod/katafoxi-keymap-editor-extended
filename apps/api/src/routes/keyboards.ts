@@ -1,26 +1,31 @@
 import { Hono } from 'hono'
 import { KeymapValidationError, type ParsedKeymap } from '@keymap-editor/keymap-core'
+import { config } from '../config.js'
 import * as zmk from '../services/zmk/local-source.js'
 
 export const keyboardsRoutes = new Hono()
 
-keyboardsRoutes.get('/layout', c => c.json(zmk.loadLayout()))
-keyboardsRoutes.get('/keymap', c => c.json(zmk.loadKeymap()))
+keyboardsRoutes.get('/layout', c => {
+  if (!config.ENABLE_LOCAL) return c.body(null, 404)
+  return c.json(zmk.loadLayout())
+})
+
+keyboardsRoutes.get('/keymap', c => {
+  if (!config.ENABLE_LOCAL) return c.body(null, 404)
+  return c.json(zmk.loadKeymap())
+})
 
 keyboardsRoutes.post('/keymap', async c => {
-  const keymap = (await c.req.json()) as ParsedKeymap
+  if (!config.ENABLE_LOCAL) return c.body(null, 404)
 
-  return new Promise<Response>(resolve => {
-    zmk.saveLocalKeymap(keymap, (err, result) => {
-      if (err) {
-        if (err instanceof KeymapValidationError) {
-          resolve(c.json({ name: err.name, errors: err.errors }, 400))
-          return
-        }
-        resolve(c.text(String(err), 500))
-        return
-      }
-      resolve(c.json({ ok: true, mode: result!.mode, warnings: result!.warnings }))
-    })
-  })
+  const keymap = (await c.req.json()) as ParsedKeymap
+  try {
+    const { mode, warnings } = zmk.saveLocalKeymap(keymap)
+    return c.json({ ok: true, mode, warnings })
+  } catch (err) {
+    if (err instanceof KeymapValidationError) {
+      return c.json({ name: err.name, errors: err.errors }, 400)
+    }
+    return c.text(String(err), 500)
+  }
 })

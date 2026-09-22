@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { getCookie } from 'hono/cookie'
 import {
   KeymapValidationError,
   InfoValidationError,
@@ -7,14 +8,25 @@ import {
   validateInfoJson
 } from '@keymap-editor/keymap-core'
 import {
+  SID_COOKIE,
+  OAUTH_STATE_COOKIE,
+  clearOauthStateCookie,
+  clearSidCookie,
   createOauthFlowUrl,
   createOauthReturnUrl,
+  createInstallationToken,
   getOauthToken,
   getOauthUser,
-  getUserToken,
-  verifyUserToken,
-  createInstallationToken
+  setOauthStateCookie,
+  setSidCookie
 } from '../services/github/auth.js'
+import {
+  consumeOauthState,
+  createOauthState,
+  createSession,
+  deleteSession,
+  touchSession
+} from '../services/github/sessions.js'
 import { fetchInstallationRepos, fetchRepoBranches } from '../services/github/installations.js'
 import { MissingRepoFile, fetchKeyboardFiles, commitChanges } from '../services/github/files.js'
 
@@ -28,31 +40,58 @@ githubRoutes.get('/authorize', async c => {
   const code = c.req.query('code')
   if (code) {
     try {
+      const state = c.req.query('state')
+      const cookieState = getCookie(c, OAUTH_STATE_COOKIE)
+      if (!state || !cookieState || state !== cookieState || !consumeOauthState(state)) {
+        clearOauthStateCookie(c)
+        return c.body(null, 401)
+      }
+
       const { data: oauth } = await getOauthToken(code)
       const oauthData = oauth as { access_token: string }
       const { data: user } = await getOauthUser(oauthData.access_token)
-      const token = getUserToken(oauthData, user as { login: string })
-      return c.redirect(createOauthReturnUrl(token))
+      const login = (user as { login: string }).login
+      const sid = createSession({
+        login,
+        oauthAccessToken: oauthData.access_token
+      })
+      setSidCookie(c, sid)
+      clearOauthStateCookie(c)
+      return c.redirect(createOauthReturnUrl())
     } catch (err) {
       console.error(err)
       return c.body(null, 500)
     }
   }
-  return c.redirect(createOauthFlowUrl())
+
+  const state = createOauthState()
+  setOauthStateCookie(c, state)
+  return c.redirect(createOauthFlowUrl(state))
 })
 
 githubRoutes.post('/webhook', c => c.body(null, 200))
 
-githubRoutes.use('*', async (c, next) => {
-  const header = c.req.header('authorization')
-  const token = (header || '').split(' ')[1]
-  if (!token) return c.body(null, 401)
+githubRoutes.post('/logout', c => {
+  const sid = getCookie(c, SID_COOKIE)
+  if (sid) deleteSession(sid)
+  clearSidCookie(c)
+  return c.body(null, 204)
+})
 
-  try {
-    c.set('user', verifyUserToken(token))
-  } catch {
+githubRoutes.use('*', async (c, next) => {
+  const sid = getCookie(c, SID_COOKIE)
+  if (!sid) return c.body(null, 401)
+
+  const session = touchSession(sid)
+  if (!session) {
+    clearSidCookie(c)
     return c.body(null, 401)
   }
+
+  c.set('user', {
+    sub: session.login,
+    oauth_access_token: session.oauthAccessToken
+  })
   await next()
 })
 

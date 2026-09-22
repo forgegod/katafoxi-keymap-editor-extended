@@ -17,7 +17,7 @@ try {
   origin = 'http://localhost:5173'
 }
 
-app.use('*', cors({ origin }))
+app.use('*', cors({ origin, credentials: true }))
 app.use('*', logger())
 
 app.get('/health', c => c.body(null, 200))
@@ -34,7 +34,9 @@ if (fs.existsSync(config.WEB_DIST)) {
   console.warn(`Web dist not found at ${config.WEB_DIST}; API-only mode`)
 }
 
-console.log(`API listening on :${config.PORT} (github=${config.ENABLE_GITHUB})`)
+console.log(
+  `API listening on :${config.PORT} (github=${config.ENABLE_GITHUB}, local=${config.ENABLE_LOCAL})`
+)
 serve({
   fetch: app.fetch,
   port: config.PORT,

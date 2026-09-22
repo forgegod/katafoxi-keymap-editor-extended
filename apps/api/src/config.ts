@@ -42,6 +42,7 @@ export const config = {
   PORT: Number(env('PORT', '8080')),
   ENABLE_DEV_SERVER: parseBoolean(process.env.ENABLE_DEV_SERVER),
   ENABLE_GITHUB: parseBoolean(process.env.ENABLE_GITHUB),
+  ENABLE_LOCAL: parseBoolean(process.env.ENABLE_LOCAL),
   GITHUB_APP_NAME: env('GITHUB_APP_NAME'),
   GITHUB_APP_PRIVATE_KEY: env('GITHUB_APP_PRIVATE_KEY'),
   GITHUB_APP_ID: env('GITHUB_APP_ID'),
