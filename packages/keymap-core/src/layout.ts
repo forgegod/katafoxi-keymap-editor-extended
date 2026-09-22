@@ -20,24 +20,35 @@ export function renderTable(
     columnSeparator = ','
   } = opts
   const minWidth = useQuotes ? 9 : 7
-  const table: (string | undefined)[][] = []
+
+  // Dense Map — sparse `row` indices (e.g. 0,2 with 1 unused) must not create
+  // holes in a JS array. Spreading those holes into Math.max yields NaN and an
+  // empty bindings block on save.
+  const rowsByIndex = new Map<number, (string | undefined)[]>()
 
   layer.forEach((code, i) => {
     if (layout[i]) {
       const { row = 0, col } = layout[i]
-      table[row] = table[row] || []
-      table[row][col ?? table[row].length] = code
+      const rowCells = rowsByIndex.get(row) ?? []
+      rowCells[col ?? rowCells.length] = code
+      rowsByIndex.set(row, rowCells)
     }
   })
 
-  const columns = Math.max(0, ...table.map(row => row?.length ?? 0))
+  const table = [...rowsByIndex.keys()]
+    .sort((a, b) => a - b)
+    .map(row => rowsByIndex.get(row)!)
+
+  const columns = table.reduce((max, row) => Math.max(max, row.length), 0)
   const columnIndices = Array.from({ length: columns }, (_, i) => i)
   const columnWidths = columnIndices.map(i =>
     Math.max(
-      ...table.map(row =>
-        ((row?.[i] || '') as string).length +
-        columnSeparator.length +
-        (useQuotes ? 2 : 0)
+      minWidth,
+      ...table.map(
+        row =>
+          ((row[i] || '') as string).length +
+          columnSeparator.length +
+          (useQuotes ? 2 : 0)
       )
     )
   )
