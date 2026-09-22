@@ -174,7 +174,7 @@
 <Loader load={initialize}>
   <KeyboardPicker
     onSelect={event => {
-      editor.selectKeyboard(event as KeyboardSelection)
+      void editor.selectKeyboard(event as KeyboardSelection)
       changesOpen = false
     }}
   />

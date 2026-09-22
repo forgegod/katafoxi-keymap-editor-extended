@@ -14,6 +14,15 @@ import {
   type ParsedKeymap
 } from '@keymap-editor/keymap-core'
 import type { Definitions } from './context'
+import {
+  baselineFingerprint,
+  buildDraftIdentity,
+  deleteStoredDraft,
+  draftIdentityKey,
+  loadStoredDraft,
+  saveStoredDraft,
+  type DraftIdentity
+} from './draft-storage'
 
 export type LegendMode = 'zmk' | 'composed'
 
@@ -26,6 +35,9 @@ export type GithubMeta = { repository: string; branch: string }
 
 /** Max draft snapshots kept for undo / redo. */
 const HISTORY_LIMIT = 50
+
+/** Debounce for IndexedDB draft writes. */
+const PERSIST_DEBOUNCE_MS = 400
 
 const WARNING_MESSAGES: Record<string, string> = {
   macros_expanded:
@@ -100,6 +112,16 @@ class EditorState {
 
   /** Bumps on select / new publish so stale reloads are ignored. */
   #publishGeneration = 0
+  /** Bumps on select so stale IDB restore prompts are ignored. */
+  #selectGeneration = 0
+  /** Bumps to cancel in-flight / debounced IDB writes. */
+  #persistGeneration = 0
+  #persistTimer: ReturnType<typeof setTimeout> | null = null
+  /**
+   * Identity we already offered Restore/Discard for this session.
+   * Prevents picker effect re-entry from wiping a restored draft.
+   */
+  #handledDraftIdentityKey: string | null = null
 
   get isDirty(): boolean {
     if (!this.baselineKeymap || !this.draftKeymap) return false
@@ -174,8 +196,92 @@ class EditorState {
     return true
   }
 
-  selectKeyboard(event: KeyboardSelection) {
+  /** Identity for the currently loaded editor document (strict restore key). */
+  currentDraftIdentity(): DraftIdentity | null {
+    return buildDraftIdentity({
+      source: this.source,
+      repo: this.githubMeta?.repository,
+      branch: this.githubMeta?.branch,
+      keyboard:
+        this.draftKeymap?.keyboard ?? this.baselineKeymap?.keyboard ?? null
+    })
+  }
+
+  #cancelPersistTimer() {
+    if (this.#persistTimer != null) {
+      clearTimeout(this.#persistTimer)
+      this.#persistTimer = null
+    }
+  }
+
+  /** Debounced write of dirty draft; deletes IDB record when draft is clean. */
+  schedulePersist() {
+    const token = this.#persistGeneration
+    this.#cancelPersistTimer()
+    this.#persistTimer = setTimeout(() => {
+      this.#persistTimer = null
+      void this.#flushPersist(token)
+    }, PERSIST_DEBOUNCE_MS)
+  }
+
+  async #flushPersist(token: number) {
+    if (token !== this.#persistGeneration) return
+    const identity = this.currentDraftIdentity()
+    if (!identity || !this.draftKeymap) return
+    try {
+      if (!this.isDirty) {
+        await deleteStoredDraft(identity)
+        return
+      }
+      if (token !== this.#persistGeneration) return
+      await saveStoredDraft(identity, cloneParsedKeymap(this.draftKeymap), {
+        baselineHint: this.baselineKeymap
+          ? baselineFingerprint(this.baselineKeymap)
+          : undefined
+      })
+    } catch {
+      /* IDB failures are non-fatal */
+    }
+  }
+
+  /** Drop persisted draft for current identity; cancels pending writes. */
+  async clearPersistedDraft() {
+    this.#persistGeneration += 1
+    this.#cancelPersistTimer()
+    this.#handledDraftIdentityKey = null
+    const identity = this.currentDraftIdentity()
+    if (!identity) return
+    try {
+      await deleteStoredDraft(identity)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async selectKeyboard(event: KeyboardSelection) {
+    const selectToken = ++this.#selectGeneration
     this.#publishGeneration += 1
+    this.#persistGeneration += 1
+    this.#cancelPersistTimer()
+
+    const upcomingIdentity = buildDraftIdentity({
+      source: event.source,
+      repo: event.github?.repository,
+      branch: event.github?.branch,
+      keyboard:
+        event.keymap && typeof event.keymap === 'object'
+          ? ((event.keymap as ParsedKeymap).keyboard ?? null)
+          : null
+    })
+    const upcomingKey = upcomingIdentity
+      ? draftIdentityKey(upcomingIdentity)
+      : null
+
+    const alreadyHandled =
+      upcomingKey != null && upcomingKey === this.#handledDraftIdentityKey
+    const keepLiveDraft =
+      alreadyHandled && this.draftKeymap != null && this.isDirty
+
     this.source = event.source ?? null
     this.githubMeta = event.github ?? null
     this.layout = event.layout ?? null
@@ -183,13 +289,63 @@ class EditorState {
     if (!km) {
       this.baselineKeymap = null
       this.draftKeymap = null
+      this.clearHistory()
     } else {
       const baseline = cloneParsedKeymap(km)
       this.baselineKeymap = baseline
-      this.draftKeymap = cloneParsedKeymap(baseline)
+      if (!keepLiveDraft) {
+        this.draftKeymap = cloneParsedKeymap(baseline)
+        this.clearHistory()
+      }
     }
-    this.clearHistory()
     this.saveNotice = null
+
+    if (alreadyHandled) return
+    await this.#maybeRestorePersistedDraft(selectToken)
+  }
+
+  async #maybeRestorePersistedDraft(selectToken: number) {
+    if (!this.baselineKeymap || !this.draftKeymap) return
+    const identity = this.currentDraftIdentity()
+    if (!identity) return
+
+    let stored
+    try {
+      stored = await loadStoredDraft(identity)
+    } catch {
+      return
+    }
+    if (selectToken !== this.#selectGeneration) return
+    if (!stored) return
+
+    // Stale clean record — drop without prompting.
+    if (diffKeymaps(this.baselineKeymap, stored.draftKeymap).length === 0) {
+      this.#handledDraftIdentityKey = draftIdentityKey(identity)
+      try {
+        await deleteStoredDraft(identity)
+      } catch {
+        /* ignore */
+      }
+      return
+    }
+
+    const restore = window.confirm(
+      'An unpublished draft was saved in this browser. Restore it?\n\nOK = Restore · Cancel = Discard'
+    )
+    if (selectToken !== this.#selectGeneration) return
+
+    this.#handledDraftIdentityKey = draftIdentityKey(identity)
+
+    if (restore) {
+      this.draftKeymap = cloneParsedKeymap(stored.draftKeymap)
+      this.clearHistory()
+    } else {
+      try {
+        await deleteStoredDraft(identity)
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   updateKeymap(next: ParsedKeymap) {
@@ -203,6 +359,7 @@ class EditorState {
       this.redoStack = []
     }
     this.draftKeymap = cloneParsedKeymap(next)
+    this.schedulePersist()
   }
 
   undo() {
@@ -212,6 +369,7 @@ class EditorState {
     this.undoStack = stack.slice(0, -1)
     this.redoStack = [...this.redoStack, cloneParsedKeymap(this.draftKeymap)]
     this.draftKeymap = cloneParsedKeymap(prev)
+    this.schedulePersist()
   }
 
   redo() {
@@ -221,11 +379,13 @@ class EditorState {
     this.redoStack = stack.slice(0, -1)
     this.undoStack = [...this.undoStack, cloneParsedKeymap(this.draftKeymap)]
     this.draftKeymap = cloneParsedKeymap(next)
+    this.schedulePersist()
   }
 
   /**
    * After successful publish + successful reload: replace baseline and draft
    * from re-read keymap, then apply save-response warnings.
+   * Clears IndexedDB draft only here (not on reload failure).
    */
   applyPublished(reloaded: ParsedKeymap, saveMeta?: unknown) {
     const baseline = cloneParsedKeymap(reloaded)
@@ -239,6 +399,7 @@ class EditorState {
     )
     this.saveNotice =
       warnings.length > 0 ? { kind: 'warning', messages: warnings } : null
+    void this.clearPersistedDraft()
   }
 
   /** Publish (POST/commit) succeeded but reload failed — keep draft dirty. */
