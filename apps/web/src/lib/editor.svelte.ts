@@ -383,6 +383,19 @@ class EditorState {
   }
 
   /**
+   * Drop unpublished edits: draft ← baseline, clear step history + IndexedDB.
+   * Unlike undo, this works after reload when the session stack is empty.
+   */
+  async discardDraft(): Promise<boolean> {
+    if (!this.baselineKeymap || !this.draftKeymap || !this.isDirty) return false
+    this.draftKeymap = cloneParsedKeymap(this.baselineKeymap)
+    this.clearHistory()
+    this.saveNotice = null
+    await this.clearPersistedDraft()
+    return true
+  }
+
+  /**
    * After successful publish + successful reload: replace baseline and draft
    * from re-read keymap, then apply save-response warnings.
    * Clears IndexedDB draft only here (not on reload failure).

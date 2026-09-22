@@ -235,6 +235,22 @@
                   {editor.changes.length === 1 ? 'change' : 'changes'}
                 </span>
               </button>
+              <button
+                type="button"
+                class="discard-draft"
+                title="Revert all unpublished edits to the last loaded keymap"
+                disabled={editor.saving}
+                onclick={() => {
+                  const ok = window.confirm(
+                    'Discard all unpublished edits and restore the last loaded keymap?\n\nThis cannot be undone with Undo.'
+                  )
+                  if (!ok) return
+                  changesOpen = false
+                  void editor.discardDraft()
+                }}
+              >
+                Discard draft
+              </button>
               {#if changesOpen}
                 <ul class="change-list" role="list">
                   {#each editor.changes as change}
@@ -368,15 +384,18 @@
 
   .change-status {
     position: relative;
-    align-self: center;
-    max-width: min(320px, 70vw);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    max-width: min(420px, 70vw);
   }
 
   .publish-status {
     align-self: center;
     font-size: 90%;
     color: var(--muted, #555);
-    margin-right: 8px;
+    margin-right: 0;
   }
 
   .publish-status.dirty {
@@ -404,6 +423,31 @@
 
   #actions button.publish-status.change-toggle:hover {
     background: rgba(0, 0, 0, 0.06);
+  }
+
+  #actions button.discard-draft {
+    cursor: pointer;
+    background: transparent;
+    color: #842029;
+    border: 1px solid #e2b6bb;
+    border-radius: 5px;
+    padding: 4px 10px;
+    margin: 0;
+    font: inherit;
+    font-size: 90%;
+    font-weight: 500;
+    box-shadow: none;
+  }
+
+  #actions button.discard-draft:hover:not(:disabled) {
+    background: #f8d7da;
+  }
+
+  #actions button.discard-draft:disabled {
+    background: transparent;
+    color: #ccc;
+    border-color: #ddd;
+    cursor: not-allowed;
   }
 
   .change-count {

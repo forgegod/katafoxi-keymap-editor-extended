@@ -79,6 +79,31 @@ describe('editor publish / draft persistence', () => {
     expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('M')
   })
 
+  it('discardDraft resets to baseline without needing undo history', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+
+    await editor.selectKeyboard({
+      source: 'local',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A')
+    })
+    editor.updateKeymap(km('M'))
+    await vi.advanceTimersByTimeAsync(500)
+
+    const identity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
+    expect(await loadStoredDraft(identity)).not.toBeNull()
+
+    editor.clearHistory()
+    expect(editor.canUndo).toBe(false)
+    expect(editor.isDirty).toBe(true)
+
+    await expect(editor.discardDraft()).resolves.toBe(true)
+    expect(editor.isDirty).toBe(false)
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('A')
+    expect(editor.canUndo).toBe(false)
+    expect(await loadStoredDraft(identity)).toBeNull()
+  })
+
   it('persists dirty draft to IndexedDB and offers restore', async () => {
     const identity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
     await saveStoredDraft(identity, km('Z'))
