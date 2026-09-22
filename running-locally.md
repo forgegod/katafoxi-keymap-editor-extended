@@ -32,7 +32,7 @@ Set `PORT` if the API port must change. Enable GitHub by setting `ENABLE_GITHUB=
 
 Your selected keyboard should load automatically when Source is **Local**. Click the top-left corner of a key to change its bind behaviour, or the middle to change the bind parameter.
 
-Use the **ZMK code** / **Host composed preview** toggle to switch between firmware bindings and the LARK-style composed legend stub.
+Use the **ZMK code** / **Host composed** toggle to switch between firmware bindings and the LARK-style composed legend stub.
 
 Click **Save Local** to write `keymap.json` and update the `.keymap` in `zmk-config`. Save path depends on what is already on disk:
 
