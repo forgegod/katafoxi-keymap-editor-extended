@@ -26,7 +26,23 @@ pnpm dev
 
 5. Open `http://127.0.0.1:5173` (Vite UI). The API listens on `http://127.0.0.1:8080`.
 
-Set `PORT` if the API port must change. Enable GitHub by setting `ENABLE_GITHUB=true` and filling the GitHub App fields in `.env`, plus matching `VITE_*` values in `apps/web/.env.development`.
+### Local source (`ENABLE_LOCAL`)
+
+For Source **Local** (`/layout`, `/keymap` sibling bridge):
+
+- Set `ENABLE_LOCAL=true` in the repo root `.env`
+- Set `VITE_ENABLE_LOCAL=true` in `apps/web/.env.development`
+
+Both must be true; the API gates the routes, and the SPA hides Local unless the Vite flag is set. Default in `.env.template` is `ENABLE_LOCAL=false`.
+
+### GitHub auth
+
+- Enable GitHub with `ENABLE_GITHUB=true` and the GitHub App fields in `.env`, plus matching `VITE_*` values in `apps/web/.env.development`.
+- Login uses an HttpOnly session cookie (`sid`). The browser never gets a GitHub OAuth access token, and there is no `?token=` on the redirect after OAuth.
+- In dev, `GITHUB_OAUTH_CALLBACK_URL` must be the **Vite** origin (e.g. `http://127.0.0.1:5173/github/authorize`), not `:8080`, so `Set-Cookie` attaches via the Vite proxy. Production uses same-origin `{APP_BASE_URL}/github/authorize`.
+- Decision record: [docs/adr/0003-github-auth-server-session.md](docs/adr/0003-github-auth-server-session.md).
+
+Set `PORT` if the API port must change. Set `APP_BASE_URL` to the browser-facing app origin.
 
 ## Using the editor
 
