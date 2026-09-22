@@ -172,86 +172,103 @@
 </script>
 
 <Loader load={initialize}>
-  <KeyboardPicker
-    onSelect={event => {
-      void editor.selectKeyboard(event as KeyboardSelection)
-      changesOpen = false
-    }}
-  />
-  <div id="legend-mode" role="radiogroup" aria-label="Legend mode">
-    <span class="legend-mode-label">Legend:</span>
-    <label class:active={editor.legendMode === 'zmk'}>
-      <input type="radio" bind:group={editor.legendMode} value="zmk" />
-      ZMK code
-    </label>
-    <label class:active={editor.legendMode === 'composed'}>
-      <input type="radio" bind:group={editor.legendMode} value="composed" />
-      Host composed
-    </label>
-  </div>
-  <div id="actions">
+  <div class="app-chrome" id="actions">
+    <div class="chrome-group chrome-source">
+      <KeyboardPicker
+        onSelect={event => {
+          void editor.selectKeyboard(event as KeyboardSelection)
+          changesOpen = false
+        }}
+      />
+    </div>
+
     {#if editor.draftKeymap}
-      <button
-        type="button"
-        title="Undo (Ctrl/Cmd+Z)"
-        disabled={!editor.canUndo}
-        onclick={() => editor.undo()}
-      >
-        Undo
-      </button>
-      <button
-        type="button"
-        title="Redo (Ctrl/Cmd+Shift+Z)"
-        disabled={!editor.canRedo}
-        onclick={() => editor.redo()}
-      >
-        Redo
-      </button>
-      <div class="change-status">
-        {#if editor.isDirty}
-          <button
-            type="button"
-            class="publish-status dirty change-toggle"
-            aria-expanded={changesOpen}
-            onclick={() => (changesOpen = !changesOpen)}
-          >
-            {editor.statusText}
-            <span class="change-count">
-              {editor.changes.length}
-              {editor.changes.length === 1 ? 'change' : 'changes'}
-            </span>
-          </button>
-          {#if changesOpen}
-            <ul class="change-list" role="list">
-              {#each editor.changes as change}
-                <li>{formatChange(change)}</li>
-              {/each}
-            </ul>
-          {/if}
-        {:else}
-          <span class="publish-status">{editor.statusText}</span>
-        {/if}
+      <span class="chrome-sep" aria-hidden="true"></span>
+      <div class="chrome-group actions-history">
+        <button
+          type="button"
+          title="Undo (Ctrl/Cmd+Z)"
+          disabled={!editor.canUndo}
+          onclick={() => editor.undo()}
+        >
+          Undo
+        </button>
+        <button
+          type="button"
+          title="Redo (Ctrl/Cmd+Shift+Z)"
+          disabled={!editor.canRedo}
+          onclick={() => editor.redo()}
+        >
+          Redo
+        </button>
       </div>
     {/if}
-    {#if editor.source === 'local'}
-      <button
-        disabled={!editor.isDirty || editor.saving}
-        onclick={handleWriteFiles}
-      >
-        {editor.saving ? 'Saving' : 'Write files'}
-        {#if editor.saving}<Spinner />{/if}
-      </button>
-    {/if}
-    {#if editor.source === 'github'}
-      <button
-        title="Commit keymap changes to GitHub repository"
-        disabled={!editor.isDirty || editor.saving}
-        onclick={handleCommitToGitHub}
-      >
-        {editor.saving ? 'Saving' : 'Commit to GitHub'}
-        {#if editor.saving}<Spinner />{/if}
-      </button>
-    {/if}
+
+    <span class="chrome-sep" aria-hidden="true"></span>
+    <div id="legend-mode" class="chrome-group" role="radiogroup" aria-label="Legend mode">
+      <span class="legend-mode-label">Legend:</span>
+      <label class:active={editor.legendMode === 'zmk'}>
+        <input type="radio" bind:group={editor.legendMode} value="zmk" />
+        ZMK code
+      </label>
+      <label class:active={editor.legendMode === 'composed'}>
+        <input type="radio" bind:group={editor.legendMode} value="composed" />
+        Host composed
+      </label>
+    </div>
+
+    <div class="chrome-end">
+      <span class="chrome-sep" aria-hidden="true"></span>
+      <div class="chrome-group actions-publish">
+        {#if editor.draftKeymap}
+          <div class="change-status">
+            {#if editor.isDirty}
+              <button
+                type="button"
+                class="publish-status dirty change-toggle"
+                aria-expanded={changesOpen}
+                onclick={() => (changesOpen = !changesOpen)}
+              >
+                {editor.statusText}
+                <span class="change-count">
+                  {editor.changes.length}
+                  {editor.changes.length === 1 ? 'change' : 'changes'}
+                </span>
+              </button>
+              {#if changesOpen}
+                <ul class="change-list" role="list">
+                  {#each editor.changes as change}
+                    <li>{formatChange(change)}</li>
+                  {/each}
+                </ul>
+              {/if}
+            {:else}
+              <span class="publish-status">{editor.statusText}</span>
+            {/if}
+          </div>
+        {/if}
+        {#if editor.source === 'local'}
+          <button
+            disabled={!editor.isDirty || editor.saving}
+            onclick={handleWriteFiles}
+          >
+            {editor.saving ? 'Saving' : 'Write files'}
+            {#if editor.saving}<Spinner />{/if}
+          </button>
+        {/if}
+        {#if editor.source === 'github'}
+          <button
+            title="Commit keymap changes to GitHub repository"
+            disabled={!editor.isDirty || editor.saving}
+            onclick={handleCommitToGitHub}
+          >
+            {editor.saving ? 'Saving' : 'Commit to GitHub'}
+            {#if editor.saving}<Spinner />{/if}
+          </button>
+        {/if}
+      </div>
+    </div>
+
     {#if editor.saveNotice}
       <div
         class="save-notice"
@@ -277,14 +294,40 @@
 <GitHubLink />
 
 <style>
-  #legend-mode {
-    position: absolute;
-    top: 8px;
-    right: 20px;
+  .app-chrome {
+    position: relative;
     z-index: 5;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
+    gap: 10px 12px;
+    padding: 4px 12px 8px;
+  }
+
+  .chrome-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .chrome-sep {
+    display: inline-block;
+    align-self: center;
+    width: 1px;
+    height: 28px;
+    background: #ccc;
+    flex-shrink: 0;
+  }
+
+  .chrome-end {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+  }
+
+  #legend-mode {
     font-size: 90%;
   }
 
@@ -371,7 +414,7 @@
 
   .change-list {
     position: absolute;
-    bottom: calc(100% + 6px);
+    top: calc(100% + 6px);
     right: 0;
     z-index: 6;
     margin: 0;
