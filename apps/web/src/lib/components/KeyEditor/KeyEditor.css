@@ -76,12 +76,20 @@
   color: white;
 }
 
+.key-editor-chip.instant {
+  border-style: dashed;
+}
+
+.key-editor-chip.instant.active {
+  border-style: dashed;
+}
+
 .key-editor-filter {
   display: block;
   width: 100%;
   box-sizing: border-box;
   height: 32px;
-  margin: 0;
+  margin: 8px 0 0;
   padding: 4px 8px;
   border: 1px solid #ddd;
   border-radius: 4px;

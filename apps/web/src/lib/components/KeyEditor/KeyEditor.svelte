@@ -2,9 +2,15 @@
   import fuzzysort from 'fuzzysort'
   import { onMount } from 'svelte'
   import {
+    catalogChoiceTooltip,
     groupChoicesByContext,
+    initialTaxonomyContexts,
+    isInstantBehavior,
+    nextTaxonomyContexts,
     representativeLabel,
+    sortBehaviorsByRole,
     uniqueCatalogChoices,
+    zmkBehaviorDocsUrl,
     type CatalogChoice
   } from '@keymap-editor/keymap-core'
   import { isKeycodeParam, type EditorSlot } from '../../key-editor'
@@ -12,7 +18,6 @@
   import './KeyEditor.css'
 
   interface Choice extends CatalogChoice {
-    name?: string
     faIcon?: string
   }
 
@@ -43,6 +48,9 @@
   }: Props = $props()
 
   let query = $state('')
+  let pinnedContexts = $state<string[] | null>(null)
+  let pinnedForKey = $state('')
+
   const used = $derived(new Set([...usedKeycodes].map(String)))
   const activeSlot = $derived(
     slots.find(slot => slot.codeIndex === activeCodeIndex) ?? slots[0]
@@ -50,7 +58,11 @@
   const paramSlots = $derived(slots.filter(slot => slot.param !== 'behaviour'))
   const dimUsed = $derived(isKeycodeParam(activeSlot?.param))
   const displayChoices = $derived(uniqueCatalogChoices(choices))
+  const orderedBehaviours = $derived(sortBehaviorsByRole(behaviours))
   const showFilter = $derived(displayChoices.length > 16)
+  const catalogKey = $derived(
+    `${String(activeSlot?.param ?? '')}:${displayChoices.length}`
+  )
 
   const filtered = $derived.by(() => {
     const q = query.trim()
@@ -63,10 +75,26 @@
       .map(result => result.obj)
   })
 
-  const groups = $derived(groupChoicesByContext(filtered))
-  const showGroupTitles = $derived(
-    groups.length > 1 && groups.some(group => group.context !== 'Other')
+  const allGroups = $derived(groupChoicesByContext(displayChoices))
+  const filteredGroups = $derived(groupChoicesByContext(filtered))
+  const taxonomyChips = $derived(
+    allGroups.filter(group => group.context !== 'Other' || allGroups.length === 1)
   )
+  const showTaxonomy = $derived(taxonomyChips.length > 1)
+  const searching = $derived(query.trim().length > 0)
+
+  const activeContexts = $derived.by(() => {
+    if (pinnedContexts && pinnedForKey === catalogKey) return pinnedContexts
+    return initialTaxonomyContexts(allGroups, activeSlot?.value)
+  })
+
+  const visibleGroups = $derived.by(() => {
+    if (searching) return filteredGroups
+    const selected = new Set(activeContexts)
+    return filteredGroups.filter(group => selected.has(group.context))
+  })
+
+  const showGroupTitles = $derived(visibleGroups.length > 1)
 
   function choiceLabel(choice: Choice): string {
     return representativeLabel(choice) || String(choice.code ?? '')
@@ -78,6 +106,37 @@
 
   function isUsedChoice(choice: Choice): boolean {
     return dimUsed && used.has(String(choice.code ?? ''))
+  }
+
+  function valueTooltip(choice: Choice): string {
+    return catalogChoiceTooltip(choice)
+  }
+
+  function behaviourTooltip(choice: Choice): string {
+    const base = catalogChoiceTooltip({
+      ...choice,
+      description: choice.description || choice.name
+    })
+    const instant = isInstantBehavior(choice) ? 'Applies immediately.' : ''
+    const docs = zmkBehaviorDocsUrl(choice.code)
+      ? 'Ctrl+click: docs'
+      : ''
+    return [base, instant, docs].filter(Boolean).join('\n')
+  }
+
+  function handleBehaviourClick(event: MouseEvent, choice: Choice) {
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault()
+      const url = zmkBehaviorDocsUrl(choice.code)
+      if (url) window.open(url, '_blank', 'noopener,noreferrer')
+      return
+    }
+    onSelectBehaviour(choice)
+  }
+
+  function selectTaxonomy(context: string) {
+    pinnedForKey = catalogKey
+    pinnedContexts = nextTaxonomyContexts(allGroups, context)
   }
 
   function handleKeyDown(event: KeyboardEvent) {
@@ -117,13 +176,14 @@
   <section>
     <p class="key-editor-section-label">Behaviour</p>
     <div class="key-editor-chips">
-      {#each behaviours as behaviour}
+      {#each orderedBehaviours as behaviour}
         <button
           type="button"
           class="key-editor-chip"
           class:active={String(behaviour.code) === String(slots[0]?.value ?? '')}
-          title={behaviour.name ? String(behaviour.name) : undefined}
-          onclick={() => onSelectBehaviour(behaviour)}
+          class:instant={isInstantBehavior(behaviour)}
+          title={behaviourTooltip(behaviour)}
+          onclick={event => handleBehaviourClick(event, behaviour)}
         >
           {behaviour.code}
         </button>
@@ -149,6 +209,23 @@
         </div>
       {/if}
 
+      {#if showTaxonomy}
+        <div class="key-editor-chips" role="tablist" aria-label="Value group">
+          {#each taxonomyChips as group}
+            <button
+              type="button"
+              class="key-editor-chip"
+              class:active={activeContexts.includes(group.context)}
+              role="tab"
+              aria-selected={activeContexts.includes(group.context)}
+              onclick={() => selectTaxonomy(group.context)}
+            >
+              {group.context}
+            </button>
+          {/each}
+        </div>
+      {/if}
+
       {#if showFilter}
         <input
           class="key-editor-filter"
@@ -159,12 +236,12 @@
       {/if}
 
       <div class="key-editor-values">
-        {#if filtered.length === 0}
+        {#if visibleGroups.length === 0 || visibleGroups.every(group => group.items.length === 0)}
           <p class="key-editor-empty">No matching values.</p>
         {:else}
-          {#each groups as group}
+          {#each visibleGroups as group}
             <div class="key-editor-group">
-              {#if showGroupTitles}
+              {#if showGroupTitles || searching}
                 <h3>{group.context}</h3>
               {/if}
               <div class="key-editor-grid">
@@ -175,7 +252,7 @@
                     class="key-editor-choice"
                     class:active={isActiveChoice(item)}
                     class:used={isUsedChoice(item) && !isActiveChoice(item)}
-                    title={item.description ? String(item.description) : String(item.code ?? '')}
+                    title={valueTooltip(item)}
                     onclick={() => onSelectValue(item)}
                   >
                     {#if item.faIcon}
@@ -191,6 +268,6 @@
       </div>
     </section>
   {:else}
-    <p class="key-editor-empty">This behaviour has no extra values.</p>
+    <p class="key-editor-empty">This behaviour applies immediately.</p>
   {/if}
 </div>
