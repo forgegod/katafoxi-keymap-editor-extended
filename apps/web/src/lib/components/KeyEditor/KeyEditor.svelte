@@ -3,14 +3,20 @@
   import { onMount } from 'svelte'
   import {
     bandCatalogChoices,
+    behaviorFirmwareNote,
     catalogChoiceTooltip,
+    valueBandCaption,
+    catalogKeyChoices,
+    displayChoiceLabel,
     groupChoicesByContext,
     initialTaxonomyContexts,
+    canApplyModifierHold,
     isInstantBehavior,
+    isModifierKey,
+    isModifierWrapCode,
+    MODIFIER_HOLDS,
     nextTaxonomyContexts,
-    representativeLabel,
     sortBehaviorsByRole,
-    uniqueCatalogChoices,
     zmkBehaviorDocsUrl,
     type CatalogChoice
   } from '@keymap-editor/keymap-core'
@@ -18,10 +24,12 @@
     codeColumnMinPx,
     codeGridMetrics,
     isKeycodeParam,
+    keycodeChainRootSlot,
+    terminalKeySlot,
+    visibleValueSlots,
     type EditorSlot
   } from '../../key-editor'
   import Icon from '../Common/Icon.svelte'
-  import './KeyEditor.css'
 
   interface Choice extends CatalogChoice {
     faIcon?: string
@@ -36,7 +44,9 @@
     usedKeycodes?: Iterable<string>
     onSelectBehaviour: (choice: Choice) => void
     onSelectValue: (choice: Choice) => void
+    onToggleHold?: (wrapCode: string) => void
     onActivateSlot: (codeIndex: number) => void
+    onConfirm: () => void
     onCancel: () => void
   }
 
@@ -49,7 +59,9 @@
     usedKeycodes = [],
     onSelectBehaviour,
     onSelectValue,
+    onToggleHold,
     onActivateSlot,
+    onConfirm,
     onCancel
   }: Props = $props()
 
@@ -63,9 +75,11 @@
   const activeSlot = $derived(
     slots.find(slot => slot.codeIndex === activeCodeIndex) ?? slots[0]
   )
-  const paramSlots = $derived(slots.filter(slot => slot.param !== 'behaviour'))
+  const paramSlots = $derived(visibleValueSlots(slots))
   const dimUsed = $derived(isKeycodeParam(activeSlot?.param))
-  const displayChoices = $derived(uniqueCatalogChoices(choices))
+  const showHolds = $derived(isKeycodeParam(activeSlot?.param) && !!onToggleHold)
+  const displayChoices = $derived(catalogKeyChoices(choices))
+  const searching = $derived(query.trim().length > 0)
   const orderedBehaviours = $derived(sortBehaviorsByRole(behaviours))
   const showFilter = $derived(displayChoices.length > 16)
   const catalogKey = $derived(
@@ -89,7 +103,6 @@
     allGroups.filter(group => group.context !== 'Other' || allGroups.length === 1)
   )
   const showTaxonomy = $derived(taxonomyChips.length > 1)
-  const searching = $derived(query.trim().length > 0)
 
   const activeContexts = $derived.by(() => {
     if (pinnedContexts && pinnedForKey === catalogKey) return pinnedContexts
@@ -124,8 +137,80 @@
     return () => observer.disconnect()
   })
 
+  const holdPeers = MODIFIER_HOLDS.map(hold => ({
+    code: hold.key,
+    symbol:
+      hold.role === 'shift' ? '⇧' : hold.role === 'alt' ? '⌥' : hold.role === 'gui' ? '⌘' : undefined
+  }))
+
+  const activeHolds = $derived.by(() => {
+    const root = keycodeChainRootSlot(slots, activeCodeIndex)
+    const on = new Set<string>()
+    if (!root) return on
+    const keys = slots.filter(slot => isKeycodeParam(slot.param))
+    const start = keys.findIndex(slot => slot.codeIndex === root.codeIndex)
+    for (let i = start; i < keys.length; i++) {
+      if (!isModifierWrapCode(keys[i].value)) break
+      on.add(String(keys[i].value).toUpperCase())
+    }
+    return on
+  })
+
+  const needsTerminal = $derived(
+    showHolds &&
+      activeHolds.size > 0 &&
+      paramSlots.every(
+        slot => !isKeycodeParam(slot.param) || slot.value == null || slot.value === ''
+      )
+  )
+
+  function holdLabel(key: string): string {
+    if (key === 'RALT') return 'AltGr'
+    const peer = holdPeers.find(item => item.code === key)
+    return displayChoiceLabel(peer ?? { code: key }, holdPeers)
+  }
+
+  function holdTooltip(hold: (typeof MODIFIER_HOLDS)[number]): string {
+    if (holdBlocked(hold)) {
+      const key = String(terminalValue ?? hold.key)
+      return `${key} is already the key. ${hold.wrap}(${key}) is the same modifier twice.`
+    }
+    if (hold.wrap === 'RA') {
+      return 'AltGr — Right Alt (RALT).\nHold + key (RA(…)). To assign AltGr as the key, pick RALT in the list.'
+    }
+    const fromCatalog = displayChoices.find(choice => String(choice.code) === hold.key)
+    const base = fromCatalog
+      ? catalogChoiceTooltip(fromCatalog)
+      : hold.key
+    return `${base}\nHold + key. To assign this modifier as the key, pick ${hold.key} in the list.`
+  }
+
+  const firmwareNote = $derived(behaviorFirmwareNote(slots[0]?.value))
+
+  const canConfirm = $derived(!needsTerminal)
+
+  const terminalValue = $derived(terminalKeySlot(slots, activeCodeIndex)?.value)
+
+  function holdBlocked(hold: (typeof MODIFIER_HOLDS)[number]): boolean {
+    return !activeHolds.has(hold.wrap) && !canApplyModifierHold(hold.wrap, terminalValue)
+  }
+
+  function handleHoldClick(
+    event: MouseEvent,
+    hold: (typeof MODIFIER_HOLDS)[number]
+  ) {
+    if (holdBlocked(hold)) return
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault()
+      onSelectValue({ code: hold.key })
+      return
+    }
+    onToggleHold?.(hold.wrap)
+  }
+
   function choiceLabel(choice: Choice): string {
-    return representativeLabel(choice) || String(choice.code ?? '')
+    if (isModifierKey(choice)) return String(choice.code ?? '')
+    return displayChoiceLabel(choice, displayChoices)
   }
 
   function isActiveChoice(choice: Choice): boolean {
@@ -191,12 +276,34 @@
   tabindex="-1"
   onkeydown={handleKeyDown}
 >
+  <div class="key-editor-preview">
+    <code class="binding">{bindingLabel}</code>
+    <div class="key-editor-preview-actions">
+      <button
+        type="button"
+        class="key-editor-ok"
+        disabled={!canConfirm}
+        aria-label="Apply"
+        title={canConfirm ? 'Apply' : 'Pick a key to finish the combo'}
+        onclick={onConfirm}
+      >
+        ✓
+      </button>
+      <button
+        type="button"
+        class="key-editor-cancel"
+        aria-label="Cancel"
+        title="Cancel"
+        onclick={onCancel}
+      >
+        ×
+      </button>
+    </div>
+  </div>
+
+  <div class="key-editor-body">
   <aside class="key-editor-rail">
     <h2>Edit key</h2>
-    <div class="binding">{bindingLabel}</div>
-    <button type="button" class="key-editor-close" onclick={onCancel} aria-label="Close">
-      ×
-    </button>
   </aside>
 
   <div class="key-editor-main">
@@ -217,6 +324,10 @@
         {/each}
       </div>
     </section>
+
+    {#if firmwareNote}
+      <p class="key-editor-note">{firmwareNote}</p>
+    {/if}
 
     {#if paramSlots.length > 0}
       <section class="key-editor-row">
@@ -253,6 +364,27 @@
         </div>
       </section>
 
+      {#if showHolds}
+        <section class="key-editor-row">
+          <p class="key-editor-section-label">Hold</p>
+          <div class="key-editor-holds" role="group" aria-label="Hold modifiers">
+            {#each MODIFIER_HOLDS as hold}
+              <button
+                type="button"
+                class="key-editor-choice"
+                class:active={activeHolds.has(hold.wrap)}
+                class:blocked={holdBlocked(hold)}
+                disabled={holdBlocked(hold)}
+                title={holdTooltip(hold)}
+                onclick={event => handleHoldClick(event, hold)}
+              >
+                {holdLabel(hold.key)}
+              </button>
+            {/each}
+          </div>
+        </section>
+      {/if}
+
       {#if showFilter}
         <input
           class="key-editor-filter"
@@ -263,6 +395,9 @@
       {/if}
 
       <div class="key-editor-values" bind:this={valuesEl}>
+        {#if needsTerminal}
+          <p class="key-editor-empty">Pick a key to finish the combo.</p>
+        {/if}
         {#if visibleGroups.length === 0 || visibleGroups.every(group => group.items.length === 0)}
           <p class="key-editor-empty">No matching values.</p>
         {:else}
@@ -272,30 +407,60 @@
                 <h3>{group.context}</h3>
               {/if}
               {#each bandCatalogChoices(group.items) as band}
-                <div
-                  class="key-editor-grid"
-                  class:codes={band.kind === 'codes'}
-                  data-band={band.kind}
-                  style={band.kind === 'codes'
-                    ? codeGridStyle(band.items as Choice[], group.context)
-                    : undefined}
-                >
-                  {#each band.items as choice}
-                    {@const item = choice as Choice}
-                    <button
-                      type="button"
-                      class="key-editor-choice"
-                      class:active={isActiveChoice(item)}
-                      class:used={isUsedChoice(item) && !isActiveChoice(item)}
-                      title={valueTooltip(item)}
-                      onclick={() => onSelectValue(item)}
-                    >
-                      {#if item.faIcon}
-                        <Icon name={String(item.faIcon)} />
-                      {/if}
-                      {choiceLabel(item)}
-                    </button>
-                  {/each}
+                {@const caption = valueBandCaption(band.kind)}
+                <div class="key-editor-band" data-band={band.kind}>
+                  {#if caption}
+                    <p class="key-editor-band-label" title={caption.hint}>
+                      <span>{caption.label}</span>
+                      <svg
+                        class="key-editor-band-hint"
+                        viewBox="0 0 16 16"
+                        aria-hidden="true"
+                      >
+                        <circle
+                          cx="8"
+                          cy="8"
+                          r="6.4"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.35"
+                        />
+                        <circle cx="8" cy="5" r="1" fill="currentColor" />
+                        <path
+                          d="M8 7.35v4.1"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.35"
+                          stroke-linecap="round"
+                        />
+                      </svg>
+                    </p>
+                  {/if}
+                  <div
+                    class="key-editor-grid"
+                    class:codes={band.kind === 'codes'}
+                    data-band={band.kind}
+                    style={band.kind === 'codes'
+                      ? codeGridStyle(band.items as Choice[], group.context)
+                      : undefined}
+                  >
+                    {#each band.items as choice}
+                      {@const item = choice as Choice}
+                      <button
+                        type="button"
+                        class="key-editor-choice"
+                        class:active={isActiveChoice(item)}
+                        class:used={isUsedChoice(item) && !isActiveChoice(item)}
+                        title={valueTooltip(item)}
+                        onclick={() => onSelectValue(item)}
+                      >
+                        {#if item.faIcon}
+                          <Icon name={String(item.faIcon)} />
+                        {/if}
+                        {choiceLabel(item)}
+                      </button>
+                    {/each}
+                  </div>
                 </div>
               {/each}
             </div>
@@ -306,4 +471,368 @@
       <p class="key-editor-empty">This behaviour applies immediately.</p>
     {/if}
   </div>
+  </div>
 </div>
+
+<style>
+  .key-editor {
+    box-sizing: border-box;
+    width: min(1180px, 94vw);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    overflow: visible;
+    background: none;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  .key-editor-body {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    width: 100%;
+    max-height: min(calc(100vh - 9rem), 920px);
+    overflow: hidden;
+    background: white;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  }
+
+  .key-editor-rail {
+    box-sizing: border-box;
+    width: 92px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 10px;
+    border-right: 1px solid #e2e2e2;
+  }
+
+  .key-editor-rail h2 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.2;
+  }
+
+  .key-editor-preview {
+    align-self: center;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-shrink: 0;
+    margin: 0 0 12px;
+    padding: 8px 8px 8px 16px;
+    background: #1e2433;
+    border-radius: 10px;
+    box-shadow: 0 8px 28px rgba(20, 24, 36, 0.38);
+  }
+
+  .key-editor-preview .binding {
+    box-sizing: border-box;
+    min-width: 14em;
+    max-width: min(40em, 70vw);
+    padding: 0;
+    border: none;
+    background: none;
+    color: #f4f5f7;
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+      monospace;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .key-editor-preview-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .key-editor-ok,
+  .key-editor-cancel {
+    box-sizing: border-box;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #e8eaee;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 32px;
+    padding: 0;
+  }
+
+  .key-editor-ok:hover:not(:disabled) {
+    background: #2f8a46;
+    color: white;
+  }
+
+  .key-editor-cancel:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+  }
+
+  .key-editor-ok:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .key-editor-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 14px 12px;
+  }
+
+  .key-editor-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .key-editor-section-label {
+    margin: 0;
+    flex-shrink: 0;
+    width: 5.6em;
+    padding-right: 10px;
+    border-right: 1px solid #ccc;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    line-height: 1.2;
+  }
+
+  .key-editor-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .key-editor-chip {
+    cursor: pointer;
+    flex-shrink: 0;
+    border: 1px solid #ddd;
+    background: var(--key-face);
+    color: #333;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .key-editor-chip.active {
+    background: var(--hover-selection);
+    border-color: var(--hover-selection);
+    color: white;
+  }
+
+  .key-editor-chip.instant {
+    border-style: dashed;
+  }
+
+  .key-editor-chip.instant.active {
+    border-style: dashed;
+  }
+
+  .key-editor-filter {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    height: 28px;
+    margin: 0;
+    padding: 4px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+  }
+
+  .key-editor-values {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .key-editor-group + .key-editor-group {
+    margin-top: 10px;
+  }
+
+  .key-editor-group h3 {
+    margin: 0 0 4px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--muted);
+  }
+
+  .key-editor-band {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .key-editor-band + .key-editor-band {
+    margin-top: 6px;
+  }
+
+  .key-editor-band-label {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0 8px 0 0;
+    padding: 0 8px 0 0;
+    border-right: 1px solid #c8c8c8;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: help;
+  }
+
+  .key-editor-band-hint {
+    width: 12px;
+    height: 12px;
+    color: #6a86a8;
+    transform-origin: 50% 50%;
+    animation: key-editor-hint-pulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes key-editor-hint-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.22);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .key-editor-band-hint {
+      animation: none;
+    }
+  }
+
+  .key-editor-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .key-editor-band[data-band='shifted'] .key-editor-choice {
+    border-style: dashed;
+  }
+
+  .key-editor-holds {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .key-editor-holds .key-editor-choice {
+    border-style: dashed;
+  }
+
+  .key-editor-holds .key-editor-choice.active {
+    border-style: solid;
+  }
+
+  .key-editor-holds .key-editor-choice:disabled,
+  .key-editor-holds .key-editor-choice.blocked {
+    cursor: not-allowed;
+    opacity: 0.38;
+  }
+
+  .key-editor-holds .key-editor-choice:disabled:hover {
+    background: var(--key-face);
+    border-color: #e2e2e2;
+    color: #333;
+  }
+
+  .key-editor-grid.codes {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(var(--code-rows, 1), auto);
+    grid-template-columns: repeat(
+      var(--code-cols, 10),
+      minmax(var(--code-col-min, 72px), 1fr)
+    );
+  }
+
+  .key-editor-choice {
+    cursor: pointer;
+    min-width: 2em;
+    border: 1px solid #e2e2e2;
+    background: var(--key-face);
+    color: #333;
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.2;
+  }
+
+  .key-editor-grid.codes .key-editor-choice {
+    min-width: 0;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .key-editor-choice.used {
+    opacity: 0.42;
+  }
+
+  .key-editor-choice.active {
+    outline: 2px solid var(--selection);
+    outline-offset: 1px;
+    opacity: 1;
+  }
+
+  .key-editor-choice:hover {
+    background: var(--hover-selection);
+    border-color: var(--hover-selection);
+    color: white;
+  }
+
+  .key-editor-empty {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .key-editor-note {
+    margin: 2px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.35;
+    max-width: 72em;
+  }
+</style>

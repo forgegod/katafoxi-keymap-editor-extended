@@ -1,5 +1,14 @@
 import {
+  isModifierWrapCode,
+  modifierHoldForKey,
+  modifierHoldForWrap,
+  readModifierChain,
+  toggleModifierWraps,
+  writeModifierChain
+} from '@keymap-editor/keymap-core'
+import {
   childCodeIndex,
+  makeIndex,
   type HydratedNode
 } from './hydrate'
 
@@ -63,7 +72,10 @@ export function codeColumnMinPx(
   return Math.min(CODE_COL_MAX_PX, Math.max(CODE_COL_WIDE_MIN_PX, Math.round(needed)))
 }
 
-/** Columns from width and cell min; rows = ceil(n / cols) for column-major grids. */
+/**
+ * Fit as many columns as the width allows, then drop unused tracks so
+ * `1fr` stretches only columns that have cells.
+ */
 export function codeGridMetrics(
   itemCount: number,
   widthPx: number,
@@ -73,8 +85,10 @@ export function codeGridMetrics(
   rows: number
 } {
   const colW = Math.max(CODE_COL_MIN_PX, minColPx)
-  const cols = Math.max(2, Math.floor(Math.max(widthPx, 1) / colW))
-  const rows = itemCount <= 0 ? 1 : Math.ceil(itemCount / cols)
+  const maxCols = Math.max(2, Math.floor(Math.max(widthPx, 1) / colW))
+  const rows = itemCount <= 0 ? 1 : Math.ceil(itemCount / maxCols)
+  const cols =
+    itemCount <= 0 ? maxCols : Math.min(maxCols, Math.max(1, Math.ceil(itemCount / rows)))
   return { cols, rows }
 }
 
@@ -115,4 +129,106 @@ export function buildEditorSlots(
 
   walk(0, behaviourParams, normalized.params)
   return slots
+}
+
+export function keycodeSlots(slots: EditorSlot[]): EditorSlot[] {
+  return slots.filter(slot => isKeycodeParam(slot.param))
+}
+
+export function keycodeChainRootSlot(
+  slots: EditorSlot[],
+  activeIndex: number
+): EditorSlot | undefined {
+  const keys = keycodeSlots(slots)
+  const activePos = keys.findIndex(slot => slot.codeIndex === activeIndex)
+  if (activePos < 0) return slots.find(slot => slot.codeIndex === activeIndex)
+  let rootPos = activePos
+  while (rootPos > 0 && isModifierWrapCode(keys[rootPos - 1].value)) {
+    rootPos -= 1
+  }
+  return keys[rootPos]
+}
+
+export function terminalKeySlot(
+  slots: EditorSlot[],
+  activeIndex: number
+): EditorSlot | undefined {
+  const root = keycodeChainRootSlot(slots, activeIndex)
+  if (!root || !isKeycodeParam(root.param)) {
+    return slots.find(slot => slot.codeIndex === activeIndex)
+  }
+  const keys = keycodeSlots(slots)
+  const rootPos = keys.findIndex(slot => slot.codeIndex === root.codeIndex)
+  let end = rootPos
+  while (end + 1 < keys.length && isModifierWrapCode(keys[end].value)) {
+    end += 1
+  }
+  return keys[end]
+}
+
+export function visibleValueSlots(slots: EditorSlot[]): EditorSlot[] {
+  return slots.filter(
+    slot => slot.param !== 'behaviour' && !isModifierWrapCode(slot.value)
+  )
+}
+
+function replaceIndexedNode(
+  tree: HydratedNode,
+  index: number,
+  next: HydratedNode
+): HydratedNode {
+  const nodes = makeIndex(tree)
+  const target = nodes[index]
+  if (!target) return tree
+  target.value = next.value
+  target.params = next.params
+  return tree
+}
+
+function makeBindNode(
+  value: string | number | undefined,
+  params: HydratedNode[]
+): HydratedNode {
+  return { value, params }
+}
+
+function detachNode(node: HydratedNode | undefined): HydratedNode | undefined {
+  if (!node) return undefined
+  return { value: node.value, params: node.params ?? [] }
+}
+
+export function applyModifierHold(
+  tree: HydratedNode,
+  chainRootIndex: number,
+  wrapCode: string
+): HydratedNode {
+  const root = makeIndex(tree)[chainRootIndex]
+  if (!root) return tree
+  const { wraps, terminal } = readModifierChain(root)
+  const next = writeModifierChain(
+    toggleModifierWraps(wraps, wrapCode, terminal?.value),
+    detachNode(terminal),
+    makeBindNode
+  )
+  return replaceIndexedNode(tree, chainRootIndex, next)
+}
+
+export function applyTerminalKey(
+  tree: HydratedNode,
+  chainRootIndex: number,
+  keyCode: string | number
+): HydratedNode {
+  const root = makeIndex(tree)[chainRootIndex]
+  if (!root) return tree
+  const { wraps } = readModifierChain(root)
+  const hold = modifierHoldForKey(keyCode)
+  const nextWraps = hold
+    ? wraps.filter(wrap => modifierHoldForWrap(wrap)?.role !== hold.role)
+    : wraps
+  const next = writeModifierChain(
+    nextWraps,
+    { value: keyCode, params: [] },
+    makeBindNode
+  )
+  return replaceIndexedNode(tree, chainRootIndex, next)
 }

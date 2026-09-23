@@ -27,6 +27,9 @@ export const DEFAULT_TAXONOMY_CONTEXTS = ['Keyboard', 'Keypad'] as const
  */
 export const BEHAVIOR_ROLE_ORDER = [
   '&kp',
+  '&mkp',
+  '&msc',
+  '&mmv',
   '&mt',
   '&lt',
   '&sk',
@@ -53,6 +56,24 @@ export function isInstantBehavior(choice: {
   return !Array.isArray(choice.params) || choice.params.length === 0
 }
 
+/** Mouse-emulation bindings that need firmware pointing support. */
+export const POINTING_BEHAVIORS = ['&mkp', '&msc', '&mmv'] as const
+
+export function isPointingBehavior(code: string | number | undefined | null): boolean {
+  return (POINTING_BEHAVIORS as readonly string[]).includes(String(code))
+}
+
+/**
+ * Firmware/Kconfig reminder for a behaviour. Pointing is off by default;
+ * the editor only injects the keymap include, not `*.conf`.
+ */
+export function behaviorFirmwareNote(
+  code: string | number | undefined | null
+): string | null {
+  if (!isPointingBehavior(code)) return null
+  return 'Firmware: CONFIG_ZMK_POINTING=y in the keyboard .conf. This editor only adds #include <dt-bindings/zmk/pointing.h> to the keymap.'
+}
+
 export function sortBehaviorsByRole<T extends { code?: string | number; params?: unknown[] }>(
   list: T[]
 ): T[] {
@@ -69,12 +90,29 @@ export function sortBehaviorsByRole<T extends { code?: string | number; params?:
   })
 }
 
-/** `CODE — description` for native tooltips. */
+function hasParams(choice: CatalogChoice): boolean {
+  return Array.isArray(choice.params) && choice.params.length > 0
+}
+
+function modifierSide(code: string): 'L' | 'R' | '' {
+  if (/^R(IGHT)?([A-Z_]|$)/i.test(code) || /^(RCMD|RALT|RCTRL|RGUI|RWIN|RMETA|RSHIFT|RSHFT)$/i.test(code)) {
+    return 'R'
+  }
+  if (/^L(EFT)?([A-Z_]|$)/i.test(code) || /^(LCMD|LALT|LCTRL|LGUI|LWIN|LMETA|LSHIFT|LSHFT)$/i.test(code)) {
+    return 'L'
+  }
+  return ''
+}
+
+/** `CODE — description` for native tooltips. Shifted US names name the LS() wrap. */
 export function catalogChoiceTooltip(choice: CatalogChoice): string {
   const code = String(choice.code ?? '').trim()
+  const shown = hasParams(choice) ? `${code}(${choice.params!.join(',')})` : code
+  const shift = usShiftAlias(choice)
+  if (shift) return `${shown} — LS(${shift.base})`
   const detail = String(choice.description ?? choice.name ?? '').trim()
-  if (code && detail && detail !== code) return `${code} — ${detail}`
-  return detail || code
+  if (shown && detail && detail !== code && detail !== shown) return `${shown} — ${detail}`
+  return detail || shown
 }
 
 /**
@@ -149,16 +187,62 @@ export function uniqueCatalogChoices(choices: CatalogChoice[]): CatalogChoice[] 
 
 /** Glyph or shortest code used to sort and label a choice. */
 export function representativeLabel(choice: CatalogChoice): string {
+  if (hasParams(choice)) return String(choice.code ?? '')
   const symbol = choice.symbol == null ? '' : String(choice.symbol).trim()
   if (symbol) return symbol
   return String(choice.code ?? '')
+}
+
+/**
+ * Same as `representativeLabel`, but L/R modifier keys that share a glyph
+ * become `L⌘` / `R⌘`, extras drop the redundant `K_` prefix, US shift
+ * aliases show `⇧:`, and any other collision falls back to the code.
+ */
+export function displayChoiceLabel(
+  choice: CatalogChoice,
+  peers: CatalogChoice[] = []
+): string {
+  if (isModifierWrap(choice)) return `${String(choice.code ?? '')}(…)`
+  const shift = usShiftAlias(choice)
+  if (shift) return `⇧${shift.symbol}`
+  const hid = punctHidMark(choice)
+  if (hid) return hid.symbol
+  const code = String(choice.code ?? '')
+  const base = representativeLabel(choice)
+  if (!base) return stripExtrasChipPrefix(code)
+  const collisions = peers.filter(peer => representativeLabel(peer) === base)
+  if (collisions.length <= 1) return stripExtrasChipPrefix(code, base)
+  const side = modifierSide(code)
+  if (side && base.length === 1) return `${side}${base}`
+  return stripExtrasChipPrefix(code)
+}
+
+/** Extras band is all `K_*`; hide that prefix on the chip, not in tooltips. */
+function isExtrasKeycode(code: string): boolean {
+  const upper = code.toUpperCase()
+  return /^K_/.test(upper) && !/2$/.test(upper)
+}
+
+function stripExtrasChipPrefix(code: string, label = code): string {
+  if (label !== code || !isExtrasKeycode(code)) return label
+  return code.replace(/^K_/i, '')
 }
 
 function compareLabels(a: string, b: string): number {
   return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
 }
 
-export type ValueBandKind = 'letters' | 'digits' | 'function' | 'simple' | 'codes'
+export type ValueBandKind =
+  | 'letters'
+  | 'digits'
+  | 'function'
+  | 'modkeys'
+  | 'modwraps'
+  | 'punct'
+  | 'shifted'
+  | 'nav'
+  | 'extras'
+  | 'codes'
 
 export interface ValueBand {
   kind: ValueBandKind
@@ -166,32 +250,368 @@ export interface ValueBand {
 }
 
 const BAND_ORDER: ValueBandKind[] = [
-  'letters',
-  'digits',
   'function',
-  'simple',
+  'digits',
+  'letters',
+  'punct',
+  'shifted',
+  'nav',
+  'extras',
+  'modkeys',
+  'modwraps',
   'codes'
 ]
 
-/** Short named keys that still belong with compact chips, not the code grid. */
-const SIMPLE_NAMED_CODES = new Set([
+export function valueBandCaption(
+  kind: ValueBandKind
+): { label: string; hint: string } | null {
+  if (kind === 'shifted') {
+    return {
+      label: 'LS · US',
+      hint: 'Already LS(key) on US QWERTY. Skip for host compose — COLON is LS(SEMI).'
+    }
+  }
+  return null
+}
+
+const MOD_WRAP_RE = /^(L|R)(C|S|A|G)$/i
+const MOD_KEY_RE =
+  /^(L|R)(CTRL|CONTROL|SHIFT|SHFT|ALT|CMD|GUI|WIN|META)$/i
+const MOD_ROLE_FROM_WRAP: Record<string, number> = {
+  LS: 0,
+  RS: 0,
+  LC: 1,
+  RC: 1,
+  LA: 2,
+  RA: 2,
+  LG: 3,
+  RG: 3
+}
+
+export function isModifierWrap(choice: CatalogChoice): boolean {
+  return hasParams(choice) && MOD_WRAP_RE.test(String(choice.code ?? ''))
+}
+
+export function isModifierKey(choice: CatalogChoice): boolean {
+  if (hasParams(choice)) return false
+  if (choice.isModifier) return true
+  return MOD_KEY_RE.test(String(choice.code ?? ''))
+}
+
+export type ModifierRole = 'ctrl' | 'shift' | 'alt' | 'gui'
+
+export interface ModifierHold {
+  wrap: string
+  key: string
+  role: ModifierRole
+  side: 'L' | 'R'
+}
+
+/** Hold-bar order: left then right, Shift → Ctrl → Alt → GUI. */
+export const MODIFIER_HOLDS: ModifierHold[] = [
+  { wrap: 'LS', key: 'LSHFT', role: 'shift', side: 'L' },
+  { wrap: 'LC', key: 'LCTRL', role: 'ctrl', side: 'L' },
+  { wrap: 'LA', key: 'LALT', role: 'alt', side: 'L' },
+  { wrap: 'LG', key: 'LCMD', role: 'gui', side: 'L' },
+  { wrap: 'RS', key: 'RSHFT', role: 'shift', side: 'R' },
+  { wrap: 'RC', key: 'RCTRL', role: 'ctrl', side: 'R' },
+  { wrap: 'RA', key: 'RALT', role: 'alt', side: 'R' },
+  { wrap: 'RG', key: 'RCMD', role: 'gui', side: 'R' }
+]
+
+const HOLD_BY_WRAP = new Map(
+  MODIFIER_HOLDS.map(hold => [hold.wrap, hold] as const)
+)
+const HOLD_BY_KEY = new Map(MODIFIER_HOLDS.map(hold => [hold.key, hold] as const))
+
+/** Outer-first nest: LC(LS(A)) — Ctrl, then Shift, Alt, GUI. */
+const OUTER_ROLE_ORDER: Record<ModifierRole, number> = {
+  ctrl: 0,
+  shift: 1,
+  alt: 2,
+  gui: 3
+}
+
+export function isModifierWrapCode(
+  code: string | number | undefined | null
+): boolean {
+  return MOD_WRAP_RE.test(String(code ?? ''))
+}
+
+export function modifierHoldForWrap(
+  wrap: string | number | undefined
+): ModifierHold | undefined {
+  return HOLD_BY_WRAP.get(String(wrap ?? '').toUpperCase())
+}
+
+export function modifierHoldForKey(
+  key: string | number | undefined
+): ModifierHold | undefined {
+  const code = String(key ?? '').toUpperCase()
+  const exact = HOLD_BY_KEY.get(code)
+  if (exact) return exact
+  if (code === 'LSHIFT' || code === 'LEFT_SHIFT') return HOLD_BY_KEY.get('LSHFT')
+  if (code === 'RSHIFT' || code === 'RIGHT_SHIFT') return HOLD_BY_KEY.get('RSHFT')
+  if (code === 'LCONTROL' || code === 'LEFT_CONTROL') return HOLD_BY_KEY.get('LCTRL')
+  if (code === 'RCONTROL' || code === 'RIGHT_CONTROL') return HOLD_BY_KEY.get('RCTRL')
+  if (code === 'LGUI' || code === 'LWIN' || code === 'LMETA') return HOLD_BY_KEY.get('LCMD')
+  if (code === 'RGUI' || code === 'RWIN' || code === 'RMETA') return HOLD_BY_KEY.get('RCMD')
+  return undefined
+}
+
+export function sortModifierWraps(wraps: Iterable<string>): string[] {
+  return [...wraps].sort((a, b) => {
+    const ha = modifierHoldForWrap(a)
+    const hb = modifierHoldForWrap(b)
+    const ra = ha ? OUTER_ROLE_ORDER[ha.role] : 99
+    const rb = hb ? OUTER_ROLE_ORDER[hb.role] : 99
+    if (ra !== rb) return ra - rb
+    return (ha?.side === 'R' ? 1 : 0) - (hb?.side === 'R' ? 1 : 0)
+  })
+}
+
+/** One wrap per role; last side wins. */
+export function normalizeModifierWraps(wraps: Iterable<string>): string[] {
+  const byRole = new Map<ModifierRole, string>()
+  for (const wrap of wraps) {
+    const hold = modifierHoldForWrap(wrap)
+    if (hold) byRole.set(hold.role, hold.wrap)
+  }
+  return sortModifierWraps(byRole.values())
+}
+
+export function canApplyModifierHold(
+  wrapCode: string,
+  terminal?: string | number
+): boolean {
+  const wrapHold = modifierHoldForWrap(wrapCode)
+  const keyHold = modifierHoldForKey(terminal)
+  if (!wrapHold || !keyHold) return true
+  return wrapHold.role !== keyHold.role
+}
+
+export function wrapsCompatibleWithTerminal(
+  wraps: Iterable<string>,
+  terminal?: string | number
+): string[] {
+  const normalized = normalizeModifierWraps(wraps)
+  const keyHold = modifierHoldForKey(terminal)
+  if (!keyHold) return normalized
+  return normalized.filter(wrap => modifierHoldForWrap(wrap)?.role !== keyHold.role)
+}
+
+export function toggleModifierWraps(
+  wraps: Iterable<string>,
+  wrapCode: string,
+  terminal?: string | number
+): string[] {
+  const hold = modifierHoldForWrap(wrapCode)
+  if (!hold) return wrapsCompatibleWithTerminal(wraps, terminal)
+  const current = wrapsCompatibleWithTerminal(wraps, terminal)
+  if (current.includes(hold.wrap)) {
+    return current.filter(wrap => wrap !== hold.wrap)
+  }
+  if (!canApplyModifierHold(wrapCode, terminal)) return current
+  return wrapsCompatibleWithTerminal([...current, hold.wrap], terminal)
+}
+
+export interface ModifierChainNode {
+  value?: string | number
+  params?: ModifierChainNode[]
+}
+
+export function readModifierChain<T extends ModifierChainNode>(
+  node: T | undefined
+): { wraps: string[]; terminal: T | undefined } {
+  const wraps: string[] = []
+  let current = node
+  while (current && isModifierWrapCode(current.value)) {
+    wraps.push(String(current.value).toUpperCase())
+    current = (current.params?.[0] as T | undefined) ?? undefined
+  }
+  return { wraps: normalizeModifierWraps(wraps), terminal: current }
+}
+
+export function writeModifierChain<T extends ModifierChainNode>(
+  wraps: Iterable<string>,
+  terminal: T | undefined,
+  makeNode: (value: string | number | undefined, params: T[]) => T
+): T {
+  const ordered = wrapsCompatibleWithTerminal(wraps, terminal?.value)
+  let node = terminal ?? makeNode(undefined, [])
+  for (let i = ordered.length - 1; i >= 0; i--) {
+    node = makeNode(ordered[i], [node])
+  }
+  return node
+}
+
+/** Keys and glyphs only — modifier wrappers stay off the value grid. */
+export function catalogKeyChoices(choices: CatalogChoice[]): CatalogChoice[] {
+  return uniqueCatalogChoices(choices).filter(choice => !isModifierWrap(choice))
+}
+
+function modifierRole(choice: CatalogChoice): number {
+  const code = String(choice.code ?? '').toUpperCase()
+  if (code in MOD_ROLE_FROM_WRAP) return MOD_ROLE_FROM_WRAP[code]
+  const aliases = Array.isArray(choice.aliases)
+    ? choice.aliases.map(alias => String(alias).toUpperCase())
+    : []
+  const hay = [code, ...aliases]
+  if (hay.some(name => /SHIFT|SHFT/.test(name))) return 0
+  if (hay.some(name => /CTRL|CONTROL/.test(name))) return 1
+  if (hay.some(name => /(^|_)ALT$/.test(name) || name.includes('ALT'))) return 2
+  if (hay.some(name => /GUI|CMD|WIN|META/.test(name))) return 3
+  return 99
+}
+
+function compareModifiers(a: CatalogChoice, b: CatalogChoice): number {
+  const sideA = modifierSide(String(a.code ?? '')) === 'R' ? 1 : 0
+  const sideB = modifierSide(String(b.code ?? '')) === 'R' ? 1 : 0
+  if (sideA !== sideB) return sideA - sideB
+  const byRole = modifierRole(a) - modifierRole(b)
+  if (byRole !== 0) return byRole
+  return compareLabels(String(a.code ?? ''), String(b.code ?? ''))
+}
+
+/** Editing / navigation cluster — not punctuation. */
+const NAV_NAMED_CODES = new Set([
   'ESC',
   'TAB',
-  'DEL',
-  'INS',
-  'END',
-  'HOME',
-  'BSPC',
-  'BKSP',
+  'CAPS',
+  'SPACE',
   'SPC',
   'RET',
   'RTRN',
   'ENTER',
+  'BSPC',
+  'BKSP',
+  'DEL',
+  'INS',
+  'HOME',
+  'END',
+  'PG_UP',
+  'PG_DN',
+  'LEFT',
+  'RIGHT',
+  'UP',
+  'DOWN',
+  'LEFT_ARROW',
+  'RIGHT_ARROW',
+  'UP_ARROW',
+  'DOWN_ARROW'
+])
+
+const NAV_ORDER = [
+  'ESC',
+  'TAB',
   'CAPS',
   'SPACE',
+  'SPC',
+  'RET',
+  'RTRN',
+  'ENTER',
+  'BSPC',
+  'BKSP',
+  'DEL',
+  'INS',
+  'HOME',
+  'END',
   'PG_UP',
-  'PG_DN'
-])
+  'PG_DN',
+  'LEFT',
+  'LEFT_ARROW',
+  'RIGHT',
+  'RIGHT_ARROW',
+  'UP',
+  'UP_ARROW',
+  'DOWN',
+  'DOWN_ARROW'
+]
+
+const ARROW_GLYPHS = new Set(['⏴', '⏵', '⏶', '⏷', '←', '→', '↑', '↓', '◀', '▶', '▲', '▼'])
+
+/**
+ * Physical HID punctuation (no LS). Order follows the US key row:
+ * ` - = [ ] \ ; ' , . /
+ */
+const PUNCT_HID_MARKS: Array<{ names: string[]; symbol: string }> = [
+  { names: ['GRAVE'], symbol: '`' },
+  { names: ['MINUS'], symbol: '-' },
+  { names: ['EQUAL'], symbol: '=' },
+  { names: ['LEFT_BRACKET', 'LBKT'], symbol: '[' },
+  { names: ['RIGHT_BRACKET', 'RBKT'], symbol: ']' },
+  { names: ['BACKSLASH', 'BSLH'], symbol: '\\' },
+  { names: ['SEMICOLON', 'SEMI'], symbol: ';' },
+  { names: ['SINGLE_QUOTE', 'SQT', 'APOSTROPHE', 'APOS'], symbol: "'" },
+  { names: ['COMMA'], symbol: ',' },
+  { names: ['PERIOD', 'DOT'], symbol: '.' },
+  { names: ['SLASH', 'FSLH'], symbol: '/' }
+]
+
+/**
+ * ZMK keys.h convenience names: `COLON` is `LS(SEMI)`, not another HID key.
+ * Glyphs are US QWERTY; host compose will always see that shifted report.
+ */
+const US_SHIFT_ALIASES: Array<{ names: string[]; base: string; symbol: string }> = [
+  { names: ['EXCLAMATION', 'EXCL'], base: 'N1', symbol: '!' },
+  { names: ['AT_SIGN', 'AT'], base: 'N2', symbol: '@' },
+  { names: ['HASH', 'POUND'], base: 'N3', symbol: '#' },
+  { names: ['DOLLAR', 'DLLR'], base: 'N4', symbol: '$' },
+  { names: ['PERCENT', 'PRCNT'], base: 'N5', symbol: '%' },
+  { names: ['CARET'], base: 'N6', symbol: '^' },
+  { names: ['AMPERSAND', 'AMPS'], base: 'N7', symbol: '&' },
+  { names: ['ASTERISK', 'ASTRK', 'STAR'], base: 'N8', symbol: '*' },
+  { names: ['LEFT_PARENTHESIS', 'LPAR'], base: 'N9', symbol: '(' },
+  { names: ['RIGHT_PARENTHESIS', 'RPAR'], base: 'N0', symbol: ')' },
+  { names: ['UNDERSCORE', 'UNDER'], base: 'MINUS', symbol: '_' },
+  { names: ['PLUS'], base: 'EQUAL', symbol: '+' },
+  { names: ['LEFT_BRACE', 'LBRC'], base: 'LBKT', symbol: '{' },
+  { names: ['RIGHT_BRACE', 'RBRC'], base: 'RBKT', symbol: '}' },
+  { names: ['PIPE'], base: 'BSLH', symbol: '|' },
+  { names: ['COLON'], base: 'SEMI', symbol: ':' },
+  { names: ['DOUBLE_QUOTES', 'DQT'], base: 'SQT', symbol: '"' },
+  { names: ['TILDE'], base: 'GRAVE', symbol: '~' },
+  { names: ['LESS_THAN', 'LT'], base: 'COMMA', symbol: '<' },
+  { names: ['GREATER_THAN', 'GT'], base: 'DOT', symbol: '>' },
+  { names: ['QUESTION', 'QMARK'], base: 'FSLH', symbol: '?' }
+]
+
+function choiceNames(choice: CatalogChoice): string[] {
+  const aliases = Array.isArray(choice.aliases)
+    ? choice.aliases.map(alias => String(alias).toUpperCase())
+    : []
+  const code = String(choice.code ?? '').toUpperCase()
+  return code ? [code, ...aliases.filter(name => name !== code)] : aliases
+}
+
+export function punctHidMark(
+  choice: CatalogChoice
+): { symbol: string; rank: number } | null {
+  const names = new Set(choiceNames(choice))
+  const index = PUNCT_HID_MARKS.findIndex(mark =>
+    mark.names.some(name => names.has(name))
+  )
+  if (index < 0) return null
+  return { symbol: PUNCT_HID_MARKS[index].symbol, rank: index }
+}
+
+export function usShiftAlias(
+  choice: CatalogChoice
+): { base: string; symbol: string; rank: number } | null {
+  const names = new Set(choiceNames(choice))
+  const index = US_SHIFT_ALIASES.findIndex(alias =>
+    alias.names.some(name => names.has(name))
+  )
+  if (index < 0) return null
+  const alias = US_SHIFT_ALIASES[index]
+  return { base: alias.base, symbol: alias.symbol, rank: index }
+}
+
+function navRank(choice: CatalogChoice): number {
+  const code = String(choice.code ?? '').toUpperCase()
+  const index = NAV_ORDER.indexOf(code)
+  return index >= 0 ? index : 80
+}
 
 const LETTER_RE = /^[A-Z]$/i
 const DIGIT_RE = /^[0-9]$/
@@ -217,9 +637,18 @@ export function valueBandKind(choice: CatalogChoice): ValueBandKind {
     return 'digits'
   }
   if (FN_RE.test(code) || FN_RE.test(label)) return 'function'
-  if (SIMPLE_NAMED_CODES.has(code.toUpperCase())) return 'simple'
-  if (label.length <= 2 && !SHORT_WORD_RE.test(label)) return 'simple'
-  if (label.length === 1) return 'simple'
+  if (isModifierWrap(choice)) return 'modwraps'
+  if (isModifierKey(choice)) return 'modkeys'
+  const upper = code.toUpperCase()
+  if (NAV_NAMED_CODES.has(upper) || ARROW_GLYPHS.has(label)) return 'nav'
+  if (usShiftAlias(choice)) return 'shifted'
+  if (punctHidMark(choice)) return 'punct'
+  if (/^K_/.test(upper) && !/2$/.test(upper)) return 'extras'
+  if (upper.startsWith('NON_US') || upper === 'PIPE2' || upper === 'TILDE2') {
+    return 'codes'
+  }
+  if (label.length <= 2 && !SHORT_WORD_RE.test(label)) return 'punct'
+  if (label.length === 1) return 'punct'
   return 'codes'
 }
 
@@ -229,11 +658,26 @@ function sortBand(kind: ValueBandKind, items: CatalogChoice[]): CatalogChoice[] 
       const byNum = functionKeyNumber(a) - functionKeyNumber(b)
       if (byNum !== 0) return byNum
     }
+    if (kind === 'modkeys' || kind === 'modwraps') {
+      return compareModifiers(a, b)
+    }
     if (kind === 'digits') {
       const byNum =
         Number(representativeLabel(a).replace(/\D/g, '')) -
         Number(representativeLabel(b).replace(/\D/g, ''))
       if (byNum !== 0) return byNum
+    }
+    if (kind === 'nav') {
+      const byNav = navRank(a) - navRank(b)
+      if (byNav !== 0) return byNav
+    }
+    if (kind === 'punct') {
+      const byHid = (punctHidMark(a)?.rank ?? 80) - (punctHidMark(b)?.rank ?? 80)
+      if (byHid !== 0) return byHid
+    }
+    if (kind === 'shifted') {
+      const byShift = (usShiftAlias(a)?.rank ?? 80) - (usShiftAlias(b)?.rank ?? 80)
+      if (byShift !== 0) return byShift
     }
     const keyA = kind === 'codes' ? String(a.code ?? '') : representativeLabel(a)
     const keyB = kind === 'codes' ? String(b.code ?? '') : representativeLabel(b)
@@ -244,15 +688,20 @@ function sortBand(kind: ValueBandKind, items: CatalogChoice[]): CatalogChoice[] 
 }
 
 /**
- * Split a group's chips into scan-friendly bands: letters, digits, F-keys,
- * short symbols, then long codes for an even column grid.
+ * Split a group's chips into keyboard-like bands: F-keys, digits, letters,
+ * punctuation, US-shift LS() aliases, navigation, extras (K_*), then long codes.
  */
 export function bandCatalogChoices(choices: CatalogChoice[]): ValueBand[] {
   const buckets: Record<ValueBandKind, CatalogChoice[]> = {
     letters: [],
     digits: [],
     function: [],
-    simple: [],
+    modkeys: [],
+    modwraps: [],
+    punct: [],
+    shifted: [],
+    nav: [],
+    extras: [],
     codes: []
   }
   for (const choice of choices) {

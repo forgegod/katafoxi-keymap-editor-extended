@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
+  applyModifierHold,
+  applyTerminalKey,
   buildEditorSlots,
   codeColumnMinPx,
   codeGridMetrics,
   isKeycodeParam,
   slotLabel,
+  terminalKeySlot,
+  visibleValueSlots,
   type EditorSlot
 } from './key-editor'
 import type { HydratedNode } from './hydrate'
@@ -31,6 +35,10 @@ describe('isKeycodeParam', () => {
 describe('codeGridMetrics', () => {
   it('sizes columns from width and fills them top to bottom', () => {
     expect(codeGridMetrics(96, 1045)).toEqual({ cols: 14, rows: 7 })
+  })
+
+  it('drops unused columns so leftover HID cells can grow', () => {
+    expect(codeGridMetrics(44, 1045)).toEqual({ cols: 11, rows: 4 })
   })
 
   it('keeps short HID names on the dense 72px track', () => {
@@ -95,5 +103,53 @@ describe('buildEditorSlots', () => {
       'Key:LC',
       'Key:A'
     ])
+    expect(
+      slotSummary(visibleValueSlots(buildEditorSlots(tree, ['code'])))
+    ).toEqual(['Key:A'])
+    expect(terminalKeySlot(buildEditorSlots(tree, ['code']), 1)?.value).toBe('A')
+  })
+})
+
+describe('modifier hold apply', () => {
+  it('wraps a tap key and later replaces only the terminal', () => {
+    let tree: HydratedNode = {
+      value: '&kp',
+      params: [{ value: 'A', params: [] }]
+    }
+    tree = applyModifierHold(tree, 1, 'LC')
+    expect(tree.params[0]).toEqual({
+      value: 'LC',
+      params: [{ value: 'A', params: [] }]
+    })
+    tree = applyModifierHold(tree, 1, 'LS')
+    expect(tree.params[0].value).toBe('LC')
+    expect(tree.params[0].params[0].value).toBe('LS')
+    tree = applyTerminalKey(tree, 1, 'B')
+    expect(tree.params[0]).toEqual({
+      value: 'LC',
+      params: [{ value: 'LS', params: [{ value: 'B', params: [] }] }]
+    })
+  })
+
+  it('does not stack the same wrap and drops it when assigning that modifier key', () => {
+    let tree: HydratedNode = {
+      value: '&kp',
+      params: [{ value: 'A', params: [] }]
+    }
+    tree = applyModifierHold(tree, 1, 'LC')
+    tree = applyModifierHold(tree, 1, 'LC')
+    expect(tree.params[0]).toEqual({ value: 'A', params: [] })
+    tree = applyModifierHold(tree, 1, 'LC')
+    tree = applyTerminalKey(tree, 1, 'LCTRL')
+    expect(tree.params[0]).toEqual({ value: 'LCTRL', params: [] })
+  })
+
+  it('does not wrap LSHFT in LS', () => {
+    let tree: HydratedNode = {
+      value: '&kp',
+      params: [{ value: 'LSHFT', params: [] }]
+    }
+    tree = applyModifierHold(tree, 1, 'LS')
+    expect(tree.params[0]).toEqual({ value: 'LSHFT', params: [] })
   })
 })
