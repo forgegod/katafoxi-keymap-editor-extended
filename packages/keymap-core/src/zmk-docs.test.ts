@@ -6,6 +6,9 @@ describe('zmkBehaviorDocsUrl', () => {
     expect(zmkBehaviorDocsUrl('&kp')).toBe(
       'https://zmk.dev/docs/keymaps/behaviors/key-press'
     )
+    expect(zmkBehaviorDocsUrl('&mkp')).toBe(
+      'https://zmk.dev/docs/keymaps/behaviors/mouse-emulation'
+    )
     expect(zmkBehaviorDocsUrl('&mo')).toBe(
       'https://zmk.dev/docs/keymaps/behaviors/layers'
     )

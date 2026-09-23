@@ -1,5 +1,8 @@
 const BEHAVIOR_DOCS: Record<string, string> = {
   '&kp': 'https://zmk.dev/docs/keymaps/behaviors/key-press',
+  '&mkp': 'https://zmk.dev/docs/keymaps/behaviors/mouse-emulation',
+  '&msc': 'https://zmk.dev/docs/keymaps/behaviors/mouse-emulation',
+  '&mmv': 'https://zmk.dev/docs/keymaps/behaviors/mouse-emulation',
   '&mt': 'https://zmk.dev/docs/keymaps/behaviors/hold-tap',
   '&lt': 'https://zmk.dev/docs/keymaps/behaviors/hold-tap',
   '&sk': 'https://zmk.dev/docs/keymaps/behaviors/sticky-key',

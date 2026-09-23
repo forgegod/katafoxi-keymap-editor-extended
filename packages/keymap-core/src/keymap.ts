@@ -154,9 +154,13 @@ function generateKeymapCode(
   template: string
 ): string {
   const names = (keymap.layer_names as string[]) || []
-  const behaviourHeaders = getBehavioursUsed(keymap).flatMap(
-    bind => behavioursByBind[bind]?.includes ?? []
-  )
+  const behaviourHeaders = [
+    ...new Set(
+      getBehavioursUsed(keymap).flatMap(
+        bind => behavioursByBind[bind]?.includes ?? []
+      )
+    )
+  ]
 
   return renderTemplate(template, {
     layout,
