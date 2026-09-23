@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  bandCatalogChoices,
   catalogChoiceTooltip,
   collectUsedKeycodesOnLayer,
   groupChoicesByContext,
@@ -8,7 +9,8 @@ import {
   nextTaxonomyContexts,
   representativeLabel,
   sortBehaviorsByRole,
-  uniqueCatalogChoices
+  uniqueCatalogChoices,
+  valueBandKind
 } from './picker-model.js'
 
 describe('representativeLabel', () => {
@@ -67,6 +69,45 @@ describe('groupChoicesByContext', () => {
     ])
     expect(groups[0].items.map(i => i.code)).toEqual(['A', 'B'])
     expect(groups[3].items.map(i => i.code)).toEqual(['BT_CLR'])
+  })
+})
+
+describe('valueBandKind', () => {
+  it('keeps letters, digits, and F-keys out of the long-code grid', () => {
+    expect(valueBandKind({ code: 'A' })).toBe('letters')
+    expect(valueBandKind({ code: 'N1', symbol: '1' })).toBe('digits')
+    expect(valueBandKind({ code: 'F12' })).toBe('function')
+    expect(valueBandKind({ code: 'ESC' })).toBe('simple')
+    expect(valueBandKind({ code: 'ALT_ERASE' })).toBe('codes')
+  })
+})
+
+describe('bandCatalogChoices', () => {
+  it('orders compact bands before even columns of long names', () => {
+    const bands = bandCatalogChoices([
+      { code: 'ALT_ERASE' },
+      { code: 'BSPC' },
+      { code: 'F24' },
+      { code: 'A' },
+      { code: 'F1' },
+      { code: 'N2', symbol: '2' },
+      { code: 'AMPS' }
+    ])
+    expect(bands.map(b => b.kind)).toEqual([
+      'letters',
+      'digits',
+      'function',
+      'simple',
+      'codes'
+    ])
+    expect(bands.find(b => b.kind === 'function')?.items.map(i => i.code)).toEqual([
+      'F1',
+      'F24'
+    ])
+    expect(bands.find(b => b.kind === 'codes')?.items.map(i => i.code)).toEqual([
+      'ALT_ERASE',
+      'AMPS'
+    ])
   })
 })
 
