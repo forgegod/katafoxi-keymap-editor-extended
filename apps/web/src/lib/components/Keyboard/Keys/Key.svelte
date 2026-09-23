@@ -119,19 +119,6 @@
     }
   }
 
-  function onMouseOver(event: MouseEvent) {
-    const old = document.querySelector('.code.highlight')
-    old?.classList.remove('highlight')
-    const target = event.target as HTMLElement
-    if (target.classList.contains('code')) {
-      target.classList.add('highlight')
-    }
-  }
-
-  function onMouseLeave(event: MouseEvent) {
-    ;(event.target as HTMLElement).classList.remove('highlight')
-  }
-
   function hydrateBind(node: HydratedNode): HydratedNode {
     return hydrateTree(
       node.value ?? '&none',
@@ -246,8 +233,6 @@
   style={Object.entries(positioningStyle)
     .map(([k, v]) => `${k.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`)}:${v}`)
     .join(';')}
-  onmouseover={onMouseOver}
-  onmouseleave={onMouseLeave}
   onclick={handleKeyClick}
 >
   {#if showComposed && composedLegend}

@@ -60,11 +60,6 @@
   border-radius: 4px;
 }
 
-.code.highlight {
-  background-color: white !important;
-  color: var(--hover-selection) !important;
-}
-
 .code * {
   pointer-events: none;
 }
@@ -77,14 +72,6 @@
   font-variant: small-caps;
   padding: 2px;
   opacity: 0.5;
-}
-
-.behaviour-binding:hover {
-  cursor: pointer;
-  color: var(--hover-selection) !important;
-  background-color: white;
-  border-radius: 5px 0;
-  opacity: 1;
 }
 
 .key .keycap-wrap {
