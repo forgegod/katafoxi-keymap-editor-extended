@@ -2,6 +2,7 @@
   import fuzzysort from 'fuzzysort'
   import { onMount } from 'svelte'
   import {
+    bandCatalogChoices,
     catalogChoiceTooltip,
     groupChoicesByContext,
     initialTaxonomyContexts,
@@ -244,24 +245,30 @@
               {#if showGroupTitles || searching}
                 <h3>{group.context}</h3>
               {/if}
-              <div class="key-editor-grid">
-                {#each group.items as choice}
-                  {@const item = choice as Choice}
-                  <button
-                    type="button"
-                    class="key-editor-choice"
-                    class:active={isActiveChoice(item)}
-                    class:used={isUsedChoice(item) && !isActiveChoice(item)}
-                    title={valueTooltip(item)}
-                    onclick={() => onSelectValue(item)}
-                  >
-                    {#if item.faIcon}
-                      <Icon name={String(item.faIcon)} />
-                    {/if}
-                    {choiceLabel(item)}
-                  </button>
-                {/each}
-              </div>
+              {#each bandCatalogChoices(group.items) as band}
+                <div
+                  class="key-editor-grid"
+                  class:codes={band.kind === 'codes'}
+                  data-band={band.kind}
+                >
+                  {#each band.items as choice}
+                    {@const item = choice as Choice}
+                    <button
+                      type="button"
+                      class="key-editor-choice"
+                      class:active={isActiveChoice(item)}
+                      class:used={isUsedChoice(item) && !isActiveChoice(item)}
+                      title={valueTooltip(item)}
+                      onclick={() => onSelectValue(item)}
+                    >
+                      {#if item.faIcon}
+                        <Icon name={String(item.faIcon)} />
+                      {/if}
+                      {choiceLabel(item)}
+                    </button>
+                  {/each}
+                </div>
+              {/each}
             </div>
           {/each}
         {/if}
