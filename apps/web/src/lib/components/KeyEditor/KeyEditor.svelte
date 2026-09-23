@@ -14,7 +14,12 @@
     zmkBehaviorDocsUrl,
     type CatalogChoice
   } from '@keymap-editor/keymap-core'
-  import { isKeycodeParam, type EditorSlot } from '../../key-editor'
+  import {
+    codeColumnMinPx,
+    codeGridMetrics,
+    isKeycodeParam,
+    type EditorSlot
+  } from '../../key-editor'
   import Icon from '../Common/Icon.svelte'
   import './KeyEditor.css'
 
@@ -51,6 +56,8 @@
   let query = $state('')
   let pinnedContexts = $state<string[] | null>(null)
   let pinnedForKey = $state('')
+  let valuesEl: HTMLDivElement | undefined = $state()
+  let valuesWidth = $state(1045)
 
   const used = $derived(new Set([...usedKeycodes].map(String)))
   const activeSlot = $derived(
@@ -96,6 +103,26 @@
   })
 
   const showGroupTitles = $derived(visibleGroups.length > 1)
+
+  function codeGridStyle(items: Choice[], context: string): string {
+    const minColPx = codeColumnMinPx(items.map(choiceLabel), {
+      fitLongest: /^Consumer/i.test(context)
+    })
+    const { cols, rows } = codeGridMetrics(items.length, valuesWidth, minColPx)
+    return `--code-cols:${cols};--code-rows:${rows};--code-col-min:${minColPx}px`
+  }
+
+  $effect(() => {
+    if (!valuesEl) return
+    const node = valuesEl
+    const sync = () => {
+      valuesWidth = node.clientWidth
+    }
+    sync()
+    const observer = new ResizeObserver(sync)
+    observer.observe(node)
+    return () => observer.disconnect()
+  })
 
   function choiceLabel(choice: Choice): string {
     return representativeLabel(choice) || String(choice.code ?? '')
@@ -235,7 +262,7 @@
         />
       {/if}
 
-      <div class="key-editor-values">
+      <div class="key-editor-values" bind:this={valuesEl}>
         {#if visibleGroups.length === 0 || visibleGroups.every(group => group.items.length === 0)}
           <p class="key-editor-empty">No matching values.</p>
         {:else}
@@ -249,6 +276,9 @@
                   class="key-editor-grid"
                   class:codes={band.kind === 'codes'}
                   data-band={band.kind}
+                  style={band.kind === 'codes'
+                    ? codeGridStyle(band.items as Choice[], group.context)
+                    : undefined}
                 >
                   {#each band.items as choice}
                     {@const item = choice as Choice}

@@ -1,11 +1,13 @@
 .key-editor {
   box-sizing: border-box;
   width: min(1180px, 94vw);
+  height: min(70vh, 640px);
   max-height: min(70vh, 640px);
   display: flex;
   flex-direction: row;
   align-items: stretch;
   gap: 0;
+  overflow: hidden;
   background: white;
   padding: 0;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
@@ -84,15 +86,11 @@
 
 .key-editor-chips {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   min-width: 0;
-  overflow-x: auto;
-}
-
-.key-editor-chips .key-editor-chips {
-  overflow: visible;
+  overflow: hidden;
 }
 
 .key-editor-chip {
@@ -139,7 +137,7 @@
 .key-editor-values {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .key-editor-group + .key-editor-group {
@@ -165,7 +163,12 @@
 
 .key-editor-grid.codes {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(6.25rem, 1fr));
+  grid-auto-flow: column;
+  grid-template-rows: repeat(var(--code-rows, 1), auto);
+  grid-template-columns: repeat(
+    var(--code-cols, 10),
+    minmax(var(--code-col-min, 72px), 1fr)
+  );
 }
 
 .key-editor-choice {
