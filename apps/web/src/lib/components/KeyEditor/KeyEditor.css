@@ -1,37 +1,45 @@
 .key-editor {
   box-sizing: border-box;
-  width: min(1100px, 92vw);
-  max-height: min(80vh, 820px);
+  width: min(1180px, 94vw);
+  max-height: min(70vh, 640px);
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
   background: white;
-  padding: 16px 20px 14px;
+  padding: 0;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
 }
 
-.key-editor-header {
+.key-editor-rail {
+  box-sizing: border-box;
+  width: 92px;
+  flex-shrink: 0;
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 10px;
+  border-right: 1px solid #e2e2e2;
 }
 
-.key-editor-header h2 {
+.key-editor-rail h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
+  line-height: 1.2;
 }
 
-.key-editor-header .binding {
+.key-editor-rail .binding {
   color: var(--muted);
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 .key-editor-close {
-  margin-left: auto;
+  align-self: flex-start;
   border: none;
   background: none;
   color: var(--muted);
@@ -45,29 +53,60 @@
   color: #333;
 }
 
+.key-editor-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px 12px;
+}
+
+.key-editor-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
 .key-editor-section-label {
-  margin: 0 0 6px;
+  margin: 0;
+  flex-shrink: 0;
+  width: 5.6em;
+  padding-right: 10px;
+  border-right: 1px solid #ccc;
   font-size: 12px;
   font-weight: 500;
   color: var(--muted);
+  line-height: 1.2;
 }
 
 .key-editor-chips {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.key-editor-chips .key-editor-chips {
+  overflow: visible;
 }
 
 .key-editor-chip {
   cursor: pointer;
+  flex-shrink: 0;
   border: 1px solid #ddd;
   background: var(--key-face);
   color: #333;
   border-radius: 4px;
-  padding: 5px 10px;
+  padding: 2px 6px;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .key-editor-chip.active {
@@ -88,13 +127,13 @@
   display: block;
   width: 100%;
   box-sizing: border-box;
-  height: 32px;
-  margin: 8px 0 0;
+  height: 28px;
+  margin: 0;
   padding: 4px 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .key-editor-values {
@@ -104,12 +143,12 @@
 }
 
 .key-editor-group + .key-editor-group {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .key-editor-group h3 {
-  margin: 0 0 6px;
-  font-size: 12px;
+  margin: 0 0 4px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--muted);
 }
@@ -117,28 +156,28 @@
 .key-editor-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 3px;
 }
 
 .key-editor-grid + .key-editor-grid {
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .key-editor-grid.codes {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(6.25rem, 1fr));
 }
 
 .key-editor-choice {
   cursor: pointer;
-  min-width: 2.2em;
+  min-width: 2em;
   border: 1px solid #e2e2e2;
   background: var(--key-face);
   color: #333;
   border-radius: 4px;
-  padding: 6px 8px;
+  padding: 4px 6px;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1.2;
 }
@@ -169,7 +208,7 @@
 }
 
 .key-editor-empty {
-  margin: 8px 0 0;
+  margin: 4px 0 0;
   color: var(--muted);
   font-size: 13px;
 }

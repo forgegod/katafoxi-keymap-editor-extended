@@ -164,68 +164,67 @@
   tabindex="-1"
   onkeydown={handleKeyDown}
 >
-  <div class="key-editor-header">
-    <div>
-      <h2>Edit key</h2>
-      <div class="binding">{bindingLabel}</div>
-    </div>
+  <aside class="key-editor-rail">
+    <h2>Edit key</h2>
+    <div class="binding">{bindingLabel}</div>
     <button type="button" class="key-editor-close" onclick={onCancel} aria-label="Close">
       ×
     </button>
-  </div>
+  </aside>
 
-  <section>
-    <p class="key-editor-section-label">Behaviour</p>
-    <div class="key-editor-chips">
-      {#each orderedBehaviours as behaviour}
-        <button
-          type="button"
-          class="key-editor-chip"
-          class:active={String(behaviour.code) === String(slots[0]?.value ?? '')}
-          class:instant={isInstantBehavior(behaviour)}
-          title={behaviourTooltip(behaviour)}
-          onclick={event => handleBehaviourClick(event, behaviour)}
-        >
-          {behaviour.code}
-        </button>
-      {/each}
-    </div>
-  </section>
+  <div class="key-editor-main">
+    <section class="key-editor-row">
+      <p class="key-editor-section-label">Behaviour</p>
+      <div class="key-editor-chips">
+        {#each orderedBehaviours as behaviour}
+          <button
+            type="button"
+            class="key-editor-chip"
+            class:active={String(behaviour.code) === String(slots[0]?.value ?? '')}
+            class:instant={isInstantBehavior(behaviour)}
+            title={behaviourTooltip(behaviour)}
+            onclick={event => handleBehaviourClick(event, behaviour)}
+          >
+            {behaviour.code}
+          </button>
+        {/each}
+      </div>
+    </section>
 
-  {#if paramSlots.length > 0}
-    <section>
-      <p class="key-editor-section-label">Value</p>
-      {#if paramSlots.length > 1}
+    {#if paramSlots.length > 0}
+      <section class="key-editor-row">
+        <p class="key-editor-section-label">Value</p>
         <div class="key-editor-chips">
-          {#each paramSlots as slot}
-            <button
-              type="button"
-              class="key-editor-chip"
-              class:active={slot.codeIndex === activeSlot?.codeIndex}
-              onclick={() => onActivateSlot(slot.codeIndex)}
-            >
-              {slot.label}{slot.value != null && slot.value !== '' ? ` · ${slot.value}` : ''}
-            </button>
-          {/each}
+          {#if paramSlots.length > 1}
+            {#each paramSlots as slot}
+              <button
+                type="button"
+                class="key-editor-chip"
+                class:active={slot.codeIndex === activeSlot?.codeIndex}
+                onclick={() => onActivateSlot(slot.codeIndex)}
+              >
+                {slot.label}{slot.value != null && slot.value !== '' ? ` · ${slot.value}` : ''}
+              </button>
+            {/each}
+          {/if}
+          {#if showTaxonomy}
+            <div class="key-editor-chips" role="tablist" aria-label="Value group">
+              {#each taxonomyChips as group}
+                <button
+                  type="button"
+                  class="key-editor-chip"
+                  class:active={activeContexts.includes(group.context)}
+                  role="tab"
+                  aria-selected={activeContexts.includes(group.context)}
+                  onclick={() => selectTaxonomy(group.context)}
+                >
+                  {group.context}
+                </button>
+              {/each}
+            </div>
+          {/if}
         </div>
-      {/if}
-
-      {#if showTaxonomy}
-        <div class="key-editor-chips" role="tablist" aria-label="Value group">
-          {#each taxonomyChips as group}
-            <button
-              type="button"
-              class="key-editor-chip"
-              class:active={activeContexts.includes(group.context)}
-              role="tab"
-              aria-selected={activeContexts.includes(group.context)}
-              onclick={() => selectTaxonomy(group.context)}
-            >
-              {group.context}
-            </button>
-          {/each}
-        </div>
-      {/if}
+      </section>
 
       {#if showFilter}
         <input
@@ -273,8 +272,8 @@
           {/each}
         {/if}
       </div>
-    </section>
-  {:else}
-    <p class="key-editor-empty">This behaviour applies immediately.</p>
-  {/if}
+    {:else}
+      <p class="key-editor-empty">This behaviour applies immediately.</p>
+    {/if}
+  </div>
 </div>
