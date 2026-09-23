@@ -1,0 +1,150 @@
+.key-editor {
+  box-sizing: border-box;
+  width: min(1100px, 92vw);
+  max-height: min(80vh, 820px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: white;
+  padding: 16px 20px 14px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+}
+
+.key-editor-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.key-editor-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.key-editor-header .binding {
+  color: var(--muted);
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+  font-size: 13px;
+}
+
+.key-editor-close {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.key-editor-close:hover {
+  color: #333;
+}
+
+.key-editor-section-label {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.key-editor-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.key-editor-chip {
+  cursor: pointer;
+  border: 1px solid #ddd;
+  background: var(--key-face);
+  color: #333;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.key-editor-chip.active {
+  background: var(--hover-selection);
+  border-color: var(--hover-selection);
+  color: white;
+}
+
+.key-editor-filter {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  height: 32px;
+  margin: 0;
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.key-editor-values {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.key-editor-group + .key-editor-group {
+  margin-top: 12px;
+}
+
+.key-editor-group h3 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.key-editor-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.key-editor-choice {
+  cursor: pointer;
+  min-width: 2.2em;
+  border: 1px solid #e2e2e2;
+  background: var(--key-face);
+  color: #333;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.key-editor-choice.used {
+  opacity: 0.42;
+}
+
+.key-editor-choice.active {
+  outline: 2px solid var(--selection);
+  outline-offset: 1px;
+  opacity: 1;
+}
+
+.key-editor-choice:hover {
+  background: var(--hover-selection);
+  border-color: var(--hover-selection);
+  color: white;
+  opacity: 1;
+}
+
+.key-editor-empty {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}

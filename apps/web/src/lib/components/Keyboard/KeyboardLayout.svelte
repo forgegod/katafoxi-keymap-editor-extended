@@ -1,5 +1,9 @@
 <script lang="ts">
-  import type { KeyBindingNode, LayoutKey } from '@keymap-editor/keymap-core'
+  import {
+    collectUsedKeycodesOnLayer,
+    type KeyBindingNode,
+    type LayoutKey
+  } from '@keymap-editor/keymap-core'
   import Key from './Keys/Key.svelte'
   import type { LegendMode } from '../../context'
 
@@ -15,6 +19,7 @@
   const normalized = $derived(
     layout.map((_, i) => bindings[i] || { value: '&none', params: [] })
   )
+  const usedKeycodes = $derived(collectUsedKeycodesOnLayer(normalized))
 
   function position(key: LayoutKey) {
     return { x: key.x, y: key.y }
@@ -45,6 +50,7 @@
       label={key.label}
       value={normalized[i].value}
       params={normalized[i].params}
+      {usedKeycodes}
       {legendMode}
       onUpdate={bind =>
         handleUpdateBind(i, {
