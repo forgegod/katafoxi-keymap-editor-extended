@@ -751,19 +751,65 @@ export function groupChoicesByContext(choices: CatalogChoice[]): ChoiceGroup[] {
   return ordered
 }
 
+/** Param index of the tap keycode. Layer and command params are not keys. */
+const TAP_CODE_PARAM: Record<string, number> = {
+  '&kp': 0,
+  '&sk': 0,
+  '&mt': 1,
+  '&lt': 1
+}
+
+/** Modifier key sitting on `&mt`, so a hold-only modifier still counts as placed. */
+const MOD_CODE_PARAM: Record<string, number> = {
+  '&mt': 0
+}
+
+function placedKeycode(node: KeyBindingNode | undefined): string | null {
+  if (!node) return null
+  const { terminal } = readModifierChain(node)
+  const value = terminal?.value
+  if (value == null || String(value) === '') return null
+  if (isModifierWrapCode(value)) return null
+  return String(value)
+}
+
+function rememberKeycode(found: Map<string, number[]>, code: string | null, layer: number) {
+  if (!code) return
+  const list = found.get(code)
+  if (!list) found.set(code, [layer])
+  else if (list[list.length - 1] !== layer) list.push(layer)
+}
+
 /**
- * `&kp` tap codes already placed on this layer. Used as a soft hint
- * (dim repeats); other behaviours are ignored.
+ * Keycodes placed anywhere in the keymap, keyed to layer indexes.
+ * Counts the tap of `&kp`, `&sk`, `&mt`, and `&lt`, plus the modifier of
+ * `&mt`. `LS(CAPS)` and `LC(C)` contribute the terminal key. Each layer
+ * index is listed once, in order.
+ */
+export function collectUsedKeycodes(
+  layers: ReadonlyArray<readonly KeyBindingNode[] | undefined>
+): Map<string, number[]> {
+  const found = new Map<string, number[]>()
+  layers.forEach((layer, index) => {
+    for (const bind of layer ?? []) {
+      const behavior = String(bind.value)
+      const tapIndex = TAP_CODE_PARAM[behavior]
+      if (tapIndex == null) continue
+      rememberKeycode(found, placedKeycode(bind.params?.[tapIndex]), index)
+      const modIndex = MOD_CODE_PARAM[behavior]
+      if (modIndex != null) {
+        rememberKeycode(found, placedKeycode(bind.params?.[modIndex]), index)
+      }
+    }
+  })
+  return found
+}
+
+/**
+ * Keycodes already placed on this layer. Same rules as {@link collectUsedKeycodes}.
  */
 export function collectUsedKeycodesOnLayer(
   layer: KeyBindingNode[] | undefined
 ): Set<string> {
-  const used = new Set<string>()
-  for (const bind of layer ?? []) {
-    if (String(bind.value) !== '&kp') continue
-    const code = bind.params?.[0]?.value
-    if (code == null || String(code) === '') continue
-    used.add(String(code))
-  }
-  return used
+  return new Set(collectUsedKeycodes([layer]).keys())
 }

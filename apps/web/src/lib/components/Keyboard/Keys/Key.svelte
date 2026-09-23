@@ -37,7 +37,7 @@
     params?: Array<{ value?: string | number; params?: unknown[] }>
     onUpdate: (bind: { value: string | number | undefined; params: HydratedNode[] }) => void
     legendMode?: LegendMode
-    usedKeycodes?: Iterable<string>
+    usedKeycodes?: ReadonlyMap<string, readonly number[]>
   }
 
   let {
@@ -49,7 +49,7 @@
     params = [],
     onUpdate,
     legendMode = 'zmk',
-    usedKeycodes = []
+    usedKeycodes = new Map()
   }: Props = $props()
 
   const searchBox = getSearchContext()

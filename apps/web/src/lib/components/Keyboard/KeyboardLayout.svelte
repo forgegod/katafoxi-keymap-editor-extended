@@ -1,9 +1,5 @@
 <script lang="ts">
-  import {
-    collectUsedKeycodesOnLayer,
-    type KeyBindingNode,
-    type LayoutKey
-  } from '@keymap-editor/keymap-core'
+  import type { KeyBindingNode, LayoutKey } from '@keymap-editor/keymap-core'
   import Key from './Keys/Key.svelte'
   import type { LegendMode } from '../../context'
 
@@ -12,14 +8,20 @@
     bindings: KeyBindingNode[]
     onUpdate: (bindings: KeyBindingNode[]) => void
     legendMode?: LegendMode
+    usedKeycodes?: ReadonlyMap<string, readonly number[]>
   }
 
-  let { layout, bindings, onUpdate, legendMode = 'zmk' }: Props = $props()
+  let {
+    layout,
+    bindings,
+    onUpdate,
+    legendMode = 'zmk',
+    usedKeycodes = new Map()
+  }: Props = $props()
 
   const normalized = $derived(
     layout.map((_, i) => bindings[i] || { value: '&none', params: [] })
   )
-  const usedKeycodes = $derived(collectUsedKeycodesOnLayer(normalized))
 
   function position(key: LayoutKey) {
     return { x: key.x, y: key.y }

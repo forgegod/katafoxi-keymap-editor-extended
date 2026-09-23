@@ -1,5 +1,10 @@
 <script lang="ts">
-  import type { KeyBindingNode, LayoutKey, ParsedKeymap } from '@keymap-editor/keymap-core'
+  import {
+    collectUsedKeycodes,
+    type KeyBindingNode,
+    type LayoutKey,
+    type ParsedKeymap
+  } from '@keymap-editor/keymap-core'
   import {
     getDefinitionsContext,
     setSearchContext,
@@ -31,6 +36,7 @@
   const layerNames = $derived(
     keymap.layer_names ?? keymap.layers.map((_, i) => `Layer ${i}`)
   )
+  const usedKeycodes = $derived(collectUsedKeycodes(keymap.layers ?? []))
 
   const availableLayers = $derived(
     !keymap?.layers
@@ -178,6 +184,7 @@
       {layout}
       bindings={keymap.layers[activeLayer]}
       {legendMode}
+      {usedKeycodes}
       onUpdate={event => handleUpdateLayer(activeLayer, event)}
     />
   {/if}

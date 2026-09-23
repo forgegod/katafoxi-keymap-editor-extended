@@ -41,7 +41,7 @@
     slots: EditorSlot[]
     activeCodeIndex: number
     choices: Choice[]
-    usedKeycodes?: Iterable<string>
+    usedKeycodes?: ReadonlyMap<string, readonly number[]>
     onSelectBehaviour: (choice: Choice) => void
     onSelectValue: (choice: Choice) => void
     onToggleHold?: (wrapCode: string) => void
@@ -56,7 +56,7 @@
     slots,
     activeCodeIndex,
     choices,
-    usedKeycodes = [],
+    usedKeycodes,
     onSelectBehaviour,
     onSelectValue,
     onToggleHold,
@@ -71,7 +71,7 @@
   let valuesEl: HTMLDivElement | undefined = $state()
   let valuesWidth = $state(1045)
 
-  const used = $derived(new Set([...usedKeycodes].map(String)))
+  const used = $derived(usedKeycodes ?? new Map<string, readonly number[]>())
   const activeSlot = $derived(
     slots.find(slot => slot.codeIndex === activeCodeIndex) ?? slots[0]
   )
@@ -222,7 +222,12 @@
   }
 
   function valueTooltip(choice: Choice): string {
-    return catalogChoiceTooltip(choice)
+    const base = catalogChoiceTooltip(choice)
+    if (!dimUsed) return base
+    const layers = used.get(String(choice.code ?? ''))
+    if (!layers?.length) return base
+    const where = layers.length === 1 ? 'on layer' : 'on layers'
+    return `${base}\n${where} ${layers.join(' · ')}`
   }
 
   function behaviourTooltip(choice: Choice): string {
