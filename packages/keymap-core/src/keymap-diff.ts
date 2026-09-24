@@ -95,6 +95,20 @@ function countLabel(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`
 }
 
+/** One-line description of a single change for the draft list. */
+export function formatKeymapChange(change: KeymapChange): string {
+  switch (change.type) {
+    case 'binding':
+      return `L${change.layer} key ${change.index}: ${change.before || '(empty)'} → ${change.after || '(empty)'}`
+    case 'layer_rename':
+      return `L${change.layer}: ${change.before} → ${change.after}`
+    case 'layer_add':
+      return `L${change.layer} added: ${change.name}`
+    case 'layer_remove':
+      return `L${change.layer} removed: ${change.name}`
+  }
+}
+
 /** Human status fragment, e.g. "3 bindings, 1 layer renamed". */
 export function summarizeKeymapDiff(changes: KeymapChange[]): string {
   let bindings = 0

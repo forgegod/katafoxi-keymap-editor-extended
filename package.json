@@ -8,11 +8,15 @@
     "build": "pnpm --filter @keymap-editor/keymap-core build && pnpm --filter @keymap-editor/web build && pnpm --filter @keymap-editor/api build",
     "start": "pnpm --filter @keymap-editor/api start",
     "test": "pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/api test && pnpm --filter @keymap-editor/web test",
+    "test:e2e": "playwright test",
     "lint": "pnpm -r lint"
   },
   "engines": {
     "node": ">=20"
   },
   "packageManager": "pnpm@9.15.0",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  }
 }

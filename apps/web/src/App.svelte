@@ -3,6 +3,8 @@
   import * as config from './lib/config'
   import { setDefinitionsContext } from './lib/context'
   import { editor, type KeyboardSelection } from './lib/editor.svelte.js'
+  import { handleEditorShortcut } from './lib/editor-shortcuts'
+  import { publishKeymap } from './lib/publish-keymap'
   import { reloadLocalKeyboard } from './lib/api'
   import KeyboardPicker from './lib/components/Pickers/KeyboardPicker.svelte'
   import Spinner from './lib/components/Common/Spinner.svelte'
@@ -10,11 +12,7 @@
   import GitHubLink from './lib/components/GitHubLink.svelte'
   import Loader from './lib/components/Common/Loader.svelte'
   import github from './lib/github/api.svelte.js'
-  import type {
-    KeymapChange,
-    LayoutKey,
-    ParsedKeymap
-  } from '@keymap-editor/keymap-core'
+  import { formatKeymapChange } from '@keymap-editor/keymap-core'
 
   // Proxy so context consumers stay reactive to editor.definitions ($state).
   setDefinitionsContext({
@@ -28,53 +26,9 @@
 
   let changesOpen = $state(false)
 
-  function formatChange(change: KeymapChange): string {
-    switch (change.type) {
-      case 'binding':
-        return `L${change.layer} key ${change.index}: ${change.before || '(empty)'} → ${change.after || '(empty)'}`
-      case 'layer_rename':
-        return `L${change.layer}: ${change.before} → ${change.after}`
-      case 'layer_add':
-        return `L${change.layer} added: ${change.name}`
-      case 'layer_remove':
-        return `L${change.layer} removed: ${change.name}`
-    }
-  }
-
-  function isEditableFocus(target: EventTarget | null): boolean {
-    if (!(target instanceof HTMLElement)) return false
-    const tag = target.tagName
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
-    if (target.isContentEditable) return true
-    return false
-  }
-
   onMount(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (isEditableFocus(event.target)) return
-      const mod = event.metaKey || event.ctrlKey
-      if (!mod) return
-
-      const key = event.key.toLowerCase()
-      if (key === 'z' && event.shiftKey) {
-        if (!editor.canRedo) return
-        event.preventDefault()
-        editor.redo()
-        return
-      }
-      if (key === 'z') {
-        if (!editor.canUndo) return
-        event.preventDefault()
-        editor.undo()
-        return
-      }
-      if (key === 'y' && event.ctrlKey && !event.metaKey) {
-        if (!editor.canRedo) return
-        event.preventDefault()
-        editor.redo()
-      }
-    }
-
+    const onKeyDown = (event: KeyboardEvent) =>
+      handleEditorShortcut(event, editor)
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   })
@@ -84,174 +38,162 @@
   }
 
   async function handleWriteFiles() {
-    if (editor.saving || !editor.isDirty || !editor.draftKeymap) return
-    editor.saving = true
-    const token = editor.beginPublish()
-    const sourceAtStart = editor.source
-    const githubAtStart = editor.githubMeta
-    try {
-      const response = await fetch(`${config.apiBaseUrl}/keymap`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editor.draftKeymap)
-      })
-      const contentType = response.headers.get('content-type') || ''
-      const data = contentType.includes('application/json')
-        ? await response.json()
-        : null
-
-      if (!response.ok) {
-        editor.applySaveFailure(data)
-        return
-      }
-
-      try {
-        const reloaded = await reloadLocalKeyboard()
-        if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {
-          return
+    const ok = await publishKeymap(editor, {
+      write: async () => {
+        const response = await fetch(`${config.apiBaseUrl}/keymap`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(editor.draftKeymap)
+        })
+        const contentType = response.headers.get('content-type') || ''
+        const data = contentType.includes('application/json')
+          ? await response.json()
+          : null
+        if (!response.ok) {
+          throw Object.assign(new Error('Save failed'), {
+            response: { data }
+          })
         }
-        if (reloaded.layout) {
-          editor.layout = reloaded.layout as LayoutKey[]
-        }
-        editor.applyPublished(reloaded.keymap as ParsedKeymap, data)
-        changesOpen = false
-      } catch {
-        if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {
-          return
-        }
-        editor.applyReloadFailure(sourceAtStart)
-      }
-    } catch {
-      editor.applySaveFailure(null)
-    } finally {
-      editor.saving = false
-    }
+        return data
+      },
+      reload: reloadLocalKeyboard
+    })
+    if (ok) changesOpen = false
   }
 
   async function handleCommitToGitHub() {
     const gh = editor.githubMeta
-    if (!gh || !editor.layout || !editor.draftKeymap || !editor.isDirty) return
-    editor.saving = true
-    const token = editor.beginPublish()
-    const sourceAtStart = editor.source
-    const githubAtStart = editor.githubMeta
-    try {
-      const result = await github.commitChanges(
-        gh.repository,
-        gh.branch,
-        editor.layout,
-        editor.draftKeymap
-      )
-
-      try {
-        const reloaded = await github.fetchLayoutAndKeymap(
+    if (!gh || !editor.layout || !editor.draftKeymap) return
+    const ok = await publishKeymap(editor, {
+      write: async () => {
+        const result = await github.commitChanges(
           gh.repository,
-          gh.branch
+          gh.branch,
+          editor.layout,
+          editor.draftKeymap
         )
-        if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {
-          return
-        }
-        if (reloaded.layout) {
-          editor.layout = reloaded.layout as LayoutKey[]
-        }
-        editor.applyPublished(reloaded.keymap as ParsedKeymap, result.data)
-        changesOpen = false
-      } catch {
-        if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {
-          return
-        }
-        editor.applyReloadFailure(sourceAtStart)
-      }
-    } catch (err) {
-      const requestErr = err as { response?: { data?: unknown } }
-      editor.applySaveFailure(requestErr.response?.data ?? null)
-    } finally {
-      editor.saving = false
-    }
+        return result.data
+      },
+      reload: () => github.fetchLayoutAndKeymap(gh.repository, gh.branch)
+    })
+    if (ok) changesOpen = false
   }
 </script>
 
 <Loader load={initialize}>
-  <KeyboardPicker
-    onSelect={event => {
-      void editor.selectKeyboard(event as KeyboardSelection)
-      changesOpen = false
-    }}
-  />
-  <div id="legend-mode" role="radiogroup" aria-label="Legend mode">
-    <span class="legend-mode-label">Legend:</span>
-    <label class:active={editor.legendMode === 'zmk'}>
-      <input type="radio" bind:group={editor.legendMode} value="zmk" />
-      ZMK code
-    </label>
-    <label class:active={editor.legendMode === 'composed'}>
-      <input type="radio" bind:group={editor.legendMode} value="composed" />
-      Host composed
-    </label>
-  </div>
-  <div id="actions">
+  <div class="app-chrome" id="actions">
+    <div class="chrome-group chrome-source">
+      <KeyboardPicker
+        onSelect={event => {
+          void editor.selectKeyboard(event as KeyboardSelection)
+          changesOpen = false
+        }}
+      />
+    </div>
+
     {#if editor.draftKeymap}
-      <button
-        type="button"
-        title="Undo (Ctrl/Cmd+Z)"
-        disabled={!editor.canUndo}
-        onclick={() => editor.undo()}
-      >
-        Undo
-      </button>
-      <button
-        type="button"
-        title="Redo (Ctrl/Cmd+Shift+Z)"
-        disabled={!editor.canRedo}
-        onclick={() => editor.redo()}
-      >
-        Redo
-      </button>
-      <div class="change-status">
-        {#if editor.isDirty}
-          <button
-            type="button"
-            class="publish-status dirty change-toggle"
-            aria-expanded={changesOpen}
-            onclick={() => (changesOpen = !changesOpen)}
-          >
-            {editor.statusText}
-            <span class="change-count">
-              {editor.changes.length}
-              {editor.changes.length === 1 ? 'change' : 'changes'}
-            </span>
-          </button>
-          {#if changesOpen}
-            <ul class="change-list" role="list">
-              {#each editor.changes as change}
-                <li>{formatChange(change)}</li>
-              {/each}
-            </ul>
-          {/if}
-        {:else}
-          <span class="publish-status">{editor.statusText}</span>
-        {/if}
+      <span class="chrome-sep" aria-hidden="true"></span>
+      <div class="chrome-group actions-history">
+        <button
+          type="button"
+          title="Undo (Ctrl/Cmd+Z)"
+          disabled={!editor.canUndo}
+          onclick={() => editor.undo()}
+        >
+          Undo
+        </button>
+        <button
+          type="button"
+          title="Redo (Ctrl/Cmd+Shift+Z)"
+          disabled={!editor.canRedo}
+          onclick={() => editor.redo()}
+        >
+          Redo
+        </button>
       </div>
     {/if}
-    {#if editor.source === 'local'}
-      <button
-        disabled={!editor.isDirty || editor.saving}
-        onclick={handleWriteFiles}
-      >
-        {editor.saving ? 'Saving' : 'Write files'}
-        {#if editor.saving}<Spinner />{/if}
-      </button>
-    {/if}
-    {#if editor.source === 'github'}
-      <button
-        title="Commit keymap changes to GitHub repository"
-        disabled={!editor.isDirty || editor.saving}
-        onclick={handleCommitToGitHub}
-      >
-        {editor.saving ? 'Saving' : 'Commit to GitHub'}
-        {#if editor.saving}<Spinner />{/if}
-      </button>
-    {/if}
+
+    <span class="chrome-sep" aria-hidden="true"></span>
+    <div id="legend-mode" class="chrome-group" role="radiogroup" aria-label="Legend mode">
+      <span class="legend-mode-label">Legend:</span>
+      <label class:active={editor.legendMode === 'zmk'}>
+        <input type="radio" bind:group={editor.legendMode} value="zmk" />
+        ZMK code
+      </label>
+      <label class:active={editor.legendMode === 'composed'}>
+        <input type="radio" bind:group={editor.legendMode} value="composed" />
+        Host composed
+      </label>
+    </div>
+
+    <div class="chrome-end">
+      <span class="chrome-sep" aria-hidden="true"></span>
+      <div class="chrome-group actions-publish">
+        {#if editor.draftKeymap}
+          <div class="change-status">
+            {#if editor.isDirty}
+              <button
+                type="button"
+                class="publish-status dirty change-toggle"
+                aria-expanded={changesOpen}
+                onclick={() => (changesOpen = !changesOpen)}
+              >
+                {editor.statusText}
+                <span class="change-count">
+                  {editor.changes.length}
+                  {editor.changes.length === 1 ? 'change' : 'changes'}
+                </span>
+              </button>
+              <button
+                type="button"
+                class="discard-draft"
+                title="Revert all unpublished edits to the last loaded keymap"
+                disabled={editor.saving}
+                onclick={() => {
+                  const ok = window.confirm(
+                    'Discard all unpublished edits and restore the last loaded keymap?\n\nThis cannot be undone with Undo.'
+                  )
+                  if (!ok) return
+                  changesOpen = false
+                  void editor.discardDraft()
+                }}
+              >
+                Discard draft
+              </button>
+              {#if changesOpen}
+                <ul class="change-list" role="list">
+                  {#each editor.changes as change}
+                    <li>{formatKeymapChange(change)}</li>
+                  {/each}
+                </ul>
+              {/if}
+            {:else}
+              <span class="publish-status">{editor.statusText}</span>
+            {/if}
+          </div>
+        {/if}
+        {#if editor.source === 'local'}
+          <button
+            disabled={!editor.isDirty || editor.saving}
+            onclick={handleWriteFiles}
+          >
+            {editor.saving ? 'Saving' : 'Write files'}
+            {#if editor.saving}<Spinner />{/if}
+          </button>
+        {/if}
+        {#if editor.source === 'github'}
+          <button
+            title="Commit keymap changes to GitHub repository"
+            disabled={!editor.isDirty || editor.saving}
+            onclick={handleCommitToGitHub}
+          >
+            {editor.saving ? 'Saving' : 'Commit to GitHub'}
+            {#if editor.saving}<Spinner />{/if}
+          </button>
+        {/if}
+      </div>
+    </div>
+
     {#if editor.saveNotice}
       <div
         class="save-notice"
@@ -275,16 +217,44 @@
   {/if}
 </Loader>
 <GitHubLink />
+<!-- Inside the Svelte mount so portaled dialogs still receive delegated clicks. -->
+<div id="modal-root"></div>
 
 <style>
-  #legend-mode {
-    position: absolute;
-    top: 8px;
-    right: 20px;
+  .app-chrome {
+    position: relative;
     z-index: 5;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
+    gap: 10px 12px;
+    padding: 4px 12px 8px;
+  }
+
+  .chrome-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .chrome-sep {
+    display: inline-block;
+    align-self: center;
+    width: 1px;
+    height: 28px;
+    background: #ccc;
+    flex-shrink: 0;
+  }
+
+  .chrome-end {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+  }
+
+  #legend-mode {
     font-size: 90%;
   }
 
@@ -325,15 +295,18 @@
 
   .change-status {
     position: relative;
-    align-self: center;
-    max-width: min(320px, 70vw);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    max-width: min(420px, 70vw);
   }
 
   .publish-status {
     align-self: center;
     font-size: 90%;
     color: var(--muted, #555);
-    margin-right: 8px;
+    margin-right: 0;
   }
 
   .publish-status.dirty {
@@ -363,6 +336,31 @@
     background: rgba(0, 0, 0, 0.06);
   }
 
+  #actions button.discard-draft {
+    cursor: pointer;
+    background: transparent;
+    color: #842029;
+    border: 1px solid #e2b6bb;
+    border-radius: 5px;
+    padding: 4px 10px;
+    margin: 0;
+    font: inherit;
+    font-size: 90%;
+    font-weight: 500;
+    box-shadow: none;
+  }
+
+  #actions button.discard-draft:hover:not(:disabled) {
+    background: #f8d7da;
+  }
+
+  #actions button.discard-draft:disabled {
+    background: transparent;
+    color: #ccc;
+    border-color: #ddd;
+    cursor: not-allowed;
+  }
+
   .change-count {
     font-weight: 600;
     text-decoration: underline;
@@ -371,7 +369,7 @@
 
   .change-list {
     position: absolute;
-    bottom: calc(100% + 6px);
+    top: calc(100% + 6px);
     right: 0;
     z-index: 6;
     margin: 0;

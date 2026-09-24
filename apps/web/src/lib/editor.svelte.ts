@@ -123,14 +123,17 @@ class EditorState {
    */
   #handledDraftIdentityKey: string | null = null
 
+  #changes = $derived.by(() => {
+    if (!this.baselineKeymap || !this.draftKeymap) return []
+    return diffKeymaps(this.baselineKeymap, this.draftKeymap)
+  })
+
   get isDirty(): boolean {
-    if (!this.baselineKeymap || !this.draftKeymap) return false
-    return diffKeymaps(this.baselineKeymap, this.draftKeymap).length > 0
+    return this.#changes.length > 0
   }
 
   get changes(): KeymapChange[] {
-    if (!this.baselineKeymap || !this.draftKeymap) return []
-    return diffKeymaps(this.baselineKeymap, this.draftKeymap)
+    return this.#changes
   }
 
   get dirtySummary(): string {
@@ -358,7 +361,7 @@ class EditorState {
           : stack
       this.redoStack = []
     }
-    this.draftKeymap = cloneParsedKeymap(next)
+    this.draftKeymap = next
     this.schedulePersist()
   }
 
@@ -380,6 +383,19 @@ class EditorState {
     this.undoStack = [...this.undoStack, cloneParsedKeymap(this.draftKeymap)]
     this.draftKeymap = cloneParsedKeymap(next)
     this.schedulePersist()
+  }
+
+  /**
+   * Drop unpublished edits: draft ← baseline, clear step history + IndexedDB.
+   * Unlike undo, this works after reload when the session stack is empty.
+   */
+  async discardDraft(): Promise<boolean> {
+    if (!this.baselineKeymap || !this.draftKeymap || !this.isDirty) return false
+    this.draftKeymap = cloneParsedKeymap(this.baselineKeymap)
+    this.clearHistory()
+    this.saveNotice = null
+    await this.clearPersistedDraft()
+    return true
   }
 
   /**

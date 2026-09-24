@@ -392,6 +392,7 @@
   {
     "names": ["NUMBER_1", "N1"],
     "description": "1 and ! [Exclamation]",
+    "symbol": "1",
     "context": "Keyboard",
     "clarify": false,
     "documentation": "https://usb.org/sites/default/files/hut1_2.pdf#page=84",
@@ -422,6 +423,7 @@
   {
     "names": ["NUMBER_2", "N2"],
     "description": "2 and @ [At Sign]",
+    "symbol": "2",
     "context": "Keyboard",
     "clarify": false,
     "documentation": "https://usb.org/sites/default/files/hut1_2.pdf#page=84",
@@ -452,6 +454,7 @@
   {
     "names": ["NUMBER_3", "N3"],
     "description": "3 and # [Hash / Pound]",
+    "symbol": "3",
     "context": "Keyboard",
     "clarify": false,
     "documentation": "https://usb.org/sites/default/files/hut1_2.pdf#page=84",
@@ -482,6 +485,7 @@
   {
     "names": ["NUMBER_4", "N4"],
     "description": "4 and $ [Dollar]",
+    "symbol": "4",
     "context": "Keyboard",
     "clarify": false,
     "documentation": "https://usb.org/sites/default/files/hut1_2.pdf#page=84",
@@ -512,6 +516,7 @@
   {
     "names": ["NUMBER_5", "N5"],
     "description": "5 and % [Percent]",
+    "symbol": "5",
     "context": "Keyboard",
     "clarify": false,
     "documentation": "https://usb.org/sites/default/files/hut1_2.pdf#page=84",
@@ -542,6 +547,7 @@
   {
     "names": ["NUMBER_6", "N6"],
     "description": "6 and ^ [Caret]",
+    "symbol": "6",
     "context": "Keyboard",
     "clarify": false,
     "documentation": "https://usb.org/sites/default/files/hut1_2.pdf#page=84",
@@ -572,6 +578,7 @@
   {
     "names": ["NUMBER_7", "N7"],
     "description": "7 and & [Ampersand]",
+    "symbol": "7",
     "context": "Keyboard",
     "clarify": false,
     "documentation": "https://usb.org/sites/default/files/hut1_2.pdf#page=84",
@@ -602,6 +609,7 @@
   {
     "names": ["NUMBER_8", "N8"],
     "description": "8 and * [Asterisk / Star]",
+    "symbol": "8",
     "context": "Keyboard",
     "clarify": false,
     "documentation": "https://usb.org/sites/default/files/hut1_2.pdf#page=84",
@@ -632,6 +640,7 @@
   {
     "names": ["NUMBER_9", "N9"],
     "description": "9 and ( [Left Parenthesis]",
+    "symbol": "9",
     "context": "Keyboard",
     "clarify": false,
     "documentation": "https://usb.org/sites/default/files/hut1_2.pdf#page=84",
@@ -663,6 +672,7 @@
   {
     "names": ["NUMBER_0", "N0"],
     "description": "0 and ) [Right Parenthesis]",
+    "symbol": "0",
     "context": "Keyboard",
     "clarify": false,
     "documentation": "https://usb.org/sites/default/files/hut1_2.pdf#page=84",
@@ -724,6 +734,7 @@
   },
   {
     "names": ["BACKSPACE", "BSPC"],
+    "symbol": "⌫",
     "description": "Backspace",
     "context": "Keyboard",
     "clarify": false,
@@ -770,6 +781,7 @@
   },
   {
     "names": ["MINUS"],
+    "symbol": "-",
     "description": "- [Minus] and _ [Underscore]",
     "context": "Keyboard",
     "clarify": false,
@@ -800,6 +812,7 @@
   },
   {
     "names": ["EQUAL"],
+    "symbol": "=",
     "description": "= [Equal] and + [Plus]",
     "context": "Keyboard",
     "clarify": false,
@@ -1143,6 +1156,7 @@
   },
   {
     "names": ["CAPSLOCK", "CAPS", "CLCK"],
+    "symbol": "⇪",
     "description": "Caps Lock",
     "context": "Keyboard",
     "clarify": false,
@@ -1368,6 +1382,7 @@
   },
   {
     "names": ["PAUSE_BREAK"],
+    "symbol": "⏸",
     "description": "Pause / Break",
     "context": "Keyboard",
     "clarify": false,
@@ -1428,6 +1443,7 @@
   },
   {
     "names": ["DELETE", "DEL"],
+    "symbol": "⌦",
     "description": "Delete",
     "context": "Keyboard",
     "clarify": false,
@@ -1567,6 +1583,7 @@
   },
   {
     "names": ["KP_DIVIDE", "KP_SLASH"],
+    "symbol": "/",
     "description": "/ [Divide]",
     "context": "Keypad",
     "clarify": false,
@@ -1582,6 +1599,7 @@
   },
   {
     "names": ["KP_MULTIPLY", "KP_ASTERISK"],
+    "symbol": "*",
     "description": "* [Multiply]",
     "context": "Keypad",
     "clarify": false,
@@ -1597,6 +1615,7 @@
   },
   {
     "names": ["KP_MINUS", "KP_SUBTRACT"],
+    "symbol": "-",
     "description": "- [Minus]",
     "context": "Keypad",
     "clarify": false,
@@ -1612,6 +1631,7 @@
   },
   {
     "names": ["KP_PLUS"],
+    "symbol": "+",
     "description": "+ [Plus]",
     "context": "Keypad",
     "clarify": false,
@@ -1627,6 +1647,7 @@
   },
   {
     "names": ["KP_ENTER"],
+    "symbol": "⮐",
     "description": "Enter",
     "context": "Keypad",
     "clarify": false,
@@ -1643,6 +1664,7 @@
   {
     "names": ["KP_NUMBER_1", "KP_N1"],
     "description": "1",
+    "symbol": "1",
     "context": "Keypad",
     "clarify": false,
     "documentation": "https://usb.org/sites/default/files/hut1_2.pdf#page=85",
@@ -1658,6 +1680,7 @@
   {
     "names": ["KP_NUMBER_2", "KP_N2"],
     "description": "2",
+    "symbol": "2",
     "context": "Keypad",
     "clarify": false,
     "documentation": "https://usb.org/sites/default/files/hut1_2.pdf#page=85",
@@ -1673,6 +1696,7 @@
   {
     "names": ["KP_NUMBER_3", "KP_N3"],
     "description": "3",
+    "symbol": "3",
     "context": "Keypad",
     "clarify": false,
     "documentation": "https://usb.org/sites/default/files/hut1_2.pdf#page=85",
@@ -1688,6 +1712,7 @@
   {
     "names": ["KP_NUMBER_4", "KP_N4"],
     "description": "4",
+    "symbol": "4",
     "context": "Keypad",
     "clarify": false,
     "documentation": "https://usb.org/sites/default/files/hut1_2.pdf#page=85",
@@ -1703,6 +1728,7 @@
   {
     "names": ["KP_NUMBER_5", "KP_N5"],
     "description": "5",
+    "symbol": "5",
     "context": "Keypad",
     "clarify": false,
     "documentation": "https://usb.org/sites/default/files/hut1_2.pdf#page=85",
@@ -1718,6 +1744,7 @@
   {
     "names": ["KP_NUMBER_6", "KP_N6"],
     "description": "6",
+    "symbol": "6",
     "context": "Keypad",
     "clarify": false,
     "documentation": "https://usb.org/sites/default/files/hut1_2.pdf#page=85",
@@ -1733,6 +1760,7 @@
   {
     "names": ["KP_NUMBER_7", "KP_N7"],
     "description": "7",
+    "symbol": "7",
     "context": "Keypad",
     "clarify": false,
     "documentation": "https://usb.org/sites/default/files/hut1_2.pdf#page=85",
@@ -1748,6 +1776,7 @@
   {
     "names": ["KP_NUMBER_8", "KP_N8"],
     "description": "8",
+    "symbol": "8",
     "context": "Keypad",
     "clarify": false,
     "documentation": "https://usb.org/sites/default/files/hut1_2.pdf#page=85",
@@ -1763,6 +1792,7 @@
   {
     "names": ["KP_NUMBER_9", "KP_N9"],
     "description": "9",
+    "symbol": "9",
     "context": "Keypad",
     "clarify": false,
     "documentation": "https://usb.org/sites/default/files/hut1_2.pdf#page=85",
@@ -1778,6 +1808,7 @@
   {
     "names": ["KP_NUMBER_0", "KP_N0"],
     "description": "0",
+    "symbol": "0",
     "context": "Keypad",
     "clarify": false,
     "documentation": "https://usb.org/sites/default/files/hut1_2.pdf#page=85",
@@ -1792,6 +1823,7 @@
   },
   {
     "names": ["KP_DOT"],
+    "symbol": ".",
     "description": ". [Dot]",
     "context": "Keypad",
     "clarify": false,
@@ -1873,6 +1905,7 @@
   },
   {
     "names": ["KP_EQUAL"],
+    "symbol": "=",
     "description": "= [Equal]",
     "context": "Keypad",
     "clarify": false,
@@ -2849,6 +2882,7 @@
   },
   {
     "names": ["LEFT_CONTROL", "LCTRL", "LC(code)"],
+    "symbol": "⌃",
     "description": "Left Control",
     "context": "Keyboard",
     "clarify": false,
@@ -2922,6 +2956,7 @@
   },
   {
     "names": ["RIGHT_CONTROL", "RCTRL", "RC(code)"],
+    "symbol": "⌃",
     "description": "Right Control",
     "context": "Keyboard",
     "clarify": false,
@@ -3130,6 +3165,7 @@
   },
   {
     "names": ["K_BACK"],
+    "symbol": "←",
     "description": "Back",
     "context": "Keyboard",
     "clarify": true,
@@ -3145,6 +3181,7 @@
   },
   {
     "names": ["K_FORWARD"],
+    "symbol": "→",
     "description": "Forward",
     "context": "Keyboard",
     "clarify": true,
@@ -5160,6 +5197,7 @@
   },
   {
     "names": ["C_AC_BACK"],
+    "symbol": "←",
     "description": "Back",
     "context": "Consumer AC",
     "clarify": true,
@@ -5175,6 +5213,7 @@
   },
   {
     "names": ["C_AC_FORWARD"],
+    "symbol": "→",
     "description": "Forward",
     "context": "Consumer AC",
     "clarify": true,

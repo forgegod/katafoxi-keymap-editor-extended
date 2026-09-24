@@ -1,5 +1,7 @@
 # Keymap Editor
 
+> Archived upstream README. The screenshots below are the upstream app, not this fork's editor. Current docs: [README.md](README.md), [running-locally.md](running-locally.md), [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md).
+
 A browser app (plus NodeJS server) to edit ZMK keymaps. This has been a solo
 project but in a workable state for quite a while now, and new features are in
 development all the time.
@@ -95,7 +97,7 @@ Try it now:
 1. Make your own repo using the [keymap-editor-demo-crkbd template] on GitHub
 2. Go to [keymap-editor] and authorize it to access your own repo.
 
-Read more about the [GitHub integration](api/services/github/README.md)
+Read more about GitHub auth in this fork: [ADR 0003](docs/adr/0003-github-auth-server-session.md).
 
 
 ## License
@@ -108,5 +110,4 @@ license as well.
 [keymap-editor]: https://nickcoutsos.github.io/keymap-editor/
 [keymap-editor-demo-crkbd]: https://github.com/nickcoutsos/keymap-editor-demo-crkbd/
 [keymap-editor-demo-crkbd template]: https://github.com/nickcoutsos/keymap-editor-demo-crkbd/generate
-[Wiki:Automatic Layout Generation]: https://github.com/nickcoutsos/keymap-editor/wiki/Defining-keyboard-layouts#automatic-layout-generation
 [Wiki:Features]: https://github.com/nickcoutsos/keymap-editor/wiki/Features

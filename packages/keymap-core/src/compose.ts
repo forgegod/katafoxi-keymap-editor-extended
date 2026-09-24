@@ -1,3 +1,10 @@
+import {
+  isModifierWrapCode,
+  modifierHoldForKey,
+  modifierHoldForWrap,
+  modifierRoleGlyph,
+  modifierSide
+} from './modifiers.js'
 import type {
   ComposedLegend,
   ComposeKeyInput,
@@ -21,19 +28,109 @@ const TAP_FIXTURES: Record<string, Omit<ComposedLegend, 'hold'>> = {
   J: { primary: ['j', 'О'], altGr: ['ˬ', 'ξ'], keycode: 'KC_J' }
 }
 
-const HOLD_SHORT: Record<string, string> = {
-  LCTRL: 'LC',
-  LSHFT: 'LS',
-  LALT: 'LA',
-  LGUI: 'LG',
-  RCTRL: 'RC',
-  RSHFT: 'RS',
-  RALT: 'RA',
-  RGUI: 'RG',
-  LC: 'LC',
-  LS: 'LS',
-  LA: 'LA',
-  LG: 'LG'
+/** Compact layer index for key legends (`1` → `L1`). Binding value stays numeric. */
+export function layerLegendSymbol(index: number | string): string {
+  return `L${index}`
+}
+
+export function isLayerLegendSymbol(text: string): boolean {
+  return /^L\d+$/.test(text)
+}
+
+/** Role glyphs shared by L/R modifiers. Right side is prefixed at display time. */
+const ROLE_GLYPHS = new Set(['⌃', '⇧', '⌥', '⌘'])
+
+/**
+ * Keycap / ZMK-mode legend: left modifiers stay the role glyph,
+ * right modifiers become `R⌃` / `R⌥` / `R⌘` / `R⇧`.
+ */
+export function keycapLegend(
+  code?: string | number | null,
+  symbol?: string | number | null
+): string {
+  const rawCode = code == null ? '' : String(code)
+  const glyph = symbol == null ? '' : String(symbol).trim()
+  const base = glyph || rawCode
+  if (modifierSide(rawCode) === 'R' && ROLE_GLYPHS.has(glyph)) {
+    return `R${glyph}`
+  }
+  return base
+}
+
+export function isCompactKeycapLegend(text: string): boolean {
+  return (
+    text.length === 1 ||
+    isLayerLegendSymbol(text) ||
+    /^R[⌃⇧⌥⌘]$/.test(text)
+  )
+}
+
+/**
+ * HID keypad page (`KP_N7`, `KP_ENTER`, `KC_KP_MINUS`).
+ * Display-only: the glyph stays `7` / `+`; UI draws a box.
+ */
+export function isKeypadCode(code?: string | number | null): boolean {
+  const upper = String(code ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/^KC_/, '')
+  return upper.startsWith('KP_')
+}
+
+/** Catalog chip: `KP_*` or the Keypad HID group (`CLEAR2`). */
+export function isKeypadChoice(choice: {
+  code?: string | number | null
+  context?: string | null
+  aliases?: unknown
+}): boolean {
+  if (isKeypadCode(choice.code)) return true
+  if (String(choice.context ?? '').trim().toLowerCase() === 'keypad') return true
+  if (!Array.isArray(choice.aliases)) return false
+  return choice.aliases.some(alias => isKeypadCode(alias))
+}
+
+/** Short tokens that still read as one unit next to a modifier glyph. */
+const SHORT_CHORD_TOKEN_RE = /^(?:ESC|TAB|F(?:1[0-2]|[1-9]))$/
+
+/** `LC(DEL)` / `LA(F4)` / `LA(TAB)` — wrap + one short key, no deeper nest. */
+export function isCompactModifierChord(
+  wrapCode: string | number | undefined | null,
+  innerLegend: string
+): boolean {
+  const inner = innerLegend.trim()
+  return (
+    isModifierWrapCode(wrapCode) &&
+    (isCompactKeycapLegend(inner) || SHORT_CHORD_TOKEN_RE.test(inner))
+  )
+}
+
+/** `&mt` / `&lt` — first param is hold, second is tap. */
+export function isHoldTapBehavior(code: string | number | undefined | null): boolean {
+  const value = String(code ?? '')
+  return value === '&mt' || value === '&lt'
+}
+
+/**
+ * Where the behaviour token belongs on a ZMK-mode key.
+ * `&kp` is the default and stays off the cap; hold-tap is the pill;
+ * parameterless binds (`&none`, `&trans`, `&caps_word`) are the legend.
+ */
+export type BehaviorKeycapRole = 'hidden' | 'corner' | 'center'
+
+export function behaviorKeycapRole(
+  code?: string | number | null,
+  opts?: { paramCount?: number; holdTapVisible?: boolean }
+): BehaviorKeycapRole {
+  const value = String(code ?? '')
+  if (!value) return 'hidden'
+  if (value === '&kp') return 'hidden'
+  if (isHoldTapBehavior(value) && opts?.holdTapVisible) return 'hidden'
+  if ((opts?.paramCount ?? 0) === 0) return 'center'
+  return 'corner'
+}
+
+export function isHoldTapParam(param: unknown): boolean {
+  return param === 'mod' || param === 'layer'
 }
 
 /**
@@ -68,7 +165,7 @@ export function resolveBinding(node: KeyBindingNode): ResolvedBinding {
     const tap = node.params[1]?.value
     return {
       tap: tap != null ? String(tap) : null,
-      hold: layer != null ? `L${layer}` : undefined
+      hold: layer != null ? layerLegendSymbol(layer) : undefined
     }
   }
 
@@ -77,14 +174,16 @@ export function resolveBinding(node: KeyBindingNode): ResolvedBinding {
 }
 
 function formatHoldBadge(hold: string): string {
-  const short = HOLD_SHORT[hold] ?? hold
-  return `⧗${short}`
+  const info = modifierHoldForKey(hold) ?? modifierHoldForWrap(hold)
+  if (!info) return `⧗${hold}`
+  return `⧗${keycapLegend(hold, modifierRoleGlyph(info.role))}`
 }
 
 function legendForTap(tap: string): ComposedLegend {
   const fixture = TAP_FIXTURES[tap] ?? TAP_FIXTURES[tap.replace(/^KC_/, '')]
+  const keypad = isKeypadCode(tap)
   if (fixture) {
-    return { ...fixture }
+    return { ...fixture, keypad }
   }
 
   const short = tap.replace(/^KC_/, '')
@@ -94,7 +193,8 @@ function legendForTap(tap: string): ComposedLegend {
       short.slice(0, 1).toUpperCase() || '?'
     ],
     altGr: ['', ''],
-    keycode: tap.startsWith('KC_') ? tap : `KC_${tap}`
+    keycode: tap.startsWith('KC_') ? tap : `KC_${tap}`,
+    keypad
   }
 }
 

@@ -1,11 +1,19 @@
 <script lang="ts">
-  import type { KeyBindingNode, LayoutKey, ParsedKeymap } from '@keymap-editor/keymap-core'
+  import {
+    collectUsedKeycodes,
+    layerLegendSymbol,
+    usedKeycodesRevision,
+    type KeyBindingNode,
+    type LayoutKey,
+    type ParsedKeymap
+  } from '@keymap-editor/keymap-core'
   import {
     getDefinitionsContext,
     setSearchContext,
     type LegendMode,
     type SearchContextValue
   } from '../../context'
+  import { buildSearchContext } from '../../search-context'
   import { getKeyBoundingBox } from '../../key-units'
   import LayerSelector from './LayerSelector.svelte'
   import KeyboardLayout from './KeyboardLayout.svelte'
@@ -23,71 +31,30 @@
   const definitionsBox = getDefinitionsContext()
   const definitions = $derived(definitionsBox.current)
 
-  const searchBox = $state<{ current: SearchContextValue | null }>({
-    current: null
-  })
-  setSearchContext(searchBox)
-
   const layerNames = $derived(
     keymap.layer_names ?? keymap.layers.map((_, i) => `Layer ${i}`)
   )
+  const usedKeycodes = $derived(collectUsedKeycodes(keymap.layers ?? []))
+  const usedRevision = $derived(usedKeycodesRevision(usedKeycodes))
 
   const availableLayers = $derived(
     !keymap?.layers
       ? []
       : keymap.layers.map((_, i) => ({
           code: i,
+          symbol: layerLegendSymbol(i),
           description: layerNames[i] || `Layer ${i}`
         }))
   )
+  const usedLayerLabels = $derived(availableLayers.map(layer => layer.symbol))
 
-  const sources = $derived({
-    kc: (definitions?.keycodes.byCode ?? {}) as Record<string, unknown>,
-    code: (definitions?.keycodes.byCode ?? {}) as Record<string, unknown>,
-    mod: Object.fromEntries(
-      (definitions?.keycodes.list ?? [])
-        .filter(k => k.isModifier)
-        .map(k => [k.code, k])
-    ) as Record<string, unknown>,
-    behaviours: (definitions?.behaviours.byCode ?? {}) as Record<
-      string,
-      unknown
-    >,
-    layer: Object.fromEntries(availableLayers.map(l => [l.code, l])) as Record<
-      string,
-      unknown
-    >
-  })
+  const search = $derived.by((): SearchContextValue =>
+    buildSearchContext(definitions, availableLayers)
+  )
 
-  const searchTargets = $derived({
-    behaviour: definitions?.behaviours.list ?? [],
-    layer: availableLayers,
-    mod: (definitions?.keycodes.list ?? []).filter(k => k.isModifier),
-    code: definitions?.keycodes.list ?? []
-  })
-
-  $effect(() => {
-    const targets = searchTargets
-    const src = sources
-    searchBox.current = {
-      sources: src,
-      getSearchTargets: (param: unknown, behaviour: string | number) => {
-        if (param && typeof param === 'object' && 'enum' in (param as object)) {
-          return ((param as { enum: string[] }).enum || []).map(v => ({
-            code: v
-          }))
-        }
-        if (param === 'command') {
-          const beh = src.behaviours?.[String(behaviour)] as
-            | { commands?: unknown[] }
-            | undefined
-          return beh?.commands ?? []
-        }
-        if (typeof param === 'string' && !(param in targets)) {
-          console.log('cannot find target for', param)
-        }
-        return (targets as Record<string, unknown[]>)[param as string] ?? []
-      }
+  setSearchContext({
+    get current() {
+      return search
     }
   })
 
@@ -178,6 +145,9 @@
       {layout}
       bindings={keymap.layers[activeLayer]}
       {legendMode}
+      {usedKeycodes}
+      {usedRevision}
+      {usedLayerLabels}
       onUpdate={event => handleUpdateLayer(activeLayer, event)}
     />
   {/if}

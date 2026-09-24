@@ -11,6 +11,13 @@ import * as auth from './auth.js'
 
 const MODE_FILE = '100644'
 
+export interface ConfigDirEntry {
+  name: string
+  path: string
+}
+
+export type ConfigDirListing = ReadonlyArray<ConfigDirEntry>
+
 export class MissingRepoFile extends Error {
   path: string
   errors: string[]
@@ -56,12 +63,51 @@ function parseJsonBody(data: unknown): unknown {
   return data
 }
 
-async function fetchKeymapFromDts(
+export async function listConfigDir(
+  token: string,
+  repository: string,
+  branch?: string
+): Promise<ConfigDirEntry[]> {
+  const { data: directory } = await fetchFile(token, repository, 'config', {
+    branch
+  })
+  return directory as ConfigDirEntry[]
+}
+
+export function findCodeKeymap(listing: ConfigDirListing): ConfigDirEntry {
+  const originalCodeKeymap = listing.find(file => isUserKeymapFilename(file.name))
+  if (!originalCodeKeymap) {
+    throw new MissingRepoFile('config/*.keymap')
+  }
+  return originalCodeKeymap
+}
+
+async function findCodeKeymapTemplate(
+  listing: ConfigDirListing,
   installationToken: string,
   repository: string,
   branch?: string
 ) {
-  const originalCodeKeymap = await findCodeKeymap(installationToken, repository, branch)
+  const template = listing.find(file =>
+    file.name.toLowerCase().endsWith('.keymap.template')
+  )
+  if (template) {
+    const { data: content } = await fetchFile(
+      installationToken,
+      repository,
+      template.path,
+      { branch, raw: true }
+    )
+    return content as string
+  }
+}
+
+async function fetchKeymapFromDts(
+  installationToken: string,
+  repository: string,
+  originalCodeKeymap: ConfigDirEntry,
+  branch?: string
+) {
   const { data: source } = await fetchFile(
     installationToken,
     repository,
@@ -80,6 +126,7 @@ async function fetchKeymapFromDts(
 async function fetchKeymap(
   installationToken: string,
   repository: string,
+  originalCodeKeymap: ConfigDirEntry,
   branch?: string
 ) {
   try {
@@ -101,7 +148,7 @@ async function fetchKeymap(
     }
   }
 
-  return fetchKeymapFromDts(installationToken, repository, branch)
+  return fetchKeymapFromDts(installationToken, repository, originalCodeKeymap, branch)
 }
 
 export async function fetchKeyboardFiles(
@@ -118,48 +165,15 @@ export async function fetchKeyboardFiles(
     { raw: true, branch }
   )
   const info = parseJsonBody(infoRaw)
-  const keymap = await fetchKeymap(installationToken, repository, branch)
-  const originalCodeKeymap = await findCodeKeymap(installationToken, repository, branch)
+  const listing = await listConfigDir(installationToken, repository, branch)
+  const originalCodeKeymap = findCodeKeymap(listing)
+  const keymap = await fetchKeymap(
+    installationToken,
+    repository,
+    originalCodeKeymap,
+    branch
+  )
   return { info, keymap, originalCodeKeymap }
-}
-
-export async function findCodeKeymap(
-  installationToken: string,
-  repository: string,
-  branch?: string
-) {
-  const { data: directory } = await fetchFile(installationToken, repository, 'config', {
-    branch
-  })
-  const originalCodeKeymap = (directory as Array<{ name: string; path: string }>).find(
-    file => isUserKeymapFilename(file.name)
-  )
-  if (!originalCodeKeymap) {
-    throw new MissingRepoFile('config/*.keymap')
-  }
-  return originalCodeKeymap
-}
-
-async function findCodeKeymapTemplate(
-  installationToken: string,
-  repository: string,
-  branch?: string
-) {
-  const { data: directory } = await fetchFile(installationToken, repository, 'config', {
-    branch
-  })
-  const template = (directory as Array<{ name: string; path: string }>).find(file =>
-    file.name.toLowerCase().endsWith('.keymap.template')
-  )
-  if (template) {
-    const { data: content } = await fetchFile(
-      installationToken,
-      repository,
-      template.path,
-      { branch, raw: true }
-    )
-    return content as string
-  }
 }
 
 export async function commitChanges(
@@ -171,8 +185,14 @@ export async function commitChanges(
 ) {
   const { data } = await auth.createInstallationToken(installationId)
   const installationToken = (data as { token: string }).token
-  const template = await findCodeKeymapTemplate(installationToken, repository, branch)
-  const originalCodeKeymap = await findCodeKeymap(installationToken, repository, branch)
+  const listing = await listConfigDir(installationToken, repository, branch)
+  const template = await findCodeKeymapTemplate(
+    listing,
+    installationToken,
+    repository,
+    branch
+  )
+  const originalCodeKeymap = findCodeKeymap(listing)
   const { data: originalSourceRaw } = await fetchFile(
     installationToken,
     repository,

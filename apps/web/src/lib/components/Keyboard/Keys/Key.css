@@ -1,3 +1,5 @@
+/* Key face + ZMK param legends (global: .code lives in KeyValue). */
+
 .key {
   position: absolute;
   display: flex;
@@ -8,6 +10,9 @@
   font-size: 110%;
   border-radius: 5px;
   box-sizing: border-box;
+}
+.key[data-editable='true'] {
+  cursor: pointer;
 }
 .key:hover {
   background-color: var(--hover-selection);
@@ -25,27 +30,60 @@
 .key[data-simple='true'] {
   font-size: 140%;
 }
+.key[data-hold-tap='true'] {
+  font-size: 125%;
+}
 .key[data-long='true'] {
-  font-size: 60%;
+  font-size: 85%;
+}
+.key[data-hold-tap='true'] > .params {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.key[data-hold-tap='true'] .param[data-slot='hold'] > .code {
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
+  font-size: 0.78em;
+  padding: 1px 6px;
+  margin: 0;
+}
+.key[data-hold-tap='true'] .param[data-slot='tap'] > .code {
+  font-size: 1.05em;
+}
+.key[data-hold-tap='true']:hover .param[data-slot='hold'] > .code {
+  background: rgba(255, 255, 255, 0.22);
 }
 
-.params:not([data-is-root='true'])::before {
+.params:not([data-is-root='true']):not([data-compact='true'])::before {
   content: '(';
   opacity: 0.4;
   font-weight: bold;
   margin: 2px;
 }
-.params:not([data-is-root='true'])::after {
+.params:not([data-is-root='true']):not([data-compact='true'])::after {
   content: ')';
   opacity: 0.4;
   font-weight: bold;
   margin: 2px;
+}
+.param.compact {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+}
+.param.compact .code {
+  padding-left: 0;
+  padding-right: 0;
+  margin-left: 0;
+  margin-right: 0;
 }
 .params:not([data-is-root='true']) .param:not(:last-child)::after {
   content: ',';
 }
 
 .code {
+  color: #666;
   padding: 0px 4px;
   margin-left: -2px;
   margin-right: -2px;
@@ -57,9 +95,16 @@
   border-radius: 4px;
 }
 
-.code.highlight {
-  background-color: white !important;
-  color: var(--hover-selection) !important;
+.code.keypad {
+  box-shadow: inset 0 0 0 1px rgba(60, 60, 60, 0.5);
+  background: rgba(0, 0, 0, 0.06);
+  padding: 1px 4px;
+  margin-left: 1px;
+  margin-right: 1px;
+}
+.key:hover .code.keypad {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .code * {
@@ -75,12 +120,11 @@
   padding: 2px;
   opacity: 0.5;
 }
-
-.behaviour-binding:hover {
-  cursor: pointer;
-  color: var(--hover-selection) !important;
-  background-color: white;
-  border-radius: 5px 0;
+.behaviour-binding.center {
+  position: static;
+  font-size: inherit;
+  font-variant: normal;
+  padding: 0;
   opacity: 1;
 }
 

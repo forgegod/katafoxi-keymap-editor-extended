@@ -18,7 +18,7 @@ export interface BehaviorCatalog {
   byCode: Record<string, BehaviorDef>
 }
 
-export function loadKeycodesData(): KeycodeDef[] {
+function loadKeycodesData(): KeycodeDef[] {
   return keycodesData as KeycodeDef[]
 }
 

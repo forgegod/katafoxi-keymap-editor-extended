@@ -27,13 +27,27 @@
   }
 </script>
 
-<div style="display:inline-block;width:auto;margin:5px;">
-  <label for={id} style="display:block;width:100%;font-size:120%;color:#555;">
-    {label}
-  </label>
+<div class="selector">
+  <label for={id}>{label}</label>
   <select {id} onchange={handleSelect} value={indexOf(value)}>
     {#each choices as choice, i}
       <option value={i}>{choice.name}</option>
     {/each}
   </select>
 </div>
+
+<style>
+  .selector {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 5px;
+    width: auto;
+  }
+
+  label {
+    font-size: 100%;
+    color: #555;
+    white-space: nowrap;
+  }
+</style>

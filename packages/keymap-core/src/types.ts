@@ -30,7 +30,7 @@ export interface BehaviorDef {
   code: string
   includes?: string[]
   params?: unknown[]
-  commands?: Array<{ code: string; additionalParams?: unknown[] }>
+  commands?: Array<{ code: string; symbol?: string; additionalParams?: unknown[] }>
   [key: string]: unknown
 }
 
@@ -66,6 +66,8 @@ export interface ComposedLegend {
   bilingualNote?: string
   /** Firmware keycode that produced this (gray in LARK sheet) */
   keycode?: string
+  /** Tap is HID keypad (`KP_*`); UI boxes the glyph, host text stays `7`. */
+  keypad?: boolean
 }
 
 /** Tap/hold extracted from a ZMK binding node (before host lookup). */

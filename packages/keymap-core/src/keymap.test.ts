@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { isPrimaryKeymapJson, isUserKeymapFilename } from './keymap.js'
+import {
+  generateKeymap,
+  isPrimaryKeymapJson,
+  isUserKeymapFilename,
+  parseKeymap
+} from './keymap.js'
 
 describe('isPrimaryKeymapJson', () => {
   it('accepts a non-empty valid keymap', () => {
@@ -17,6 +22,22 @@ describe('isPrimaryKeymapJson', () => {
 
   it('rejects null', () => {
     expect(isPrimaryKeymapJson(null)).toBe(false)
+  })
+
+  it('accepts &mkp once the mouse behaviour is in the catalog', () => {
+    expect(isPrimaryKeymapJson({ layers: [['&mkp LCLK']] })).toBe(true)
+  })
+})
+
+describe('generateKeymap mouse includes', () => {
+  it('adds pointing.h once when mouse behaviours are used', () => {
+    const { code } = generateKeymap(
+      [{ x: 0, y: 0 }, { x: 1, y: 0 }],
+      parseKeymap({ layers: [['&mkp LCLK', '&msc SCRL_DOWN']] })
+    )
+    expect(code).toContain('#include <dt-bindings/zmk/pointing.h>')
+    expect(code.match(/dt-bindings\/zmk\/pointing\.h/g)?.length).toBe(1)
+    expect(code).toContain('&mkp LCLK')
   })
 })
 

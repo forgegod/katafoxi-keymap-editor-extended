@@ -7,6 +7,6 @@ alwaysApply: true
 
 - **GitHub-first:** `apps/api` is a thin GitHub gateway (OAuth/App, repo read/write). Do not build product features that require the Node server to manage the user’s disk.
 - **Dev-local only:** Sibling/`zmk-config` layout+keymap HTTP routes are a **development adapter**. Prefer implementing file behavior in `packages/keymap-core` so GitHub (and later browser FS/clipboard) share one contract.
-- **Domain in core:** ZMK parse/generate, DTS import/splice, and compose/legend models belong in `packages/keymap-core`, not only in Svelte components or ad-hoc API helpers.
-- **Vision / ADRs:** Before changing persistence or package roles, read `docs/TARGET_SYSTEM.md`, [ADR 0001](docs/adr/0001-persistence-github-first.md), and [ADR 0002](docs/adr/0002-keymap-file-contract.md) (save paths / JSON / `#define`).
+- **Domain in core:** ZMK parse/generate, DTS import/splice, compose, and **ZMK-mode keycap legends** (`L1`, `⌃`, compact chords, hold-tap) belong in `packages/keymap-core` (`compose.ts`), not only in Svelte components or ad-hoc API helpers.
+- **Vision / ADRs:** Before changing persistence or package roles, read `docs/TARGET_SYSTEM.md`, [ADR 0001](../../docs/adr/0001-persistence-github-first.md), and [ADR 0002](../../docs/adr/0002-keymap-file-contract.md) (save paths / JSON / `#define`).
 - **Round-trip care:** Do not silently replace a custom `.keymap` with the default “THIS FILE WAS GENERATED” template when an existing file or `.keymap.template` can be used. Follow ADR 0002 (`buildKeymapCode` order).

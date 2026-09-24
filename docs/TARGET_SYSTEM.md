@@ -45,9 +45,25 @@ packages/keymap-core   Pure TS — parse/generate/splice .keymap, layout validat
 - **UI** does not own ZMK encode/decode.
 - **API** does not own editor state or compose presentation.
 
+## Key editor
+
+Click a key in **ZMK code** mode. One dialog edits the binding:
+
+- Behaviour chips, then the value list for the active slot. `code` is Keyboard/Keypad, `command` is that behaviour's commands (`&mkp`, `&msc`, `&mmv`, `&bt`, `&out`, …), `layer` and `mod` are the layer or modifier slot (`&mo`, `&mt`, `&lt`).
+- Enter applies a complete binding. Esc cancels. An unfinished hold-tap stays open.
+- Pointing behaviours remind that firmware needs `CONFIG_ZMK_POINTING=y`. The editor only adds `#include <dt-bindings/zmk/pointing.h>`.
+
 ## Keycap / compose (target UX)
 
-- **ZMK mode**: behavior + params (current editor).
+- **ZMK mode**: behavior + params (current editor). Display-only legends — binding tokens stay ZMK (`1`, `LCTRL`, `LC(DEL)`).
+- **ZMK legends (now):** helpers in `packages/keymap-core` `compose.ts` (`layerLegendSymbol`, `keycapLegend`, `isHoldTapBehavior`).
+  - Layers: `L1` (index, not the layer name).
+  - Left modifiers unmarked (`⌃ ⌥ ⌘ ⇧`); right side `R⌃` / `R⌥` / `R⌘` / `R⇧`.
+  - Compact chords drop parens: `LC(DEL)` → `⌃⌦`, `LS(CAPS)` → `⇧⇪`, and a short token `LA(F4)` → `⌥F4`, `LA(TAB)` → `⌥TAB`, `LA(ESC)` → `⌥ESC` (`F1`–`F12`).
+  - Mouse scroll keeps the family prefix: `SCRL⬆` `SCRL⬇` `SCRL⬅` `SCRL➡`. Pause/Break is `⏸`. Tooltip keeps the raw code.
+  - Behaviour on the cap: hide `&kp`; hide `&mt`/`&lt` when the hold-tap pill is shown; `&none` / `&trans` / instant binds are the center legend; other behaviours stay a small corner mark.
+  - Caps Lock `⇪`. Browser back/forward `←` / `→` (not cursor `⏴` `⏵`). Number-row `-` / `=` (not the words `MINUS` / `EQUAL`). Tooltip keeps the raw code.
+  - Keypad (`KP_*`): same glyph as the number row (`7`), boxed. Operators `+ - / *`, plus `KP_ENTER` `⮐`, `KP_DOT` `.`, `KP_EQUAL` `=`. Color is only a light fill. Host composed stays the same glyph.
 - **Composed preview**: quadrant-style host legend (base/shift language pair + AltGr pair + hold badge), driven by a `ComposedLegend` model in core.
 - **Stub today:** `resolveBinding` splits tap/hold (`&kp` / `&mt` / `&lt`); glyphs come from a tiny tap-keycode fixture map. Hold badges attach only when the binding has a hold side — not from letter fixtures. Full `HostLayout` / host editors are post-migration work.
 - Full host-layout editors and XKB/KLC export are product steps *after* round-trip safety and a stable compose model.
@@ -69,6 +85,6 @@ Accepted in [ADR 0002](adr/0002-keymap-file-contract.md):
 
 ## Related docs
 
-- [running-locally.md](../running-locally.md) — how to run the monorepo today
+- [running-locally.md](../running-locally.md) — how to run the monorepo, and how to run `pnpm test` / `pnpm test:e2e`
 - [AGENTS.md](../AGENTS.md) — short guidance for coding agents
 - [adr/](adr/) — architecture decision records

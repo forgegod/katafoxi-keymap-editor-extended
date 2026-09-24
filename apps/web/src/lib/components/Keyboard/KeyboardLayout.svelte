@@ -8,9 +8,20 @@
     bindings: KeyBindingNode[]
     onUpdate: (bindings: KeyBindingNode[]) => void
     legendMode?: LegendMode
+    usedKeycodes?: ReadonlyMap<string, readonly number[]>
+    usedRevision?: string
+    usedLayerLabels?: readonly string[]
   }
 
-  let { layout, bindings, onUpdate, legendMode = 'zmk' }: Props = $props()
+  let {
+    layout,
+    bindings,
+    onUpdate,
+    legendMode = 'zmk',
+    usedKeycodes = new Map(),
+    usedRevision = '',
+    usedLayerLabels = []
+  }: Props = $props()
 
   const normalized = $derived(
     layout.map((_, i) => bindings[i] || { value: '&none', params: [] })
@@ -45,6 +56,9 @@
       label={key.label}
       value={normalized[i].value}
       params={normalized[i].params}
+      {usedKeycodes}
+      {usedRevision}
+      {usedLayerLabels}
       {legendMode}
       onUpdate={bind =>
         handleUpdateBind(i, {

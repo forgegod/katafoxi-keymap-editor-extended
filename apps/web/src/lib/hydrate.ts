@@ -1,4 +1,5 @@
-import { getBehaviourParams } from '@keymap-editor/keymap-core'
+import { getBehaviorCatalog, getBehaviourParams } from '@keymap-editor/keymap-core'
+import { get } from './utils'
 
 export { getBehaviourParams }
 
@@ -6,17 +7,6 @@ export interface HydratedNode {
   value: string | number | undefined
   source?: Record<string, unknown> | null
   params: HydratedNode[]
-}
-
-function get(obj: unknown, path: string, fallback?: unknown): unknown {
-  if (obj == null) return fallback
-  const parts = path.replace(/\[(\d+)\]/g, '.$1').split('.')
-  let cur: unknown = obj
-  for (const part of parts) {
-    if (cur == null || typeof cur !== 'object') return fallback
-    cur = (cur as Record<string, unknown>)[part]
-  }
-  return cur === undefined ? fallback : cur
 }
 
 function keyBy<T extends Record<string, unknown>>(
@@ -62,58 +52,14 @@ export function childCodeIndex(
   return offset
 }
 
-export function isSimple(normalized: HydratedNode): boolean {
-  const [first] = normalized.params
-  const symbol = String(
-    get(first, 'source.symbol', get(first, 'source.code', '')) ?? ''
-  )
-  const shortSymbol = symbol.length === 1
-  const singleParam = normalized.params.length === 1
-  return singleParam && shortSymbol
-}
-
-export function isComplex(
-  normalized: HydratedNode,
-  behaviourParams: unknown[]
-): boolean {
-  const [first] = normalized.params
-  const symbol = String(
-    get(first, 'source.symbol', get(first, 'value', '')) ?? ''
-  )
-  const isLongSymbol = symbol.length > 4
-  const isMultiParam = behaviourParams.length > 1
-  const isNestedParam = ((get(first, 'params', []) as unknown[]) || []).length > 0
-
-  return isLongSymbol || isMultiParam || isNestedParam
-}
-
-export function createPromptMessage(param: unknown): string {
-  const promptMapping: Record<string, string> = {
-    layer: 'Select layer',
-    mod: 'Select modifier',
-    behaviour: 'Select behaviour',
-    command: 'Select command',
-    keycode: 'Select key code'
-  }
-
-  if (param && typeof param === 'object' && 'name' in param && (param as { name?: string }).name) {
-    return `Select ${(param as { name: string }).name}`
-  }
-
-  if (typeof param === 'string') {
-    return promptMapping[param] || promptMapping.keycode
-  }
-
-  return promptMapping.keycode
-}
-
 export function hydrateTree(
   value: string | number,
   params: Array<{ value?: string | number; params?: unknown[] }>,
   sources: Record<string, Record<string, unknown>>
 ): HydratedNode {
   const bind = value
-  const behaviour = sources.behaviours?.[String(bind)] as
+  const behaviour = (sources.behaviours?.[String(bind)] ??
+    getBehaviorCatalog().byCode[String(bind)]) as
     | { commands?: Array<{ code: string }>; params?: unknown[] }
     | undefined
   const behaviourParams = getBehaviourParams(params, behaviour)
