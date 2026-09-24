@@ -165,4 +165,110 @@ describe('editor publish / draft persistence', () => {
     })
     expect(editor.isDirty).toBe(false)
   })
+
+  it('races two selectKeyboard calls so the later generation wins', async () => {
+    const larkIdentity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
+    await saveStoredDraft(larkIdentity, km('Z'))
+
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    const first = editor.selectKeyboard({
+      source: 'local',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A')
+    })
+    await editor.selectKeyboard({
+      source: 'local',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A', 'other')
+    })
+    await first
+
+    expect(confirm).not.toHaveBeenCalled()
+    expect(editor.draftKeymap!.keyboard).toBe('other')
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('A')
+    expect(editor.isDirty).toBe(false)
+
+    confirm.mockRestore()
+  })
+
+  it('keeps live dirty edits when reselecting the same keyboard', async () => {
+    const identity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
+    await saveStoredDraft(identity, km('Z'))
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    const selection = {
+      source: 'local',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A')
+    }
+
+    await editor.selectKeyboard(selection)
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('Z')
+
+    editor.updateKeymap(km('M'))
+    expect(editor.isDirty).toBe(true)
+
+    await editor.selectKeyboard(selection)
+
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('M')
+    expect(editor.isDirty).toBe(true)
+
+    confirm.mockRestore()
+  })
+
+  it('deletes a stale clean IDB record without prompting', async () => {
+    const identity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
+    await saveStoredDraft(identity, km('A'))
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    await editor.selectKeyboard({
+      source: 'local',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A')
+    })
+
+    expect(confirm).not.toHaveBeenCalled()
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('A')
+    expect(editor.isDirty).toBe(false)
+    expect(await loadStoredDraft(identity)).toBeNull()
+
+    confirm.mockRestore()
+  })
+
+  it('clears redo when a new edit follows undo', async () => {
+    await editor.selectKeyboard({
+      source: 'local',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A')
+    })
+    editor.updateKeymap(km('M'))
+    editor.undo()
+    expect(editor.canRedo).toBe(true)
+
+    editor.updateKeymap(km('X'))
+    expect(editor.canRedo).toBe(false)
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('X')
+  })
+
+  it('caps undo history at 50 steps', async () => {
+    await editor.selectKeyboard({
+      source: 'local',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('BASE')
+    })
+
+    for (let i = 1; i <= 51; i++) {
+      editor.updateKeymap(km(`E${i}`))
+    }
+
+    for (let i = 0; i < 50; i++) {
+      editor.undo()
+    }
+
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('E1')
+    expect(editor.canUndo).toBe(false)
+  })
 })
