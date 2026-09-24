@@ -1,13 +1,11 @@
 <script lang="ts">
   import {
-    customHostLegendView,
     hostLayoutChoice,
     hostLayoutChoices,
     hostLegendFor,
     hostLegendPreview,
     getKeycodeCatalog,
-    hostLegendView,
-    standardHostLegendView
+    hostLegendView
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
   import EyeToggle from './EyeToggle.svelte'
@@ -29,17 +27,12 @@
     return aliases.reduce((best, name) => (name.length > best.length ? name : best))
   }
 
-  function chooseSource(source: 'standard' | 'custom') {
-    editor.hostLegend =
-      source === 'standard' ? standardHostLegendView() : customHostLegendView(view)
-  }
-
   function chooseBase(id: string) {
-    editor.hostLegend = hostLegendView(view, { baseId: id })
+    void editor.commitHostMap(hostLegendView(view, { baseId: id }))
   }
 
   function chooseSecond(id: string) {
-    editor.hostLegend = hostLegendView(view, { secondId: id })
+    void editor.commitHostMap(hostLegendView(view, { secondId: id }))
   }
 
   function toggleBase() {
@@ -55,9 +48,11 @@
       editor.hostLegend = hostLegendPreview(view, { secondVisible: true })
       return
     }
-    editor.hostLegend = hostLegendPreview(hostLegendView(view, { secondId: secondId }), {
-      secondVisible: true
-    })
+    void editor.commitHostMap(
+      hostLegendPreview(hostLegendView(view, { secondId: secondId }), {
+        secondVisible: true
+      })
+    )
   }
 
   function toggleLayer(index: number) {
@@ -67,7 +62,7 @@
   }
 
   function toggleAlt(field: 'altGr' | 'altGrShift') {
-    editor.hostLegend = hostLegendView(view, { [field]: !view[field] })
+    void editor.commitHostMap(hostLegendView(view, { [field]: !view[field] }))
   }
 
   function closeDetails(event: Event) {
@@ -89,28 +84,6 @@
 </script>
 
 <div class="host-legend-strip" aria-label="Host legend">
-  <fieldset class="source">
-    <legend>Источник</legend>
-    <label>
-      <input
-        type="radio"
-        name="host-source"
-        checked={view.source === 'standard'}
-        onchange={() => chooseSource('standard')}
-      />
-      Стандартные
-    </label>
-    <label>
-      <input
-        type="radio"
-        name="host-source"
-        checked={view.source === 'custom'}
-        onchange={() => chooseSource('custom')}
-      />
-      Своя
-    </label>
-  </fieldset>
-
   <table>
     <thead>
       <tr>
@@ -268,29 +241,6 @@
     padding: 6px 4px 2px;
     font-size: 13px;
     color: #444;
-  }
-
-  fieldset {
-    margin: 0;
-    padding: 0;
-    border: 0;
-  }
-
-  legend {
-    padding: 0;
-    margin-bottom: 4px;
-    font-size: 11px;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: #777;
-  }
-
-  .source label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin: 2px 0;
-    cursor: pointer;
   }
 
   table {

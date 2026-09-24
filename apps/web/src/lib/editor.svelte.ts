@@ -26,8 +26,24 @@ import {
   saveStoredDraft,
   type DraftIdentity
 } from './draft-storage'
+import {
+  STANDARD_HOST_PROFILE_ID,
+  hostLegendWithMap,
+  hostProfileMap,
+  loadActiveHostProfileId,
+  loadHostProfiles,
+  sameHostProfileMap,
+  saveActiveHostProfileId,
+  saveHostProfile,
+  standardHostProfileMap,
+  type HostProfile
+} from './host-profiles'
 
 export type LegendMode = 'zmk' | 'composed'
+
+export type HostProfilePrompt =
+  | { kind: 'fork'; next: HostLegendView }
+  | { kind: 'save-as' }
 
 export type SaveNotice = {
   kind: 'warning' | 'error'
@@ -113,6 +129,10 @@ class EditorState {
   legendMode = $state<LegendMode>('zmk')
   /** View over the host profile. It does not edit the keymap. */
   hostLegend = $state<HostLegendView>(standardHostLegendView())
+  hostProfiles = $state<HostProfile[]>([])
+  activeHostProfileId = $state(STANDARD_HOST_PROFILE_ID)
+  hostProfilePrompt = $state<HostProfilePrompt | null>(null)
+  hostProfileNote = $state<string | null>(null)
   legendHover = $state<LegendHover | null>(null)
   saveNotice = $state<SaveNotice | null>(null)
 
@@ -175,6 +195,132 @@ class EditorState {
       keycodes: getKeycodeCatalog(),
       behaviours: getBehaviorCatalog()
     }
+  }
+
+  /** Restore named host profiles. Failures leave the standard profile. */
+  async restoreHostProfiles() {
+    try {
+      const profiles = await loadHostProfiles()
+      const activeId = await loadActiveHostProfileId()
+      this.hostProfiles = profiles
+      const active = profiles.find(profile => profile.id === activeId)
+      if (!active) {
+        this.activeHostProfileId = STANDARD_HOST_PROFILE_ID
+        this.hostLegend = standardHostLegendView()
+        return
+      }
+      this.activeHostProfileId = active.id
+      this.hostLegend = hostLegendWithMap(
+        standardHostLegendView(),
+        active.map,
+        'custom'
+      )
+    } catch {
+      this.hostProfiles = []
+      this.activeHostProfileId = STANDARD_HOST_PROFILE_ID
+      this.hostLegend = standardHostLegendView()
+    }
+  }
+
+  /**
+   * Apply a language or AltGr change.
+   * The standard profile is immutable: the first divergence asks for a name.
+   * A named profile stores the new map immediately.
+   */
+  commitHostMap(next: HostLegendView): Promise<void> {
+    const map = hostProfileMap(next)
+    if (this.activeHostProfileId === STANDARD_HOST_PROFILE_ID) {
+      if (sameHostProfileMap(map, standardHostProfileMap())) {
+        this.hostLegend = { ...next, source: 'standard' }
+        return Promise.resolve()
+      }
+      this.hostProfileNote = null
+      this.hostProfilePrompt = { kind: 'fork', next }
+      return Promise.resolve()
+    }
+    const current = this.hostProfiles.find(
+      profile => profile.id === this.activeHostProfileId
+    )
+    if (!current) {
+      this.hostProfileNote = null
+      this.hostProfilePrompt = { kind: 'fork', next }
+      return Promise.resolve()
+    }
+    this.hostLegend = { ...next, source: 'custom' }
+    if (sameHostProfileMap(map, current.map)) return Promise.resolve()
+    const updated: HostProfile = { ...current, map, updatedAt: Date.now() }
+    this.hostProfiles = this.hostProfiles.map(profile =>
+      profile.id === updated.id ? updated : profile
+    )
+    return saveHostProfile(updated)
+  }
+
+  selectHostProfile(id: string): Promise<void> {
+    if (id === this.activeHostProfileId) return Promise.resolve()
+    this.hostProfilePrompt = null
+    this.hostProfileNote = null
+    if (id === STANDARD_HOST_PROFILE_ID) {
+      this.activeHostProfileId = id
+      this.hostLegend = hostLegendWithMap(
+        this.hostLegend,
+        standardHostProfileMap(),
+        'standard'
+      )
+      return saveActiveHostProfileId(id)
+    }
+    const profile = this.hostProfiles.find(item => item.id === id)
+    if (!profile) return Promise.resolve()
+    this.activeHostProfileId = id
+    this.hostLegend = hostLegendWithMap(this.hostLegend, profile.map, 'custom')
+    return saveActiveHostProfileId(id)
+  }
+
+  beginSaveHostProfile() {
+    this.hostProfileNote = null
+    this.hostProfilePrompt = { kind: 'save-as' }
+  }
+
+  cancelHostProfilePrompt() {
+    this.hostProfilePrompt = null
+  }
+
+  /** Returns an error message, or null when the profile was stored. */
+  async confirmHostProfileName(raw: string): Promise<string | null> {
+    const prompt = this.hostProfilePrompt
+    if (!prompt) return null
+    const name = raw.trim()
+    if (!name) return 'Введите имя профиля'
+    if (name.toLocaleLowerCase('ru') === 'стандарт') {
+      return 'Имя «Стандарт» занято встроенным профилем'
+    }
+    const taken = this.hostProfiles.some(
+      profile => profile.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru')
+    )
+    if (taken) return 'Профиль с таким именем уже есть'
+    const map =
+      prompt.kind === 'fork'
+        ? hostProfileMap(prompt.next)
+        : hostProfileMap(this.hostLegend)
+    const profile: HostProfile = {
+      id: crypto.randomUUID(),
+      name,
+      map,
+      updatedAt: Date.now()
+    }
+    this.hostProfiles = [...this.hostProfiles, profile]
+    this.activeHostProfileId = profile.id
+    this.hostLegend =
+      prompt.kind === 'fork'
+        ? { ...prompt.next, source: 'custom' }
+        : hostLegendWithMap(this.hostLegend, map, 'custom')
+    this.hostProfilePrompt = null
+    await saveHostProfile(profile)
+    await saveActiveHostProfileId(profile.id)
+    return null
+  }
+
+  showHostProfileStub(note: string) {
+    this.hostProfileNote = this.hostProfileNote === note ? null : note
   }
 
   beginPublish(): number {
@@ -456,6 +602,10 @@ class EditorState {
     this.saving = false
     this.legendMode = 'zmk'
     this.hostLegend = standardHostLegendView()
+    this.hostProfiles = []
+    this.activeHostProfileId = STANDARD_HOST_PROFILE_ID
+    this.hostProfilePrompt = null
+    this.hostProfileNote = null
     this.legendHover = null
     this.saveNotice = null
   }
