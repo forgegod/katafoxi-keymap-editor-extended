@@ -123,14 +123,17 @@ class EditorState {
    */
   #handledDraftIdentityKey: string | null = null
 
+  #changes = $derived.by(() => {
+    if (!this.baselineKeymap || !this.draftKeymap) return []
+    return diffKeymaps(this.baselineKeymap, this.draftKeymap)
+  })
+
   get isDirty(): boolean {
-    if (!this.baselineKeymap || !this.draftKeymap) return false
-    return diffKeymaps(this.baselineKeymap, this.draftKeymap).length > 0
+    return this.#changes.length > 0
   }
 
   get changes(): KeymapChange[] {
-    if (!this.baselineKeymap || !this.draftKeymap) return []
-    return diffKeymaps(this.baselineKeymap, this.draftKeymap)
+    return this.#changes
   }
 
   get dirtySummary(): string {
@@ -358,7 +361,7 @@ class EditorState {
           : stack
       this.redoStack = []
     }
-    this.draftKeymap = cloneParsedKeymap(next)
+    this.draftKeymap = next
     this.schedulePersist()
   }
 

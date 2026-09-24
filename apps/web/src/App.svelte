@@ -10,10 +10,10 @@
   import GitHubLink from './lib/components/GitHubLink.svelte'
   import Loader from './lib/components/Common/Loader.svelte'
   import github from './lib/github/api.svelte.js'
-  import type {
-    KeymapChange,
-    LayoutKey,
-    ParsedKeymap
+  import {
+    formatKeymapChange,
+    type LayoutKey,
+    type ParsedKeymap
   } from '@keymap-editor/keymap-core'
 
   // Proxy so context consumers stay reactive to editor.definitions ($state).
@@ -27,19 +27,6 @@
   })
 
   let changesOpen = $state(false)
-
-  function formatChange(change: KeymapChange): string {
-    switch (change.type) {
-      case 'binding':
-        return `L${change.layer} key ${change.index}: ${change.before || '(empty)'} → ${change.after || '(empty)'}`
-      case 'layer_rename':
-        return `L${change.layer}: ${change.before} → ${change.after}`
-      case 'layer_add':
-        return `L${change.layer} added: ${change.name}`
-      case 'layer_remove':
-        return `L${change.layer} removed: ${change.name}`
-    }
-  }
 
   function isEditableFocus(target: EventTarget | null): boolean {
     if (!(target instanceof HTMLElement)) return false
@@ -254,7 +241,7 @@
               {#if changesOpen}
                 <ul class="change-list" role="list">
                   {#each editor.changes as change}
-                    <li>{formatChange(change)}</li>
+                    <li>{formatKeymapChange(change)}</li>
                   {/each}
                 </ul>
               {/if}

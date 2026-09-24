@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   diffKeymaps,
+  formatKeymapChange,
   keymapsAreEqual,
   summarizeKeymapDiff
 } from './keymap-diff.js'
@@ -80,6 +81,34 @@ describe('diffKeymaps', () => {
     expect(diffKeymaps(a, removed)).toEqual([
       { type: 'layer_remove', layer: 1, name: 'Nav' }
     ])
+  })
+})
+
+describe('formatKeymapChange', () => {
+  it('names bindings and layer edits', () => {
+    expect(
+      formatKeymapChange({
+        type: 'binding',
+        layer: 0,
+        index: 2,
+        before: '&kp A',
+        after: ''
+      })
+    ).toBe('L0 key 2: &kp A → (empty)')
+    expect(
+      formatKeymapChange({
+        type: 'layer_rename',
+        layer: 1,
+        before: 'Nav',
+        after: 'Navigation'
+      })
+    ).toBe('L1: Nav → Navigation')
+    expect(formatKeymapChange({ type: 'layer_add', layer: 2, name: 'Sym' })).toBe(
+      'L2 added: Sym'
+    )
+    expect(
+      formatKeymapChange({ type: 'layer_remove', layer: 1, name: 'Nav' })
+    ).toBe('L1 removed: Nav')
   })
 })
 
