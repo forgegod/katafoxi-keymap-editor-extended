@@ -1,4 +1,5 @@
 import {
+  behaviorKeycapRole,
   getBehaviourParams,
   isCompactKeycapLegend,
   isCompactModifierChord,
@@ -115,6 +116,13 @@ export function isComplex(
   behaviourParams: unknown[]
 ): boolean {
   if (isCompactHoldTap(normalized)) return false
+  if (
+    behaviorKeycapRole(normalized.value, {
+      paramCount: normalized.params.length
+    }) === 'center'
+  ) {
+    return String(normalized.value ?? '').length > 4
+  }
   const [first] = normalized.params
   const symbol = nodeLegend(first)
   const isLongSymbol = symbol.length > 4

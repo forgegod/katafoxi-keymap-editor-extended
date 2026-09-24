@@ -134,6 +134,25 @@ export function isHoldTapBehavior(code: string | number | undefined | null): boo
   return value === '&mt' || value === '&lt'
 }
 
+/**
+ * Where the behaviour token belongs on a ZMK-mode key.
+ * `&kp` is the default and stays off the cap; hold-tap is the pill;
+ * parameterless binds (`&none`, `&trans`, `&caps_word`) are the legend.
+ */
+export type BehaviorKeycapRole = 'hidden' | 'corner' | 'center'
+
+export function behaviorKeycapRole(
+  code?: string | number | null,
+  opts?: { paramCount?: number; holdTapVisible?: boolean }
+): BehaviorKeycapRole {
+  const value = String(code ?? '')
+  if (!value) return 'hidden'
+  if (value === '&kp') return 'hidden'
+  if (isHoldTapBehavior(value) && opts?.holdTapVisible) return 'hidden'
+  if ((opts?.paramCount ?? 0) === 0) return 'center'
+  return 'corner'
+}
+
 export function isHoldTapParam(param: unknown): boolean {
   return param === 'mod' || param === 'layer'
 }

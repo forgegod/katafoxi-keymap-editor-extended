@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    behaviorKeycapRole,
     composeKey,
     encodeKeyBinding,
     isHoldTapBehavior,
@@ -112,6 +113,15 @@
     })
   })
   const showComposed = $derived(legendMode === 'composed' && composedLegend != null)
+  const holdTapVisible = $derived(
+    isHoldTapBehavior(value) && normalized.params.length === 2
+  )
+  const behaviorRole = $derived(
+    behaviorKeycapRole(value, {
+      paramCount: normalized.params.length,
+      holdTapVisible
+    })
+  )
 
   function toBindingNode(node: HydratedNode): KeyBindingNode {
     return {
@@ -230,7 +240,8 @@
   data-h={size.h}
   data-simple={isSimple(normalized)}
   data-long={isComplex(normalized, behaviourParams)}
-  data-hold-tap={isHoldTapBehavior(value) && normalized.params.length === 2}
+  data-hold-tap={holdTapVisible}
+  data-behavior={behaviorRole}
   data-editable={canEdit}
   style={Object.entries(positioningStyle)
     .map(([k, v]) => `${k.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`)}:${v}`)
@@ -242,15 +253,19 @@
       <KeyCap legend={composedLegend} mode="composed" />
     </div>
   {:else}
-    {#if behaviour}
+    {#if behaviour && behaviorRole !== 'hidden'}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
-      <span class="behaviour-binding" onclick={handleSelectBehaviour}>
+      <span
+        class="behaviour-binding"
+        class:center={behaviorRole === 'center'}
+        onclick={handleSelectBehaviour}
+      >
         {String(behaviour.code ?? '')}
       </span>
     {/if}
     <KeyParamlist
       root={true}
-      holdTap={isHoldTapBehavior(value) && normalized.params.length === 2}
+      holdTap={holdTapVisible}
       parentCodeIndex={0}
       params={behaviourParams}
       values={normalized.params}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  behaviorKeycapRole,
   composeKey,
   isCompactKeycapLegend,
   isCompactModifierChord,
@@ -133,6 +134,29 @@ describe('resolveBinding / composeKey', () => {
   it('returns null for &trans / &none', () => {
     expect(composeKey({ binding: parseKeyBinding('&trans') })).toBeNull()
     expect(composeKey({ binding: parseKeyBinding('&none') })).toBeNull()
+  })
+})
+
+describe('behaviorKeycapRole', () => {
+  it('hides the default &kp and hold-tap when the pill is visible', () => {
+    expect(behaviorKeycapRole('&kp', { paramCount: 1 })).toBe('hidden')
+    expect(
+      behaviorKeycapRole('&mt', { paramCount: 2, holdTapVisible: true })
+    ).toBe('hidden')
+    expect(
+      behaviorKeycapRole('&lt', { paramCount: 2, holdTapVisible: true })
+    ).toBe('hidden')
+  })
+
+  it('puts parameterless binds in the center and the rest in the corner', () => {
+    expect(behaviorKeycapRole('&none', { paramCount: 0 })).toBe('center')
+    expect(behaviorKeycapRole('&trans', { paramCount: 0 })).toBe('center')
+    expect(behaviorKeycapRole('&caps_word', { paramCount: 0 })).toBe('center')
+    expect(behaviorKeycapRole('&mo', { paramCount: 1 })).toBe('corner')
+    expect(behaviorKeycapRole('&sk', { paramCount: 1 })).toBe('corner')
+    expect(
+      behaviorKeycapRole('&mt', { paramCount: 2, holdTapVisible: false })
+    ).toBe('corner')
   })
 })
 

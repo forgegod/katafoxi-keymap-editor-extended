@@ -99,6 +99,11 @@ describe('isCompactHoldTap', () => {
 })
 
 describe('isComplex', () => {
+  it('shrinks long center behaviours', () => {
+    expect(isComplex({ value: '&none', params: [] }, [])).toBe(true)
+    expect(isComplex({ value: '&trans', params: [] }, [])).toBe(true)
+  })
+
   it('does not shrink compact LC(DEL)', () => {
     expect(
       isComplex(

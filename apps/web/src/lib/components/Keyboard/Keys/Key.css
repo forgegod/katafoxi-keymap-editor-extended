@@ -112,6 +112,13 @@
   padding: 2px;
   opacity: 0.5;
 }
+.behaviour-binding.center {
+  position: static;
+  font-size: inherit;
+  font-variant: normal;
+  padding: 0;
+  opacity: 1;
+}
 
 .key .keycap-wrap {
   width: 100%;
