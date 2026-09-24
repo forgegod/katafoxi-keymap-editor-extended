@@ -1,0 +1,13 @@
+---
+description: Do not work around empty Vite CSS HMR by inlining sidecar stylesheets
+globs: apps/web/**/*.{css,svelte}
+alwaysApply: true
+---
+
+# Vite sidecar CSS must stay a file
+
+Sidecar styles (`Key.css` imported from `Key.svelte`) exist so global rules (`.key`, `.code`, `.params`) stay out of the component. That split is intentional.
+
+If Vite HMR serves empty CSS (`const __vite__css = ""`, keys lose `position: absolute` and fall into document flow), **fix the toolchain**. Do not merge the stylesheet into `<style>` / `:global(...)` and do not delete the sidecar to “make HMR work”.
+
+Solve it: hard-reload the page; save or rewrite the `.css` file so Vite re-transforms it; clear `apps/web/node_modules/.vite`; restart `pnpm dev`. Confirm the module is non-empty (`curl` the CSS URL and check `__vite__css`). Keep iterating on the cache/dev server until the file applies. Report if it still empties after a restart — that is a Vite bug to fix, not a reason to change the layout.

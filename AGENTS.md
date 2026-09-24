@@ -27,6 +27,7 @@ Use **pnpm** workspaces. Dev: `pnpm dev` (API `127.0.0.1:8080`, Vite `127.0.0.1:
 - Put ZMK encode/decode, compose math, or keycap-legend formatting only inside Svelte components.
 - Assume `POST /keymap` sibling-folder save is how end users will work long-term.
 - Silently overwrite a user’s `.keymap` preamble (`#define`, includes, behavior stubs) with the default generated template when a safer path exists (see ADR 0002).
+- Work around empty Vite CSS HMR (`__vite__css = ""`) by inlining a sidecar `.css` into the Svelte component. Restart/clear the Vite cache and keep the file split. See [`.cursor/rules/vite-css.mdc`](.cursor/rules/vite-css.mdc).
 
 ## Docs map
 
