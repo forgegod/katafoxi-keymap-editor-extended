@@ -1,4 +1,5 @@
 /* Key face + ZMK param legends (global: .code lives in KeyValue). */
+
 .key {
   position: absolute;
   display: flex;
@@ -70,6 +71,12 @@
   display: inline-flex;
   align-items: baseline;
   gap: 0;
+}
+.param.compact .code {
+  padding-left: 0;
+  padding-right: 0;
+  margin-left: 0;
+  margin-right: 0;
 }
 .params:not([data-is-root='true']) .param:not(:last-child)::after {
   content: ',';
