@@ -734,6 +734,7 @@
   },
   {
     "names": ["BACKSPACE", "BSPC"],
+    "symbol": "⌫",
     "description": "Backspace",
     "context": "Keyboard",
     "clarify": false,
@@ -1153,6 +1154,7 @@
   },
   {
     "names": ["CAPSLOCK", "CAPS", "CLCK"],
+    "symbol": "⇪",
     "description": "Caps Lock",
     "context": "Keyboard",
     "clarify": false,
@@ -1438,6 +1440,7 @@
   },
   {
     "names": ["DELETE", "DEL"],
+    "symbol": "⌦",
     "description": "Delete",
     "context": "Keyboard",
     "clarify": false,
@@ -2869,6 +2872,7 @@
   },
   {
     "names": ["LEFT_CONTROL", "LCTRL", "LC(code)"],
+    "symbol": "⌃",
     "description": "Left Control",
     "context": "Keyboard",
     "clarify": false,
@@ -2942,6 +2946,7 @@
   },
   {
     "names": ["RIGHT_CONTROL", "RCTRL", "RC(code)"],
+    "symbol": "⌃",
     "description": "Right Control",
     "context": "Keyboard",
     "clarify": false,
@@ -3150,6 +3155,7 @@
   },
   {
     "names": ["K_BACK"],
+    "symbol": "←",
     "description": "Back",
     "context": "Keyboard",
     "clarify": true,
@@ -3165,6 +3171,7 @@
   },
   {
     "names": ["K_FORWARD"],
+    "symbol": "→",
     "description": "Forward",
     "context": "Keyboard",
     "clarify": true,
@@ -5180,6 +5187,7 @@
   },
   {
     "names": ["C_AC_BACK"],
+    "symbol": "←",
     "description": "Back",
     "context": "Consumer AC",
     "clarify": true,
@@ -5195,6 +5203,7 @@
   },
   {
     "names": ["C_AC_FORWARD"],
+    "symbol": "→",
     "description": "Forward",
     "context": "Consumer AC",
     "clarify": true,

@@ -21,19 +21,90 @@ const TAP_FIXTURES: Record<string, Omit<ComposedLegend, 'hold'>> = {
   J: { primary: ['j', 'О'], altGr: ['ˬ', 'ξ'], keycode: 'KC_J' }
 }
 
-const HOLD_SHORT: Record<string, string> = {
-  LCTRL: 'LC',
-  LSHFT: 'LS',
-  LALT: 'LA',
-  LGUI: 'LG',
-  RCTRL: 'RC',
-  RSHFT: 'RS',
-  RALT: 'RA',
-  RGUI: 'RG',
-  LC: 'LC',
-  LS: 'LS',
-  LA: 'LA',
-  LG: 'LG'
+/** Compact layer index for key legends (`1` → `L1`). Binding value stays numeric. */
+export function layerLegendSymbol(index: number | string): string {
+  return `L${index}`
+}
+
+export function isLayerLegendSymbol(text: string): boolean {
+  return /^L\d+$/.test(text)
+}
+
+/** Role glyphs shared by L/R modifiers. Right side is prefixed at display time. */
+const ROLE_GLYPHS = new Set(['⌃', '⇧', '⌥', '⌘'])
+
+function isRightModifierCode(code: string): boolean {
+  const upper = code.toUpperCase()
+  return (
+    /^(RC|RS|RA|RG)$/.test(upper) ||
+    /^(RCTRL|RSHFT|RSHIFT|RALT|RGUI|RCMD|RWIN|RMETA)$/.test(upper) ||
+    /^RIGHT[_-]/.test(upper)
+  )
+}
+
+/**
+ * Keycap / ZMK-mode legend: left modifiers stay the role glyph,
+ * right modifiers become `R⌃` / `R⌥` / `R⌘` / `R⇧`.
+ */
+export function keycapLegend(
+  code?: string | number | null,
+  symbol?: string | number | null
+): string {
+  const rawCode = code == null ? '' : String(code)
+  const glyph = symbol == null ? '' : String(symbol).trim()
+  const base = glyph || rawCode
+  if (isRightModifierCode(rawCode) && ROLE_GLYPHS.has(glyph)) {
+    return `R${glyph}`
+  }
+  return base
+}
+
+export function isCompactKeycapLegend(text: string): boolean {
+  return (
+    text.length === 1 ||
+    isLayerLegendSymbol(text) ||
+    /^R[⌃⇧⌥⌘]$/.test(text)
+  )
+}
+
+const MOD_WRAP_RE = /^(LS|RS|LC|RC|LA|RA|LG|RG)$/i
+
+/** `LC(DEL)` / `RC(BSPC)` — wrap + one short key, no deeper nest. */
+export function isCompactModifierChord(
+  wrapCode: string | number | undefined | null,
+  innerLegend: string
+): boolean {
+  return MOD_WRAP_RE.test(String(wrapCode ?? '')) && isCompactKeycapLegend(innerLegend)
+}
+
+/** Role glyph only; `keycapLegend` adds the `R` prefix for the right side. */
+const HOLD_ROLE_GLYPH: Record<string, string> = {
+  LCTRL: '⌃',
+  LSHFT: '⇧',
+  LALT: '⌥',
+  LGUI: '⌘',
+  RCTRL: '⌃',
+  RSHFT: '⇧',
+  RALT: '⌥',
+  RGUI: '⌘',
+  LC: '⌃',
+  LS: '⇧',
+  LA: '⌥',
+  LG: '⌘',
+  RC: '⌃',
+  RS: '⇧',
+  RA: '⌥',
+  RG: '⌘'
+}
+
+/** `&mt` / `&lt` — first param is hold, second is tap. */
+export function isHoldTapBehavior(code: string | number | undefined | null): boolean {
+  const value = String(code ?? '')
+  return value === '&mt' || value === '&lt'
+}
+
+export function isHoldTapParam(param: unknown): boolean {
+  return param === 'mod' || param === 'layer'
 }
 
 /**
@@ -68,7 +139,7 @@ export function resolveBinding(node: KeyBindingNode): ResolvedBinding {
     const tap = node.params[1]?.value
     return {
       tap: tap != null ? String(tap) : null,
-      hold: layer != null ? `L${layer}` : undefined
+      hold: layer != null ? layerLegendSymbol(layer) : undefined
     }
   }
 
@@ -77,8 +148,8 @@ export function resolveBinding(node: KeyBindingNode): ResolvedBinding {
 }
 
 function formatHoldBadge(hold: string): string {
-  const short = HOLD_SHORT[hold] ?? hold
-  return `⧗${short}`
+  const glyph = HOLD_ROLE_GLYPH[hold]
+  return `⧗${glyph ? keycapLegend(hold, glyph) : hold}`
 }
 
 function legendForTap(tap: string): ComposedLegend {

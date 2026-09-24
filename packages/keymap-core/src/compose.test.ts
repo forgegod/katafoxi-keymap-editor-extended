@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
   composeKey,
+  isCompactKeycapLegend,
+  isCompactModifierChord,
+  isHoldTapBehavior,
+  isHoldTapParam,
+  isLayerLegendSymbol,
+  keycapLegend,
+  layerLegendSymbol,
   formatLegendCompact,
   parseKeyBinding,
   parseKeymap,
@@ -92,7 +99,7 @@ describe('resolveBinding / composeKey', () => {
 
     const mt = composeKey({ binding: parseKeyBinding('&mt LCTRL J') })
     expect(mt?.primary).toEqual(['j', 'О'])
-    expect(mt?.hold).toBe('⧗LC')
+    expect(mt?.hold).toBe('⧗⌃')
   })
 
   it('resolves &lt layer as hold badge', () => {
@@ -104,5 +111,62 @@ describe('resolveBinding / composeKey', () => {
   it('returns null for &trans / &none', () => {
     expect(composeKey({ binding: parseKeyBinding('&trans') })).toBeNull()
     expect(composeKey({ binding: parseKeyBinding('&none') })).toBeNull()
+  })
+})
+
+describe('isHoldTapBehavior', () => {
+  it('marks &mt and &lt hold/tap params', () => {
+    expect(isHoldTapBehavior('&mt')).toBe(true)
+    expect(isHoldTapBehavior('&lt')).toBe(true)
+    expect(isHoldTapBehavior('&kp')).toBe(false)
+    expect(isHoldTapParam('mod')).toBe(true)
+    expect(isHoldTapParam('layer')).toBe(true)
+    expect(isHoldTapParam('code')).toBe(false)
+  })
+})
+
+describe('keycapLegend', () => {
+  it('leaves left modifiers unmarked and marks the right side', () => {
+    expect(keycapLegend('LCTRL', '⌃')).toBe('⌃')
+    expect(keycapLegend('RCTRL', '⌃')).toBe('R⌃')
+    expect(keycapLegend('LALT', '⌥')).toBe('⌥')
+    expect(keycapLegend('RALT', '⌥')).toBe('R⌥')
+    expect(keycapLegend('LGUI', '⌘')).toBe('⌘')
+    expect(keycapLegend('RGUI', '⌘')).toBe('R⌘')
+    expect(keycapLegend('LC', '⌃')).toBe('⌃')
+    expect(keycapLegend('RC', '⌃')).toBe('R⌃')
+  })
+
+  it('passes through non-modifier symbols', () => {
+    expect(keycapLegend('BSPC', '⌫')).toBe('⌫')
+    expect(keycapLegend('DEL', '⌦')).toBe('⌦')
+    expect(keycapLegend('CAPS', '⇪')).toBe('⇪')
+    expect(keycapLegend('C_AC_BACK', '←')).toBe('←')
+    expect(keycapLegend('K_FORWARD', '→')).toBe('→')
+    expect(keycapLegend('N1', '1')).toBe('1')
+  })
+
+  it('treats compact chords as short legends', () => {
+    expect(isCompactKeycapLegend('⌃')).toBe(true)
+    expect(isCompactKeycapLegend('R⌃')).toBe(true)
+    expect(isCompactModifierChord('LC', '⌦')).toBe(true)
+    expect(isCompactModifierChord('LS', '⇪')).toBe(true)
+    expect(isCompactModifierChord('LC', 'ESC')).toBe(false)
+    expect(isCompactModifierChord('A', '⌦')).toBe(false)
+  })
+})
+
+describe('layerLegendSymbol', () => {
+  it('prefixes the numeric layer index', () => {
+    expect(layerLegendSymbol(0)).toBe('L0')
+    expect(layerLegendSymbol(1)).toBe('L1')
+    expect(layerLegendSymbol('3')).toBe('L3')
+  })
+
+  it('recognizes compact layer legends', () => {
+    expect(isLayerLegendSymbol('L0')).toBe(true)
+    expect(isLayerLegendSymbol('L12')).toBe(true)
+    expect(isLayerLegendSymbol('1')).toBe(false)
+    expect(isLayerLegendSymbol('LC')).toBe(false)
   })
 })
