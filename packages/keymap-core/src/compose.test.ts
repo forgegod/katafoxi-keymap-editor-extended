@@ -5,6 +5,8 @@ import {
   isCompactModifierChord,
   isHoldTapBehavior,
   isHoldTapParam,
+  isKeypadChoice,
+  isKeypadCode,
   isLayerLegendSymbol,
   keycapLegend,
   layerLegendSymbol,
@@ -108,6 +110,11 @@ describe('resolveBinding / composeKey', () => {
     expect(legend?.hold).toBe('⧗L1')
   })
 
+  it('flags keypad taps so the host glyph can stay boxed', () => {
+    expect(composeKey({ binding: parseKeyBinding('&kp KP_N7') })?.keypad).toBe(true)
+    expect(composeKey({ binding: parseKeyBinding('&kp N7') })?.keypad).toBe(false)
+  })
+
   it('returns null for &trans / &none', () => {
     expect(composeKey({ binding: parseKeyBinding('&trans') })).toBeNull()
     expect(composeKey({ binding: parseKeyBinding('&none') })).toBeNull()
@@ -144,6 +151,17 @@ describe('keycapLegend', () => {
     expect(keycapLegend('C_AC_BACK', '←')).toBe('←')
     expect(keycapLegend('K_FORWARD', '→')).toBe('→')
     expect(keycapLegend('N1', '1')).toBe('1')
+    expect(keycapLegend('KP_N7', '7')).toBe('7')
+  })
+
+  it('marks HID keypad codes without changing the digit glyph', () => {
+    expect(isKeypadCode('KP_N7')).toBe(true)
+    expect(isKeypadCode('KP_ENTER')).toBe(true)
+    expect(isKeypadCode('KC_KP_MINUS')).toBe(true)
+    expect(isKeypadCode('N7')).toBe(false)
+    expect(isKeypadCode('ENTER')).toBe(false)
+    expect(isKeypadChoice({ code: 'CLEAR2', context: 'Keypad' })).toBe(true)
+    expect(isKeypadChoice({ code: 'N7', context: 'Keyboard' })).toBe(false)
   })
 
   it('treats compact chords as short legends', () => {

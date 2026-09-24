@@ -5,6 +5,7 @@
     bandCatalogChoices,
     behaviorFirmwareNote,
     catalogChoiceTooltip,
+    choiceMatchesCode,
     valueBandCaption,
     catalogKeyChoices,
     displayChoiceLabel,
@@ -12,11 +13,13 @@
     initialTaxonomyContexts,
     canApplyModifierHold,
     isInstantBehavior,
+    isKeypadChoice,
     isModifierKey,
     isModifierWrapCode,
     MODIFIER_HOLDS,
     nextTaxonomyContexts,
     sortBehaviorsByRole,
+    usedLayersForChoice,
     zmkBehaviorDocsUrl,
     type CatalogChoice
   } from '@keymap-editor/keymap-core'
@@ -214,18 +217,18 @@
   }
 
   function isActiveChoice(choice: Choice): boolean {
-    return String(choice.code ?? '') === String(activeSlot?.value ?? '')
+    return choiceMatchesCode(choice, activeSlot?.value)
   }
 
   function isUsedChoice(choice: Choice): boolean {
-    return dimUsed && used.has(String(choice.code ?? ''))
+    return dimUsed && usedLayersForChoice(choice, used).length > 0
   }
 
   function valueTooltip(choice: Choice): string {
     const base = catalogChoiceTooltip(choice)
     if (!dimUsed) return base
-    const layers = used.get(String(choice.code ?? ''))
-    if (!layers?.length) return base
+    const layers = usedLayersForChoice(choice, used)
+    if (!layers.length) return base
     const where = layers.length === 1 ? 'on layer' : 'on layers'
     return `${base}\n${where} ${layers.join(' · ')}`
   }
@@ -456,6 +459,7 @@
                         class="key-editor-choice"
                         class:active={isActiveChoice(item)}
                         class:used={isUsedChoice(item) && !isActiveChoice(item)}
+                        class:keypad={isKeypadChoice(item)}
                         title={valueTooltip(item)}
                         onclick={() => onSelectValue(item)}
                       >
@@ -811,6 +815,11 @@
     white-space: nowrap;
   }
 
+  .key-editor-choice.keypad {
+    border-color: #8a8a8a;
+    background: rgba(0, 0, 0, 0.05);
+  }
+
   .key-editor-choice.used {
     opacity: 0.42;
   }
@@ -825,6 +834,10 @@
     background: var(--hover-selection);
     border-color: var(--hover-selection);
     color: white;
+  }
+
+  .key-editor-choice.keypad:hover {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
   }
 
   .key-editor-empty {

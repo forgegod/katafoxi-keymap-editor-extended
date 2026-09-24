@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { keycapLegend } from '@keymap-editor/keymap-core'
+  import { isKeypadCode, keycapLegend } from '@keymap-editor/keymap-core'
   import Icon from '../../Common/Icon.svelte'
 
   interface Props {
@@ -29,6 +29,9 @@
       : ''
   )
   const faIcon = $derived(source?.faIcon as string | undefined)
+  const keypad = $derived(
+    isKeypadCode((source?.code ?? value) as string | number | undefined)
+  )
 
   function handleClick(event: MouseEvent) {
     event.stopPropagation()
@@ -42,7 +45,7 @@
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-<span class="code" {title} onclick={handleClick}>
+<span class="code" class:keypad {title} onclick={handleClick}>
   {#if faIcon}
     <Icon name={faIcon} />
   {:else if text}

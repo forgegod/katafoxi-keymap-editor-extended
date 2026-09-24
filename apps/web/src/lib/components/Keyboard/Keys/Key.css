@@ -1,3 +1,4 @@
+/* Key face + ZMK param legends (global: .code lives in KeyValue). */
 .key {
   position: absolute;
   display: flex;
@@ -84,6 +85,18 @@
   min-width: 0.5em;
   text-align: center;
   border-radius: 4px;
+}
+
+.code.keypad {
+  box-shadow: inset 0 0 0 1px rgba(60, 60, 60, 0.5);
+  background: rgba(0, 0, 0, 0.06);
+  padding: 1px 4px;
+  margin-left: 1px;
+  margin-right: 1px;
+}
+.key:hover .code.keypad {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .code * {

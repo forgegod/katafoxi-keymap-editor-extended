@@ -67,6 +67,30 @@ export function isCompactKeycapLegend(text: string): boolean {
   )
 }
 
+/**
+ * HID keypad page (`KP_N7`, `KP_ENTER`, `KC_KP_MINUS`).
+ * Display-only: the glyph stays `7` / `+`; UI draws a box.
+ */
+export function isKeypadCode(code?: string | number | null): boolean {
+  const upper = String(code ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/^KC_/, '')
+  return upper.startsWith('KP_')
+}
+
+/** Catalog chip: `KP_*` or the Keypad HID group (`CLEAR2`). */
+export function isKeypadChoice(choice: {
+  code?: string | number | null
+  context?: string | null
+  aliases?: unknown
+}): boolean {
+  if (isKeypadCode(choice.code)) return true
+  if (String(choice.context ?? '').trim().toLowerCase() === 'keypad') return true
+  if (!Array.isArray(choice.aliases)) return false
+  return choice.aliases.some(alias => isKeypadCode(alias))
+}
+
 const MOD_WRAP_RE = /^(LS|RS|LC|RC|LA|RA|LG|RG)$/i
 
 /** `LC(DEL)` / `RC(BSPC)` — wrap + one short key, no deeper nest. */
@@ -154,8 +178,9 @@ function formatHoldBadge(hold: string): string {
 
 function legendForTap(tap: string): ComposedLegend {
   const fixture = TAP_FIXTURES[tap] ?? TAP_FIXTURES[tap.replace(/^KC_/, '')]
+  const keypad = isKeypadCode(tap)
   if (fixture) {
-    return { ...fixture }
+    return { ...fixture, keypad }
   }
 
   const short = tap.replace(/^KC_/, '')
@@ -165,7 +190,8 @@ function legendForTap(tap: string): ComposedLegend {
       short.slice(0, 1).toUpperCase() || '?'
     ],
     altGr: ['', ''],
-    keycode: tap.startsWith('KC_') ? tap : `KC_${tap}`
+    keycode: tap.startsWith('KC_') ? tap : `KC_${tap}`,
+    keypad
   }
 }
 

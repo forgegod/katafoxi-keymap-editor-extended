@@ -17,6 +17,8 @@ import {
   representativeLabel,
   sortBehaviorsByRole,
   uniqueCatalogChoices,
+  usedLayersForChoice,
+  choiceMatchesCode,
   valueBandCaption,
   valueBandKind
 } from './picker-model.js'
@@ -463,5 +465,21 @@ describe('collectUsedKeycodes', () => {
     expect(used.get('Q')).toEqual([0, 4])
     expect(used.get('F7')).toEqual([2])
     expect(used.has('1')).toBe(false)
+  })
+})
+
+describe('choice alias matching', () => {
+  const ret = {
+    code: 'RET',
+    aliases: ['RETURN', 'ENTER', 'RET']
+  }
+
+  it('treats ENTER on a layer as the RET chip', () => {
+    expect(choiceMatchesCode(ret, 'ENTER')).toBe(true)
+    expect(choiceMatchesCode(ret, 'RET')).toBe(true)
+    expect(choiceMatchesCode(ret, 'A')).toBe(false)
+    expect(
+      usedLayersForChoice(ret, new Map([['ENTER', [1, 3]], ['Q', [0]]]))
+    ).toEqual([1, 3])
   })
 })

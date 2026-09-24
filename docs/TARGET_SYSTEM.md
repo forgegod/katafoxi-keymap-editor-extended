@@ -54,6 +54,7 @@ packages/keymap-core   Pure TS — parse/generate/splice .keymap, layout validat
   - Compact chords drop parens: `LC(DEL)` → `⌃⌦`, `LS(CAPS)` → `⇧⇪`.
   - `&mt` / `&lt`: hold and tap stay in one row; hold is a smaller pill, tap is larger. Compact pairs are not shrunk to 60%.
   - Caps Lock `⇪`. Browser back/forward `←` / `→` (not cursor `⏴` `⏵`). Tooltip keeps the raw code.
+  - Keypad (`KP_*`): same glyph as the number row (`7`), boxed. Color is only a light fill. Host composed stays `7`.
 - **Composed preview**: quadrant-style host legend (base/shift language pair + AltGr pair + hold badge), driven by a `ComposedLegend` model in core.
 - **Stub today:** `resolveBinding` splits tap/hold (`&kp` / `&mt` / `&lt`); glyphs come from a tiny tap-keycode fixture map. Hold badges attach only when the binding has a hold side — not from letter fixtures. Full `HostLayout` / host editors are post-migration work.
 - Full host-layout editors and XKB/KLC export are product steps *after* round-trip safety and a stable compose model.

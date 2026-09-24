@@ -185,6 +185,43 @@ export function uniqueCatalogChoices(choices: CatalogChoice[]): CatalogChoice[] 
   return unique
 }
 
+/** Codes that name the same catalog chip (`RET` / `ENTER` / `RETURN`). */
+export function choiceAliasKeys(choice: CatalogChoice): string[] {
+  const keys = new Set<string>()
+  if (choice.code != null && choice.code !== '') keys.add(String(choice.code))
+  if (Array.isArray(choice.aliases)) {
+    for (const alias of choice.aliases) {
+      if (alias != null && alias !== '') keys.add(String(alias))
+    }
+  }
+  return [...keys]
+}
+
+export function choiceMatchesCode(
+  choice: CatalogChoice,
+  code: string | number | undefined | null
+): boolean {
+  if (code == null || code === '') return false
+  return choiceAliasKeys(choice).includes(String(code))
+}
+
+/** Layer indexes where this chip (or any of its aliases) is already bound. */
+export function usedLayersForChoice(
+  choice: CatalogChoice,
+  used: ReadonlyMap<string, readonly number[]>
+): number[] {
+  const seen = new Set<number>()
+  const layers: number[] = []
+  for (const key of choiceAliasKeys(choice)) {
+    for (const layer of used.get(key) ?? []) {
+      if (seen.has(layer)) continue
+      seen.add(layer)
+      layers.push(layer)
+    }
+  }
+  return layers
+}
+
 /** Glyph or shortest code used to sort and label a choice. */
 export function representativeLabel(choice: CatalogChoice): string {
   if (hasParams(choice)) return String(choice.code ?? '')

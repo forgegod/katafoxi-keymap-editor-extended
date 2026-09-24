@@ -11,7 +11,7 @@
 </script>
 
 {#if mode === 'composed'}
-  <div class="keycap" title={legend.keycode}>
+  <div class="keycap" class:keypad={legend.keypad} title={legend.keycode}>
     <span class="slot primary-0">{legend.primary[0]}</span>
     <span class="slot primary-1">{legend.primary[1]}</span>
     <span class="slot altgr-0">{legend.altGr[0]}</span>
@@ -81,6 +81,12 @@
     align-items: flex-end;
     opacity: 0.75;
     font-size: 90%;
+  }
+
+  .keycap.keypad {
+    box-shadow: inset 0 0 0 1.5px rgba(60, 60, 60, 0.4);
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 4px;
   }
 
   .hold-badge {
