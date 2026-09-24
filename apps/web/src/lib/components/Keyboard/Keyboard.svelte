@@ -2,6 +2,7 @@
   import {
     collectUsedKeycodes,
     layerLegendSymbol,
+    usedKeycodesRevision,
     type KeyBindingNode,
     type LayoutKey,
     type ParsedKeymap
@@ -34,6 +35,7 @@
     keymap.layer_names ?? keymap.layers.map((_, i) => `Layer ${i}`)
   )
   const usedKeycodes = $derived(collectUsedKeycodes(keymap.layers ?? []))
+  const usedRevision = $derived(usedKeycodesRevision(usedKeycodes))
 
   const availableLayers = $derived(
     !keymap?.layers
@@ -44,6 +46,7 @@
           description: layerNames[i] || `Layer ${i}`
         }))
   )
+  const usedLayerLabels = $derived(availableLayers.map(layer => layer.symbol))
 
   const search = $derived.by((): SearchContextValue =>
     buildSearchContext(definitions, availableLayers)
@@ -143,6 +146,8 @@
       bindings={keymap.layers[activeLayer]}
       {legendMode}
       {usedKeycodes}
+      {usedRevision}
+      {usedLayerLabels}
       onUpdate={event => handleUpdateLayer(activeLayer, event)}
     />
   {/if}

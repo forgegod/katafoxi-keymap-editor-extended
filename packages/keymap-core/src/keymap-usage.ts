@@ -79,3 +79,13 @@ export function collectUsedKeycodesOnLayer(
 ): Set<string> {
   return new Set(collectUsedKeycodes([layer]).keys())
 }
+
+/** Stable snapshot so UI can remount when a layer delete remaps used marks. */
+export function usedKeycodesRevision(
+  used: ReadonlyMap<string, readonly number[]>
+): string {
+  return [...used.entries()]
+    .map(([code, layers]) => `${code}:${layers.join(',')}`)
+    .sort()
+    .join('|')
+}

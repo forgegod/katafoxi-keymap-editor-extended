@@ -245,4 +245,39 @@ describe('Keyboard layers', () => {
     expect(target.querySelector('li[data-layer].active')).toBeInstanceOf(HTMLLIElement)
     expect(target.querySelectorAll('.key').length).toBe(2)
   })
+
+  it('clears used marks for keycodes that lived only on the deleted layer', () => {
+    open()
+    ;(target.querySelector('.key') as HTMLElement).click()
+    flushSync()
+
+    const before = document.querySelector('[role="dialog"][aria-label="Edit key"]')
+    expect(before).toBeInstanceOf(HTMLElement)
+    expect(pickChoice(before as HTMLElement, 'F4').classList.contains('used')).toBe(true)
+    expect(pickChoice(before as HTMLElement, 'F4').title).toMatch(/L0 · L1/)
+    expect(pickChoice(before as HTMLElement, 'F12').classList.contains('used')).toBe(true)
+    expect(pickChoice(before as HTMLElement, 'F12').title).toMatch(/L1/)
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    )
+    flushSync()
+
+    layerItem(target, 1).click()
+    flushSync()
+    clickNode(layerItem(target, 1).querySelector('.delete') as SVGElement)
+    clickNode(target.querySelector('.confirm-delete') as HTMLButtonElement)
+
+    expect(document.querySelector('[role="dialog"][aria-label="Edit key"]')).toBeNull()
+    ;(target.querySelector('.key') as HTMLElement).click()
+    flushSync()
+
+    const after = document.querySelector('[role="dialog"][aria-label="Edit key"]')
+    expect(after).toBeInstanceOf(HTMLElement)
+    expect(pickChoice(after as HTMLElement, 'F4').classList.contains('used')).toBe(true)
+    expect(pickChoice(after as HTMLElement, 'F4').title).toMatch(/L0/)
+    expect(pickChoice(after as HTMLElement, 'F4').title).not.toMatch(/L1/)
+    expect(pickChoice(after as HTMLElement, 'F12').classList.contains('used')).toBe(false)
+    expect(pickChoice(after as HTMLElement, 'F12').title).not.toMatch(/layer/)
+  })
 })

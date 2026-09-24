@@ -42,6 +42,8 @@
     onUpdate: (bind: { value: string | number | undefined; params: HydratedNode[] }) => void
     legendMode?: LegendMode
     usedKeycodes?: ReadonlyMap<string, readonly number[]>
+    usedRevision?: string
+    usedLayerLabels?: readonly string[]
   }
 
   let {
@@ -53,7 +55,9 @@
     params = [],
     onUpdate,
     legendMode = 'zmk',
-    usedKeycodes = new Map()
+    usedKeycodes = new Map(),
+    usedRevision = '',
+    usedLayerLabels = []
   }: Props = $props()
 
   const searchBox = getSearchContext()
@@ -324,6 +328,8 @@
         activeCodeIndex={activeSlot.codeIndex}
         {choices}
         {usedKeycodes}
+        {usedRevision}
+        {usedLayerLabels}
         onSelectBehaviour={handleEditorBehaviour}
         onSelectValue={handleEditorValue}
         onToggleHold={handleToggleHold}

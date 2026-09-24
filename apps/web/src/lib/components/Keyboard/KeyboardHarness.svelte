@@ -28,11 +28,11 @@
     layers: [
       [
         { value: '&kp', params: [{ value: 'A', params: [] }] },
-        { value: '&kp', params: [{ value: 'B', params: [] }] }
+        { value: '&kp', params: [{ value: 'F4', params: [] }] }
       ],
       [
-        { value: '&kp', params: [{ value: 'C', params: [] }] },
-        { value: '&kp', params: [{ value: 'D', params: [] }] }
+        { value: '&kp', params: [{ value: 'F4', params: [] }] },
+        { value: '&kp', params: [{ value: 'F12', params: [] }] }
       ]
     ]
   })

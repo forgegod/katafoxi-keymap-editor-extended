@@ -46,6 +46,8 @@
     activeCodeIndex: number
     choices: Choice[]
     usedKeycodes?: ReadonlyMap<string, readonly number[]>
+    usedRevision?: string
+    usedLayerLabels?: readonly string[]
     onSelectBehaviour: (choice: Choice) => void
     onSelectValue: (choice: Choice) => void
     onToggleHold?: (wrapCode: string) => void
@@ -61,6 +63,8 @@
     activeCodeIndex,
     choices,
     usedKeycodes,
+    usedRevision = '',
+    usedLayerLabels = [],
     onSelectBehaviour,
     onSelectValue,
     onToggleHold,
@@ -325,17 +329,20 @@
           />
         {/if}
 
-        <ValueGrid
-          groups={visibleGroups}
-          {showGroupTitles}
-          {searching}
-          {pickKeyHint}
-          activeValue={activeSlot?.value}
-          {dimUsed}
-          {used}
-          {labelChoice}
-          onChoose={onSelectValue}
-        />
+        {#key usedRevision}
+          <ValueGrid
+            groups={visibleGroups}
+            {showGroupTitles}
+            {searching}
+            {pickKeyHint}
+            activeValue={activeSlot?.value}
+            {dimUsed}
+            {used}
+            {usedLayerLabels}
+            {labelChoice}
+            onChoose={onSelectValue}
+          />
+        {/key}
       {:else if showValuePicker}
         <section class="key-editor-row">
           <p class="key-editor-section-label">Value</p>

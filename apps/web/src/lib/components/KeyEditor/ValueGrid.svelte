@@ -3,6 +3,7 @@
     bandCatalogChoices,
     catalogChoiceTooltip,
     choiceMatchesCode,
+    formatUsedChoiceTooltip,
     isKeypadChoice,
     isModifierKey,
     usedLayersForChoice,
@@ -25,6 +26,7 @@
     activeValue?: string | number
     dimUsed: boolean
     used: ReadonlyMap<string, readonly number[]>
+    usedLayerLabels?: readonly string[]
     labelChoice: (choice: CatalogChoice) => string
     onChoose: (choice: Choice) => void
   }
@@ -37,6 +39,7 @@
     activeValue,
     dimUsed,
     used,
+    usedLayerLabels = [],
     labelChoice,
     onChoose
   }: Props = $props()
@@ -69,9 +72,7 @@
     const base = catalogChoiceTooltip(choice)
     if (!dimUsed) return base
     const layers = usedLayersForChoice(choice, used)
-    if (!layers.length) return base
-    const where = layers.length === 1 ? 'on layer' : 'on layers'
-    return `${base}\n${where} ${layers.join(' · ')}`
+    return formatUsedChoiceTooltip(base, layers, usedLayerLabels)
   }
 
   $effect(() => {

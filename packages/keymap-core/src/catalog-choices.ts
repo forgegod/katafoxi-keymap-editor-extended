@@ -91,6 +91,18 @@ export function usedLayersForChoice(
   return layers
 }
 
+/** Tooltip suffix: "on layer L3" using current indexes after a layer delete. */
+export function formatUsedChoiceTooltip(
+  base: string,
+  layers: number[],
+  layerLabels?: readonly string[]
+): string {
+  if (!layers.length) return base
+  const labels = layers.map(index => layerLabels?.[index] ?? String(index))
+  const where = labels.length === 1 ? 'on layer' : 'on layers'
+  return `${base}\n${where} ${labels.join(' · ')}`
+}
+
 /** Keys and glyphs only — modifier wrappers stay off the value grid. */
 export function catalogKeyChoices(choices: CatalogChoice[]): CatalogChoice[] {
   return uniqueCatalogChoices(choices).filter(choice => !isModifierWrap(choice))

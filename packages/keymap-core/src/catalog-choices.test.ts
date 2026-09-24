@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   catalogKeyChoices,
   choiceMatchesCode,
+  formatUsedChoiceTooltip,
   uniqueCatalogChoices,
   usedLayersForChoice
 } from './catalog-choices.js'
@@ -58,5 +59,17 @@ describe('choice alias matching', () => {
     expect(
       usedLayersForChoice(ret, new Map([['ENTER', [1, 3]], ['Q', [0]]]))
     ).toEqual([1, 3])
+  })
+})
+
+describe('formatUsedChoiceTooltip', () => {
+  it('uses current layer labels after a remap', () => {
+    expect(
+      formatUsedChoiceTooltip('F4', [0, 1], ['L0', 'L1'])
+    ).toBe('F4\non layers L0 · L1')
+    expect(formatUsedChoiceTooltip('F12', [1], ['L0', 'L1'])).toBe(
+      'F12\non layer L1'
+    )
+    expect(formatUsedChoiceTooltip('F12', [])).toBe('F12')
   })
 })

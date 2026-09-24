@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { collectUsedKeycodes, collectUsedKeycodesOnLayer } from './keymap-usage.js'
+import {
+  collectUsedKeycodes,
+  collectUsedKeycodesOnLayer,
+  usedKeycodesRevision
+} from './keymap-usage.js'
 
 describe('collectUsedKeycodesOnLayer', () => {
   it('collects &kp taps and the tap plus modifier of &mt', () => {
@@ -70,5 +74,19 @@ describe('collectUsedKeycodes', () => {
     expect(used.get('Q')).toEqual([0, 4])
     expect(used.get('F7')).toEqual([2])
     expect(used.has('1')).toBe(false)
+  })
+
+  it('drops a deleted layer and shifts later indexes', () => {
+    const layer = (code: string) => [
+      { value: '&kp', params: [{ value: code, params: [] }] }
+    ]
+    const before = collectUsedKeycodes([layer('F4'), layer('A'), layer('F12')])
+    expect(before.get('F4')).toEqual([0])
+    expect(before.get('F12')).toEqual([2])
+
+    const after = collectUsedKeycodes([layer('A'), layer('F12')])
+    expect(after.has('F4')).toBe(false)
+    expect(after.get('F12')).toEqual([1])
+    expect(usedKeycodesRevision(after)).not.toBe(usedKeycodesRevision(before))
   })
 })
