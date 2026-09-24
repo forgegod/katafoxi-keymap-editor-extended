@@ -35,6 +35,8 @@ For Source **Local** (`/layout`, `/keymap` sibling bridge):
 
 Both must be true; the API gates the routes, and the SPA hides Local unless the Vite flag is set. Default in `.env.template` is `ENABLE_LOCAL=false`.
 
+`ZMK_CONFIG_PATH` overrides the config directory (default `<repo>/zmk-config`). Leave it unset for normal dev. The browser smoke sets it to a temp fixture copy.
+
 ### GitHub auth
 
 - Enable GitHub with `ENABLE_GITHUB=true` and the GitHub App fields in `.env`, plus matching `VITE_*` values in `apps/web/.env.development`.
@@ -59,3 +61,21 @@ Click **Write files** to write `keymap.json` and update the `.keymap` in `zmk-co
 Import from `.keymap` expands simple `#define` aliases (`VU` → `C_VOL_UP`, `BT1` → `BT_SEL 1`). After Write files, bindings are the expanded tokens, so `#define` lines can be left unused; the editor warns when that happens (no reverse substitution). Decision record: [docs/adr/0002-keymap-file-contract.md](docs/adr/0002-keymap-file-contract.md).
 
 Do not commit a Write files result into the LARK firmware repo (`zmk-keyboard-lark`) without reviewing `git diff` on the `.keymap` (and `keymap.json` if it appears).
+
+## Tests
+
+```bash
+pnpm test
+pnpm exec playwright install chromium   # once, for the smoke only
+pnpm test:e2e
+```
+
+`pnpm test` is Vitest: `packages/keymap-core`, `apps/api`, and `apps/web`. It does not start a server.
+
+`pnpm test:e2e` is Playwright (Chromium only). It copies `packages/keymap-core/fixtures/lark` into a temp directory, starts the API and Vite on free ports (preferring 18080 and 15173), changes one key, and checks that Write files keeps the `.keymap` preamble. It also reloads a dirty draft and expects the IndexedDB restore confirm. It does not use ports 5173 or 8080 and does not write `zmk-config`.
+
+Optional overrides, defaults unchanged when unset:
+
+- `ZMK_CONFIG_PATH` — API config directory
+- `API_PROXY` — Vite proxy target (default `http://127.0.0.1:8080`)
+- `VITE_PORT` — Vite port; when set, that port is strict

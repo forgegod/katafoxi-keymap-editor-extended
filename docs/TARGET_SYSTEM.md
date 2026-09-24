@@ -85,6 +85,6 @@ Accepted in [ADR 0002](adr/0002-keymap-file-contract.md):
 
 ## Related docs
 
-- [running-locally.md](../running-locally.md) — how to run the monorepo today
+- [running-locally.md](../running-locally.md) — how to run the monorepo, and how to run `pnpm test` / `pnpm test:e2e`
 - [AGENTS.md](../AGENTS.md) — short guidance for coding agents
 - [adr/](adr/) — architecture decision records

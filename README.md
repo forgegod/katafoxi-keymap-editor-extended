@@ -27,6 +27,10 @@ Clipboard, browser File System Access, combo/macro editors, and dark mode are up
 - Decisions: [docs/adr/](docs/adr/README.md)
 - Agents: [AGENTS.md](AGENTS.md)
 
+## Tests
+
+`pnpm test` runs the Vitest suites in `keymap-core`, `apps/api`, and `apps/web`. `pnpm test:e2e` is a separate Chromium smoke against a temp copy of the LARK fixture; it does not write `zmk-config`. Details: [running-locally.md](running-locally.md#tests).
+
 ## License
 
 MIT. The ZMK keycode list is taken from the ZMK documentation, also MIT.

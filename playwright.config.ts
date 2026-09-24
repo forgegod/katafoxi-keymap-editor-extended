@@ -99,13 +99,13 @@ export default defineConfig({
       url: `${apiOrigin}/health`,
       reuseExistingServer: false,
       timeout: 120_000,
-        env: {
-          ...process.env,
-          ENABLE_LOCAL: 'true',
-          ENABLE_GITHUB: 'false',
-          ZMK_CONFIG_PATH: tmpRoot,
-          PORT: String(apiPort)
-        }
+      env: {
+        ...process.env,
+        ENABLE_LOCAL: 'true',
+        ENABLE_GITHUB: 'false',
+        ZMK_CONFIG_PATH: tmpRoot,
+        PORT: String(apiPort)
+      }
     },
     {
       command: `pnpm --filter @keymap-editor/web exec vite --host 127.0.0.1 --port ${webPort} --strictPort`,
@@ -113,12 +113,12 @@ export default defineConfig({
       url: webOrigin,
       reuseExistingServer: false,
       timeout: 120_000,
-        env: {
-          ...process.env,
-          VITE_ENABLE_LOCAL: 'true',
-          API_PROXY: apiOrigin,
-          VITE_PORT: String(webPort)
-        }
+      env: {
+        ...process.env,
+        VITE_ENABLE_LOCAL: 'true',
+        API_PROXY: apiOrigin,
+        VITE_PORT: String(webPort)
+      }
     }
   ],
   globalTeardown: './e2e/global-teardown.ts'

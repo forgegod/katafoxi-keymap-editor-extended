@@ -10,7 +10,7 @@ Short context for coding agents working in this repository.
 | `apps/api` | Thin Hono API (GitHub + optional dev-local I/O) |
 | `packages/keymap-core` | Pure TypeScript: ZMK parse/generate, DTS import, compose stubs, ZMK-mode legends |
 
-Use **pnpm** workspaces. Dev: `pnpm dev` (API `127.0.0.1:8080`, Vite `127.0.0.1:5173`). Details: [running-locally.md](running-locally.md).
+Use **pnpm** workspaces. Dev: `pnpm dev` (API `127.0.0.1:8080`, Vite `127.0.0.1:5173`). Tests: `pnpm test` (Vitest). Browser smoke: `pnpm test:e2e` (Playwright, not part of `pnpm test`). Details: [running-locally.md](running-locally.md).
 
 ## Architecture invariants
 
@@ -32,4 +32,4 @@ Use **pnpm** workspaces. Dev: `pnpm dev` (API `127.0.0.1:8080`, Vite `127.0.0.1:
 
 - Vision: `docs/TARGET_SYSTEM.md` (key editor, ZMK-mode legend contract)
 - ADRs: `docs/adr/` (0001 persistence, 0002 keymap file contract, 0003 GitHub auth session)
-- Local run: `running-locally.md`
+- Local run and tests: `running-locally.md`
