@@ -235,8 +235,6 @@
   class="key-editor"
   role="dialog"
   aria-label="Edit key"
-  data-behavior={String(behaviourValue ?? '')}
-  data-value-param={String(catalogParam ?? '')}
   tabindex="-1"
 >
   <div class="key-editor-preview">

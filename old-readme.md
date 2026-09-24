@@ -1,5 +1,7 @@
 # Keymap Editor
 
+> Archived upstream README. Screenshot paths under `./screenshots/` are not in this fork. Current docs: [README.md](README.md), [running-locally.md](running-locally.md), [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md).
+
 A browser app (plus NodeJS server) to edit ZMK keymaps. This has been a solo
 project but in a workable state for quite a while now, and new features are in
 development all the time.

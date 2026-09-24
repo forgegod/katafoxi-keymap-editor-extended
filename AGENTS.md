@@ -30,6 +30,6 @@ Use **pnpm** workspaces. Dev: `pnpm dev` (API `127.0.0.1:8080`, Vite `127.0.0.1:
 
 ## Docs map
 
-- Vision: `docs/TARGET_SYSTEM.md` (includes ZMK-mode legend contract)
+- Vision: `docs/TARGET_SYSTEM.md` (key editor, ZMK-mode legend contract)
 - ADRs: `docs/adr/` (0001 persistence, 0002 keymap file contract, 0003 GitHub auth session)
 - Local run: `running-locally.md`

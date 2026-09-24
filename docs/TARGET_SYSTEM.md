@@ -45,6 +45,14 @@ packages/keymap-core   Pure TS — parse/generate/splice .keymap, layout validat
 - **UI** does not own ZMK encode/decode.
 - **API** does not own editor state or compose presentation.
 
+## Key editor
+
+Click a key in **ZMK code** mode. One dialog edits the binding:
+
+- Behaviour chips, then the value list for the active slot. `code` is Keyboard/Keypad, `command` is that behaviour's commands (`&mkp`, `&msc`, `&mmv`, `&bt`, `&out`, …), `layer` and `mod` are the layer or modifier slot (`&mo`, `&mt`, `&lt`).
+- Enter applies a complete binding. Esc cancels. An unfinished hold-tap stays open.
+- Pointing behaviours remind that firmware needs `CONFIG_ZMK_POINTING=y`. The editor only adds `#include <dt-bindings/zmk/pointing.h>`.
+
 ## Keycap / compose (target UX)
 
 - **ZMK mode**: behavior + params (current editor). Display-only legends — binding tokens stay ZMK (`1`, `LCTRL`, `LC(DEL)`).
