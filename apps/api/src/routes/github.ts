@@ -7,19 +7,7 @@ import {
   validateKeymapJson,
   validateInfoJson
 } from '@keymap-editor/keymap-core'
-import {
-  SID_COOKIE,
-  OAUTH_STATE_COOKIE,
-  clearOauthStateCookie,
-  clearSidCookie,
-  createOauthFlowUrl,
-  createOauthReturnUrl,
-  createInstallationToken,
-  getOauthToken,
-  getOauthUser,
-  setOauthStateCookie,
-  setSidCookie
-} from '../services/github/auth.js'
+import * as auth from '../services/github/auth.js'
 import {
   consumeOauthState,
   createOauthState,
@@ -27,8 +15,8 @@ import {
   deleteSession,
   touchSession
 } from '../services/github/sessions.js'
-import { fetchInstallationRepos, fetchRepoBranches } from '../services/github/installations.js'
-import { MissingRepoFile, fetchKeyboardFiles, commitChanges } from '../services/github/files.js'
+import * as installations from '../services/github/installations.js'
+import * as files from '../services/github/files.js'
 
 type Variables = {
   user: { sub: string; oauth_access_token: string }
@@ -41,23 +29,23 @@ githubRoutes.get('/authorize', async c => {
   if (code) {
     try {
       const state = c.req.query('state')
-      const cookieState = getCookie(c, OAUTH_STATE_COOKIE)
+      const cookieState = getCookie(c, auth.OAUTH_STATE_COOKIE)
       if (!state || !cookieState || state !== cookieState || !consumeOauthState(state)) {
-        clearOauthStateCookie(c)
+        auth.clearOauthStateCookie(c)
         return c.body(null, 401)
       }
 
-      const { data: oauth } = await getOauthToken(code)
+      const { data: oauth } = await auth.getOauthToken(code)
       const oauthData = oauth as { access_token: string }
-      const { data: user } = await getOauthUser(oauthData.access_token)
+      const { data: user } = await auth.getOauthUser(oauthData.access_token)
       const login = (user as { login: string }).login
       const sid = createSession({
         login,
         oauthAccessToken: oauthData.access_token
       })
-      setSidCookie(c, sid)
-      clearOauthStateCookie(c)
-      return c.redirect(createOauthReturnUrl())
+      auth.setSidCookie(c, sid)
+      auth.clearOauthStateCookie(c)
+      return c.redirect(auth.createOauthReturnUrl())
     } catch (err) {
       console.error(err)
       return c.body(null, 500)
@@ -65,26 +53,26 @@ githubRoutes.get('/authorize', async c => {
   }
 
   const state = createOauthState()
-  setOauthStateCookie(c, state)
-  return c.redirect(createOauthFlowUrl(state))
+  auth.setOauthStateCookie(c, state)
+  return c.redirect(auth.createOauthFlowUrl(state))
 })
 
 githubRoutes.post('/webhook', c => c.body(null, 200))
 
 githubRoutes.post('/logout', c => {
-  const sid = getCookie(c, SID_COOKIE)
+  const sid = getCookie(c, auth.SID_COOKIE)
   if (sid) deleteSession(sid)
-  clearSidCookie(c)
+  auth.clearSidCookie(c)
   return c.body(null, 204)
 })
 
 githubRoutes.use('*', async (c, next) => {
-  const sid = getCookie(c, SID_COOKIE)
+  const sid = getCookie(c, auth.SID_COOKIE)
   if (!sid) return c.body(null, 401)
 
   const session = touchSession(sid)
   if (!session) {
-    clearSidCookie(c)
+    auth.clearSidCookie(c)
     return c.body(null, 401)
   }
 
@@ -98,7 +86,7 @@ githubRoutes.use('*', async (c, next) => {
 githubRoutes.get('/installation', async c => {
   const user = c.get('user')
   try {
-    const installationRepos = await fetchInstallationRepos(user.oauth_access_token)
+    const installationRepos = await installations.fetchInstallationRepos(user.oauth_access_token)
     if ((installationRepos.installations as unknown[]).length === 0) {
       console.log(`User ${user.sub} does not have an active app installation.`)
     }
@@ -111,8 +99,8 @@ githubRoutes.get('/installation', async c => {
 githubRoutes.get('/installation/:installationId/:repository/branches', async c => {
   const { installationId, repository } = c.req.param()
   try {
-    const { data } = await createInstallationToken(installationId)
-    const branches = await fetchRepoBranches(
+    const { data } = await auth.createInstallationToken(installationId)
+    const branches = await installations.fetchRepoBranches(
       (data as { token: string }).token,
       repository
     )
@@ -126,7 +114,7 @@ githubRoutes.get('/keyboard-files/:installationId/:repository', async c => {
   const { installationId, repository } = c.req.param()
   const branch = c.req.query('branch')
   try {
-    const { info, keymap } = await fetchKeyboardFiles(installationId, repository, branch)
+    const { info, keymap } = await files.fetchKeyboardFiles(installationId, repository, branch)
     validateInfoJson(info)
     validateKeymapJson(keymap)
     return c.json({
@@ -134,7 +122,7 @@ githubRoutes.get('/keyboard-files/:installationId/:repository', async c => {
       keymap: parseKeymap(keymap as { layers: string[][] })
     })
   } catch (err) {
-    if (err instanceof MissingRepoFile) {
+    if (err instanceof files.MissingRepoFile) {
       console.error(`Validation error in ${repository} (${branch}):`, err.name, err.errors)
       return c.json({ name: err.name, path: err.path, errors: err.errors }, 400)
     }
@@ -150,7 +138,7 @@ githubRoutes.post('/keyboard-files/:installationId/:repository/:branch', async c
   const { installationId, repository, branch } = c.req.param()
   const { keymap, layout } = await c.req.json()
   try {
-    const { mode, warnings } = await commitChanges(
+    const { mode, warnings } = await files.commitChanges(
       installationId,
       repository,
       branch,
