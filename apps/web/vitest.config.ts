@@ -7,7 +7,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src')
-    }
+    },
+    conditions: ['browser']
   },
   test: {
     include: ['src/**/*.test.ts'],
