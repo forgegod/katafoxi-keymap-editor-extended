@@ -3,6 +3,8 @@
   import * as config from './lib/config'
   import { setDefinitionsContext } from './lib/context'
   import { editor, type KeyboardSelection } from './lib/editor.svelte.js'
+  import { handleEditorShortcut } from './lib/editor-shortcuts'
+  import { publishKeymap } from './lib/publish-keymap'
   import { reloadLocalKeyboard } from './lib/api'
   import KeyboardPicker from './lib/components/Pickers/KeyboardPicker.svelte'
   import Spinner from './lib/components/Common/Spinner.svelte'
@@ -10,11 +12,7 @@
   import GitHubLink from './lib/components/GitHubLink.svelte'
   import Loader from './lib/components/Common/Loader.svelte'
   import github from './lib/github/api.svelte.js'
-  import {
-    formatKeymapChange,
-    type LayoutKey,
-    type ParsedKeymap
-  } from '@keymap-editor/keymap-core'
+  import { formatKeymapChange } from '@keymap-editor/keymap-core'
 
   // Proxy so context consumers stay reactive to editor.definitions ($state).
   setDefinitionsContext({
@@ -28,40 +26,9 @@
 
   let changesOpen = $state(false)
 
-  function isEditableFocus(target: EventTarget | null): boolean {
-    if (!(target instanceof HTMLElement)) return false
-    const tag = target.tagName
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
-    if (target.isContentEditable) return true
-    return false
-  }
-
   onMount(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (isEditableFocus(event.target)) return
-      const mod = event.metaKey || event.ctrlKey
-      if (!mod) return
-
-      const key = event.key.toLowerCase()
-      if (key === 'z' && event.shiftKey) {
-        if (!editor.canRedo) return
-        event.preventDefault()
-        editor.redo()
-        return
-      }
-      if (key === 'z') {
-        if (!editor.canUndo) return
-        event.preventDefault()
-        editor.undo()
-        return
-      }
-      if (key === 'y' && event.ctrlKey && !event.metaKey) {
-        if (!editor.canRedo) return
-        event.preventDefault()
-        editor.redo()
-      }
-    }
-
+    const onKeyDown = (event: KeyboardEvent) =>
+      handleEditorShortcut(event, editor)
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   })
@@ -70,43 +37,8 @@
     editor.initCatalogs()
   }
 
-  async function publish(handlers: {
-    write: () => Promise<unknown>
-    reload: () => Promise<{ layout?: unknown; keymap?: unknown }>
-  }) {
-    if (editor.saving || !editor.isDirty || !editor.draftKeymap) return
-    editor.saving = true
-    const token = editor.beginPublish()
-    const sourceAtStart = editor.source
-    const githubAtStart = editor.githubMeta
-    try {
-      const saveMeta = await handlers.write()
-      try {
-        const reloaded = await handlers.reload()
-        if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {
-          return
-        }
-        if (reloaded.layout) {
-          editor.layout = reloaded.layout as LayoutKey[]
-        }
-        editor.applyPublished(reloaded.keymap as ParsedKeymap, saveMeta)
-        changesOpen = false
-      } catch {
-        if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {
-          return
-        }
-        editor.applyReloadFailure(sourceAtStart)
-      }
-    } catch (err) {
-      const requestErr = err as { response?: { data?: unknown } }
-      editor.applySaveFailure(requestErr.response?.data ?? null)
-    } finally {
-      editor.saving = false
-    }
-  }
-
   async function handleWriteFiles() {
-    await publish({
+    const ok = await publishKeymap(editor, {
       write: async () => {
         const response = await fetch(`${config.apiBaseUrl}/keymap`, {
           method: 'POST',
@@ -126,12 +58,13 @@
       },
       reload: reloadLocalKeyboard
     })
+    if (ok) changesOpen = false
   }
 
   async function handleCommitToGitHub() {
     const gh = editor.githubMeta
     if (!gh || !editor.layout || !editor.draftKeymap) return
-    await publish({
+    const ok = await publishKeymap(editor, {
       write: async () => {
         const result = await github.commitChanges(
           gh.repository,
@@ -143,6 +76,7 @@
       },
       reload: () => github.fetchLayoutAndKeymap(gh.repository, gh.branch)
     })
+    if (ok) changesOpen = false
   }
 </script>
 

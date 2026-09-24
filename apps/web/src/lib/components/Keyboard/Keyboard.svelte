@@ -1,7 +1,6 @@
 <script lang="ts">
   import {
     collectUsedKeycodes,
-    getBehaviorCatalog,
     layerLegendSymbol,
     type KeyBindingNode,
     type LayoutKey,
@@ -13,6 +12,7 @@
     type LegendMode,
     type SearchContextValue
   } from '../../context'
+  import { buildSearchContext } from '../../search-context'
   import { getKeyBoundingBox } from '../../key-units'
   import LayerSelector from './LayerSelector.svelte'
   import KeyboardLayout from './KeyboardLayout.svelte'
@@ -45,54 +45,9 @@
         }))
   )
 
-  const sources = $derived({
-    code: (definitions?.keycodes.byCode ?? {}) as Record<string, unknown>,
-    mod: Object.fromEntries(
-      (definitions?.keycodes.list ?? [])
-        .filter(k => k.isModifier)
-        .map(k => [k.code, k])
-    ) as Record<string, unknown>,
-    behaviours: { ...(definitions?.behaviours.byCode ?? {}) } as Record<
-      string,
-      unknown
-    >,
-    layer: Object.fromEntries(availableLayers.map(l => [l.code, l])) as Record<
-      string,
-      unknown
-    >
-  })
-
-  const searchTargets = $derived({
-    behaviour: definitions?.behaviours.list ?? [],
-    layer: availableLayers,
-    mod: (definitions?.keycodes.list ?? []).filter(k => k.isModifier),
-    code: definitions?.keycodes.list ?? []
-  })
-
-  const search = $derived.by((): SearchContextValue => {
-    const targets = searchTargets
-    const src = sources
-    return {
-      sources: src,
-      getSearchTargets: (param: unknown, behaviour: string | number) => {
-        if (param && typeof param === 'object' && 'enum' in (param as object)) {
-          return ((param as { enum: string[] }).enum || []).map(v => ({
-            code: v
-          }))
-        }
-        if (param === 'command') {
-          const key = String(behaviour)
-          const beh = src.behaviours?.[key] as { commands?: unknown[] } | undefined
-          return (
-            beh?.commands ??
-            getBehaviorCatalog().byCode[key]?.commands ??
-            []
-          )
-        }
-        return (targets as Record<string, unknown[]>)[param as string] ?? []
-      }
-    }
-  })
+  const search = $derived.by((): SearchContextValue =>
+    buildSearchContext(definitions, availableLayers)
+  )
 
   setSearchContext({
     get current() {
