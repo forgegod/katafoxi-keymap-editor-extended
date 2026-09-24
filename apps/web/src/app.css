@@ -77,25 +77,6 @@ code {
   cursor: not-allowed;
 }
 
-.github-link {
-  display: inline-block;
-  position: absolute;
-  z-index: 100;
-  bottom: 5px;
-  left: 5px;
-  font-size: 110%;
-  font-style: italic;
-  background-color: white;
-  border-radius: 20px;
-  padding: 5px 10px;
-  text-decoration: none;
-  color: royalblue;
-}
-
-.github-link:hover {
-  color: #1a4fc4;
-}
-
 /* Dialog dismiss button (original DialogBox had unstyled browser button) */
 .dialog > button {
   cursor: pointer;
