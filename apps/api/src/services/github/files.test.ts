@@ -127,14 +127,20 @@ function resolveMockValue(value: unknown, options: ApiRequestOptions | string): 
 
 function mockGithub(
   files: Record<string, unknown>,
-  options: { missing?: string[] } = {}
+  options: { missing?: string[]; errors?: Record<string, number> } = {}
 ) {
   const missing = new Set(options.missing ?? [])
+  const errors = options.errors ?? {}
   return vi.spyOn(api, 'request').mockImplementation(async options => {
     const url = requestUrl(options)
     const method = requestMethod(options)
     const path = contentsPath(url)
     if (path !== null && missing.has(path)) throw notFound()
+    if (path !== null && path in errors) {
+      throw Object.assign(new Error(`GitHub API ${errors[path]}`), {
+        response: { status: errors[path] }
+      })
+    }
 
     const methodUrl = `${method} ${url}`
     if (methodUrl in files) return ok(resolveMockValue(files[methodUrl], options))
@@ -271,6 +277,71 @@ describe('fetchKeyboardFiles', () => {
     expect(
       requestUrls(request).filter(url => url.endsWith(`/${KEYMAP_PATH}`))
     ).toHaveLength(1)
+  })
+
+  it('falls back to .keymap when keymap.json is not JSON', async () => {
+    const request = mockGithub({
+      'config/info.json': JSON.stringify(INFO),
+      config: LISTING,
+      'config/keymap.json': 'not-json',
+      [KEYMAP_PATH]: DTS
+    })
+
+    const result = await fetchKeyboardFiles('1', REPO)
+
+    expect(result.originalCodeKeymap.path).toBe(KEYMAP_PATH)
+    expect(result.keymap.layers[0]).toEqual(['&kp A'])
+    expect(
+      requestUrls(request).filter(url => url.endsWith(`/${KEYMAP_PATH}`))
+    ).toHaveLength(1)
+  })
+
+  it('falls back to .keymap when keymap.json is not primary and skips the template', async () => {
+    const request = mockGithub({
+      'config/info.json': JSON.stringify(INFO),
+      config: LISTING,
+      'config/keymap.json': JSON.stringify({ layers: [] }),
+      [KEYMAP_PATH]: DTS
+    })
+
+    const result = await fetchKeyboardFiles('1', REPO)
+
+    expect(result.originalCodeKeymap.path).toBe(KEYMAP_PATH)
+    expect(result.keymap.layers[0]).toEqual(['&kp A'])
+    expect(
+      requestUrls(request).filter(url => url.endsWith(`/${KEYMAP_PATH}`))
+    ).toHaveLength(1)
+    expect(requestUrls(request).some(url => url.endsWith(`/${TEMPLATE_PATH}`))).toBe(false)
+  })
+
+  it('rethrows a non-404 keymap.json error without downloading .keymap', async () => {
+    const request = mockGithub(
+      {
+        'config/info.json': JSON.stringify(INFO),
+        config: LISTING,
+        [KEYMAP_PATH]: DTS
+      },
+      { errors: { 'config/keymap.json': 500 } }
+    )
+
+    await expect(fetchKeyboardFiles('1', REPO)).rejects.toMatchObject({
+      response: { status: 500 }
+    })
+    expect(requestUrls(request).some(url => url.endsWith(`/${KEYMAP_PATH}`))).toBe(false)
+  })
+
+  it('rejects with MissingRepoFile when info.json is missing', async () => {
+    mockGithub(
+      {
+        config: LISTING,
+        'config/keymap.json': JSON.stringify(KEYMAP_JSON)
+      },
+      { missing: ['config/info.json'] }
+    )
+
+    const err = await fetchKeyboardFiles('1', REPO).catch(e => e)
+    expect(err).toBeInstanceOf(MissingRepoFile)
+    expect((err as MissingRepoFile).path).toBe('config/info.json')
   })
 })
 
