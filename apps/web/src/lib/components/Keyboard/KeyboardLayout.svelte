@@ -1,5 +1,10 @@
 <script lang="ts">
-  import type { KeyBindingNode, LayoutKey } from '@keymap-editor/keymap-core'
+  import type {
+    HostLegendView,
+    KeyBindingNode,
+    LayoutKey,
+    LegendHover
+  } from '@keymap-editor/keymap-core'
   import Key from './Keys/Key.svelte'
   import type { LegendMode } from '../../context'
 
@@ -8,6 +13,9 @@
     bindings: KeyBindingNode[]
     onUpdate: (bindings: KeyBindingNode[]) => void
     legendMode?: LegendMode
+    hostView?: HostLegendView
+    legendHover?: LegendHover | null
+    layerStack?: KeyBindingNode[][]
     usedKeycodes?: ReadonlyMap<string, readonly number[]>
     usedRevision?: string
     usedLayerLabels?: readonly string[]
@@ -18,6 +26,9 @@
     bindings,
     onUpdate,
     legendMode = 'zmk',
+    hostView,
+    legendHover = null,
+    layerStack,
     usedKeycodes = new Map(),
     usedRevision = '',
     usedLayerLabels = []
@@ -60,6 +71,9 @@
       {usedRevision}
       {usedLayerLabels}
       {legendMode}
+      {hostView}
+      {legendHover}
+      layerBindings={layerStack?.map(layer => layer[i] ?? { value: '&none', params: [] })}
       onUpdate={bind =>
         handleUpdateBind(i, {
           value: bind.value ?? '&none',

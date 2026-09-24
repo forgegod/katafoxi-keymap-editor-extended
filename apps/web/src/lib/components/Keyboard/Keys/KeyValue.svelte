@@ -21,12 +21,10 @@
     source ? `(${source.code}) ${source.description ?? ''}` : undefined
   )
   const text = $derived(
-    source
-      ? keycapLegend(
-          (source.code ?? value) as string | number | undefined,
-          source.symbol as string | undefined
-        )
-      : ''
+    keycapLegend(
+      (source?.code ?? value) as string | number | undefined,
+      source?.symbol as string | undefined
+    )
   )
   const faIcon = $derived(source?.faIcon as string | undefined)
   const keypad = $derived(

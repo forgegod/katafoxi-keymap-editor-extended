@@ -3,6 +3,8 @@
     collectUsedKeycodes,
     layerLegendSymbol,
     usedKeycodesRevision,
+    type HostLegendView,
+    type LegendHover,
     type KeyBindingNode,
     type LayoutKey,
     type ParsedKeymap
@@ -23,11 +25,15 @@
     keymap: ParsedKeymap
     onUpdate: (keymap: ParsedKeymap) => void
     legendMode?: LegendMode
+    hostView?: HostLegendView
+    legendHover?: LegendHover | null
   }
 
-  let { layout, keymap, onUpdate, legendMode = 'zmk' }: Props = $props()
+  let { layout, keymap, onUpdate, legendMode = 'zmk', hostView, legendHover = null }: Props =
+    $props()
 
-  let activeLayer = $state(0)
+  let activeLayer = $state<number | 'all'>(0)
+  let lastNumericLayer = $state(0)
   const definitionsBox = getDefinitionsContext()
   const definitions = $derived(definitionsBox.current)
 
@@ -109,7 +115,21 @@
     onUpdate({ ...keymap, layers })
   }
 
+  $effect(() => {
+    if (legendMode === 'composed') {
+      activeLayer = 'all'
+    } else {
+      activeLayer = lastNumericLayer
+    }
+  })
+
+  function selectLayer(layer: number | 'all') {
+    if (layer !== 'all') lastNumericLayer = layer
+    activeLayer = layer
+  }
+
   function handleRenameLayer(layerName: string) {
+    if (activeLayer === 'all') return
     const names = [
       ...layerNames.slice(0, activeLayer),
       layerName,
@@ -123,8 +143,11 @@
     names.splice(layerIndex, 1)
     const layers = [...keymap.layers]
     layers.splice(layerIndex, 1)
-    if (activeLayer > layers.length - 1) {
-      activeLayer = Math.max(0, layers.length - 1)
+    const last = Math.max(0, layers.length - 1)
+    if (lastNumericLayer > last) lastNumericLayer = last
+    if (activeLayer !== 'all' && activeLayer > last) {
+      activeLayer = last
+      lastNumericLayer = last
     }
     onUpdate({ ...keymap, layers, layer_names: names })
   }
@@ -133,7 +156,8 @@
 <LayerSelector
   layers={layerNames}
   {activeLayer}
-  onSelect={i => (activeLayer = i)}
+  showAllLayers={legendMode === 'composed'}
+  onSelect={selectLayer}
   onNewLayer={handleCreateLayer}
   onRenameLayer={handleRenameLayer}
   onDeleteLayer={handleDeleteLayer}
@@ -143,12 +167,21 @@
   {#if isReady}
     <KeyboardLayout
       {layout}
-      bindings={keymap.layers[activeLayer]}
+      bindings={
+        activeLayer === 'all'
+          ? keymap.layers[0]
+          : keymap.layers[activeLayer]
+      }
+      layerStack={activeLayer === 'all' ? keymap.layers : undefined}
       {legendMode}
+      {hostView}
+      {legendHover}
       {usedKeycodes}
       {usedRevision}
       {usedLayerLabels}
-      onUpdate={event => handleUpdateLayer(activeLayer, event)}
+      onUpdate={event =>
+        handleUpdateLayer(activeLayer === 'all' ? 0 : activeLayer, event)
+      }
     />
   {/if}
 </div>

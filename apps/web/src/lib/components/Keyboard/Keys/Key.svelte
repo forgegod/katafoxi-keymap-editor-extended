@@ -2,12 +2,17 @@
   import {
     behaviorKeycapRole,
     composeKey,
+    compactBehaviorLegend,
+    legendHoverHit,
+    composeLayerRows,
     encodeKeyBinding,
     getBehaviorCatalog,
     isComplex,
     isHoldTapBehavior,
     isSimple,
-    type KeyBindingNode
+    type HostLegendView,
+    type KeyBindingNode,
+    type LegendHover
   } from '@keymap-editor/keymap-core'
   import { getSearchContext, type LegendMode } from '../../../context'
   import { getBehaviourParams } from '../../../hydrate'
@@ -28,9 +33,9 @@
   import { pick } from '../../../utils'
   import KeyParamlist from './KeyParamlist.svelte'
   import KeyCap from '../../KeyCap.svelte'
+  import './Key.css'
   import Modal from '../../Common/Modal.svelte'
   import KeyEditor from '../../KeyEditor/KeyEditor.svelte'
-  import './Key.css'
 
   interface Props {
     position: { x: number; y: number }
@@ -41,6 +46,9 @@
     params?: Array<{ value?: string | number; params?: unknown[] }>
     onUpdate: (bind: { value: string | number | undefined; params: HydratedNode[] }) => void
     legendMode?: LegendMode
+    hostView?: HostLegendView
+    legendHover?: LegendHover | null
+    layerBindings?: KeyBindingNode[]
     usedKeycodes?: ReadonlyMap<string, readonly number[]>
     usedRevision?: string
     usedLayerLabels?: readonly string[]
@@ -55,6 +63,9 @@
     params = [],
     onUpdate,
     legendMode = 'zmk',
+    hostView,
+    legendHover = null,
+    layerBindings,
     usedKeycodes = new Map(),
     usedRevision = '',
     usedLayerLabels = []
@@ -127,16 +138,66 @@
   )
   const canEdit = $derived(legendMode === 'zmk' && !!search)
 
-  const composedLegend = $derived.by(() => {
-    if (legendMode !== 'composed') return null
-    return composeKey({
-      binding: {
-        value,
-        params: (params ?? []) as KeyBindingNode[]
+  const stacked = $derived(legendMode === 'composed' && (layerBindings?.length ?? 0) > 0)
+  const composedRows = $derived.by(() => {
+    if (legendMode !== 'composed') return []
+    if (stacked && layerBindings) return composeLayerRows(layerBindings, hostView)
+    const binding = {
+      value,
+      params: (params ?? []) as KeyBindingNode[]
+    }
+    return [
+      {
+        layer: 0,
+        binding,
+        blank: false,
+        hidden: false,
+        legend: composeKey({ binding, hostView })
       }
-    })
+    ]
   })
+  const composedLegend = $derived(composedRows[0]?.legend ?? null)
   const showComposed = $derived(legendMode === 'composed' && composedLegend != null)
+  const showStack = $derived(stacked)
+  const compactLegend = $derived(
+    compactBehaviorLegend({
+      value,
+      params: (params ?? []).map(node => ({
+        value: node.value ?? '',
+        params: (node.params ?? []) as KeyBindingNode[]
+      }))
+    })
+  )
+  const currentBinding = $derived({
+    value,
+    params: (params ?? []).map(node => ({
+      value: node.value ?? '',
+      params: (node.params ?? []) as KeyBindingNode[]
+    }))
+  })
+  const currentHoverHit = $derived(legendHoverHit(currentBinding, legendHover))
+
+  function rowHoverHit(binding: KeyBindingNode) {
+    return legendHoverHit(binding, legendHover)
+  }
+
+  function zmkRowView(node: KeyBindingNode) {
+    const hydrated = hydrateTree(node.value, node.params ?? [], sources)
+    const nextBehaviour = lookupBehaviour(node.value)
+    const rowParams = getBehaviourParams(hydrated.params, nextBehaviour as never)
+    const holdTap = isHoldTapBehavior(node.value) && hydrated.params.length === 2
+    return {
+      title: encodeKeyBinding(node),
+      hydrated,
+      params: rowParams,
+      holdTap,
+      behaviorRole: behaviorKeycapRole(node.value, {
+        paramCount: hydrated.params.length,
+        holdTapVisible: holdTap
+      }),
+      code: String(node.value)
+    }
+  }
   const holdTapVisible = $derived(
     isHoldTapBehavior(value) && normalized.params.length === 2
   )
@@ -289,16 +350,53 @@
   data-hold-tap={holdTapVisible}
   data-behavior={behaviorRole}
   data-editable={canEdit}
+  data-stacked={showStack}
   style={Object.entries(positioningStyle)
     .map(([k, v]) => `${k.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`)}:${v}`)
     .join(';')}
   onclick={handleKeyClick}
 >
-  {#if showComposed && composedLegend}
-    <div class="keycap-wrap">
-      <KeyCap legend={composedLegend} mode="composed" />
+  {#if showStack}
+    <div class="keycap-wrap layer-stack">
+      {#each composedRows as row (row.layer)}
+        {@const hit = rowHoverHit(row.binding)}
+        <div class="layer-slot" data-layer={row.layer}>
+          {#if row.blank || row.hidden}
+            <span class="layer-empty" aria-hidden="true"></span>
+          {:else if row.legend}
+            <KeyCap legend={row.legend} mode="composed" stacked {hit} />
+          {:else}
+            {@const zmk = zmkRowView(row.binding)}
+            {@const compact = compactBehaviorLegend(row.binding)}
+            <span class="zmk-row" class:legend-hit={hit === 'combo'} title={zmk.title}>
+              {#if compact}
+                {compact}
+              {:else}
+                {#if zmk.behaviorRole !== 'hidden'}
+                  <span class="zmk-beh">{zmk.code}</span>
+                {/if}
+                <KeyParamlist
+                  root={true}
+                  holdTap={zmk.holdTap}
+                  parentCodeIndex={0}
+                  params={zmk.params}
+                  values={zmk.hydrated.params}
+                  onSelect={() => {}}
+                />
+              {/if}
+            </span>
+          {/if}
+        </div>
+      {/each}
     </div>
+  {:else if showComposed && composedLegend}
+    <div class="keycap-wrap">
+      <KeyCap legend={composedLegend} mode="composed" hit={currentHoverHit} />
+    </div>
+  {:else if compactLegend}
+    <span class:legend-hit={currentHoverHit === 'combo'} title={bindingLabel}>{compactLegend}</span>
   {:else}
+    <span class:legend-hit={currentHoverHit === 'combo'}>
     {#if behaviour && behaviorRole !== 'hidden'}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <span
@@ -317,6 +415,7 @@
       values={normalized.params}
       onSelect={handleSelectCode}
     />
+    </span>
   {/if}
 
   {#if editing && canEdit && activeSlot}

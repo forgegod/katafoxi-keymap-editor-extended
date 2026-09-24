@@ -1,40 +1,59 @@
 <script lang="ts">
-  import type { ComposedLegend } from '@keymap-editor/keymap-core'
+  import type { ComposedLegend, LegendHoverHit } from '@keymap-editor/keymap-core'
   import type { LegendMode } from '../context'
 
   interface Props {
     legend: ComposedLegend
     mode?: LegendMode
+    stacked?: boolean
+    hit?: LegendHoverHit
   }
 
-  let { legend, mode = 'composed' }: Props = $props()
+  let { legend, mode = 'composed', stacked = false, hit = 'none' }: Props = $props()
+
+  const title = $derived(
+    [legend.keycode, legend.bilingualNote].filter(Boolean).join(' ')
+  )
 </script>
 
 {#if mode === 'composed'}
   <div
     class="keycap"
     class:keypad={legend.keypad}
-    title={[legend.keycode, legend.bilingualNote].filter(Boolean).join(' ')}
+    class:stacked
+    {title}
   >
-    <span class="line">
-      <span class="pair">{legend.primary[0]}{legend.primary[1]}</span>
-      {#if legend.altGr[0] || legend.altGr[1]}
-        <span class="pair alt">{legend.altGr[0]}{legend.altGr[1]}</span>
+    <span class="line" class:legend-hit={hit === 'combo'}>
+      {#if legend.en[0] || legend.en[1]}
+        <span class="col en">{legend.en[0]}{legend.en[1]}</span>
+      {/if}
+      {#if legend.second}
+        <span class="col second">{legend.second[0]}{legend.second[1]}</span>
+      {/if}
+      {#if legend.bilingualNote}
+        <span class="col alt">{legend.bilingualNote}</span>
+      {:else}
+        {#if legend.altGr}
+          <span class="col alt">{legend.altGr}</span>
+        {/if}
+        {#if legend.altGrShift}
+          <span class="col alt">{legend.altGrShift}</span>
+        {/if}
       {/if}
       {#if legend.hold}
-        <span class="hold">{legend.hold}</span>
+        <span class="hold" class:legend-hit={hit === 'hold'}>{legend.hold}</span>
       {/if}
     </span>
   </div>
 {:else}
-  <span class="zmk-fallback">{legend.keycode || legend.primary[0]}</span>
+  <span class="zmk-fallback">{legend.keycode || legend.en[0]}</span>
 {/if}
 
 <style>
   .keycap {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     width: 100%;
     height: 100%;
     padding: 2px;
@@ -43,20 +62,48 @@
     font-size: 13px;
     font-weight: 500;
     line-height: 1;
-    color: #666;
+    color: #555;
+    overflow: hidden;
+  }
+
+  .keycap.stacked {
+    height: 100%;
+    font-size: 11px;
+    padding: 0;
+  }
+
+  .keycap.stacked.keypad {
+    box-shadow: none;
+    background: transparent;
   }
 
   .line {
     display: flex;
     align-items: baseline;
-    justify-content: center;
-    gap: 0.35em;
+    justify-content: flex-start;
+    gap: 0.3em;
     max-width: 100%;
     white-space: nowrap;
   }
 
-  .pair.alt {
-    opacity: 0.75;
+  .col.second {
+    color: #1d6f8a;
+  }
+
+  .col.alt {
+    opacity: 0.7;
+  }
+
+  .line.legend-hit,
+  .hold.legend-hit {
+    background: #e4c56a;
+    border-radius: 3px;
+    color: #444;
+    opacity: 1;
+  }
+
+  .line.legend-hit {
+    padding: 0 2px;
   }
 
   .keycap.keypad {

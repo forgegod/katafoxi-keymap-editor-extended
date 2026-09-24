@@ -3,8 +3,9 @@
 
   interface Props {
     layers: string[]
-    activeLayer: number
-    onSelect: (layer: number) => void
+    activeLayer: number | 'all'
+    showAllLayers?: boolean
+    onSelect: (layer: number | 'all') => void
     onNewLayer: () => void
     onRenameLayer: (name: string) => void
     onDeleteLayer: (index: number) => void
@@ -13,6 +14,7 @@
   let {
     layers,
     activeLayer,
+    showAllLayers = false,
     onSelect,
     onNewLayer,
     onRenameLayer,
@@ -33,7 +35,7 @@
 
   function handleSelect(layer: number) {
     if (layer === activeLayer) {
-      editing = layers[activeLayer]
+      editing = layers[layer]
       renaming = true
       return
     }
@@ -103,6 +105,19 @@
 >
   <p>Layers:</p>
   <ul>
+    {#if showAllLayers}
+      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+      <li
+        class:active={activeLayer === 'all'}
+        data-layer="all"
+        onclick={stop(() => {
+          renaming = false
+          onSelect('all')
+        })}
+      >
+        <span class="name always">All layers</span>
+      </li>
+    {/if}
     {#each layers as name, i}
       <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
       <li
@@ -246,6 +261,15 @@
 
   .layer-selector li.active .name {
     cursor: text;
+  }
+
+  .layer-selector li .name.always,
+  .layer-selector:hover li .name.always,
+  .layer-selector[data-renaming='true'] li .name.always {
+    width: auto;
+    min-width: 88px;
+    padding: 0 12px;
+    cursor: pointer;
   }
 
   .layer-selector button {
