@@ -72,6 +72,8 @@ describe('Key click editor', () => {
     props: {
       legendMode?: 'zmk' | 'composed'
       onUpdate?: ReturnType<typeof vi.fn>
+      value?: string
+      params?: Array<{ value?: string | number; params?: unknown[] }>
     } = {}
   ) {
     const onUpdate = props.onUpdate ?? vi.fn()
@@ -79,6 +81,8 @@ describe('Key click editor', () => {
       target,
       props: {
         ...typicalKey,
+        value: props.value ?? typicalKey.value,
+        params: props.params ?? typicalKey.params,
         legendMode: props.legendMode ?? 'zmk',
         onUpdate
       }
@@ -161,6 +165,20 @@ describe('Key click editor', () => {
 
     expect(onUpdate).not.toHaveBeenCalled()
     expect(editorDialog()).toBeInstanceOf(HTMLElement)
+  })
+
+  it('updates the binding preview when a hold wrap is toggled', () => {
+    open({ params: [{ value: 'H', params: [] }] })
+    clickKey()
+    expect(document.querySelector('.binding')?.textContent).toBe('&kp H')
+
+    clickChoice(document, '⇧', '.key-editor-holds .key-editor-choice')
+
+    expect(document.querySelector('.binding')?.textContent).toBe('&kp LS(H)')
+    const shift = [...document.querySelectorAll('.key-editor-holds .key-editor-choice')].find(
+      el => (el.textContent ?? '').trim() === '⇧'
+    )
+    expect(shift?.classList.contains('active')).toBe(true)
   })
 
   it('applies a hold plus key as LC(A)', () => {

@@ -1,10 +1,12 @@
 import {
+  encodeKeyBinding,
   isModifierWrapCode,
   modifierHoldForKey,
   modifierHoldForWrap,
   readModifierChain,
   toggleModifierWraps,
-  writeModifierChain
+  writeModifierChain,
+  type KeyBindingNode
 } from '@keymap-editor/keymap-core'
 import {
   childCodeIndex,
@@ -125,6 +127,44 @@ export function visibleValueSlots(slots: EditorSlot[]): EditorSlot[] {
   return slots.filter(
     slot => slot.param !== 'behaviour' && !isModifierWrapCode(slot.value)
   )
+}
+
+function takeBindingParam(
+  slots: EditorSlot[],
+  start: number
+): { node: KeyBindingNode | null; next: number } {
+  const slot = slots[start]
+  if (!slot) return { node: null, next: start }
+  if (isModifierWrapCode(slot.value)) {
+    const child = takeBindingParam(slots, start + 1)
+    return {
+      node: {
+        value: String(slot.value),
+        params: child.node ? [child.node] : []
+      },
+      next: child.next
+    }
+  }
+  if (!isSlotFilled(slot)) return { node: null, next: start + 1 }
+  return { node: { value: slot.value ?? '', params: [] }, next: start + 1 }
+}
+
+/** Encoded ZMK line from editor slots, including hold wraps hidden from the value row. */
+export function editorBindingPreview(
+  slots: EditorSlot[],
+  behaviourOverride?: string | number | null
+): string {
+  const behaviour = slots.find(slot => slot.param === 'behaviour')
+  const value = behaviourOverride ?? behaviour?.value
+  if (value == null || String(value) === '') return ''
+  const params: KeyBindingNode[] = []
+  let index = behaviour ? slots.indexOf(behaviour) + 1 : 0
+  while (index < slots.length) {
+    const taken = takeBindingParam(slots, index)
+    index = taken.next
+    if (taken.node) params.push(taken.node)
+  }
+  return encodeKeyBinding({ value, params })
 }
 
 export function isSlotFilled(slot: EditorSlot): boolean {

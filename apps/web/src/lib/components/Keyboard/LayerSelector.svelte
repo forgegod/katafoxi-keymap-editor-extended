@@ -22,6 +22,7 @@
   let rootEl: HTMLDivElement | undefined = $state()
   let renaming = $state(false)
   let editing = $state('')
+  let pendingDelete = $state<{ index: number; name: string } | null>(null)
 
   function stop(fn: () => void) {
     return (event: MouseEvent) => {
@@ -41,10 +42,20 @@
   }
 
   function handleDelete(layerIndex: number, layerName: string) {
-    const confirmation = `Really delete layer: ${layerName}?`
-    if (window.confirm(confirmation)) {
-      onDeleteLayer(layerIndex)
-    }
+    renaming = false
+    editing = ''
+    pendingDelete = { index: layerIndex, name: layerName }
+  }
+
+  function confirmDelete() {
+    if (!pendingDelete) return
+    const index = pendingDelete.index
+    pendingDelete = null
+    onDeleteLayer(index)
+  }
+
+  function cancelDelete() {
+    pendingDelete = null
   }
 
   function finishEditing() {
@@ -131,6 +142,19 @@
       <span class="name">Add Layer</span>
     </li>
   </ul>
+  {#if pendingDelete}
+    <div class="delete-confirm" role="alertdialog" aria-label="Delete layer">
+      <p>Delete layer {pendingDelete.name}?</p>
+      <div class="delete-confirm-actions">
+        <button type="button" class="confirm-delete" onclick={confirmDelete}>
+          Delete
+        </button>
+        <button type="button" class="cancel-delete" onclick={cancelDelete}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -241,5 +265,48 @@
     margin: 4px 2px;
     font-size: 90%;
     color: #555;
+  }
+
+  .delete-confirm {
+    margin: 8px 2px 0;
+    padding: 10px 12px;
+    width: 180px;
+    background: #fff;
+    color: #222;
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+    font-variant: normal;
+  }
+
+  .delete-confirm p {
+    margin: 0 0 8px;
+    font-size: 90%;
+    color: #222;
+    font-variant: normal;
+  }
+
+  .delete-confirm-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .delete-confirm button {
+    flex: 1;
+    height: 26px;
+    line-height: 26px;
+    border: none;
+    border-radius: 13px;
+    cursor: pointer;
+    font-size: 85%;
+  }
+
+  .confirm-delete {
+    background: #c0392b;
+    color: #fff;
+  }
+
+  .cancel-delete {
+    background: #ddd;
+    color: #333;
   }
 </style>

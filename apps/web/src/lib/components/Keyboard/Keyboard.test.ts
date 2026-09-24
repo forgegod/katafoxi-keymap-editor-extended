@@ -205,13 +205,20 @@ describe('Keyboard layers', () => {
 
   it('keeps the layer when delete is cancelled', () => {
     const harness = open()
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
 
     const del = target.querySelector('.delete')
     expect(del).toBeInstanceOf(SVGElement)
     clickNode(del as SVGElement)
 
-    expect(confirm).toHaveBeenCalled()
+    const dialog = target.querySelector('[role=alertdialog][aria-label="Delete layer"]')
+    expect(dialog).toBeInstanceOf(HTMLElement)
+    expect(dialog?.textContent).toContain('Delete layer Base?')
+
+    const cancel = target.querySelector('.cancel-delete')
+    expect(cancel).toBeInstanceOf(HTMLButtonElement)
+    clickNode(cancel as HTMLButtonElement)
+
+    expect(target.querySelector('[role=alertdialog]')).toBeNull()
     expect(harness.getKeymap().layers).toHaveLength(2)
     expect(harness.getKeymap().layer_names).toEqual(['Base', 'Raise'])
     expect(harness.getUpdateCount()).toBe(0)
@@ -219,7 +226,6 @@ describe('Keyboard layers', () => {
 
   it('removes the last layer and keeps an active remaining layer', () => {
     const harness = open()
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
 
     layerItem(target, 1).click()
     flushSync()
@@ -229,7 +235,11 @@ describe('Keyboard layers', () => {
     expect(del).toBeInstanceOf(SVGElement)
     clickNode(del as SVGElement)
 
-    expect(confirm).toHaveBeenCalled()
+    const confirm = target.querySelector('.confirm-delete')
+    expect(confirm).toBeInstanceOf(HTMLButtonElement)
+    clickNode(confirm as HTMLButtonElement)
+
+    expect(target.querySelector('[role=alertdialog]')).toBeNull()
     expect(harness.getKeymap().layers).toHaveLength(1)
     expect(harness.getKeymap().layer_names).toEqual(['Base'])
     expect(target.querySelector('li[data-layer].active')).toBeInstanceOf(HTMLLIElement)

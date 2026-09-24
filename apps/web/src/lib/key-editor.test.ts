@@ -5,6 +5,7 @@ import {
   buildEditorSlots,
   codeColumnMinPx,
   codeGridMetrics,
+  editorBindingPreview,
   firstMissingSlot,
   isBindingComplete,
   isKeycodeParam,
@@ -110,6 +111,27 @@ describe('buildEditorSlots', () => {
       slotSummary(visibleValueSlots(buildEditorSlots(tree, ['code'])))
     ).toEqual(['Key:A'])
     expect(terminalKeySlot(buildEditorSlots(tree, ['code']), 1)?.value).toBe('A')
+    expect(editorBindingPreview(buildEditorSlots(tree, ['code']))).toBe('&kp LC(A)')
+  })
+})
+
+describe('editorBindingPreview', () => {
+  it('keeps hold wraps in the encoded line', () => {
+    const slots = buildEditorSlots(
+      {
+        value: '&kp',
+        params: [
+          {
+            value: 'LS',
+            source: { code: 'LS', params: ['code'] },
+            params: [{ value: 'H', source: { code: 'H' }, params: [] }]
+          }
+        ]
+      },
+      ['code']
+    )
+    expect(visibleValueSlots(slots).map(slot => slot.value)).toEqual(['H'])
+    expect(editorBindingPreview(slots)).toBe('&kp LS(H)')
   })
 })
 

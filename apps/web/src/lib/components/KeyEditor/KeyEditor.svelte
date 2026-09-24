@@ -14,6 +14,7 @@
     type CatalogChoice
   } from '@keymap-editor/keymap-core'
   import {
+    editorBindingPreview,
     firstMissingSlot,
     isKeycodeParam,
     isSlotFilled,
@@ -110,12 +111,9 @@
   )
   const keycodePicker = $derived(isKeycodeParam(catalogParam))
   const displayChoices = $derived(catalogKeyChoices(resolvedChoices))
-  const previewLabel = $derived.by(() => {
-    const code = behaviourValue
-    if (code == null || code === '') return bindingLabel
-    const values = paramSlots.filter(isSlotFilled).map(slot => slot.value)
-    return [code, ...values].join(' ')
-  })
+  const previewLabel = $derived(
+    editorBindingPreview(editorSlots, pickedBehaviour) || bindingLabel
+  )
   const labelChoice = $derived(buildChoiceLabeler(displayChoices))
   const searching = $derived(query.trim().length > 0)
   const orderedBehaviours = $derived(sortBehaviorsByRole(behaviours))
