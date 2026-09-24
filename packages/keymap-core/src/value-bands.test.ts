@@ -1,0 +1,157 @@
+import { describe, expect, it } from 'vitest'
+import { bandCatalogChoices, valueBandCaption, valueBandKind } from './value-bands.js'
+
+describe('valueBandKind', () => {
+  it('keeps letters, digits, and F-keys out of the long-code grid', () => {
+    expect(valueBandKind({ code: 'A' })).toBe('letters')
+    expect(valueBandKind({ code: 'N1', symbol: '1' })).toBe('digits')
+    expect(valueBandKind({ code: 'F12' })).toBe('function')
+    expect(valueBandKind({ code: 'ESC' })).toBe('nav')
+    expect(valueBandKind({ code: 'MINUS' })).toBe('punct')
+    expect(valueBandKind({ code: 'SEMI', symbol: ';' })).toBe('punct')
+    expect(valueBandKind({ code: 'COLON' })).toBe('shifted')
+    expect(valueBandKind({ code: 'HASH' })).toBe('shifted')
+    expect(valueBandKind({ code: 'K_MUTE' })).toBe('extras')
+    expect(valueBandKind({ code: 'K_MUTE2' })).toBe('codes')
+    expect(valueBandKind({ code: 'PIPE2' })).toBe('codes')
+    expect(valueBandKind({ code: 'ALT_ERASE' })).toBe('codes')
+    expect(valueBandKind({ code: 'LCMD', symbol: '⌘', isModifier: true })).toBe(
+      'modkeys'
+    )
+    expect(valueBandKind({ code: 'LCTRL', isModifier: true })).toBe('modkeys')
+    expect(valueBandKind({ code: 'LG', params: ['code'] })).toBe('modwraps')
+  })
+})
+
+describe('valueBandCaption', () => {
+  it('labels US shift aliases without calling them forbidden', () => {
+    const caption = valueBandCaption('shifted')
+    expect(caption?.label).toBe('LS · US')
+    expect(caption?.hint).toContain('COLON is LS(SEMI)')
+    expect(valueBandCaption('punct')).toBeNull()
+  })
+})
+
+describe('bandCatalogChoices', () => {
+  it('orders compact bands before even columns of long names', () => {
+    const bands = bandCatalogChoices([
+      { code: 'ALT_ERASE' },
+      { code: 'BSPC' },
+      { code: 'F24' },
+      { code: 'A' },
+      { code: 'F1' },
+      { code: 'N2', symbol: '2' },
+      { code: 'AMPS' }
+    ])
+    expect(bands.map(b => b.kind)).toEqual([
+      'function',
+      'digits',
+      'letters',
+      'shifted',
+      'nav',
+      'codes'
+    ])
+    expect(bands.find(b => b.kind === 'function')?.items.map(i => i.code)).toEqual([
+      'F1',
+      'F24'
+    ])
+    expect(bands.find(b => b.kind === 'shifted')?.items.map(i => i.code)).toEqual([
+      'AMPS'
+    ])
+    expect(bands.find(b => b.kind === 'nav')?.items.map(i => i.code)).toEqual([
+      'BSPC'
+    ])
+    expect(bands.find(b => b.kind === 'codes')?.items.map(i => i.code)).toEqual([
+      'ALT_ERASE'
+    ])
+  })
+
+  it('puts modifier keys and wraps after letters and F-keys', () => {
+    const bands = bandCatalogChoices([
+      { code: 'RCMD', symbol: '⌘', isModifier: true },
+      { code: 'LG', params: ['code'] },
+      { code: 'LCTRL', isModifier: true },
+      { code: 'LC', params: ['code'] },
+      { code: 'LSHFT', symbol: '⇧', isModifier: true },
+      { code: 'F1' },
+      { code: 'A' }
+    ])
+    expect(bands.map(b => b.kind)).toEqual([
+      'function',
+      'letters',
+      'modkeys',
+      'modwraps'
+    ])
+    expect(bands.find(b => b.kind === 'modkeys')?.items.map(i => i.code)).toEqual([
+      'LSHFT',
+      'LCTRL',
+      'RCMD'
+    ])
+    expect(bands.find(b => b.kind === 'modwraps')?.items.map(i => i.code)).toEqual([
+      'LC',
+      'LG'
+    ])
+  })
+
+  it('puts typed marks in punct and editing keys in nav', () => {
+    const bands = bandCatalogChoices([
+      { code: 'MINUS' },
+      { code: 'HASH' },
+      { code: 'PIPE2' },
+      { code: 'ESC' },
+      { code: 'LEFT', symbol: '⏴' },
+      { code: 'COMMA', symbol: ',' }
+    ])
+    expect(bands.map(b => b.kind)).toEqual(['punct', 'shifted', 'nav', 'codes'])
+    expect(bands.find(b => b.kind === 'punct')?.items.map(i => i.code)).toEqual([
+      'MINUS',
+      'COMMA'
+    ])
+    expect(bands.find(b => b.kind === 'shifted')?.items.map(i => i.code)).toEqual([
+      'HASH'
+    ])
+    expect(bands.find(b => b.kind === 'nav')?.items.map(i => i.code)).toEqual([
+      'ESC',
+      'LEFT'
+    ])
+    expect(bands.find(b => b.kind === 'codes')?.items.map(i => i.code)).toEqual([
+      'PIPE2'
+    ])
+  })
+
+  it('keeps SEMI with HID punctuation and COLON with LS aliases', () => {
+    const bands = bandCatalogChoices([
+      { code: 'COLON' },
+      { code: 'SEMI', symbol: ';' },
+      { code: 'QMARK', symbol: '?' },
+      { code: 'FSLH', symbol: '/' }
+    ])
+    expect(bands.map(b => b.kind)).toEqual(['punct', 'shifted'])
+    expect(bands.find(b => b.kind === 'punct')?.items.map(i => i.code)).toEqual([
+      'SEMI',
+      'FSLH'
+    ])
+    expect(bands.find(b => b.kind === 'shifted')?.items.map(i => i.code)).toEqual([
+      'COLON',
+      'QMARK'
+    ])
+  })
+
+  it('lifts keyboard K_* extras out of the HID dump', () => {
+    const bands = bandCatalogChoices([
+      { code: 'K_MUTE' },
+      { code: 'K_CALC' },
+      { code: 'K_MUTE2' },
+      { code: 'ALT_ERASE' }
+    ])
+    expect(bands.map(b => b.kind)).toEqual(['extras', 'codes'])
+    expect(bands.find(b => b.kind === 'extras')?.items.map(i => i.code)).toEqual([
+      'K_CALC',
+      'K_MUTE'
+    ])
+    expect(bands.find(b => b.kind === 'codes')?.items.map(i => i.code)).toEqual([
+      'ALT_ERASE',
+      'K_MUTE2'
+    ])
+  })
+})
