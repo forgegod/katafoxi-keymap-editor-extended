@@ -33,7 +33,7 @@
   font-size: 125%;
 }
 .key[data-long='true'] {
-  font-size: 60%;
+  font-size: 85%;
 }
 .key[data-hold-tap='true'] > .params {
   display: inline-flex;

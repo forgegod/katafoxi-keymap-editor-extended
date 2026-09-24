@@ -31,19 +31,19 @@ describe('isSimple', () => {
     ).toBe(true)
   })
 
-  it('keeps compact modifier chords simple', () => {
-    expect(
-      isSimple({
-        value: '&kp',
-        params: [
-          node('⌃', {
-            value: 'LC',
-            source: { code: 'LC', symbol: '⌃' },
-            params: [node('⌦', { value: 'DEL', source: { code: 'DEL', symbol: '⌦' } })]
-          })
-        ]
-      })
-    ).toBe(true)
+  it('keeps a compact chord at normal size', () => {
+    const chord = {
+      value: '&kp',
+      params: [
+        node('⌥', {
+          value: 'LA',
+          source: { code: 'LA', symbol: '⌥' },
+          params: [node('TAB', { value: 'TAB', source: { code: 'TAB', symbol: 'TAB' } })]
+        })
+      ]
+    }
+    expect(isSimple(chord)).toBe(false)
+    expect(isComplex(chord, ['code'])).toBe(false)
   })
 
   it('does not treat longer symbols as simple', () => {
@@ -102,6 +102,30 @@ describe('isComplex', () => {
   it('shrinks long center behaviours', () => {
     expect(isComplex({ value: '&none', params: [] }, [])).toBe(true)
     expect(isComplex({ value: '&trans', params: [] }, [])).toBe(true)
+  })
+
+  it('does not shrink a glyph legend such as scroll', () => {
+    expect(
+      isComplex(
+        {
+          value: '&msc',
+          params: [node('SCRL⬇', { value: 'SCRL_DOWN', source: { code: 'SCRL_DOWN', symbol: 'SCRL⬇' } })]
+        },
+        ['command']
+      )
+    ).toBe(false)
+  })
+
+  it('shrinks a leftover word longer than four letters', () => {
+    expect(
+      isComplex(
+        {
+          value: '&kp',
+          params: [node('PG_UP', { value: 'PG_UP', source: { code: 'PG_UP', symbol: 'PG_UP' } })]
+        },
+        ['code']
+      )
+    ).toBe(true)
   })
 
   it('does not shrink compact LC(DEL)', () => {

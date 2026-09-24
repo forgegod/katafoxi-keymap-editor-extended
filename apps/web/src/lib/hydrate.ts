@@ -89,10 +89,10 @@ function isCompactChord(node: HydratedNode | undefined): boolean {
   )
 }
 
+/** Single glyph or `L1` — the large cap. A chord stays at the normal size. */
 export function isSimple(normalized: HydratedNode): boolean {
   const [first] = normalized.params
   if (normalized.params.length !== 1) return false
-  if (isCompactChord(first)) return true
   if ((first?.params ?? []).length > 0) return false
   return isCompactKeycapLegend(nodeLegend(first))
 }
@@ -125,7 +125,8 @@ export function isComplex(
   }
   const [first] = normalized.params
   const symbol = nodeLegend(first)
-  const isLongSymbol = symbol.length > 4
+  // A leftover word (`PG_UP`) shrinks. A short legend that already has a glyph (`SCRL⬇`) does not.
+  const isLongSymbol = symbol.length > 4 && /^[\u0000-\u007F]*$/.test(symbol)
   const isMultiParam = behaviourParams.length > 1
   const isNestedParam =
     ((get(first, 'params', []) as unknown[]) || []).length > 0 &&
