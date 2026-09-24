@@ -781,6 +781,7 @@
   },
   {
     "names": ["MINUS"],
+    "symbol": "-",
     "description": "- [Minus] and _ [Underscore]",
     "context": "Keyboard",
     "clarify": false,
@@ -811,6 +812,7 @@
   },
   {
     "names": ["EQUAL"],
+    "symbol": "=",
     "description": "= [Equal] and + [Plus]",
     "context": "Keyboard",
     "clarify": false,
@@ -1380,6 +1382,7 @@
   },
   {
     "names": ["PAUSE_BREAK"],
+    "symbol": "⏸",
     "description": "Pause / Break",
     "context": "Keyboard",
     "clarify": false,
@@ -1580,6 +1583,7 @@
   },
   {
     "names": ["KP_DIVIDE", "KP_SLASH"],
+    "symbol": "/",
     "description": "/ [Divide]",
     "context": "Keypad",
     "clarify": false,
@@ -1595,6 +1599,7 @@
   },
   {
     "names": ["KP_MULTIPLY", "KP_ASTERISK"],
+    "symbol": "*",
     "description": "* [Multiply]",
     "context": "Keypad",
     "clarify": false,
@@ -1610,6 +1615,7 @@
   },
   {
     "names": ["KP_MINUS", "KP_SUBTRACT"],
+    "symbol": "-",
     "description": "- [Minus]",
     "context": "Keypad",
     "clarify": false,
@@ -1625,6 +1631,7 @@
   },
   {
     "names": ["KP_PLUS"],
+    "symbol": "+",
     "description": "+ [Plus]",
     "context": "Keypad",
     "clarify": false,
@@ -1640,6 +1647,7 @@
   },
   {
     "names": ["KP_ENTER"],
+    "symbol": "⮐",
     "description": "Enter",
     "context": "Keypad",
     "clarify": false,
@@ -1815,6 +1823,7 @@
   },
   {
     "names": ["KP_DOT"],
+    "symbol": ".",
     "description": ". [Dot]",
     "context": "Keypad",
     "clarify": false,
@@ -1896,6 +1905,7 @@
   },
   {
     "names": ["KP_EQUAL"],
+    "symbol": "=",
     "description": "= [Equal]",
     "context": "Keypad",
     "clarify": false,

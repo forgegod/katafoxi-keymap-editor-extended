@@ -93,12 +93,19 @@ export function isKeypadChoice(choice: {
 
 const MOD_WRAP_RE = /^(LS|RS|LC|RC|LA|RA|LG|RG)$/i
 
-/** `LC(DEL)` / `RC(BSPC)` — wrap + one short key, no deeper nest. */
+/** Short tokens that still read as one unit next to a modifier glyph. */
+const SHORT_CHORD_TOKEN_RE = /^(?:ESC|TAB|F(?:1[0-2]|[1-9]))$/
+
+/** `LC(DEL)` / `LA(F4)` / `LA(TAB)` — wrap + one short key, no deeper nest. */
 export function isCompactModifierChord(
   wrapCode: string | number | undefined | null,
   innerLegend: string
 ): boolean {
-  return MOD_WRAP_RE.test(String(wrapCode ?? '')) && isCompactKeycapLegend(innerLegend)
+  const inner = innerLegend.trim()
+  return (
+    MOD_WRAP_RE.test(String(wrapCode ?? '')) &&
+    (isCompactKeycapLegend(inner) || SHORT_CHORD_TOKEN_RE.test(inner))
+  )
 }
 
 /** Role glyph only; `keycapLegend` adds the `R` prefix for the right side. */

@@ -30,7 +30,7 @@ export interface BehaviorDef {
   code: string
   includes?: string[]
   params?: unknown[]
-  commands?: Array<{ code: string; additionalParams?: unknown[] }>
+  commands?: Array<{ code: string; symbol?: string; additionalParams?: unknown[] }>
   [key: string]: unknown
 }
 

@@ -51,10 +51,11 @@ packages/keymap-core   Pure TS — parse/generate/splice .keymap, layout validat
 - **ZMK legends (now):** helpers in `packages/keymap-core` `compose.ts` (`layerLegendSymbol`, `keycapLegend`, `isHoldTapBehavior`).
   - Layers: `L1` (index, not the layer name).
   - Left modifiers unmarked (`⌃ ⌥ ⌘ ⇧`); right side `R⌃` / `R⌥` / `R⌘` / `R⇧`.
-  - Compact chords drop parens: `LC(DEL)` → `⌃⌦`, `LS(CAPS)` → `⇧⇪`.
+  - Compact chords drop parens: `LC(DEL)` → `⌃⌦`, `LS(CAPS)` → `⇧⇪`, and a short token `LA(F4)` → `⌥F4`, `LA(TAB)` → `⌥TAB`, `LA(ESC)` → `⌥ESC` (`F1`–`F12`).
+  - Mouse scroll keeps the family prefix: `SCRL⬆` `SCRL⬇` `SCRL⬅` `SCRL➡`. Pause/Break is `⏸`. Tooltip keeps the raw code.
   - `&mt` / `&lt`: hold and tap stay in one row; hold is a smaller pill, tap is larger. Compact pairs are not shrunk to 60%.
-  - Caps Lock `⇪`. Browser back/forward `←` / `→` (not cursor `⏴` `⏵`). Tooltip keeps the raw code.
-  - Keypad (`KP_*`): same glyph as the number row (`7`), boxed. Color is only a light fill. Host composed stays `7`.
+  - Caps Lock `⇪`. Browser back/forward `←` / `→` (not cursor `⏴` `⏵`). Number-row `-` / `=` (not the words `MINUS` / `EQUAL`). Tooltip keeps the raw code.
+  - Keypad (`KP_*`): same glyph as the number row (`7`), boxed. Operators `+ - / *`, plus `KP_ENTER` `⮐`, `KP_DOT` `.`, `KP_EQUAL` `=`. Color is only a light fill. Host composed stays the same glyph.
 - **Composed preview**: quadrant-style host legend (base/shift language pair + AltGr pair + hold badge), driven by a `ComposedLegend` model in core.
 - **Stub today:** `resolveBinding` splits tap/hold (`&kp` / `&mt` / `&lt`); glyphs come from a tiny tap-keycode fixture map. Hold badges attach only when the binding has a hold side — not from letter fixtures. Full `HostLayout` / host editors are post-migration work.
 - Full host-layout editors and XKB/KLC export are product steps *after* round-trip safety and a stable compose model.

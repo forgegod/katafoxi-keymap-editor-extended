@@ -11,6 +11,8 @@ import {
   keycapLegend,
   layerLegendSymbol,
   formatLegendCompact,
+  getBehaviorCatalog,
+  getKeycodeCatalog,
   parseKeyBinding,
   parseKeymap,
   generateKeymap,
@@ -83,6 +85,19 @@ describe('normalizeZmkKeycodes', () => {
     const n1 = result.find(k => k.code === 'N1')
     expect(n1?.symbol).toBe('1')
   })
+
+  it('uses host signs for keypad operators', () => {
+    const result = normalizeZmkKeycodes([
+      { names: ['KP_MINUS', 'KP_SUBTRACT'], symbol: '-', description: '- [Minus]' },
+      { names: ['KP_PLUS'], symbol: '+', description: '+ [Plus]' },
+      { names: ['KP_DIVIDE', 'KP_SLASH'], symbol: '/', description: '/ [Divide]' },
+      { names: ['KP_MULTIPLY', 'KP_ASTERISK'], symbol: '*', description: '* [Multiply]' }
+    ])
+    expect(result.find(k => k.code === 'KP_MINUS')?.symbol).toBe('-')
+    expect(result.find(k => k.code === 'KP_PLUS')?.symbol).toBe('+')
+    expect(result.find(k => k.code === 'KP_SLASH')?.symbol).toBe('/')
+    expect(result.find(k => k.code === 'KP_MULTIPLY')?.symbol).toBe('*')
+  })
 })
 
 describe('resolveBinding / composeKey', () => {
@@ -152,6 +167,10 @@ describe('keycapLegend', () => {
     expect(keycapLegend('K_FORWARD', '→')).toBe('→')
     expect(keycapLegend('N1', '1')).toBe('1')
     expect(keycapLegend('KP_N7', '7')).toBe('7')
+    expect(keycapLegend('KP_MINUS', '-')).toBe('-')
+    expect(keycapLegend('KP_PLUS', '+')).toBe('+')
+    expect(keycapLegend('KP_SLASH', '/')).toBe('/')
+    expect(keycapLegend('KP_MULTIPLY', '*')).toBe('*')
   })
 
   it('marks HID keypad codes without changing the digit glyph', () => {
@@ -169,8 +188,28 @@ describe('keycapLegend', () => {
     expect(isCompactKeycapLegend('R⌃')).toBe(true)
     expect(isCompactModifierChord('LC', '⌦')).toBe(true)
     expect(isCompactModifierChord('LS', '⇪')).toBe(true)
-    expect(isCompactModifierChord('LC', 'ESC')).toBe(false)
+    expect(isCompactModifierChord('LA', 'F4')).toBe(true)
+    expect(isCompactModifierChord('LA', 'TAB')).toBe(true)
+    expect(isCompactModifierChord('LA', 'ESC')).toBe(true)
+    expect(isCompactModifierChord('LA', 'F12')).toBe(true)
+    expect(isCompactModifierChord('LA', 'F13')).toBe(false)
+    expect(isCompactModifierChord('LA', 'PAUSE_BREAK')).toBe(false)
     expect(isCompactModifierChord('A', '⌦')).toBe(false)
+    expect(isCompactKeycapLegend('ESC')).toBe(false)
+    expect(isCompactKeycapLegend('F4')).toBe(false)
+  })
+
+  it('uses display symbols for pause and mouse scroll', () => {
+    expect(getKeycodeCatalog().byCode.PAUSE_BREAK?.symbol).toBe('⏸')
+    expect(getKeycodeCatalog().byCode.MINUS?.symbol).toBe('-')
+    expect(getKeycodeCatalog().byCode.EQUAL?.symbol).toBe('=')
+    const scroll = getBehaviorCatalog().byCode['&msc']?.commands ?? []
+    const symbol = (code: string) =>
+      scroll.find(command => command.code === code)?.symbol
+    expect(symbol('SCRL_UP')).toBe('SCRL⬆')
+    expect(symbol('SCRL_DOWN')).toBe('SCRL⬇')
+    expect(symbol('SCRL_LEFT')).toBe('SCRL⬅')
+    expect(symbol('SCRL_RIGHT')).toBe('SCRL➡')
   })
 })
 
