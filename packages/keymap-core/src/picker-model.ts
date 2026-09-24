@@ -63,15 +63,29 @@ export function isPointingBehavior(code: string | number | undefined | null): bo
   return (POINTING_BEHAVIORS as readonly string[]).includes(String(code))
 }
 
+const POINTING_FIRMWARE_NOTE =
+  'Firmware: CONFIG_ZMK_POINTING=y in the keyboard .conf. This editor only adds #include <dt-bindings/zmk/pointing.h> to the keymap.'
+
 /**
- * Firmware/Kconfig reminder for a behaviour. Pointing is off by default;
- * the editor only injects the keymap include, not `*.conf`.
+ * Behaviours that do nothing until a Kconfig flag (default off).
+ * The editor only injects the keymap include, not `*.conf`.
+ * Bluetooth and output selection are on in a normal wireless build.
  */
+const FIRMWARE_NOTES: Record<string, string> = {
+  '&mkp': POINTING_FIRMWARE_NOTE,
+  '&msc': POINTING_FIRMWARE_NOTE,
+  '&mmv': POINTING_FIRMWARE_NOTE,
+  '&bl':
+    'Firmware: CONFIG_ZMK_BACKLIGHT=y in the keyboard .conf. This editor only adds #include <dt-bindings/zmk/backlight.h> to the keymap.',
+  '&rgb_ug':
+    'Firmware: CONFIG_ZMK_RGB_UNDERGLOW=y in the keyboard .conf. This editor only adds #include <dt-bindings/zmk/rgb.h> to the keymap.'
+}
+
 export function behaviorFirmwareNote(
   code: string | number | undefined | null
 ): string | null {
-  if (!isPointingBehavior(code)) return null
-  return 'Firmware: CONFIG_ZMK_POINTING=y in the keyboard .conf. This editor only adds #include <dt-bindings/zmk/pointing.h> to the keymap.'
+  if (code == null || code === '') return null
+  return FIRMWARE_NOTES[String(code)] ?? null
 }
 
 export function sortBehaviorsByRole<T extends { code?: string | number; params?: unknown[] }>(

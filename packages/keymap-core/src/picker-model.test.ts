@@ -347,9 +347,19 @@ describe('behaviorFirmwareNote', () => {
     }
   })
 
-  it('is silent for ordinary key and layer behaviours', () => {
+  it('reminds lighting behaviours need their Kconfig flags', () => {
+    expect(behaviorFirmwareNote('&bl')).toContain('CONFIG_ZMK_BACKLIGHT=y')
+    expect(behaviorFirmwareNote('&bl')).toContain('backlight.h')
+    expect(behaviorFirmwareNote('&rgb_ug')).toContain('CONFIG_ZMK_RGB_UNDERGLOW=y')
+    expect(behaviorFirmwareNote('&rgb_ug')).toContain('rgb.h')
+  })
+
+  it('is silent for behaviours that do not need an enable flag', () => {
     expect(behaviorFirmwareNote('&kp')).toBeNull()
     expect(behaviorFirmwareNote('&mo')).toBeNull()
+    expect(behaviorFirmwareNote('&bt')).toBeNull()
+    expect(behaviorFirmwareNote('&out')).toBeNull()
+    expect(behaviorFirmwareNote('&ext_power')).toBeNull()
   })
 })
 
