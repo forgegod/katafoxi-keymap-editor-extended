@@ -70,78 +70,26 @@
     editor.initCatalogs()
   }
 
-  async function handleWriteFiles() {
+  async function publish(handlers: {
+    write: () => Promise<unknown>
+    reload: () => Promise<{ layout?: unknown; keymap?: unknown }>
+  }) {
     if (editor.saving || !editor.isDirty || !editor.draftKeymap) return
     editor.saving = true
     const token = editor.beginPublish()
     const sourceAtStart = editor.source
     const githubAtStart = editor.githubMeta
     try {
-      const response = await fetch(`${config.apiBaseUrl}/keymap`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editor.draftKeymap)
-      })
-      const contentType = response.headers.get('content-type') || ''
-      const data = contentType.includes('application/json')
-        ? await response.json()
-        : null
-
-      if (!response.ok) {
-        editor.applySaveFailure(data)
-        return
-      }
-
+      const saveMeta = await handlers.write()
       try {
-        const reloaded = await reloadLocalKeyboard()
+        const reloaded = await handlers.reload()
         if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {
           return
         }
         if (reloaded.layout) {
           editor.layout = reloaded.layout as LayoutKey[]
         }
-        editor.applyPublished(reloaded.keymap as ParsedKeymap, data)
-        changesOpen = false
-      } catch {
-        if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {
-          return
-        }
-        editor.applyReloadFailure(sourceAtStart)
-      }
-    } catch {
-      editor.applySaveFailure(null)
-    } finally {
-      editor.saving = false
-    }
-  }
-
-  async function handleCommitToGitHub() {
-    const gh = editor.githubMeta
-    if (!gh || !editor.layout || !editor.draftKeymap || !editor.isDirty) return
-    editor.saving = true
-    const token = editor.beginPublish()
-    const sourceAtStart = editor.source
-    const githubAtStart = editor.githubMeta
-    try {
-      const result = await github.commitChanges(
-        gh.repository,
-        gh.branch,
-        editor.layout,
-        editor.draftKeymap
-      )
-
-      try {
-        const reloaded = await github.fetchLayoutAndKeymap(
-          gh.repository,
-          gh.branch
-        )
-        if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {
-          return
-        }
-        if (reloaded.layout) {
-          editor.layout = reloaded.layout as LayoutKey[]
-        }
-        editor.applyPublished(reloaded.keymap as ParsedKeymap, result.data)
+        editor.applyPublished(reloaded.keymap as ParsedKeymap, saveMeta)
         changesOpen = false
       } catch {
         if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {
@@ -155,6 +103,46 @@
     } finally {
       editor.saving = false
     }
+  }
+
+  async function handleWriteFiles() {
+    await publish({
+      write: async () => {
+        const response = await fetch(`${config.apiBaseUrl}/keymap`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(editor.draftKeymap)
+        })
+        const contentType = response.headers.get('content-type') || ''
+        const data = contentType.includes('application/json')
+          ? await response.json()
+          : null
+        if (!response.ok) {
+          throw Object.assign(new Error('Save failed'), {
+            response: { data }
+          })
+        }
+        return data
+      },
+      reload: reloadLocalKeyboard
+    })
+  }
+
+  async function handleCommitToGitHub() {
+    const gh = editor.githubMeta
+    if (!gh || !editor.layout || !editor.draftKeymap) return
+    await publish({
+      write: async () => {
+        const result = await github.commitChanges(
+          gh.repository,
+          gh.branch,
+          editor.layout,
+          editor.draftKeymap
+        )
+        return result.data
+      },
+      reload: () => github.fetchLayoutAndKeymap(gh.repository, gh.branch)
+    })
   }
 </script>
 

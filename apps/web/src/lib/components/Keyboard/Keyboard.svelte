@@ -29,11 +29,6 @@
   const definitionsBox = getDefinitionsContext()
   const definitions = $derived(definitionsBox.current)
 
-  const searchBox = $state<{ current: SearchContextValue | null }>({
-    current: null
-  })
-  setSearchContext(searchBox)
-
   const layerNames = $derived(
     keymap.layer_names ?? keymap.layers.map((_, i) => `Layer ${i}`)
   )
@@ -50,7 +45,6 @@
   )
 
   const sources = $derived({
-    kc: (definitions?.keycodes.byCode ?? {}) as Record<string, unknown>,
     code: (definitions?.keycodes.byCode ?? {}) as Record<string, unknown>,
     mod: Object.fromEntries(
       (definitions?.keycodes.list ?? [])
@@ -74,10 +68,10 @@
     code: definitions?.keycodes.list ?? []
   })
 
-  $effect(() => {
+  const search = $derived.by((): SearchContextValue => {
     const targets = searchTargets
     const src = sources
-    searchBox.current = {
+    return {
       sources: src,
       getSearchTargets: (param: unknown, behaviour: string | number) => {
         if (param && typeof param === 'object' && 'enum' in (param as object)) {
@@ -91,11 +85,14 @@
             | undefined
           return beh?.commands ?? []
         }
-        if (typeof param === 'string' && !(param in targets)) {
-          console.log('cannot find target for', param)
-        }
         return (targets as Record<string, unknown[]>)[param as string] ?? []
       }
+    }
+  })
+
+  setSearchContext({
+    get current() {
+      return search
     }
   })
 
