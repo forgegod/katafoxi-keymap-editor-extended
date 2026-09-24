@@ -60,10 +60,14 @@ export interface ComposedLegend {
   en: [string, string]
   /** Second language pair, or `null` when declined */
   second: [string, string] | null
-  /** AltGr of the base layout; empty when hidden or NoSymbol */
+  /** AltGr of the base layout; empty when the column is off or the level is NoSymbol */
   altGr: string
-  /** AltGr+Shift of the base layout; empty when hidden or NoSymbol */
+  /** AltGr+Shift of the base layout; empty when the column is off or the level is NoSymbol */
   altGrShift: string
+  /** AltGr column toggle. False hides that slot; an empty glyph still shows ˬ when true. */
+  showAltGr?: boolean
+  /** AltGr+Shift column toggle. False hides that slot. */
+  showAltGrShift?: boolean
   /** Hold-tap or home-row mod annotation (e.g. ⧗LC) */
   hold?: string
   /** When EN/RU AltGr pairs diverge (e.g. Δτ/ёЁ) */

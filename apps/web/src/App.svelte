@@ -208,21 +208,23 @@
       </div>
     {/if}
   </div>
-  {#if editor.legendMode === 'composed'}
-    <div class="host-legend-wrap">
-      <HostLegendPicker />
-    </div>
-  {/if}
-  {#if editor.definitions && editor.layout && editor.draftKeymap}
-    <Keyboard
-      layout={editor.layout}
-      keymap={editor.draftKeymap}
-      onUpdate={next => editor.updateKeymap(next)}
-      legendMode={editor.legendMode}
-      hostView={editor.hostLegend}
-      legendHover={editor.legendHover}
-    />
-  {/if}
+  <div class="board-stack">
+    {#if editor.legendMode === 'composed'}
+      <div class="host-legend-wrap">
+        <HostLegendPicker />
+      </div>
+    {/if}
+    {#if editor.definitions && editor.layout && editor.draftKeymap}
+      <Keyboard
+        layout={editor.layout}
+        keymap={editor.draftKeymap}
+        onUpdate={next => editor.updateKeymap(next)}
+        legendMode={editor.legendMode}
+        hostView={editor.hostLegend}
+        legendHover={editor.legendHover}
+      />
+    {/if}
+  </div>
 </Loader>
 <GitHubLink />
 <!-- Inside the Svelte mount so portaled dialogs still receive delegated clicks. -->
@@ -262,8 +264,40 @@
     margin-left: auto;
   }
 
+  .board-stack {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  /* keyboard-root is display:contents, so these are grid items of .board-stack */
+  .board-stack :global(.layer-row) {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    align-self: center;
+  }
+
+  .board-stack:has(.host-legend-wrap) :global(.layer-row) {
+    grid-column: 2;
+    padding-left: 8px;
+  }
+
+  .board-stack :global(.keyboard-stage) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-width: 0;
+    min-height: 0;
+  }
+
   .host-legend-wrap {
-    padding: 0 12px 8px;
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+    padding: 0 0 4px 12px;
+    min-width: 0;
   }
 
   #legend-mode {

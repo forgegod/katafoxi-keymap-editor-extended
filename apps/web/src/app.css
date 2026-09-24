@@ -1,3 +1,4 @@
+/* Page chrome: full-height column so the keyboard can scale into the leftover viewport. */
 :root {
   color-scheme: light;
   --dark-red: #910e0e;
@@ -18,7 +19,7 @@ html,
 body {
   width: 100vw;
   height: 100vh;
-  overflow: auto;
+  overflow: hidden;
   padding: 0;
   margin: 0;
   background: var(--page-bg);
@@ -33,7 +34,10 @@ code {
 }
 
 #app-root {
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Source / repo / branch pickers — match original Selector look */

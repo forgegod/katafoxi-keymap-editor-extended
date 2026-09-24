@@ -99,17 +99,18 @@
 </script>
 
 <div
-  class="layer-selector"
+  class="layer-selector layer-row"
   data-renaming={renaming}
   bind:this={rootEl}
 >
-  <p>Layers:</p>
+  <span class="layers-label">Layers</span>
   <ul>
     {#if showAllLayers}
       <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
       <li
         class:active={activeLayer === 'all'}
         data-layer="all"
+        title="All layers"
         onclick={stop(() => {
           renaming = false
           onSelect('all')
@@ -123,6 +124,7 @@
       <li
         class:active={activeLayer === i}
         data-layer={i}
+        title={name}
         onclick={stop(() => handleSelect(i))}
       >
         <span class="index">{i}</span>
@@ -150,11 +152,11 @@
       </li>
     {/each}
     <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
-    <li onclick={onNewLayer}>
+    <li title="Add Layer" onclick={onNewLayer}>
       <span class="index">
         <Icon name="plus" />
       </span>
-      <span class="name">Add Layer</span>
+      <span class="name always">Add Layer</span>
     </li>
   </ul>
   {#if pendingDelete}
@@ -174,25 +176,42 @@
 
 <style>
   .layer-selector {
-    position: absolute;
-    z-index: 2;
+    position: relative;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 2px 12px 6px;
+  }
+
+  .layers-label {
+    flex: none;
+    font-size: 90%;
+    color: #555;
   }
 
   .layer-selector ul {
-    display: inline-block;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
     list-style-type: none;
     margin: 0;
     padding: 0;
+    min-width: 0;
   }
 
   .layer-selector li {
+    display: inline-flex;
+    align-items: center;
     cursor: pointer;
     background-color: rgba(201, 201, 201, 0.85);
     color: darkgray;
     border-radius: 15px;
     height: 30px;
     padding: 0;
-    margin: 4px 2px;
+    margin: 0;
   }
 
   .layer-selector li:hover {
@@ -205,10 +224,6 @@
     color: white;
   }
 
-  .layer-selector li :global(*) {
-    display: inline-block;
-  }
-
   .layer-selector li .index {
     display: inline-flex;
     align-items: center;
@@ -218,56 +233,58 @@
     height: 30px;
     line-height: 30px;
     text-align: center;
-    vertical-align: top;
+    flex: none;
   }
 
   .layer-selector li .index :global(.icon) {
     width: 0.85em;
     height: 0.85em;
-    vertical-align: 0;
   }
 
   .layer-selector li .name {
+    display: inline-flex;
+    align-items: center;
     overflow: hidden;
     width: 0;
     height: 30px;
     line-height: 30px;
     padding: 0;
     font-variant: small-caps;
+    white-space: nowrap;
   }
 
-  .layer-selector:hover li .name,
-  .layer-selector[data-renaming='true'] li .name {
-    transition: 0.15s ease-in;
-    width: 120px;
-    padding: 0 0 0 10px;
+  .layer-selector li.active .name,
+  .layer-selector li .name.always {
+    width: auto;
+    max-width: 9em;
+    padding: 0 8px 0 2px;
   }
 
   .layer-selector input.name {
-    vertical-align: top;
-    width: 100px;
+    width: 7em;
+    height: 30px;
+    line-height: 30px;
     border: none;
     outline: none;
     background: transparent;
     color: white;
+    font: inherit;
+    font-variant: small-caps;
+    padding: 0 8px 0 2px;
   }
 
   .layer-selector :global(.delete) {
-    float: right;
-    height: 30px;
-    line-height: 30px;
-    width: 30px;
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin-left: 4px;
   }
 
   .layer-selector li.active .name {
     cursor: text;
   }
 
-  .layer-selector li .name.always,
-  .layer-selector:hover li .name.always,
-  .layer-selector[data-renaming='true'] li .name.always {
-    width: auto;
-    min-width: 88px;
+  .layer-selector li .name.always {
     padding: 0 12px;
     cursor: pointer;
   }
@@ -285,14 +302,12 @@
     cursor: pointer;
   }
 
-  .layer-selector > p {
-    margin: 4px 2px;
-    font-size: 90%;
-    color: #555;
-  }
-
   .delete-confirm {
-    margin: 8px 2px 0;
+    position: absolute;
+    top: calc(100% - 2px);
+    left: 12px;
+    z-index: 4;
+    margin: 0;
     padding: 10px 12px;
     width: 180px;
     background: #fff;

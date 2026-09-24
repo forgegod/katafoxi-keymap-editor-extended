@@ -19,6 +19,7 @@
     usedKeycodes?: ReadonlyMap<string, readonly number[]>
     usedRevision?: string
     usedLayerLabels?: readonly string[]
+    hidden?: ReadonlySet<number>
   }
 
   let {
@@ -31,7 +32,8 @@
     layerStack,
     usedKeycodes = new Map(),
     usedRevision = '',
-    usedLayerLabels = []
+    usedLayerLabels = [],
+    hidden
   }: Props = $props()
 
   const normalized = $derived(
@@ -60,6 +62,7 @@
 
 <div style="position: relative">
   {#each layout as key, i (i)}
+    {#if !hidden?.has(i)}
     <Key
       position={position(key)}
       rotation={rotation(key)}
@@ -81,5 +84,6 @@
         })
       }
     />
+    {/if}
   {/each}
 </div>

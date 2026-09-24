@@ -18,6 +18,7 @@ import {
   compactBehaviorLegend,
   prefixedCommandLegend,
   layerLegendSymbol,
+  formatAltGrPair,
   formatLegendCompact,
   getBehaviorCatalog,
   getKeycodeCatalog,
@@ -117,7 +118,7 @@ describe('resolveBinding / composeKey', () => {
     expect(legend?.en).toEqual(['a', 'A'])
     expect(legend?.second).toEqual(['ф', 'Ф'])
     expect(legend?.hold).toBeUndefined()
-    expect(formatLegendCompact(legend!)).toBe('aA фФ @ α')
+    expect(formatLegendCompact(legend!)).toBe('aA фФ @α')
     expect(legend?.bilingualNote).toBeUndefined()
   })
 
@@ -146,7 +147,7 @@ describe('resolveBinding / composeKey', () => {
     expect(legend?.second).toEqual(['у', 'У'])
     expect(legend?.altGr).toBe('&')
     expect(legend?.altGrShift).toBe('ε')
-    expect(formatLegendCompact(legend!)).toBe('eE уУ & ε')
+    expect(formatLegendCompact(legend!)).toBe('eE уУ &ε')
   })
 
   it('puts hold badge only on &mt, not on bare &kp J', () => {
@@ -156,6 +157,7 @@ describe('resolveBinding / composeKey', () => {
     expect(kp?.second).toEqual(['о', 'О'])
     expect(kp?.altGr).toBe('')
     expect(kp?.altGrShift).toBe('ξ')
+    expect(formatLegendCompact(kp!)).toContain('ˬξ')
 
     const mt = composeKey({ binding: parseKeyBinding('&mt LCTRL J') })
     expect(mt?.en).toEqual(['j', 'J'])
@@ -228,6 +230,26 @@ describe('resolveBinding / composeKey', () => {
     expect(englishOnly?.altGr).toBe('')
     expect(englishOnly?.altGrShift).toBe('')
     expect(formatLegendCompact(englishOnly!)).toBe('aA')
+    expect(formatAltGrPair(englishOnly!)).toBeNull()
+  })
+
+  it('keeps an AltGr pair of empty marks while either column is on', () => {
+    const both = composeKey({ binding: parseKeyBinding('&kp K') })
+    expect(both?.altGr).toBe('')
+    expect(both?.altGrShift).toBe('')
+    expect(formatAltGrPair(both!)).toBe('ˬˬ')
+
+    const shiftOnly = composeKey({
+      binding: parseKeyBinding('&kp K'),
+      hostView: { ...standardHostLegendView(), altGr: false }
+    })
+    expect(formatAltGrPair(shiftOnly!)).toBe('ˬ')
+
+    const hidden = composeKey({
+      binding: parseKeyBinding('&kp E'),
+      hostView: { ...standardHostLegendView(), altGr: false, altGrShift: false }
+    })
+    expect(formatAltGrPair(hidden!)).toBeNull()
   })
 
   it('detects layer references on &mo / &lt / &to', () => {

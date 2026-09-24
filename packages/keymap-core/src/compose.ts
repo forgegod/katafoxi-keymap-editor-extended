@@ -353,14 +353,33 @@ export function composeLayerRows(
   })
 }
 
+/** Marks a missing AltGr or AltGr+Shift glyph so the other level stays anchored. */
+export const ALT_LEVEL_EMPTY = 'ˬ'
+
+/**
+ * AltGr and AltGr+Shift sit in one token, with no space.
+ * A shown column with no glyph is `ˬ`, including `ˬˬ` when both columns are on.
+ * The pair is omitted only when both column toggles are off.
+ */
+export function formatAltGrPair(
+  legend: Pick<ComposedLegend, 'altGr' | 'altGrShift' | 'showAltGr' | 'showAltGrShift'>
+): string | null {
+  const showAlt = legend.showAltGr !== false
+  const showShift = legend.showAltGrShift !== false
+  if (!showAlt && !showShift) return null
+  const alt = showAlt ? legend.altGr || ALT_LEVEL_EMPTY : ''
+  const shift = showShift ? legend.altGrShift || ALT_LEVEL_EMPTY : ''
+  return `${alt}${shift}`
+}
+
 export function formatLegendCompact(legend: ComposedLegend): string {
   const cols = [`${legend.en[0]}${legend.en[1]}`]
   if (legend.second) cols.push(`${legend.second[0]}${legend.second[1]}`)
   if (legend.bilingualNote) {
     cols.push(legend.bilingualNote)
   } else {
-    if (legend.altGr) cols.push(legend.altGr)
-    if (legend.altGrShift) cols.push(legend.altGrShift)
+    const alt = formatAltGrPair(legend)
+    if (alt) cols.push(alt)
   }
   const hold = legend.hold ? ` ${legend.hold}` : ''
   return `${cols.join(' ')}${hold}`.trim()

@@ -19,7 +19,7 @@ export const larkRussianLayout: HostLayout = hostLayoutFromSymbols(
 /** Default host legend: English and Russian columns, AltGr from English. */
 export function larkHostLegend(
   token: string
-): Pick<ComposedLegend, 'en' | 'second' | 'altGr' | 'altGrShift' | 'bilingualNote' | 'keycode'> | null {
+): Pick<ComposedLegend, 'en' | 'second' | 'altGr' | 'altGrShift' | 'showAltGr' | 'showAltGrShift' | 'bilingualNote' | 'keycode'> | null {
   return composeHostPair(larkEnglishLayout, larkRussianLayout, token)
 }
 
@@ -98,7 +98,7 @@ export function customHostLegendView(current: HostLegendView): HostLegendView {
 export function hostLegendFor(
   token: string,
   view: HostLegendView = LARK_STANDARD_VIEW
-): Pick<ComposedLegend, 'en' | 'second' | 'altGr' | 'altGrShift' | 'bilingualNote' | 'keycode'> | null {
+): Pick<ComposedLegend, 'en' | 'second' | 'altGr' | 'altGrShift' | 'showAltGr' | 'showAltGrShift' | 'bilingualNote' | 'keycode'> | null {
   const base = layoutsById.get(view.baseId)
   if (!base) return null
   const second =

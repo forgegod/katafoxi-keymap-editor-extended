@@ -1,5 +1,9 @@
 <script lang="ts">
-  import type { ComposedLegend, LegendHoverHit } from '@keymap-editor/keymap-core'
+  import {
+    formatAltGrPair,
+    type ComposedLegend,
+    type LegendHoverHit
+  } from '@keymap-editor/keymap-core'
   import type { LegendMode } from '../context'
 
   interface Props {
@@ -14,6 +18,7 @@
   const title = $derived(
     [legend.keycode, legend.bilingualNote].filter(Boolean).join(' ')
   )
+  const altPair = $derived(legend.bilingualNote ? null : formatAltGrPair(legend))
 </script>
 
 {#if mode === 'composed'}
@@ -32,13 +37,8 @@
       {/if}
       {#if legend.bilingualNote}
         <span class="col alt">{legend.bilingualNote}</span>
-      {:else}
-        {#if legend.altGr}
-          <span class="col alt">{legend.altGr}</span>
-        {/if}
-        {#if legend.altGrShift}
-          <span class="col alt">{legend.altGrShift}</span>
-        {/if}
+      {:else if altPair}
+        <span class="col alt">{altPair}</span>
       {/if}
       {#if legend.hold}
         <span class="hold" class:legend-hit={hit === 'hold'}>{legend.hold}</span>

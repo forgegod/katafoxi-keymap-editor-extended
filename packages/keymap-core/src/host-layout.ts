@@ -57,7 +57,7 @@ export function composeHostPair(
   second: HostLayout | null,
   token: string,
   columns: HostColumnOptions = {}
-): Pick<ComposedLegend, 'en' | 'second' | 'altGr' | 'altGrShift' | 'bilingualNote' | 'keycode'> | null {
+): Pick<ComposedLegend, 'en' | 'second' | 'altGr' | 'altGrShift' | 'showAltGr' | 'showAltGrShift' | 'bilingualNote' | 'keycode'> | null {
   const showAlt = columns.altGr !== false
   const showAltShift = columns.altGrShift !== false
   const id = hostKeyByZmk(token)
@@ -76,6 +76,8 @@ export function composeHostPair(
     second: secondLevels ? [secondLevels[0], secondLevels[1]] : null,
     altGr: showAlt ? baseLevels[2] : '',
     altGrShift: showAltShift ? baseLevels[3] : '',
+    showAltGr: showAlt,
+    showAltGrShift: showAltShift,
     bilingualNote,
     keycode: `KC_${id.zmk}`
   }

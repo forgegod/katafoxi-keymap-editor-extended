@@ -263,7 +263,8 @@
     flex-wrap: wrap;
     align-items: flex-start;
     gap: 16px 24px;
-    width: 100%;
+    width: max-content;
+    max-width: 100%;
     padding: 6px 4px 2px;
     font-size: 13px;
     color: #444;

@@ -67,6 +67,8 @@ describe('lark host layouts', () => {
       second: ['ф', 'Ф'],
       altGr: '@',
       altGrShift: 'α',
+      showAltGr: true,
+      showAltGrShift: true,
       bilingualNote: undefined,
       keycode: 'KC_A'
     })
