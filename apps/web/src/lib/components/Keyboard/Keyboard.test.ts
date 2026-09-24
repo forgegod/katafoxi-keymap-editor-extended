@@ -7,11 +7,12 @@ import Harness from './KeyboardHarness.svelte'
 // comment anchors with that check; without it, Keyboard's wrapper style is
 // applied to a text node and mount throws.
 const happyComment = document.createComment('')
+const CommentCtor = Object.getPrototypeOf(happyComment).constructor
 if (!(happyComment instanceof Comment)) {
   Object.defineProperty(globalThis, 'Comment', {
     configurable: true,
     writable: true,
-    value: happyComment.constructor
+    value: CommentCtor
   })
 }
 

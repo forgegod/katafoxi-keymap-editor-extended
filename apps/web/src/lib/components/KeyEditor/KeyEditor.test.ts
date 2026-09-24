@@ -243,8 +243,11 @@ describe('KeyEditor value catalog', () => {
 
     const finished = keyButton()
     expect(finished).toBeInstanceOf(HTMLButtonElement)
-    finished?.focus()
-    finished?.dispatchEvent(
+    if (!(finished instanceof HTMLButtonElement)) {
+      throw new Error('expected key choice button')
+    }
+    finished.focus()
+    finished.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
     )
     expect(confirmed).toBe(1)
