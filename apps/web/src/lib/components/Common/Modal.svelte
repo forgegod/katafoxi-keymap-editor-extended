@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
   import type { Snippet } from 'svelte'
 
   interface Props {
@@ -11,7 +10,8 @@
 
   let wrapperEl: HTMLDivElement | undefined = $state()
 
-  onMount(() => {
+  // Portal under #app-root so Svelte 5 delegated clicks still reach the dialog.
+  $effect(() => {
     const root = document.getElementById('modal-root')
     if (!root || !wrapperEl) return
     root.appendChild(wrapperEl)
@@ -25,7 +25,7 @@
 <div
   bind:this={wrapperEl}
   class="modal-wrapper"
-  style="position:absolute;top:0;left:0;width:100vw;height:100vh;background-color:rgba(28,32,42,0.78);z-index:50;display:flex;justify-content:center;align-items:flex-start;padding-top:72px;"
+  style="position:fixed;top:0;left:0;width:100vw;height:100vh;background-color:rgba(28,32,42,0.78);z-index:50;display:flex;justify-content:center;align-items:flex-start;padding-top:72px;"
   onclick={event => {
     if (onBackdrop && event.target === wrapperEl) onBackdrop()
   }}

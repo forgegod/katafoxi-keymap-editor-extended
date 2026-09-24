@@ -1,6 +1,7 @@
 <script lang="ts">
   import {
     collectUsedKeycodes,
+    getBehaviorCatalog,
     layerLegendSymbol,
     type KeyBindingNode,
     type LayoutKey,
@@ -51,7 +52,7 @@
         .filter(k => k.isModifier)
         .map(k => [k.code, k])
     ) as Record<string, unknown>,
-    behaviours: (definitions?.behaviours.byCode ?? {}) as Record<
+    behaviours: { ...(definitions?.behaviours.byCode ?? {}) } as Record<
       string,
       unknown
     >,
@@ -80,10 +81,13 @@
           }))
         }
         if (param === 'command') {
-          const beh = src.behaviours?.[String(behaviour)] as
-            | { commands?: unknown[] }
-            | undefined
-          return beh?.commands ?? []
+          const key = String(behaviour)
+          const beh = src.behaviours?.[key] as { commands?: unknown[] } | undefined
+          return (
+            beh?.commands ??
+            getBehaviorCatalog().byCode[key]?.commands ??
+            []
+          )
         }
         return (targets as Record<string, unknown[]>)[param as string] ?? []
       }

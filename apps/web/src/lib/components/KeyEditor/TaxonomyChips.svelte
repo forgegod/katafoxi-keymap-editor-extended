@@ -4,10 +4,10 @@
   interface Props {
     chips: ChoiceGroup[]
     activeContexts: string[]
-    onSelect: (context: string) => void
+    onChoose: (context: string) => void
   }
 
-  let { chips, activeContexts, onSelect }: Props = $props()
+  let { chips, activeContexts, onChoose }: Props = $props()
 </script>
 
 <div class="key-editor-taxonomy" role="tablist" aria-label="Value group">
@@ -18,7 +18,7 @@
       class:active={activeContexts.includes(group.context)}
       role="tab"
       aria-selected={activeContexts.includes(group.context)}
-      onclick={() => onSelect(group.context)}
+      onclick={() => onChoose(group.context)}
     >
       {group.context}
     </button>

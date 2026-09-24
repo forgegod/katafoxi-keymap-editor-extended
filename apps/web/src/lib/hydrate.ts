@@ -1,4 +1,4 @@
-import { getBehaviourParams } from '@keymap-editor/keymap-core'
+import { getBehaviorCatalog, getBehaviourParams } from '@keymap-editor/keymap-core'
 import { get } from './utils'
 
 export { getBehaviourParams }
@@ -58,7 +58,8 @@ export function hydrateTree(
   sources: Record<string, Record<string, unknown>>
 ): HydratedNode {
   const bind = value
-  const behaviour = sources.behaviours?.[String(bind)] as
+  const behaviour = (sources.behaviours?.[String(bind)] ??
+    getBehaviorCatalog().byCode[String(bind)]) as
     | { commands?: Array<{ code: string }>; params?: unknown[] }
     | undefined
   const behaviourParams = getBehaviourParams(params, behaviour)

@@ -283,6 +283,8 @@
   {/if}
 </Loader>
 <GitHubLink />
+<!-- Inside the Svelte mount so portaled dialogs still receive delegated clicks. -->
+<div id="modal-root"></div>
 
 <style>
   .app-chrome {

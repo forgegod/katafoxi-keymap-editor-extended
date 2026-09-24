@@ -55,4 +55,15 @@ describe('taxonomy contexts', () => {
       'Consumer Media'
     ])
   })
+
+  it('shows every group when Keyboard/Keypad are not in the catalog', () => {
+    const commands = groupChoicesByContext([
+      { code: 'LCLK' },
+      { code: 'RCLK' },
+      { code: 'MCLK' }
+    ])
+    expect(commands.map(group => group.context)).toEqual(['Other'])
+    expect(initialTaxonomyContexts(commands)).toEqual(['Other'])
+    expect(initialTaxonomyContexts(commands, 'LCLK')).toEqual(['Other'])
+  })
 })

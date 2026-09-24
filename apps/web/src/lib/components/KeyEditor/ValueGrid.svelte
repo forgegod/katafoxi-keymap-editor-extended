@@ -26,7 +26,7 @@
     dimUsed: boolean
     used: ReadonlyMap<string, readonly number[]>
     labelChoice: (choice: CatalogChoice) => string
-    onSelect: (choice: Choice) => void
+    onChoose: (choice: Choice) => void
   }
 
   let {
@@ -38,7 +38,7 @@
     dimUsed,
     used,
     labelChoice,
-    onSelect
+    onChoose
   }: Props = $props()
 
   let valuesEl: HTMLDivElement | undefined = $state()
@@ -146,7 +146,7 @@
                   class:used={isUsedChoice(item) && !isActiveChoice(item)}
                   class:keypad={isKeypadChoice(item)}
                   title={valueTooltip(item)}
-                  onclick={() => onSelect(item)}
+                  onclick={() => onChoose(item)}
                 >
                   {#if item.faIcon}
                     <Icon name={String(item.faIcon)} />

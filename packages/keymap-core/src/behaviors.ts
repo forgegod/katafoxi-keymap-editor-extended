@@ -1,3 +1,6 @@
+import { getBehaviorCatalog } from './catalog.js'
+import type { CatalogChoice } from './catalog-choices.js'
+
 /**
  * Role order for the behaviour row: key input, layers, device, then
  * parameterless bindings. Unknown codes follow the same buckets.
@@ -63,6 +66,41 @@ export function behaviorFirmwareNote(
 ): string | null {
   if (code == null || code === '') return null
   return FIRMWARE_NOTES[String(code)] ?? null
+}
+
+/**
+ * First value-slot param and, for command behaviours, the command list.
+ * Used by the key editor so `&mkp` / `&msc` / `&mmv` do not fall back
+ * to the Keyboard+Keypad keycode grid.
+ */
+export function behaviorValueCatalog(
+  code: string | number | undefined | null
+): { param?: string; choices: CatalogChoice[] } {
+  const def = getBehaviorCatalog().byCode[String(code ?? '')]
+  if (!def) return { choices: [] }
+  const param = typeof def.params?.[0] === 'string' ? def.params[0] : undefined
+  if (param === 'command') {
+    return { param, choices: (def.commands ?? []) as CatalogChoice[] }
+  }
+  return { param, choices: [] }
+}
+
+/**
+ * Param the value grid should list. The active slot wins when this
+ * behaviour actually has it (`&mt` modifier, then key). A leftover
+ * keycode slot on `&mkp` stays on the command list.
+ */
+export function behaviorSlotParam(
+  code: string | number | undefined | null,
+  slotParam: unknown
+): string | undefined {
+  const def = getBehaviorCatalog().byCode[String(code ?? '')]
+  if (!def) {
+    return typeof slotParam === 'string' && slotParam !== 'behaviour' ? slotParam : undefined
+  }
+  const params = (def.params ?? []).filter((param): param is string => typeof param === 'string')
+  if (typeof slotParam === 'string' && params.includes(slotParam)) return slotParam
+  return params[0]
 }
 
 export function sortBehaviorsByRole<T extends { code?: string | number; params?: unknown[] }>(

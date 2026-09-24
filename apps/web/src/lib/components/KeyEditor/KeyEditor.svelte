@@ -3,6 +3,8 @@
   import { onMount } from 'svelte'
   import {
     behaviorFirmwareNote,
+    behaviorSlotParam,
+    behaviorValueCatalog,
     catalogKeyChoices,
     buildChoiceLabeler,
     groupChoicesByContext,
@@ -14,6 +16,7 @@
   import {
     firstMissingSlot,
     isKeycodeParam,
+    isSlotFilled,
     terminalKeySlot,
     visibleValueSlots,
     type EditorSlot
@@ -24,6 +27,7 @@
     needsTerminalKey,
     shouldShowPickKeyHint
   } from '../../key-editor-view'
+  import { getSearchContext } from '../../context'
   import BehaviourRow from './BehaviourRow.svelte'
   import HoldRow from './HoldRow.svelte'
   import TaxonomyChips from './TaxonomyChips.svelte'
@@ -37,7 +41,7 @@
   interface Props {
     bindingLabel: string
     behaviours: Choice[]
-    slots: EditorSlot[]
+    editorSlots: EditorSlot[]
     activeCodeIndex: number
     choices: Choice[]
     usedKeycodes?: ReadonlyMap<string, readonly number[]>
@@ -52,7 +56,7 @@
   let {
     bindingLabel,
     behaviours,
-    slots,
+    editorSlots,
     activeCodeIndex,
     choices,
     usedKeycodes,
@@ -64,6 +68,10 @@
     onCancel
   }: Props = $props()
 
+  const searchBox = getSearchContext()
+  const search = $derived(searchBox.current)
+
+  let pickedBehaviour = $state<string | number | null>(null)
   let query = $state('')
   let pinnedContexts = $state<string[] | null>(null)
   let pinnedForKey = $state('')
@@ -73,20 +81,47 @@
 
   const used = $derived(usedKeycodes ?? new Map<string, readonly number[]>())
   const activeSlot = $derived(
-    slots.find(slot => slot.codeIndex === activeCodeIndex) ?? slots[0]
+    editorSlots.find(slot => slot.codeIndex === activeCodeIndex) ?? editorSlots[0]
   )
-  const paramSlots = $derived(visibleValueSlots(slots))
+  const paramSlots = $derived(visibleValueSlots(editorSlots))
+  const behaviourValue = $derived(pickedBehaviour ?? editorSlots[0]?.value)
+  const valueCatalog = $derived(behaviorValueCatalog(behaviourValue))
+  const catalogParam = $derived(behaviorSlotParam(behaviourValue, activeSlot?.param))
+  const resolvedChoices = $derived.by(() => {
+    if (catalogParam === 'command') {
+      if (valueCatalog.choices.length) return valueCatalog.choices as Choice[]
+      const listed = behaviours.find(
+        choice => String(choice.code) === String(behaviourValue ?? '')
+      ) as (Choice & { commands?: Choice[] }) | undefined
+      return listed?.commands ?? []
+    }
+    if (search && catalogParam != null && catalogParam !== 'behaviour') {
+      return (search.getSearchTargets(catalogParam, String(behaviourValue ?? '')) ??
+        []) as Choice[]
+    }
+    return isKeycodeParam(catalogParam) ? choices : []
+  })
   const dimUsed = $derived(
-    isKeycodeParam(activeSlot?.param) || activeSlot?.param === 'command'
+    isKeycodeParam(catalogParam) || catalogParam === 'command'
   )
-  const showHolds = $derived(isKeycodeParam(activeSlot?.param) && !!onToggleHold)
-  const displayChoices = $derived(catalogKeyChoices(choices))
+  const showHolds = $derived(isKeycodeParam(catalogParam) && !!onToggleHold)
+  const showValuePicker = $derived(
+    catalogParam != null && catalogParam !== 'behaviour'
+  )
+  const keycodePicker = $derived(isKeycodeParam(catalogParam))
+  const displayChoices = $derived(catalogKeyChoices(resolvedChoices))
+  const previewLabel = $derived.by(() => {
+    const code = behaviourValue
+    if (code == null || code === '') return bindingLabel
+    const values = paramSlots.filter(isSlotFilled).map(slot => slot.value)
+    return [code, ...values].join(' ')
+  })
   const labelChoice = $derived(buildChoiceLabeler(displayChoices))
   const searching = $derived(query.trim().length > 0)
   const orderedBehaviours = $derived(sortBehaviorsByRole(behaviours))
   const showFilter = $derived(displayChoices.length > 16)
   const catalogKey = $derived(
-    `${String(activeSlot?.param ?? '')}:${displayChoices.length}`
+    `${String(behaviourValue ?? '')}:${String(catalogParam ?? '')}:${displayChoices.length}`
   )
 
   const filtered = $derived.by(() => {
@@ -107,26 +142,34 @@
   )
   const showTaxonomy = $derived(taxonomyChips.length > 1)
 
+  const keycodeTaxonomy = $derived(keycodePicker)
+
   const activeContexts = $derived.by(() => {
     if (pinnedContexts && pinnedForKey === catalogKey) return pinnedContexts
+    if (!keycodeTaxonomy) return allGroups.map(group => group.context)
     return initialTaxonomyContexts(allGroups, activeSlot?.value)
   })
 
   const visibleGroups = $derived.by(() => {
-    if (searching) return filteredGroups
+    if (searching || !keycodeTaxonomy) return filteredGroups
     const selected = new Set(activeContexts)
     return filteredGroups.filter(group => selected.has(group.context))
   })
 
   const showGroupTitles = $derived(visibleGroups.length > 1)
-  const activeHolds = $derived(collectActiveHolds(slots, activeCodeIndex))
+  const activeHolds = $derived(collectActiveHolds(editorSlots, activeCodeIndex))
   const needsTerminal = $derived(needsTerminalKey(showHolds, activeHolds, paramSlots))
-  const canConfirm = $derived(canConfirmBinding(slots))
+  const canConfirm = $derived(canConfirmBinding(editorSlots))
   const pickKeyHint = $derived(
     shouldShowPickKeyHint(activeSlot, paramSlots, needsTerminal)
   )
-  const firmwareNote = $derived(behaviorFirmwareNote(slots[0]?.value))
-  const terminalValue = $derived(terminalKeySlot(slots, activeCodeIndex)?.value)
+  const firmwareNote = $derived(behaviorFirmwareNote(behaviourValue))
+
+  function chooseBehaviour(choice: Choice) {
+    pickedBehaviour = choice.code ?? null
+    onSelectBehaviour(choice)
+  }
+  const terminalValue = $derived(terminalKeySlot(editorSlots, activeCodeIndex)?.value)
 
   function pulseMissing(codeIndex: number) {
     window.clearTimeout(pulseTimer)
@@ -145,7 +188,7 @@
       onConfirm()
       return
     }
-    const missing = firstMissingSlot(slots)
+    const missing = firstMissingSlot(editorSlots)
     if (!missing) return
     onActivateSlot(missing.codeIndex)
     pulseMissing(missing.codeIndex)
@@ -180,11 +223,13 @@
   class="key-editor"
   role="dialog"
   aria-label="Edit key"
+  data-behavior={String(behaviourValue ?? '')}
+  data-value-param={String(catalogParam ?? '')}
   tabindex="-1"
   onkeydown={handleKeyDown}
 >
   <div class="key-editor-preview">
-    <code class="binding">{bindingLabel}</code>
+    <code class="binding">{previewLabel}</code>
     <div class="key-editor-preview-actions">
       <button
         type="button"
@@ -217,15 +262,15 @@
     <div class="key-editor-main">
       <BehaviourRow
         behaviours={orderedBehaviours}
-        activeCode={slots[0]?.value}
-        onSelect={onSelectBehaviour}
+        activeCode={behaviourValue}
+        onChoose={chooseBehaviour}
       />
 
       {#if firmwareNote}
         <p class="key-editor-note">{firmwareNote}</p>
       {/if}
 
-      {#if paramSlots.length > 0}
+      {#if showValuePicker && keycodePicker}
         <section class="key-editor-row">
           <p class="key-editor-section-label">Value</p>
           <div class="key-editor-chips">
@@ -248,7 +293,7 @@
               <TaxonomyChips
                 chips={taxonomyChips}
                 {activeContexts}
-                onSelect={selectTaxonomy}
+                onChoose={selectTaxonomy}
               />
             {/if}
           </div>
@@ -282,8 +327,51 @@
           {dimUsed}
           {used}
           {labelChoice}
-          onSelect={onSelectValue}
+          onChoose={onSelectValue}
         />
+      {:else if showValuePicker}
+        <section class="key-editor-row">
+          <p class="key-editor-section-label">Value</p>
+          {#if paramSlots.length > 1}
+            <div class="key-editor-chips">
+              {#each paramSlots as slot}
+                <button
+                  type="button"
+                  class="key-editor-chip"
+                  class:active={slot.codeIndex === activeSlot?.codeIndex}
+                  class:attention={pulseOn && pulseIndex === slot.codeIndex}
+                  onclick={() => onActivateSlot(slot.codeIndex)}
+                >
+                  {slot.label}{slot.value != null && slot.value !== ''
+                    ? ` · ${slot.value}`
+                    : ''}
+                </button>
+              {/each}
+            </div>
+          {/if}
+        </section>
+        <div class="key-editor-values">
+          {#if displayChoices.length === 0}
+            <p class="key-editor-empty">No matching values.</p>
+          {:else}
+            <div class="key-editor-grid">
+              {#each displayChoices as choice (String(choice.code ?? ''))}
+                <button
+                  type="button"
+                  class="key-editor-choice"
+                  class:active={String(choice.code) === String(activeSlot?.value ?? '')}
+                  class:used={dimUsed &&
+                    used.has(String(choice.code ?? '')) &&
+                    String(choice.code) !== String(activeSlot?.value ?? '')}
+                  title={choice.description || String(choice.code ?? '')}
+                  onclick={() => onSelectValue(choice)}
+                >
+                  {labelChoice(choice)}
+                </button>
+              {/each}
+            </div>
+          {/if}
+        </div>
       {:else}
         <p class="key-editor-empty">This behaviour applies immediately.</p>
       {/if}

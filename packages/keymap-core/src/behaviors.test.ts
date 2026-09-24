@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   behaviorFirmwareNote,
+  behaviorSlotParam,
+  behaviorValueCatalog,
   isInstantBehavior,
   sortBehaviorsByRole
 } from './behaviors.js'
@@ -52,5 +54,54 @@ describe('behaviorFirmwareNote', () => {
     expect(behaviorFirmwareNote('&bt')).toBeNull()
     expect(behaviorFirmwareNote('&out')).toBeNull()
     expect(behaviorFirmwareNote('&ext_power')).toBeNull()
+  })
+})
+
+describe('behaviorValueCatalog', () => {
+  it('returns mouse buttons for &mkp, not keycodes', () => {
+    const catalog = behaviorValueCatalog('&mkp')
+    expect(catalog.param).toBe('command')
+    expect(catalog.choices.map(c => c.code)).toEqual([
+      'LCLK',
+      'RCLK',
+      'MCLK',
+      'MB4',
+      'MB5'
+    ])
+  })
+
+  it('returns scroll commands for &msc and move commands for &mmv', () => {
+    expect(behaviorValueCatalog('&msc').choices.map(c => c.code)).toEqual([
+      'SCRL_UP',
+      'SCRL_DOWN',
+      'SCRL_LEFT',
+      'SCRL_RIGHT'
+    ])
+    expect(behaviorValueCatalog('&mmv').choices.map(c => c.code)).toEqual([
+      'MOVE_UP',
+      'MOVE_DOWN',
+      'MOVE_LEFT',
+      'MOVE_RIGHT'
+    ])
+  })
+
+  it('names the keycode param for &kp without embedding the key list', () => {
+    const catalog = behaviorValueCatalog('&kp')
+    expect(catalog.param).toBe('code')
+    expect(catalog.choices).toEqual([])
+  })
+})
+
+describe('behaviorSlotParam', () => {
+  it('follows the key slot on &mt after the modifier is chosen', () => {
+    expect(behaviorSlotParam('&mt', 'mod')).toBe('mod')
+    expect(behaviorSlotParam('&mt', 'code')).toBe('code')
+    expect(behaviorSlotParam('&lt', 'layer')).toBe('layer')
+    expect(behaviorSlotParam('&lt', 'code')).toBe('code')
+  })
+
+  it('ignores a leftover keycode slot on a command behaviour', () => {
+    expect(behaviorSlotParam('&mkp', 'code')).toBe('command')
+    expect(behaviorSlotParam('&kp', 'code')).toBe('code')
   })
 })

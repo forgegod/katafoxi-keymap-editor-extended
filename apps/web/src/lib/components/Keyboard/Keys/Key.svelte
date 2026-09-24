@@ -3,6 +3,7 @@
     behaviorKeycapRole,
     composeKey,
     encodeKeyBinding,
+    getBehaviorCatalog,
     isComplex,
     isHoldTapBehavior,
     isSimple,
@@ -24,7 +25,7 @@
     nextEditorSlot,
     terminalKeySlot
   } from '../../../key-editor'
-  import { get, pick } from '../../../utils'
+  import { pick } from '../../../utils'
   import KeyParamlist from './KeyParamlist.svelte'
   import KeyCap from '../../KeyCap.svelte'
   import Modal from '../../Common/Modal.svelte'
@@ -59,20 +60,29 @@
   const search = $derived(searchBox.current)
 
   let editing = $state<{ slotCodeIndex: number } | null>(null)
-  let draftBind = $state<HydratedNode | null>(null)
+  let draftValue = $state<string | number | null>(null)
+  let draftParamsJson = $state<string | null>(null)
 
   const sources = $derived(search?.sources ?? {})
   const behaviour = $derived(
-    get(sources.behaviours, String(value)) as Record<string, unknown> | undefined
+    sources.behaviours?.[String(value)] as Record<string, unknown> | undefined
   )
   const behaviourParams = $derived(getBehaviourParams(params, behaviour as never))
   const normalized = $derived(hydrateTree(value, params, sources))
-  const working = $derived(draftBind ?? normalized)
-  const workingBehaviour = $derived(
-    get(sources.behaviours, String(working.value)) as Record<string, unknown> | undefined
+  const working = $derived(
+    draftValue == null && draftParamsJson == null
+      ? normalized
+      : hydrateTree(
+          draftValue ?? '&none',
+          draftParamsJson ? JSON.parse(draftParamsJson) : [],
+          sources
+        )
   )
   const workingBehaviourParams = $derived(
-    getBehaviourParams(working.params, workingBehaviour as never)
+    getBehaviourParams(
+      working.params,
+      lookupBehaviour(draftValue ?? working.value) as never
+    )
   )
   const slots = $derived(buildEditorSlots(working, workingBehaviourParams))
   const activeSlot = $derived(
@@ -80,25 +90,34 @@
       slots.find(slot => slot.param !== 'behaviour') ??
       slots[0]
   )
+  const behaviourCode = $derived(String(slots[0]?.value ?? working.value ?? '&none'))
+  const valueParam = $derived(
+    activeSlot?.param != null && activeSlot.param !== 'behaviour'
+      ? activeSlot.param
+      : typeof workingBehaviourParams[0] === 'string'
+        ? workingBehaviourParams[0]
+        : undefined
+  )
   const behaviours = $derived(
-    (search?.getSearchTargets('behaviour', working.value) ?? []) as Array<{
+    (search?.getSearchTargets('behaviour', behaviourCode) ?? []) as Array<{
       code?: string | number
       name?: string
     }>
   )
-  const choices = $derived.by(() => {
-    if (!search || !activeSlot || activeSlot.param === 'behaviour') return []
-    return search.getSearchTargets(activeSlot.param, working.value) as Array<{
-      code?: string | number
-      description?: string
-      context?: string
-      symbol?: string
-    }>
-  })
+  const choices = $derived(
+    !search || valueParam == null || valueParam === 'behaviour'
+      ? []
+      : (search.getSearchTargets(valueParam, behaviourCode) as Array<{
+          code?: string | number
+          description?: string
+          context?: string
+          symbol?: string
+        }>)
+  )
   const positioningStyle = $derived(getKeyStyles(position, size, rotation))
   const bindingLabel = $derived(
     encodeKeyBinding({
-      value: String(working.value ?? '&none'),
+      value: behaviourCode,
       params: (working.params ?? []).map(toBindingNode)
     })
   )
@@ -131,33 +150,44 @@
     }
   }
 
-  function hydrateBind(node: HydratedNode): HydratedNode {
-    return hydrateTree(
-      node.value ?? '&none',
-      (node.params ?? []).map(cloneBindTree),
-      sources
-    )
+  function readDraft(): HydratedNode | null {
+    if (draftValue == null && draftParamsJson == null) return null
+    return {
+      value: draftValue ?? undefined,
+      params: draftParamsJson ? JSON.parse(draftParamsJson) : []
+    }
+  }
+
+  function lookupBehaviour(code: string | number | undefined) {
+    const key = String(code ?? '')
+    return (sources.behaviours?.[key] ?? getBehaviorCatalog().byCode[key]) as
+      | Record<string, unknown>
+      | undefined
   }
 
   function setDraft(node: HydratedNode, preferIndex: number) {
-    draftBind = hydrateBind(node)
-    const nextBehaviour = get(sources.behaviours, String(draftBind.value)) as
-      | Record<string, unknown>
-      | undefined
-    const nextParams = getBehaviourParams(draftBind.params, nextBehaviour as never)
-    const nextSlots = buildEditorSlots(draftBind, nextParams)
+    const plain = cloneBindTree(node)
+    const nextBehaviour = lookupBehaviour(plain.value)
+    const nextParams = getBehaviourParams(plain.params, nextBehaviour as never)
+    const hydrated = hydrateTree(plain.value ?? '&none', plain.params, sources)
+    const nextSlots = buildEditorSlots(hydrated, nextParams)
+    draftValue = plain.value ?? null
+    draftParamsJson = JSON.stringify(plain.params ?? [])
     editing = { slotCodeIndex: nextEditorSlot(nextSlots, preferIndex) }
   }
 
   function closeEditor() {
     editing = null
-    draftBind = null
+    draftValue = null
+    draftParamsJson = null
   }
 
   function openEditor(slotCodeIndex: number) {
     if (!canEdit) return
     if (!editing) {
-      draftBind = hydrateBind(normalized)
+      const plain = cloneBindTree(normalized)
+      draftValue = plain.value ?? null
+      draftParamsJson = JSON.stringify(plain.params ?? [])
     }
     editing = { slotCodeIndex }
   }
@@ -192,24 +222,34 @@
     }
   }
 
+  function emptyParamNodes(count: number): HydratedNode[] {
+    return Array.from({ length: count }, () => ({ value: undefined, params: [] }))
+  }
+
   function handleEditorBehaviour(choice: { code?: string | number }) {
     const nextValue = choice.code
     if (nextValue == null) return
-    const nextBehaviour = get(sources.behaviours, String(nextValue)) as
-      | Record<string, unknown>
-      | undefined
+    const nextBehaviour = lookupBehaviour(nextValue)
     const nextParams = getBehaviourParams([], nextBehaviour as never)
-    setDraft({ value: nextValue, params: [] }, nextParams.length === 0 ? 0 : 1)
+    setDraft(
+      { value: nextValue, params: emptyParamNodes(nextParams.length) },
+      nextParams.length === 0 ? 0 : 1
+    )
   }
 
   function handleEditorValue(choice: { code?: string | number }) {
-    if (!editing || !activeSlot || !draftBind || choice.code == null) return
-    const updated = cloneBindTree(draftBind)
+    const current = readDraft()
+    if (!editing || !activeSlot || !current || choice.code == null) return
+    const updated = cloneBindTree(current)
     const root = keycodeChainRootSlot(slots, editing.slotCodeIndex)
     if (root && (activeSlot.param === 'code' || activeSlot.param === 'keycode')) {
       applyTerminalKey(updated, root.codeIndex, choice.code)
     } else {
-      const target = makeIndex(updated)[editing.slotCodeIndex]
+      let target = makeIndex(updated)[editing.slotCodeIndex]
+      if (!target && editing.slotCodeIndex > 0) {
+        updated.params = emptyParamNodes(Math.max(updated.params.length, 1))
+        target = updated.params[0]
+      }
       if (!target) return
       target.value = choice.code
       target.params = []
@@ -218,16 +258,18 @@
   }
 
   function handleToggleHold(wrapCode: string) {
-    if (!editing || !draftBind) return
+    const current = readDraft()
+    if (!editing || !current) return
     const root = keycodeChainRootSlot(slots, editing.slotCodeIndex)
     if (!root) return
-    const updated = applyModifierHold(cloneBindTree(draftBind), root.codeIndex, wrapCode)
+    const updated = applyModifierHold(cloneBindTree(current), root.codeIndex, wrapCode)
     setDraft(updated, root.codeIndex)
   }
 
   function handleConfirm() {
-    if (!draftBind) return
-    onUpdate(pick(cloneBindTree(draftBind), ['value', 'params']))
+    const current = readDraft()
+    if (!current) return
+    onUpdate(pick(cloneBindTree(current), ['value', 'params']))
     closeEditor()
   }
 </script>
@@ -278,7 +320,7 @@
       <KeyEditor
         {bindingLabel}
         {behaviours}
-        {slots}
+        editorSlots={slots}
         activeCodeIndex={activeSlot.codeIndex}
         {choices}
         {usedKeycodes}
