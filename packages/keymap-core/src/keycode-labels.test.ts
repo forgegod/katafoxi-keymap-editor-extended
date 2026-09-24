@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildChoiceLabeler,
   catalogChoiceTooltip,
   displayChoiceLabel,
   representativeLabel
@@ -45,6 +46,19 @@ describe('displayChoiceLabel', () => {
     expect(displayChoiceLabel({ code: 'SEMI', symbol: ';' })).toBe(';')
     expect(displayChoiceLabel({ code: 'QMARK', symbol: '?' })).toBe('⇧?')
     expect(displayChoiceLabel({ code: 'BSLH', symbol: '\\' })).toBe('\\')
+  })
+
+  it('matches buildChoiceLabeler for the same peer list', () => {
+    const peers = [
+      { code: 'LCMD', symbol: '⌘' },
+      { code: 'RCMD', symbol: '⌘' },
+      { code: 'COLON' },
+      { code: 'K_MUTE' }
+    ]
+    const label = buildChoiceLabeler(peers)
+    for (const choice of peers) {
+      expect(label(choice)).toBe(displayChoiceLabel(choice, peers))
+    }
   })
 })
 

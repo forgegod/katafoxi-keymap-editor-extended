@@ -190,38 +190,33 @@ export function valueBandKind(choice: CatalogChoice): ValueBandKind {
 }
 
 function sortBand(kind: ValueBandKind, items: CatalogChoice[]): CatalogChoice[] {
-  return [...items].sort((a, b) => {
-    if (kind === 'function') {
-      const byNum = functionKeyNumber(a) - functionKeyNumber(b)
-      if (byNum !== 0) return byNum
-    }
-    if (kind === 'modkeys' || kind === 'modwraps') {
-      return compareModifiers(a, b)
-    }
-    if (kind === 'digits') {
-      const byNum =
-        Number(representativeLabel(a).replace(/\D/g, '')) -
-        Number(representativeLabel(b).replace(/\D/g, ''))
-      if (byNum !== 0) return byNum
-    }
-    if (kind === 'nav') {
-      const byNav = navRank(a) - navRank(b)
-      if (byNav !== 0) return byNav
-    }
-    if (kind === 'punct') {
-      const byHid = (punctHidMark(a)?.rank ?? 80) - (punctHidMark(b)?.rank ?? 80)
-      if (byHid !== 0) return byHid
-    }
-    if (kind === 'shifted') {
-      const byShift = (usShiftAlias(a)?.rank ?? 80) - (usShiftAlias(b)?.rank ?? 80)
-      if (byShift !== 0) return byShift
-    }
-    const keyA = kind === 'codes' ? String(a.code ?? '') : representativeLabel(a)
-    const keyB = kind === 'codes' ? String(b.code ?? '') : representativeLabel(b)
-    const byLabel = compareLabels(keyA, keyB)
+  if (kind === 'modkeys' || kind === 'modwraps') {
+    return [...items].sort(compareModifiers)
+  }
+  const rows = items.map(item => ({
+    item,
+    primary:
+      kind === 'function'
+        ? functionKeyNumber(item)
+        : kind === 'digits'
+          ? Number(representativeLabel(item).replace(/\D/g, ''))
+          : kind === 'nav'
+            ? navRank(item)
+            : kind === 'punct'
+              ? (punctHidMark(item)?.rank ?? 80)
+              : kind === 'shifted'
+                ? (usShiftAlias(item)?.rank ?? 80)
+                : 0,
+    label: kind === 'codes' ? String(item.code ?? '') : representativeLabel(item),
+    code: String(item.code ?? '')
+  }))
+  rows.sort((a, b) => {
+    if (a.primary !== b.primary) return a.primary - b.primary
+    const byLabel = compareLabels(a.label, b.label)
     if (byLabel !== 0) return byLabel
-    return compareLabels(String(a.code ?? ''), String(b.code ?? ''))
+    return compareLabels(a.code, b.code)
   })
+  return rows.map(row => row.item)
 }
 
 /**

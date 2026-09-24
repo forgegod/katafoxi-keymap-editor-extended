@@ -8,6 +8,7 @@
     choiceMatchesCode,
     valueBandCaption,
     catalogKeyChoices,
+    buildChoiceLabeler,
     displayChoiceLabel,
     groupChoicesByContext,
     initialTaxonomyContexts,
@@ -91,6 +92,7 @@
   )
   const showHolds = $derived(isKeycodeParam(activeSlot?.param) && !!onToggleHold)
   const displayChoices = $derived(catalogKeyChoices(choices))
+  const labelChoice = $derived(buildChoiceLabeler(displayChoices))
   const searching = $derived(query.trim().length > 0)
   const orderedBehaviours = $derived(sortBehaviorsByRole(behaviours))
   const showFilter = $derived(displayChoices.length > 16)
@@ -245,7 +247,7 @@
 
   function choiceLabel(choice: Choice): string {
     if (isModifierKey(choice)) return String(choice.code ?? '')
-    return displayChoiceLabel(choice, displayChoices)
+    return labelChoice(choice)
   }
 
   function isActiveChoice(choice: Choice): boolean {
