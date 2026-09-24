@@ -108,6 +108,23 @@ describe('resolveBinding / composeKey', () => {
     expect(legend?.primary).toEqual(['a', 'Ф'])
     expect(legend?.hold).toBeUndefined()
     expect(formatLegendCompact(legend!)).toBe('aФ @α')
+    expect(legend?.bilingualNote).toBeUndefined()
+  })
+
+  it('marks host levels that differ between English and Russian', () => {
+    const tee = composeKey({ binding: parseKeyBinding('&kp T') })
+    expect(tee?.primary).toEqual(['t', 'Е'])
+    expect(tee?.altGr).toEqual(['Δ', 'τ'])
+    expect(tee?.bilingualNote).toBe('Δτ/ёЁ')
+    expect(formatLegendCompact(tee!)).toBe('tЕ Δτ/ёЁ')
+
+    const em = composeKey({ binding: parseKeyBinding('&kp M') })
+    expect(em?.primary).toEqual(['m', 'Ь'])
+    expect(em?.bilingualNote).toBe('ˬμ/ъЪ')
+
+    const grave = composeKey({ binding: parseKeyBinding('&kp GRAVE') })
+    expect(grave?.primary).toEqual(['`', '~'])
+    expect(grave?.bilingualNote).toBe('ˬˬ/ёЁ')
   })
 
   it('puts hold badge only on &mt, not on bare &kp J', () => {
@@ -120,15 +137,36 @@ describe('resolveBinding / composeKey', () => {
     expect(mt?.hold).toBe('⧗⌃')
   })
 
-  it('resolves &lt layer as hold badge', () => {
-    const legend = composeKey({ binding: parseKeyBinding('&lt 1 ESC') })
-    expect(legend?.keycode).toMatch(/ESC/)
-    expect(legend?.hold).toBe('⧗L1')
+  it('keeps ZMK glyphs for keys that are not host characters', () => {
+    for (const binding of [
+      '&kp ESC',
+      '&kp TAB',
+      '&kp LWIN',
+      '&kp LCTRL',
+      '&kp LSHIFT',
+      '&kp LALT',
+      '&kp CAPS',
+      '&kp BSPC',
+      '&kp DEL',
+      '&kp SPACE',
+      '&kp LEFT',
+      '&kp RIGHT',
+      '&kp C_AC_BACK',
+      '&kp K_FORWARD',
+      '&kp LC(BSPC)',
+      '&kp LS(CAPS)',
+      '&lt 1 LS(CAPS)',
+      '&mo 1',
+      '&kp KP_N7'
+    ]) {
+      expect(composeKey({ binding: parseKeyBinding(binding) }), binding).toBeNull()
+    }
   })
 
-  it('flags keypad taps so the host glyph can stay boxed', () => {
-    expect(composeKey({ binding: parseKeyBinding('&kp KP_N7') })?.keypad).toBe(true)
-    expect(composeKey({ binding: parseKeyBinding('&kp N7') })?.keypad).toBe(false)
+  it('still composes a host letter on a hold-tap', () => {
+    const legend = composeKey({ binding: parseKeyBinding('&lt 1 A') })
+    expect(legend?.primary).toEqual(['a', 'Ф'])
+    expect(legend?.hold).toBe('⧗L1')
   })
 
   it('returns null for &trans / &none', () => {

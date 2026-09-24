@@ -5,28 +5,13 @@ import {
   modifierRoleGlyph,
   modifierSide
 } from './modifiers.js'
+import { larkHostLegend } from './lark-host.js'
 import type {
   ComposedLegend,
   ComposeKeyInput,
   KeyBindingNode,
   ResolvedBinding
 } from './types.js'
-
-/**
- * Glyph fixtures by tap keycode only — never attach hold here.
- * Hold badges come from resolveBinding (e.g. &mt), not from the letter.
- * Full HostLayout/HostProfile replaces this map after migration.
- */
-const TAP_FIXTURES: Record<string, Omit<ComposedLegend, 'hold'>> = {
-  KC_A: { primary: ['a', 'Ф'], altGr: ['@', 'α'], keycode: 'KC_A' },
-  A: { primary: ['a', 'Ф'], altGr: ['@', 'α'], keycode: 'KC_A' },
-  KC_S: { primary: ['s', 'Ы'], altGr: ['$', 'σ'], keycode: 'KC_S' },
-  S: { primary: ['s', 'Ы'], altGr: ['$', 'σ'], keycode: 'KC_S' },
-  KC_D: { primary: ['d', 'В'], altGr: ['%', 'δ'], keycode: 'KC_D' },
-  D: { primary: ['d', 'В'], altGr: ['%', 'δ'], keycode: 'KC_D' },
-  KC_J: { primary: ['j', 'О'], altGr: ['ˬ', 'ξ'], keycode: 'KC_J' },
-  J: { primary: ['j', 'О'], altGr: ['ˬ', 'ξ'], keycode: 'KC_J' }
-}
 
 /** Compact layer index for key legends (`1` → `L1`). Binding value stays numeric. */
 export function layerLegendSymbol(index: number | string): string {
@@ -179,34 +164,24 @@ function formatHoldBadge(hold: string): string {
   return `⧗${keycapLegend(hold, modifierRoleGlyph(info.role))}`
 }
 
-function legendForTap(tap: string): ComposedLegend {
-  const fixture = TAP_FIXTURES[tap] ?? TAP_FIXTURES[tap.replace(/^KC_/, '')]
-  const keypad = isKeypadCode(tap)
-  if (fixture) {
-    return { ...fixture, keypad }
-  }
-
-  const short = tap.replace(/^KC_/, '')
-  return {
-    primary: [
-      short.slice(0, 1).toLowerCase() || '?',
-      short.slice(0, 1).toUpperCase() || '?'
-    ],
-    altGr: ['', ''],
-    keycode: tap.startsWith('KC_') ? tap : `KC_${tap}`,
-    keypad
-  }
+function legendForTap(tap: string): ComposedLegend | null {
+  const host = larkHostLegend(tap)
+  if (!host) return null
+  return { ...host, keypad: isKeypadCode(tap) }
 }
 
 /**
- * Stub host×ZMK composition: glyphs from tap fixtures, hold only from the binding.
- * Returns null when there is no tap (e.g. &trans) so the UI can keep ZMK mode.
+ * Host×ZMK composition. Glyphs come from the LARK English and Russian host
+ * groups. Hold badges come from the binding, not from the letter.
+ * Returns null when the tap is not a host character key (modifiers, layers,
+ * navigation) so the UI keeps the ZMK-mode glyph.
  */
 export function composeKey(input: ComposeKeyInput): ComposedLegend | null {
   const resolved = resolveBinding(input.binding)
   if (resolved.tap == null) return null
 
   const legend = legendForTap(resolved.tap)
+  if (!legend) return null
   if (resolved.hold) {
     legend.hold = formatHoldBadge(resolved.hold)
   }
@@ -215,8 +190,7 @@ export function composeKey(input: ComposeKeyInput): ComposedLegend | null {
 
 export function formatLegendCompact(legend: ComposedLegend): string {
   const base = `${legend.primary[0]}${legend.primary[1]}`
-  const alt = `${legend.altGr[0]}${legend.altGr[1]}`.trim()
+  const alt = legend.bilingualNote ?? `${legend.altGr[0]}${legend.altGr[1]}`.trim()
   const hold = legend.hold ? ` ${legend.hold}` : ''
-  const note = legend.bilingualNote ? ` ${legend.bilingualNote}` : ''
-  return alt ? `${base} ${alt}${hold}${note}`.trim() : `${base}${hold}${note}`.trim()
+  return `${base}${alt ? ` ${alt}` : ''}${hold}`.trim()
 }

@@ -79,8 +79,8 @@ export interface ResolvedBinding {
 }
 
 /**
- * Input to the compose stub. Prefer `binding`; host profiles come later.
- * `hostProfile` is reserved and ignored until HostLayout exists.
+ * Input to compose. The default host pair is LARK English + Russian.
+ * `hostProfile` is reserved for choosing another pair later.
  */
 export interface ComposeKeyInput {
   binding: KeyBindingNode
