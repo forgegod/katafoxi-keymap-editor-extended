@@ -28,21 +28,47 @@
 .key[data-simple='true'] {
   font-size: 140%;
 }
+.key[data-hold-tap='true'] {
+  font-size: 125%;
+}
 .key[data-long='true'] {
   font-size: 60%;
 }
+.key[data-hold-tap='true'] > .params {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.key[data-hold-tap='true'] .param[data-slot='hold'] > .code {
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
+  font-size: 0.78em;
+  padding: 1px 6px;
+  margin: 0;
+}
+.key[data-hold-tap='true'] .param[data-slot='tap'] > .code {
+  font-size: 1.05em;
+}
+.key[data-hold-tap='true']:hover .param[data-slot='hold'] > .code {
+  background: rgba(255, 255, 255, 0.22);
+}
 
-.params:not([data-is-root='true'])::before {
+.params:not([data-is-root='true']):not([data-compact='true'])::before {
   content: '(';
   opacity: 0.4;
   font-weight: bold;
   margin: 2px;
 }
-.params:not([data-is-root='true'])::after {
+.params:not([data-is-root='true']):not([data-compact='true'])::after {
   content: ')';
   opacity: 0.4;
   font-weight: bold;
   margin: 2px;
+}
+.param.compact {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
 }
 .params:not([data-is-root='true']) .param:not(:last-child)::after {
   content: ',';

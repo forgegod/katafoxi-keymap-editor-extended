@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { keycapLegend } from '@keymap-editor/keymap-core'
   import Icon from '../../Common/Icon.svelte'
 
   interface Props {
@@ -20,7 +21,12 @@
     source ? `(${source.code}) ${source.description ?? ''}` : undefined
   )
   const text = $derived(
-    source ? String(source.symbol || source.code || '') : ''
+    source
+      ? keycapLegend(
+          (source.code ?? value) as string | number | undefined,
+          source.symbol as string | undefined
+        )
+      : ''
   )
   const faIcon = $derived(source?.faIcon as string | undefined)
 

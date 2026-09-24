@@ -1,6 +1,7 @@
 <script lang="ts">
   import {
     collectUsedKeycodes,
+    layerLegendSymbol,
     type KeyBindingNode,
     type LayoutKey,
     type ParsedKeymap
@@ -43,6 +44,7 @@
       ? []
       : keymap.layers.map((_, i) => ({
           code: i,
+          symbol: layerLegendSymbol(i),
           description: layerNames[i] || `Layer ${i}`
         }))
   )

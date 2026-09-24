@@ -1,4 +1,10 @@
-import { getBehaviourParams } from '@keymap-editor/keymap-core'
+import {
+  getBehaviourParams,
+  isCompactKeycapLegend,
+  isCompactModifierChord,
+  isHoldTapBehavior,
+  keycapLegend
+} from '@keymap-editor/keymap-core'
 
 export { getBehaviourParams }
 
@@ -62,27 +68,60 @@ export function childCodeIndex(
   return offset
 }
 
+function nodeLegend(node: HydratedNode | undefined): string {
+  if (!node) return ''
+  return keycapLegend(
+    (node.source?.code ?? node.value) as string | number | undefined,
+    node.source?.symbol as string | undefined
+  )
+}
+
+function isCompactChord(node: HydratedNode | undefined): boolean {
+  if (!node) return false
+  const kids = node.params ?? []
+  if (kids.length !== 1) return false
+  const inner = kids[0]
+  if ((inner.params ?? []).length > 0) return false
+  return isCompactModifierChord(
+    String(node.source?.code ?? node.value ?? ''),
+    nodeLegend(inner)
+  )
+}
+
 export function isSimple(normalized: HydratedNode): boolean {
   const [first] = normalized.params
-  const symbol = String(
-    get(first, 'source.symbol', get(first, 'source.code', '')) ?? ''
-  )
-  const shortSymbol = symbol.length === 1
-  const singleParam = normalized.params.length === 1
-  return singleParam && shortSymbol
+  if (normalized.params.length !== 1) return false
+  if (isCompactChord(first)) return true
+  if ((first?.params ?? []).length > 0) return false
+  return isCompactKeycapLegend(nodeLegend(first))
+}
+
+function sideIsCompact(node: HydratedNode | undefined): boolean {
+  if (!node) return false
+  if (isCompactChord(node)) return true
+  if ((node.params ?? []).length > 0) return false
+  return isCompactKeycapLegend(nodeLegend(node))
+}
+
+/** `&mt` / `&lt` with two short legends — keep in-row, do not shrink the key. */
+export function isCompactHoldTap(normalized: HydratedNode): boolean {
+  if (!isHoldTapBehavior(normalized.value)) return false
+  if (normalized.params.length !== 2) return false
+  return sideIsCompact(normalized.params[0]) && sideIsCompact(normalized.params[1])
 }
 
 export function isComplex(
   normalized: HydratedNode,
   behaviourParams: unknown[]
 ): boolean {
+  if (isCompactHoldTap(normalized)) return false
   const [first] = normalized.params
-  const symbol = String(
-    get(first, 'source.symbol', get(first, 'value', '')) ?? ''
-  )
+  const symbol = nodeLegend(first)
   const isLongSymbol = symbol.length > 4
   const isMultiParam = behaviourParams.length > 1
-  const isNestedParam = ((get(first, 'params', []) as unknown[]) || []).length > 0
+  const isNestedParam =
+    ((get(first, 'params', []) as unknown[]) || []).length > 0 &&
+    !isCompactChord(first)
 
   return isLongSymbol || isMultiParam || isNestedParam
 }

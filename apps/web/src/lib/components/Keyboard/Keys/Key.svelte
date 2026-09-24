@@ -2,6 +2,7 @@
   import {
     composeKey,
     encodeKeyBinding,
+    isHoldTapBehavior,
     type KeyBindingNode
   } from '@keymap-editor/keymap-core'
   import { getSearchContext, type LegendMode } from '../../../context'
@@ -229,6 +230,7 @@
   data-h={size.h}
   data-simple={isSimple(normalized)}
   data-long={isComplex(normalized, behaviourParams)}
+  data-hold-tap={isHoldTapBehavior(value) && normalized.params.length === 2}
   data-editable={canEdit}
   style={Object.entries(positioningStyle)
     .map(([k, v]) => `${k.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`)}:${v}`)
@@ -248,6 +250,7 @@
     {/if}
     <KeyParamlist
       root={true}
+      holdTap={isHoldTapBehavior(value) && normalized.params.length === 2}
       parentCodeIndex={0}
       params={behaviourParams}
       values={normalized.params}
