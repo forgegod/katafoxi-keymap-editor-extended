@@ -47,7 +47,13 @@ packages/keymap-core   Pure TS — parse/generate/splice .keymap, layout validat
 
 ## Keycap / compose (target UX)
 
-- **ZMK mode**: behavior + params (current editor).
+- **ZMK mode**: behavior + params (current editor). Display-only legends — binding tokens stay ZMK (`1`, `LCTRL`, `LC(DEL)`).
+- **ZMK legends (now):** helpers in `packages/keymap-core` `compose.ts` (`layerLegendSymbol`, `keycapLegend`, `isHoldTapBehavior`).
+  - Layers: `L1` (index, not the layer name).
+  - Left modifiers unmarked (`⌃ ⌥ ⌘ ⇧`); right side `R⌃` / `R⌥` / `R⌘` / `R⇧`.
+  - Compact chords drop parens: `LC(DEL)` → `⌃⌦`, `LS(CAPS)` → `⇧⇪`.
+  - `&mt` / `&lt`: hold and tap stay in one row; hold is a smaller pill, tap is larger. Compact pairs are not shrunk to 60%.
+  - Caps Lock `⇪`. Browser back/forward `←` / `→` (not cursor `⏴` `⏵`). Tooltip keeps the raw code.
 - **Composed preview**: quadrant-style host legend (base/shift language pair + AltGr pair + hold badge), driven by a `ComposedLegend` model in core.
 - **Stub today:** `resolveBinding` splits tap/hold (`&kp` / `&mt` / `&lt`); glyphs come from a tiny tap-keycode fixture map. Hold badges attach only when the binding has a hold side — not from letter fixtures. Full `HostLayout` / host editors are post-migration work.
 - Full host-layout editors and XKB/KLC export are product steps *after* round-trip safety and a stable compose model.

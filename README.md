@@ -5,15 +5,17 @@ to simplify the manual effort of keymap editing for the end user, is isn't a
 substitute for understanding ZMK. Be sure to read ZMK's documentation in order
 to fully leverage this app's functionality.
 
-> **This fork** runs as a **pnpm monorepo**: Svelte 5 + Vite UI (`apps/web`),
+> **This fork** ([katafoxi/keymap-editor-extended](https://github.com/katafoxi/keymap-editor-extended))
+> runs as a **pnpm monorepo**: Svelte 5 + Vite UI (`apps/web`),
 > Hono API (`apps/api`), and shared ZMK/compose logic (`packages/keymap-core`).
-> See [running-locally.md](running-locally.md), [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md),
-> and [AGENTS.md](AGENTS.md).
+> ZMK-mode keycaps use compact legends (`L1`, `⌃`, `⇧⇪`, hold-tap pills) defined
+> in core — see [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md#keycap--compose-target-ux).
+> Local run: [running-locally.md](running-locally.md). Agents: [AGENTS.md](AGENTS.md).
 
-**Try it now!** Go to the [Keymap Editor] and try it out with the built-in
-[keymap-editor-demo-crkbd] before setting up your own repo.
+Upstream hosted demo (not this fork): [Keymap Editor] with
+[keymap-editor-demo-crkbd].
 
-**[Talk to me! 🗣](https://github.com/nickcoutsos/keymap-editor/discussions)**
+Upstream discussion: **[Talk to me! 🗣](https://github.com/nickcoutsos/keymap-editor/discussions)**
 
 I'd love to know how the Keymap Editor is working out for you! Has it helped you
 with managing your own keymaps, are you struggling with functionality, have you
