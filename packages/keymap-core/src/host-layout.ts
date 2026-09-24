@@ -3,11 +3,13 @@ import type { ComposedLegend } from './types.js'
 import { parseXkbSymbolsSection } from './xkb-symbols.js'
 import { keysymToGlyph } from './xkb-keysyms.js'
 
-/** Shown where a level is NoSymbol. */
-export const HOST_LEVEL_EMPTY = 'ˬ'
-
 /** Four glyphs: base, Shift, AltGr, AltGr+Shift. Empty string is NoSymbol. */
 export type HostLevels = readonly [string, string, string, string]
+
+export interface HostColumnOptions {
+  altGr?: boolean
+  altGrShift?: boolean
+}
 
 export interface HostLayout {
   id: string
@@ -43,37 +45,37 @@ export function hostLayoutFromSymbols(source: string, section: string, id: strin
   return { id, byZmk }
 }
 
-function slot(glyph: string): string {
-  return glyph === '' ? HOST_LEVEL_EMPTY : glyph
-}
-
 /**
- * Four legend slots from two host groups.
- * Slot 1 is the base layout's level 1. Slot 2 is the second layout's Shift
- * (uppercase of that alphabet). AltGr slots come from the base layout.
- * When AltGr pairs differ, `bilingualNote` is `Δτ/ёЁ`.
+ * Language columns from one or two host groups.
+ * `en` is the first layout's own case pair. `second` is the other alphabet
+ * when chosen. AltGr columns come from the first layout and stay empty when
+ * the level is NoSymbol or the column is hidden. When the visible AltGr
+ * pair differs from the second language, `bilingualNote` is `Δτ/ёЁ`.
  */
 export function composeHostPair(
   base: HostLayout,
-  second: HostLayout,
-  token: string
-): Pick<ComposedLegend, 'primary' | 'altGr' | 'bilingualNote' | 'keycode'> | null {
+  second: HostLayout | null,
+  token: string,
+  columns: HostColumnOptions = {}
+): Pick<ComposedLegend, 'en' | 'second' | 'altGr' | 'altGrShift' | 'bilingualNote' | 'keycode'> | null {
+  const showAlt = columns.altGr !== false
+  const showAltShift = columns.altGrShift !== false
   const id = hostKeyByZmk(token)
   if (!id) return null
   const baseLevels = base.byZmk.get(id.zmk)
   if (!baseLevels || baseLevels[0] === '') return null
-  const secondLevels = second.byZmk.get(id.zmk)
-  const upper = secondLevels ? secondLevels[1] : baseLevels[1]
-  const altGr: [string, string] = [slot(baseLevels[2]), slot(baseLevels[3])]
+  const secondLevels = second?.byZmk.get(id.zmk)
   let bilingualNote: string | undefined
-  if (secondLevels) {
-    const baseAlt = slot(baseLevels[2]) + slot(baseLevels[3])
-    const secondAlt = slot(secondLevels[2]) + slot(secondLevels[3])
+  if (secondLevels && (showAlt || showAltShift)) {
+    const baseAlt = `${showAlt ? baseLevels[2] : ''}${showAltShift ? baseLevels[3] : ''}`
+    const secondAlt = `${showAlt ? secondLevels[2] : ''}${showAltShift ? secondLevels[3] : ''}`
     if (baseAlt !== secondAlt) bilingualNote = `${baseAlt}/${secondAlt}`
   }
   return {
-    primary: [slot(baseLevels[0]), slot(upper)],
-    altGr,
+    en: [baseLevels[0], baseLevels[1]],
+    second: secondLevels ? [secondLevels[0], secondLevels[1]] : null,
+    altGr: showAlt ? baseLevels[2] : '',
+    altGrShift: showAltShift ? baseLevels[3] : '',
     bilingualNote,
     keycode: `KC_${id.zmk}`
   }

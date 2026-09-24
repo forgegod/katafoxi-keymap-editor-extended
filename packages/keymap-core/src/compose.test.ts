@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   behaviorKeycapRole,
+  bindingReferencesLayer,
+  bindingSendsAltGr,
+  bindingSendsShift,
   composeKey,
+  composeLayerRows,
+  legendHoverHit,
   isCompactKeycapLegend,
   isCompactModifierChord,
   isHoldTapBehavior,
@@ -10,11 +15,15 @@ import {
   isKeypadCode,
   isLayerLegendSymbol,
   keycapLegend,
+  compactBehaviorLegend,
+  prefixedCommandLegend,
   layerLegendSymbol,
   formatLegendCompact,
   getBehaviorCatalog,
   getKeycodeCatalog,
+  hostLegendFor,
   parseKeyBinding,
+  standardHostLegendView,
   parseKeymap,
   generateKeymap,
   normalizeZmkKeycodes,
@@ -105,35 +114,51 @@ describe('resolveBinding / composeKey', () => {
   it('resolves &kp tap without hold', () => {
     expect(resolveBinding(parseKeyBinding('&kp A'))).toEqual({ tap: 'A' })
     const legend = composeKey({ binding: parseKeyBinding('&kp A') })
-    expect(legend?.primary).toEqual(['a', 'Ф'])
+    expect(legend?.en).toEqual(['a', 'A'])
+    expect(legend?.second).toEqual(['ф', 'Ф'])
     expect(legend?.hold).toBeUndefined()
-    expect(formatLegendCompact(legend!)).toBe('aФ @α')
+    expect(formatLegendCompact(legend!)).toBe('aA фФ @ α')
     expect(legend?.bilingualNote).toBeUndefined()
   })
 
   it('marks host levels that differ between English and Russian', () => {
     const tee = composeKey({ binding: parseKeyBinding('&kp T') })
-    expect(tee?.primary).toEqual(['t', 'Е'])
-    expect(tee?.altGr).toEqual(['Δ', 'τ'])
+    expect(tee?.en).toEqual(['t', 'T'])
+    expect(tee?.second).toEqual(['е', 'Е'])
+    expect(tee?.altGr).toBe('Δ')
+    expect(tee?.altGrShift).toBe('τ')
     expect(tee?.bilingualNote).toBe('Δτ/ёЁ')
-    expect(formatLegendCompact(tee!)).toBe('tЕ Δτ/ёЁ')
+    expect(formatLegendCompact(tee!)).toBe('tT еЕ Δτ/ёЁ')
 
     const em = composeKey({ binding: parseKeyBinding('&kp M') })
-    expect(em?.primary).toEqual(['m', 'Ь'])
-    expect(em?.bilingualNote).toBe('ˬμ/ъЪ')
+    expect(em?.en).toEqual(['m', 'M'])
+    expect(em?.second).toEqual(['ь', 'Ь'])
+    expect(em?.bilingualNote).toBe('μ/ъЪ')
 
     const grave = composeKey({ binding: parseKeyBinding('&kp GRAVE') })
-    expect(grave?.primary).toEqual(['`', '~'])
-    expect(grave?.bilingualNote).toBe('ˬˬ/ёЁ')
+    expect(grave?.en).toEqual(['`', '~'])
+    expect(grave?.bilingualNote).toBe('/ёЁ')
+  })
+
+  it('splits E into En / Ru / AltGr columns', () => {
+    const legend = composeKey({ binding: parseKeyBinding('&kp E') })
+    expect(legend?.en).toEqual(['e', 'E'])
+    expect(legend?.second).toEqual(['у', 'У'])
+    expect(legend?.altGr).toBe('&')
+    expect(legend?.altGrShift).toBe('ε')
+    expect(formatLegendCompact(legend!)).toBe('eE уУ & ε')
   })
 
   it('puts hold badge only on &mt, not on bare &kp J', () => {
     const kp = composeKey({ binding: parseKeyBinding('&kp J') })
     expect(kp?.hold).toBeUndefined()
-    expect(kp?.primary).toEqual(['j', 'О'])
+    expect(kp?.en).toEqual(['j', 'J'])
+    expect(kp?.second).toEqual(['о', 'О'])
+    expect(kp?.altGr).toBe('')
+    expect(kp?.altGrShift).toBe('ξ')
 
     const mt = composeKey({ binding: parseKeyBinding('&mt LCTRL J') })
-    expect(mt?.primary).toEqual(['j', 'О'])
+    expect(mt?.en).toEqual(['j', 'J'])
     expect(mt?.hold).toBe('⧗⌃')
   })
 
@@ -163,10 +188,138 @@ describe('resolveBinding / composeKey', () => {
     }
   })
 
+  it('hides language columns on the keycap without dropping the host pick', () => {
+    const hiddenEn = composeKey({
+      binding: parseKeyBinding('&kp E'),
+      hostView: { ...standardHostLegendView(), baseVisible: false }
+    })
+    expect(hiddenEn?.en).toEqual(['', ''])
+    expect(hiddenEn?.second).toEqual(['у', 'У'])
+    expect(hostLegendFor('E')?.en).toEqual(['e', 'E'])
+  })
+
+  it('keeps a hidden layer slot so the others do not move', () => {
+    const rows = composeLayerRows(
+      [
+        parseKeyBinding('&kp E'),
+        parseKeyBinding('&kp KP_N8'),
+        parseKeyBinding('&kp F8'),
+        parseKeyBinding('&kp SLCK')
+      ],
+      { ...standardHostLegendView(), layers: [true, false, true, true] }
+    )
+    expect(rows.map(row => row.hidden)).toEqual([false, true, false, false])
+    expect(rows.map(row => row.layer)).toEqual([0, 1, 2, 3])
+  })
+
+  it('follows the host view for the second language and AltGr columns', () => {
+    const englishOnly = composeKey({
+      binding: parseKeyBinding('&kp A'),
+      hostView: {
+        baseId: 'lark-en',
+        secondId: null,
+        altGr: false,
+        altGrShift: false,
+        source: 'custom'
+      }
+    })
+    expect(englishOnly?.en).toEqual(['a', 'A'])
+    expect(englishOnly?.second).toBeNull()
+    expect(englishOnly?.altGr).toBe('')
+    expect(englishOnly?.altGrShift).toBe('')
+    expect(formatLegendCompact(englishOnly!)).toBe('aA')
+  })
+
+  it('detects layer references on &mo / &lt / &to', () => {
+    expect(bindingReferencesLayer(parseKeyBinding('&mo 1'), 1)).toBe(true)
+    expect(bindingReferencesLayer(parseKeyBinding('&mo 1'), 2)).toBe(false)
+    expect(bindingReferencesLayer(parseKeyBinding('&lt 1 A'), 1)).toBe(true)
+    expect(bindingReferencesLayer(parseKeyBinding('&to 0'), 0)).toBe(true)
+    expect(bindingReferencesLayer(parseKeyBinding('&kp E'), 0)).toBe(false)
+  })
+
+  it('highlights the combo that names that layer', () => {
+    const mo = parseKeyBinding('&mo 1')
+    expect(legendHoverHit(mo, { kind: 'layer', layer: 1 })).toBe('combo')
+    expect(legendHoverHit(mo, { kind: 'layer', layer: 0 })).toBe('none')
+    expect(legendHoverHit(parseKeyBinding('&mo 3'), { kind: 'layer', layer: 2 })).toBe(
+      'none'
+    )
+    expect(legendHoverHit(parseKeyBinding('&mo 3'), { kind: 'layer', layer: 3 })).toBe(
+      'combo'
+    )
+    expect(legendHoverHit(parseKeyBinding('&to 4'), { kind: 'layer', layer: 3 })).toBe(
+      'none'
+    )
+    expect(legendHoverHit(parseKeyBinding('&to 4'), { kind: 'layer', layer: 4 })).toBe(
+      'combo'
+    )
+    expect(legendHoverHit(parseKeyBinding('&lt 1 LS(CAPS)'), { kind: 'layer', layer: 1 })).toBe(
+      'combo'
+    )
+    expect(legendHoverHit(parseKeyBinding('&lt 1 A'), { kind: 'layer', layer: 1 })).toBe(
+      'hold'
+    )
+    expect(legendHoverHit(parseKeyBinding('&kp E'), { kind: 'layer', layer: 0 })).toBe('none')
+  })
+
+  it('highlights RAlt for AltGr and RAlt plus Shift for AltGr+Shift', () => {
+    expect(bindingSendsAltGr(parseKeyBinding('&mt RALT LBKT'))).toBe(true)
+    expect(bindingSendsAltGr(parseKeyBinding('&kp RALT'))).toBe(true)
+    expect(bindingSendsAltGr(parseKeyBinding('&kp E'))).toBe(false)
+    expect(bindingSendsShift(parseKeyBinding('&kp LSHIFT'))).toBe(true)
+    expect(bindingSendsShift(parseKeyBinding('&mt LSHIFT K'))).toBe(true)
+    expect(bindingSendsShift(parseKeyBinding('&lt 1 LS(CAPS)'))).toBe(false)
+    expect(legendHoverHit(parseKeyBinding('&mt RALT LBKT'), { kind: 'altGr' })).toBe('hold')
+    expect(legendHoverHit(parseKeyBinding('&kp RALT'), { kind: 'altGr' })).toBe('combo')
+    expect(legendHoverHit(parseKeyBinding('&kp LSHIFT'), { kind: 'altGrShift' })).toBe(
+      'combo'
+    )
+    expect(legendHoverHit(parseKeyBinding('&mt LSHIFT K'), { kind: 'altGrShift' })).toBe(
+      'hold'
+    )
+    expect(legendHoverHit(parseKeyBinding('&kp E'), { kind: 'altGr' })).toBe('none')
+  })
+
   it('still composes a host letter on a hold-tap', () => {
     const legend = composeKey({ binding: parseKeyBinding('&lt 1 A') })
-    expect(legend?.primary).toEqual(['a', 'Ф'])
+    expect(legend?.en).toEqual(['a', 'A'])
+    expect(legend?.second).toEqual(['ф', 'Ф'])
     expect(legend?.hold).toBe('⧗L1')
+  })
+
+  it('keeps empty layer slots so a missing row does not shift the others', () => {
+    const rows = composeLayerRows([
+      parseKeyBinding('&kp E'),
+      parseKeyBinding('&trans'),
+      parseKeyBinding('&kp F8'),
+      parseKeyBinding('&none')
+    ])
+    expect(rows.map(row => row.layer)).toEqual([0, 1, 2, 3])
+    expect(rows.map(row => row.blank)).toEqual([false, true, false, true])
+    expect(rows[0].legend?.en).toEqual(['e', 'E'])
+    expect(rows[2].legend).toBeNull()
+  })
+
+  it('previews only the first four firmware layers', () => {
+    const rows = composeLayerRows([
+      parseKeyBinding('&kp E'),
+      parseKeyBinding('&kp F8'),
+      parseKeyBinding('&kp A'),
+      parseKeyBinding('&kp S'),
+      parseKeyBinding('&kp D')
+    ])
+    expect(rows.map(row => row.layer)).toEqual([0, 1, 2, 3])
+    expect(rows[3].legend?.en).toEqual(['s', 'S'])
+  })
+
+  it('pads a short keymap to four layer slots', () => {
+    const rows = composeLayerRows([
+      parseKeyBinding('&trans'),
+      parseKeyBinding('&none')
+    ])
+    expect(rows).toHaveLength(4)
+    expect(rows.every(row => row.blank)).toBe(true)
   })
 
   it('returns null for &trans / &none', () => {
@@ -178,6 +331,8 @@ describe('resolveBinding / composeKey', () => {
 describe('behaviorKeycapRole', () => {
   it('hides the default &kp and hold-tap when the pill is visible', () => {
     expect(behaviorKeycapRole('&kp', { paramCount: 1 })).toBe('hidden')
+    expect(behaviorKeycapRole('&bt', { paramCount: 1 })).toBe('hidden')
+    expect(behaviorKeycapRole('&out', { paramCount: 1 })).toBe('hidden')
     expect(
       behaviorKeycapRole('&mt', { paramCount: 2, holdTapVisible: true })
     ).toBe('hidden')
@@ -210,6 +365,25 @@ describe('isHoldTapBehavior', () => {
 })
 
 describe('keycapLegend', () => {
+  it('keeps the behavior token and drops the repeated prefix', () => {
+    expect(prefixedCommandLegend('BT_CLR')).toBe('CLR')
+    expect(prefixedCommandLegend('BT_SEL')).toBe('SEL')
+    expect(prefixedCommandLegend('BT_CLR_ALL')).toBe('CLR_ALL')
+    expect(prefixedCommandLegend('BT1')).toBe('SEL1')
+    expect(prefixedCommandLegend('OUT_USB')).toBe('USB')
+    expect(prefixedCommandLegend('OUT_BLE')).toBe('BLE')
+    expect(keycapLegend('BT_CLR')).toBe('CLR')
+    expect(keycapLegend('BT0')).toBe('SEL0')
+    expect(compactBehaviorLegend(parseKeyBinding('&bt BT_CLR'))).toBe('&bt CLR')
+    expect(compactBehaviorLegend(parseKeyBinding('&bt BT_SEL 1'))).toBe('&bt SEL1')
+    expect(compactBehaviorLegend(parseKeyBinding('&bt BT1'))).toBe('&bt SEL1')
+    expect(compactBehaviorLegend(parseKeyBinding('&bt BT_CLR_ALL'))).toBe(
+      '&bt CLR_ALL'
+    )
+    expect(compactBehaviorLegend(parseKeyBinding('&out OUT_USB'))).toBe('&out USB')
+    expect(compactBehaviorLegend(parseKeyBinding('&out OUT_BLE'))).toBe('&out BLE')
+  })
+
   it('leaves left modifiers unmarked and marks the right side', () => {
     expect(keycapLegend('LCTRL', '⌃')).toBe('⌃')
     expect(keycapLegend('RCTRL', '⌃')).toBe('R⌃')

@@ -5,17 +5,106 @@ import {
   modifierRoleGlyph,
   modifierSide
 } from './modifiers.js'
-import { larkHostLegend } from './lark-host.js'
+import { hostLegendFor } from './lark-host.js'
 import type {
   ComposedLegend,
   ComposeKeyInput,
+  HostLegendView,
   KeyBindingNode,
+  LegendHover,
   ResolvedBinding
 } from './types.js'
 
 /** Compact layer index for key legends (`1` → `L1`). Binding value stays numeric. */
 export function layerLegendSymbol(index: number | string): string {
   return `L${index}`
+}
+
+const LAYER_REF_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt'])
+
+function isLayerParam(value: string | number | undefined | null, layer: number): boolean {
+  if (value == null || value === '') return false
+  if (Number(value) === layer) return true
+  const raw = String(value).toUpperCase()
+  return raw === `L${layer}` || raw === layerLegendSymbol(layer).toUpperCase()
+}
+
+/** True when the bind names layer N (`&mo 1`, `&lt 1 A`, `&to 0`). */
+export function bindingReferencesLayer(node: KeyBindingNode, layer: number): boolean {
+  const behavior = String(node.value)
+  if (LAYER_REF_BEHAVIORS.has(behavior) && isLayerParam(node.params[0]?.value, layer)) {
+    return true
+  }
+  return (node.params ?? []).some(child => bindingReferencesLayer(child, layer))
+}
+
+export function composedHoldReferencesLayer(
+  legend: ComposedLegend,
+  layer: number
+): boolean {
+  const hold = legend.hold
+  if (!hold) return false
+  return hold === `⧗${layerLegendSymbol(layer)}` || hold === `⧗${layer}`
+}
+
+function isRAltCode(value: string | number | undefined | null): boolean {
+  if (value == null) return false
+  const key = modifierHoldForKey(value)
+  if (key) return key.role === 'alt' && key.side === 'R'
+  const wrap = modifierHoldForWrap(value)
+  return wrap?.role === 'alt' && wrap.side === 'R'
+}
+
+function isShiftKeyCode(value: string | number | undefined | null): boolean {
+  if (value == null) return false
+  return modifierHoldForKey(value)?.role === 'shift' === true
+}
+
+/** True when the bind is RAlt / `RA()` — the key that produces AltGr. */
+export function bindingSendsAltGr(node: KeyBindingNode): boolean {
+  const behavior = String(node.value)
+  if (behavior === '&kp') return isRAltCode(node.params[0]?.value)
+  if (behavior === '&mt') return isRAltCode(node.params[0]?.value)
+  if (isRAltCode(behavior)) return true
+  return (node.params ?? []).some(bindingSendsAltGr)
+}
+
+/** True when the bind is a Shift key (`LSHFT` / `RSHFT` / `&mt LSHIFT`). Not `LS(A)`. */
+export function bindingSendsShift(node: KeyBindingNode): boolean {
+  const behavior = String(node.value)
+  if (behavior === '&kp') return isShiftKeyCode(node.params[0]?.value)
+  if (behavior === '&mt') return isShiftKeyCode(node.params[0]?.value)
+  return (node.params ?? []).some(bindingSendsShift)
+}
+
+export function composedHoldSendsAltGr(legend: ComposedLegend): boolean {
+  return legend.hold === '⧗R⌥'
+}
+
+export function composedHoldSendsShift(legend: ComposedLegend): boolean {
+  return legend.hold === '⧗⇧' || legend.hold === '⧗R⇧'
+}
+
+/** What the hover preview should mark: the whole combo, or only the hold badge. */
+export type LegendHoverHit = 'none' | 'combo' | 'hold'
+
+export function legendHoverHit(
+  binding: KeyBindingNode,
+  hover: LegendHover | null
+): LegendHoverHit {
+  if (!hover) return 'none'
+  if (hover.kind === 'layer') {
+    if (!bindingReferencesLayer(binding, hover.layer)) return 'none'
+    if (isHoldTapBehavior(binding.value) && composeKey({ binding })) return 'hold'
+    return 'combo'
+  }
+  const holdTap = isHoldTapBehavior(binding.value)
+  if (hover.kind === 'altGr') {
+    if (!bindingSendsAltGr(binding)) return 'none'
+    return holdTap ? 'hold' : 'combo'
+  }
+  if (!bindingSendsAltGr(binding) && !bindingSendsShift(binding)) return 'none'
+  return holdTap ? 'hold' : 'combo'
 }
 
 export function isLayerLegendSymbol(text: string): boolean {
@@ -29,13 +118,39 @@ const ROLE_GLYPHS = new Set(['⌃', '⇧', '⌥', '⌘'])
  * Keycap / ZMK-mode legend: left modifiers stay the role glyph,
  * right modifiers become `R⌃` / `R⌥` / `R⌘` / `R⇧`.
  */
+/** `BT_CLR` → `CLR`, `BT1` → `SEL1`, `OUT_USB` → `USB`. */
+export function prefixedCommandLegend(code?: string | number | null): string | null {
+  const raw = String(code ?? '').trim().toUpperCase()
+  if (/^BT\d$/.test(raw)) return `SEL${raw.slice(2)}`
+  if (raw.startsWith('BT_')) return raw.slice(3)
+  if (raw.startsWith('OUT_')) return raw.slice(4)
+  return null
+}
+
+/**
+ * Keep the behavior token, drop the repeated prefix:
+ * `&bt BT_SEL 1` → `&bt SEL1`, `&out OUT_USB` → `&out USB`.
+ */
+export function compactBehaviorLegend(node: KeyBindingNode): string | null {
+  const behavior = String(node.value)
+  if (behavior !== '&bt' && behavior !== '&out') return null
+  const cmd = node.params[0]
+  if (!cmd) return behavior
+  const extra = node.params[1] ?? cmd.params[0]
+  const short = prefixedCommandLegend(cmd.value) ?? String(cmd.value)
+  if (extra != null && extra.value != null && extra.value !== '') {
+    return `${behavior} ${short}${extra.value}`
+  }
+  return `${behavior} ${short}`
+}
+
 export function keycapLegend(
   code?: string | number | null,
   symbol?: string | number | null
 ): string {
   const rawCode = code == null ? '' : String(code)
   const glyph = symbol == null ? '' : String(symbol).trim()
-  const base = glyph || rawCode
+  const base = glyph || prefixedCommandLegend(rawCode) || rawCode
   if (modifierSide(rawCode) === 'R' && ROLE_GLYPHS.has(glyph)) {
     return `R${glyph}`
   }
@@ -109,6 +224,7 @@ export function behaviorKeycapRole(
   const value = String(code ?? '')
   if (!value) return 'hidden'
   if (value === '&kp') return 'hidden'
+  if ((value === '&bt' || value === '&out') && (opts?.paramCount ?? 0) > 0) return 'hidden'
   if (isHoldTapBehavior(value) && opts?.holdTapVisible) return 'hidden'
   if ((opts?.paramCount ?? 0) === 0) return 'center'
   return 'corner'
@@ -164,15 +280,29 @@ function formatHoldBadge(hold: string): string {
   return `⧗${keycapLegend(hold, modifierRoleGlyph(info.role))}`
 }
 
-function legendForTap(tap: string): ComposedLegend | null {
-  const host = larkHostLegend(tap)
+function legendForTap(tap: string, view?: HostLegendView): ComposedLegend | null {
+  const host = hostLegendFor(tap, view)
   if (!host) return null
-  return { ...host, keypad: isKeypadCode(tap) }
+  return applyHostLegendPreview({ ...host, keypad: isKeypadCode(tap) }, view)
+}
+
+/** Drop hidden language columns on the keycap; the strip still uses `hostLegendFor`. */
+export function applyHostLegendPreview(
+  legend: ComposedLegend,
+  view?: HostLegendView
+): ComposedLegend {
+  if (!view) return legend
+  return {
+    ...legend,
+    en: view.baseVisible === false ? ['', ''] : legend.en,
+    second: view.secondVisible === false ? null : legend.second
+  }
 }
 
 /**
- * Host×ZMK composition. Glyphs come from the LARK English and Russian host
- * groups. Hold badges come from the binding, not from the letter.
+ * Host×ZMK composition. Glyphs come from the selected host view
+ * (LARK English + Russian unless the caller passes another).
+ * Hold badges come from the binding, not from the letter.
  * Returns null when the tap is not a host character key (modifiers, layers,
  * navigation) so the UI keeps the ZMK-mode glyph.
  */
@@ -180,7 +310,7 @@ export function composeKey(input: ComposeKeyInput): ComposedLegend | null {
   const resolved = resolveBinding(input.binding)
   if (resolved.tap == null) return null
 
-  const legend = legendForTap(resolved.tap)
+  const legend = legendForTap(resolved.tap, input.hostView)
   if (!legend) return null
   if (resolved.hold) {
     legend.hold = formatHoldBadge(resolved.hold)
@@ -188,9 +318,50 @@ export function composeKey(input: ComposeKeyInput): ComposedLegend | null {
   return legend
 }
 
+export function isBlankLayerBinding(node: KeyBindingNode): boolean {
+  const value = String(node.value)
+  return value === '&trans' || value === '&none'
+}
+
+/** All-layers preview shows this many firmware layers. */
+export const ALL_LAYERS_PREVIEW = 4
+
+export function composeLayerRows(
+  bindings: KeyBindingNode[],
+  hostView?: HostLegendView,
+  layerLimit = ALL_LAYERS_PREVIEW
+): Array<{
+  layer: number
+  binding: KeyBindingNode
+  legend: ComposedLegend | null
+  blank: boolean
+  hidden: boolean
+}> {
+  const scoped = [...(layerLimit == null ? bindings : bindings.slice(0, layerLimit))]
+  const empty: KeyBindingNode = { value: '&none', params: [] }
+  while (layerLimit != null && scoped.length < layerLimit) scoped.push(empty)
+  const layers = hostView?.layers
+  return scoped.map((binding, layer) => {
+    const blank = isBlankLayerBinding(binding)
+    return {
+      layer,
+      binding,
+      blank,
+      hidden: layers?.[layer] === false,
+      legend: blank ? null : composeKey({ binding, hostView })
+    }
+  })
+}
+
 export function formatLegendCompact(legend: ComposedLegend): string {
-  const base = `${legend.primary[0]}${legend.primary[1]}`
-  const alt = legend.bilingualNote ?? `${legend.altGr[0]}${legend.altGr[1]}`.trim()
+  const cols = [`${legend.en[0]}${legend.en[1]}`]
+  if (legend.second) cols.push(`${legend.second[0]}${legend.second[1]}`)
+  if (legend.bilingualNote) {
+    cols.push(legend.bilingualNote)
+  } else {
+    if (legend.altGr) cols.push(legend.altGr)
+    if (legend.altGrShift) cols.push(legend.altGrShift)
+  }
   const hold = legend.hold ? ` ${legend.hold}` : ''
-  return `${base}${alt ? ` ${alt}` : ''}${hold}`.trim()
+  return `${cols.join(' ')}${hold}`.trim()
 }

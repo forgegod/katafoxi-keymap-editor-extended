@@ -54,15 +54,19 @@ export interface NormalizedKeycode {
   isModifier: boolean
 }
 
-/** LARK-style host legend: four glyph slots + optional hold annotation. */
+/** LARK-style host legend: language columns + optional hold annotation. */
 export interface ComposedLegend {
-  /** Slot 1–2: base / shifted with language (e.g. a + Ф) */
-  primary: [string, string]
-  /** Slot 3–4: AltGr / AltGr+Shift (e.g. @ + α) */
-  altGr: [string, string]
+  /** First language: level 1 + Shift (`eE`) */
+  en: [string, string]
+  /** Second language pair, or `null` when declined */
+  second: [string, string] | null
+  /** AltGr of the base layout; empty when hidden or NoSymbol */
+  altGr: string
+  /** AltGr+Shift of the base layout; empty when hidden or NoSymbol */
+  altGrShift: string
   /** Hold-tap or home-row mod annotation (e.g. ⧗LC) */
   hold?: string
-  /** When EN/RU diverge (e.g. Δτ/ёЁ) */
+  /** When EN/RU AltGr pairs diverge (e.g. Δτ/ёЁ) */
   bilingualNote?: string
   /** Firmware keycode that produced this (gray in LARK sheet) */
   keycode?: string
@@ -79,10 +83,37 @@ export interface ResolvedBinding {
 }
 
 /**
- * Input to compose. The default host pair is LARK English + Russian.
- * `hostProfile` is reserved for choosing another pair later.
+ * Which host layouts fill the composed legend.
+ * `source` records whether this is the LARK preset or the user's own pick.
+ * It does not change glyphs by itself.
+ */
+export interface HostLegendView {
+  baseId: string
+  /** Second national language. `null` declines it. */
+  secondId: string | null
+  /** AltGr column of the first language. */
+  altGr: boolean
+  /** AltGr+Shift column of the first language. */
+  altGrShift: boolean
+  source: 'standard' | 'custom'
+  /** Preview: hide first-language glyphs without changing `baseId`. */
+  baseVisible?: boolean
+  /** Preview: hide second-language glyphs without clearing `secondId`. */
+  secondVisible?: boolean
+  /** Preview: hide All-layers slots; hidden rows stay empty, they do not collapse. */
+  layers?: [boolean, boolean, boolean, boolean]
+}
+
+/**
+ * Input to compose. The default view is the LARK English + Russian preset.
  */
 export interface ComposeKeyInput {
   binding: KeyBindingNode
-  hostProfile?: string
+  hostView?: HostLegendView
 }
+
+/** Hover target on the host legend strip. Preview only. */
+export type LegendHover =
+  | { kind: 'layer'; layer: number }
+  | { kind: 'altGr' }
+  | { kind: 'altGrShift' }
