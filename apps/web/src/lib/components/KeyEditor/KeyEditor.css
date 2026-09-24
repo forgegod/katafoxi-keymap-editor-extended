@@ -158,6 +158,10 @@
     overflow: hidden;
   }
 
+  .key-editor-taxonomy {
+    display: contents;
+  }
+
   .key-editor-chip {
     cursor: pointer;
     flex-shrink: 0;
