@@ -181,6 +181,27 @@ describe('Key click editor', () => {
     expect(shift?.classList.contains('active')).toBe(true)
   })
 
+  it('does not toggle a hold that repeats the modifier key', () => {
+    open({ params: [{ value: 'LCTRL', params: [] }] })
+    clickKey()
+    expect(document.querySelector('.binding')?.textContent).toBe('&kp LCTRL')
+
+    const ctrl = [...document.querySelectorAll('.key-editor-holds .key-editor-choice')].find(
+      el => (el.textContent ?? '').trim() === '⌃'
+    )
+    expect(ctrl).toBeInstanceOf(HTMLButtonElement)
+    if (!(ctrl instanceof HTMLButtonElement)) throw new Error('missing ctrl hold')
+    expect(ctrl.disabled).toBe(true)
+    expect(ctrl.classList.contains('blocked')).toBe(true)
+    expect(ctrl.classList.contains('active')).toBe(false)
+
+    ctrl.click()
+    flushSync()
+
+    expect(document.querySelector('.binding')?.textContent).toBe('&kp LCTRL')
+    expect(ctrl.classList.contains('active')).toBe(false)
+  })
+
   it('applies a hold plus key as LC(A)', () => {
     const onUpdate = open()
     clickKey()

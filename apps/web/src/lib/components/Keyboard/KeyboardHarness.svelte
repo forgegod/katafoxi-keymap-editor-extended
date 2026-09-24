@@ -4,8 +4,15 @@
     getKeycodeCatalog,
     type ParsedKeymap
   } from '@keymap-editor/keymap-core'
+  import { untrack } from 'svelte'
   import { setDefinitionsContext } from '../../context'
   import Keyboard from './Keyboard.svelte'
+
+  interface Props {
+    initialKeymap?: ParsedKeymap
+  }
+
+  let { initialKeymap }: Props = $props()
 
   const definitions = {
     keycodes: getKeycodeCatalog(),
@@ -23,7 +30,7 @@
     { x: 1, y: 0, row: 0, col: 1 }
   ]
 
-  let keymap = $state<ParsedKeymap>({
+  const preset = (): ParsedKeymap => ({
     layer_names: ['Base', 'Raise'],
     layers: [
       [
@@ -36,6 +43,10 @@
       ]
     ]
   })
+
+  let keymap = $state<ParsedKeymap>(
+    untrack(() => JSON.parse(JSON.stringify(initialKeymap ?? preset())) as ParsedKeymap)
+  )
 
   let updateCount = $state(0)
 
