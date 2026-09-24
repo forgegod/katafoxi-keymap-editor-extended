@@ -97,19 +97,29 @@
       <div class="chrome-group actions-history">
         <button
           type="button"
+          class="history"
+          aria-label="Undo"
           title="Undo (Ctrl/Cmd+Z)"
           disabled={!editor.canUndo}
           onclick={() => editor.undo()}
         >
-          Undo
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 14 4 9l5-5" />
+            <path d="M4 9h11a5 5 0 0 1 0 10H12" />
+          </svg>
         </button>
         <button
           type="button"
+          class="history"
+          aria-label="Redo"
           title="Redo (Ctrl/Cmd+Shift+Z)"
           disabled={!editor.canRedo}
           onclick={() => editor.redo()}
         >
-          Redo
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m15 14 5-5-5-5" />
+            <path d="M20 9H9a5 5 0 0 0 0 10h3" />
+          </svg>
         </button>
       </div>
     {/if}
@@ -237,22 +247,50 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 10px 12px;
-    padding: 4px 12px 8px;
+    gap: 6px 8px;
+    padding: 2px 10px 4px;
   }
 
   .chrome-group {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+  }
+
+  .actions-history {
+    gap: 4px;
+  }
+
+  #actions button.history {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #actions button.history svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  #actions button.history:disabled {
+    color: #555;
   }
 
   .chrome-sep {
     display: inline-block;
     align-self: center;
     width: 1px;
-    height: 28px;
+    height: 22px;
     background: #ccc;
     flex-shrink: 0;
   }
@@ -314,10 +352,10 @@
     user-select: none;
     background-color: rgba(201, 201, 201, 0.85);
     color: darkgray;
-    border-radius: 15px;
-    height: 30px;
-    line-height: 30px;
-    padding: 0 12px;
+    border-radius: 13px;
+    height: 26px;
+    line-height: 26px;
+    padding: 0 10px;
     margin: 0;
   }
 
