@@ -7,7 +7,10 @@ import {
   diffKeymaps,
   getBehaviorCatalog,
   getKeycodeCatalog,
+  standardHostLegendView,
   summarizeKeymapDiff,
+  type HostLegendView,
+  type LegendHover,
   type KeyBindingNode,
   type KeymapChange,
   type LayoutKey,
@@ -108,6 +111,9 @@ class EditorState {
   redoStack = $state<ParsedKeymap[]>([])
   saving = $state(false)
   legendMode = $state<LegendMode>('zmk')
+  /** View over the host profile. It does not edit the keymap. */
+  hostLegend = $state<HostLegendView>(standardHostLegendView())
+  legendHover = $state<LegendHover | null>(null)
   saveNotice = $state<SaveNotice | null>(null)
 
   /** Bumps on select / new publish so stale reloads are ignored. */
@@ -449,6 +455,8 @@ class EditorState {
     this.clearHistory()
     this.saving = false
     this.legendMode = 'zmk'
+    this.hostLegend = standardHostLegendView()
+    this.legendHover = null
     this.saveNotice = null
   }
 }

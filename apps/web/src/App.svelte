@@ -10,6 +10,7 @@
   import Spinner from './lib/components/Common/Spinner.svelte'
   import Keyboard from './lib/components/Keyboard/Keyboard.svelte'
   import GitHubLink from './lib/components/GitHubLink.svelte'
+  import HostLegendPicker from './lib/components/HostLegendPicker.svelte'
   import Loader from './lib/components/Common/Loader.svelte'
   import github from './lib/github/api.svelte.js'
   import { formatKeymapChange } from '@keymap-editor/keymap-core'
@@ -207,12 +208,19 @@
       </div>
     {/if}
   </div>
+  {#if editor.legendMode === 'composed'}
+    <div class="host-legend-wrap">
+      <HostLegendPicker />
+    </div>
+  {/if}
   {#if editor.definitions && editor.layout && editor.draftKeymap}
     <Keyboard
       layout={editor.layout}
       keymap={editor.draftKeymap}
       onUpdate={next => editor.updateKeymap(next)}
       legendMode={editor.legendMode}
+      hostView={editor.hostLegend}
+      legendHover={editor.legendHover}
     />
   {/if}
 </Loader>
@@ -252,6 +260,10 @@
     align-items: center;
     gap: 12px;
     margin-left: auto;
+  }
+
+  .host-legend-wrap {
+    padding: 0 12px 8px;
   }
 
   #legend-mode {
