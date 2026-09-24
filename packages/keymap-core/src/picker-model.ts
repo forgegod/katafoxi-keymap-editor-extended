@@ -788,12 +788,24 @@ export function groupChoicesByContext(choices: CatalogChoice[]): ChoiceGroup[] {
   return ordered
 }
 
-/** Param index of the tap keycode. Layer and command params are not keys. */
+/** Param index of the tap keycode. Layer indexes are not keys. */
 const TAP_CODE_PARAM: Record<string, number> = {
   '&kp': 0,
   '&sk': 0,
   '&mt': 1,
   '&lt': 1
+}
+
+/** Command token already placed on a key (`&mkp LCLK`), dimmed like a used keycode. */
+const COMMAND_CODE_PARAM: Record<string, number> = {
+  '&mkp': 0,
+  '&msc': 0,
+  '&mmv': 0,
+  '&bt': 0,
+  '&out': 0,
+  '&bl': 0,
+  '&rgb_ug': 0,
+  '&ext_power': 0
 }
 
 /** Modifier key sitting on `&mt`, so a hold-only modifier still counts as placed. */
@@ -819,9 +831,9 @@ function rememberKeycode(found: Map<string, number[]>, code: string | null, laye
 
 /**
  * Keycodes placed anywhere in the keymap, keyed to layer indexes.
- * Counts the tap of `&kp`, `&sk`, `&mt`, and `&lt`, plus the modifier of
- * `&mt`. `LS(CAPS)` and `LC(C)` contribute the terminal key. Each layer
- * index is listed once, in order.
+ * Counts the tap of `&kp`, `&sk`, `&mt`, and `&lt`, the modifier of `&mt`,
+ * and command tokens (`&mkp LCLK`, `&msc SCRL_UP`). `LS(CAPS)` and `LC(C)`
+ * contribute the terminal key. Each layer index is listed once, in order.
  */
 export function collectUsedKeycodes(
   layers: ReadonlyArray<readonly KeyBindingNode[] | undefined>
@@ -830,7 +842,7 @@ export function collectUsedKeycodes(
   layers.forEach((layer, index) => {
     for (const bind of layer ?? []) {
       const behavior = String(bind.value)
-      const tapIndex = TAP_CODE_PARAM[behavior]
+      const tapIndex = TAP_CODE_PARAM[behavior] ?? COMMAND_CODE_PARAM[behavior]
       if (tapIndex == null) continue
       rememberKeycode(found, placedKeycode(bind.params?.[tapIndex]), index)
       const modIndex = MOD_CODE_PARAM[behavior]

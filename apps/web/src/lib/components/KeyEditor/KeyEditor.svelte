@@ -79,7 +79,9 @@
     slots.find(slot => slot.codeIndex === activeCodeIndex) ?? slots[0]
   )
   const paramSlots = $derived(visibleValueSlots(slots))
-  const dimUsed = $derived(isKeycodeParam(activeSlot?.param))
+  const dimUsed = $derived(
+    isKeycodeParam(activeSlot?.param) || activeSlot?.param === 'command'
+  )
   const showHolds = $derived(isKeycodeParam(activeSlot?.param) && !!onToggleHold)
   const displayChoices = $derived(catalogKeyChoices(choices))
   const searching = $derived(query.trim().length > 0)

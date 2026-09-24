@@ -441,6 +441,18 @@ describe('collectUsedKeycodesOnLayer', () => {
     expect([...used]).toEqual(['CAPS'])
   })
 
+  it('collects mouse and other command tokens already placed', () => {
+    const used = collectUsedKeycodesOnLayer([
+      { value: '&mkp', params: [{ value: 'LCLK', params: [] }] },
+      { value: '&mkp', params: [{ value: 'MCLK', params: [] }] },
+      { value: '&mkp', params: [{ value: 'RCLK', params: [] }] },
+      { value: '&msc', params: [{ value: 'SCRL_UP', params: [] }] },
+      { value: '&mo', params: [{ value: 1, params: [] }] }
+    ])
+
+    expect([...used].sort()).toEqual(['LCLK', 'MCLK', 'RCLK', 'SCRL_UP'])
+  })
+
   it('returns an empty set for missing layers', () => {
     expect(collectUsedKeycodesOnLayer(undefined).size).toBe(0)
   })
