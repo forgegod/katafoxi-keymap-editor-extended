@@ -200,22 +200,34 @@
   }
 
   function handleKeyDown(event: KeyboardEvent) {
+    if (event.isComposing || event.repeat) return
     if (event.key === 'Escape') {
+      event.preventDefault()
       event.stopPropagation()
       onCancel()
+      return
     }
+    if (event.key !== 'Enter') return
+    const choosing =
+      !canConfirm &&
+      event.target instanceof HTMLButtonElement &&
+      !event.target.classList.contains('key-editor-ok')
+    if (choosing) return
+    event.preventDefault()
+    event.stopPropagation()
+    handleApply()
   }
 
-  onMount(() => {
-    function onWindowKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') onCancel()
-    }
-    window.addEventListener('keydown', onWindowKey)
-    return () => {
-      window.removeEventListener('keydown', onWindowKey)
-      window.clearTimeout(pulseTimer)
-    }
+  // Rebind so Enter sees the binding filled after the dialog opened.
+  $effect(() => {
+    void canConfirm
+    void editorSlots
+    const onKey = (event: KeyboardEvent) => handleKeyDown(event)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   })
+
+  onMount(() => () => window.clearTimeout(pulseTimer))
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -226,7 +238,6 @@
   data-behavior={String(behaviourValue ?? '')}
   data-value-param={String(catalogParam ?? '')}
   tabindex="-1"
-  onkeydown={handleKeyDown}
 >
   <div class="key-editor-preview">
     <code class="binding">{previewLabel}</code>
@@ -237,7 +248,7 @@
         class:blocked={!canConfirm}
         aria-disabled={!canConfirm}
         aria-label="Apply"
-        title={canConfirm ? 'Apply' : 'Pick a key to finish the combo'}
+        title={canConfirm ? 'Apply (Enter)' : 'Pick a key to finish the combo'}
         onclick={handleApply}
       >
         ✓
@@ -246,7 +257,7 @@
         type="button"
         class="key-editor-cancel"
         aria-label="Cancel"
-        title="Cancel"
+        title="Cancel (Esc)"
         onclick={onCancel}
       >
         ×
