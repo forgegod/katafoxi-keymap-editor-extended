@@ -52,26 +52,6 @@ export function childCodeIndex(
   return offset
 }
 
-export function createPromptMessage(param: unknown): string {
-  const promptMapping: Record<string, string> = {
-    layer: 'Select layer',
-    mod: 'Select modifier',
-    behaviour: 'Select behaviour',
-    command: 'Select command',
-    keycode: 'Select key code'
-  }
-
-  if (param && typeof param === 'object' && 'name' in param && (param as { name?: string }).name) {
-    return `Select ${(param as { name: string }).name}`
-  }
-
-  if (typeof param === 'string') {
-    return promptMapping[param] || promptMapping.keycode
-  }
-
-  return promptMapping.keycode
-}
-
 export function hydrateTree(
   value: string | number,
   params: Array<{ value?: string | number; params?: unknown[] }>,

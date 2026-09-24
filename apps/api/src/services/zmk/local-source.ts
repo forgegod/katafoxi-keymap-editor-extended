@@ -2,7 +2,6 @@ import fs from 'node:fs'
 import path from 'node:path'
 import {
   buildKeymapCode,
-  generateKeymap,
   isPrimaryKeymapJson,
   isUserKeymapFilename,
   parseDtsKeymap,
@@ -112,5 +111,3 @@ export function saveLocalKeymap(
 
   return { mode: built.mode, warnings: built.warnings }
 }
-
-export { generateKeymap }
