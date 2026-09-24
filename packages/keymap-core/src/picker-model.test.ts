@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
+  readModifierChain,
+  toggleModifierWraps,
+  writeModifierChain
+} from './modifiers.js'
+import {
   bandCatalogChoices,
   catalogChoiceTooltip,
   catalogKeyChoices,
   displayChoiceLabel,
-  readModifierChain,
-  toggleModifierWraps,
-  writeModifierChain,
   collectUsedKeycodes,
   collectUsedKeycodesOnLayer,
   groupChoicesByContext,
@@ -46,7 +48,7 @@ describe('displayChoiceLabel', () => {
       { code: 'RCMD', symbol: '⌘' },
       { code: 'LG', symbol: '⌘', params: ['code'] }
     ]
-    expect(displayChoiceLabel(peers[0], peers)).toBe('L⌘')
+    expect(displayChoiceLabel(peers[0], peers)).toBe('⌘')
     expect(displayChoiceLabel(peers[1], peers)).toBe('R⌘')
     expect(displayChoiceLabel(peers[2], peers)).toBe('LG(…)')
   })

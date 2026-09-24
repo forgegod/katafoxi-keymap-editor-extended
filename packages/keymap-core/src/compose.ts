@@ -1,3 +1,10 @@
+import {
+  isModifierWrapCode,
+  modifierHoldForKey,
+  modifierHoldForWrap,
+  modifierRoleGlyph,
+  modifierSide
+} from './modifiers.js'
 import type {
   ComposedLegend,
   ComposeKeyInput,
@@ -33,15 +40,6 @@ export function isLayerLegendSymbol(text: string): boolean {
 /** Role glyphs shared by L/R modifiers. Right side is prefixed at display time. */
 const ROLE_GLYPHS = new Set(['⌃', '⇧', '⌥', '⌘'])
 
-function isRightModifierCode(code: string): boolean {
-  const upper = code.toUpperCase()
-  return (
-    /^(RC|RS|RA|RG)$/.test(upper) ||
-    /^(RCTRL|RSHFT|RSHIFT|RALT|RGUI|RCMD|RWIN|RMETA)$/.test(upper) ||
-    /^RIGHT[_-]/.test(upper)
-  )
-}
-
 /**
  * Keycap / ZMK-mode legend: left modifiers stay the role glyph,
  * right modifiers become `R⌃` / `R⌥` / `R⌘` / `R⇧`.
@@ -53,7 +51,7 @@ export function keycapLegend(
   const rawCode = code == null ? '' : String(code)
   const glyph = symbol == null ? '' : String(symbol).trim()
   const base = glyph || rawCode
-  if (isRightModifierCode(rawCode) && ROLE_GLYPHS.has(glyph)) {
+  if (modifierSide(rawCode) === 'R' && ROLE_GLYPHS.has(glyph)) {
     return `R${glyph}`
   }
   return base
@@ -91,8 +89,6 @@ export function isKeypadChoice(choice: {
   return choice.aliases.some(alias => isKeypadCode(alias))
 }
 
-const MOD_WRAP_RE = /^(LS|RS|LC|RC|LA|RA|LG|RG)$/i
-
 /** Short tokens that still read as one unit next to a modifier glyph. */
 const SHORT_CHORD_TOKEN_RE = /^(?:ESC|TAB|F(?:1[0-2]|[1-9]))$/
 
@@ -103,29 +99,9 @@ export function isCompactModifierChord(
 ): boolean {
   const inner = innerLegend.trim()
   return (
-    MOD_WRAP_RE.test(String(wrapCode ?? '')) &&
+    isModifierWrapCode(wrapCode) &&
     (isCompactKeycapLegend(inner) || SHORT_CHORD_TOKEN_RE.test(inner))
   )
-}
-
-/** Role glyph only; `keycapLegend` adds the `R` prefix for the right side. */
-const HOLD_ROLE_GLYPH: Record<string, string> = {
-  LCTRL: '⌃',
-  LSHFT: '⇧',
-  LALT: '⌥',
-  LGUI: '⌘',
-  RCTRL: '⌃',
-  RSHFT: '⇧',
-  RALT: '⌥',
-  RGUI: '⌘',
-  LC: '⌃',
-  LS: '⇧',
-  LA: '⌥',
-  LG: '⌘',
-  RC: '⌃',
-  RS: '⇧',
-  RA: '⌥',
-  RG: '⌘'
 }
 
 /** `&mt` / `&lt` — first param is hold, second is tap. */
@@ -198,8 +174,9 @@ export function resolveBinding(node: KeyBindingNode): ResolvedBinding {
 }
 
 function formatHoldBadge(hold: string): string {
-  const glyph = HOLD_ROLE_GLYPH[hold]
-  return `⧗${glyph ? keycapLegend(hold, glyph) : hold}`
+  const info = modifierHoldForKey(hold) ?? modifierHoldForWrap(hold)
+  if (!info) return `⧗${hold}`
+  return `⧗${keycapLegend(hold, modifierRoleGlyph(info.role))}`
 }
 
 function legendForTap(tap: string): ComposedLegend {

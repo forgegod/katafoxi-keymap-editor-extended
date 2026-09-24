@@ -16,6 +16,7 @@
     isKeypadChoice,
     isModifierKey,
     isModifierWrapCode,
+    modifierHoldLegend,
     MODIFIER_HOLDS,
     nextTaxonomyContexts,
     sortBehaviorsByRole,
@@ -148,12 +149,6 @@
     return () => observer.disconnect()
   })
 
-  const holdPeers = MODIFIER_HOLDS.map(hold => ({
-    code: hold.key,
-    symbol:
-      hold.role === 'shift' ? '⇧' : hold.role === 'alt' ? '⌥' : hold.role === 'gui' ? '⌘' : undefined
-  }))
-
   const activeHolds = $derived.by(() => {
     const root = keycodeChainRootSlot(slots, activeCodeIndex)
     const on = new Set<string>()
@@ -185,10 +180,8 @@
         ))
   )
 
-  function holdLabel(key: string): string {
-    if (key === 'RALT') return 'AltGr'
-    const peer = holdPeers.find(item => item.code === key)
-    return displayChoiceLabel(peer ?? { code: key }, holdPeers)
+  function holdLabel(hold: (typeof MODIFIER_HOLDS)[number]): string {
+    return modifierHoldLegend(hold)
   }
 
   function holdTooltip(hold: (typeof MODIFIER_HOLDS)[number]): string {
@@ -430,7 +423,7 @@
                 title={holdTooltip(hold)}
                 onclick={event => handleHoldClick(event, hold)}
               >
-                {holdLabel(hold.key)}
+                {holdLabel(hold)}
               </button>
             {/each}
           </div>
