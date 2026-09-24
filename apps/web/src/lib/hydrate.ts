@@ -1,11 +1,5 @@
-import {
-  behaviorKeycapRole,
-  getBehaviourParams,
-  isCompactKeycapLegend,
-  isCompactModifierChord,
-  isHoldTapBehavior,
-  keycapLegend
-} from '@keymap-editor/keymap-core'
+import { getBehaviourParams } from '@keymap-editor/keymap-core'
+import { get } from './utils'
 
 export { getBehaviourParams }
 
@@ -13,17 +7,6 @@ export interface HydratedNode {
   value: string | number | undefined
   source?: Record<string, unknown> | null
   params: HydratedNode[]
-}
-
-function get(obj: unknown, path: string, fallback?: unknown): unknown {
-  if (obj == null) return fallback
-  const parts = path.replace(/\[(\d+)\]/g, '.$1').split('.')
-  let cur: unknown = obj
-  for (const part of parts) {
-    if (cur == null || typeof cur !== 'object') return fallback
-    cur = (cur as Record<string, unknown>)[part]
-  }
-  return cur === undefined ? fallback : cur
 }
 
 function keyBy<T extends Record<string, unknown>>(
@@ -67,72 +50,6 @@ export function childCodeIndex(
     offset += subtreeSize(values[i])
   }
   return offset
-}
-
-function nodeLegend(node: HydratedNode | undefined): string {
-  if (!node) return ''
-  return keycapLegend(
-    (node.source?.code ?? node.value) as string | number | undefined,
-    node.source?.symbol as string | undefined
-  )
-}
-
-function isCompactChord(node: HydratedNode | undefined): boolean {
-  if (!node) return false
-  const kids = node.params ?? []
-  if (kids.length !== 1) return false
-  const inner = kids[0]
-  if ((inner.params ?? []).length > 0) return false
-  return isCompactModifierChord(
-    String(node.source?.code ?? node.value ?? ''),
-    nodeLegend(inner)
-  )
-}
-
-/** Single glyph or `L1` — the large cap. A chord stays at the normal size. */
-export function isSimple(normalized: HydratedNode): boolean {
-  const [first] = normalized.params
-  if (normalized.params.length !== 1) return false
-  if ((first?.params ?? []).length > 0) return false
-  return isCompactKeycapLegend(nodeLegend(first))
-}
-
-function sideIsCompact(node: HydratedNode | undefined): boolean {
-  if (!node) return false
-  if (isCompactChord(node)) return true
-  if ((node.params ?? []).length > 0) return false
-  return isCompactKeycapLegend(nodeLegend(node))
-}
-
-/** `&mt` / `&lt` with two short legends — keep in-row, do not shrink the key. */
-export function isCompactHoldTap(normalized: HydratedNode): boolean {
-  if (!isHoldTapBehavior(normalized.value)) return false
-  if (normalized.params.length !== 2) return false
-  return sideIsCompact(normalized.params[0]) && sideIsCompact(normalized.params[1])
-}
-
-export function isComplex(
-  normalized: HydratedNode,
-  behaviourParams: unknown[]
-): boolean {
-  if (isCompactHoldTap(normalized)) return false
-  if (
-    behaviorKeycapRole(normalized.value, {
-      paramCount: normalized.params.length
-    }) === 'center'
-  ) {
-    return String(normalized.value ?? '').length > 4
-  }
-  const [first] = normalized.params
-  const symbol = nodeLegend(first)
-  // A leftover word (`PG_UP`) shrinks. A short legend that already has a glyph (`SCRL⬇`) does not.
-  const isLongSymbol = symbol.length > 4 && /^[\u0000-\u007F]*$/.test(symbol)
-  const isMultiParam = behaviourParams.length > 1
-  const isNestedParam =
-    ((get(first, 'params', []) as unknown[]) || []).length > 0 &&
-    !isCompactChord(first)
-
-  return isLongSymbol || isMultiParam || isNestedParam
 }
 
 export function createPromptMessage(param: unknown): string {

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { isCompactHoldTap, isComplex, isSimple, type HydratedNode } from './hydrate'
+import { isCompactHoldTap, isComplex, isSimple, type KeycapNode } from './keycap.js'
 
 function node(
   symbol: string,
-  extras: Partial<HydratedNode> = {}
-): HydratedNode {
+  extras: Partial<KeycapNode> = {}
+): KeycapNode {
   return {
     value: extras.value ?? 1,
     source: extras.source ?? { symbol, code: extras.value ?? 1 },

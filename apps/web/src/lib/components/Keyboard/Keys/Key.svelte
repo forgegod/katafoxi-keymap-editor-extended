@@ -3,7 +3,9 @@
     behaviorKeycapRole,
     composeKey,
     encodeKeyBinding,
+    isComplex,
     isHoldTapBehavior,
+    isSimple,
     type KeyBindingNode
   } from '@keymap-editor/keymap-core'
   import { getSearchContext, type LegendMode } from '../../../context'
@@ -11,8 +13,6 @@
   import { getKeyStyles } from '../../../key-units'
   import {
     hydrateTree,
-    isSimple,
-    isComplex,
     makeIndex,
     type HydratedNode
   } from '../../../hydrate'
