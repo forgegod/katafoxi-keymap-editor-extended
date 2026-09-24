@@ -89,3 +89,9 @@ private-key.pem
 apps/*/dist
 packages/*/dist
 app/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

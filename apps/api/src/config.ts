@@ -51,5 +51,5 @@ export const config = {
   GITHUB_OAUTH_CALLBACK_URL: env('GITHUB_OAUTH_CALLBACK_URL'),
   APP_BASE_URL: env('APP_BASE_URL', 'http://localhost:5173'),
   WEB_DIST: path.join(REPO_ROOT, 'apps/web/dist'),
-  ZMK_CONFIG_PATH: path.join(REPO_ROOT, 'zmk-config')
+  ZMK_CONFIG_PATH: env('ZMK_CONFIG_PATH', path.join(REPO_ROOT, 'zmk-config'))
 }

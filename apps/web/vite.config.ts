@@ -2,6 +2,9 @@ import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { defineConfig } from 'vite'
 import path from 'node:path'
 
+const apiProxy = process.env.API_PROXY || 'http://127.0.0.1:8080'
+const vitePort = Number(process.env.VITE_PORT || 5173)
+
 export default defineConfig({
   plugins: [svelte()],
   resolve: {
@@ -11,12 +14,13 @@ export default defineConfig({
   },
   server: {
     host: '127.0.0.1',
-    port: 5173,
+    port: vitePort,
+    strictPort: Boolean(process.env.VITE_PORT),
     proxy: {
-      '/health': 'http://127.0.0.1:8080',
-      '/layout': 'http://127.0.0.1:8080',
-      '/keymap': 'http://127.0.0.1:8080',
-      '/github': 'http://127.0.0.1:8080'
+      '/health': apiProxy,
+      '/layout': apiProxy,
+      '/keymap': apiProxy,
+      '/github': apiProxy
     }
   }
 })
