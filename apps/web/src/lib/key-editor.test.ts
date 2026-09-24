@@ -5,7 +5,10 @@ import {
   buildEditorSlots,
   codeColumnMinPx,
   codeGridMetrics,
+  firstMissingSlot,
+  isBindingComplete,
   isKeycodeParam,
+  nextEditorSlot,
   slotLabel,
   terminalKeySlot,
   visibleValueSlots,
@@ -107,6 +110,60 @@ describe('buildEditorSlots', () => {
       slotSummary(visibleValueSlots(buildEditorSlots(tree, ['code'])))
     ).toEqual(['Key:A'])
     expect(terminalKeySlot(buildEditorSlots(tree, ['code']), 1)?.value).toBe('A')
+  })
+})
+
+describe('incomplete mod-tap', () => {
+  const incomplete: HydratedNode = {
+    value: '&mt',
+    params: [
+      { value: 'LALT', params: [] },
+      { value: undefined, params: [] }
+    ]
+  }
+
+  it('moves from a filled modifier to the empty key', () => {
+    const slots = buildEditorSlots(incomplete, ['mod', 'code'])
+    expect(nextEditorSlot(slots, 1)).toBe(2)
+    expect(firstMissingSlot(slots)?.label).toBe('Key')
+    expect(isBindingComplete(slots)).toBe(false)
+  })
+
+  it('stays on an empty modifier when &mt is first chosen', () => {
+    const slots = buildEditorSlots(
+      { value: '&mt', params: [] },
+      ['mod', 'code']
+    )
+    expect(nextEditorSlot(slots, 1)).toBe(1)
+  })
+
+  it('stays on the modifier once the key is filled', () => {
+    const slots = buildEditorSlots(
+      {
+        value: '&mt',
+        params: [
+          { value: 'LALT', params: [] },
+          { value: 'A', params: [] }
+        ]
+      },
+      ['mod', 'code']
+    )
+    expect(nextEditorSlot(slots, 1)).toBe(1)
+    expect(isBindingComplete(slots)).toBe(true)
+  })
+
+  it('treats layer 0 as filled and an instant behaviour as complete', () => {
+    expect(
+      isBindingComplete(
+        buildEditorSlots(
+          { value: '&mo', params: [{ value: 0, params: [] }] },
+          ['layer']
+        )
+      )
+    ).toBe(true)
+    expect(
+      isBindingComplete(buildEditorSlots({ value: '&none', params: [] }, []))
+    ).toBe(true)
   })
 })
 

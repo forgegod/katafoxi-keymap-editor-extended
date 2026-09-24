@@ -172,6 +172,41 @@ export function visibleValueSlots(slots: EditorSlot[]): EditorSlot[] {
   )
 }
 
+export function isSlotFilled(slot: EditorSlot): boolean {
+  return slot.value != null && String(slot.value) !== ''
+}
+
+/** Every visible value slot has a value. `&none` has none, so it can apply. */
+export function isBindingComplete(slots: EditorSlot[]): boolean {
+  return visibleValueSlots(slots).every(isSlotFilled)
+}
+
+/**
+ * After a filled modifier or layer, move to the empty key.
+ * A still-empty modifier stays put, so choosing `&mt` starts on Modifier.
+ */
+export function nextEditorSlot(slots: EditorSlot[], preferIndex: number): number {
+  const preferred = slots.find(slot => slot.codeIndex === preferIndex)
+  if (
+    preferred &&
+    (preferred.param === 'mod' || preferred.param === 'layer') &&
+    isSlotFilled(preferred)
+  ) {
+    const emptyKey = slots.find(slot => isKeycodeParam(slot.param) && !isSlotFilled(slot))
+    if (emptyKey) return emptyKey.codeIndex
+  }
+  return terminalKeySlot(slots, preferIndex)?.codeIndex ?? preferIndex
+}
+
+/** Empty key first, then any other empty value. */
+export function firstMissingSlot(slots: EditorSlot[]): EditorSlot | undefined {
+  const visible = visibleValueSlots(slots)
+  return (
+    visible.find(slot => isKeycodeParam(slot.param) && !isSlotFilled(slot)) ??
+    visible.find(slot => !isSlotFilled(slot))
+  )
+}
+
 function replaceIndexedNode(
   tree: HydratedNode,
   index: number,

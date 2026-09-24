@@ -21,6 +21,7 @@
     applyTerminalKey,
     buildEditorSlots,
     keycodeChainRootSlot,
+    nextEditorSlot,
     terminalKeySlot
   } from '../../../key-editor'
   import { get, pick } from '../../../utils'
@@ -145,8 +146,7 @@
       | undefined
     const nextParams = getBehaviourParams(draftBind.params, nextBehaviour as never)
     const nextSlots = buildEditorSlots(draftBind, nextParams)
-    const terminal = terminalKeySlot(nextSlots, preferIndex)
-    editing = { slotCodeIndex: terminal?.codeIndex ?? preferIndex }
+    editing = { slotCodeIndex: nextEditorSlot(nextSlots, preferIndex) }
   }
 
   function closeEditor() {

@@ -26,7 +26,10 @@
   import {
     codeColumnMinPx,
     codeGridMetrics,
+    firstMissingSlot,
+    isBindingComplete,
     isKeycodeParam,
+    isSlotFilled,
     keycodeChainRootSlot,
     terminalKeySlot,
     visibleValueSlots,
@@ -73,6 +76,9 @@
   let pinnedForKey = $state('')
   let valuesEl: HTMLDivElement | undefined = $state()
   let valuesWidth = $state(1045)
+  let pulseIndex = $state<number | null>(null)
+  let pulseOn = $state(false)
+  let pulseTimer = 0
 
   const used = $derived(usedKeycodes ?? new Map<string, readonly number[]>())
   const activeSlot = $derived(
@@ -164,9 +170,19 @@
   const needsTerminal = $derived(
     showHolds &&
       activeHolds.size > 0 &&
-      paramSlots.every(
-        slot => !isKeycodeParam(slot.param) || slot.value == null || slot.value === ''
-      )
+      paramSlots.every(slot => !isKeycodeParam(slot.param) || !isSlotFilled(slot))
+  )
+
+  const canConfirm = $derived(isBindingComplete(slots))
+
+  const pickKeyHint = $derived(
+    !!activeSlot &&
+      isKeycodeParam(activeSlot.param) &&
+      !isSlotFilled(activeSlot) &&
+      (needsTerminal ||
+        paramSlots.some(
+          slot => (slot.param === 'mod' || slot.param === 'layer') && isSlotFilled(slot)
+        ))
   )
 
   function holdLabel(key: string): string {
@@ -192,9 +208,30 @@
 
   const firmwareNote = $derived(behaviorFirmwareNote(slots[0]?.value))
 
-  const canConfirm = $derived(!needsTerminal)
-
   const terminalValue = $derived(terminalKeySlot(slots, activeCodeIndex)?.value)
+
+  function pulseMissing(codeIndex: number) {
+    window.clearTimeout(pulseTimer)
+    pulseOn = false
+    pulseIndex = codeIndex
+    requestAnimationFrame(() => {
+      pulseOn = true
+      pulseTimer = window.setTimeout(() => {
+        pulseOn = false
+      }, 1000)
+    })
+  }
+
+  function handleApply() {
+    if (canConfirm) {
+      onConfirm()
+      return
+    }
+    const missing = firstMissingSlot(slots)
+    if (!missing) return
+    onActivateSlot(missing.codeIndex)
+    pulseMissing(missing.codeIndex)
+  }
 
   function holdBlocked(hold: (typeof MODIFIER_HOLDS)[number]): boolean {
     return !activeHolds.has(hold.wrap) && !canApplyModifierHold(hold.wrap, terminalValue)
@@ -274,7 +311,10 @@
       if (event.key === 'Escape') onCancel()
     }
     window.addEventListener('keydown', onWindowKey)
-    return () => window.removeEventListener('keydown', onWindowKey)
+    return () => {
+      window.removeEventListener('keydown', onWindowKey)
+      window.clearTimeout(pulseTimer)
+    }
   })
 </script>
 
@@ -292,10 +332,11 @@
       <button
         type="button"
         class="key-editor-ok"
-        disabled={!canConfirm}
+        class:blocked={!canConfirm}
+        aria-disabled={!canConfirm}
         aria-label="Apply"
         title={canConfirm ? 'Apply' : 'Pick a key to finish the combo'}
-        onclick={onConfirm}
+        onclick={handleApply}
       >
         ✓
       </button>
@@ -349,6 +390,7 @@
                 type="button"
                 class="key-editor-chip"
                 class:active={slot.codeIndex === activeSlot?.codeIndex}
+                class:attention={pulseOn && pulseIndex === slot.codeIndex}
                 onclick={() => onActivateSlot(slot.codeIndex)}
               >
                 {slot.label}{slot.value != null && slot.value !== '' ? ` · ${slot.value}` : ''}
@@ -405,7 +447,7 @@
       {/if}
 
       <div class="key-editor-values" bind:this={valuesEl}>
-        {#if needsTerminal}
+        {#if pickKeyHint}
           <p class="key-editor-empty">Pick a key to finish the combo.</p>
         {/if}
         {#if visibleGroups.length === 0 || visibleGroups.every(group => group.items.length === 0)}
@@ -584,9 +626,18 @@
     padding: 0;
   }
 
-  .key-editor-ok:hover:not(:disabled) {
+  .key-editor-ok:hover:not(:disabled):not(.blocked) {
     background: #2f8a46;
     color: white;
+  }
+
+  .key-editor-ok.blocked {
+    opacity: 0.45;
+  }
+
+  .key-editor-ok.blocked:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: #e8eaee;
   }
 
   .key-editor-cancel:hover {
@@ -655,6 +706,39 @@
     background: var(--hover-selection);
     border-color: var(--hover-selection);
     color: white;
+  }
+
+  .key-editor-chip.attention {
+    animation: key-needed 1s ease;
+  }
+
+  @keyframes key-needed {
+    0%,
+    100% {
+      background: var(--key-face);
+      border-color: #ddd;
+      color: #333;
+    }
+    18%,
+    42% {
+      background: #f0b429;
+      border-color: #e09a10;
+      color: #2b2108;
+    }
+    62% {
+      background: #f6d58a;
+      border-color: #e09a10;
+      color: #2b2108;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .key-editor-chip.attention {
+      animation: none;
+      background: #f0b429;
+      border-color: #e09a10;
+      color: #2b2108;
+    }
   }
 
   .key-editor-chip.instant {
