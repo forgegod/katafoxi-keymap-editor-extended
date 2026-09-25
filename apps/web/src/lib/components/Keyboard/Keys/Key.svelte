@@ -135,7 +135,7 @@
       params: (working.params ?? []).map(toBindingNode)
     })
   )
-  const canEdit = $derived(legendMode === 'zmk' && !!search)
+  const canEdit = $derived(!!search)
 
   const stacked = $derived(legendMode === 'composed' && (layerBindings?.length ?? 0) > 0)
   const composedRows = $derived.by(() => {
@@ -274,9 +274,21 @@
     editing = null
   }
 
+  function firstEditSlot(node: KeyBindingNode): number {
+    const hydrated = hydrateTree(node.value, node.params ?? [], sources)
+    const nextBehaviour = lookupBehaviour(node.value)
+    const nextParams = getBehaviourParams(hydrated.params, nextBehaviour as never)
+    const nextSlots = buildEditorSlots(hydrated, nextParams)
+    const firstValue = nextSlots.find(slot => slot.param !== 'behaviour')
+    const terminal = terminalKeySlot(nextSlots, firstValue?.codeIndex ?? 1)
+    return terminal?.codeIndex ?? firstValue?.codeIndex ?? 0
+  }
+
   function openEditor(slotCodeIndex: number, fromLayer?: number) {
     if (!canEdit) return
-    const targetLayer = fromLayer ?? layerIndex
+    const editingLayer = editing ? Number(editing.rowKey) : undefined
+    const targetLayer =
+      fromLayer ?? (editingLayer != null && Number.isFinite(editingLayer) ? editingLayer : layerIndex)
     if (targetLayer == null) return
     const rowKey = String(targetLayer)
     if (!draftByRow[rowKey]) {
@@ -308,11 +320,33 @@
     openEditor(0)
   }
 
+  function handleRowClick(event: MouseEvent, fromLayer: number) {
+    event.stopPropagation()
+    if (!canEdit) return
+    openEditor(firstEditSlot(bindingForLayer(fromLayer)), fromLayer)
+  }
+
   function handleKeyClick() {
-    if (!canEdit || editing) return
+    if (!canEdit || editing || showStack) return
     const firstValue = slots.find(slot => slot.param !== 'behaviour')
     const terminal = terminalKeySlot(slots, firstValue?.codeIndex ?? 1)
     openEditor(terminal?.codeIndex ?? firstValue?.codeIndex ?? 0)
+  }
+
+  function rowTitle(row: { title: string; binding: KeyBindingNode }): string {
+    return row.title || encodeKeyBinding(row.binding)
+  }
+
+  function rowAriaLabel(row: { layer: number; title: string; binding: KeyBindingNode }): string {
+    const title = rowTitle(row)
+    const code = String(row.binding.value)
+    if (code === '&trans') return `${title}, layer ${row.layer}, passes through`
+    if (code === '&none') return `${title}, layer ${row.layer}, silent`
+    return `${title}, layer ${row.layer}`
+  }
+
+  function blankRowMark(binding: KeyBindingNode): string {
+    return String(binding.value) === '&trans' ? '↓' : '∅'
   }
 
   /** Clone bind tree without `source` — those are $state proxies and break structuredClone. */
@@ -398,15 +432,22 @@
     <div class="keycap-wrap layer-stack">
       {#each composedRows as row (row.layer)}
         {@const hit = rowHoverHit(row.binding)}
-        <div class="layer-slot" data-layer={row.layer}>
+        <button
+          type="button"
+          class="layer-slot"
+          data-layer={row.layer}
+          title={rowTitle(row)}
+          aria-label={rowAriaLabel(row)}
+          onclick={event => handleRowClick(event, row.layer)}
+        >
           {#if row.blank}
-            <span class="layer-empty" aria-hidden="true"></span>
+            <span class="layer-empty" aria-hidden="true">{blankRowMark(row.binding)}</span>
           {:else if row.legend}
             <KeyCap legend={row.legend} mode="composed" stacked {hit} />
           {:else}
             {@const zmk = zmkRowView(row.binding)}
             {@const compact = compactBehaviorLegend(row.binding)}
-            <span class="zmk-row" class:legend-hit={hit === 'combo'} title={zmk.title}>
+            <span class="zmk-row" class:legend-hit={hit === 'combo'}>
               {#if compact}
                 {compact}
               {:else}
@@ -424,7 +465,7 @@
               {/if}
             </span>
           {/if}
-        </div>
+        </button>
       {/each}
     </div>
   {:else if showComposed && composedLegend}

@@ -6,7 +6,6 @@
     type KeyBindingNode
   } from '@keymap-editor/keymap-core'
   import { setSearchContext, type LegendMode } from '../../../context'
-  import type { HydratedNode } from '../../../hydrate'
   import { buildSearchContext } from '../../../search-context'
   import Key from './Key.svelte'
 
@@ -19,10 +18,7 @@
     keyIndex?: number
     layerIndex?: number
     layerBindings?: KeyBindingNode[]
-    onUpdate?: (bind: {
-      value: string | number | undefined
-      params: HydratedNode[]
-    }) => void
+    onUpdate?: (keyIndex: number, layerIndex: number, binding: KeyBindingNode) => void
   }
 
   let {
@@ -66,5 +62,5 @@
   {layerIndex}
   {layerBindings}
   {legendMode}
-  onUpdate={(_keyIndex, _layerIndex, bind) => onUpdate(bind)}
+  onUpdate={(keyIndex, layerIndex, binding) => onUpdate(keyIndex, layerIndex, binding)}
 />

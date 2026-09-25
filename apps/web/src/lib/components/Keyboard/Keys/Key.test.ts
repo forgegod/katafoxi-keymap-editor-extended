@@ -44,8 +44,20 @@ function clickApply() {
 
 function encodedUpdate(onUpdate: ReturnType<typeof vi.fn>): string {
   expect(onUpdate).toHaveBeenCalledOnce()
-  return encodeKeyBinding(onUpdate.mock.calls[0][0] as KeyBindingNode)
+  return encodeKeyBinding(onUpdate.mock.calls[0][2] as KeyBindingNode)
 }
+
+function stackRows(): HTMLButtonElement[] {
+  return [...document.querySelectorAll('.layer-stack button.layer-slot')].filter(
+    (el): el is HTMLButtonElement => el instanceof HTMLButtonElement
+  )
+}
+
+const threeLayerBindings: KeyBindingNode[] = [
+  { value: '&kp', params: [{ value: 'A', params: [] }] },
+  { value: '&kp', params: [{ value: 'B', params: [] }] },
+  { value: '&kp', params: [{ value: 'C', params: [] }] }
+]
 
 describe('Key click editor', () => {
   let target: HTMLDivElement
@@ -74,6 +86,7 @@ describe('Key click editor', () => {
       onUpdate?: ReturnType<typeof vi.fn>
       value?: string
       params?: Array<{ value?: string | number; params?: unknown[] }>
+      layerBindings?: KeyBindingNode[]
     } = {}
   ) {
     const onUpdate = props.onUpdate ?? vi.fn()
@@ -84,6 +97,7 @@ describe('Key click editor', () => {
         value: props.value ?? typicalKey.value,
         params: props.params ?? typicalKey.params,
         legendMode: props.legendMode ?? 'zmk',
+        layerBindings: props.layerBindings,
         onUpdate
       }
     })
@@ -213,9 +227,67 @@ describe('Key click editor', () => {
     expect(editorDialog()).toBeNull()
   })
 
-  it('does not open the editor in composed legend mode', () => {
-    open({ legendMode: 'composed' })
-    clickKey()
-    expect(editorDialog()).toBeNull()
+  it('edits layer 2 from the third composed row and leaves layer 0 unchanged', () => {
+    const onUpdate = open({
+      legendMode: 'composed',
+      layerBindings: threeLayerBindings
+    })
+    const rows = stackRows()
+    expect(rows).toHaveLength(3)
+    const layer2 = rows.find(row => row.dataset.layer === '2')
+    expect(layer2).toBeInstanceOf(HTMLButtonElement)
+    layer2?.focus()
+    expect(document.activeElement).toBe(layer2)
+    layer2?.click()
+    flushSync()
+
+    expect(editorDialog()).toBeInstanceOf(HTMLElement)
+    expect(document.querySelector('.binding')?.textContent).toBe('&kp C')
+    clickChoice(document, 'D', '.key-editor-grid .key-editor-choice')
+    clickApply()
+
+    expect(onUpdate).toHaveBeenCalledOnce()
+    const [, layerIndex, binding] = onUpdate.mock.calls[0]
+    expect(layerIndex).toBe(2)
+    expect(encodeKeyBinding(binding as KeyBindingNode)).toBe('&kp D')
+  })
+
+  it('opens the editor from a blank &trans composed row', () => {
+    open({
+      legendMode: 'composed',
+      layerBindings: [
+        { value: '&kp', params: [{ value: 'A', params: [] }] },
+        { value: '&trans', params: [] }
+      ]
+    })
+    const trans = stackRows().find(row => row.dataset.layer === '1')
+    expect(trans).toBeInstanceOf(HTMLButtonElement)
+    trans?.click()
+    flushSync()
+
+    expect(editorDialog()).toBeInstanceOf(HTMLElement)
+    expect(document.querySelector('.binding')?.textContent).toBe('&trans')
+  })
+
+  it('keeps the first row draft when a second composed row is opened', () => {
+    const onUpdate = open({
+      legendMode: 'composed',
+      layerBindings: threeLayerBindings
+    })
+    const rows = stackRows()
+    rows[0].click()
+    flushSync()
+    expect(document.querySelector('.binding')?.textContent).toBe('&kp A')
+    clickChoice(document, 'X', '.key-editor-grid .key-editor-choice')
+    expect(document.querySelector('.binding')?.textContent).toBe('&kp X')
+
+    rows[2].click()
+    flushSync()
+    expect(document.querySelector('.binding')?.textContent).toBe('&kp C')
+
+    rows[0].click()
+    flushSync()
+    expect(document.querySelector('.binding')?.textContent).toBe('&kp X')
+    expect(onUpdate).not.toHaveBeenCalled()
   })
 })
