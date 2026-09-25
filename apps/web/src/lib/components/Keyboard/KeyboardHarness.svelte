@@ -6,6 +6,8 @@
   } from '@keymap-editor/keymap-core'
   import { untrack } from 'svelte'
   import { setDefinitionsContext } from '../../context'
+  import { editor } from '../../editor.svelte.js'
+  import HostLegendPicker from '../HostLegendPicker.svelte'
   import Keyboard from './Keyboard.svelte'
 
   interface Props {
@@ -44,24 +46,33 @@
     ]
   })
 
-  let keymap = $state<ParsedKeymap>(
-    untrack(() => JSON.parse(JSON.stringify(initialKeymap ?? preset())) as ParsedKeymap)
-  )
-
-  let updateCount = $state(0)
+  untrack(() => {
+    editor.layout = layout
+    editor.draftKeymap = JSON.parse(JSON.stringify(initialKeymap ?? preset())) as ParsedKeymap
+  })
 
   export function getKeymap(): ParsedKeymap {
-    return keymap
+    const km = editor.draftKeymap
+    if (!km) throw new Error('missing draft keymap')
+    return km
   }
 
   export function getUpdateCount(): number {
-    return updateCount
+    return editor.undoStack.length
   }
 
   function handleUpdate(next: ParsedKeymap) {
-    updateCount += 1
-    keymap = next
+    editor.updateKeymap(next)
   }
 </script>
 
-<Keyboard {layout} {keymap} onUpdate={handleUpdate} />
+{#if editor.draftKeymap}
+  <HostLegendPicker />
+  <Keyboard
+    {layout}
+    keymap={editor.draftKeymap}
+    legendMode="composed"
+    hostView={editor.hostLegend}
+    onUpdate={handleUpdate}
+  />
+{/if}

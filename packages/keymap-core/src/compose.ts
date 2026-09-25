@@ -3,9 +3,22 @@ import {
   modifierHoldForKey,
   modifierHoldForWrap,
   modifierRoleGlyph,
-  modifierSide
+  modifierSide,
+  MODIFIER_ROLE_GLYPH
 } from './modifiers.js'
-import { hostLegendFor } from './lark-host.js'
+import { encodeKeyBinding } from './keymap.js'
+import { hostKeyByZmk } from './host-key-id.js'
+import { ALT_LEVEL_EMPTY, type HostLevels } from './host-layout.js'
+import {
+  effectiveShownLayers,
+  hostLayoutById,
+  hostLayoutChoice,
+  hostLayoutShelves,
+  hostLegendColumns,
+  hostLegendFor,
+  standardHostLegendView,
+  type HostLanguageId
+} from './lark-host.js'
 import type {
   ComposedLegend,
   ComposeKeyInput,
@@ -14,6 +27,8 @@ import type {
   LegendHover,
   ResolvedBinding
 } from './types.js'
+
+export { ALT_LEVEL_EMPTY } from './host-layout.js'
 
 /** Compact layer index for key legends (`1` → `L1`). Binding value stays numeric. */
 export function layerLegendSymbol(index: number | string): string {
@@ -78,7 +93,7 @@ export function bindingSendsShift(node: KeyBindingNode): boolean {
 }
 
 export function composedHoldSendsAltGr(legend: ComposedLegend): boolean {
-  return legend.hold === '⧗R⌥'
+  return legend.hold === `⧗R${modifierRoleGlyph('alt')}`
 }
 
 export function composedHoldSendsShift(legend: ComposedLegend): boolean {
@@ -112,11 +127,11 @@ export function isLayerLegendSymbol(text: string): boolean {
 }
 
 /** Role glyphs shared by L/R modifiers. Right side is prefixed at display time. */
-const ROLE_GLYPHS = new Set(['⌃', '⇧', '⌥', '⌘'])
+const ROLE_GLYPHS = new Set(Object.values(MODIFIER_ROLE_GLYPH))
 
 /**
  * Keycap / ZMK-mode legend: left modifiers stay the role glyph,
- * right modifiers become `R⌃` / `R⌥` / `R⌘` / `R⇧`.
+ * right modifiers become `R⌃` / `R⎇` / `R⌘` / `R⇧`.
  */
 /** `BT_CLR` → `CLR`, `BT1` → `SEL1`, `OUT_USB` → `USB`. */
 export function prefixedCommandLegend(code?: string | number | null): string | null {
@@ -161,7 +176,7 @@ export function isCompactKeycapLegend(text: string): boolean {
   return (
     text.length === 1 ||
     isLayerLegendSymbol(text) ||
-    /^R[⌃⇧⌥⌘]$/.test(text)
+    text.startsWith('R') && ROLE_GLYPHS.has(text.slice(1))
   )
 }
 
@@ -323,38 +338,32 @@ export function isBlankLayerBinding(node: KeyBindingNode): boolean {
   return value === '&trans' || value === '&none'
 }
 
-/** All-layers preview shows this many firmware layers. */
-export const ALL_LAYERS_PREVIEW = 4
-
 export function composeLayerRows(
   bindings: KeyBindingNode[],
-  hostView?: HostLegendView,
-  layerLimit = ALL_LAYERS_PREVIEW
+  hostView?: HostLegendView
 ): Array<{
   layer: number
   binding: KeyBindingNode
   legend: ComposedLegend | null
   blank: boolean
-  hidden: boolean
+  raw: boolean
+  title: string
 }> {
-  const scoped = [...(layerLimit == null ? bindings : bindings.slice(0, layerLimit))]
-  const empty: KeyBindingNode = { value: '&none', params: [] }
-  while (layerLimit != null && scoped.length < layerLimit) scoped.push(empty)
-  const layers = hostView?.layers
-  return scoped.map((binding, layer) => {
+  const shown = effectiveShownLayers(hostView ?? standardHostLegendView(), bindings.length)
+  return shown.map(layer => {
+    const binding = bindings[layer]
     const blank = isBlankLayerBinding(binding)
+    const raw = layer === 0 && hostView?.layer0Raw === true
     return {
       layer,
       binding,
       blank,
-      hidden: layers?.[layer] === false,
-      legend: blank ? null : composeKey({ binding, hostView })
+      raw,
+      title: encodeKeyBinding(binding),
+      legend: blank || raw ? null : composeKey({ binding, hostView })
     }
   })
 }
-
-/** Marks a missing AltGr or AltGr+Shift glyph so the other level stays anchored. */
-export const ALT_LEVEL_EMPTY = 'ˬ'
 
 /**
  * AltGr and AltGr+Shift sit in one token, with no space.
@@ -372,15 +381,163 @@ export function formatAltGrPair(
   return `${alt}${shift}`
 }
 
-export function formatLegendCompact(legend: ComposedLegend): string {
-  const cols = [`${legend.en[0]}${legend.en[1]}`]
-  if (legend.second) cols.push(`${legend.second[0]}${legend.second[1]}`)
-  if (legend.bilingualNote) {
-    cols.push(legend.bilingualNote)
+export type KeycapTone = 'base' | 'second'
+
+export interface KeycapPiece {
+  text: string
+  /** Language color. `null` is shared by both languages, or the `/` between them. */
+  tone: KeycapTone | null
+}
+
+export interface KeycapColumn {
+  kind: 'letters' | 'alt'
+  pieces: KeycapPiece[]
+}
+
+/**
+ * What one keycap line shows, left to right.
+ * A second-language case pair equal to the first is drawn once.
+ * Diverging AltGr pairs stay one column, each half in its language color.
+ */
+export function keycapColumns(legend: ComposedLegend): KeycapColumn[] {
+  const columns: KeycapColumn[] = []
+  const base = `${legend.en[0]}${legend.en[1]}`
+  if (base) columns.push({ kind: 'letters', pieces: [{ text: base, tone: 'base' }] })
+  if (legend.second) {
+    const second = `${legend.second[0]}${legend.second[1]}`
+    if (second && second !== base) {
+      columns.push({ kind: 'letters', pieces: [{ text: second, tone: 'second' }] })
+    }
+  }
+  if (legend.bilingualAlt) {
+    const [baseAlt, secondAlt] = legend.bilingualAlt
+    const pieces: KeycapPiece[] = [
+      { text: baseAlt, tone: 'base' },
+      { text: '/', tone: null },
+      { text: secondAlt, tone: 'second' }
+    ]
+    columns.push({ kind: 'alt', pieces: pieces.filter(piece => piece.text !== '') })
+  } else if (legend.bilingualNote) {
+    columns.push({ kind: 'alt', pieces: [{ text: legend.bilingualNote, tone: null }] })
   } else {
     const alt = formatAltGrPair(legend)
-    if (alt) cols.push(alt)
+    if (alt) columns.push({ kind: 'alt', pieces: [{ text: alt, tone: null }] })
   }
+  return columns
+}
+
+export function formatLegendCompact(legend: ComposedLegend): string {
+  const cols = keycapColumns(legend).map(column =>
+    column.pieces.map(piece => piece.text).join('')
+  )
   const hold = legend.hold ? ` ${legend.hold}` : ''
   return `${cols.join(' ')}${hold}`.trim()
+}
+
+export interface LegendDecodeSlot {
+  text: string
+  /** True when this current-row cell differs from the language's primary system. */
+  differs: boolean
+}
+
+export interface LegendDecodeColumn {
+  language: HostLanguageId
+  /** Same flag as the host-legend strip for the column's current layout. */
+  flag: string
+  slots: [LegendDecodeSlot, LegendDecodeSlot, LegendDecodeSlot, LegendDecodeSlot]
+}
+
+/** Full host decode for a composed-row tooltip: ids + optional system/current grid. */
+export interface LegendDecodeCard {
+  binding: string
+  keycode?: string
+  vk?: string
+  evdevName?: string
+  hold?: string
+  current: LegendDecodeColumn[]
+  /** Omitted when every shown language matches its primary system layout. */
+  system: LegendDecodeColumn[] | null
+}
+
+export function formatDecodeWord(column: Pick<LegendDecodeColumn, 'slots'>): string {
+  return column.slots.map(slot => slot.text).join('')
+}
+
+function slotsFromLevels(levels: HostLevels): LegendDecodeColumn['slots'] {
+  return [
+    { text: levels[0] || ALT_LEVEL_EMPTY, differs: false },
+    { text: levels[1] || ALT_LEVEL_EMPTY, differs: false },
+    { text: levels[2] || ALT_LEVEL_EMPTY, differs: false },
+    { text: levels[3] || ALT_LEVEL_EMPTY, differs: false }
+  ]
+}
+
+function emptySlots(): LegendDecodeColumn['slots'] {
+  return [
+    { text: ALT_LEVEL_EMPTY, differs: false },
+    { text: ALT_LEVEL_EMPTY, differs: false },
+    { text: ALT_LEVEL_EMPTY, differs: false },
+    { text: ALT_LEVEL_EMPTY, differs: false }
+  ]
+}
+
+function markDiffs(
+  current: LegendDecodeColumn[],
+  system: LegendDecodeColumn[]
+): { current: LegendDecodeColumn[]; system: LegendDecodeColumn[] | null } {
+  let any = false
+  const marked = current.map(column => {
+    const baseline = system.find(item => item.language === column.language)
+    if (!baseline) return column
+    const slots = column.slots.map((slot, index) => {
+      const differs = slot.text !== baseline.slots[index].text
+      if (differs) any = true
+      return { ...slot, differs }
+    }) as LegendDecodeColumn['slots']
+    return { ...column, slots }
+  })
+  return { current: marked, system: any ? system : null }
+}
+
+/**
+ * Identifiers plus a 4-level grid per shown language.
+ * The faded system row is the language's primary OS layout (`us` / `winkeys`).
+ */
+export function composeLegendDecode(
+  binding: KeyBindingNode,
+  view?: HostLegendView
+): LegendDecodeCard {
+  const resolved = resolveBinding(binding)
+  const host = resolved.tap ? hostKeyByZmk(resolved.tap) : undefined
+  const card: LegendDecodeCard = {
+    binding: encodeKeyBinding(binding),
+    keycode: host ? `KC_${host.zmk}` : undefined,
+    vk: host?.vk,
+    evdevName: host?.evdevName,
+    hold: resolved.hold ? formatHoldBadge(resolved.hold) : undefined,
+    current: [],
+    system: null
+  }
+  if (!host) return card
+
+  const hostView = view ?? standardHostLegendView()
+  const current: LegendDecodeColumn[] = []
+  const system: LegendDecodeColumn[] = []
+  for (const column of hostLegendColumns(hostView).filter(item => item.shown)) {
+    const levels = hostLayoutById(column.layoutId)?.byZmk.get(host.zmk)
+    if (!levels) continue
+    const flag = hostLayoutChoice(column.layoutId)?.flag ?? ''
+    current.push({ language: column.language, flag, slots: slotsFromLevels(levels) })
+    const primary = hostLayoutShelves(column.language).primary
+    const sysLevels = primary ? hostLayoutById(primary.id)?.byZmk.get(host.zmk) : undefined
+    system.push({
+      language: column.language,
+      flag,
+      slots: sysLevels ? slotsFromLevels(sysLevels) : emptySlots()
+    })
+  }
+  const compared = markDiffs(current, system)
+  card.current = compared.current
+  card.system = compared.system
+  return card
 }

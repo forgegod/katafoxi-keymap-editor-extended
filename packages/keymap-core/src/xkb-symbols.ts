@@ -1,9 +1,9 @@
 /**
  * Read `key <NAME> { [ level1, level2, ... ] }` statements from one
  * `xkb_symbols` section.
- * `include "file(section)"` is expanded when that section is in the same
- * source, and later keys replace included ones. Includes of other files
- * stay unresolved: LARK writes its own alphanumeric keys in the section.
+ * `include "file(section)"` is expanded from the same source, or from
+ * `files[file]` when that map is given. A bare `include "latin"` is
+ * `latin(basic)`. Includes of missing files stay unresolved.
  */
 
 const KEYSYM =
@@ -39,10 +39,22 @@ function symbolLists(body: string): string[][] {
   return lists
 }
 
-/** `ru(common)` → `common`. A bare file name has no section in this source. */
-function includedSection(spec: string): string | null {
-  const match = /^[A-Za-z0-9_]+\(([^)]+)\)$/.exec(spec.trim())
-  return match?.[1] ?? null
+export interface ParseXkbOptions {
+  files?: Readonly<Record<string, string>>
+  fileId?: string
+}
+
+/** `ru(common)` → file `ru`, section `common`. Bare `latin` → `latin(basic)`. */
+function includedSpec(spec: string): { file: string; section: string } | null {
+  const trimmed = spec.trim()
+  const named = /^([A-Za-z0-9_/]+)\(([^)]+)\)$/.exec(trimmed)
+  if (named) return { file: named[1], section: named[2] }
+  if (/^[A-Za-z0-9_/]+$/.test(trimmed)) return { file: trimmed, section: 'basic' }
+  return null
+}
+
+function hasSection(source: string, section: string): boolean {
+  return new RegExp(`xkb_symbols\\s*"${section}"`).test(stripXkbComments(source))
 }
 
 /**
@@ -52,9 +64,12 @@ function includedSection(spec: string): string | null {
 export function parseXkbSymbolsSection(
   source: string,
   section: string,
-  stack: readonly string[] = []
+  stack: readonly string[] = [],
+  options: ParseXkbOptions = {}
 ): Map<string, string[]> {
-  if (stack.includes(section)) return new Map()
+  const fileId = options.fileId ?? ''
+  const frame = `${fileId}:${section}`
+  if (stack.includes(frame)) return new Map()
   const text = stripXkbComments(source)
   const header = new RegExp(`xkb_symbols\\s*"${section}"`)
   const found = header.exec(text)
@@ -67,12 +82,18 @@ export function parseXkbSymbolsSection(
     /include\s+"([^"]+)"|key\s*<([A-Za-z0-9]+)>\s*(\{[\s\S]*?\}|\[[^\]]*\])\s*;/g
   for (const match of body.matchAll(token)) {
     if (match[1]) {
-      const nested = includedSection(match[1])
-      if (!nested || !new RegExp(`xkb_symbols\\s*"${nested}"`).test(text)) continue
-      for (const [name, levels] of parseXkbSymbolsSection(source, nested, [
-        ...stack,
-        section
-      ])) {
+      const spec = includedSpec(match[1])
+      if (!spec) continue
+      const fromFiles = options.files?.[spec.file]
+      const nestedSource = fromFiles ?? (hasSection(source, spec.section) ? source : null)
+      if (!nestedSource) continue
+      const nestedId = fromFiles ? spec.file : fileId
+      for (const [name, levels] of parseXkbSymbolsSection(
+        nestedSource,
+        spec.section,
+        [...stack, frame],
+        { ...options, fileId: nestedId }
+      )) {
         keys.set(name, levels)
       }
       continue

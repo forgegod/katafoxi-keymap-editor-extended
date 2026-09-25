@@ -72,6 +72,8 @@ export interface ComposedLegend {
   hold?: string
   /** When EN/RU AltGr pairs diverge (e.g. Δτ/ёЁ) */
   bilingualNote?: string
+  /** The two AltGr pairs behind `bilingualNote`, first language then second. */
+  bilingualAlt?: [string, string]
   /** Firmware keycode that produced this (gray in LARK sheet) */
   keycode?: string
   /** Tap is HID keypad (`KP_*`); UI boxes the glyph, host text stays `7`. */
@@ -104,8 +106,29 @@ export interface HostLegendView {
   baseVisible?: boolean
   /** Preview: hide second-language glyphs without clearing `secondId`. */
   secondVisible?: boolean
-  /** Preview: hide All-layers slots; hidden rows stay empty, they do not collapse. */
+  /** AltGr column of the second language. Defaults to `altGr`. */
+  secondAltGr?: boolean
+  /** AltGr+Shift column of the second language. Defaults to `altGrShift`. */
+  secondAltGrShift?: boolean
+  /**
+   * Languages after the base column, in table order.
+   * Absent means just `secondId`, when that is set.
+   */
+  roster?: ReadonlyArray<{
+    language: 'en' | 'ru' | 'uk' | 'de'
+    layoutId: string
+    altGr: boolean
+    altGrShift: boolean
+  }>
+  /**
+   * @deprecated Four-slot hide flags. Use `shownLayers`.
+   * Kept so compose still compiles until it reads the ordered set.
+   */
   layers?: [boolean, boolean, boolean, boolean]
+  /** Shown firmware-layer indices in the order they were turned on. */
+  shownLayers?: number[]
+  /** Layer 0 stays on the cap; when true the first row is the raw ZMK code. */
+  layer0Raw?: boolean
 }
 
 /**

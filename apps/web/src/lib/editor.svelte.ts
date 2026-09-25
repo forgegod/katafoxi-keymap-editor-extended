@@ -7,7 +7,9 @@ import {
   diffKeymaps,
   getBehaviorCatalog,
   getKeycodeCatalog,
+  hostLegendColumns,
   standardHostLegendView,
+  remapShownLayersAfterDelete,
   summarizeKeymapDiff,
   type HostLegendView,
   type LegendHover,
@@ -27,28 +29,29 @@ import {
   type DraftIdentity
 } from './draft-storage'
 import {
-  STANDARD_HOST_PROFILE_ID,
-  builtinHostProfile,
-  builtinHostProfiles,
-  hostLegendWithMap,
-  hostProfileMap,
-  loadActiveHostProfileId,
+  defaultActiveLanguageProfiles,
+  hostLegendWithLayout,
+  isBuiltinLanguageProfile,
+  layoutIdForProfile,
+  loadActiveLanguageProfiles,
   deleteHostProfile,
   loadHostProfiles,
-  sameHostProfileMap,
-  saveActiveHostProfileId,
+  profileIdForLayout,
+  reservedProfileName,
+  saveActiveLanguageProfiles,
   saveHostProfile,
+  type ActiveLanguageProfiles,
+  type HostLanguageId,
   type HostProfile
 } from './host-profiles'
 
 export type LegendMode = 'zmk' | 'composed'
 
 export type HostProfilePrompt =
-  | { kind: 'fork'; next: HostLegendView }
-  | { kind: 'save-as' }
-  | { kind: 'copy' }
-  | { kind: 'rename' }
-  | { kind: 'delete' }
+  | { kind: 'save-as'; language: HostLanguageId }
+  | { kind: 'copy'; language: HostLanguageId; layoutId?: string }
+  | { kind: 'rename'; language: HostLanguageId; profileId?: string }
+  | { kind: 'delete'; language: HostLanguageId; profileId?: string }
 
 export type SaveNotice = {
   kind: 'warning' | 'error'
@@ -87,6 +90,24 @@ function extractErrorMessages(data: unknown): string[] {
     return (data as { errors: unknown[] }).errors.map(String)
   }
   return ['Save failed.']
+}
+
+const LETTER_KEYCODE = /^[A-Z]$/
+
+/** Index of the host-legend sample key: `&kp E` on layer0, else the first letter `&kp`. */
+export function hostLegendAnchorIndex(keymap: ParsedKeymap | null | undefined): number {
+  const layer0 = keymap?.layers[0]
+  if (!layer0 || layer0.length === 0) return 0
+  const eAt = layer0.findIndex(
+    node => node.value === '&kp' && String(node.params[0]?.value ?? '') === 'E'
+  )
+  if (eAt >= 0) return eAt
+  const letterAt = layer0.findIndex(
+    node =>
+      node.value === '&kp' &&
+      LETTER_KEYCODE.test(String(node.params[0]?.value ?? ''))
+  )
+  return letterAt >= 0 ? letterAt : 0
 }
 
 /** Deep clone plain ParsedKeymap (value+params only). Never structuredClone reactive graphs. */
@@ -131,11 +152,11 @@ class EditorState {
   undoStack = $state<ParsedKeymap[]>([])
   redoStack = $state<ParsedKeymap[]>([])
   saving = $state(false)
-  legendMode = $state<LegendMode>('zmk')
+  legendMode = $state<LegendMode>('composed')
   /** View over the host profile. It does not edit the keymap. */
   hostLegend = $state<HostLegendView>(standardHostLegendView())
   hostProfiles = $state<HostProfile[]>([])
-  activeHostProfileId = $state(STANDARD_HOST_PROFILE_ID)
+  activeLanguageProfiles = $state<ActiveLanguageProfiles>(defaultActiveLanguageProfiles())
   hostProfilePrompt = $state<HostProfilePrompt | null>(null)
   hostProfileNote = $state<string | null>(null)
   legendHover = $state<LegendHover | null>(null)
@@ -190,6 +211,16 @@ class EditorState {
     return this.redoStack.length > 0
   }
 
+  /** Names for the host-legend table, one per keymap layer. */
+  get hostLegendLayerNames(): string[] {
+    const km = this.draftKeymap
+    if (!km) return []
+    return km.layers.map((_, i) => {
+      const name = km.layer_names?.[i]
+      return typeof name === 'string' && name.length > 0 ? name : `layer${i}`
+    })
+  }
+
   clearHistory() {
     this.undoStack = []
     this.redoStack = []
@@ -202,122 +233,113 @@ class EditorState {
     }
   }
 
-  /** Restore named host profiles. Failures leave the standard profile. */
+  /** Restore named per-language profiles. Failures leave the in-layout pair. */
   async restoreHostProfiles() {
     try {
       const profiles = await loadHostProfiles()
-      const activeId = await loadActiveHostProfileId()
+      const active = await loadActiveLanguageProfiles()
       this.hostProfiles = profiles
-      const preset = builtinHostProfile(activeId)
-      if (preset) {
-        this.activeHostProfileId = preset.id
-        this.hostLegend = { ...preset.view }
-        return
-      }
-      const active = profiles.find(profile => profile.id === activeId)
-      if (!active) {
-        this.activeHostProfileId = STANDARD_HOST_PROFILE_ID
-        this.hostLegend = standardHostLegendView()
-        return
-      }
-      this.activeHostProfileId = active.id
-      this.hostLegend = hostLegendWithMap(
-        standardHostLegendView(),
-        active.map,
-        'custom'
-      )
+      this.activeLanguageProfiles = active
+      this.hostLegend = this.#viewFromActive(this.hostLegend, active, profiles)
     } catch {
       this.hostProfiles = []
-      this.activeHostProfileId = STANDARD_HOST_PROFILE_ID
+      this.activeLanguageProfiles = defaultActiveLanguageProfiles()
       this.hostLegend = standardHostLegendView()
     }
   }
 
+  #viewFromActive(
+    current: HostLegendView,
+    active: ActiveLanguageProfiles,
+    profiles: readonly HostProfile[]
+  ): HostLegendView {
+    const en = layoutIdForProfile(active.en, profiles) ?? current.baseId
+    const ru = layoutIdForProfile(active.ru, profiles) ?? current.secondId
+    let next = hostLegendWithLayout(current, 'en', en)
+    if (ru) next = hostLegendWithLayout(next, 'ru', ru)
+    return next
+  }
+
+  activeProfileId(language: HostLanguageId): string {
+    return this.activeLanguageProfiles[language]
+  }
+
+  profilesForLanguage(language: HostLanguageId): HostProfile[] {
+    return this.hostProfiles
+      .filter(profile => profile.language === language)
+      .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+  }
+
   /**
-   * Apply a language change.
-   * A builtin profile is immutable: the first divergence asks for a name.
-   * A named profile stores the new map immediately.
+   * Apply a language-column change immediately.
+   * Builtin system / in-layout picks do not ask for a name.
    */
   commitHostMap(next: HostLegendView): Promise<void> {
-    const map = hostProfileMap(next)
-    const preset = builtinHostProfile(this.activeHostProfileId)
-    if (preset) {
-      if (sameHostProfileMap(map, hostProfileMap(preset.view))) {
-        this.hostLegend = { ...next, source: preset.view.source }
-        return Promise.resolve()
-      }
-      this.hostProfileNote = null
-      this.hostProfilePrompt = { kind: 'fork', next }
-      return Promise.resolve()
+    this.hostLegend = { ...next }
+    const active = { ...this.activeLanguageProfiles }
+    for (const column of hostLegendColumns(next)) {
+      active[column.language] = profileIdForLayout(
+        column.language,
+        column.layoutId,
+        this.activeLanguageProfiles[column.language],
+        this.hostProfiles
+      )
     }
-    const current = this.hostProfiles.find(
-      profile => profile.id === this.activeHostProfileId
-    )
-    if (!current) {
-      this.hostProfileNote = null
-      this.hostProfilePrompt = { kind: 'fork', next }
-      return Promise.resolve()
-    }
-    this.hostLegend = { ...next, source: 'custom' }
-    if (sameHostProfileMap(map, current.map)) return Promise.resolve()
-    const updated: HostProfile = { ...current, map, updatedAt: Date.now() }
-    this.hostProfiles = this.hostProfiles.map(profile =>
-      profile.id === updated.id ? updated : profile
-    )
-    return saveHostProfile(updated)
+    this.activeLanguageProfiles = active
+    return saveActiveLanguageProfiles(this.activeLanguageProfiles)
   }
 
-  selectHostProfile(id: string): Promise<void> {
-    if (id === this.activeHostProfileId) return Promise.resolve()
+  selectLanguageProfile(language: HostLanguageId, id: string): Promise<void> {
+    if (this.activeLanguageProfiles[language] === id) return Promise.resolve()
     this.hostProfilePrompt = null
     this.hostProfileNote = null
-    const preset = builtinHostProfile(id)
-    if (preset) {
-      this.activeHostProfileId = preset.id
-      this.hostLegend = {
-        ...preset.view,
-        layers: this.hostLegend.layers ?? preset.view.layers
-      }
-      return saveActiveHostProfileId(id)
-    }
-    const profile = this.hostProfiles.find(item => item.id === id)
-    if (!profile) return Promise.resolve()
-    this.activeHostProfileId = id
-    this.hostLegend = hostLegendWithMap(this.hostLegend, profile.map, 'custom')
-    return saveActiveHostProfileId(id)
+    const layoutId = layoutIdForProfile(id, this.hostProfiles)
+    if (!layoutId) return Promise.resolve()
+    this.activeLanguageProfiles = { ...this.activeLanguageProfiles, [language]: id }
+    this.hostLegend = hostLegendWithLayout(this.hostLegend, language, layoutId)
+    return saveActiveLanguageProfiles(this.activeLanguageProfiles)
   }
 
-  beginSaveHostProfile() {
+  beginSaveHostProfile(language: HostLanguageId) {
     this.hostProfileNote = null
-    this.hostProfilePrompt = { kind: 'save-as' }
+    this.hostProfilePrompt = { kind: 'save-as', language }
   }
 
-  beginCopyHostProfile() {
+  beginCopyHostProfile(language: HostLanguageId, layoutId?: string) {
     this.hostProfileNote = null
-    this.hostProfilePrompt = { kind: 'copy' }
+    this.hostProfilePrompt = { kind: 'copy', language, layoutId }
   }
 
-  beginRenameHostProfile() {
-    if (builtinHostProfile(this.activeHostProfileId)) return
+  beginRenameHostProfile(language: HostLanguageId, profileId?: string) {
+    const id = profileId ?? this.activeLanguageProfiles[language]
+    if (isBuiltinLanguageProfile(id)) return
+    if (!this.hostProfiles.some(profile => profile.id === id)) return
     this.hostProfileNote = null
-    this.hostProfilePrompt = { kind: 'rename' }
+    this.hostProfilePrompt = { kind: 'rename', language, profileId: id }
   }
 
-  beginDeleteHostProfile() {
-    if (builtinHostProfile(this.activeHostProfileId)) return
+  beginDeleteHostProfile(language: HostLanguageId, profileId?: string) {
+    const id = profileId ?? this.activeLanguageProfiles[language]
+    if (isBuiltinLanguageProfile(id)) return
+    if (!this.hostProfiles.some(profile => profile.id === id)) return
     this.hostProfileNote = null
-    this.hostProfilePrompt = { kind: 'delete' }
+    this.hostProfilePrompt = { kind: 'delete', language, profileId: id }
   }
 
   async deleteActiveHostProfile(): Promise<void> {
-    const id = this.activeHostProfileId
-    if (builtinHostProfile(id)) return
+    const prompt = this.hostProfilePrompt
+    if (prompt?.kind !== 'delete') return
+    const language = prompt.language
+    const id = prompt.profileId ?? this.activeLanguageProfiles[language]
+    if (isBuiltinLanguageProfile(id)) return
     const existed = this.hostProfiles.some(profile => profile.id === id)
     if (!existed) return
     this.hostProfiles = this.hostProfiles.filter(profile => profile.id !== id)
     this.hostProfilePrompt = null
     await deleteHostProfile(id)
-    await this.selectHostProfile(STANDARD_HOST_PROFILE_ID)
+    if (this.activeLanguageProfiles[language] === id) {
+      await this.selectLanguageProfile(language, defaultActiveLanguageProfiles()[language])
+    }
   }
 
   cancelHostProfilePrompt() {
@@ -330,45 +352,43 @@ class EditorState {
     if (!prompt) return null
     const name = raw.trim()
     if (!name) return 'Введите имя профиля'
-    const reserved = builtinHostProfiles().some(
-      profile => profile.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru')
-    )
-    if (reserved) return `Имя «${name.trim()}» занято встроенным профилем`
+    if (reservedProfileName(name)) return `Имя «${name}» занято встроенным профилем`
     if (prompt.kind === 'delete') return null
-    if (prompt.kind === 'rename') return this.#renameHostProfile(name)
-    if (prompt.kind !== 'fork' && prompt.kind !== 'save-as' && prompt.kind !== 'copy') {
-      return null
-    }
+    if (prompt.kind === 'rename') return this.#renameHostProfile(prompt.language, name)
+    const language = prompt.language
     const taken = this.hostProfiles.some(
-      profile => profile.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru')
+      profile =>
+        profile.language === language &&
+        profile.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru')
     )
     if (taken) return 'Профиль с таким именем уже есть'
-    const map =
-      prompt.kind === 'fork'
-        ? hostProfileMap(prompt.next)
-        : hostProfileMap(this.hostLegend)
+    const layoutId =
+      (prompt.kind === 'copy' ? prompt.layoutId : undefined) ??
+      hostLegendColumns(this.hostLegend).find(column => column.language === language)?.layoutId ??
+      ''
+    if (!layoutId) return 'Нет раскладки для этого языка'
     const profile: HostProfile = {
       id: crypto.randomUUID(),
       name,
-      map,
+      language,
+      layoutId,
       updatedAt: Date.now()
     }
     this.hostProfiles = [...this.hostProfiles, profile]
-    this.activeHostProfileId = profile.id
-    this.hostLegend =
-      prompt.kind === 'fork'
-        ? { ...prompt.next, source: 'custom' }
-        : hostLegendWithMap(this.hostLegend, map, 'custom')
+    this.activeLanguageProfiles = { ...this.activeLanguageProfiles, [language]: profile.id }
+    this.hostLegend = hostLegendWithLayout(this.hostLegend, language, layoutId)
     this.hostProfilePrompt = null
     await saveHostProfile(profile)
-    await saveActiveHostProfileId(profile.id)
+    await saveActiveLanguageProfiles(this.activeLanguageProfiles)
     return null
   }
 
-  async #renameHostProfile(name: string): Promise<string | null> {
-    const current = this.hostProfiles.find(
-      profile => profile.id === this.activeHostProfileId
-    )
+  async #renameHostProfile(language: HostLanguageId, name: string): Promise<string | null> {
+    const id =
+      this.hostProfilePrompt?.kind === 'rename'
+        ? this.hostProfilePrompt.profileId
+        : this.activeLanguageProfiles[language]
+    const current = this.hostProfiles.find(profile => profile.id === id)
     if (!current) return null
     if (current.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru')) {
       this.hostProfilePrompt = null
@@ -377,6 +397,7 @@ class EditorState {
     const taken = this.hostProfiles.some(
       profile =>
         profile.id !== current.id &&
+        profile.language === language &&
         profile.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru')
     )
     if (taken) return 'Профиль с таким именем уже есть'
@@ -573,6 +594,39 @@ class EditorState {
     }
   }
 
+  addLayer() {
+    const km = this.draftKeymap
+    if (!km) return
+    const width = this.layout?.length ?? km.layers[0]?.length ?? 0
+    const index = km.layers.length
+    const names = this.hostLegendLayerNames
+    const blank = (): KeyBindingNode => ({ value: '&trans', params: [] })
+    this.updateKeymap({
+      ...km,
+      layer_names: [...names, `Layer #${index}`],
+      layers: [...km.layers, Array.from({ length: width }, blank)]
+    })
+  }
+
+  renameLayer(index: number, name: string) {
+    const km = this.draftKeymap
+    if (!km || index < 0 || index >= km.layers.length) return
+    const names = [...this.hostLegendLayerNames]
+    names[index] = name
+    this.updateKeymap({ ...km, layer_names: names })
+  }
+
+  deleteLayer(index: number) {
+    const km = this.draftKeymap
+    if (!km || km.layers.length <= 1) return
+    if (index < 0 || index >= km.layers.length) return
+    const names = [...this.hostLegendLayerNames]
+    names.splice(index, 1)
+    const layers = km.layers.filter((_, i) => i !== index)
+    this.updateKeymap({ ...km, layer_names: names, layers })
+    this.hostLegend = remapShownLayersAfterDelete(this.hostLegend, index, layers.length)
+  }
+
   updateKeymap(next: ParsedKeymap) {
     if (this.draftKeymap) {
       const prev = cloneParsedKeymap(this.draftKeymap)
@@ -670,10 +724,10 @@ class EditorState {
     this.draftKeymap = null
     this.clearHistory()
     this.saving = false
-    this.legendMode = 'zmk'
+    this.legendMode = 'composed'
     this.hostLegend = standardHostLegendView()
     this.hostProfiles = []
-    this.activeHostProfileId = STANDARD_HOST_PROFILE_ID
+    this.activeLanguageProfiles = defaultActiveLanguageProfiles()
     this.hostProfilePrompt = null
     this.hostProfileNote = null
     this.legendHover = null

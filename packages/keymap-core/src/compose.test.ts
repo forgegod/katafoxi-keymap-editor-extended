@@ -6,6 +6,9 @@ import {
   bindingSendsShift,
   composeKey,
   composeLayerRows,
+  composeLegendDecode,
+  encodeKeyBinding,
+  formatDecodeWord,
   legendHoverHit,
   isCompactKeycapLegend,
   isCompactModifierChord,
@@ -23,6 +26,8 @@ import {
   getBehaviorCatalog,
   getKeycodeCatalog,
   hostLegendFor,
+  addHostLanguage,
+  keycapColumns,
   parseKeyBinding,
   standardHostLegendView,
   parseKeymap,
@@ -134,11 +139,38 @@ describe('resolveBinding / composeKey', () => {
     const em = composeKey({ binding: parseKeyBinding('&kp M') })
     expect(em?.en).toEqual(['m', 'M'])
     expect(em?.second).toEqual(['ь', 'Ь'])
-    expect(em?.bilingualNote).toBe('μ/ъЪ')
+    expect(em?.bilingualNote).toBe('ˬμ/ъЪ')
+    expect(formatLegendCompact(em!)).toBe('mM ьЬ ˬμ/ъЪ')
 
     const grave = composeKey({ binding: parseKeyBinding('&kp GRAVE') })
     expect(grave?.en).toEqual(['`', '~'])
     expect(grave?.bilingualNote).toBe('/ёЁ')
+  })
+
+  it('draws a second-language pair once when it matches the first', () => {
+    const hostView = addHostLanguage(standardHostLegendView(), 'de')
+    const gee = composeKey({ binding: parseKeyBinding('&kp G'), hostView })
+    expect(gee?.en).toEqual(['g', 'G'])
+    expect(gee?.second).toEqual(['g', 'G'])
+    expect(formatLegendCompact(gee!)).toBe(`gG ${gee?.bilingualNote}`)
+    expect(keycapColumns(gee!)[0]?.pieces).toEqual([{ text: 'gG', tone: 'base' }])
+  })
+
+  it('colors diverging AltGr halves by language', () => {
+    const tee = composeKey({ binding: parseKeyBinding('&kp T') })
+    expect(keycapColumns(tee!).at(-1)).toEqual({
+      kind: 'alt',
+      pieces: [
+        { text: 'Δτ', tone: 'base' },
+        { text: '/', tone: null },
+        { text: 'ёЁ', tone: 'second' }
+      ]
+    })
+    const grave = composeKey({ binding: parseKeyBinding('&kp GRAVE') })
+    expect(keycapColumns(grave!).at(-1)?.pieces).toEqual([
+      { text: '/', tone: null },
+      { text: 'ёЁ', tone: 'second' }
+    ])
   })
 
   it('splits E into En / Ru / AltGr columns', () => {
@@ -200,7 +232,7 @@ describe('resolveBinding / composeKey', () => {
     expect(hostLegendFor('E')?.en).toEqual(['e', 'E'])
   })
 
-  it('keeps a hidden layer slot so the others do not move', () => {
+  it('omits a hidden layer so remaining rows keep their real indices', () => {
     const rows = composeLayerRows(
       [
         parseKeyBinding('&kp E'),
@@ -208,10 +240,64 @@ describe('resolveBinding / composeKey', () => {
         parseKeyBinding('&kp F8'),
         parseKeyBinding('&kp SLCK')
       ],
-      { ...standardHostLegendView(), layers: [true, false, true, true] }
+      { ...standardHostLegendView(), shownLayers: [0, 2, 3] }
     )
-    expect(rows.map(row => row.hidden)).toEqual([false, true, false, false])
-    expect(rows.map(row => row.layer)).toEqual([0, 1, 2, 3])
+    expect(rows).toHaveLength(3)
+    expect(rows.map(row => row.layer)).toEqual([0, 2, 3])
+    expect(rows.some(row => row.layer === 1)).toBe(false)
+  })
+
+  it('returns only the two shown layers with their real indices', () => {
+    const rows = composeLayerRows(
+      [
+        parseKeyBinding('&kp E'),
+        parseKeyBinding('&kp KP_N8'),
+        parseKeyBinding('&kp F8'),
+        parseKeyBinding('&kp SLCK')
+      ],
+      { ...standardHostLegendView(), shownLayers: [0, 2] }
+    )
+    expect(rows).toHaveLength(2)
+    expect(rows.map(row => row.layer)).toEqual([0, 2])
+  })
+
+  it('returns one row for a single-layer keymap', () => {
+    const rows = composeLayerRows([parseKeyBinding('&kp E')])
+    expect(rows).toHaveLength(1)
+    expect(rows[0].layer).toBe(0)
+  })
+
+  it('marks &trans and &none as blank rows', () => {
+    const rows = composeLayerRows(
+      [parseKeyBinding('&trans'), parseKeyBinding('&none'), parseKeyBinding('&kp E')],
+      { ...standardHostLegendView(), shownLayers: [0, 1, 2] }
+    )
+    expect(rows.map(row => row.blank)).toEqual([true, true, false])
+  })
+
+  it('drops the host legend on layer0 when layer0Raw is set', () => {
+    const rows = composeLayerRows([parseKeyBinding('&kp E'), parseKeyBinding('&kp A')], {
+      ...standardHostLegendView(),
+      shownLayers: [0, 1],
+      layer0Raw: true
+    })
+    expect(rows[0].legend).toBeNull()
+    expect(rows[0].blank).toBe(false)
+    expect(rows[0].raw).toBe(true)
+    expect(rows[0].title).toBe('&kp E')
+    expect(rows[1].raw).toBe(false)
+    expect(rows[1].legend?.en).toEqual(['a', 'A'])
+  })
+
+  it('sets each row title to the encoded binding', () => {
+    const holdTap = parseKeyBinding('&mt LCTRL J')
+    const letter = parseKeyBinding('&kp E')
+    const rows = composeLayerRows([holdTap, letter], {
+      ...standardHostLegendView(),
+      shownLayers: [0, 1]
+    })
+    expect(rows[0].title).toBe(encodeKeyBinding(holdTap))
+    expect(rows[1].title).toBe(encodeKeyBinding(letter))
   })
 
   it('follows the host view for the second language and AltGr columns', () => {
@@ -335,12 +421,13 @@ describe('resolveBinding / composeKey', () => {
     expect(rows[3].legend?.en).toEqual(['s', 'S'])
   })
 
-  it('pads a short keymap to four layer slots', () => {
+  it('does not pad a short keymap to four layer slots', () => {
     const rows = composeLayerRows([
       parseKeyBinding('&trans'),
       parseKeyBinding('&none')
     ])
-    expect(rows).toHaveLength(4)
+    expect(rows).toHaveLength(2)
+    expect(rows.map(row => row.layer)).toEqual([0, 1])
     expect(rows.every(row => row.blank)).toBe(true)
   })
 
@@ -409,8 +496,8 @@ describe('keycapLegend', () => {
   it('leaves left modifiers unmarked and marks the right side', () => {
     expect(keycapLegend('LCTRL', '⌃')).toBe('⌃')
     expect(keycapLegend('RCTRL', '⌃')).toBe('R⌃')
-    expect(keycapLegend('LALT', '⌥')).toBe('⌥')
-    expect(keycapLegend('RALT', '⌥')).toBe('R⌥')
+    expect(keycapLegend('LALT', '⎇')).toBe('⎇')
+    expect(keycapLegend('RALT', '⎇')).toBe('R⎇')
     expect(keycapLegend('LGUI', '⌘')).toBe('⌘')
     expect(keycapLegend('RGUI', '⌘')).toBe('R⌘')
     expect(keycapLegend('LC', '⌃')).toBe('⌃')
@@ -444,6 +531,8 @@ describe('keycapLegend', () => {
   it('treats compact chords as short legends', () => {
     expect(isCompactKeycapLegend('⌃')).toBe(true)
     expect(isCompactKeycapLegend('R⌃')).toBe(true)
+    expect(isCompactKeycapLegend('⎇')).toBe(true)
+    expect(isCompactKeycapLegend('R⎇')).toBe(true)
     expect(isCompactModifierChord('LC', '⌦')).toBe(true)
     expect(isCompactModifierChord('LS', '⇪')).toBe(true)
     expect(isCompactModifierChord('LA', 'F4')).toBe(true)
@@ -458,6 +547,8 @@ describe('keycapLegend', () => {
   })
 
   it('uses display symbols for pause and mouse scroll', () => {
+    expect(getKeycodeCatalog().byCode.LALT?.symbol).toBe('⎇')
+    expect(getKeycodeCatalog().byCode.RALT?.symbol).toBe('⎇')
     expect(getKeycodeCatalog().byCode.PAUSE_BREAK?.symbol).toBe('⏸')
     expect(getKeycodeCatalog().byCode.MINUS?.symbol).toBe('-')
     expect(getKeycodeCatalog().byCode.EQUAL?.symbol).toBe('=')
@@ -468,6 +559,49 @@ describe('keycapLegend', () => {
     expect(symbol('SCRL_DOWN')).toBe('SCRL⬇')
     expect(symbol('SCRL_LEFT')).toBe('SCRL⬅')
     expect(symbol('SCRL_RIGHT')).toBe('SCRL➡')
+  })
+})
+
+describe('composeLegendDecode', () => {
+  it('names the physical key and grids LARK against the system primary', () => {
+    const card = composeLegendDecode(parseKeyBinding('&kp MINUS'))
+    expect(card.keycode).toBe('KC_MINUS')
+    expect(card.vk).toBe('VK_OEM_MINUS')
+    expect(card.evdevName).toBe('KEY_MINUS')
+    expect(card.current.map(column => column.language)).toEqual(['en', 'ru'])
+    expect(card.current.map(column => column.flag)).toEqual(['🇦🇺', '🇷🇺'])
+    expect(card.current.map(formatDecodeWord)).toEqual(['-_±ˬ', 'хХ±ˬ'])
+    expect(card.system?.map(formatDecodeWord)).toEqual(['-_ˬˬ', '-_ˬˬ'])
+    expect(card.current[0].slots.map(slot => slot.differs)).toEqual([false, false, true, false])
+    expect(card.current[1].slots.map(slot => slot.differs)).toEqual([true, true, true, false])
+  })
+
+  it('keeps an empty AltGr slot so μ stays on Shift-AltGr', () => {
+    const card = composeLegendDecode(parseKeyBinding('&kp M'))
+    expect(formatDecodeWord(card.current[0])).toBe('mMˬμ')
+    expect(formatDecodeWord(card.current[1])).toBe('ьЬъЪ')
+    expect(card.system?.map(formatDecodeWord)).toEqual(['mMˬˬ', 'ьЬˬˬ'])
+  })
+
+  it('hides the system row when the profile already is the primary', () => {
+    const card = composeLegendDecode(parseKeyBinding('&kp MINUS'), {
+      ...standardHostLegendView(),
+      baseId: 'system-us',
+      secondId: 'system-ru',
+      source: 'custom'
+    })
+    expect(card.current.map(column => column.flag)).toEqual(['🇺🇸', '🇷🇺'])
+    expect(card.current.map(formatDecodeWord)).toEqual(['-_ˬˬ', '-_ˬˬ'])
+    expect(card.system).toBeNull()
+    expect(card.current.every(column => column.slots.every(slot => !slot.differs))).toBe(true)
+  })
+
+  it('keeps identifiers and skips the grid for a non-character bind', () => {
+    const card = composeLegendDecode(parseKeyBinding('&mo 1'))
+    expect(card.binding).toBe('&mo 1')
+    expect(card.keycode).toBeUndefined()
+    expect(card.current).toEqual([])
+    expect(card.system).toBeNull()
   })
 })
 

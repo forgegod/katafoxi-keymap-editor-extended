@@ -11,10 +11,11 @@
   interface Props {
     layout: LayoutKey[]
     bindings: KeyBindingNode[]
-    onUpdate: (bindings: KeyBindingNode[]) => void
+    onUpdate: (keyIndex: number, layerIndex: number, binding: KeyBindingNode) => void
     legendMode?: LegendMode
     hostView?: HostLegendView
     legendHover?: LegendHover | null
+    layerIndex?: number
     layerStack?: KeyBindingNode[][]
     usedKeycodes?: ReadonlyMap<string, readonly number[]>
     usedRevision?: string
@@ -29,6 +30,7 @@
     legendMode = 'zmk',
     hostView,
     legendHover = null,
+    layerIndex,
     layerStack,
     usedKeycodes = new Map(),
     usedRevision = '',
@@ -51,13 +53,6 @@
     return { u: u ?? 1, h: h ?? 1 }
   }
 
-  function handleUpdateBind(keyIndex: number, updateBinding: KeyBindingNode) {
-    onUpdate([
-      ...normalized.slice(0, keyIndex),
-      updateBinding,
-      ...normalized.slice(keyIndex + 1)
-    ])
-  }
 </script>
 
 <div style="position: relative">
@@ -70,6 +65,8 @@
       label={key.label}
       value={normalized[i].value}
       params={normalized[i].params}
+      keyIndex={i}
+      {layerIndex}
       {usedKeycodes}
       {usedRevision}
       {usedLayerLabels}
@@ -77,12 +74,7 @@
       {hostView}
       {legendHover}
       layerBindings={layerStack?.map(layer => layer[i] ?? { value: '&none', params: [] })}
-      onUpdate={bind =>
-        handleUpdateBind(i, {
-          value: bind.value ?? '&none',
-          params: bind.params as KeyBindingNode[]
-        })
-      }
+      {onUpdate}
     />
     {/if}
   {/each}

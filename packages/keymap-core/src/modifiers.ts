@@ -16,7 +16,7 @@ export const MOD_KEY_RE =
 export const MODIFIER_ROLE_GLYPH: Record<ModifierRole, string> = {
   ctrl: '⌃',
   shift: '⇧',
-  alt: '⌥',
+  alt: '⎇',
   gui: '⌘'
 }
 
@@ -102,7 +102,13 @@ export function modifierHoldForKey(
   return HOLD_BY_KEY.get(code) ?? HOLD_BY_KEY.get(MODIFIER_KEY_ALIASES[code])
 }
 
-/** TARGET_SYSTEM: left role glyph unmarked, right side `R⌃` / `R⌥` / `R⌘` / `R⇧`. */
+/** AltGr column: this keyboard's AltGr is right Alt. */
+export const ALT_GR_COLUMN_LABEL = `R${MODIFIER_ROLE_GLYPH.alt}`
+
+/** AltGr+Shift column: either Shift, then right Alt. */
+export const ALT_GR_SHIFT_COLUMN_LABEL = `⇧${ALT_GR_COLUMN_LABEL}`
+
+/** TARGET_SYSTEM: left role glyph unmarked, right side `R⌃` / `R⎇` / `R⌘` / `R⇧`. */
 export function modifierHoldLegend(hold: ModifierHold): string {
   const glyph = modifierRoleGlyph(hold.role)
   return hold.side === 'R' ? `R${glyph}` : glyph

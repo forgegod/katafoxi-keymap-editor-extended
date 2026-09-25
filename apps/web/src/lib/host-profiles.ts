@@ -1,94 +1,111 @@
 /**
  * Named host-legend profiles in IndexedDB.
- * A profile is the language pair, not column or layer visibility
- * and not the ZMK keymap. Symbol tables are not stored yet.
+ * A profile belongs to one language column. Symbol tables are not stored yet:
+ * a user profile remembers which builtin layout it aliases.
  */
 
 import {
-  standardHostLegendView,
-  systemRuHostLegendView,
+  builtinLanguageProfileId,
+  builtinProfileIdForChoice,
+  hostLayoutChoice,
+  hostLayoutChoiceLabel,
+  layoutForBuiltinProfile,
+  parseBuiltinLanguageProfileId,
+  assignHostLanguageLayout,
+  reservedHostProfileNames,
+  type HostLanguageId,
+  type HostLayoutKind,
   type HostLegendView
 } from '@keymap-editor/keymap-core'
 
-export const STANDARD_HOST_PROFILE_ID = 'standard'
-export const SYSTEM_RU_PROFILE_ID = 'system-ru'
-
-export interface BuiltinHostProfile {
-  id: string
-  name: string
-  view: HostLegendView
-}
+export const SYSTEM_HOST_PROFILE_KIND = 'system' as const
+export const IN_LAYOUT_HOST_PROFILE_KIND = 'in-layout' as const
 
 const DB_NAME = 'keymap-editor-host-profiles'
 const PROFILES_STORE = 'profiles'
 const SETTINGS_STORE = 'settings'
-const DB_VERSION = 1
+const DB_VERSION = 2
 const ACTIVE_SETTING_ID = 'active'
-
-export interface HostProfileMap {
-  baseId: string
-  secondId: string | null
-}
 
 export interface HostProfile {
   id: string
   name: string
-  map: HostProfileMap
+  language: HostLanguageId
+  layoutId: string
   updatedAt: number
+}
+
+export interface ActiveLanguageProfiles {
+  en: string
+  ru: string
+  uk: string
+  de: string
 }
 
 type ActiveSetting = {
   id: typeof ACTIVE_SETTING_ID
-  profileId: string
+  en: string
+  ru: string
+  uk?: string
+  de?: string
 }
 
-export function hostProfileMap(view: HostLegendView): HostProfileMap {
+export function defaultActiveLanguageProfiles(): ActiveLanguageProfiles {
   return {
-    baseId: view.baseId,
-    secondId: view.secondId
+    en: builtinLanguageProfileId('en', 'in-layout'),
+    ru: builtinLanguageProfileId('ru', 'in-layout'),
+    uk: builtinLanguageProfileId('uk', 'system'),
+    de: builtinLanguageProfileId('de', 'system')
   }
 }
 
-export function standardHostProfileMap(): HostProfileMap {
-  return hostProfileMap(standardHostLegendView())
+export function isBuiltinLanguageProfile(id: string): boolean {
+  return parseBuiltinLanguageProfileId(id) != null
 }
 
-/** Presets shown in the profile menu. They are not stored as user profiles. */
-export function builtinHostProfiles(): BuiltinHostProfile[] {
-  return [
-    {
-      id: STANDARD_HOST_PROFILE_ID,
-      name: 'Стандарт',
-      view: standardHostLegendView()
-    },
-    {
-      id: SYSTEM_RU_PROFILE_ID,
-      name: 'Системная ru',
-      view: systemRuHostLegendView()
-    }
-  ]
+export function builtinProfileLabel(id: string): string | undefined {
+  const choice = layoutForBuiltinProfile(id)
+  return choice ? hostLayoutChoiceLabel(choice) : undefined
 }
 
-export function builtinHostProfile(id: string): BuiltinHostProfile | undefined {
-  return builtinHostProfiles().find(profile => profile.id === id)
+export function layoutIdForProfile(
+  id: string,
+  profiles: readonly HostProfile[]
+): string | undefined {
+  const builtin = layoutForBuiltinProfile(id)
+  if (builtin) return builtin.id
+  return profiles.find(profile => profile.id === id)?.layoutId
 }
 
-export function sameHostProfileMap(a: HostProfileMap, b: HostProfileMap): boolean {
-  return a.baseId === b.baseId && a.secondId === b.secondId
+export function profileIdForLayout(
+  language: HostLanguageId,
+  layoutId: string,
+  activeId: string,
+  profiles: readonly HostProfile[]
+): string {
+  const active = profiles.find(profile => profile.id === activeId)
+  if (active?.language === language && active.layoutId === layoutId) return active.id
+  const choice = hostLayoutChoice(layoutId)
+  if (choice?.language === language) {
+    return builtinProfileIdForChoice(choice)
+  }
+  return builtinLanguageProfileId(language, 'in-layout')
 }
 
-/** Keep column and layer visibility, and replace the stored language pair. */
-export function hostLegendWithMap(
+export function reservedProfileName(name: string): boolean {
+  const key = name.toLocaleLowerCase('ru')
+  return reservedHostProfileNames().some(
+    reserved => reserved.toLocaleLowerCase('ru') === key
+  )
+}
+
+/** Keep column and layer visibility, and replace one language column. */
+export function hostLegendWithLayout(
   current: HostLegendView,
-  map: HostProfileMap,
-  source: HostLegendView['source']
+  language: HostLanguageId,
+  layoutId: string
 ): HostLegendView {
-  return {
-    ...current,
-    baseId: map.baseId,
-    secondId: map.secondId,
-    source
-  }
+  return assignHostLanguageLayout(current, language, layoutId)
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -100,9 +117,12 @@ function openDb(): Promise<IDBDatabase> {
     const request = indexedDB.open(DB_NAME, DB_VERSION)
     request.onerror = () => reject(request.error ?? new Error('IDB open failed'))
     request.onsuccess = () => resolve(request.result)
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = event => {
       const db = request.result
       if (!db.objectStoreNames.contains(PROFILES_STORE)) {
+        db.createObjectStore(PROFILES_STORE, { keyPath: 'id' })
+      } else if (event.oldVersion < 2) {
+        db.deleteObjectStore(PROFILES_STORE)
         db.createObjectStore(PROFILES_STORE, { keyPath: 'id' })
       }
       if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
@@ -127,13 +147,27 @@ function txDone(tx: IDBTransaction): Promise<void> {
   })
 }
 
+function isLanguageProfile(row: unknown): row is HostProfile {
+  if (!row || typeof row !== 'object') return false
+  const item = row as HostProfile
+  return (
+    typeof item.id === 'string' &&
+    typeof item.name === 'string' &&
+    (item.language === 'en' ||
+      item.language === 'ru' ||
+      item.language === 'uk' ||
+      item.language === 'de') &&
+    typeof item.layoutId === 'string'
+  )
+}
+
 export async function loadHostProfiles(): Promise<HostProfile[]> {
   const db = await openDb()
   try {
     const tx = db.transaction(PROFILES_STORE, 'readonly')
     const rows = await idbRequest(tx.objectStore(PROFILES_STORE).getAll())
     await txDone(tx)
-    return (rows as HostProfile[]).filter(row => row?.id && row.name && row.map)
+    return (rows as unknown[]).filter(isLanguageProfile)
   } finally {
     db.close()
   }
@@ -154,11 +188,9 @@ export async function saveHostProfile(profile: HostProfile): Promise<void> {
   const record: HostProfile = {
     id: profile.id,
     name: profile.name,
-    updatedAt: profile.updatedAt,
-    map: {
-      baseId: profile.map.baseId,
-      secondId: profile.map.secondId
-    }
+    language: profile.language,
+    layoutId: profile.layoutId,
+    updatedAt: profile.updatedAt
   }
   const db = await openDb()
   try {
@@ -170,25 +202,40 @@ export async function saveHostProfile(profile: HostProfile): Promise<void> {
   }
 }
 
-export async function loadActiveHostProfileId(): Promise<string> {
+export async function loadActiveLanguageProfiles(): Promise<ActiveLanguageProfiles> {
+  const defaults = defaultActiveLanguageProfiles()
   const db = await openDb()
   try {
     const tx = db.transaction(SETTINGS_STORE, 'readonly')
-    const row = await idbRequest<ActiveSetting | undefined>(
+    const row = await idbRequest<Partial<ActiveSetting> | undefined>(
       tx.objectStore(SETTINGS_STORE).get(ACTIVE_SETTING_ID)
     )
     await txDone(tx)
-    return row?.profileId || STANDARD_HOST_PROFILE_ID
+    if (!row) return defaults
+    return {
+      en: typeof row.en === 'string' ? row.en : defaults.en,
+      ru: typeof row.ru === 'string' ? row.ru : defaults.ru,
+      uk: typeof row.uk === 'string' ? row.uk : defaults.uk,
+      de: typeof row.de === 'string' ? row.de : defaults.de
+    }
   } finally {
     db.close()
   }
 }
 
-export async function saveActiveHostProfileId(profileId: string): Promise<void> {
+export async function saveActiveLanguageProfiles(
+  active: ActiveLanguageProfiles
+): Promise<void> {
   const db = await openDb()
   try {
     const tx = db.transaction(SETTINGS_STORE, 'readwrite')
-    const record: ActiveSetting = { id: ACTIVE_SETTING_ID, profileId }
+    const record: ActiveSetting = {
+      id: ACTIVE_SETTING_ID,
+      en: active.en,
+      ru: active.ru,
+      uk: active.uk,
+      de: active.de
+    }
     await idbRequest(tx.objectStore(SETTINGS_STORE).put(record))
     await txDone(tx)
   } finally {
@@ -207,3 +254,5 @@ export async function clearHostProfileStore(): Promise<void> {
     db.close()
   }
 }
+
+export type { HostLanguageId, HostLayoutKind }

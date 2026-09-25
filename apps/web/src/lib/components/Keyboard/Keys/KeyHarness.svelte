@@ -2,10 +2,10 @@
   import {
     getBehaviorCatalog,
     getKeycodeCatalog,
-    layerLegendSymbol
+    layerLegendSymbol,
+    type KeyBindingNode
   } from '@keymap-editor/keymap-core'
   import { setSearchContext, type LegendMode } from '../../../context'
-  import type { HydratedNode } from '../../../hydrate'
   import { buildSearchContext } from '../../../search-context'
   import Key from './Key.svelte'
 
@@ -15,10 +15,10 @@
     value?: string | number
     params?: Array<{ value?: string | number; params?: unknown[] }>
     legendMode?: LegendMode
-    onUpdate?: (bind: {
-      value: string | number | undefined
-      params: HydratedNode[]
-    }) => void
+    keyIndex?: number
+    layerIndex?: number
+    layerBindings?: KeyBindingNode[]
+    onUpdate?: (keyIndex: number, layerIndex: number, binding: KeyBindingNode) => void
   }
 
   let {
@@ -27,6 +27,9 @@
     value = '&kp',
     params = [{ value: 'A', params: [] }],
     legendMode = 'zmk',
+    keyIndex = 0,
+    layerIndex = 0,
+    layerBindings,
     onUpdate = () => {}
   }: Props = $props()
 
@@ -50,4 +53,14 @@
   })
 </script>
 
-<Key {position} {size} {value} {params} {legendMode} {onUpdate} />
+<Key
+  {position}
+  {size}
+  {value}
+  {params}
+  {keyIndex}
+  {layerIndex}
+  {layerBindings}
+  {legendMode}
+  onUpdate={(keyIndex, layerIndex, binding) => onUpdate(keyIndex, layerIndex, binding)}
+/>

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ALT_GR_COLUMN_LABEL,
+  ALT_GR_SHIFT_COLUMN_LABEL,
   modifierHoldLegend,
   modifierRoleGlyph,
   MODIFIER_HOLDS,
@@ -12,7 +14,7 @@ describe('modifierRoleGlyph', () => {
   it('maps every hold role to its TARGET_SYSTEM glyph', () => {
     expect(modifierRoleGlyph('ctrl')).toBe('⌃')
     expect(modifierRoleGlyph('shift')).toBe('⇧')
-    expect(modifierRoleGlyph('alt')).toBe('⌥')
+    expect(modifierRoleGlyph('alt')).toBe('⎇')
     expect(modifierRoleGlyph('gui')).toBe('⌘')
   })
 })
@@ -20,7 +22,9 @@ describe('modifierRoleGlyph', () => {
 describe('modifierHoldLegend', () => {
   it('leaves the left side unmarked and prefixes the right side', () => {
     const legends = MODIFIER_HOLDS.map(hold => modifierHoldLegend(hold))
-    expect(legends).toEqual(['⇧', '⌃', '⌥', '⌘', 'R⇧', 'R⌃', 'R⌥', 'R⌘'])
+    expect(legends).toEqual(['⇧', '⌃', '⎇', '⌘', 'R⇧', 'R⌃', 'R⎇', 'R⌘'])
+    expect(ALT_GR_COLUMN_LABEL).toBe('R⎇')
+    expect(ALT_GR_SHIFT_COLUMN_LABEL).toBe('⇧R⎇')
   })
 })
 

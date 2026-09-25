@@ -1,74 +1,209 @@
 <script lang="ts">
   import {
+    ALT_GR_COLUMN_LABEL,
+    ALT_GR_SHIFT_COLUMN_LABEL,
+    addHostLanguage,
+    encodeKeyBinding,
+    hostLanguageName,
+    hostLanguagesAvailable,
     hostLayoutChoice,
-    hostLayoutChoices,
+    isAddableHostLanguage,
+    hostLayoutChoiceLabel,
+    hostLegendColumns,
+    assignHostLanguageLayout,
+    layoutForBuiltinProfile,
     hostLegendFor,
     hostLegendPreview,
     getKeycodeCatalog,
-    hostLegendView
+    resolveBinding,
+    replaceHostLanguage,
+    removeHostLanguage,
+    setHostColumnAlt,
+    toggleHostLanguage,
+    toggleShownLayer,
+    type HostLanguageId,
+    type HostLegendColumn,
+    type KeyBindingNode
   } from '@keymap-editor/keymap-core'
-  import { editor } from '../editor.svelte.js'
+  import { editor, hostLegendAnchorIndex } from '../editor.svelte.js'
+  import { layoutIdForProfile } from '../host-profiles.js'
   import EyeToggle from './EyeToggle.svelte'
+  import HostProfileBar from './HostProfileBar.svelte'
+  import HostProfileMenu from './HostProfileMenu.svelte'
+  import Icon from './Common/Icon.svelte'
 
   const view = $derived(editor.hostLegend)
-  const base = $derived(hostLayoutChoice(view.baseId))
-  const secondId = $derived(
-    view.secondId ?? hostLayoutChoices.find(choice => choice.id !== view.baseId)?.id ?? view.baseId
-  )
-  const second = $derived(hostLayoutChoice(secondId))
-  const baseOn = $derived(view.baseVisible !== false)
-  const secondOn = $derived(view.secondId != null && view.secondVisible !== false)
-  const layers = $derived(view.layers ?? [true, true, true, true])
-  const letter = $derived(hostLegendFor('E', view))
+  const columns = $derived(hostLegendColumns(view))
+  const addable = $derived(hostLanguagesAvailable(view))
+  const markedLayers = $derived(view.shownLayers ?? [0, 1, 2, 3])
+  const layerNames = $derived(editor.hostLegendLayerNames)
+  const anchorIndex = $derived(hostLegendAnchorIndex(editor.draftKeymap))
   const keycodes = $derived(getKeycodeCatalog().byCode)
+
+  let hovered = $state(false)
+  let pinned = $state(false)
+  let focused = $state(false)
+  let openProfile = $state<HostLanguageId | null>(null)
+  let pickingNew = $state(false)
+  let pickingFor = $state<HostLanguageId | null>(null)
+  let renamingIndex = $state<number | null>(null)
+  let editing = $state('')
+  let pendingDelete = $state<{ index: number; name: string } | null>(null)
+  let stripEl: HTMLDivElement | undefined = $state()
+  const busy = $derived(renamingIndex != null || pendingDelete != null)
+  const open = $derived(hovered || pinned || focused || busy)
+
+  type LayerRow = {
+    index: number
+    name: string
+    marked: boolean
+    binding: KeyBindingNode | undefined
+  }
+
+  const allRows = $derived(
+    layerNames.map((name, index): LayerRow => ({
+      index,
+      name,
+      marked: markedLayers.includes(index),
+      binding: editor.draftKeymap?.layers[index]?.[anchorIndex]
+    }))
+  )
+  const collapsedRows = $derived(allRows.filter(row => row.marked))
+  const visibleRows = $derived(open ? allRows : collapsedRows)
 
   function keycodeName(code: string) {
     const aliases = keycodes[code]?.aliases ?? [code]
     return aliases.reduce((best, name) => (name.length > best.length ? name : best))
   }
 
-  function chooseBase(id: string) {
-    void editor.commitHostMap(hostLegendView(view, { baseId: id }))
+  function bindingTap(node: KeyBindingNode | undefined): string | null {
+    if (!node) return null
+    return resolveBinding(node).tap
   }
 
-  function chooseSecond(id: string) {
-    void editor.commitHostMap(hostLegendView(view, { secondId: id }))
+  function zmkCell(node: KeyBindingNode | undefined): string {
+    const tap = bindingTap(node)
+    if (tap) return keycodeName(tap)
+    return node ? encodeKeyBinding(node) : ''
   }
 
-  function toggleBase() {
-    editor.hostLegend = hostLegendPreview(view, { baseVisible: !baseOn })
+  function activeProfileLabel(language: HostLanguageId): string {
+    const id = editor.activeProfileId(language)
+    const builtin = layoutForBuiltinProfile(id)
+    if (builtin) return hostLayoutChoiceLabel(builtin)
+    return editor.profilesForLanguage(language).find(profile => profile.id === id)?.name ?? ''
   }
 
-  function toggleSecond() {
-    if (secondOn) {
-      editor.hostLegend = hostLegendPreview(view, { secondVisible: false })
-      return
-    }
-    if (view.secondId) {
-      editor.hostLegend = hostLegendPreview(view, { secondVisible: true })
-      return
-    }
-    void editor.commitHostMap(
-      hostLegendPreview(hostLegendView(view, { secondId: secondId }), {
-        secondVisible: true
-      })
+  function toggleLanguage(language: HostLanguageId) {
+    void editor.commitHostMap(toggleHostLanguage(view, language))
+  }
+
+  function applyLanguage(language: HostLanguageId, next: ReturnType<typeof addHostLanguage>) {
+    const stored = layoutIdForProfile(
+      editor.activeProfileId(language),
+      editor.hostProfiles
     )
+    if (stored) next = assignHostLanguageLayout(next, language, stored)
+    pickingNew = false
+    pickingFor = null
+    void editor.commitHostMap(next)
+  }
+
+  function addLanguage(language: HostLanguageId) {
+    applyLanguage(language, addHostLanguage(view, language))
+  }
+
+  const REMOVE_LANGUAGE = '__remove__'
+
+  function languageChoices(): HostLanguageId[] {
+    return hostLanguagesAvailable(view)
+  }
+
+  function startAddLanguage() {
+    if (addable.length === 0) return
+    pickingNew = true
+    pickingFor = null
+    openProfile = null
+  }
+
+  function pickNewLanguage(value: string) {
+    if (!isAddableHostLanguage(value)) return
+    addLanguage(value)
+  }
+
+  function toggleLanguagePicker(column: HostLegendColumn) {
+    if (!isAddableHostLanguage(column.language)) return
+    if (!column.wide) void editor.commitHostMap(toggleHostLanguage(view, column.language))
+    pickingNew = false
+    pickingFor = pickingFor === column.language ? null : column.language
+    openProfile = null
+  }
+
+  function changeLanguage(from: HostLanguageId, value: string) {
+    if (value === REMOVE_LANGUAGE) {
+      pickingNew = false
+      pickingFor = null
+      void editor.commitHostMap(removeHostLanguage(view, from))
+      return
+    }
+    if (!isAddableHostLanguage(value) || value === from) {
+      pickingFor = null
+      return
+    }
+    applyLanguage(value, replaceHostLanguage(view, from, value))
+  }
+
+  function focusSelect(node: HTMLSelectElement) {
+    node.focus()
   }
 
   function toggleLayer(index: number) {
-    const next: [boolean, boolean, boolean, boolean] = [...layers]
-    next[index] = !next[index]
-    editor.hostLegend = hostLegendPreview(view, { layers: next })
+    if (index === 0) {
+      editor.hostLegend = hostLegendPreview(view, { layer0Raw: !view.layer0Raw })
+      return
+    }
+    editor.hostLegend = toggleShownLayer(view, index)
   }
 
-  function toggleAlt(field: 'altGr' | 'altGrShift') {
-    editor.hostLegend = hostLegendPreview(view, { [field]: !view[field] })
+  function toggleAlt(language: HostLanguageId, field: 'altGr' | 'altGrShift', on: boolean) {
+    editor.hostLegend = setHostColumnAlt(view, language, field, !on)
   }
 
-  function closeDetails(event: Event) {
-    const root = (event.currentTarget as HTMLElement).closest('details')
-    if (root) root.open = false
+  function columnPair(column: HostLegendColumn, tap: string | null): string {
+    if (!tap) return ''
+    const legend = hostLegendFor(tap, {
+      ...view,
+      baseId: column.layoutId,
+      secondId: null,
+      baseVisible: true,
+      altGr: true,
+      altGrShift: true
+    })
+    return legend ? `${legend.en[0]}${legend.en[1]}` : ''
   }
+
+  function columnAlt(
+    column: HostLegendColumn,
+    tap: string | null,
+    field: 'altGr' | 'altGrShift'
+  ): string {
+    if (!tap || !column[field]) return ''
+    const legend = hostLegendFor(tap, {
+      ...view,
+      baseId: column.layoutId,
+      secondId: null,
+      baseVisible: true,
+      altGr: true,
+      altGrShift: true
+    })
+    return legend?.[field] ?? ''
+  }
+
+  const columnCount = $derived(
+    2 +
+      columns.reduce((count, column) => count + (column.wide ? 3 : 1), 0) +
+      (addable.length || pickingNew ? 1 : 0)
+  )
 
   function hoverLayer(layer: number) {
     editor.legendHover = { kind: 'layer', layer }
@@ -81,166 +216,411 @@
   function clearHover() {
     editor.legendHover = null
   }
+
+  function handleFocusOut(event: FocusEvent) {
+    const root = event.currentTarget as HTMLElement
+    const next = event.relatedTarget
+    if (next instanceof Node && root.contains(next)) return
+    focused = false
+  }
+
+  function handleMouseLeave() {
+    hovered = false
+    if (pinned || busy) return
+    focused = false
+    const active = document.activeElement
+    if (active instanceof HTMLElement && stripEl?.contains(active)) active.blur()
+  }
+
+  function cancelRename() {
+    renamingIndex = null
+    editing = ''
+  }
+
+  function finishRename() {
+    if (renamingIndex == null) return
+    const index = renamingIndex
+    const name = editing
+    cancelRename()
+    editor.renameLayer(index, name)
+  }
+
+  function startRename(event: MouseEvent, index: number) {
+    event.stopPropagation()
+    pendingDelete = null
+    renamingIndex = index
+    editing = layerNames[index] ?? ''
+  }
+
+  function requestDelete(event: MouseEvent, index: number, name: string) {
+    event.stopPropagation()
+    cancelRename()
+    pendingDelete = { index, name }
+  }
+
+  function confirmDelete() {
+    if (!pendingDelete) return
+    const index = pendingDelete.index
+    pendingDelete = null
+    editor.deleteLayer(index)
+  }
+
+  function cancelDelete() {
+    pendingDelete = null
+  }
+
+  function focusInput(node: HTMLInputElement) {
+    node.focus()
+    node.select()
+  }
+
+  function onRenameKey(event: KeyboardEvent) {
+    if (event.key === 'Enter') finishRename()
+    if (event.key === 'Escape') {
+      event.stopPropagation()
+      cancelRename()
+    }
+  }
+
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key !== 'Escape') return
+    if (pickingNew || pickingFor) {
+      pickingNew = false
+      pickingFor = null
+      event.stopPropagation()
+      return
+    }
+    if (renamingIndex != null) {
+      cancelRename()
+      event.stopPropagation()
+      return
+    }
+    if (pendingDelete) {
+      cancelDelete()
+      event.stopPropagation()
+      return
+    }
+    pinned = false
+    hovered = false
+  }
+
+  $effect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!stripEl || stripEl.contains(event.target as Node)) return
+      cancelRename()
+      cancelDelete()
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  })
+
+  function togglePinned(event: MouseEvent) {
+    event.stopPropagation()
+    pinned = !pinned
+  }
 </script>
 
-<div class="host-legend-strip" aria-label="Host legend">
+{#snippet languageHead(column: HostLegendColumn, interactive: boolean)}
+  {@const choice = hostLayoutChoice(column.layoutId)}
+  {@const language = column.language}
+  {@const extra = isAddableHostLanguage(language)}
+  {@const choosing = pickingFor === language}
+  <div class="lang-head" class:narrow={!column.wide && !choosing}>
+    {#if interactive}
+      <EyeToggle
+        on={column.shown}
+        label={column.shown ? `Скрыть ${choice?.languageName ?? language}` : `Показать ${choice?.languageName ?? language}`}
+        onclick={() => toggleLanguage(language)}
+      />
+      {#if extra}
+        <button
+          type="button"
+          class="lang-flag"
+          title={choice?.languageName ?? language}
+          aria-label={`Язык ${choice?.languageName ?? language}`}
+          aria-expanded={choosing}
+          onclick={() => toggleLanguagePicker(column)}
+        >
+          {choice?.flag ?? '—'}
+        </button>
+      {:else}
+        <span class="lang-flag" title={choice?.languageName ?? language}>{choice?.flag ?? '—'}</span>
+      {/if}
+      <div class="lang-tools" hidden={!column.wide && !choosing}>
+        {#if choosing}
+          <select
+            use:focusSelect
+            class="language-select"
+            aria-label="Язык"
+            value=""
+            onchange={event => changeLanguage(language, event.currentTarget.value)}
+          >
+            <option value="" disabled hidden></option>
+            <option value={REMOVE_LANGUAGE}>Убрать язык</option>
+            {#each languageChoices() as option (option)}
+              <option value={option}>{hostLanguageName(option)}</option>
+            {/each}
+          </select>
+        {/if}
+        {#if column.wide}
+          <HostProfileMenu
+            {language}
+            languageName={choice?.languageName ?? language}
+            open={openProfile === language}
+            onToggle={() => {
+              openProfile = openProfile === language ? null : language
+            }}
+            onClose={() => {
+              if (openProfile === language) openProfile = null
+            }}
+          />
+        {/if}
+      </div>
+    {:else}
+      <span class="eye-spacer"></span>
+      <span class="lang-flag">{choice?.flag ?? '—'}</span>
+      {#if column.wide}
+        <span class="profile-name">{activeProfileLabel(language)}</span>
+      {/if}
+    {/if}
+  </div>
+{/snippet}
+
+{#snippet altHead(column: HostLegendColumn, field: 'altGr' | 'altGrShift', label: string, name: string, interactive: boolean)}
+  <th
+    class:off={!column[field]}
+    onmouseenter={interactive ? () => hoverAlt(field) : undefined}
+    onmouseleave={interactive ? clearHover : undefined}
+  >
+    {#if interactive}
+      <button
+        type="button"
+        class="col-toggle"
+        class:on={column[field]}
+        aria-label={name}
+        title={name}
+        onclick={() => toggleAlt(column.language, field, column[field])}
+      >
+        {label}
+      </button>
+    {:else}
+      {label}
+    {/if}
+  </th>
+{/snippet}
+
+{#snippet legendTable(rows: LayerRow[], interactive: boolean)}
   <table>
     <thead>
       <tr>
-        <th></th>
+        <th>
+          {#if interactive}
+            <button
+              type="button"
+              class="layer-disclosure"
+              class:on={open}
+              aria-expanded={open}
+              aria-pressed={pinned}
+              aria-controls="host-legend-layers"
+              aria-label="Show all layers"
+              onclick={togglePinned}
+            >
+              {open ? '▾' : '▸'}
+            </button>
+          {/if}
+        </th>
         <th>ZMK keycode</th>
-        <th class:off={!baseOn}>
-          <div class="lang-head">
-            <EyeToggle on={baseOn} label="Показать первый язык" onclick={toggleBase} />
-            <details class="lang-pick">
-              <summary aria-label="First language">{base?.flag ?? '—'}</summary>
-              <div class="menu" role="listbox">
-                {#each hostLayoutChoices as choice (choice.id)}
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={choice.id === view.baseId}
-                    disabled={choice.id === secondId}
-                    onclick={event => {
-                      chooseBase(choice.id)
-                      closeDetails(event)
-                    }}
-                  >
-                    {choice.flag}
-                    {choice.language}
-                    ·
-                    {choice.layoutName}
-                  </button>
+        {#each columns as column (column.language)}
+          <th class:off={!column.shown} class:narrow={!column.wide}>
+            {@render languageHead(column, interactive)}
+          </th>
+          {#if column.wide}
+            {@render altHead(column, 'altGr', ALT_GR_COLUMN_LABEL, 'AltGr', interactive)}
+            {@render altHead(column, 'altGrShift', ALT_GR_SHIFT_COLUMN_LABEL, 'AltGr+Shift', interactive)}
+          {/if}
+        {/each}
+        {#if interactive && pickingNew}
+          <th class="add-language-cell">
+            <div class="lang-head">
+              <select
+                use:focusSelect
+                class="language-select"
+                aria-label="Язык"
+                value=""
+                onchange={event => pickNewLanguage(event.currentTarget.value)}
+              >
+                <option value="" disabled>Язык</option>
+                {#each languageChoices() as option (option)}
+                  <option value={option}>{hostLanguageName(option)}</option>
                 {/each}
-              </div>
-            </details>
-          </div>
-        </th>
-        <th class:off={!secondOn}>
-          <div class="lang-head">
-            <EyeToggle on={secondOn} label="Показать второй язык" onclick={toggleSecond} />
-            <details class="lang-pick">
-              <summary aria-label="Second language">{second?.flag ?? '—'}</summary>
-              <div class="menu" role="listbox">
-                {#each hostLayoutChoices as choice (choice.id)}
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={choice.id === secondId}
-                    disabled={choice.id === view.baseId}
-                    onclick={event => {
-                      chooseSecond(choice.id)
-                      closeDetails(event)
-                    }}
-                  >
-                    {choice.flag}
-                    {choice.language}
-                    ·
-                    {choice.layoutName}
-                  </button>
-                {/each}
-              </div>
-            </details>
-          </div>
-        </th>
-        <th class:off={!view.altGr} onmouseenter={() => hoverAlt('altGr')} onmouseleave={clearHover}>
-          <button
-            type="button"
-            class="col-toggle"
-            class:on={view.altGr}
-            onclick={() => toggleAlt('altGr')}
-          >
-            AltGr
-          </button>
-        </th>
-        <th
-          class:off={!view.altGrShift}
-          onmouseenter={() => hoverAlt('altGrShift')}
-          onmouseleave={clearHover}
-        >
-          <button
-            type="button"
-            class="col-toggle"
-            class:on={view.altGrShift}
-            onclick={() => toggleAlt('altGrShift')}
-          >
-            AltGr+Shift
-          </button>
-        </th>
+              </select>
+            </div>
+          </th>
+        {:else if interactive && addable.length > 0}
+          <th class="add-language-cell">
+            <button
+              type="button"
+              class="add-language"
+              aria-label="Добавить язык"
+              title="Добавить язык"
+              onclick={startAddLanguage}
+            >
+              +
+            </button>
+          </th>
+        {/if}
       </tr>
     </thead>
-    <tbody>
-      <tr class:off={!layers[0]} onmouseenter={() => hoverLayer(0)} onmouseleave={clearHover}>
-        <th scope="row">
-          <div class="row-head">
-            <EyeToggle on={layers[0]} label="Показать layer0" onclick={() => toggleLayer(0)} />
-            layer0
-          </div>
-        </th>
-        <td class="zmk">{keycodeName('E')}</td>
-        <td>{letter ? `${letter.en[0]}${letter.en[1]}` : 'eE'}</td>
-        <td class="second" class:off={!secondOn}>
-          {letter?.second ? `${letter.second[0]}${letter.second[1]}` : ''}
-        </td>
-        <td class="alt" class:off={!view.altGr}>{view.altGr ? (letter?.altGr ?? '') : ''}</td>
-        <td class="alt" class:off={!view.altGrShift}>
-          {view.altGrShift ? (letter?.altGrShift ?? '') : ''}
-        </td>
-      </tr>
-      <tr class:off={!layers[1]} onmouseenter={() => hoverLayer(1)} onmouseleave={clearHover}>
-        <th scope="row">
-          <div class="row-head">
-            <EyeToggle on={layers[1]} label="Показать layer1" onclick={() => toggleLayer(1)} />
-            layer1
-          </div>
-        </th>
-        <td class="zmk">{keycodeName('KP_N8')}</td>
-        <td>8</td>
-        <td class:off={!secondOn}></td>
-        <td class:off={!view.altGr}></td>
-        <td class:off={!view.altGrShift}></td>
-      </tr>
-      <tr class:off={!layers[2]} onmouseenter={() => hoverLayer(2)} onmouseleave={clearHover}>
-        <th scope="row">
-          <div class="row-head">
-            <EyeToggle on={layers[2]} label="Показать layer2" onclick={() => toggleLayer(2)} />
-            layer2
-          </div>
-        </th>
-        <td class="zmk">{keycodeName('F8')}</td>
-        <td>F8</td>
-        <td class:off={!secondOn}></td>
-        <td class:off={!view.altGr}></td>
-        <td class:off={!view.altGrShift}></td>
-      </tr>
-      <tr class:off={!layers[3]} onmouseenter={() => hoverLayer(3)} onmouseleave={clearHover}>
-        <th scope="row">
-          <div class="row-head">
-            <EyeToggle on={layers[3]} label="Показать layer3" onclick={() => toggleLayer(3)} />
-            layer3
-          </div>
-        </th>
-        <td class="zmk">{keycodeName('SLCK')}</td>
-        <td>SLCK</td>
-        <td class:off={!secondOn}></td>
-        <td class:off={!view.altGr}></td>
-        <td class:off={!view.altGrShift}></td>
-      </tr>
+    <tbody id={interactive ? 'host-legend-layers' : undefined}>
+      {#each rows as row (row.index)}
+        {@const tap = bindingTap(row.binding)}
+        <tr
+          data-layer={row.index}
+          class:off={!row.marked}
+          class:raw={row.index === 0 && view.layer0Raw}
+          onmouseenter={interactive ? () => hoverLayer(row.index) : undefined}
+          onmouseleave={interactive ? clearHover : undefined}
+        >
+          <th scope="row">
+            <div class="row-head">
+              {#if interactive}
+                <EyeToggle
+                  on={row.index === 0 ? !view.layer0Raw : row.marked}
+                  label={
+                    row.index === 0
+                      ? `Показать host-легенду ${row.name}`
+                      : `Показать ${row.name}`
+                  }
+                  onclick={() => toggleLayer(row.index)}
+                />
+                {#if renamingIndex === row.index}
+                  <input
+                    use:focusInput
+                    class="name layer-name"
+                    value={editing}
+                    oninput={event => (editing = event.currentTarget.value)}
+                    onkeydown={onRenameKey}
+                  />
+                {:else}
+                  <button
+                    type="button"
+                    class="layer-name"
+                    onclick={event => startRename(event, row.index)}
+                  >
+                    {row.name}
+                  </button>
+                {/if}
+                {#if layerNames.length > 1}
+                  <Icon
+                    name="times-circle"
+                    class="delete"
+                    title={`Delete layer ${row.name}`}
+                    onclick={event => requestDelete(event, row.index, row.name)}
+                  />
+                {/if}
+              {:else}
+                <span class="eye-spacer"></span>
+                {row.name}
+              {/if}
+            </div>
+          </th>
+          <td class="zmk">{zmkCell(row.binding)}</td>
+          {#each columns as column (column.language)}
+            <td class:second={column.language !== 'en'} class:off={!column.shown} class:narrow={!column.wide}>
+              {column.wide ? columnPair(column, tap) : ''}
+            </td>
+            {#if column.wide}
+              <td class="alt" class:off={!column.altGr}>{columnAlt(column, tap, 'altGr')}</td>
+              <td class="alt" class:off={!column.altGrShift}>
+                {columnAlt(column, tap, 'altGrShift')}
+              </td>
+            {/if}
+          {/each}
+          {#if interactive && (pickingNew || addable.length > 0)}
+            <td></td>
+          {/if}
+        </tr>
+      {/each}
     </tbody>
+    {#if interactive && open}
+      <tfoot>
+        <tr>
+          <th colspan={columnCount}>
+            <button type="button" class="add-layer" onclick={() => editor.addLayer()}>
+              Add Layer
+            </button>
+          </th>
+        </tr>
+      </tfoot>
+    {/if}
   </table>
+{/snippet}
+
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<div
+  bind:this={stripEl}
+  class="host-legend-strip"
+  class:expanded={open}
+  class:pinned
+  role="region"
+  aria-label="Host legend"
+  onmouseenter={() => (hovered = true)}
+  onmouseleave={handleMouseLeave}
+  onfocusin={() => (focused = true)}
+  onfocusout={handleFocusOut}
+  onkeydown={handleKeydown}
+>
+  <div class="legend-sizer" aria-hidden="true" inert>
+    {@render legendTable(collapsedRows, false)}
+  </div>
+  <div class="legend-panel" style="position: absolute">
+    {@render legendTable(visibleRows, true)}
+    <HostProfileBar />
+    {#if pendingDelete}
+      <div class="delete-confirm" role="alertdialog" aria-label="Delete layer">
+        <p>Delete layer {pendingDelete.name}?</p>
+        <div class="delete-confirm-actions">
+          <button type="button" class="confirm-delete" onclick={confirmDelete}>
+            Delete
+          </button>
+          <button type="button" class="cancel-delete" onclick={cancelDelete}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    {/if}
+  </div>
 </div>
 
 <style>
   .host-legend-strip {
+    position: relative;
+    z-index: 4;
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
     gap: 16px 24px;
     width: max-content;
-    max-width: 100%;
     padding: 6px 4px 2px;
     font-size: 13px;
     color: #444;
+  }
+
+  .legend-sizer {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .legend-panel {
+    position: absolute;
+    top: 6px;
+    left: 4px;
+    z-index: 4;
+    background: var(--page-bg, #fff);
+  }
+
+  .host-legend-strip.expanded .legend-panel {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
   }
 
   table {
@@ -287,75 +667,95 @@
     opacity: 0.4;
   }
 
+  tr.raw td:not(.zmk) {
+    opacity: 0.4;
+  }
+
   .lang-head,
   .row-head {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
   }
 
-  .lang-pick {
-    position: relative;
+  .lang-head.narrow,
+  th.narrow,
+  td.narrow {
+    min-width: 0;
+    width: 1%;
   }
 
-  .lang-pick summary {
-    list-style: none;
-    cursor: pointer;
+  .lang-tools {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .lang-tools[hidden] {
+    display: none;
+  }
+
+  .language-select {
+    max-width: 7.5rem;
+    min-height: 24px;
     padding: 1px 4px;
+    font: inherit;
+    font-size: 12px;
+  }
+
+  .add-language-cell {
+    width: 1%;
+  }
+
+  .add-language {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px dashed #1d6f8a;
     border-radius: 4px;
+    background: #fff;
+    color: #1d6f8a;
+    font: inherit;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .add-language:hover {
+    background: rgba(29, 111, 138, 0.08);
+  }
+
+  .lang-flag {
     font-size: 16px;
     line-height: 1.2;
   }
 
-  .lang-pick summary::-webkit-details-marker {
-    display: none;
-  }
-
-  .lang-pick summary:hover {
-    background: rgba(0, 0, 0, 0.06);
-  }
-
-  .menu {
-    position: absolute;
-    z-index: 6;
-    top: calc(100% + 4px);
-    left: 0;
-    display: flex;
-    flex-direction: column;
-    min-width: 12em;
-    padding: 4px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    background: #fff;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-  }
-
-  .menu button {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+  button.lang-flag {
     margin: 0;
-    padding: 4px 8px;
+    padding: 0;
     border: 0;
-    border-radius: 4px;
     background: transparent;
-    color: #333;
+    color: inherit;
     font: inherit;
-    font-size: 13px;
-    text-align: left;
+    font-size: 16px;
+    line-height: 1.2;
     cursor: pointer;
   }
 
-  .menu button:hover:not(:disabled) {
-    background: #f3f3f3;
+  .profile-name {
+    font-size: 12px;
+    color: #666;
   }
 
-  .menu button:disabled {
-    opacity: 0.4;
-    cursor: default;
+  .eye-spacer {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    padding: 1px;
   }
 
-  .col-toggle {
+  .col-toggle,
+  .layer-disclosure {
     margin: 0;
     padding: 1px 6px;
     border: 1px solid #ccc;
@@ -367,9 +767,105 @@
     cursor: pointer;
   }
 
-  .col-toggle.on {
+  .col-toggle.on,
+  .layer-disclosure.on {
     background: #fff;
     border-color: #1d6f8a;
+    color: #333;
+  }
+
+  .layer-name {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: text;
+  }
+
+  input.layer-name {
+    width: 8em;
+    padding: 0 2px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    background: #fff;
+    color: #222;
+    cursor: text;
+  }
+
+  .row-head :global(.delete) {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    color: #999;
+    cursor: pointer;
+  }
+
+  .row-head :global(.delete:hover) {
+    color: #c0392b;
+  }
+
+  .add-layer {
+    margin: 0;
+    padding: 1px 0;
+    border: 0;
+    background: transparent;
+    color: #1d6f8a;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .add-layer:hover {
+    text-decoration: underline;
+  }
+
+  tfoot th {
+    font-weight: 400;
+  }
+
+  .delete-confirm {
+    position: absolute;
+    top: calc(100% - 2px);
+    left: 0;
+    z-index: 5;
+    margin: 0;
+    padding: 10px 12px;
+    width: 180px;
+    background: #fff;
+    color: #222;
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+  }
+
+  .delete-confirm p {
+    margin: 0 0 8px;
+    font-size: 90%;
+  }
+
+  .delete-confirm-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .delete-confirm button {
+    flex: 1;
+    height: 26px;
+    border: none;
+    border-radius: 13px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 85%;
+  }
+
+  .confirm-delete {
+    background: #c0392b;
+    color: #fff;
+  }
+
+  .cancel-delete {
+    background: #ddd;
     color: #333;
   }
 </style>

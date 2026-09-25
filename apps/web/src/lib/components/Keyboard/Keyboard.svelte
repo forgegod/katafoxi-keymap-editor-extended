@@ -18,7 +18,6 @@
   } from '../../context'
   import { buildSearchContext } from '../../search-context'
   import { getKeyBoundingBox } from '../../key-units'
-  import LayerSelector from './LayerSelector.svelte'
   import KeyboardLayout from './KeyboardLayout.svelte'
 
   interface Props {
@@ -30,11 +29,9 @@
     legendHover?: LegendHover | null
   }
 
-  let { layout, keymap, onUpdate, legendMode = 'zmk', hostView, legendHover = null }: Props =
+  let { layout, keymap, onUpdate, legendMode = 'composed', hostView, legendHover = null }: Props =
     $props()
 
-  let activeLayer = $state<number | 'all'>(0)
-  let lastNumericLayer = $state(0)
   const definitionsBox = getDefinitionsContext()
   const definitions = $derived(definitionsBox.current)
 
@@ -185,17 +182,6 @@
     return indexes
   }
 
-  function handleCreateLayer() {
-    const layer = keymap.layers.length
-    const makeKeycode = (): KeyBindingNode => ({ value: '&trans', params: [] })
-    const newLayer = Array.from({ length: layout.length }, makeKeycode)
-    onUpdate({
-      ...keymap,
-      layer_names: [...layerNames, `Layer #${layer}`],
-      layers: [...keymap.layers, newLayer]
-    })
-  }
-
   function handleUpdateLayer(
     layerIndex: number,
     updatedLayer: KeyBindingNode[]
@@ -208,55 +194,24 @@
     onUpdate({ ...keymap, layers })
   }
 
-  $effect(() => {
-    if (legendMode === 'composed') {
-      activeLayer = 'all'
-    } else {
-      activeLayer = lastNumericLayer
-    }
-  })
-
-  function selectLayer(layer: number | 'all') {
-    if (layer !== 'all') lastNumericLayer = layer
-    activeLayer = layer
+  function handleUpdateBinding(
+    keyIndex: number,
+    layerIndex: number,
+    binding: KeyBindingNode
+  ) {
+    const layer = keymap.layers[layerIndex]
+    if (!layer) return
+    if (keyIndex < 0 || keyIndex >= layer.length) return
+    handleUpdateLayer(layerIndex, [
+      ...layer.slice(0, keyIndex),
+      binding,
+      ...layer.slice(keyIndex + 1)
+    ])
   }
 
-  function handleRenameLayer(layerName: string) {
-    if (activeLayer === 'all') return
-    const names = [
-      ...layerNames.slice(0, activeLayer),
-      layerName,
-      ...layerNames.slice(activeLayer + 1)
-    ]
-    onUpdate({ ...keymap, layer_names: names })
-  }
-
-  function handleDeleteLayer(layerIndex: number) {
-    const names = [...layerNames]
-    names.splice(layerIndex, 1)
-    const layers = [...keymap.layers]
-    layers.splice(layerIndex, 1)
-    const last = Math.max(0, layers.length - 1)
-    if (lastNumericLayer > last) lastNumericLayer = last
-    if (activeLayer !== 'all' && activeLayer > last) {
-      activeLayer = last
-      lastNumericLayer = last
-    }
-    onUpdate({ ...keymap, layers, layer_names: names })
-  }
 </script>
 
 <div class="keyboard-root">
-  <LayerSelector
-    layers={layerNames}
-    {activeLayer}
-    showAllLayers={legendMode === 'composed'}
-    onSelect={selectLayer}
-    onNewLayer={handleCreateLayer}
-    onRenameLayer={handleRenameLayer}
-    onDeleteLayer={handleDeleteLayer}
-  />
-
   <div class="keyboard-stage" bind:this={stageEl}>
     {#if topRowEmpty}
       <button
@@ -275,21 +230,16 @@
           <KeyboardLayout
             {layout}
             hidden={hiddenKeys}
-            bindings={
-              activeLayer === 'all'
-                ? keymap.layers[0]
-                : keymap.layers[activeLayer]
-            }
-            layerStack={activeLayer === 'all' ? keymap.layers : undefined}
+            bindings={keymap.layers[0]}
+            layerStack={keymap.layers}
+            layerIndex={0}
             {legendMode}
             {hostView}
             {legendHover}
             {usedKeycodes}
             {usedRevision}
             {usedLayerLabels}
-            onUpdate={event =>
-              handleUpdateLayer(activeLayer === 'all' ? 0 : activeLayer, event)
-            }
+            onUpdate={handleUpdateBinding}
           />
         {/if}
       </div>

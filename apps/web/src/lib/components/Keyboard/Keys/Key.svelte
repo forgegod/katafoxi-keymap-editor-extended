@@ -3,6 +3,7 @@
     behaviorKeycapRole,
     composeKey,
     compactBehaviorLegend,
+    composeLegendDecode,
     legendHoverHit,
     composeLayerRows,
     encodeKeyBinding,
@@ -33,6 +34,7 @@
   import { pick } from '../../../utils'
   import KeyParamlist from './KeyParamlist.svelte'
   import KeyCap from '../../KeyCap.svelte'
+  import LegendDecodeCard from '../../LegendDecodeCard.svelte'
   import './Key.css'
   import Modal from '../../Common/Modal.svelte'
   import KeyEditor from '../../KeyEditor/KeyEditor.svelte'
@@ -44,7 +46,9 @@
     label?: string
     value: string | number
     params?: Array<{ value?: string | number; params?: unknown[] }>
-    onUpdate: (bind: { value: string | number | undefined; params: HydratedNode[] }) => void
+    keyIndex: number
+    layerIndex?: number
+    onUpdate: (keyIndex: number, layerIndex: number, binding: KeyBindingNode) => void
     legendMode?: LegendMode
     hostView?: HostLegendView
     legendHover?: LegendHover | null
@@ -61,6 +65,8 @@
     label,
     value,
     params = [],
+    keyIndex,
+    layerIndex,
     onUpdate,
     legendMode = 'zmk',
     hostView,
@@ -74,9 +80,10 @@
   const searchBox = getSearchContext()
   const search = $derived(searchBox.current)
 
-  let editing = $state<{ slotCodeIndex: number } | null>(null)
-  let draftValue = $state<string | number | null>(null)
-  let draftParamsJson = $state<string | null>(null)
+  let editing = $state<{ rowKey: string; slotCodeIndex: number } | null>(null)
+  let draftByRow = $state<Record<string, { value: string | number; paramsJson: string }>>(
+    {}
+  )
 
   const sources = $derived(search?.sources ?? {})
   const behaviour = $derived(
@@ -84,20 +91,14 @@
   )
   const behaviourParams = $derived(getBehaviourParams(params, behaviour as never))
   const normalized = $derived(hydrateTree(value, params, sources))
+  const activeDraft = $derived(editing ? draftByRow[editing.rowKey] : undefined)
   const working = $derived(
-    draftValue == null && draftParamsJson == null
+    activeDraft == null
       ? normalized
-      : hydrateTree(
-          draftValue ?? '&none',
-          draftParamsJson ? JSON.parse(draftParamsJson) : [],
-          sources
-        )
+      : hydrateTree(activeDraft.value, JSON.parse(activeDraft.paramsJson), sources)
   )
   const workingBehaviourParams = $derived(
-    getBehaviourParams(
-      working.params,
-      lookupBehaviour(draftValue ?? working.value) as never
-    )
+    getBehaviourParams(working.params, lookupBehaviour(working.value) as never)
   )
   const slots = $derived(buildEditorSlots(working, workingBehaviourParams))
   const activeSlot = $derived(
@@ -136,22 +137,24 @@
       params: (working.params ?? []).map(toBindingNode)
     })
   )
-  const canEdit = $derived(legendMode === 'zmk' && !!search)
+  const canEdit = $derived(!!search)
 
   const stacked = $derived(legendMode === 'composed' && (layerBindings?.length ?? 0) > 0)
   const composedRows = $derived.by(() => {
     if (legendMode !== 'composed') return []
     if (stacked && layerBindings) return composeLayerRows(layerBindings, hostView)
+    if (layerIndex == null) return []
     const binding = {
       value,
       params: (params ?? []) as KeyBindingNode[]
     }
     return [
       {
-        layer: 0,
+        layer: layerIndex,
         binding,
         blank: false,
-        hidden: false,
+        raw: false,
+        title: encodeKeyBinding(binding),
         legend: composeKey({ binding, hostView })
       }
     ]
@@ -215,11 +218,29 @@
     }
   }
 
-  function readDraft(): HydratedNode | null {
-    if (draftValue == null && draftParamsJson == null) return null
+  function bindingForLayer(layer: number): KeyBindingNode {
+    const stackedBinding = layerBindings?.[layer]
+    if (stackedBinding) return stackedBinding
     return {
-      value: draftValue ?? undefined,
-      params: draftParamsJson ? JSON.parse(draftParamsJson) : []
+      value,
+      params: (params ?? []) as KeyBindingNode[]
+    }
+  }
+
+  function toKeyBinding(node: HydratedNode): KeyBindingNode {
+    return {
+      value: node.value ?? '&none',
+      params: (node.params ?? []).map(toKeyBinding)
+    }
+  }
+
+  function readDraft(): HydratedNode | null {
+    if (!editing) return null
+    const draft = draftByRow[editing.rowKey]
+    if (!draft) return null
+    return {
+      value: draft.value,
+      params: JSON.parse(draft.paramsJson)
     }
   }
 
@@ -231,30 +252,61 @@
   }
 
   function setDraft(node: HydratedNode, preferIndex: number) {
+    if (!editing) return
     const plain = cloneBindTree(node)
     const nextBehaviour = lookupBehaviour(plain.value)
     const nextParams = getBehaviourParams(plain.params, nextBehaviour as never)
     const hydrated = hydrateTree(plain.value ?? '&none', plain.params, sources)
     const nextSlots = buildEditorSlots(hydrated, nextParams)
-    draftValue = plain.value ?? null
-    draftParamsJson = JSON.stringify(plain.params ?? [])
-    editing = { slotCodeIndex: nextEditorSlot(nextSlots, preferIndex) }
+    draftByRow = {
+      ...draftByRow,
+      [editing.rowKey]: {
+        value: plain.value ?? '&none',
+        paramsJson: JSON.stringify(plain.params ?? [])
+      }
+    }
+    editing = { rowKey: editing.rowKey, slotCodeIndex: nextEditorSlot(nextSlots, preferIndex) }
   }
 
   function closeEditor() {
+    if (editing) {
+      const next = { ...draftByRow }
+      delete next[editing.rowKey]
+      draftByRow = next
+    }
     editing = null
-    draftValue = null
-    draftParamsJson = null
   }
 
-  function openEditor(slotCodeIndex: number) {
+  function firstEditSlot(node: KeyBindingNode): number {
+    const hydrated = hydrateTree(node.value, node.params ?? [], sources)
+    const nextBehaviour = lookupBehaviour(node.value)
+    const nextParams = getBehaviourParams(hydrated.params, nextBehaviour as never)
+    const nextSlots = buildEditorSlots(hydrated, nextParams)
+    const firstValue = nextSlots.find(slot => slot.param !== 'behaviour')
+    const terminal = terminalKeySlot(nextSlots, firstValue?.codeIndex ?? 1)
+    return terminal?.codeIndex ?? firstValue?.codeIndex ?? 0
+  }
+
+  function openEditor(slotCodeIndex: number, fromLayer?: number) {
     if (!canEdit) return
-    if (!editing) {
-      const plain = cloneBindTree(normalized)
-      draftValue = plain.value ?? null
-      draftParamsJson = JSON.stringify(plain.params ?? [])
+    const editingLayer = editing ? Number(editing.rowKey) : undefined
+    const targetLayer =
+      fromLayer ?? (editingLayer != null && Number.isFinite(editingLayer) ? editingLayer : layerIndex)
+    if (targetLayer == null) return
+    const rowKey = String(targetLayer)
+    if (!draftByRow[rowKey]) {
+      const source = bindingForLayer(targetLayer)
+      const plain = cloneBindTree(hydrateTree(source.value, source.params ?? [], sources))
+      draftByRow = {
+        ...draftByRow,
+        [rowKey]: {
+          value: plain.value ?? '&none',
+          paramsJson: JSON.stringify(plain.params ?? [])
+        }
+      }
     }
-    editing = { slotCodeIndex }
+    editing = { rowKey, slotCodeIndex }
+    hideDecode()
   }
 
   function handleSelectCode(event: {
@@ -272,11 +324,50 @@
     openEditor(0)
   }
 
+  function handleRowClick(event: MouseEvent, fromLayer: number) {
+    event.stopPropagation()
+    if (!canEdit) return
+    openEditor(firstEditSlot(bindingForLayer(fromLayer)), fromLayer)
+  }
+
   function handleKeyClick() {
-    if (!canEdit || editing) return
+    if (!canEdit || editing || showStack) return
     const firstValue = slots.find(slot => slot.param !== 'behaviour')
     const terminal = terminalKeySlot(slots, firstValue?.codeIndex ?? 1)
     openEditor(terminal?.codeIndex ?? firstValue?.codeIndex ?? 0)
+  }
+
+  function rowTitle(row: { title: string; binding: KeyBindingNode }): string {
+    return row.title || encodeKeyBinding(row.binding)
+  }
+
+  function rowAriaLabel(row: { layer: number; title: string; binding: KeyBindingNode }): string {
+    const title = rowTitle(row)
+    const code = String(row.binding.value)
+    if (code === '&trans') return `${title}, layer ${row.layer}, passes through`
+    if (code === '&none') return `${title}, layer ${row.layer}, silent`
+    return `${title}, layer ${row.layer}`
+  }
+
+  let decode = $state<{ layer: number; rect: DOMRect } | null>(null)
+  const decodeCard = $derived(
+    decode ? composeLegendDecode(bindingForLayer(decode.layer), hostView) : null
+  )
+  const decodeTooltipId = $derived(
+    decode ? `legend-decode-${keyIndex}-${decode.layer}` : undefined
+  )
+
+  function openDecode(layer: number, target: EventTarget | null) {
+    if (!(target instanceof HTMLElement)) return
+    decode = { layer, rect: target.getBoundingClientRect() }
+  }
+
+  function hideDecode() {
+    decode = null
+  }
+
+  function blankRowMark(binding: KeyBindingNode): string {
+    return String(binding.value) === '&trans' ? '↓' : '∅'
   }
 
   /** Clone bind tree without `source` — those are $state proxies and break structuredClone. */
@@ -333,8 +424,10 @@
 
   function handleConfirm() {
     const current = readDraft()
-    if (!current) return
-    onUpdate(pick(cloneBindTree(current), ['value', 'params']))
+    if (!current || !editing) return
+    const layer = Number(editing.rowKey)
+    if (!Number.isFinite(layer)) return
+    onUpdate(keyIndex, layer, toKeyBinding(pick(cloneBindTree(current), ['value', 'params'])))
     closeEditor()
   }
 </script>
@@ -355,20 +448,33 @@
     .map(([k, v]) => `${k.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`)}:${v}`)
     .join(';')}
   onclick={handleKeyClick}
+  onmouseenter={showComposed && !showStack ? event => openDecode(layerIndex ?? 0, event.currentTarget) : undefined}
+  onmouseleave={showComposed && !showStack ? hideDecode : undefined}
 >
   {#if showStack}
-    <div class="keycap-wrap layer-stack">
+    <div class="keycap-wrap layer-stack" style="--layer-rows: {composedRows.length || 1}">
       {#each composedRows as row (row.layer)}
         {@const hit = rowHoverHit(row.binding)}
-        <div class="layer-slot" data-layer={row.layer}>
-          {#if row.blank || row.hidden}
-            <span class="layer-empty" aria-hidden="true"></span>
+        <button
+          type="button"
+          class="layer-slot"
+          data-layer={row.layer}
+          aria-label={rowAriaLabel(row)}
+          aria-describedby={decode?.layer === row.layer ? decodeTooltipId : undefined}
+          onclick={event => handleRowClick(event, row.layer)}
+          onmouseenter={event => openDecode(row.layer, event.currentTarget)}
+          onmouseleave={hideDecode}
+          onfocus={event => openDecode(row.layer, event.currentTarget)}
+          onblur={hideDecode}
+        >
+          {#if row.blank}
+            <span class="layer-empty" aria-hidden="true">{blankRowMark(row.binding)}</span>
           {:else if row.legend}
             <KeyCap legend={row.legend} mode="composed" stacked {hit} />
           {:else}
             {@const zmk = zmkRowView(row.binding)}
             {@const compact = compactBehaviorLegend(row.binding)}
-            <span class="zmk-row" class:legend-hit={hit === 'combo'} title={zmk.title}>
+            <span class="zmk-row" class:zmk-raw={row.raw} class:legend-hit={hit === 'combo'}>
               {#if compact}
                 {compact}
               {:else}
@@ -386,7 +492,7 @@
               {/if}
             </span>
           {/if}
-        </div>
+        </button>
       {/each}
     </div>
   {:else if showComposed && composedLegend}
@@ -416,6 +522,10 @@
       onSelect={handleSelectCode}
     />
     </span>
+  {/if}
+
+  {#if decode && decodeCard && !editing}
+    <LegendDecodeCard card={decodeCard} anchor={decode.rect} tooltipId={decodeTooltipId ?? ''} />
   {/if}
 
   {#if editing && canEdit && activeSlot}
