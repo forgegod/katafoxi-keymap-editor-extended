@@ -1,13 +1,17 @@
 <script lang="ts">
   import {
+    encodeKeyBinding,
     hostLayoutChoice,
     hostLayoutChoices,
     hostLegendFor,
     hostLegendPreview,
     getKeycodeCatalog,
-    hostLegendView
+    hostLegendView,
+    resolveBinding,
+    toggleShownLayer,
+    type KeyBindingNode
   } from '@keymap-editor/keymap-core'
-  import { editor } from '../editor.svelte.js'
+  import { editor, hostLegendAnchorIndex } from '../editor.svelte.js'
   import EyeToggle from './EyeToggle.svelte'
 
   const view = $derived(editor.hostLegend)
@@ -18,17 +22,48 @@
   const second = $derived(hostLayoutChoice(secondId))
   const baseOn = $derived(view.baseVisible !== false)
   const secondOn = $derived(view.secondId != null && view.secondVisible !== false)
-  const shownLayers = $derived(view.shownLayers ?? [0, 1, 2, 3])
-  const layers = $derived(
-    view.layers ??
-      ([0, 1, 2, 3].map(i => shownLayers.includes(i)) as [boolean, boolean, boolean, boolean])
-  )
-  const letter = $derived(hostLegendFor('E', view))
+  const markedLayers = $derived(view.shownLayers ?? [0, 1, 2, 3])
+  const layerNames = $derived(editor.hostLegendLayerNames)
+  const anchorIndex = $derived(hostLegendAnchorIndex(editor.draftKeymap))
   const keycodes = $derived(getKeycodeCatalog().byCode)
+
+  let hovered = $state(false)
+  let pinned = $state(false)
+  let focused = $state(false)
+  const open = $derived(hovered || pinned || focused)
+
+  type LayerRow = {
+    index: number
+    name: string
+    marked: boolean
+    binding: KeyBindingNode | undefined
+  }
+
+  const allRows = $derived(
+    layerNames.map((name, index): LayerRow => ({
+      index,
+      name,
+      marked: markedLayers.includes(index),
+      binding: editor.draftKeymap?.layers[index]?.[anchorIndex]
+    }))
+  )
+  const collapsedRows = $derived(allRows.filter(row => row.marked))
+  const visibleRows = $derived(open ? allRows : collapsedRows)
 
   function keycodeName(code: string) {
     const aliases = keycodes[code]?.aliases ?? [code]
     return aliases.reduce((best, name) => (name.length > best.length ? name : best))
+  }
+
+  function bindingTap(node: KeyBindingNode | undefined): string | null {
+    if (!node) return null
+    return resolveBinding(node).tap
+  }
+
+  function zmkCell(node: KeyBindingNode | undefined): string {
+    const tap = bindingTap(node)
+    if (tap) return keycodeName(tap)
+    return node ? encodeKeyBinding(node) : ''
   }
 
   function chooseBase(id: string) {
@@ -60,9 +95,8 @@
   }
 
   function toggleLayer(index: number) {
-    const next: [boolean, boolean, boolean, boolean] = [...layers]
-    next[index] = !next[index]
-    editor.hostLegend = hostLegendPreview(view, { layers: next })
+    pinned = true
+    editor.hostLegend = toggleShownLayer(view, index)
   }
 
   function toggleAlt(field: 'altGr' | 'altGrShift') {
@@ -85,157 +119,201 @@
   function clearHover() {
     editor.legendHover = null
   }
+
+  function handleFocusOut(event: FocusEvent) {
+    const root = event.currentTarget as HTMLElement
+    const next = event.relatedTarget
+    if (next instanceof Node && root.contains(next)) return
+    focused = false
+  }
+
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key !== 'Escape') return
+    pinned = false
+    hovered = false
+  }
+
+  function togglePinned(event: MouseEvent) {
+    event.stopPropagation()
+    pinned = !pinned
+  }
 </script>
 
-<div class="host-legend-strip" aria-label="Host legend">
+{#snippet langMenu(
+  selectedId: string,
+  otherId: string,
+  label: string,
+  flag: string,
+  choose: (id: string) => void
+)}
+  <details class="lang-pick">
+    <summary aria-label={label}>{flag}</summary>
+    <div class="menu" role="listbox">
+      {#each hostLayoutChoices as choice (choice.id)}
+        <button
+          type="button"
+          role="option"
+          aria-selected={choice.id === selectedId}
+          disabled={choice.id === otherId}
+          onclick={event => {
+            choose(choice.id)
+            closeDetails(event)
+          }}
+        >
+          {choice.flag}
+          {choice.language}
+          ·
+          {choice.layoutName}
+        </button>
+      {/each}
+    </div>
+  </details>
+{/snippet}
+
+{#snippet legendTable(rows: LayerRow[], interactive: boolean)}
   <table>
     <thead>
       <tr>
-        <th></th>
+        <th>
+          {#if interactive}
+            <button
+              type="button"
+              class="layer-disclosure"
+              class:on={open}
+              aria-expanded={open}
+              aria-pressed={pinned}
+              aria-controls="host-legend-layers"
+              aria-label="Show all layers"
+              onclick={togglePinned}
+            >
+              {open ? '▾' : '▸'}
+            </button>
+          {/if}
+        </th>
         <th>ZMK keycode</th>
         <th class:off={!baseOn}>
           <div class="lang-head">
-            <EyeToggle on={baseOn} label="Показать первый язык" onclick={toggleBase} />
-            <details class="lang-pick">
-              <summary aria-label="First language">{base?.flag ?? '—'}</summary>
-              <div class="menu" role="listbox">
-                {#each hostLayoutChoices as choice (choice.id)}
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={choice.id === view.baseId}
-                    disabled={choice.id === secondId}
-                    onclick={event => {
-                      chooseBase(choice.id)
-                      closeDetails(event)
-                    }}
-                  >
-                    {choice.flag}
-                    {choice.language}
-                    ·
-                    {choice.layoutName}
-                  </button>
-                {/each}
-              </div>
-            </details>
+            {#if interactive}
+              <EyeToggle on={baseOn} label="Показать первый язык" onclick={toggleBase} />
+              {@render langMenu(view.baseId, secondId, 'First language', base?.flag ?? '—', chooseBase)}
+            {:else}
+              <span class="eye-spacer"></span>
+              <span>{base?.flag ?? '—'}</span>
+            {/if}
           </div>
         </th>
         <th class:off={!secondOn}>
           <div class="lang-head">
-            <EyeToggle on={secondOn} label="Показать второй язык" onclick={toggleSecond} />
-            <details class="lang-pick">
-              <summary aria-label="Second language">{second?.flag ?? '—'}</summary>
-              <div class="menu" role="listbox">
-                {#each hostLayoutChoices as choice (choice.id)}
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={choice.id === secondId}
-                    disabled={choice.id === view.baseId}
-                    onclick={event => {
-                      chooseSecond(choice.id)
-                      closeDetails(event)
-                    }}
-                  >
-                    {choice.flag}
-                    {choice.language}
-                    ·
-                    {choice.layoutName}
-                  </button>
-                {/each}
-              </div>
-            </details>
+            {#if interactive}
+              <EyeToggle on={secondOn} label="Показать второй язык" onclick={toggleSecond} />
+              {@render langMenu(secondId, view.baseId, 'Second language', second?.flag ?? '—', chooseSecond)}
+            {:else}
+              <span class="eye-spacer"></span>
+              <span>{second?.flag ?? '—'}</span>
+            {/if}
           </div>
         </th>
-        <th class:off={!view.altGr} onmouseenter={() => hoverAlt('altGr')} onmouseleave={clearHover}>
-          <button
-            type="button"
-            class="col-toggle"
-            class:on={view.altGr}
-            onclick={() => toggleAlt('altGr')}
-          >
+        <th
+          class:off={!view.altGr}
+          onmouseenter={interactive ? () => hoverAlt('altGr') : undefined}
+          onmouseleave={interactive ? clearHover : undefined}
+        >
+          {#if interactive}
+            <button
+              type="button"
+              class="col-toggle"
+              class:on={view.altGr}
+              onclick={() => toggleAlt('altGr')}
+            >
+              AltGr
+            </button>
+          {:else}
             AltGr
-          </button>
+          {/if}
         </th>
         <th
           class:off={!view.altGrShift}
-          onmouseenter={() => hoverAlt('altGrShift')}
-          onmouseleave={clearHover}
+          onmouseenter={interactive ? () => hoverAlt('altGrShift') : undefined}
+          onmouseleave={interactive ? clearHover : undefined}
         >
-          <button
-            type="button"
-            class="col-toggle"
-            class:on={view.altGrShift}
-            onclick={() => toggleAlt('altGrShift')}
-          >
+          {#if interactive}
+            <button
+              type="button"
+              class="col-toggle"
+              class:on={view.altGrShift}
+              onclick={() => toggleAlt('altGrShift')}
+            >
+              AltGr+Shift
+            </button>
+          {:else}
             AltGr+Shift
-          </button>
+          {/if}
         </th>
       </tr>
     </thead>
-    <tbody>
-      <tr class:off={!layers[0]} onmouseenter={() => hoverLayer(0)} onmouseleave={clearHover}>
-        <th scope="row">
-          <div class="row-head">
-            <EyeToggle on={layers[0]} label="Показать layer0" onclick={() => toggleLayer(0)} />
-            layer0
-          </div>
-        </th>
-        <td class="zmk">{keycodeName('E')}</td>
-        <td>{letter ? `${letter.en[0]}${letter.en[1]}` : 'eE'}</td>
-        <td class="second" class:off={!secondOn}>
-          {letter?.second ? `${letter.second[0]}${letter.second[1]}` : ''}
-        </td>
-        <td class="alt" class:off={!view.altGr}>{view.altGr ? (letter?.altGr ?? '') : ''}</td>
-        <td class="alt" class:off={!view.altGrShift}>
-          {view.altGrShift ? (letter?.altGrShift ?? '') : ''}
-        </td>
-      </tr>
-      <tr class:off={!layers[1]} onmouseenter={() => hoverLayer(1)} onmouseleave={clearHover}>
-        <th scope="row">
-          <div class="row-head">
-            <EyeToggle on={layers[1]} label="Показать layer1" onclick={() => toggleLayer(1)} />
-            layer1
-          </div>
-        </th>
-        <td class="zmk">{keycodeName('KP_N8')}</td>
-        <td>8</td>
-        <td class:off={!secondOn}></td>
-        <td class:off={!view.altGr}></td>
-        <td class:off={!view.altGrShift}></td>
-      </tr>
-      <tr class:off={!layers[2]} onmouseenter={() => hoverLayer(2)} onmouseleave={clearHover}>
-        <th scope="row">
-          <div class="row-head">
-            <EyeToggle on={layers[2]} label="Показать layer2" onclick={() => toggleLayer(2)} />
-            layer2
-          </div>
-        </th>
-        <td class="zmk">{keycodeName('F8')}</td>
-        <td>F8</td>
-        <td class:off={!secondOn}></td>
-        <td class:off={!view.altGr}></td>
-        <td class:off={!view.altGrShift}></td>
-      </tr>
-      <tr class:off={!layers[3]} onmouseenter={() => hoverLayer(3)} onmouseleave={clearHover}>
-        <th scope="row">
-          <div class="row-head">
-            <EyeToggle on={layers[3]} label="Показать layer3" onclick={() => toggleLayer(3)} />
-            layer3
-          </div>
-        </th>
-        <td class="zmk">{keycodeName('SLCK')}</td>
-        <td>SLCK</td>
-        <td class:off={!secondOn}></td>
-        <td class:off={!view.altGr}></td>
-        <td class:off={!view.altGrShift}></td>
-      </tr>
+    <tbody id={interactive ? 'host-legend-layers' : undefined}>
+      {#each rows as row (row.index)}
+        {@const tap = bindingTap(row.binding)}
+        {@const letter = tap ? hostLegendFor(tap, view) : null}
+        <tr
+          class:off={!row.marked}
+          onmouseenter={interactive ? () => hoverLayer(row.index) : undefined}
+          onmouseleave={interactive ? clearHover : undefined}
+        >
+          <th scope="row">
+            <div class="row-head">
+              {#if interactive}
+                <EyeToggle
+                  on={row.marked}
+                  label={`Показать ${row.name}`}
+                  onclick={() => toggleLayer(row.index)}
+                />
+              {:else}
+                <span class="eye-spacer"></span>
+              {/if}
+              {row.name}
+            </div>
+          </th>
+          <td class="zmk">{zmkCell(row.binding)}</td>
+          <td>{letter ? `${letter.en[0]}${letter.en[1]}` : ''}</td>
+          <td class="second" class:off={!secondOn}>
+            {letter?.second ? `${letter.second[0]}${letter.second[1]}` : ''}
+          </td>
+          <td class="alt" class:off={!view.altGr}>{view.altGr ? (letter?.altGr ?? '') : ''}</td>
+          <td class="alt" class:off={!view.altGrShift}>
+            {view.altGrShift ? (letter?.altGrShift ?? '') : ''}
+          </td>
+        </tr>
+      {/each}
     </tbody>
   </table>
+{/snippet}
+
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<div
+  class="host-legend-strip"
+  class:expanded={open}
+  class:pinned
+  role="region"
+  aria-label="Host legend"
+  onmouseenter={() => (hovered = true)}
+  onmouseleave={() => (hovered = false)}
+  onfocusin={() => (focused = true)}
+  onfocusout={handleFocusOut}
+  onkeydown={handleKeydown}
+>
+  <div class="legend-sizer" aria-hidden="true" inert>
+    {@render legendTable(collapsedRows, false)}
+  </div>
+  <div class="legend-panel" style="position: absolute">
+    {@render legendTable(visibleRows, true)}
+  </div>
 </div>
 
 <style>
   .host-legend-strip {
+    position: relative;
+    z-index: 4;
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
@@ -245,6 +323,23 @@
     padding: 6px 4px 2px;
     font-size: 13px;
     color: #444;
+  }
+
+  .legend-sizer {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .legend-panel {
+    position: absolute;
+    top: 6px;
+    left: 4px;
+    z-index: 4;
+    background: var(--page-bg, #fff);
+  }
+
+  .host-legend-strip.expanded .legend-panel {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
   }
 
   table {
@@ -296,6 +391,13 @@
     display: flex;
     align-items: center;
     gap: 6px;
+  }
+
+  .eye-spacer {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    padding: 1px;
   }
 
   .lang-pick {
@@ -359,7 +461,8 @@
     cursor: default;
   }
 
-  .col-toggle {
+  .col-toggle,
+  .layer-disclosure {
     margin: 0;
     padding: 1px 6px;
     border: 1px solid #ccc;
@@ -371,7 +474,8 @@
     cursor: pointer;
   }
 
-  .col-toggle.on {
+  .col-toggle.on,
+  .layer-disclosure.on {
     background: #fff;
     border-color: #1d6f8a;
     color: #333;

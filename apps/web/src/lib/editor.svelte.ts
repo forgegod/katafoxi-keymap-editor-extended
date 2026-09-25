@@ -89,6 +89,24 @@ function extractErrorMessages(data: unknown): string[] {
   return ['Save failed.']
 }
 
+const LETTER_KEYCODE = /^[A-Z]$/
+
+/** Index of the host-legend sample key: `&kp E` on layer0, else the first letter `&kp`. */
+export function hostLegendAnchorIndex(keymap: ParsedKeymap | null | undefined): number {
+  const layer0 = keymap?.layers[0]
+  if (!layer0 || layer0.length === 0) return 0
+  const eAt = layer0.findIndex(
+    node => node.value === '&kp' && String(node.params[0]?.value ?? '') === 'E'
+  )
+  if (eAt >= 0) return eAt
+  const letterAt = layer0.findIndex(
+    node =>
+      node.value === '&kp' &&
+      LETTER_KEYCODE.test(String(node.params[0]?.value ?? ''))
+  )
+  return letterAt >= 0 ? letterAt : 0
+}
+
 /** Deep clone plain ParsedKeymap (value+params only). Never structuredClone reactive graphs. */
 export function cloneParsedKeymap(km: ParsedKeymap): ParsedKeymap {
   const cloneBinding = (node: KeyBindingNode): KeyBindingNode => ({
@@ -188,6 +206,16 @@ class EditorState {
 
   get canRedo(): boolean {
     return this.redoStack.length > 0
+  }
+
+  /** Names for the host-legend table, one per keymap layer. */
+  get hostLegendLayerNames(): string[] {
+    const km = this.draftKeymap
+    if (!km) return []
+    return km.layers.map((_, i) => {
+      const name = km.layer_names?.[i]
+      return typeof name === 'string' && name.length > 0 ? name : `layer${i}`
+    })
   }
 
   clearHistory() {

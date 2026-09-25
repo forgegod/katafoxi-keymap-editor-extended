@@ -1,0 +1,135 @@
+import type { KeyBindingNode, ParsedKeymap } from '@keymap-editor/keymap-core'
+import { flushSync, mount, unmount } from 'svelte'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { editor } from '../editor.svelte.js'
+import HostLegendPicker from './HostLegendPicker.svelte'
+
+const happyComment = document.createComment('')
+const CommentCtor = Object.getPrototypeOf(happyComment).constructor
+if (!(happyComment instanceof Comment)) {
+  Object.defineProperty(globalThis, 'Comment', {
+    configurable: true,
+    writable: true,
+    value: CommentCtor
+  })
+}
+
+function kp(code: string): KeyBindingNode {
+  return { value: '&kp', params: [{ value: code, params: [] }] }
+}
+
+function keymapOf(names: string[], layer0: KeyBindingNode[] = [kp('E')]): ParsedKeymap {
+  return {
+    layer_names: names,
+    layers: names.map((_, layer) =>
+      layer0.map((node, key) =>
+        layer === 0 ? node : kp(key === 0 ? `F${layer}` : 'X')
+      )
+    )
+  }
+}
+
+describe('HostLegendPicker', () => {
+  let target: HTMLDivElement
+  let view: ReturnType<typeof mount> | undefined
+
+  beforeEach(() => {
+    editor.resetForTests()
+    target = document.createElement('div')
+    document.body.appendChild(target)
+  })
+
+  afterEach(() => {
+    if (view) unmount(view)
+    view = undefined
+    target?.remove()
+    editor.resetForTests()
+  })
+
+  async function open(keymap: ParsedKeymap) {
+    await editor.selectKeyboard({
+      source: 'local',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap
+    })
+    view = mount(HostLegendPicker, { target })
+    flushSync()
+  }
+
+  function panelRows(): HTMLTableRowElement[] {
+    return [...target.querySelectorAll('.legend-panel tbody tr')].filter(
+      (el): el is HTMLTableRowElement => el instanceof HTMLTableRowElement
+    )
+  }
+
+  function expand() {
+    const button = target.querySelector('.legend-panel .layer-disclosure')
+    if (!(button instanceof HTMLButtonElement)) throw new Error('missing disclosure')
+    button.click()
+    flushSync()
+    return button
+  }
+
+  it('builds one row per keymap layer when the list is short', async () => {
+    await open(keymapOf(['default', 'raise']))
+    expect(panelRows().map(row => row.querySelector('th')?.textContent?.trim())).toEqual([
+      'default',
+      'raise'
+    ])
+  })
+
+  it('keeps extra layers behind the overlay until it is opened', async () => {
+    await open(keymapOf(Array.from({ length: 9 }, (_, i) => `L${i}`)))
+    expect(panelRows()).toHaveLength(4)
+
+    const sizer = target.querySelector('.legend-sizer')
+    const panel = target.querySelector('.legend-panel')
+    if (!(sizer instanceof HTMLElement) || !(panel instanceof HTMLElement)) {
+      throw new Error('missing overlay parts')
+    }
+    expect(panel.style.position).toBe('absolute')
+    expect(sizer.hasAttribute('inert')).toBe(true)
+    expect(sizer.querySelectorAll('tbody tr')).toHaveLength(4)
+
+    const button = expand()
+    expect(button.getAttribute('aria-expanded')).toBe('true')
+    expect(sizer.querySelectorAll('tbody tr')).toHaveLength(4)
+    expect(panelRows()).toHaveLength(9)
+    expect(panelRows().map(row => row.querySelector('th')?.textContent?.trim())).toEqual(
+      Array.from({ length: 9 }, (_, i) => `L${i}`)
+    )
+  })
+
+  it('takes the ZMK keycode from the layer0 &kp E key', async () => {
+    await open(
+      keymapOf(['base', 'num'], [kp('A'), kp('E')])
+    )
+    editor.hostLegend = { ...editor.hostLegend, shownLayers: [0, 1] }
+    flushSync()
+    const codes = panelRows().map(row => row.querySelector('.zmk')?.textContent?.trim())
+    expect(codes[0]).toMatch(/E/)
+    expect(codes[1]).toMatch(/X/)
+  })
+
+  it('expands on focus so extra layers are reachable without a mouse', async () => {
+    await open(keymapOf(Array.from({ length: 9 }, (_, i) => `L${i}`)))
+    expect(panelRows()).toHaveLength(4)
+    const button = target.querySelector('.legend-panel .layer-disclosure')
+    if (!(button instanceof HTMLButtonElement)) throw new Error('missing disclosure')
+    button.focus()
+    flushSync()
+    expect(button.getAttribute('aria-expanded')).toBe('true')
+    expect(panelRows()).toHaveLength(9)
+  })
+
+  it('toggles visibility through toggleShownLayer and does not write layers', async () => {
+    await open(keymapOf(['default', 'raise']))
+    const layersBefore = editor.hostLegend.layers
+    const eye = target.querySelector('.legend-panel [aria-label="Показать raise"]')
+    if (!(eye instanceof HTMLButtonElement)) throw new Error('missing raise eye')
+    eye.click()
+    flushSync()
+    expect(editor.hostLegend.shownLayers).toEqual([0, 2, 3])
+    expect(editor.hostLegend.layers).toEqual(layersBefore)
+  })
+})
