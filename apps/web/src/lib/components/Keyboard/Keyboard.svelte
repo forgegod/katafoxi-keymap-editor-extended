@@ -208,6 +208,21 @@
     onUpdate({ ...keymap, layers })
   }
 
+  function handleUpdateBinding(
+    keyIndex: number,
+    layerIndex: number,
+    binding: KeyBindingNode
+  ) {
+    const layer = keymap.layers[layerIndex]
+    if (!layer) return
+    if (keyIndex < 0 || keyIndex >= layer.length) return
+    handleUpdateLayer(layerIndex, [
+      ...layer.slice(0, keyIndex),
+      binding,
+      ...layer.slice(keyIndex + 1)
+    ])
+  }
+
   $effect(() => {
     if (legendMode === 'composed') {
       activeLayer = 'all'
@@ -281,15 +296,14 @@
                 : keymap.layers[activeLayer]
             }
             layerStack={activeLayer === 'all' ? keymap.layers : undefined}
+            layerIndex={activeLayer === 'all' ? undefined : activeLayer}
             {legendMode}
             {hostView}
             {legendHover}
             {usedKeycodes}
             {usedRevision}
             {usedLayerLabels}
-            onUpdate={event =>
-              handleUpdateLayer(activeLayer === 'all' ? 0 : activeLayer, event)
-            }
+            onUpdate={handleUpdateBinding}
           />
         {/if}
       </div>

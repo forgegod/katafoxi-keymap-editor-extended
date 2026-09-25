@@ -44,7 +44,9 @@
     label?: string
     value: string | number
     params?: Array<{ value?: string | number; params?: unknown[] }>
-    onUpdate: (bind: { value: string | number | undefined; params: HydratedNode[] }) => void
+    keyIndex: number
+    layerIndex?: number
+    onUpdate: (keyIndex: number, layerIndex: number, binding: KeyBindingNode) => void
     legendMode?: LegendMode
     hostView?: HostLegendView
     legendHover?: LegendHover | null
@@ -61,6 +63,8 @@
     label,
     value,
     params = [],
+    keyIndex,
+    layerIndex,
     onUpdate,
     legendMode = 'zmk',
     hostView,
@@ -74,9 +78,10 @@
   const searchBox = getSearchContext()
   const search = $derived(searchBox.current)
 
-  let editing = $state<{ slotCodeIndex: number } | null>(null)
-  let draftValue = $state<string | number | null>(null)
-  let draftParamsJson = $state<string | null>(null)
+  let editing = $state<{ rowKey: string; slotCodeIndex: number } | null>(null)
+  let draftByRow = $state<Record<string, { value: string | number; paramsJson: string }>>(
+    {}
+  )
 
   const sources = $derived(search?.sources ?? {})
   const behaviour = $derived(
@@ -84,20 +89,14 @@
   )
   const behaviourParams = $derived(getBehaviourParams(params, behaviour as never))
   const normalized = $derived(hydrateTree(value, params, sources))
+  const activeDraft = $derived(editing ? draftByRow[editing.rowKey] : undefined)
   const working = $derived(
-    draftValue == null && draftParamsJson == null
+    activeDraft == null
       ? normalized
-      : hydrateTree(
-          draftValue ?? '&none',
-          draftParamsJson ? JSON.parse(draftParamsJson) : [],
-          sources
-        )
+      : hydrateTree(activeDraft.value, JSON.parse(activeDraft.paramsJson), sources)
   )
   const workingBehaviourParams = $derived(
-    getBehaviourParams(
-      working.params,
-      lookupBehaviour(draftValue ?? working.value) as never
-    )
+    getBehaviourParams(working.params, lookupBehaviour(working.value) as never)
   )
   const slots = $derived(buildEditorSlots(working, workingBehaviourParams))
   const activeSlot = $derived(
@@ -142,13 +141,14 @@
   const composedRows = $derived.by(() => {
     if (legendMode !== 'composed') return []
     if (stacked && layerBindings) return composeLayerRows(layerBindings, hostView)
+    if (layerIndex == null) return []
     const binding = {
       value,
       params: (params ?? []) as KeyBindingNode[]
     }
     return [
       {
-        layer: 0,
+        layer: layerIndex,
         binding,
         blank: false,
         title: encodeKeyBinding(binding),
@@ -215,11 +215,29 @@
     }
   }
 
-  function readDraft(): HydratedNode | null {
-    if (draftValue == null && draftParamsJson == null) return null
+  function bindingForLayer(layer: number): KeyBindingNode {
+    const stackedBinding = layerBindings?.[layer]
+    if (stackedBinding) return stackedBinding
     return {
-      value: draftValue ?? undefined,
-      params: draftParamsJson ? JSON.parse(draftParamsJson) : []
+      value,
+      params: (params ?? []) as KeyBindingNode[]
+    }
+  }
+
+  function toKeyBinding(node: HydratedNode): KeyBindingNode {
+    return {
+      value: node.value ?? '&none',
+      params: (node.params ?? []).map(toKeyBinding)
+    }
+  }
+
+  function readDraft(): HydratedNode | null {
+    if (!editing) return null
+    const draft = draftByRow[editing.rowKey]
+    if (!draft) return null
+    return {
+      value: draft.value,
+      params: JSON.parse(draft.paramsJson)
     }
   }
 
@@ -231,30 +249,48 @@
   }
 
   function setDraft(node: HydratedNode, preferIndex: number) {
+    if (!editing) return
     const plain = cloneBindTree(node)
     const nextBehaviour = lookupBehaviour(plain.value)
     const nextParams = getBehaviourParams(plain.params, nextBehaviour as never)
     const hydrated = hydrateTree(plain.value ?? '&none', plain.params, sources)
     const nextSlots = buildEditorSlots(hydrated, nextParams)
-    draftValue = plain.value ?? null
-    draftParamsJson = JSON.stringify(plain.params ?? [])
-    editing = { slotCodeIndex: nextEditorSlot(nextSlots, preferIndex) }
+    draftByRow = {
+      ...draftByRow,
+      [editing.rowKey]: {
+        value: plain.value ?? '&none',
+        paramsJson: JSON.stringify(plain.params ?? [])
+      }
+    }
+    editing = { rowKey: editing.rowKey, slotCodeIndex: nextEditorSlot(nextSlots, preferIndex) }
   }
 
   function closeEditor() {
+    if (editing) {
+      const next = { ...draftByRow }
+      delete next[editing.rowKey]
+      draftByRow = next
+    }
     editing = null
-    draftValue = null
-    draftParamsJson = null
   }
 
-  function openEditor(slotCodeIndex: number) {
+  function openEditor(slotCodeIndex: number, fromLayer?: number) {
     if (!canEdit) return
-    if (!editing) {
-      const plain = cloneBindTree(normalized)
-      draftValue = plain.value ?? null
-      draftParamsJson = JSON.stringify(plain.params ?? [])
+    const targetLayer = fromLayer ?? layerIndex
+    if (targetLayer == null) return
+    const rowKey = String(targetLayer)
+    if (!draftByRow[rowKey]) {
+      const source = bindingForLayer(targetLayer)
+      const plain = cloneBindTree(hydrateTree(source.value, source.params ?? [], sources))
+      draftByRow = {
+        ...draftByRow,
+        [rowKey]: {
+          value: plain.value ?? '&none',
+          paramsJson: JSON.stringify(plain.params ?? [])
+        }
+      }
     }
-    editing = { slotCodeIndex }
+    editing = { rowKey, slotCodeIndex }
   }
 
   function handleSelectCode(event: {
@@ -333,8 +369,10 @@
 
   function handleConfirm() {
     const current = readDraft()
-    if (!current) return
-    onUpdate(pick(cloneBindTree(current), ['value', 'params']))
+    if (!current || !editing) return
+    const layer = Number(editing.rowKey)
+    if (!Number.isFinite(layer)) return
+    onUpdate(keyIndex, layer, toKeyBinding(pick(cloneBindTree(current), ['value', 'params'])))
     closeEditor()
   }
 </script>
