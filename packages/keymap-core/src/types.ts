@@ -72,6 +72,8 @@ export interface ComposedLegend {
   hold?: string
   /** When EN/RU AltGr pairs diverge (e.g. Δτ/ёЁ) */
   bilingualNote?: string
+  /** The two AltGr pairs behind `bilingualNote`, first language then second. */
+  bilingualAlt?: [string, string]
   /** Firmware keycode that produced this (gray in LARK sheet) */
   keycode?: string
   /** Tap is HID keypad (`KP_*`); UI boxes the glyph, host text stays `7`. */
@@ -113,7 +115,7 @@ export interface HostLegendView {
    * Absent means just `secondId`, when that is set.
    */
   roster?: ReadonlyArray<{
-    language: 'en' | 'ru' | 'uk'
+    language: 'en' | 'ru' | 'uk' | 'de'
     layoutId: string
     altGr: boolean
     altGrShift: boolean

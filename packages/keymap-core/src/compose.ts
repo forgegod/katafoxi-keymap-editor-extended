@@ -371,15 +371,55 @@ export function formatAltGrPair(
   return `${alt}${shift}`
 }
 
-export function formatLegendCompact(legend: ComposedLegend): string {
-  const cols = [`${legend.en[0]}${legend.en[1]}`]
-  if (legend.second) cols.push(`${legend.second[0]}${legend.second[1]}`)
-  if (legend.bilingualNote) {
-    cols.push(legend.bilingualNote)
+export type KeycapTone = 'base' | 'second'
+
+export interface KeycapPiece {
+  text: string
+  /** Language color. `null` is shared by both languages, or the `/` between them. */
+  tone: KeycapTone | null
+}
+
+export interface KeycapColumn {
+  kind: 'letters' | 'alt'
+  pieces: KeycapPiece[]
+}
+
+/**
+ * What one keycap line shows, left to right.
+ * A second-language case pair equal to the first is drawn once.
+ * Diverging AltGr pairs stay one column, each half in its language color.
+ */
+export function keycapColumns(legend: ComposedLegend): KeycapColumn[] {
+  const columns: KeycapColumn[] = []
+  const base = `${legend.en[0]}${legend.en[1]}`
+  if (base) columns.push({ kind: 'letters', pieces: [{ text: base, tone: 'base' }] })
+  if (legend.second) {
+    const second = `${legend.second[0]}${legend.second[1]}`
+    if (second && second !== base) {
+      columns.push({ kind: 'letters', pieces: [{ text: second, tone: 'second' }] })
+    }
+  }
+  if (legend.bilingualAlt) {
+    const [baseAlt, secondAlt] = legend.bilingualAlt
+    const pieces: KeycapPiece[] = [
+      { text: baseAlt, tone: 'base' },
+      { text: '/', tone: null },
+      { text: secondAlt, tone: 'second' }
+    ]
+    columns.push({ kind: 'alt', pieces: pieces.filter(piece => piece.text !== '') })
+  } else if (legend.bilingualNote) {
+    columns.push({ kind: 'alt', pieces: [{ text: legend.bilingualNote, tone: null }] })
   } else {
     const alt = formatAltGrPair(legend)
-    if (alt) cols.push(alt)
+    if (alt) columns.push({ kind: 'alt', pieces: [{ text: alt, tone: null }] })
   }
+  return columns
+}
+
+export function formatLegendCompact(legend: ComposedLegend): string {
+  const cols = keycapColumns(legend).map(column =>
+    column.pieces.map(piece => piece.text).join('')
+  )
   const hold = legend.hold ? ` ${legend.hold}` : ''
   return `${cols.join(' ')}${hold}`.trim()
 }

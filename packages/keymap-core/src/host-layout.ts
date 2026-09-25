@@ -1,6 +1,6 @@
 import { hostKeyByXkb, hostKeyByZmk } from './host-key-id.js'
 import type { ComposedLegend } from './types.js'
-import { parseXkbSymbolsSection } from './xkb-symbols.js'
+import { parseXkbSymbolsSection, type ParseXkbOptions } from './xkb-symbols.js'
 import { keysymToGlyph } from './xkb-keysyms.js'
 
 /** Four glyphs: base, Shift, AltGr, AltGr+Shift. Empty string is NoSymbol. */
@@ -25,10 +25,7 @@ function padLevels(keysyms: string[]): [string, string, string, string] {
   const glyphs = [0, 1, 2, 3].map(index => {
     const name = keysyms[index] ?? 'NoSymbol'
     const glyph = keysymToGlyph(name)
-    if (glyph == null) {
-      throw new Error(`xkb keysym ${name} has no character`)
-    }
-    return glyph
+    return glyph ?? ''
   })
   return [glyphs[0], glyphs[1], glyphs[2], glyphs[3]]
 }
@@ -38,9 +35,20 @@ function padLevels(keysyms: string[]): [string, string, string, string] {
  * Keys whose base level is not a character (`Multi_key`, `ISO_Level3_Shift`)
  * are omitted.
  */
-export function hostLayoutFromSymbols(source: string, section: string, id: string): HostLayout {
+export function hostLayoutFromSymbols(
+  source: string,
+  section: string,
+  id: string,
+  files?: ParseXkbOptions['files']
+): HostLayout {
   const byZmk = new Map<string, HostLevels>()
-  for (const [xkb, keysyms] of parseXkbSymbolsSection(source, section)) {
+  const fileId = files
+    ? Object.keys(files).find(name => files[name] === source)
+    : undefined
+  for (const [xkb, keysyms] of parseXkbSymbolsSection(source, section, [], {
+    files,
+    fileId
+  })) {
     const host = hostKeyByXkb(xkb)
     if (!host) continue
     const base = keysymToGlyph(keysyms[0] ?? 'NoSymbol')
@@ -70,7 +78,7 @@ export function composeHostPair(
   second: HostLayout | null,
   token: string,
   columns: HostColumnOptions = {}
-): Pick<ComposedLegend, 'en' | 'second' | 'altGr' | 'altGrShift' | 'showAltGr' | 'showAltGrShift' | 'bilingualNote' | 'keycode'> | null {
+): Pick<ComposedLegend, 'en' | 'second' | 'altGr' | 'altGrShift' | 'showAltGr' | 'showAltGrShift' | 'bilingualNote' | 'bilingualAlt' | 'keycode'> | null {
   const showAlt = columns.altGr !== false
   const showAltShift = columns.altGrShift !== false
   const showSecondAlt = columns.secondAltGr ?? showAlt
@@ -87,11 +95,13 @@ export function composeHostPair(
     ? shownPair(secondLevels, showSecondAlt, showSecondAltShift)
     : ''
   let bilingualNote: string | undefined
+  let bilingualAlt: [string, string] | undefined
   let altLevels = baseLevels
   let altOn = showAlt
   let altShiftOn = showAltShift
   if (secondLevels && baseShown && secondShown && basePair !== secondPair) {
     bilingualNote = `${basePair}/${secondPair}`
+    bilingualAlt = [basePair, secondPair]
   } else if (secondLevels && secondShown && !baseShown) {
     altLevels = secondLevels
     altOn = showSecondAlt
@@ -105,6 +115,7 @@ export function composeHostPair(
     showAltGr: altOn,
     showAltGrShift: altShiftOn,
     bilingualNote,
+    bilingualAlt,
     keycode: `KC_${id.zmk}`
   }
 }

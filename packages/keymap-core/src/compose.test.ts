@@ -24,6 +24,8 @@ import {
   getBehaviorCatalog,
   getKeycodeCatalog,
   hostLegendFor,
+  addHostLanguage,
+  keycapColumns,
   parseKeyBinding,
   standardHostLegendView,
   parseKeymap,
@@ -140,6 +142,32 @@ describe('resolveBinding / composeKey', () => {
     const grave = composeKey({ binding: parseKeyBinding('&kp GRAVE') })
     expect(grave?.en).toEqual(['`', '~'])
     expect(grave?.bilingualNote).toBe('/ёЁ')
+  })
+
+  it('draws a second-language pair once when it matches the first', () => {
+    const hostView = addHostLanguage(standardHostLegendView(), 'de')
+    const gee = composeKey({ binding: parseKeyBinding('&kp G'), hostView })
+    expect(gee?.en).toEqual(['g', 'G'])
+    expect(gee?.second).toEqual(['g', 'G'])
+    expect(formatLegendCompact(gee!)).toBe(`gG ${gee?.bilingualNote}`)
+    expect(keycapColumns(gee!)[0]?.pieces).toEqual([{ text: 'gG', tone: 'base' }])
+  })
+
+  it('colors diverging AltGr halves by language', () => {
+    const tee = composeKey({ binding: parseKeyBinding('&kp T') })
+    expect(keycapColumns(tee!).at(-1)).toEqual({
+      kind: 'alt',
+      pieces: [
+        { text: 'Δτ', tone: 'base' },
+        { text: '/', tone: null },
+        { text: 'ёЁ', tone: 'second' }
+      ]
+    })
+    const grave = composeKey({ binding: parseKeyBinding('&kp GRAVE') })
+    expect(keycapColumns(grave!).at(-1)?.pieces).toEqual([
+      { text: '/', tone: null },
+      { text: 'ёЁ', tone: 'second' }
+    ])
   })
 
   it('splits E into En / Ru / AltGr columns', () => {

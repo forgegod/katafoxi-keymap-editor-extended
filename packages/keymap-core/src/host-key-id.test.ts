@@ -96,6 +96,8 @@ describe('host key ids', () => {
     expect(hostKeyByZmk('FSLH')).toBe(hostKeyByZmk('SLASH'))
     expect(hostKeyByXkb('AC12')).toBe(hostKeyByXkb('BKSL'))
     expect(hostKeyByXkb('ALGR')).toBe(hostKeyByZmk('RALT'))
+    expect(hostKeyByXkb('LatQ')).toBe(hostKeyByXkb('AD01'))
+    expect(hostKeyByXkb('LatA')).toBe(hostKeyByXkb('AC01'))
   })
 
   it('keeps level selectors on their own rows', () => {

@@ -6,11 +6,12 @@
 
 import {
   builtinLanguageProfileId,
-  builtinLanguageProfileLabel,
-  assignHostLanguageLayout,
+  builtinProfileIdForChoice,
   hostLayoutChoice,
-  layoutForLanguageKind,
+  hostLayoutChoiceLabel,
+  layoutForBuiltinProfile,
   parseBuiltinLanguageProfileId,
+  assignHostLanguageLayout,
   reservedHostProfileNames,
   type HostLanguageId,
   type HostLayoutKind,
@@ -37,18 +38,24 @@ export interface HostProfile {
 export interface ActiveLanguageProfiles {
   en: string
   ru: string
+  uk: string
+  de: string
 }
 
 type ActiveSetting = {
   id: typeof ACTIVE_SETTING_ID
   en: string
   ru: string
+  uk?: string
+  de?: string
 }
 
 export function defaultActiveLanguageProfiles(): ActiveLanguageProfiles {
   return {
     en: builtinLanguageProfileId('en', 'in-layout'),
-    ru: builtinLanguageProfileId('ru', 'in-layout')
+    ru: builtinLanguageProfileId('ru', 'in-layout'),
+    uk: builtinLanguageProfileId('uk', 'system'),
+    de: builtinLanguageProfileId('de', 'system')
   }
 }
 
@@ -57,16 +64,16 @@ export function isBuiltinLanguageProfile(id: string): boolean {
 }
 
 export function builtinProfileLabel(id: string): string | undefined {
-  const parsed = parseBuiltinLanguageProfileId(id)
-  return parsed ? builtinLanguageProfileLabel(parsed.kind) : undefined
+  const choice = layoutForBuiltinProfile(id)
+  return choice ? hostLayoutChoiceLabel(choice) : undefined
 }
 
 export function layoutIdForProfile(
   id: string,
   profiles: readonly HostProfile[]
 ): string | undefined {
-  const builtin = parseBuiltinLanguageProfileId(id)
-  if (builtin) return layoutForLanguageKind(builtin.language, builtin.kind)?.id
+  const builtin = layoutForBuiltinProfile(id)
+  if (builtin) return builtin.id
   return profiles.find(profile => profile.id === id)?.layoutId
 }
 
@@ -80,7 +87,7 @@ export function profileIdForLayout(
   if (active?.language === language && active.layoutId === layoutId) return active.id
   const choice = hostLayoutChoice(layoutId)
   if (choice?.language === language) {
-    return builtinLanguageProfileId(language, choice.kind)
+    return builtinProfileIdForChoice(choice)
   }
   return builtinLanguageProfileId(language, 'in-layout')
 }
@@ -146,7 +153,10 @@ function isLanguageProfile(row: unknown): row is HostProfile {
   return (
     typeof item.id === 'string' &&
     typeof item.name === 'string' &&
-    (item.language === 'en' || item.language === 'ru' || item.language === 'uk') &&
+    (item.language === 'en' ||
+      item.language === 'ru' ||
+      item.language === 'uk' ||
+      item.language === 'de') &&
     typeof item.layoutId === 'string'
   )
 }
@@ -204,7 +214,9 @@ export async function loadActiveLanguageProfiles(): Promise<ActiveLanguageProfil
     if (!row) return defaults
     return {
       en: typeof row.en === 'string' ? row.en : defaults.en,
-      ru: typeof row.ru === 'string' ? row.ru : defaults.ru
+      ru: typeof row.ru === 'string' ? row.ru : defaults.ru,
+      uk: typeof row.uk === 'string' ? row.uk : defaults.uk,
+      de: typeof row.de === 'string' ? row.de : defaults.de
     }
   } finally {
     db.close()
@@ -217,7 +229,13 @@ export async function saveActiveLanguageProfiles(
   const db = await openDb()
   try {
     const tx = db.transaction(SETTINGS_STORE, 'readwrite')
-    const record: ActiveSetting = { id: ACTIVE_SETTING_ID, en: active.en, ru: active.ru }
+    const record: ActiveSetting = {
+      id: ACTIVE_SETTING_ID,
+      en: active.en,
+      ru: active.ru,
+      uk: active.uk,
+      de: active.de
+    }
     await idbRequest(tx.objectStore(SETTINGS_STORE).put(record))
     await txDone(tx)
   } finally {

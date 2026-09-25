@@ -4,11 +4,9 @@
  */
 
 import {
-  builtinLanguageProfileId,
   diffKeymaps,
   getBehaviorCatalog,
   getKeycodeCatalog,
-  hostLayoutChoice,
   hostLegendColumns,
   standardHostLegendView,
   remapShownLayersAfterDelete,
@@ -51,9 +49,9 @@ export type LegendMode = 'zmk' | 'composed'
 
 export type HostProfilePrompt =
   | { kind: 'save-as'; language: HostLanguageId }
-  | { kind: 'copy'; language: HostLanguageId }
-  | { kind: 'rename'; language: HostLanguageId }
-  | { kind: 'delete'; language: HostLanguageId }
+  | { kind: 'copy'; language: HostLanguageId; layoutId?: string }
+  | { kind: 'rename'; language: HostLanguageId; profileId?: string }
+  | { kind: 'delete'; language: HostLanguageId; profileId?: string }
 
 export type SaveNotice = {
   kind: 'warning' | 'error'
@@ -263,13 +261,7 @@ class EditorState {
   }
 
   activeProfileId(language: HostLanguageId): string {
-    if (language === 'en' || language === 'ru') return this.activeLanguageProfiles[language]
-    const column = hostLegendColumns(this.hostLegend).find(item => item.language === language)
-    const choice = column ? hostLayoutChoice(column.layoutId) : undefined
-    if (choice && choice.language === language) {
-      return builtinLanguageProfileId(language, choice.kind)
-    }
-    return builtinLanguageProfileId(language, 'system')
+    return this.activeLanguageProfiles[language]
   }
 
   profilesForLanguage(language: HostLanguageId): HostProfile[] {
@@ -284,38 +276,26 @@ class EditorState {
    */
   commitHostMap(next: HostLegendView): Promise<void> {
     this.hostLegend = { ...next }
-    const secondLanguage = next.secondId ? hostLayoutChoice(next.secondId)?.language : undefined
-    this.activeLanguageProfiles = {
-      en: profileIdForLayout(
-        'en',
-        next.baseId,
-        this.activeLanguageProfiles.en,
+    const active = { ...this.activeLanguageProfiles }
+    for (const column of hostLegendColumns(next)) {
+      active[column.language] = profileIdForLayout(
+        column.language,
+        column.layoutId,
+        this.activeLanguageProfiles[column.language],
         this.hostProfiles
-      ),
-      ru:
-        secondLanguage === 'ru' && next.secondId
-          ? profileIdForLayout(
-              'ru',
-              next.secondId,
-              this.activeLanguageProfiles.ru,
-              this.hostProfiles
-            )
-          : this.activeLanguageProfiles.ru
+      )
     }
+    this.activeLanguageProfiles = active
     return saveActiveLanguageProfiles(this.activeLanguageProfiles)
   }
 
   selectLanguageProfile(language: HostLanguageId, id: string): Promise<void> {
-    if (language === 'en' || language === 'ru') {
-      if (this.activeLanguageProfiles[language] === id) return Promise.resolve()
-    }
+    if (this.activeLanguageProfiles[language] === id) return Promise.resolve()
     this.hostProfilePrompt = null
     this.hostProfileNote = null
     const layoutId = layoutIdForProfile(id, this.hostProfiles)
     if (!layoutId) return Promise.resolve()
-    if (language === 'en' || language === 'ru') {
-      this.activeLanguageProfiles = { ...this.activeLanguageProfiles, [language]: id }
-    }
+    this.activeLanguageProfiles = { ...this.activeLanguageProfiles, [language]: id }
     this.hostLegend = hostLegendWithLayout(this.hostLegend, language, layoutId)
     return saveActiveLanguageProfiles(this.activeLanguageProfiles)
   }
@@ -325,35 +305,41 @@ class EditorState {
     this.hostProfilePrompt = { kind: 'save-as', language }
   }
 
-  beginCopyHostProfile(language: HostLanguageId) {
+  beginCopyHostProfile(language: HostLanguageId, layoutId?: string) {
     this.hostProfileNote = null
-    this.hostProfilePrompt = { kind: 'copy', language }
+    this.hostProfilePrompt = { kind: 'copy', language, layoutId }
   }
 
-  beginRenameHostProfile(language: HostLanguageId) {
-    if (isBuiltinLanguageProfile(this.activeLanguageProfiles[language])) return
+  beginRenameHostProfile(language: HostLanguageId, profileId?: string) {
+    const id = profileId ?? this.activeLanguageProfiles[language]
+    if (isBuiltinLanguageProfile(id)) return
+    if (!this.hostProfiles.some(profile => profile.id === id)) return
     this.hostProfileNote = null
-    this.hostProfilePrompt = { kind: 'rename', language }
+    this.hostProfilePrompt = { kind: 'rename', language, profileId: id }
   }
 
-  beginDeleteHostProfile(language: HostLanguageId) {
-    if (isBuiltinLanguageProfile(this.activeLanguageProfiles[language])) return
+  beginDeleteHostProfile(language: HostLanguageId, profileId?: string) {
+    const id = profileId ?? this.activeLanguageProfiles[language]
+    if (isBuiltinLanguageProfile(id)) return
+    if (!this.hostProfiles.some(profile => profile.id === id)) return
     this.hostProfileNote = null
-    this.hostProfilePrompt = { kind: 'delete', language }
+    this.hostProfilePrompt = { kind: 'delete', language, profileId: id }
   }
 
   async deleteActiveHostProfile(): Promise<void> {
     const prompt = this.hostProfilePrompt
     if (prompt?.kind !== 'delete') return
     const language = prompt.language
-    const id = this.activeLanguageProfiles[language]
+    const id = prompt.profileId ?? this.activeLanguageProfiles[language]
     if (isBuiltinLanguageProfile(id)) return
     const existed = this.hostProfiles.some(profile => profile.id === id)
     if (!existed) return
     this.hostProfiles = this.hostProfiles.filter(profile => profile.id !== id)
     this.hostProfilePrompt = null
     await deleteHostProfile(id)
-    await this.selectLanguageProfile(language, defaultActiveLanguageProfiles()[language])
+    if (this.activeLanguageProfiles[language] === id) {
+      await this.selectLanguageProfile(language, defaultActiveLanguageProfiles()[language])
+    }
   }
 
   cancelHostProfilePrompt() {
@@ -377,6 +363,7 @@ class EditorState {
     )
     if (taken) return 'Профиль с таким именем уже есть'
     const layoutId =
+      (prompt.kind === 'copy' ? prompt.layoutId : undefined) ??
       hostLegendColumns(this.hostLegend).find(column => column.language === language)?.layoutId ??
       ''
     if (!layoutId) return 'Нет раскладки для этого языка'
@@ -397,9 +384,11 @@ class EditorState {
   }
 
   async #renameHostProfile(language: HostLanguageId, name: string): Promise<string | null> {
-    const current = this.hostProfiles.find(
-      profile => profile.id === this.activeLanguageProfiles[language]
-    )
+    const id =
+      this.hostProfilePrompt?.kind === 'rename'
+        ? this.hostProfilePrompt.profileId
+        : this.activeLanguageProfiles[language]
+    const current = this.hostProfiles.find(profile => profile.id === id)
     if (!current) return null
     if (current.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru')) {
       this.hostProfilePrompt = null

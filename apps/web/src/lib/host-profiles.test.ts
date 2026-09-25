@@ -1,4 +1,5 @@
 import {
+  addHostLanguage,
   hostLegendFor,
   SYSTEM_RU_LAYOUT_ID,
   SYSTEM_US_LAYOUT_ID
@@ -97,6 +98,36 @@ describe('host profiles', () => {
     expect(editor.hostProfiles).toHaveLength(0)
     expect(await loadHostProfiles()).toHaveLength(0)
     expect(editor.hostLegend.secondId).toBe('lark-ru')
+  })
+
+  it('copies a named system variant, not only the open profile', async () => {
+    await editor.selectLanguageProfile('ru', 'ru:system')
+    editor.beginCopyHostProfile('ru', 'system-ru-phonetic')
+    expect(await editor.confirmHostProfileName('Фонетика')).toBeNull()
+    expect(editor.hostLegend.secondId).toBe('system-ru-phonetic')
+    expect(editor.hostProfiles[0]?.layoutId).toBe('system-ru-phonetic')
+  })
+
+  it('copies a Ukrainian system variant after the language is added', async () => {
+    await editor.commitHostMap(addHostLanguage(editor.hostLegend, 'uk'))
+    editor.beginCopyHostProfile('uk', 'system-ua-phonetic')
+    expect(await editor.confirmHostProfileName('Фонетика uk')).toBeNull()
+    expect(editor.hostLegend.secondId).toBe('system-ua-phonetic')
+    expect(editor.activeProfileId('uk')).not.toBe('uk:system')
+    expect(editor.hostProfiles[0]).toMatchObject({
+      language: 'uk',
+      layoutId: 'system-ua-phonetic',
+      name: 'Фонетика uk'
+    })
+    expect(await loadActiveLanguageProfiles()).toMatchObject({
+      uk: editor.activeProfileId('uk')
+    })
+
+    const savedUk = editor.activeProfileId('uk')
+    editor.resetForTests()
+    await editor.restoreHostProfiles()
+    expect(editor.hostLegend.secondId).toBe('lark-ru')
+    expect(editor.activeProfileId('uk')).toBe(savedUk)
   })
 
   it('copies the open language profile under a new name', async () => {

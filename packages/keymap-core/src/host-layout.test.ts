@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest'
 import {
   addHostLanguage,
   applyColumnLayout,
+  replaceHostLanguage,
+  removeHostLanguage,
   builtinLanguageProfileId,
   customHostLegendView,
   effectiveShownLayers,
@@ -21,6 +23,7 @@ import {
   systemEnglishLayout,
   systemRuHostLegendView,
   systemRussianLayout,
+  systemGermanLayout,
   systemUkrainianLayout,
   toggleHostLanguage,
   toggleShownLayer,
@@ -164,10 +167,23 @@ describe('system English us(basic)', () => {
       'in-layout'
     ])
     expect(builtinLanguageProfileId('en', 'system')).toBe('en:system')
-    expect(hostLayoutsForLanguage('ru').map(choice => choice.id)).toEqual([
-      'system-ru',
-      'lark-ru'
-    ])
+    const russian = hostLayoutsForLanguage('ru')
+    expect(russian[0]?.id).toBe('system-ru')
+    expect(russian[0]?.primary).toBe(true)
+    expect(russian.map(choice => choice.id)).toContain('system-ru-phonetic')
+    expect(russian.at(-1)?.id).toBe('lark-ru')
+    expect(russian.at(-1)?.kind).toBe('in-layout')
+  })
+
+  it('maps phonetic Q to я and typewriter slash to ё', () => {
+    const phonetic = hostLegendView(standardHostLegendView(), {
+      secondId: 'system-ru-phonetic'
+    })
+    expect(hostLegendFor('Q', phonetic)?.second).toEqual(['я', 'Я'])
+    const typewriter = hostLegendView(standardHostLegendView(), {
+      secondId: 'system-ru-typewriter'
+    })
+    expect(hostLegendFor('SLASH', typewriter)?.second?.[0]).toBe('ё')
   })
 })
 
@@ -220,6 +236,25 @@ describe('Ukrainian system layout', () => {
     expect(systemUkrainianLayout.byZmk.get('Q')?.[0]).toBe('й')
   })
 
+  it('lists Ukrainian system variants and maps phonetic Q to я', () => {
+    const ukrainian = hostLayoutsForLanguage('uk')
+    expect(ukrainian[0]?.id).toBe('system-ua')
+    expect(ukrainian[0]?.primary).toBe(true)
+    expect(ukrainian.map(choice => choice.layoutName)).toEqual([
+      'unicode',
+      'macOS',
+      'legacy',
+      'winkeys',
+      'typewriter',
+      'phonetic',
+      'homophonic'
+    ])
+    const phonetic = hostLegendView(addHostLanguage(standardHostLegendView(), 'uk'), {
+      secondId: 'system-ua-phonetic'
+    })
+    expect(hostLegendFor('Q', phonetic)?.second).toEqual(['я', 'Я'])
+  })
+
   it('adds Ukrainian and collapses Russian to a flag', () => {
     const view = addHostLanguage(standardHostLegendView(), 'uk')
     const columns = hostLegendColumns(view)
@@ -242,6 +277,86 @@ describe('Ukrainian system layout', () => {
       ['uk', false]
     ])
     expect(hostLegendFor('Q', back)?.second).toEqual(['й', 'Й'])
+  })
+})
+
+describe('German system layout', () => {
+  it('uses QWERTZ letters and ß on the minus key', () => {
+    expect(systemGermanLayout.byZmk.get('A')?.slice(0, 2)).toEqual(['a', 'A'])
+    expect(systemGermanLayout.byZmk.get('Y')?.[0]).toBe('z')
+    expect(systemGermanLayout.byZmk.get('Z')?.[0]).toBe('y')
+    expect(systemGermanLayout.byZmk.get('MINUS')?.[0]).toBe('ß')
+    expect(systemGermanLayout.byZmk.get('SEMI')?.[0]).toBe('ö')
+    expect(systemGermanLayout.byZmk.get('SQT')?.[0]).toBe('ä')
+  })
+
+  it('lists German system variants and maps nodeadkeys caret', () => {
+    const german = hostLayoutsForLanguage('de')
+    expect(german[0]?.id).toBe('system-de')
+    expect(german[0]?.primary).toBe(true)
+    expect(german.map(choice => choice.layoutName)).toEqual([
+      'basic',
+      'deadtilde',
+      'nodeadkeys',
+      'deadgraveacute',
+      'deadacute',
+      'e1',
+      'e2',
+      'T3',
+      'dvorak',
+      'neo',
+      'mac',
+      'mac_nodeadkeys',
+      'qwerty',
+      'us',
+      'hu',
+      'adnw',
+      'koy',
+      'bone',
+      'bone_eszett_home',
+      'neo_qwertz',
+      'neo_qwerty',
+      'noted'
+    ])
+    const nodead = hostLegendView(addHostLanguage(standardHostLegendView(), 'de'), {
+      secondId: 'system-de-nodeadkeys'
+    })
+    expect(hostLegendFor('GRAVE', nodead)?.second?.[0]).toBe('^')
+  })
+
+  it('adds German after Ukrainian and collapses the open extra', () => {
+    const uk = addHostLanguage(standardHostLegendView(), 'uk')
+    const de = addHostLanguage(uk, 'de')
+    expect(hostLegendColumns(de).map(column => [column.language, column.wide])).toEqual([
+      ['en', true],
+      ['ru', false],
+      ['uk', false],
+      ['de', true]
+    ])
+    expect(de.secondId).toBe('system-de')
+    expect(hostLegendFor('Y', de)?.second?.[0]).toBe('z')
+  })
+
+  it('replaces an extra language and keeps the slot', () => {
+    const uk = addHostLanguage(standardHostLegendView(), 'uk')
+    const de = replaceHostLanguage(uk, 'uk', 'de')
+    expect(hostLegendColumns(de).map(column => [column.language, column.wide])).toEqual([
+      ['en', true],
+      ['ru', false],
+      ['de', true]
+    ])
+    expect(de.secondId).toBe('system-de')
+    expect(hostLegendFor('Y', de)?.second?.[0]).toBe('z')
+  })
+
+  it('removes an extra language and reopens Russian', () => {
+    const uk = addHostLanguage(standardHostLegendView(), 'uk')
+    const gone = removeHostLanguage(uk, 'uk')
+    expect(hostLegendColumns(gone).map(column => [column.language, column.wide])).toEqual([
+      ['en', true],
+      ['ru', true]
+    ])
+    expect(gone.secondId).toBe('lark-ru')
   })
 })
 

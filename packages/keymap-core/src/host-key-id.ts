@@ -52,6 +52,7 @@ function letters(chars: string, xkbPrefix: string, evdevStart: number): HostKeyS
       zmk: ch,
       hid: 0x04 + offset,
       xkb: `${xkbPrefix}${String(index + 1).padStart(2, '0')}`,
+      xkbAliases: [`LAT${ch}`],
       evdev: evdevStart + index,
       evdevName: `KEY_${ch}`,
       vk: `VK_${ch}`,

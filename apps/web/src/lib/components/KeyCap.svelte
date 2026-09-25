@@ -1,6 +1,6 @@
 <script lang="ts">
   import {
-    formatAltGrPair,
+    keycapColumns,
     type ComposedLegend,
     type LegendHoverHit
   } from '@keymap-editor/keymap-core'
@@ -18,7 +18,7 @@
   const title = $derived(
     [legend.keycode, legend.bilingualNote].filter(Boolean).join(' ')
   )
-  const altPair = $derived(legend.bilingualNote ? null : formatAltGrPair(legend))
+  const columns = $derived(keycapColumns(legend))
 </script>
 
 {#if mode === 'composed'}
@@ -29,17 +29,12 @@
     {title}
   >
     <span class="line" class:legend-hit={hit === 'combo'}>
-      {#if legend.en[0] || legend.en[1]}
-        <span class="col en">{legend.en[0]}{legend.en[1]}</span>
-      {/if}
-      {#if legend.second}
-        <span class="col second">{legend.second[0]}{legend.second[1]}</span>
-      {/if}
-      {#if legend.bilingualNote}
-        <span class="col alt">{legend.bilingualNote}</span>
-      {:else if altPair}
-        <span class="col alt">{altPair}</span>
-      {/if}
+      {#each columns as column, index (index)}
+        <span class="col" class:alt={column.kind === 'alt'}>
+          {#each column.pieces as piece, pieceIndex (pieceIndex)}<span
+              class:second={piece.tone === 'second'}>{piece.text}</span>{/each}
+        </span>
+      {/each}
       {#if legend.hold}
         <span class="hold" class:legend-hit={hit === 'hold'}>{legend.hold}</span>
       {/if}
@@ -86,7 +81,7 @@
     white-space: nowrap;
   }
 
-  .col.second {
+  .col .second {
     color: #1d6f8a;
   }
 

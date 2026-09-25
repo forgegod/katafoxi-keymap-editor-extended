@@ -202,44 +202,178 @@ describe('HostLegendPicker', () => {
     expect(editor.draftKeymap?.layers[2]).toEqual([{ value: '&trans', params: [] }])
   })
 
-  it('puts a profile select after each language flag', async () => {
+  it('puts a profile menu after each language flag', async () => {
     await open(keymapOf(['default']))
-    const selects = [...target.querySelectorAll('.legend-panel select.profile-select')]
-    expect(selects.map(el => el.getAttribute('aria-label'))).toEqual([
+    const triggers = [...target.querySelectorAll('.legend-panel .profile-trigger')]
+    expect(triggers.map(el => el.getAttribute('aria-label'))).toEqual([
       'Профиль English',
       'Профиль Russian'
     ])
-    const english = selects[0]
-    if (!(english instanceof HTMLSelectElement)) throw new Error('missing English profile')
-    expect([...english.options].map(option => option.textContent)).toEqual([
-      'Системная',
-      'В раскладке'
-    ])
-    expect(english.value).toBe('en:in-layout')
-    english.value = 'en:system'
-    english.dispatchEvent(new Event('change', { bubbles: true }))
+    const english = triggers[0]
+    if (!(english instanceof HTMLButtonElement)) throw new Error('missing English profile')
+    expect(english.textContent?.trim()).toBe('В раскладке')
+    english.click()
+    flushSync()
+    const items = [...target.querySelectorAll('.profile-list .profile-item')].map(
+      el => el.textContent?.trim()
+    )
+    expect(items).toEqual(['В раскладке', 'Системная'])
+    const system = [...target.querySelectorAll('.profile-list .profile-item')].find(
+      el => el.textContent?.trim() === 'Системная'
+    )
+    if (!(system instanceof HTMLButtonElement)) throw new Error('missing system option')
+    system.click()
     flushSync()
     expect(editor.hostLegend.baseId).toBe('system-us')
     expect(editor.activeProfileId('en')).toBe('en:system')
   })
 
-  it('adds Ukrainian and collapses the Russian block to a flag', async () => {
+  it('lists Russian system variants and copies from a row', async () => {
+    await open(keymapOf(['default']))
+    const russian = [...target.querySelectorAll('.legend-panel .profile-trigger')].find(
+      el => el.getAttribute('aria-label') === 'Профиль Russian'
+    )
+    if (!(russian instanceof HTMLButtonElement)) throw new Error('missing Russian profile')
+    russian.click()
+    flushSync()
+    const items = [...target.querySelectorAll('.profile-list .profile-item')].map(
+      el => el.textContent?.trim()
+    )
+    expect(items[0]).toBe('В раскладке')
+    expect(items[1]).toBe('Системная')
+    expect(items).toContain('phonetic')
+    expect(items.at(-1)).toBe('phonetic_mac')
+    const phonetic = [...target.querySelectorAll('.profile-list .profile-item')].find(
+      el => el.textContent?.trim() === 'phonetic'
+    )
+    if (!(phonetic instanceof HTMLButtonElement)) throw new Error('missing phonetic')
+    phonetic.click()
+    flushSync()
+    expect(editor.hostLegend.secondId).toBe('system-ru-phonetic')
+    expect(editor.activeProfileId('ru')).toBe('ru:system:phonetic')
+  })
+
+  function chooseLanguage(value: string) {
+    const select = target.querySelector('.legend-panel .language-select')
+    if (!(select instanceof HTMLSelectElement)) throw new Error('missing language select')
+    select.value = value
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+    flushSync()
+  }
+
+  it('adds Ukrainian after the language is chosen', async () => {
     await open(keymapOf(['default']))
     const add = target.querySelector('.legend-panel .add-language')
     if (!(add instanceof HTMLButtonElement)) throw new Error('missing add language')
     add.click()
     flushSync()
+    expect(editor.hostLegend.secondId).toBe('lark-ru')
+    const options = [...target.querySelectorAll('.legend-panel .language-select option')].map(
+      el => el.textContent?.trim()
+    )
+    expect(options).toEqual(['Язык', 'Ukrainian', 'German'])
+    chooseLanguage('uk')
     expect(editor.hostLegend.secondId).toBe('system-ua')
     const flags = [...target.querySelectorAll('.legend-panel .lang-flag')].map(
       el => el.textContent
     )
     expect(flags).toEqual(['🇦🇺', '🇷🇺', '🇺🇦'])
-    const selects = [...target.querySelectorAll('.legend-panel select.profile-select')]
+    const triggers = [...target.querySelectorAll('.legend-panel .profile-trigger')]
       .filter(el => !el.closest('.lang-head.narrow'))
       .map(el => el.getAttribute('aria-label'))
-    expect(selects).toEqual(['Профиль English', 'Профиль Ukrainian'])
+    expect(triggers).toEqual(['Профиль English', 'Профиль Ukrainian'])
     const russian = target.querySelector('.legend-panel .lang-head.narrow .lang-flag')
     expect(russian?.textContent).toBe('🇷🇺')
+    const ukrainian = [...target.querySelectorAll('.legend-panel .profile-trigger')].find(
+      el => el.getAttribute('aria-label') === 'Профиль Ukrainian'
+    )
+    if (!(ukrainian instanceof HTMLButtonElement)) throw new Error('missing Ukrainian profile')
+    ukrainian.click()
+    flushSync()
+    const items = [...target.querySelectorAll('.profile-list .profile-item')].map(
+      el => el.textContent?.trim()
+    )
+    expect(items[0]).toBe('Системная')
+    expect(items).toEqual([
+      'Системная',
+      'macOS',
+      'legacy',
+      'winkeys',
+      'typewriter',
+      'phonetic',
+      'homophonic'
+    ])
+    const copies = [...target.querySelectorAll('.profile-list .profile-icon')].filter(
+      el => el.getAttribute('title') === 'Скопировать профиль'
+    )
+    expect(copies).toHaveLength(items.length)
+    expect(target.querySelector('.legend-panel .language-select')).toBeNull()
+    const flag = target.querySelector('.legend-panel button.lang-flag')
+    if (!(flag instanceof HTMLButtonElement)) throw new Error('missing language flag')
+    flag.click()
+    flushSync()
+    expect(
+      [...target.querySelectorAll('.legend-panel .language-select option')]
+        .map(el => el.textContent?.trim())
+        .filter(Boolean)
+    ).toEqual(['Убрать язык', 'German'])
+  })
+
+  it('adds German after Ukrainian and lists its system variants', async () => {
+    await open(keymapOf(['default']))
+    const add = target.querySelector('.legend-panel .add-language')
+    if (!(add instanceof HTMLButtonElement)) throw new Error('missing add language')
+    add.click()
+    flushSync()
+    chooseLanguage('uk')
+    const addAgain = target.querySelector('.legend-panel .add-language')
+    if (!(addAgain instanceof HTMLButtonElement)) throw new Error('missing second add language')
+    addAgain.click()
+    flushSync()
+    expect(
+      [...target.querySelectorAll('.legend-panel .language-select option')].map(el =>
+        el.textContent?.trim()
+      )
+    ).toEqual(['Язык', 'German'])
+    chooseLanguage('de')
+    expect(editor.hostLegend.secondId).toBe('system-de')
+    const flags = [...target.querySelectorAll('.legend-panel .lang-flag')].map(
+      el => el.textContent
+    )
+    expect(flags).toEqual(['🇦🇺', '🇷🇺', '🇺🇦', '🇩🇪'])
+    const german = [...target.querySelectorAll('.legend-panel .profile-trigger')].find(
+      el => el.getAttribute('aria-label') === 'Профиль German'
+    )
+    if (!(german instanceof HTMLButtonElement)) throw new Error('missing German profile')
+    german.click()
+    flushSync()
+    const items = [...target.querySelectorAll('.profile-list .profile-item')].map(
+      el => el.textContent?.trim()
+    )
+    expect(items[0]).toBe('Системная')
+    expect(items).toContain('nodeadkeys')
+    expect(items).toContain('neo')
+    expect(items.at(-1)).toBe('noted')
+    const copies = [...target.querySelectorAll('.profile-list .profile-icon')].filter(
+      el => el.getAttribute('title') === 'Скопировать профиль'
+    )
+    expect(copies).toHaveLength(items.length)
+    const germanFlag = [...target.querySelectorAll('.legend-panel button.lang-flag')].find(
+      el => el.getAttribute('aria-label') === 'Язык German'
+    )
+    if (!(germanFlag instanceof HTMLButtonElement)) throw new Error('missing German flag')
+    germanFlag.click()
+    flushSync()
+    expect(
+      [...target.querySelectorAll('.legend-panel .language-select option')]
+        .map(el => el.textContent?.trim())
+        .filter(Boolean)
+    ).toEqual(['Убрать язык'])
+    chooseLanguage('__remove__')
+    expect(
+      [...target.querySelectorAll('.legend-panel .lang-flag')].map(el => el.textContent)
+    ).toEqual(['🇦🇺', '🇷🇺', '🇺🇦'])
+    expect(target.querySelector('.legend-panel .add-language')).toBeInstanceOf(HTMLButtonElement)
   })
 
   it('renames a layer from the table name button', async () => {

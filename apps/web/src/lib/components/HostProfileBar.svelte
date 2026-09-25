@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { hostLayoutChoice, hostLayoutChoiceLabel } from '@keymap-editor/keymap-core'
   import { onDestroy } from 'svelte'
   import { editor } from '../editor.svelte.js'
   import { builtinProfileLabel } from '../host-profiles'
@@ -11,27 +12,34 @@
   let name = $state('')
   let error = $state('')
 
-  const promptLanguage = $derived(editor.hostProfilePrompt?.language)
-  const activeUserProfile = $derived(
-    promptLanguage
-      ? editor.profilesForLanguage(promptLanguage).find(
-          profile => profile.id === editor.activeProfileId(promptLanguage)
-        )
-      : undefined
-  )
-  const activeProfileName = $derived(
-    promptLanguage
-      ? (builtinProfileLabel(editor.activeProfileId(promptLanguage)) ??
-          activeUserProfile?.name ??
-          '')
-      : ''
-  )
+  const prompt = $derived(editor.hostProfilePrompt)
+  const promptLanguage = $derived(prompt?.language)
+  const targetProfile = $derived.by(() => {
+    if (!prompt || !promptLanguage) return undefined
+    const id =
+      prompt.kind === 'rename' || prompt.kind === 'delete'
+        ? prompt.profileId
+        : editor.activeProfileId(promptLanguage)
+    return editor.profilesForLanguage(promptLanguage).find(profile => profile.id === id)
+  })
+  const activeProfileName = $derived.by(() => {
+    if (!prompt || !promptLanguage) return ''
+    if (prompt.kind === 'copy' && prompt.layoutId) {
+      const choice = hostLayoutChoice(prompt.layoutId)
+      if (choice) return hostLayoutChoiceLabel(choice)
+    }
+    return (
+      builtinProfileLabel(editor.activeProfileId(promptLanguage)) ??
+      targetProfile?.name ??
+      ''
+    )
+  })
 
   $effect(() => {
-    const prompt = editor.hostProfilePrompt
-    if (!prompt) return
+    const current = editor.hostProfilePrompt
+    if (!current) return
     error = ''
-    name = prompt.kind === 'rename' ? (activeUserProfile?.name ?? '') : ''
+    name = current.kind === 'rename' ? (targetProfile?.name ?? '') : ''
   })
 
   function submit(event: SubmitEvent) {
@@ -62,9 +70,9 @@
       </h2>
       <p>
         {#if editor.hostProfilePrompt.kind === 'rename'}
-          Новое имя для «{activeUserProfile?.name}».
+          Новое имя для «{targetProfile?.name}».
         {:else if editor.hostProfilePrompt.kind === 'delete'}
-          Профиль «{activeUserProfile?.name}» будет удалён из браузера.
+          Профиль «{targetProfile?.name}» будет удалён из браузера.
         {:else if editor.hostProfilePrompt.kind === 'copy'}
           Копия «{activeProfileName}» сохранится под новым именем.
         {:else}

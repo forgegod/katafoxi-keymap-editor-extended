@@ -3,18 +3,21 @@
     ALT_GR_COLUMN_LABEL,
     ALT_GR_SHIFT_COLUMN_LABEL,
     addHostLanguage,
-    builtinLanguageProfileId,
-    builtinLanguageProfileLabel,
     encodeKeyBinding,
+    hostLanguageName,
     hostLanguagesAvailable,
     hostLayoutChoice,
-    hostLayoutsForLanguage,
+    isAddableHostLanguage,
+    hostLayoutChoiceLabel,
     hostLegendColumns,
+    assignHostLanguageLayout,
+    layoutForBuiltinProfile,
     hostLegendFor,
     hostLegendPreview,
     getKeycodeCatalog,
-    parseBuiltinLanguageProfileId,
     resolveBinding,
+    replaceHostLanguage,
+    removeHostLanguage,
     setHostColumnAlt,
     toggleHostLanguage,
     toggleShownLayer,
@@ -23,9 +26,10 @@
     type KeyBindingNode
   } from '@keymap-editor/keymap-core'
   import { editor, hostLegendAnchorIndex } from '../editor.svelte.js'
-  import { isBuiltinLanguageProfile } from '../host-profiles.js'
+  import { layoutIdForProfile } from '../host-profiles.js'
   import EyeToggle from './EyeToggle.svelte'
   import HostProfileBar from './HostProfileBar.svelte'
+  import HostProfileMenu from './HostProfileMenu.svelte'
   import Icon from './Common/Icon.svelte'
 
   const view = $derived(editor.hostLegend)
@@ -39,6 +43,9 @@
   let hovered = $state(false)
   let pinned = $state(false)
   let focused = $state(false)
+  let openProfile = $state<HostLanguageId | null>(null)
+  let pickingNew = $state(false)
+  let pickingFor = $state<HostLanguageId | null>(null)
   let renamingIndex = $state<number | null>(null)
   let editing = $state('')
   let pendingDelete = $state<{ index: number; name: string } | null>(null)
@@ -80,14 +87,10 @@
     return node ? encodeKeyBinding(node) : ''
   }
 
-  function chooseColumnProfile(language: HostLanguageId, id: string) {
-    void editor.selectLanguageProfile(language, id)
-  }
-
   function activeProfileLabel(language: HostLanguageId): string {
     const id = editor.activeProfileId(language)
-    const builtin = parseBuiltinLanguageProfileId(id)
-    if (builtin) return builtinLanguageProfileLabel(builtin.kind)
+    const builtin = layoutForBuiltinProfile(id)
+    if (builtin) return hostLayoutChoiceLabel(builtin)
     return editor.profilesForLanguage(language).find(profile => profile.id === id)?.name ?? ''
   }
 
@@ -95,8 +98,63 @@
     void editor.commitHostMap(toggleHostLanguage(view, language))
   }
 
+  function applyLanguage(language: HostLanguageId, next: ReturnType<typeof addHostLanguage>) {
+    const stored = layoutIdForProfile(
+      editor.activeProfileId(language),
+      editor.hostProfiles
+    )
+    if (stored) next = assignHostLanguageLayout(next, language, stored)
+    pickingNew = false
+    pickingFor = null
+    void editor.commitHostMap(next)
+  }
+
   function addLanguage(language: HostLanguageId) {
-    void editor.commitHostMap(addHostLanguage(view, language))
+    applyLanguage(language, addHostLanguage(view, language))
+  }
+
+  const REMOVE_LANGUAGE = '__remove__'
+
+  function languageChoices(): HostLanguageId[] {
+    return hostLanguagesAvailable(view)
+  }
+
+  function startAddLanguage() {
+    if (addable.length === 0) return
+    pickingNew = true
+    pickingFor = null
+    openProfile = null
+  }
+
+  function pickNewLanguage(value: string) {
+    if (!isAddableHostLanguage(value)) return
+    addLanguage(value)
+  }
+
+  function toggleLanguagePicker(column: HostLegendColumn) {
+    if (!isAddableHostLanguage(column.language)) return
+    if (!column.wide) void editor.commitHostMap(toggleHostLanguage(view, column.language))
+    pickingNew = false
+    pickingFor = pickingFor === column.language ? null : column.language
+    openProfile = null
+  }
+
+  function changeLanguage(from: HostLanguageId, value: string) {
+    if (value === REMOVE_LANGUAGE) {
+      pickingNew = false
+      pickingFor = null
+      void editor.commitHostMap(removeHostLanguage(view, from))
+      return
+    }
+    if (!isAddableHostLanguage(value) || value === from) {
+      pickingFor = null
+      return
+    }
+    applyLanguage(value, replaceHostLanguage(view, from, value))
+  }
+
+  function focusSelect(node: HTMLSelectElement) {
+    node.focus()
   }
 
   function toggleLayer(index: number) {
@@ -142,7 +200,9 @@
   }
 
   const columnCount = $derived(
-    2 + columns.reduce((count, column) => count + (column.wide ? 3 : 1), 0) + (addable.length ? 1 : 0)
+    2 +
+      columns.reduce((count, column) => count + (column.wide ? 3 : 1), 0) +
+      (addable.length || pickingNew ? 1 : 0)
   )
 
   function hoverLayer(layer: number) {
@@ -224,6 +284,12 @@
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key !== 'Escape') return
+    if (pickingNew || pickingFor) {
+      pickingNew = false
+      pickingFor = null
+      event.stopPropagation()
+      return
+    }
     if (renamingIndex != null) {
       cancelRename()
       event.stopPropagation()
@@ -254,95 +320,60 @@
   }
 </script>
 
-{#snippet profileIcons(language: HostLanguageId)}
-  {@const canEdit = !isBuiltinLanguageProfile(editor.activeProfileId(language))}
-  <button
-    type="button"
-    class="profile-icon"
-    title="Сохранить как новый профиль"
-    aria-label="Сохранить как новый профиль"
-    onclick={() => editor.beginSaveHostProfile(language)}
-  >
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M5 3h11l3 3v15H5z" />
-      <path d="M8 3v6h8V3" />
-      <path d="M8 21v-6h8v6" />
-    </svg>
-  </button>
-  <button
-    type="button"
-    class="profile-icon"
-    title="Скопировать профиль"
-    aria-label="Скопировать профиль"
-    onclick={() => editor.beginCopyHostProfile(language)}
-  >
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="8" y="8" width="12" height="12" rx="1.5" />
-      <path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4H5.5A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8" />
-    </svg>
-  </button>
-  <button
-    type="button"
-    class="profile-icon stub"
-    title="Переименовать профиль"
-    aria-label="Переименовать профиль"
-    disabled={!canEdit}
-    onclick={() => editor.beginRenameHostProfile(language)}
-  >
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M4 20h4L18 10l-4-4L4 16v4z" />
-      <path d="M13 7l4 4" />
-    </svg>
-  </button>
-  <button
-    type="button"
-    class="profile-icon stub danger"
-    title="Удалить профиль"
-    aria-label="Удалить профиль"
-    disabled={!canEdit}
-    onclick={() => editor.beginDeleteHostProfile(language)}
-  >
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M6 6l12 12" />
-      <path d="M18 6L6 18" />
-    </svg>
-  </button>
-{/snippet}
-
 {#snippet languageHead(column: HostLegendColumn, interactive: boolean)}
   {@const choice = hostLayoutChoice(column.layoutId)}
   {@const language = column.language}
-  <div class="lang-head" class:narrow={!column.wide}>
+  {@const extra = isAddableHostLanguage(language)}
+  {@const choosing = pickingFor === language}
+  <div class="lang-head" class:narrow={!column.wide && !choosing}>
     {#if interactive}
       <EyeToggle
         on={column.shown}
         label={column.shown ? `Скрыть ${choice?.languageName ?? language}` : `Показать ${choice?.languageName ?? language}`}
         onclick={() => toggleLanguage(language)}
       />
-      <span class="lang-flag" title={choice?.languageName ?? language}>{choice?.flag ?? '—'}</span>
-      <div class="lang-tools" hidden={!column.wide}>
-        {#if language !== 'en' && language !== 'ru'}
-          <select class="language-select" aria-label="Язык" value={language}>
-            <option value={language}>{choice?.languageName ?? language}</option>
+      {#if extra}
+        <button
+          type="button"
+          class="lang-flag"
+          title={choice?.languageName ?? language}
+          aria-label={`Язык ${choice?.languageName ?? language}`}
+          aria-expanded={choosing}
+          onclick={() => toggleLanguagePicker(column)}
+        >
+          {choice?.flag ?? '—'}
+        </button>
+      {:else}
+        <span class="lang-flag" title={choice?.languageName ?? language}>{choice?.flag ?? '—'}</span>
+      {/if}
+      <div class="lang-tools" hidden={!column.wide && !choosing}>
+        {#if choosing}
+          <select
+            use:focusSelect
+            class="language-select"
+            aria-label="Язык"
+            value=""
+            onchange={event => changeLanguage(language, event.currentTarget.value)}
+          >
+            <option value="" disabled hidden></option>
+            <option value={REMOVE_LANGUAGE}>Убрать язык</option>
+            {#each languageChoices() as option (option)}
+              <option value={option}>{hostLanguageName(option)}</option>
+            {/each}
           </select>
         {/if}
-        <select
-          class="profile-select"
-          aria-label="Профиль {choice?.languageName ?? language}"
-          value={editor.activeProfileId(language)}
-          onchange={event => chooseColumnProfile(language, event.currentTarget.value)}
-        >
-          {#each hostLayoutsForLanguage(language) as option (option.id)}
-            <option value={builtinLanguageProfileId(language, option.kind)}>
-              {builtinLanguageProfileLabel(option.kind)}
-            </option>
-          {/each}
-          {#each editor.profilesForLanguage(language) as profile (profile.id)}
-            <option value={profile.id}>{profile.name}</option>
-          {/each}
-        </select>
-        {#if language === 'en' || language === 'ru'}
-          {@render profileIcons(language)}
+        {#if column.wide}
+          <HostProfileMenu
+            {language}
+            languageName={choice?.languageName ?? language}
+            open={openProfile === language}
+            onToggle={() => {
+              openProfile = openProfile === language ? null : language
+            }}
+            onClose={() => {
+              if (openProfile === language) openProfile = null
+            }}
+          />
         {/if}
       </div>
     {:else}
@@ -408,14 +439,31 @@
             {@render altHead(column, 'altGrShift', ALT_GR_SHIFT_COLUMN_LABEL, 'AltGr+Shift', interactive)}
           {/if}
         {/each}
-        {#if interactive && addable.length > 0}
+        {#if interactive && pickingNew}
+          <th class="add-language-cell">
+            <div class="lang-head">
+              <select
+                use:focusSelect
+                class="language-select"
+                aria-label="Язык"
+                value=""
+                onchange={event => pickNewLanguage(event.currentTarget.value)}
+              >
+                <option value="" disabled>Язык</option>
+                {#each languageChoices() as option (option)}
+                  <option value={option}>{hostLanguageName(option)}</option>
+                {/each}
+              </select>
+            </div>
+          </th>
+        {:else if interactive && addable.length > 0}
           <th class="add-language-cell">
             <button
               type="button"
               class="add-language"
               aria-label="Добавить язык"
               title="Добавить язык"
-              onclick={() => addLanguage(addable[0])}
+              onclick={startAddLanguage}
             >
               +
             </button>
@@ -488,7 +536,7 @@
               </td>
             {/if}
           {/each}
-          {#if interactive && addable.length > 0}
+          {#if interactive && (pickingNew || addable.length > 0)}
             <td></td>
           {/if}
         </tr>
@@ -630,15 +678,17 @@
     gap: 4px;
   }
 
-  .lang-head {
-    min-width: 16.5rem;
-  }
-
   .lang-head.narrow,
   th.narrow,
   td.narrow {
     min-width: 0;
     width: 1%;
+  }
+
+  .lang-tools {
+    display: flex;
+    align-items: center;
+    gap: 4px;
   }
 
   .lang-tools[hidden] {
@@ -680,63 +730,21 @@
     line-height: 1.2;
   }
 
-  .profile-select {
-    max-width: 9.5rem;
-    min-height: 24px;
-    padding: 1px 4px;
+  button.lang-flag {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
     font: inherit;
-    font-size: 12px;
+    font-size: 16px;
+    line-height: 1.2;
+    cursor: pointer;
   }
 
   .profile-name {
     font-size: 12px;
     color: #666;
-  }
-
-  .profile-icon {
-    width: 22px;
-    height: 22px;
-    padding: 0;
-    margin: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    background: #fff;
-    color: #333;
-    cursor: pointer;
-  }
-
-  .profile-icon.stub {
-    background: transparent;
-    color: #555;
-  }
-
-  .profile-icon.stub:hover:not(:disabled),
-  .profile-icon.stub:focus-visible:not(:disabled) {
-    background: rgba(0, 0, 0, 0.06);
-  }
-
-  .profile-icon.danger:not(:disabled) {
-    color: #842029;
-    border-color: #e2b6bb;
-  }
-
-  .profile-icon:disabled {
-    color: #ccc;
-    border-color: #e6e6e6;
-    cursor: not-allowed;
-  }
-
-  .profile-icon svg {
-    width: 13px;
-    height: 13px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
   }
 
   .eye-spacer {
