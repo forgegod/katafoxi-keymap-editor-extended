@@ -1,5 +1,5 @@
 import { primarySystemLayoutId } from './host-layout-catalog.js'
-import { LARK_STANDARD_VIEW } from './host-legend-presets.js'
+import { STANDARD_HOST_LEGEND_VIEW } from './host-legend-presets.js'
 import {
   ADDABLE_HOST_LANGUAGE_IDS,
   isAddableHostLanguage,
@@ -19,7 +19,7 @@ function columnOf(view: HostLegendView, language: HostLanguageId): HostColumn | 
 }
 
 export function standardHostLegendView(): HostLegendView {
-  return cloneView(LARK_STANDARD_VIEW)
+  return cloneView(STANDARD_HOST_LEGEND_VIEW)
 }
 
 export interface HostLegendColumn {

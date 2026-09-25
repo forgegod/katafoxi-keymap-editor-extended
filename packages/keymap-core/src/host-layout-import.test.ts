@@ -1,8 +1,13 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { hostLayoutFromXkb } from './host-layout-import.js'
 import { hostLayout } from './host-layout-registry.js'
-import { LARK_AU_BASIC, LARK_RU_LEGACY } from './lark-host-symbols.js'
+import { registerLarkHostFixture } from './testing/lark-host.js'
 import { listXkbSections } from './xkb-symbols.js'
+
+const HOST_DIR = fileURLToPath(new URL('../fixtures/lark/host', import.meta.url))
 
 function expectSameLevels(
   imported: { byZmk: ReadonlyMap<string, unknown> },
@@ -40,18 +45,20 @@ describe('listXkbSections', () => {
 })
 
 describe('hostLayoutFromXkb', () => {
-  it('imports LARK au/basic with the same levels as lark-en', () => {
-    // fixtures/lark/host/ is not present yet (T4). Compare against the
-    // current registry layouts using lark-host-symbols.ts as the xkb text.
-    const imported = hostLayoutFromXkb(LARK_AU_BASIC, 'basic', { fileName: 'au' })
+  it('imports fixtures/lark/host/au with the same levels as lark-en', () => {
+    registerLarkHostFixture()
+    const text = readFileSync(path.join(HOST_DIR, 'au'), 'utf8')
+    const imported = hostLayoutFromXkb(text, 'basic', { fileName: 'au' })
     expectSameLevels(imported, hostLayout('lark-en'))
   })
 
-  it('imports LARK ru/legacy with the same levels as lark-ru', () => {
-    const imported = hostLayoutFromXkb(LARK_RU_LEGACY, 'legacy', { fileName: 'ru' })
+  it('imports fixtures/lark/host/ru with the same levels as lark-ru, including LSGT', () => {
+    registerLarkHostFixture()
+    const text = readFileSync(path.join(HOST_DIR, 'ru'), 'utf8')
+    const imported = hostLayoutFromXkb(text, 'legacy', { fileName: 'ru' })
     const current = hostLayout('lark-ru')
     expectSameLevels(imported, current)
-    // ru(common) also defines LSGT; current lark-ru skipped that include.
+    // ru(common) defines LSGT; the registered fixture drops that include-only key.
     expect(imported.byZmk.has('NON_US_BSLH')).toBe(true)
     expect(current?.byZmk.has('NON_US_BSLH')).toBe(false)
   })

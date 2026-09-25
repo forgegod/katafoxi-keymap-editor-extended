@@ -149,7 +149,7 @@ function layoutIdFromLegacyProfile(id: string): string | undefined {
   const kind = match[2]
   const variant = match[3]
   const layouts = catalogLayoutsForLanguage(language)
-  if (kind === 'in-layout') return layouts.find(choice => choice.kind === 'in-layout')?.id
+  if (kind === 'in-layout') return primarySystemLayoutId(language)
   if (variant) {
     return layouts.find(
       choice => choice.kind === 'system' && choice.layoutName === variant
@@ -159,11 +159,7 @@ function layoutIdFromLegacyProfile(id: string): string | undefined {
 }
 
 function defaultV2LayoutId(language: HostLanguageId): string | undefined {
-  const layouts = catalogLayoutsForLanguage(language)
-  return (
-    layouts.find(choice => choice.kind === 'in-layout')?.id ??
-    primarySystemLayoutId(language)
-  )
+  return primarySystemLayoutId(language)
 }
 
 function migratedUserId(legacyId: string): string {

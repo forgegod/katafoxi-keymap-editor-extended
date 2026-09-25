@@ -111,14 +111,12 @@ export function hostLayoutsForLanguage(language: HostLanguageId): HostLayoutChoi
 export function hostLayoutShelves(language: HostLanguageId): {
   primary?: HostLayoutChoice
   systems: HostLayoutChoice[]
-  inLayout?: HostLayoutChoice
   users: HostLayoutChoice[]
 } {
   const layouts = hostLayoutsForLanguage(language)
   return {
     primary: layouts.find(choice => choice.kind === 'system' && choice.primary),
     systems: layouts.filter(choice => choice.kind === 'system' && !choice.primary),
-    inLayout: layouts.find(choice => choice.kind === 'in-layout'),
     users: layouts.filter(choice => choice.kind === 'user')
   }
 }

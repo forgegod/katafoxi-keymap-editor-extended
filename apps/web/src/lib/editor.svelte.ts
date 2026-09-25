@@ -293,7 +293,7 @@ export class EditorState {
 
   /**
    * Apply a language-column change immediately.
-   * Builtin system / in-layout picks do not ask for a name.
+   * Builtin system picks do not ask for a name.
    */
   commitHostMap(next: HostLegendView): Promise<void> {
     this.hostLegend = { ...next }

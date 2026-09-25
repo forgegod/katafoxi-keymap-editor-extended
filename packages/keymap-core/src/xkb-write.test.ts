@@ -1,9 +1,13 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { HOST_KEY_IDS } from './host-key-id.js'
 import { builtinHostLayoutSpecs } from './host-layout-catalog.js'
 import { hostLayoutFromSymbols, type HostKeyLevels, type HostLayout } from './host-layout.js'
-import { LARK_AU_BASIC, LARK_RU_LEGACY } from './lark-host-symbols.js'
 import { hostLayoutToXkbSection } from './xkb-write.js'
+
+const LARK_HOST_DIR = fileURLToPath(new URL('../fixtures/lark/host', import.meta.url))
 
 function byZmkRecord(layout: HostLayout): Record<string, HostKeyLevels> {
   return Object.fromEntries(
@@ -110,8 +114,18 @@ describe('xkb host layout round-trip', () => {
 
   it('keeps byZmk on the LARK au(basic) and ru(legacy) fixtures', () => {
     const cases = [
-      { source: LARK_AU_BASIC, section: 'basic', id: 'lark-en', name: 'English (Australian)' },
-      { source: LARK_RU_LEGACY, section: 'legacy', id: 'lark-ru', name: 'Russian (legacy)' }
+      {
+        source: readFileSync(path.join(LARK_HOST_DIR, 'au'), 'utf8'),
+        section: 'basic',
+        id: 'lark-en',
+        name: 'English (Australian)'
+      },
+      {
+        source: readFileSync(path.join(LARK_HOST_DIR, 'ru'), 'utf8'),
+        section: 'legacy',
+        id: 'lark-ru',
+        name: 'Russian (legacy)'
+      }
     ]
     for (const spec of cases) {
       const { original, written, again } = roundTrip(

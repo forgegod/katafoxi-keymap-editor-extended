@@ -21,6 +21,7 @@ import {
 import type { HostLayout } from './host-layout.js'
 
 const USER_RU_ID = 'user-ru-test'
+const BUILTIN_RU = 'system-ru'
 
 function columnShape(
   view: ReturnType<typeof standardHostLegendView>,
@@ -28,7 +29,7 @@ function columnShape(
 ) {
   return hostLegendColumns(view).map(column => ({
     language: column.language,
-    layoutId: aliasId && column.layoutId === aliasId ? 'lark-ru' : column.layoutId,
+    layoutId: aliasId && column.layoutId === aliasId ? BUILTIN_RU : column.layoutId,
     shown: column.shown,
     wide: column.wide,
     altGr: column.altGr,
@@ -46,22 +47,22 @@ afterEach(() => {
 
 describe('host layout registry', () => {
   it('looks up builtins without treating them as registered', () => {
-    expect(hostLayoutMeta('lark-ru')).toMatchObject({
-      id: 'lark-ru',
+    expect(hostLayoutMeta(BUILTIN_RU)).toMatchObject({
+      id: BUILTIN_RU,
       language: 'ru',
-      name: 'legacy',
+      name: 'winkeys',
       flag: '🇷🇺',
       origin: 'system'
     })
-    expect(hostLayout('lark-ru')?.byZmk.get('A')?.glyphs).toEqual(['ф', 'Ф', '@', 'α'])
-    expect(hostLayoutById('lark-ru')).toBe(hostLayout('lark-ru'))
-    expect(hostLayoutChoice('lark-ru')?.kind).toBe('in-layout')
+    expect(hostLayout(BUILTIN_RU)?.byZmk.get('A')?.glyphs).toEqual(['ф', 'Ф', '', ''])
+    expect(hostLayoutById(BUILTIN_RU)).toBe(hostLayout(BUILTIN_RU))
+    expect(hostLayoutChoice(BUILTIN_RU)?.kind).toBe('system')
     expect(hostLayout('missing-id')).toBeUndefined()
     expect(hostLayoutMeta('missing-id')).toBeUndefined()
   })
 
   it('replaces a re-registered user id and refuses builtin ids', () => {
-    const source = hostLayout('lark-ru')!
+    const source = hostLayout(BUILTIN_RU)!
     registerHostLayout(
       {
         id: USER_RU_ID,
@@ -91,7 +92,7 @@ describe('host layout registry', () => {
     expect(() =>
       registerHostLayout(
         {
-          id: 'lark-ru',
+          id: BUILTIN_RU,
           language: 'ru',
           name: 'nope',
           flag: '🇷🇺',
@@ -100,22 +101,22 @@ describe('host layout registry', () => {
         empty
       )
     ).toThrow(/built-in/)
-    expect(hostLayout('lark-ru')?.byZmk.get('A')?.glyphs).toEqual(['ф', 'Ф', '@', 'α'])
+    expect(hostLayout(BUILTIN_RU)?.byZmk.get('A')?.glyphs).toEqual(['ф', 'Ф', '', ''])
 
-    unregisterHostLayout('lark-ru')
-    expect(hostLayout('lark-ru')).toBeDefined()
+    unregisterHostLayout(BUILTIN_RU)
+    expect(hostLayout(BUILTIN_RU)).toBeDefined()
     unregisterHostLayout(USER_RU_ID)
     expect(hostLayout(USER_RU_ID)).toBeUndefined()
     expect(hostLayoutChoice(USER_RU_ID)).toBeUndefined()
   })
 
   it('lets a registered ru layout drive the same view and decode path as a builtin', () => {
-    const source = hostLayout('lark-ru')!
+    const source = hostLayout(BUILTIN_RU)!
     registerHostLayout(
       {
         id: USER_RU_ID,
         language: 'ru',
-        name: 'legacy',
+        name: 'winkeys',
         flag: '🇷🇺',
         origin: 'user'
       },
@@ -123,7 +124,7 @@ describe('host layout registry', () => {
     )
 
     const started = standardHostLegendView()
-    const builtinView = assignHostLanguageLayout(started, 'ru', 'lark-ru')
+    const builtinView = assignHostLanguageLayout(started, 'ru', BUILTIN_RU)
     const userView = assignHostLanguageLayout(started, 'ru', USER_RU_ID)
 
     const userRu = userView.columns.find(column => column.language === 'ru')

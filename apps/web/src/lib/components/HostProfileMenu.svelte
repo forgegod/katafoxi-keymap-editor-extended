@@ -266,39 +266,7 @@
           {/if}
         </li>
       {/each}
-      {#if customs.length > 0 && (shelves.inLayout || shelves.primary || shelves.systems.length > 0)}
-        <li class="profile-sep" aria-hidden="true"></li>
-      {/if}
-      {#if shelves.inLayout}
-        {@const inLayout = shelves.inLayout}
-        <li class="profile-row">
-          <button
-            type="button"
-            class="profile-item"
-            class:selected={inLayout.id === activeId}
-            role="option"
-            aria-selected={inLayout.id === activeId}
-            onclick={() => selectLayout(inLayout.id)}
-          >
-            {hostLayoutChoiceLabel(inLayout)}
-          </button>
-          {#if canStore}
-          <button
-            type="button"
-            class="profile-icon"
-            title="Скопировать профиль"
-            aria-label="Скопировать {hostLayoutChoiceLabel(inLayout)}"
-            onclick={event => copyLayout(inLayout, event)}
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <rect x="8" y="8" width="12" height="12" rx="1.5" />
-              <path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4H5.5A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8" />
-            </svg>
-          </button>
-          {/if}
-        </li>
-      {/if}
-      {#if shelves.inLayout && (shelves.primary || shelves.systems.length > 0)}
+      {#if customs.length > 0 && (shelves.primary || shelves.systems.length > 0)}
         <li class="profile-sep" aria-hidden="true"></li>
       {/if}
       {#if shelves.primary}

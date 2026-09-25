@@ -373,7 +373,7 @@ export function hostLegendFor(
 
 /**
  * Host×ZMK composition. Glyphs come from the selected host view
- * (LARK English + Russian unless the caller passes another).
+ * (system English + Russian unless the caller passes another).
  * Hold badges come from the binding, not from the letter.
  * Returns null when the tap is not a host character key (modifiers, layers,
  * navigation) so the UI keeps the ZMK-mode glyph.

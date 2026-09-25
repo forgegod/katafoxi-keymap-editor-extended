@@ -20,6 +20,9 @@ import {
   type KeycapColumn,
   type LegendDecodeCard
 } from './index.js'
+import { registerLarkHostFixture } from './testing/lark-host.js'
+
+registerLarkHostFixture()
 
 const GOLDEN_PATH = fileURLToPath(new URL('./__golden__/host-legend.json', import.meta.url))
 const UPDATE_GOLDEN = process.env.UPDATE_GOLDEN === '1'

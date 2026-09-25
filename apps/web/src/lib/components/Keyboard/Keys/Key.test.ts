@@ -278,11 +278,11 @@ describe('Key click editor', () => {
     expect(tip?.querySelector('.id[title="Linux evdev"]')?.textContent).toMatch(/Lin/)
     expect(
       [...(tip?.querySelectorAll('.row.flags .flag') ?? [])].map(el => el.textContent)
-    ).toEqual(['🇦🇺', '🇷🇺'])
-    expect(tip?.querySelector('.row.system')).toBeInstanceOf(HTMLElement)
+    ).toEqual(['🇺🇸', '🇷🇺'])
+    expect(tip?.querySelector('.row.system')).toBeNull()
     expect(
       [...(tip?.querySelectorAll('.row.current .lang') ?? [])].map(el => el.textContent)
-    ).toEqual(['-_±ˬ', 'хХ±ˬ'])
+    ).toEqual(['-_ˬˬ', '-_ˬˬ'])
   })
 
   it('opens the editor from a blank &trans composed row', () => {

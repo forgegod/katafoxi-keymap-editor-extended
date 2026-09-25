@@ -87,7 +87,7 @@ export interface ComposedLegend {
   hold?: string
   /** Structured hold target that produced `hold`. */
   holdRef?: HoldRef
-  /** Firmware keycode that produced this (gray in LARK sheet) */
+  /** Firmware keycode that produced this (gray in the host sheet) */
   keycode?: string
   /** Tap is HID keypad (`KP_*`); UI boxes the glyph, host text stays `7`. */
   keypad?: boolean
@@ -127,7 +127,7 @@ export interface LayerView {
 }
 
 /**
- * Input to compose. The default view is the LARK English + Russian preset.
+ * Input to compose. The default view is the primary system English + Russian pair.
  */
 export interface ComposeKeyInput {
   binding: KeyBindingNode

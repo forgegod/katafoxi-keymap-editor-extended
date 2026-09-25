@@ -3,7 +3,7 @@
  *
  * One record is one Unicode scalar. `keysym` is the X11 name to write.
  * `aliases` are other X11 names for that same scalar (`Ukranian_je` for
- * `Ukrainian_ie`, the LARK truncation `Cyrillic_SHCH`). Spellings `U0454`
+ * `Ukrainian_ie`, the truncated spelling `Cyrillic_SHCH`). Spellings `U0454`
  * and `0x01000454` are not stored; lookup derives them from the codepoint.
  *
  * Windows text for these characters is the same scalar encoded as UTF-16.

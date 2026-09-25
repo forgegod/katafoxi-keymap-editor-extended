@@ -24,7 +24,7 @@ KEYSYMDEF = Path("/usr/include/X11/keysymdef.h")
 FIXTURES = ROOT / "fixtures" / "xkb" / "symbols"
 OUT = ROOT / "data" / "host-symbols.json"
 
-# LARK ru legacy spells the capital shcha without the final A.
+# The ru host fixture spells the capital shcha without the final A.
 EXTRA_ALIASES = {"Cyrillic_SHCH": "Cyrillic_SHCHA"}
 
 DEFINE = re.compile(r"^#define\s+XK_(\S+)\s+(\S+)\s*(?:/\*(.*?)\*/)?\s*$")

@@ -117,7 +117,7 @@ describe('host layout store', () => {
     expect(editor.userLayouts.map(layout => layout.name)).toEqual(['Домашняя'])
     expect(editor.userLayouts[0]?.language).toBe('ru')
     expect(openLayoutId(editor.hostLegend)).toBe(editor.activeProfileId('ru'))
-    expect(editor.activeProfileId('en')).toBe('lark-en')
+    expect(editor.activeProfileId('en')).toBe(SYSTEM_US_LAYOUT_ID)
   })
 
   it('keeps English when a Russian layout is saved', async () => {
@@ -133,7 +133,6 @@ describe('host layout store', () => {
     expect(await editor.confirmHostProfileName('  ')).toMatch(/имя/i)
     expect(editor.hostProfilePrompt?.kind).toBe('save-as')
     expect(await editor.confirmHostProfileName('Системная')).toMatch(/занято/)
-    expect(await editor.confirmHostProfileName('В раскладке')).toMatch(/занято/)
     expect(editor.userLayouts).toHaveLength(0)
   })
 
@@ -257,7 +256,7 @@ describe('host layout store', () => {
         },
         {
           language: 'ru',
-          layoutId: 'lark-ru',
+          layoutId: SYSTEM_RU_LAYOUT_ID,
           visible: true,
           altGr: true,
           altGrShift: true

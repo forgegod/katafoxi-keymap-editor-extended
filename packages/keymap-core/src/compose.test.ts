@@ -36,8 +36,19 @@ import {
   parseKeymap,
   generateKeymap,
   normalizeZmkKeycodes,
-  resolveBinding
+  resolveBinding,
+  type HostLegendView
 } from '../src/index.js'
+import { registerLarkHostFixture } from './testing/lark-host.js'
+
+function larkView(): HostLegendView {
+  registerLarkHostFixture()
+  return assignHostLanguageLayout(
+    assignHostLanguageLayout(standardHostLegendView(), 'en', 'lark-en'),
+    'ru',
+    'lark-ru'
+  )
+}
 
 /** Join live keycap columns the way the deleted compact helper did. */
 function compactKeycap(legend: NonNullable<ReturnType<typeof composeKey>>): string {
@@ -144,7 +155,7 @@ describe('normalizeZmkKeycodes', () => {
 describe('resolveBinding / composeKey', () => {
   it('resolves &kp tap without hold', () => {
     expect(resolveBinding(parseKeyBinding('&kp A'))).toEqual({ tap: 'A' })
-    const legend = composeKey({ binding: parseKeyBinding('&kp A') })
+    const legend = composeKey({ binding: parseKeyBinding('&kp A'), hostView: larkView() })
     expect(baseColumn(legend!)?.pair).toEqual(['a', 'A'])
     expect(extraColumn(legend!)?.pair).toEqual(['ф', 'Ф'])
     expect(legend?.hold).toBeUndefined()
@@ -169,7 +180,7 @@ describe('resolveBinding / composeKey', () => {
   })
 
   it('marks host levels that differ between English and Russian', () => {
-    const tee = composeKey({ binding: parseKeyBinding('&kp T') })
+    const tee = composeKey({ binding: parseKeyBinding('&kp T'), hostView: larkView() })
     expect(baseColumn(tee!)?.pair).toEqual(['t', 'T'])
     expect(extraColumn(tee!)?.pair).toEqual(['е', 'Е'])
     expect(baseColumn(tee!)?.altGr).toBe('Δ')
@@ -177,19 +188,19 @@ describe('resolveBinding / composeKey', () => {
     expect(altText(tee!)).toBe('Δτ/ёЁ')
     expect(compactKeycap(tee!)).toBe('tT еЕ Δτ/ёЁ')
 
-    const em = composeKey({ binding: parseKeyBinding('&kp M') })
+    const em = composeKey({ binding: parseKeyBinding('&kp M'), hostView: larkView() })
     expect(baseColumn(em!)?.pair).toEqual(['m', 'M'])
     expect(extraColumn(em!)?.pair).toEqual(['ь', 'Ь'])
     expect(altText(em!)).toBe('ˬμ/ъЪ')
     expect(compactKeycap(em!)).toBe('mM ьЬ ˬμ/ъЪ')
 
-    const grave = composeKey({ binding: parseKeyBinding('&kp GRAVE') })
+    const grave = composeKey({ binding: parseKeyBinding('&kp GRAVE'), hostView: larkView() })
     expect(baseColumn(grave!)?.pair).toEqual(['`', '~'])
     expect(altText(grave!)).toBe('/ёЁ')
   })
 
   it('draws a second-language pair once when it matches the first', () => {
-    const hostView = addHostLanguage(standardHostLegendView(), 'de')
+    const hostView = addHostLanguage(larkView(), 'de')
     const gee = composeKey({ binding: parseKeyBinding('&kp G'), hostView })
     expect(baseColumn(gee!)?.pair).toEqual(['g', 'G'])
     expect(extraColumn(gee!)?.pair).toEqual(['g', 'G'])
@@ -198,7 +209,7 @@ describe('resolveBinding / composeKey', () => {
   })
 
   it('colors diverging AltGr halves by language', () => {
-    const tee = composeKey({ binding: parseKeyBinding('&kp T') })
+    const tee = composeKey({ binding: parseKeyBinding('&kp T'), hostView: larkView() })
     expect(keycapColumns(tee!).at(-1)).toEqual({
       kind: 'alt',
       pieces: [
@@ -207,7 +218,7 @@ describe('resolveBinding / composeKey', () => {
         { text: 'ёЁ', tone: 'second' }
       ]
     })
-    const grave = composeKey({ binding: parseKeyBinding('&kp GRAVE') })
+    const grave = composeKey({ binding: parseKeyBinding('&kp GRAVE'), hostView: larkView() })
     expect(keycapColumns(grave!).at(-1)?.pieces).toEqual([
       { text: '/', tone: null },
       { text: 'ёЁ', tone: 'second' }
@@ -215,7 +226,7 @@ describe('resolveBinding / composeKey', () => {
   })
 
   it('splits E into En / Ru / AltGr columns', () => {
-    const legend = composeKey({ binding: parseKeyBinding('&kp E') })
+    const legend = composeKey({ binding: parseKeyBinding('&kp E'), hostView: larkView() })
     expect(baseColumn(legend!)?.pair).toEqual(['e', 'E'])
     expect(extraColumn(legend!)?.pair).toEqual(['у', 'У'])
     expect(baseColumn(legend!)?.altGr).toBe('&')
@@ -224,7 +235,7 @@ describe('resolveBinding / composeKey', () => {
   })
 
   it('puts hold badge only on &mt, not on bare &kp J', () => {
-    const kp = composeKey({ binding: parseKeyBinding('&kp J') })
+    const kp = composeKey({ binding: parseKeyBinding('&kp J'), hostView: larkView() })
     expect(kp?.hold).toBeUndefined()
     expect(baseColumn(kp!)?.pair).toEqual(['j', 'J'])
     expect(extraColumn(kp!)?.pair).toEqual(['о', 'О'])
@@ -232,7 +243,7 @@ describe('resolveBinding / composeKey', () => {
     expect(baseColumn(kp!)?.altGrShift).toBe('ξ')
     expect(compactKeycap(kp!)).toContain('ˬξ')
 
-    const mt = composeKey({ binding: parseKeyBinding('&mt LCTRL J') })
+    const mt = composeKey({ binding: parseKeyBinding('&mt LCTRL J'), hostView: larkView() })
     expect(baseColumn(mt!)?.pair).toEqual(['j', 'J'])
     expect(mt?.hold).toBe('⧗⌃')
     expect(mt?.holdRef).toEqual({ kind: 'mod', code: 'LCTRL' })
@@ -271,7 +282,7 @@ describe('resolveBinding / composeKey', () => {
   it('hides language columns on the keycap without dropping the host pick', () => {
     const hiddenEn = composeKey({
       binding: parseKeyBinding('&kp E'),
-      hostView: toggleHostLanguage(standardHostLegendView(), 'en')
+      hostView: toggleHostLanguage(larkView(), 'en')
     })
     expect(baseColumn(hiddenEn!)?.onKeycap).toBe(false)
     expect(baseColumn(hiddenEn!)?.pair).toEqual(['e', 'E'])
@@ -279,11 +290,11 @@ describe('resolveBinding / composeKey', () => {
     expect(keycapColumns(hiddenEn!).filter(column => column.kind === 'letters')).toEqual([
       { kind: 'letters', pieces: [{ text: 'уУ', tone: 'second' }] }
     ])
-    expect(hostLegendFor('E')?.columns[0]?.pair).toEqual(['e', 'E'])
+    expect(hostLegendFor('E', larkView())?.columns[0]?.pair).toEqual(['e', 'E'])
   })
 
   it('keeps three visible columns on the legend and draws base plus open on the keycap', () => {
-    const hostView = addHostLanguage(standardHostLegendView(), 'uk')
+    const hostView = addHostLanguage(larkView(), 'uk')
     expect(resolveHostColumns(hostView).filter(column => column.visible)).toHaveLength(3)
     const legend = composeKey({ binding: parseKeyBinding('&kp A'), hostView })
     expect(legend?.columns.map(column => column.language)).toEqual(['en', 'ru', 'uk'])
@@ -347,7 +358,7 @@ describe('resolveBinding / composeKey', () => {
   it('drops the host legend on layer0 when layer0Raw is set', () => {
     const rows = composeLayerRows(
       [parseKeyBinding('&kp E'), parseKeyBinding('&kp A')],
-      standardHostLegendView(),
+      larkView(),
       { shown: [0, 1], layer0Raw: true }
     )
     expect(rows[0].legend).toBeNull()
@@ -370,6 +381,7 @@ describe('resolveBinding / composeKey', () => {
   })
 
   it('follows the host view for the second language and AltGr columns', () => {
+    registerLarkHostFixture()
     const englishOnly = composeKey({
       binding: parseKeyBinding('&kp A'),
       hostView: {
@@ -394,7 +406,7 @@ describe('resolveBinding / composeKey', () => {
   })
 
   it('keeps an AltGr pair of empty marks while either column is on', () => {
-    const both = composeKey({ binding: parseKeyBinding('&kp K') })
+    const both = composeKey({ binding: parseKeyBinding('&kp K'), hostView: larkView() })
     expect(baseColumn(both!)?.altGr).toBe('')
     expect(baseColumn(both!)?.altGrShift).toBe('')
     expect(formatAltGrPair(baseColumn(both!)!)).toBe('ˬˬ')
@@ -402,7 +414,7 @@ describe('resolveBinding / composeKey', () => {
     const shiftOnly = composeKey({
       binding: parseKeyBinding('&kp K'),
       hostView: setHostColumnAlt(
-        setHostColumnAlt(standardHostLegendView(), 'en', 'altGr', false),
+        setHostColumnAlt(larkView(), 'en', 'altGr', false),
         'ru',
         'altGr',
         false
@@ -414,7 +426,7 @@ describe('resolveBinding / composeKey', () => {
       binding: parseKeyBinding('&kp E'),
       hostView: setHostColumnAlt(
         setHostColumnAlt(
-          setHostColumnAlt(setHostColumnAlt(standardHostLegendView(), 'en', 'altGr', false), 'en', 'altGrShift', false),
+          setHostColumnAlt(setHostColumnAlt(larkView(), 'en', 'altGr', false), 'en', 'altGrShift', false),
           'ru',
           'altGr',
           false
@@ -653,8 +665,8 @@ describe('keycapLegend', () => {
 })
 
 describe('composeLegendDecode', () => {
-  it('names the physical key and grids LARK against the system primary', () => {
-    const card = composeLegendDecode(parseKeyBinding('&kp MINUS'))
+  it('names the physical key and grids the fixture layouts against the system primary', () => {
+    const card = composeLegendDecode(parseKeyBinding('&kp MINUS'), larkView())
     expect(card.keycode).toBe('KC_MINUS')
     expect(card.vk).toBe('VK_OEM_MINUS')
     expect(card.evdevName).toBe('KEY_MINUS')
@@ -667,7 +679,7 @@ describe('composeLegendDecode', () => {
   })
 
   it('keeps an empty AltGr slot so μ stays on Shift-AltGr', () => {
-    const card = composeLegendDecode(parseKeyBinding('&kp M'))
+    const card = composeLegendDecode(parseKeyBinding('&kp M'), larkView())
     expect(formatDecodeWord(card.current[0])).toBe('mMˬμ')
     expect(formatDecodeWord(card.current[1])).toBe('ьЬъЪ')
     expect(card.system?.map(formatDecodeWord)).toEqual(['mMˬˬ', 'ьЬˬˬ'])

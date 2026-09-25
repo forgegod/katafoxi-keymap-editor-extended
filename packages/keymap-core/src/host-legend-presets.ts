@@ -1,26 +1,11 @@
-import { hostLayoutFromSymbols, type HostLayout } from './host-layout.js'
-import { LARK_AU_BASIC, LARK_RU_LEGACY } from './lark-host-symbols.js'
+import { SYSTEM_RU_LAYOUT_ID, SYSTEM_US_LAYOUT_ID } from './host-layout-catalog.js'
 import type { HostLegendView } from './types.js'
 
-/** English (Australian) LARK host group. */
-export const larkEnglishLayout: HostLayout = hostLayoutFromSymbols(
-  LARK_AU_BASIC,
-  'basic',
-  'lark-en'
-)
-
-/** Russian (legacy) LARK host group. */
-export const larkRussianLayout: HostLayout = hostLayoutFromSymbols(
-  LARK_RU_LEGACY,
-  'legacy',
-  'lark-ru'
-)
-
-/** LARK preset: English `au` plus Russian, with AltGr. */
-export const LARK_STANDARD_VIEW: HostLegendView = {
+/** Default view: primary system English plus primary system Russian, AltGr on. */
+export const STANDARD_HOST_LEGEND_VIEW: HostLegendView = {
   columns: [
-    { language: 'en', layoutId: 'lark-en', visible: true, altGr: true, altGrShift: true },
-    { language: 'ru', layoutId: 'lark-ru', visible: true, altGr: true, altGrShift: true }
+    { language: 'en', layoutId: SYSTEM_US_LAYOUT_ID, visible: true, altGr: true, altGrShift: true },
+    { language: 'ru', layoutId: SYSTEM_RU_LAYOUT_ID, visible: true, altGr: true, altGrShift: true }
   ],
   open: 'ru'
 }

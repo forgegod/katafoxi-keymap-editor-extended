@@ -4,13 +4,12 @@ import {
   type HostLanguage,
   type HostLanguageId
 } from './host-languages.js'
-import { LARK_AU_BASIC, LARK_RU_LEGACY } from './lark-host-symbols.js'
 import { SYSTEM_DE_SYMBOLS } from './system-de-symbols.js'
 import { SYSTEM_LATIN_SYMBOLS } from './system-latin-symbols.js'
 import { SYSTEM_US_XKB_SYMBOLS } from './system-us-xkb-symbols.js'
 import type { ParseXkbOptions } from './xkb-symbols.js'
 
-export type HostLayoutKind = 'system' | 'in-layout' | 'user'
+export type HostLayoutKind = 'system' | 'user'
 
 export interface HostLayoutChoice {
   id: string
@@ -79,52 +78,19 @@ function systemSpec(language: HostLanguage, section: string): BuiltinHostLayoutS
   }
 }
 
-const IN_LAYOUT_EXTRAS: ReadonlyArray<{
-  id: string
-  language: HostLanguageId
-  layoutName: string
-  flag: string
-  source: string
-  section: string
-}> = [
-  { id: 'lark-en', language: 'en', layoutName: 'au', flag: '🇦🇺', source: LARK_AU_BASIC, section: 'basic' },
-  { id: 'lark-ru', language: 'ru', layoutName: 'legacy', flag: '🇷🇺', source: LARK_RU_LEGACY, section: 'legacy' }
-]
-
-function inLayoutChoices(language: HostLanguageId): HostLayoutChoice[] {
-  const meta = hostLanguage(language)
-  return IN_LAYOUT_EXTRAS.filter(extra => extra.language === language).map(extra => ({
-    id: extra.id,
-    language,
-    languageName: meta.name,
-    layoutName: extra.layoutName,
-    flag: extra.flag,
-    kind: 'in-layout'
-  }))
-}
-
-export const hostLayoutChoices: readonly HostLayoutChoice[] = HOST_LANGUAGES.flatMap(language => [
-  ...language.sections.map(section => systemChoice(language, section)),
-  ...inLayoutChoices(language.id)
-])
+export const hostLayoutChoices: readonly HostLayoutChoice[] = HOST_LANGUAGES.flatMap(language =>
+  language.sections.map(section => systemChoice(language, section))
+)
 
 /** Builtin sections the registry parses lazily. Importing this list does not parse. */
-export const builtinHostLayoutSpecs: readonly BuiltinHostLayoutSpec[] = [
-  ...HOST_LANGUAGES.flatMap(language => language.sections.map(section => systemSpec(language, section))),
-  ...IN_LAYOUT_EXTRAS.map(extra => ({
-    id: extra.id,
-    language: extra.language,
-    name: extra.layoutName,
-    flag: extra.flag,
-    source: extra.source,
-    section: extra.section
-  }))
-]
+export const builtinHostLayoutSpecs: readonly BuiltinHostLayoutSpec[] = HOST_LANGUAGES.flatMap(
+  language => language.sections.map(section => systemSpec(language, section))
+)
 
 /** System English group (`us(basic)`). */
 export const SYSTEM_US_LAYOUT_ID = systemLayoutId(hostLanguage('en'), hostLanguage('en').primarySection)
 
-/** System Russian group (`ru(winkeys)`), not the LARK legacy group. */
+/** System Russian group (`ru(winkeys)`). */
 export const SYSTEM_RU_LAYOUT_ID = systemLayoutId(hostLanguage('ru'), hostLanguage('ru').primarySection)
 
 /** System Ukrainian group (`ua(unicode)`). */
@@ -138,8 +104,7 @@ export function catalogLayoutsForLanguage(language: HostLanguageId): HostLayoutC
   const all = hostLayoutChoices.filter(choice => choice.language === language)
   return [
     ...all.filter(choice => choice.kind === 'system' && choice.primary),
-    ...all.filter(choice => choice.kind === 'system' && !choice.primary),
-    ...all.filter(choice => choice.kind === 'in-layout')
+    ...all.filter(choice => choice.kind === 'system' && !choice.primary)
   ]
 }
 
@@ -149,16 +114,15 @@ export function primarySystemLayoutId(language: HostLanguageId): string | undefi
   )?.id
 }
 
-export function builtinLanguageProfileLabel(kind: HostLayoutKind): string {
-  return kind === 'system' ? 'Системная' : 'В раскладке'
+export function builtinLanguageProfileLabel(_kind: HostLayoutKind): string {
+  return 'Системная'
 }
 
 export function hostLayoutChoiceLabel(choice: HostLayoutChoice): string {
-  if (choice.kind === 'in-layout') return 'В раскладке'
   if (choice.primary) return 'Системная'
   return choice.layoutName
 }
 
 export function reservedHostProfileNames(): string[] {
-  return ['Системная', 'В раскладке']
+  return ['Системная']
 }
