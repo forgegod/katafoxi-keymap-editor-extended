@@ -2,31 +2,32 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { larkEnglishLayout, larkRussianLayout } from './host-legend-presets.js'
+import {
+  builtinLanguageProfileId,
+  hostLayoutsForLanguage,
+  SYSTEM_RU_LAYOUT_ID,
+  SYSTEM_US_LAYOUT_ID,
+  systemEnglishLayout,
+  systemGermanLayout,
+  systemRussianLayout,
+  systemUkrainianLayout
+} from './host-layout-catalog.js'
 import {
   addHostLanguage,
   assignHostLanguageLayout,
-  replaceHostLanguage,
-  removeHostLanguage,
-  builtinLanguageProfileId,
   effectiveShownLayers,
   hostLegendColumns,
   hostLegendFor,
   hostLegendPreview,
   hostLegendView,
-  hostLayoutsForLanguage,
-  larkEnglishLayout,
-  larkRussianLayout,
+  remapShownLayersAfterDelete,
+  removeHostLanguage,
+  replaceHostLanguage,
   standardHostLegendView,
-  SYSTEM_RU_LAYOUT_ID,
-  SYSTEM_US_LAYOUT_ID,
-  systemEnglishLayout,
-  systemRussianLayout,
-  systemGermanLayout,
-  systemUkrainianLayout,
   toggleHostLanguage,
-  toggleShownLayer,
-  remapShownLayersAfterDelete
-} from './lark-host.js'
+  toggleShownLayer
+} from './host-legend-view.js'
 import { SYSTEM_US_SYMBOLS } from './system-us-symbols.js'
 import { parseXkbSymbolsSection } from './xkb-symbols.js'
 import { keysymToGlyph } from './xkb-keysyms.js'

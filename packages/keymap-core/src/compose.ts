@@ -10,15 +10,17 @@ import { encodeKeyBinding } from './keymap.js'
 import { hostKeyByZmk } from './host-key-id.js'
 import { ALT_LEVEL_EMPTY, type HostLevels } from './host-layout.js'
 import {
-  effectiveShownLayers,
   hostLayoutById,
   hostLayoutChoice,
-  hostLayoutShelves,
+  hostLayoutShelves
+} from './host-layout-catalog.js'
+import {
+  effectiveShownLayers,
   hostLegendColumns,
   hostLegendFor,
-  standardHostLegendView,
-  type HostLanguageId
-} from './lark-host.js'
+  standardHostLegendView
+} from './host-legend-view.js'
+import type { HostLanguageId } from './host-languages.js'
 import type {
   ComposedLegend,
   ComposeKeyInput,
