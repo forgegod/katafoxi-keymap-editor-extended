@@ -21,6 +21,24 @@ Use **pnpm** workspaces. Dev: `pnpm dev` (API `127.0.0.1:8080`, Vite `127.0.0.1:
 5. **GitHub auth is server-session** — OAuth tokens stay on the API; browser gets HttpOnly `sid` only. See [docs/adr/0003-github-auth-server-session.md](docs/adr/0003-github-auth-server-session.md).
 6. Read product vision in [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md) before large feature work.
 
+## Commit messages
+
+One English imperative sentence: what changed and why. No Conventional Commits (`feat:`, `fix:`), no package scopes.
+
+```
+<Verb> <object> [so / and <why or constraint>].
+```
+
+Prefer `Add`, `Fix`, `Parse` / `Map` / `Fill`, `Test`, `Document`. Use `Refactor`, `Split`, `Extract`, `Drop` only when structure changes. One intent per commit. Keep the subject around 72 characters. A body is optional — add it only when the subject needs a constraint or a “we did not” note.
+
+Examples from this repo:
+
+- `Save named host-legend profiles in the browser and keep the standard preset immutable.`
+- `Parse same-file xkb includes so winkeys can reuse ru(common).`
+- `Fit the keyboard into the leftover viewport and keep AltGr levels readable.`
+
+Before committing, the subject should complete “This commit will ___”, say what a revert would undo, and cover a single step.
+
 ## Do not
 
 - Rewrite the stack (SvelteKit, Nest, etc.) without an explicit request.
