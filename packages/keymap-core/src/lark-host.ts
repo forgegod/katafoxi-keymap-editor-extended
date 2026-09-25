@@ -106,7 +106,13 @@ export function hostLegendPreview(
   patch: Partial<
     Pick<
       HostLegendView,
-      'baseVisible' | 'secondVisible' | 'layers' | 'shownLayers' | 'altGr' | 'altGrShift'
+      | 'baseVisible'
+      | 'secondVisible'
+      | 'layers'
+      | 'shownLayers'
+      | 'altGr'
+      | 'altGrShift'
+      | 'layer0Raw'
     >
   >
 ): HostLegendView {

@@ -332,18 +332,21 @@ export function composeLayerRows(
   binding: KeyBindingNode
   legend: ComposedLegend | null
   blank: boolean
+  raw: boolean
   title: string
 }> {
   const shown = effectiveShownLayers(hostView ?? standardHostLegendView(), bindings.length)
   return shown.map(layer => {
     const binding = bindings[layer]
     const blank = isBlankLayerBinding(binding)
+    const raw = layer === 0 && hostView?.layer0Raw === true
     return {
       layer,
       binding,
       blank,
+      raw,
       title: encodeKeyBinding(binding),
-      legend: blank ? null : composeKey({ binding, hostView })
+      legend: blank || raw ? null : composeKey({ binding, hostView })
     }
   })
 }

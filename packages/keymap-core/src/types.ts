@@ -111,6 +111,8 @@ export interface HostLegendView {
   layers?: [boolean, boolean, boolean, boolean]
   /** Shown firmware-layer indices in the order they were turned on. */
   shownLayers?: number[]
+  /** Layer 0 stays on the cap; when true the first row is the raw ZMK code. */
+  layer0Raw?: boolean
 }
 
 /**

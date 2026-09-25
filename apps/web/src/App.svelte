@@ -313,8 +313,9 @@
     min-height: 0;
     min-width: 0;
     display: grid;
-    grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+    grid-template-columns: max-content minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
+    column-gap: 12px;
   }
 
   /* keyboard-root is display:contents, so these are grid items of .board-stack */
@@ -341,7 +342,7 @@
     grid-row: 1;
     align-self: start;
     padding: 0 0 4px 12px;
-    min-width: 0;
+    min-width: max-content;
   }
 
   #legend-mode {

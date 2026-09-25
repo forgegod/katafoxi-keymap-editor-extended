@@ -244,6 +244,20 @@ describe('resolveBinding / composeKey', () => {
     expect(rows.map(row => row.blank)).toEqual([true, true, false])
   })
 
+  it('drops the host legend on layer0 when layer0Raw is set', () => {
+    const rows = composeLayerRows([parseKeyBinding('&kp E'), parseKeyBinding('&kp A')], {
+      ...standardHostLegendView(),
+      shownLayers: [0, 1],
+      layer0Raw: true
+    })
+    expect(rows[0].legend).toBeNull()
+    expect(rows[0].blank).toBe(false)
+    expect(rows[0].raw).toBe(true)
+    expect(rows[0].title).toBe('&kp E')
+    expect(rows[1].raw).toBe(false)
+    expect(rows[1].legend?.en).toEqual(['a', 'A'])
+  })
+
   it('sets each row title to the encoded binding', () => {
     const holdTap = parseKeyBinding('&mt LCTRL J')
     const letter = parseKeyBinding('&kp E')

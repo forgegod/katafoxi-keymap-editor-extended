@@ -111,6 +111,40 @@ describe('HostLegendPicker', () => {
     expect(codes[1]).toMatch(/X/)
   })
 
+  it('collapses as soon as the pointer leaves unless the list is pinned', async () => {
+    await open(keymapOf(Array.from({ length: 9 }, (_, i) => `L${i}`)))
+    const strip = target.querySelector('.host-legend-strip')
+    if (!(strip instanceof HTMLElement)) throw new Error('missing strip')
+
+    strip.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    expect(panelRows()).toHaveLength(9)
+
+    strip.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }))
+    flushSync()
+    expect(panelRows()).toHaveLength(4)
+
+    const eye = target.querySelector('.legend-panel [aria-label="Показать L1"]')
+    if (!(eye instanceof HTMLButtonElement)) throw new Error('missing eye')
+    strip.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    eye.click()
+    flushSync()
+    expect(panelRows()).toHaveLength(9)
+    strip.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }))
+    flushSync()
+    expect(panelRows().map(row => row.querySelector('th')?.textContent?.trim())).toEqual([
+      'L0',
+      'L2',
+      'L3'
+    ])
+
+    const button = expand()
+    strip.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }))
+    flushSync()
+    expect(button.getAttribute('aria-expanded')).toBe('true')
+    expect(panelRows()).toHaveLength(9)
+  })
+
   it('expands on focus so extra layers are reachable without a mouse', async () => {
     await open(keymapOf(Array.from({ length: 9 }, (_, i) => `L${i}`)))
     expect(panelRows()).toHaveLength(4)
@@ -120,6 +154,23 @@ describe('HostLegendPicker', () => {
     flushSync()
     expect(button.getAttribute('aria-expanded')).toBe('true')
     expect(panelRows()).toHaveLength(9)
+  })
+
+  it('toggles layer0 to a raw ZMK row instead of hiding it', async () => {
+    await open(keymapOf(['default', 'raise']))
+    const shownBefore = editor.hostLegend.shownLayers
+    const eye = target.querySelector('.legend-panel [aria-label="Показать host-легенду default"]')
+    if (!(eye instanceof HTMLButtonElement)) throw new Error('missing layer0 eye')
+    expect(eye.getAttribute('aria-pressed')).toBe('true')
+    eye.click()
+    flushSync()
+    expect(editor.hostLegend.layer0Raw).toBe(true)
+    expect(editor.hostLegend.shownLayers).toEqual(shownBefore)
+    expect(eye.getAttribute('aria-pressed')).toBe('false')
+    eye.click()
+    flushSync()
+    expect(editor.hostLegend.layer0Raw).toBe(false)
+    expect(eye.getAttribute('aria-pressed')).toBe('true')
   })
 
   it('toggles visibility through toggleShownLayer and does not write layers', async () => {

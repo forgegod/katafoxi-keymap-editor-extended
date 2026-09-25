@@ -151,6 +151,7 @@
         layer: layerIndex,
         binding,
         blank: false,
+        raw: false,
         title: encodeKeyBinding(binding),
         legend: composeKey({ binding, hostView })
       }
@@ -447,7 +448,7 @@
           {:else}
             {@const zmk = zmkRowView(row.binding)}
             {@const compact = compactBehaviorLegend(row.binding)}
-            <span class="zmk-row" class:legend-hit={hit === 'combo'}>
+            <span class="zmk-row" class:zmk-raw={row.raw} class:legend-hit={hit === 'combo'}>
               {#if compact}
                 {compact}
               {:else}

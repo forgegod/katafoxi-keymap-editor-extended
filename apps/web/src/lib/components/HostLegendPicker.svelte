@@ -30,6 +30,7 @@
   let hovered = $state(false)
   let pinned = $state(false)
   let focused = $state(false)
+  let stripEl: HTMLDivElement | undefined = $state()
   const open = $derived(hovered || pinned || focused)
 
   type LayerRow = {
@@ -95,7 +96,10 @@
   }
 
   function toggleLayer(index: number) {
-    pinned = true
+    if (index === 0) {
+      editor.hostLegend = hostLegendPreview(view, { layer0Raw: !view.layer0Raw })
+      return
+    }
     editor.hostLegend = toggleShownLayer(view, index)
   }
 
@@ -125,6 +129,14 @@
     const next = event.relatedTarget
     if (next instanceof Node && root.contains(next)) return
     focused = false
+  }
+
+  function handleMouseLeave() {
+    hovered = false
+    if (pinned) return
+    focused = false
+    const active = document.activeElement
+    if (active instanceof HTMLElement && stripEl?.contains(active)) active.blur()
   }
 
   function handleKeydown(event: KeyboardEvent) {
@@ -257,6 +269,7 @@
         {@const letter = tap ? hostLegendFor(tap, view) : null}
         <tr
           class:off={!row.marked}
+          class:raw={row.index === 0 && view.layer0Raw}
           onmouseenter={interactive ? () => hoverLayer(row.index) : undefined}
           onmouseleave={interactive ? clearHover : undefined}
         >
@@ -264,8 +277,12 @@
             <div class="row-head">
               {#if interactive}
                 <EyeToggle
-                  on={row.marked}
-                  label={`Показать ${row.name}`}
+                  on={row.index === 0 ? !view.layer0Raw : row.marked}
+                  label={
+                    row.index === 0
+                      ? `Показать host-легенду ${row.name}`
+                      : `Показать ${row.name}`
+                  }
                   onclick={() => toggleLayer(row.index)}
                 />
               {:else}
@@ -291,13 +308,14 @@
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
+  bind:this={stripEl}
   class="host-legend-strip"
   class:expanded={open}
   class:pinned
   role="region"
   aria-label="Host legend"
   onmouseenter={() => (hovered = true)}
-  onmouseleave={() => (hovered = false)}
+  onmouseleave={handleMouseLeave}
   onfocusin={() => (focused = true)}
   onfocusout={handleFocusOut}
   onkeydown={handleKeydown}
@@ -319,7 +337,6 @@
     align-items: flex-start;
     gap: 16px 24px;
     width: max-content;
-    max-width: 100%;
     padding: 6px 4px 2px;
     font-size: 13px;
     color: #444;
@@ -383,6 +400,10 @@
   }
 
   .off {
+    opacity: 0.4;
+  }
+
+  tr.raw td:not(.zmk) {
     opacity: 0.4;
   }
 
