@@ -429,7 +429,7 @@
   onclick={handleKeyClick}
 >
   {#if showStack}
-    <div class="keycap-wrap layer-stack">
+    <div class="keycap-wrap layer-stack" style="--layer-rows: {composedRows.length || 1}">
       {#each composedRows as row (row.layer)}
         {@const hit = rowHoverHit(row.binding)}
         <button
