@@ -217,7 +217,6 @@
         layout={editor.layout}
         keymap={editor.draftKeymap}
         onUpdate={next => editor.updateKeymap(next)}
-        legendMode="composed"
         hostView={editor.hostLegend}
         layerView={editor.layerView}
         legendHover={editor.legendHover}

@@ -18,9 +18,9 @@ function editorDialog(): HTMLElement | null {
 }
 
 function clickKey() {
-  const key = document.querySelector('.key')
-  if (!(key instanceof HTMLElement)) throw new Error('missing .key')
-  key.click()
+  const slot = document.querySelector('.key .layer-slot')
+  if (!(slot instanceof HTMLElement)) throw new Error('missing .layer-slot')
+  slot.click()
   flushSync()
 }
 
@@ -82,11 +82,11 @@ describe('Key click editor', () => {
 
   function open(
     props: {
-      legendMode?: 'zmk' | 'composed'
       onUpdate?: ReturnType<typeof vi.fn>
       value?: string
       params?: Array<{ value?: string | number; params?: unknown[] }>
       layerBindings?: KeyBindingNode[]
+      layerView?: { shown: number[]; layer0Raw: boolean }
     } = {}
   ) {
     const onUpdate = props.onUpdate ?? vi.fn()
@@ -96,8 +96,8 @@ describe('Key click editor', () => {
         ...typicalKey,
         value: props.value ?? typicalKey.value,
         params: props.params ?? typicalKey.params,
-        legendMode: props.legendMode ?? 'zmk',
         layerBindings: props.layerBindings,
+        layerView: props.layerView,
         onUpdate
       }
     })
@@ -229,7 +229,6 @@ describe('Key click editor', () => {
 
   it('edits layer 2 from the third composed row and leaves layer 0 unchanged', () => {
     const onUpdate = open({
-      legendMode: 'composed',
       layerBindings: threeLayerBindings
     })
     const rows = stackRows()
@@ -254,7 +253,6 @@ describe('Key click editor', () => {
 
   it('opens a host decode card on composed row hover', () => {
     open({
-      legendMode: 'composed',
       layerBindings: [
         { value: '&kp', params: [{ value: 'MINUS', params: [] }] },
         { value: '&kp', params: [{ value: 'B', params: [] }] }
@@ -287,7 +285,6 @@ describe('Key click editor', () => {
 
   it('opens the editor from a blank &trans composed row', () => {
     open({
-      legendMode: 'composed',
       layerBindings: [
         { value: '&kp', params: [{ value: 'A', params: [] }] },
         { value: '&trans', params: [] }
@@ -304,7 +301,6 @@ describe('Key click editor', () => {
 
   it('keeps the first row draft when a second composed row is opened', () => {
     const onUpdate = open({
-      legendMode: 'composed',
       layerBindings: threeLayerBindings
     })
     const rows = stackRows()
@@ -322,5 +318,25 @@ describe('Key click editor', () => {
     flushSync()
     expect(document.querySelector('.binding')?.textContent).toBe('&kp X')
     expect(onUpdate).not.toHaveBeenCalled()
+  })
+
+  it('renders a compact ZMK legend for &bt on a stack row', () => {
+    open({
+      layerBindings: [{ value: '&bt', params: [{ value: 'BT_CLR', params: [] }] }]
+    })
+    expect(stackRows()[0].querySelector('.zmk-row')?.textContent?.trim()).toBe('&bt CLR')
+  })
+
+  it('renders layer0 as a raw ZMK row when layer0Raw is set', () => {
+    open({
+      layerBindings: [
+        { value: '&kp', params: [{ value: 'A', params: [] }] },
+        { value: '&kp', params: [{ value: 'B', params: [] }] }
+      ],
+      layerView: { shown: [0, 1], layer0Raw: true }
+    })
+    const layer0 = stackRows().find(row => row.dataset.layer === '0')
+    expect(layer0?.querySelector('.zmk-row.zmk-raw')).toBeInstanceOf(HTMLElement)
+    expect(layer0?.querySelector('.keycap')).toBeNull()
   })
 })

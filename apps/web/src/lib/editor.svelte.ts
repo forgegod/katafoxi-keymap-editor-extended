@@ -163,7 +163,6 @@ export class EditorState {
   undoStack = $state<ParsedKeymap[]>([])
   redoStack = $state<ParsedKeymap[]>([])
   saving = $state(false)
-  legendMode = $state<LegendMode>('composed')
   /** View over the host profile. It does not edit the keymap. */
   hostLegend = $state<HostLegendView>(standardHostLegendView())
   /** Which firmware layers are drawn on the keycap. */
@@ -799,7 +798,6 @@ export class EditorState {
     this.draftKeymap = null
     this.clearHistory()
     this.saving = false
-    this.legendMode = 'composed'
     resetHostLayoutRegistry()
     this.hostLegend = standardHostLegendView()
     this.layerView = standardLayerView()

@@ -7,13 +7,11 @@
     LegendHover
   } from '@keymap-editor/keymap-core'
   import Key from './Keys/Key.svelte'
-  import type { LegendMode } from '../../context'
 
   interface Props {
     layout: LayoutKey[]
     bindings: KeyBindingNode[]
     onUpdate: (keyIndex: number, layerIndex: number, binding: KeyBindingNode) => void
-    legendMode?: LegendMode
     hostView?: HostLegendView
     layerView?: LayerView
     legendHover?: LegendHover | null
@@ -29,7 +27,6 @@
     layout,
     bindings,
     onUpdate,
-    legendMode = 'zmk',
     hostView,
     layerView,
     legendHover = null,
@@ -73,7 +70,6 @@
       {usedKeycodes}
       {usedRevision}
       {usedLayerLabels}
-      {legendMode}
       {hostView}
       {layerView}
       {legendHover}

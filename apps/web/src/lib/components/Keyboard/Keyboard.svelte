@@ -14,7 +14,6 @@
   import {
     getDefinitionsContext,
     setSearchContext,
-    type LegendMode,
     type SearchContextValue
   } from '../../context'
   import { buildSearchContext } from '../../search-context'
@@ -25,7 +24,6 @@
     layout: LayoutKey[]
     keymap: ParsedKeymap
     onUpdate: (keymap: ParsedKeymap) => void
-    legendMode?: LegendMode
     hostView?: HostLegendView
     layerView?: LayerView
     legendHover?: LegendHover | null
@@ -35,7 +33,6 @@
     layout,
     keymap,
     onUpdate,
-    legendMode = 'composed',
     hostView,
     layerView,
     legendHover = null
@@ -242,7 +239,6 @@
             bindings={keymap.layers[0]}
             layerStack={keymap.layers}
             layerIndex={0}
-            {legendMode}
             {hostView}
             {layerView}
             {legendHover}

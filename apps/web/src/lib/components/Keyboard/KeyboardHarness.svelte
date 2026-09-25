@@ -71,7 +71,6 @@
   <Keyboard
     {layout}
     keymap={editor.draftKeymap}
-    legendMode="composed"
     hostView={editor.hostLegend}
     layerView={editor.layerView}
     onUpdate={handleUpdate}

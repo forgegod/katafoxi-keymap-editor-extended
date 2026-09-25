@@ -6,7 +6,7 @@
     type KeyBindingNode,
     type LayerView
   } from '@keymap-editor/keymap-core'
-  import { setSearchContext, type LegendMode } from '../../../context'
+  import { setSearchContext } from '../../../context'
   import { buildSearchContext } from '../../../search-context'
   import Key from './Key.svelte'
 
@@ -15,7 +15,6 @@
     size?: { u: number; h: number }
     value?: string | number
     params?: Array<{ value?: string | number; params?: unknown[] }>
-    legendMode?: LegendMode
     keyIndex?: number
     layerIndex?: number
     layerBindings?: KeyBindingNode[]
@@ -28,7 +27,6 @@
     size = { u: 1, h: 1 },
     value = '&kp',
     params = [{ value: 'A', params: [] }],
-    legendMode = 'zmk',
     keyIndex = 0,
     layerIndex = 0,
     layerBindings,
@@ -63,8 +61,9 @@
   {params}
   {keyIndex}
   {layerIndex}
-  {layerBindings}
+  layerBindings={
+    layerBindings ?? [{ value, params: params as KeyBindingNode[] }]
+  }
   {layerView}
-  {legendMode}
   onUpdate={(keyIndex, layerIndex, binding) => onUpdate(keyIndex, layerIndex, binding)}
 />
