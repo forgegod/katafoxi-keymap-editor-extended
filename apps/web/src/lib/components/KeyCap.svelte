@@ -4,41 +4,35 @@
     type ComposedLegend,
     type LegendHoverHit
   } from '@keymap-editor/keymap-core'
-  import type { LegendMode } from '../context'
 
   interface Props {
     legend: ComposedLegend
-    mode?: LegendMode
     stacked?: boolean
     hit?: LegendHoverHit
   }
 
-  let { legend, mode = 'composed', stacked = false, hit = 'none' }: Props = $props()
+  let { legend, stacked = false, hit = 'none' }: Props = $props()
 
   const columns = $derived(keycapColumns(legend))
 </script>
 
-{#if mode === 'composed'}
-  <div
-    class="keycap"
-    class:keypad={legend.keypad}
-    class:stacked
-  >
-    <span class="line" class:legend-hit={hit === 'combo'}>
-      {#each columns as column, index (index)}
-        <span class="col" class:alt={column.kind === 'alt'}>
-          {#each column.pieces as piece, pieceIndex (pieceIndex)}<span
-              class:second={piece.tone === 'second'}>{piece.text}</span>{/each}
-        </span>
-      {/each}
-      {#if legend.hold}
-        <span class="hold" class:legend-hit={hit === 'hold'}>{legend.hold}</span>
-      {/if}
-    </span>
-  </div>
-{:else}
-  <span class="zmk-fallback">{legend.keycode || legend.columns[0]?.pair[0]}</span>
-{/if}
+<div
+  class="keycap"
+  class:keypad={legend.keypad}
+  class:stacked
+>
+  <span class="line" class:legend-hit={hit === 'combo'}>
+    {#each columns as column, index (index)}
+      <span class="col" class:alt={column.kind === 'alt'}>
+        {#each column.pieces as piece, pieceIndex (pieceIndex)}<span
+            class:second={piece.tone === 'second'}>{piece.text}</span>{/each}
+      </span>
+    {/each}
+    {#if legend.hold}
+      <span class="hold" class:legend-hit={hit === 'hold'}>{legend.hold}</span>
+    {/if}
+  </span>
+</div>
 
 <style>
   .keycap {
@@ -110,9 +104,5 @@
     border-radius: 3px;
     background: rgba(0, 0, 0, 0.12);
     color: #444;
-  }
-
-  .zmk-fallback {
-    font-size: 110%;
   }
 </style>

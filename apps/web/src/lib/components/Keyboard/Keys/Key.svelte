@@ -171,7 +171,7 @@
         {#if row.blank}
           <span class="layer-empty" aria-hidden="true">{blankRowMark(row.binding)}</span>
         {:else if row.legend}
-          <KeyCap legend={row.legend} mode="composed" stacked {hit} />
+          <KeyCap legend={row.legend} stacked {hit} />
         {:else}
           <ZmkLegend binding={row.binding} raw={row.raw} {hit} />
         {/if}

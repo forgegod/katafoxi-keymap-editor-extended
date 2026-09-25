@@ -56,8 +56,6 @@ import {
   type UserHostLayoutRecord
 } from './host-layout-store'
 
-export type LegendMode = 'zmk' | 'composed'
-
 export type HostProfilePrompt =
   | { kind: 'save-as'; language: HostLanguageId }
   | { kind: 'copy'; language: HostLanguageId; layoutId?: string }
