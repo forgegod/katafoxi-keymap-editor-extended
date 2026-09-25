@@ -11,7 +11,6 @@
   import Keyboard from './lib/components/Keyboard/Keyboard.svelte'
   import GitHubLink from './lib/components/GitHubLink.svelte'
   import HostLegendPicker from './lib/components/HostLegendPicker.svelte'
-  import HostProfileBar from './lib/components/HostProfileBar.svelte'
   import Loader from './lib/components/Common/Loader.svelte'
   import github from './lib/github/api.svelte.js'
   import { formatKeymapChange } from '@keymap-editor/keymap-core'
@@ -125,9 +124,6 @@
         </button>
       </div>
     {/if}
-
-    <span class="chrome-sep" aria-hidden="true"></span>
-    <HostProfileBar />
 
     <div class="chrome-end">
       <span class="chrome-sep" aria-hidden="true"></span>

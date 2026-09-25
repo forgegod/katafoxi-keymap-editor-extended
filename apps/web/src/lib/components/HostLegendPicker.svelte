@@ -1,24 +1,32 @@
 <script lang="ts">
   import {
+    builtinLanguageProfileId,
+    builtinLanguageProfileLabel,
     encodeKeyBinding,
     hostLayoutChoice,
-    hostLayoutChoices,
+    hostLayoutsForLanguage,
     hostLegendFor,
     hostLegendPreview,
     getKeycodeCatalog,
     hostLegendView,
+    parseBuiltinLanguageProfileId,
     resolveBinding,
     toggleShownLayer,
+    type HostLanguageId,
     type KeyBindingNode
   } from '@keymap-editor/keymap-core'
   import { editor, hostLegendAnchorIndex } from '../editor.svelte.js'
+  import { isBuiltinLanguageProfile } from '../host-profiles.js'
   import EyeToggle from './EyeToggle.svelte'
+  import HostProfileBar from './HostProfileBar.svelte'
   import Icon from './Common/Icon.svelte'
 
   const view = $derived(editor.hostLegend)
   const base = $derived(hostLayoutChoice(view.baseId))
   const secondId = $derived(
-    view.secondId ?? hostLayoutChoices.find(choice => choice.id !== view.baseId)?.id ?? view.baseId
+    view.secondId ??
+      hostLayoutsForLanguage('ru').find(choice => choice.kind === 'in-layout')?.id ??
+      view.baseId
   )
   const second = $derived(hostLayoutChoice(secondId))
   const baseOn = $derived(view.baseVisible !== false)
@@ -72,12 +80,15 @@
     return node ? encodeKeyBinding(node) : ''
   }
 
-  function chooseBase(id: string) {
-    void editor.commitHostMap(hostLegendView(view, { baseId: id }))
+  function chooseColumnProfile(language: HostLanguageId, id: string) {
+    void editor.selectLanguageProfile(language, id)
   }
 
-  function chooseSecond(id: string) {
-    void editor.commitHostMap(hostLegendView(view, { secondId: id }))
+  function activeProfileLabel(language: HostLanguageId): string {
+    const id = editor.activeProfileId(language)
+    const builtin = parseBuiltinLanguageProfileId(id)
+    if (builtin) return builtinLanguageProfileLabel(builtin.kind)
+    return editor.profilesForLanguage(language).find(profile => profile.id === id)?.name ?? ''
   }
 
   function toggleBase() {
@@ -94,7 +105,7 @@
       return
     }
     void editor.commitHostMap(
-      hostLegendPreview(hostLegendView(view, { secondId: secondId }), {
+      hostLegendPreview(hostLegendView(view, { secondId }), {
         secondVisible: true
       })
     )
@@ -110,11 +121,6 @@
 
   function toggleAlt(field: 'altGr' | 'altGrShift') {
     editor.hostLegend = hostLegendPreview(view, { [field]: !view[field] })
-  }
-
-  function closeDetails(event: Event) {
-    const root = (event.currentTarget as HTMLElement).closest('details')
-    if (root) root.open = false
   }
 
   function hoverLayer(layer: number) {
@@ -226,35 +232,95 @@
   }
 </script>
 
-{#snippet langMenu(
-  selectedId: string,
-  otherId: string,
-  label: string,
-  flag: string,
-  choose: (id: string) => void
+{#snippet profileIcons(language: HostLanguageId)}
+  {@const canEdit = !isBuiltinLanguageProfile(editor.activeProfileId(language))}
+  <button
+    type="button"
+    class="profile-icon"
+    title="Сохранить как новый профиль"
+    aria-label="Сохранить как новый профиль"
+    onclick={() => editor.beginSaveHostProfile(language)}
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 3h11l3 3v15H5z" />
+      <path d="M8 3v6h8V3" />
+      <path d="M8 21v-6h8v6" />
+    </svg>
+  </button>
+  <button
+    type="button"
+    class="profile-icon"
+    title="Скопировать профиль"
+    aria-label="Скопировать профиль"
+    onclick={() => editor.beginCopyHostProfile(language)}
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="8" y="8" width="12" height="12" rx="1.5" />
+      <path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4H5.5A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8" />
+    </svg>
+  </button>
+  <button
+    type="button"
+    class="profile-icon stub"
+    title="Переименовать профиль"
+    aria-label="Переименовать профиль"
+    disabled={!canEdit}
+    onclick={() => editor.beginRenameHostProfile(language)}
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 20h4L18 10l-4-4L4 16v4z" />
+      <path d="M13 7l4 4" />
+    </svg>
+  </button>
+  <button
+    type="button"
+    class="profile-icon stub danger"
+    title="Удалить профиль"
+    aria-label="Удалить профиль"
+    disabled={!canEdit}
+    onclick={() => editor.beginDeleteHostProfile(language)}
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 6l12 12" />
+      <path d="M18 6L6 18" />
+    </svg>
+  </button>
+{/snippet}
+
+{#snippet languageHead(
+  language: HostLanguageId,
+  choice: ReturnType<typeof hostLayoutChoice>,
+  visible: boolean,
+  toggle: () => void,
+  eyeLabel: string,
+  interactive: boolean
 )}
-  <details class="lang-pick">
-    <summary aria-label={label}>{flag}</summary>
-    <div class="menu" role="listbox">
-      {#each hostLayoutChoices as choice (choice.id)}
-        <button
-          type="button"
-          role="option"
-          aria-selected={choice.id === selectedId}
-          disabled={choice.id === otherId}
-          onclick={event => {
-            choose(choice.id)
-            closeDetails(event)
-          }}
-        >
-          {choice.flag}
-          {choice.language}
-          ·
-          {choice.layoutName}
-        </button>
-      {/each}
-    </div>
-  </details>
+  <div class="lang-head">
+    {#if interactive}
+      <EyeToggle on={visible} label={eyeLabel} onclick={toggle} />
+      <span class="lang-flag" title={choice?.languageName ?? language}>{choice?.flag ?? '—'}</span>
+      <select
+        class="profile-select"
+        aria-label="Профиль {choice?.languageName ?? language}"
+        value={editor.activeProfileId(language)}
+        onchange={event => chooseColumnProfile(language, event.currentTarget.value)}
+      >
+        {#each hostLayoutsForLanguage(language) as option (option.id)}
+          <option value={builtinLanguageProfileId(language, option.kind)}>
+            {builtinLanguageProfileLabel(option.kind)}
+          </option>
+        {/each}
+        {#each editor.profilesForLanguage(language) as profile (profile.id)}
+          <option value={profile.id}>{profile.name}</option>
+        {/each}
+      </select>
+      {@render profileIcons(language)}
+    {:else}
+      <span class="eye-spacer"></span>
+      <span class="lang-flag">{choice?.flag ?? '—'}</span>
+      <span class="profile-name">{activeProfileLabel(language)}</span>
+    {/if}
+  </div>
 {/snippet}
 
 {#snippet legendTable(rows: LayerRow[], interactive: boolean)}
@@ -279,26 +345,17 @@
         </th>
         <th>ZMK keycode</th>
         <th class:off={!baseOn}>
-          <div class="lang-head">
-            {#if interactive}
-              <EyeToggle on={baseOn} label="Показать первый язык" onclick={toggleBase} />
-              {@render langMenu(view.baseId, secondId, 'First language', base?.flag ?? '—', chooseBase)}
-            {:else}
-              <span class="eye-spacer"></span>
-              <span>{base?.flag ?? '—'}</span>
-            {/if}
-          </div>
+          {@render languageHead('en', base, baseOn, toggleBase, 'Показать первый язык', interactive)}
         </th>
         <th class:off={!secondOn}>
-          <div class="lang-head">
-            {#if interactive}
-              <EyeToggle on={secondOn} label="Показать второй язык" onclick={toggleSecond} />
-              {@render langMenu(secondId, view.baseId, 'Second language', second?.flag ?? '—', chooseSecond)}
-            {:else}
-              <span class="eye-spacer"></span>
-              <span>{second?.flag ?? '—'}</span>
-            {/if}
-          </div>
+          {@render languageHead(
+            'ru',
+            second,
+            secondOn,
+            toggleSecond,
+            'Показать второй язык',
+            interactive
+          )}
         </th>
         <th
           class:off={!view.altGr}
@@ -437,6 +494,7 @@
   </div>
   <div class="legend-panel" style="position: absolute">
     {@render legendTable(visibleRows, true)}
+    <HostProfileBar />
     {#if pendingDelete}
       <div class="delete-confirm" role="alertdialog" aria-label="Delete layer">
         <p>Delete layer {pendingDelete.name}?</p>
@@ -536,7 +594,75 @@
   .row-head {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
+  }
+
+  .lang-head {
+    min-width: 16.5rem;
+  }
+
+  .lang-flag {
+    font-size: 16px;
+    line-height: 1.2;
+  }
+
+  .profile-select {
+    max-width: 9.5rem;
+    min-height: 24px;
+    padding: 1px 4px;
+    font: inherit;
+    font-size: 12px;
+  }
+
+  .profile-name {
+    font-size: 12px;
+    color: #666;
+  }
+
+  .profile-icon {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    color: #333;
+    cursor: pointer;
+  }
+
+  .profile-icon.stub {
+    background: transparent;
+    color: #555;
+  }
+
+  .profile-icon.stub:hover:not(:disabled),
+  .profile-icon.stub:focus-visible:not(:disabled) {
+    background: rgba(0, 0, 0, 0.06);
+  }
+
+  .profile-icon.danger:not(:disabled) {
+    color: #842029;
+    border-color: #e2b6bb;
+  }
+
+  .profile-icon:disabled {
+    color: #ccc;
+    border-color: #e6e6e6;
+    cursor: not-allowed;
+  }
+
+  .profile-icon svg {
+    width: 13px;
+    height: 13px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   .eye-spacer {
@@ -544,67 +670,6 @@
     width: 16px;
     height: 16px;
     padding: 1px;
-  }
-
-  .lang-pick {
-    position: relative;
-  }
-
-  .lang-pick summary {
-    list-style: none;
-    cursor: pointer;
-    padding: 1px 4px;
-    border-radius: 4px;
-    font-size: 16px;
-    line-height: 1.2;
-  }
-
-  .lang-pick summary::-webkit-details-marker {
-    display: none;
-  }
-
-  .lang-pick summary:hover {
-    background: rgba(0, 0, 0, 0.06);
-  }
-
-  .menu {
-    position: absolute;
-    z-index: 6;
-    top: calc(100% + 4px);
-    left: 0;
-    display: flex;
-    flex-direction: column;
-    min-width: 12em;
-    padding: 4px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    background: #fff;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-  }
-
-  .menu button {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin: 0;
-    padding: 4px 8px;
-    border: 0;
-    border-radius: 4px;
-    background: transparent;
-    color: #333;
-    font: inherit;
-    font-size: 13px;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .menu button:hover:not(:disabled) {
-    background: #f3f3f3;
-  }
-
-  .menu button:disabled {
-    opacity: 0.4;
-    cursor: default;
   }
 
   .col-toggle,

@@ -202,6 +202,27 @@ describe('HostLegendPicker', () => {
     expect(editor.draftKeymap?.layers[2]).toEqual([{ value: '&trans', params: [] }])
   })
 
+  it('puts a profile select after each language flag', async () => {
+    await open(keymapOf(['default']))
+    const selects = [...target.querySelectorAll('.legend-panel select.profile-select')]
+    expect(selects.map(el => el.getAttribute('aria-label'))).toEqual([
+      'Профиль English',
+      'Профиль Russian'
+    ])
+    const english = selects[0]
+    if (!(english instanceof HTMLSelectElement)) throw new Error('missing English profile')
+    expect([...english.options].map(option => option.textContent)).toEqual([
+      'Системная',
+      'В раскладке'
+    ])
+    expect(english.value).toBe('en:in-layout')
+    english.value = 'en:system'
+    english.dispatchEvent(new Event('change', { bubbles: true }))
+    flushSync()
+    expect(editor.hostLegend.baseId).toBe('system-us')
+    expect(editor.activeProfileId('en')).toBe('en:system')
+  })
+
   it('renames a layer from the table name button', async () => {
     await open(keymapOf(['default', 'raise']))
     const name = target.querySelector('.legend-panel tr[data-layer="0"] .layer-name')
