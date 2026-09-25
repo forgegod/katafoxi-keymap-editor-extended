@@ -276,6 +276,7 @@ class EditorState {
       this.activeHostProfileId = preset.id
       this.hostLegend = {
         ...preset.view,
+        shownLayers: this.hostLegend.shownLayers ?? preset.view.shownLayers,
         layers: this.hostLegend.layers ?? preset.view.layers
       }
       return saveActiveHostProfileId(id)

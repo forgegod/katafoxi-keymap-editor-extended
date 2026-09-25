@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   customHostLegendView,
+  effectiveShownLayers,
   hostLegendFor,
   hostLegendPreview,
   hostLegendView,
@@ -9,7 +10,8 @@ import {
   larkRussianLayout,
   standardHostLegendView,
   systemRuHostLegendView,
-  systemRussianLayout
+  systemRussianLayout,
+  toggleShownLayer
 } from './lark-host.js'
 import { parseXkbSymbolsSection } from './xkb-symbols.js'
 import { keysymToGlyph } from './xkb-keysyms.js'
@@ -214,5 +216,47 @@ describe('host legend view', () => {
     expect(hidden.source).toBe('standard')
     expect(hidden.secondId).toBe('lark-ru')
     expect(hidden.secondVisible).toBe(false)
+  })
+})
+
+describe('shown layers', () => {
+  const standard = standardHostLegendView()
+
+  it('evicts the earliest marked layer when a fifth is picked', () => {
+    const next = toggleShownLayer(standard, 4)
+    expect(next.shownLayers).toEqual([0, 2, 3, 4])
+  })
+
+  it('never evicts layer0', () => {
+    const afterFourth = toggleShownLayer(standard, 4)
+    expect(afterFourth.shownLayers).toContain(0)
+    const afterFifth = toggleShownLayer(afterFourth, 5)
+    expect(afterFifth.shownLayers).toEqual([0, 3, 4, 5])
+  })
+
+  it('adds layer0 when exactly one non-zero layer is marked', () => {
+    const view = { ...standard, shownLayers: [2] }
+    expect(effectiveShownLayers(view, 4)).toEqual([0, 2])
+  })
+
+  it('keeps a single layer0 mark as one row', () => {
+    const view = { ...standard, shownLayers: [0] }
+    expect(effectiveShownLayers(view, 4)).toEqual([0])
+  })
+
+  it('returns to layer0 when the last eye is cleared', () => {
+    expect(toggleShownLayer({ ...standard, shownLayers: [0] }, 0).shownLayers).toEqual([0])
+    expect(toggleShownLayer({ ...standard, shownLayers: [3] }, 3).shownLayers).toEqual([0])
+  })
+
+  it('drops indices at or above layerCount', () => {
+    expect(effectiveShownLayers(standard, 2)).toEqual([0, 1])
+    const missing = { ...standard, shownLayers: undefined }
+    expect(effectiveShownLayers(missing, 2)).toEqual([0, 1])
+  })
+
+  it('sorts the effective set in ascending order', () => {
+    const view = { ...standard, shownLayers: [3, 1, 0] }
+    expect(effectiveShownLayers(view, 4)).toEqual([0, 1, 3])
   })
 })

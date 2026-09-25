@@ -104,8 +104,13 @@ export interface HostLegendView {
   baseVisible?: boolean
   /** Preview: hide second-language glyphs without clearing `secondId`. */
   secondVisible?: boolean
-  /** Preview: hide All-layers slots; hidden rows stay empty, they do not collapse. */
+  /**
+   * @deprecated Four-slot hide flags. Use `shownLayers`.
+   * Kept so compose still compiles until it reads the ordered set.
+   */
   layers?: [boolean, boolean, boolean, boolean]
+  /** Shown firmware-layer indices in the order they were turned on. */
+  shownLayers?: number[]
 }
 
 /**

@@ -18,7 +18,11 @@
   const second = $derived(hostLayoutChoice(secondId))
   const baseOn = $derived(view.baseVisible !== false)
   const secondOn = $derived(view.secondId != null && view.secondVisible !== false)
-  const layers = $derived(view.layers ?? [true, true, true, true])
+  const shownLayers = $derived(view.shownLayers ?? [0, 1, 2, 3])
+  const layers = $derived(
+    view.layers ??
+      ([0, 1, 2, 3].map(i => shownLayers.includes(i)) as [boolean, boolean, boolean, boolean])
+  )
   const letter = $derived(hostLegendFor('E', view))
   const keycodes = $derived(getKeycodeCatalog().byCode)
 

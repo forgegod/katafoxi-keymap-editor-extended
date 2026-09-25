@@ -51,7 +51,8 @@ export function systemRuHostLegendView(): HostLegendView {
     source: 'custom',
     baseVisible: true,
     secondVisible: true,
-    layers: [true, true, true, true]
+    layers: [true, true, true, true],
+    shownLayers: [0, 1, 2, 3]
   }
 }
 
@@ -70,7 +71,8 @@ export const LARK_STANDARD_VIEW: HostLegendView = {
   source: 'standard',
   baseVisible: true,
   secondVisible: true,
-  layers: [true, true, true, true]
+  layers: [true, true, true, true],
+  shownLayers: [0, 1, 2, 3]
 }
 
 const layoutsById = new Map<string, HostLayout>([
@@ -102,10 +104,63 @@ export function hostLegendView(
 export function hostLegendPreview(
   current: HostLegendView,
   patch: Partial<
-    Pick<HostLegendView, 'baseVisible' | 'secondVisible' | 'layers' | 'altGr' | 'altGrShift'>
+    Pick<
+      HostLegendView,
+      'baseVisible' | 'secondVisible' | 'layers' | 'shownLayers' | 'altGr' | 'altGrShift'
+    >
   >
 ): HostLegendView {
   return { ...current, ...patch }
+}
+
+const DEFAULT_SHOWN_LAYERS = [0, 1, 2, 3]
+
+function markedShownLayers(view: HostLegendView): number[] {
+  return view.shownLayers ? [...view.shownLayers] : [...DEFAULT_SHOWN_LAYERS]
+}
+
+/**
+ * Toggle a layer in inclusion order. A fifth pick evicts the earliest
+ * marked layer; layer0 is never evicted. Clearing the last eye returns [0].
+ */
+export function toggleShownLayer(
+  view: HostLegendView,
+  index: number,
+  limit = 4
+): HostLegendView {
+  const current = markedShownLayers(view)
+  const pos = current.indexOf(index)
+  let next: number[]
+  if (pos >= 0) {
+    next = current.filter((_, i) => i !== pos)
+    if (next.length === 0) next = [0]
+  } else {
+    next = [...current, index]
+    while (next.length > limit) {
+      const evictAt = next.findIndex(layer => layer !== 0)
+      if (evictAt < 0) break
+      next.splice(evictAt, 1)
+    }
+  }
+  return { ...view, shownLayers: next }
+}
+
+/**
+ * Layers drawn on the keycap: section-6 rules, clipped to `layerCount`,
+ * sorted ascending. Missing `shownLayers` defaults to [0, 1, 2, 3].
+ */
+export function effectiveShownLayers(view: HostLegendView, layerCount: number): number[] {
+  const raw = view.shownLayers ?? DEFAULT_SHOWN_LAYERS
+  const seen = new Set<number>()
+  const marked: number[] = []
+  for (const index of raw) {
+    if (index < 0 || index >= layerCount || seen.has(index)) continue
+    seen.add(index)
+    marked.push(index)
+  }
+  if (marked.length === 0) return layerCount > 0 ? [0] : []
+  if (marked.length === 1 && marked[0] !== 0) return [0, marked[0]]
+  return [...marked].sort((a, b) => a - b)
 }
 
 export function standardHostLegendView(): HostLegendView {
