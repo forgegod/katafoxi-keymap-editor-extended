@@ -465,8 +465,8 @@ describe('keycapLegend', () => {
   it('leaves left modifiers unmarked and marks the right side', () => {
     expect(keycapLegend('LCTRL', '⌃')).toBe('⌃')
     expect(keycapLegend('RCTRL', '⌃')).toBe('R⌃')
-    expect(keycapLegend('LALT', '⌥')).toBe('⌥')
-    expect(keycapLegend('RALT', '⌥')).toBe('R⌥')
+    expect(keycapLegend('LALT', '⎇')).toBe('⎇')
+    expect(keycapLegend('RALT', '⎇')).toBe('R⎇')
     expect(keycapLegend('LGUI', '⌘')).toBe('⌘')
     expect(keycapLegend('RGUI', '⌘')).toBe('R⌘')
     expect(keycapLegend('LC', '⌃')).toBe('⌃')
@@ -500,6 +500,8 @@ describe('keycapLegend', () => {
   it('treats compact chords as short legends', () => {
     expect(isCompactKeycapLegend('⌃')).toBe(true)
     expect(isCompactKeycapLegend('R⌃')).toBe(true)
+    expect(isCompactKeycapLegend('⎇')).toBe(true)
+    expect(isCompactKeycapLegend('R⎇')).toBe(true)
     expect(isCompactModifierChord('LC', '⌦')).toBe(true)
     expect(isCompactModifierChord('LS', '⇪')).toBe(true)
     expect(isCompactModifierChord('LA', 'F4')).toBe(true)
@@ -514,6 +516,8 @@ describe('keycapLegend', () => {
   })
 
   it('uses display symbols for pause and mouse scroll', () => {
+    expect(getKeycodeCatalog().byCode.LALT?.symbol).toBe('⎇')
+    expect(getKeycodeCatalog().byCode.RALT?.symbol).toBe('⎇')
     expect(getKeycodeCatalog().byCode.PAUSE_BREAK?.symbol).toBe('⏸')
     expect(getKeycodeCatalog().byCode.MINUS?.symbol).toBe('-')
     expect(getKeycodeCatalog().byCode.EQUAL?.symbol).toBe('=')

@@ -35,9 +35,9 @@ describe('isSimple', () => {
     const chord = {
       value: '&kp',
       params: [
-        node('⌥', {
+        node('⎇', {
           value: 'LA',
-          source: { code: 'LA', symbol: '⌥' },
+          source: { code: 'LA', symbol: '⎇' },
           params: [node('TAB', { value: 'TAB', source: { code: 'TAB', symbol: 'TAB' } })]
         })
       ]

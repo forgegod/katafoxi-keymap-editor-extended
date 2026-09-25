@@ -3,7 +3,8 @@ import {
   modifierHoldForKey,
   modifierHoldForWrap,
   modifierRoleGlyph,
-  modifierSide
+  modifierSide,
+  MODIFIER_ROLE_GLYPH
 } from './modifiers.js'
 import { encodeKeyBinding } from './keymap.js'
 import { effectiveShownLayers, hostLegendFor, standardHostLegendView } from './lark-host.js'
@@ -79,7 +80,7 @@ export function bindingSendsShift(node: KeyBindingNode): boolean {
 }
 
 export function composedHoldSendsAltGr(legend: ComposedLegend): boolean {
-  return legend.hold === '⧗R⌥'
+  return legend.hold === `⧗R${modifierRoleGlyph('alt')}`
 }
 
 export function composedHoldSendsShift(legend: ComposedLegend): boolean {
@@ -113,11 +114,11 @@ export function isLayerLegendSymbol(text: string): boolean {
 }
 
 /** Role glyphs shared by L/R modifiers. Right side is prefixed at display time. */
-const ROLE_GLYPHS = new Set(['⌃', '⇧', '⌥', '⌘'])
+const ROLE_GLYPHS = new Set(Object.values(MODIFIER_ROLE_GLYPH))
 
 /**
  * Keycap / ZMK-mode legend: left modifiers stay the role glyph,
- * right modifiers become `R⌃` / `R⌥` / `R⌘` / `R⇧`.
+ * right modifiers become `R⌃` / `R⎇` / `R⌘` / `R⇧`.
  */
 /** `BT_CLR` → `CLR`, `BT1` → `SEL1`, `OUT_USB` → `USB`. */
 export function prefixedCommandLegend(code?: string | number | null): string | null {
@@ -162,7 +163,7 @@ export function isCompactKeycapLegend(text: string): boolean {
   return (
     text.length === 1 ||
     isLayerLegendSymbol(text) ||
-    /^R[⌃⇧⌥⌘]$/.test(text)
+    text.startsWith('R') && ROLE_GLYPHS.has(text.slice(1))
   )
 }
 

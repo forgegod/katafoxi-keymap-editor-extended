@@ -2914,7 +2914,7 @@
   },
   {
     "names": ["LEFT_ALT", "LALT", "LA(code)"],
-    "symbol": "⌥",
+    "symbol": "⎇",
     "description": "Left Alt",
     "context": "Keyboard",
     "clarify": false,
@@ -2988,7 +2988,7 @@
   },
   {
     "names": ["RIGHT_ALT", "RALT", "RA(code)"],
-    "symbol": "⌥",
+    "symbol": "⎇",
     "description": "Right Alt",
     "context": "Keyboard",
     "clarify": false,

@@ -57,8 +57,9 @@ Click a stacked keycap row. One dialog edits that layer’s ZMK binding:
 
 - **ZMK legends** (compact codes on a raw layer0 row, and inside KeyEditor): helpers in `packages/keymap-core` `compose.ts` (`layerLegendSymbol`, `keycapLegend`, `isHoldTapBehavior`). Binding tokens stay ZMK (`1`, `LCTRL`, `LC(DEL)`).
   - Layers: `L1` (index, not the layer name).
-  - Left modifiers unmarked (`⌃ ⌥ ⌘ ⇧`); right side `R⌃` / `R⌥` / `R⌘` / `R⇧`.
-  - Compact chords drop parens: `LC(DEL)` → `⌃⌦`, `LS(CAPS)` → `⇧⇪`, and a short token `LA(F4)` → `⌥F4`, `LA(TAB)` → `⌥TAB`, `LA(ESC)` → `⌥ESC` (`F1`–`F12`).
+  - Left modifiers unmarked (`⌃ ⎇ ⌘ ⇧`); right side `R⌃` / `R⎇` / `R⌘` / `R⇧`. Alt is the ISO alternative-key symbol.
+  - Compact chords drop parens: `LC(DEL)` → `⌃⌦`, `LS(CAPS)` → `⇧⇪`, and a short token `LA(F4)` → `⎇F4`, `LA(TAB)` → `⎇TAB`, `LA(ESC)` → `⎇ESC` (`F1`–`F12`).
+  - Host-legend AltGr columns use the same mark: `R⎇` and `⇧R⎇`.
   - Mouse scroll keeps the family prefix: `SCRL⬆` `SCRL⬇` `SCRL⬅` `SCRL➡`. Pause/Break is `⏸`. Tooltip keeps the raw code.
   - Behaviour on the cap: hide `&kp`; hide `&mt`/`&lt` when the hold-tap pill is shown; `&none` / `&trans` / instant binds are the center legend; other behaviours stay a small corner mark.
   - Caps Lock `⇪`. Browser back/forward `←` / `→` (not cursor `⏴` `⏵`). Number-row `-` / `=` (not the words `MINUS` / `EQUAL`). Tooltip keeps the raw code.
