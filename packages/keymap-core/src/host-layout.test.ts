@@ -1,21 +1,34 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
+  applyColumnLayout,
+  builtinLanguageProfileId,
   customHostLegendView,
   effectiveShownLayers,
   hostLegendFor,
   hostLegendPreview,
   hostLegendView,
+  hostLayoutsForLanguage,
   larkEnglishLayout,
   larkHostLegend,
   larkRussianLayout,
   standardHostLegendView,
+  SYSTEM_US_LAYOUT_ID,
+  systemEnglishLayout,
   systemRuHostLegendView,
   systemRussianLayout,
   toggleShownLayer,
   remapShownLayersAfterDelete
 } from './lark-host.js'
+import { SYSTEM_US_SYMBOLS } from './system-us-symbols.js'
 import { parseXkbSymbolsSection } from './xkb-symbols.js'
 import { keysymToGlyph } from './xkb-keysyms.js'
+
+const xkbSymbolsDir = path.resolve(
+  fileURLToPath(new URL('../fixtures/xkb/symbols', import.meta.url))
+)
 
 describe('parseXkbSymbolsSection', () => {
   it('reads four levels and ignores a commented key', () => {
@@ -109,6 +122,49 @@ describe('lark host layouts', () => {
     expect(larkEnglishLayout.byZmk.has('RWIN')).toBe(false)
     expect(larkHostLegend('ESC')).toBeNull()
     expect(larkHostLegend('COLON')).toBeNull()
+  })
+})
+
+describe('system English us(basic)', () => {
+  it('matches fixtures/xkb/symbols/us basic keys', () => {
+    const fixture = readFileSync(path.join(xkbSymbolsDir, 'us'), 'utf8')
+    expect(parseXkbSymbolsSection(SYSTEM_US_SYMBOLS, 'basic')).toEqual(
+      parseXkbSymbolsSection(fixture, 'basic')
+    )
+  })
+
+  it('uses US letters and punctuation, without AltGr', () => {
+    expect(systemEnglishLayout.id).toBe(SYSTEM_US_LAYOUT_ID)
+    expect(systemEnglishLayout.byZmk.get('A')).toEqual(['a', 'A', '', ''])
+    expect(systemEnglishLayout.byZmk.get('E')).toEqual(['e', 'E', '', ''])
+    expect(systemEnglishLayout.byZmk.get('N1')).toEqual(['1', '!', '', ''])
+    expect(systemEnglishLayout.byZmk.get('SEMI')).toEqual([';', ':', '', ''])
+    expect(systemEnglishLayout.byZmk.get('SLASH')).toEqual(['/', '?', '', ''])
+    expect(systemEnglishLayout.byZmk.get('GRAVE')).toEqual(['`', '~', '', ''])
+  })
+
+  it('fills the first column when chosen as the English system profile', () => {
+    const view = applyColumnLayout(standardHostLegendView(), 'base', SYSTEM_US_LAYOUT_ID)
+    expect(view.baseId).toBe(SYSTEM_US_LAYOUT_ID)
+    expect(hostLegendFor('E', view)).toMatchObject({
+      en: ['e', 'E'],
+      second: ['у', 'У'],
+      altGr: '&',
+      altGrShift: 'ε'
+    })
+    expect(hostLegendFor('N1', view)?.en).toEqual(['1', '!'])
+  })
+
+  it('groups system and in-layout variants by language', () => {
+    expect(hostLayoutsForLanguage('en').map(choice => choice.kind)).toEqual([
+      'system',
+      'in-layout'
+    ])
+    expect(builtinLanguageProfileId('en', 'system')).toBe('en:system')
+    expect(hostLayoutsForLanguage('ru').map(choice => choice.id)).toEqual([
+      'system-ru',
+      'lark-ru'
+    ])
   })
 })
 

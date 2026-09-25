@@ -2,6 +2,10 @@ import { composeHostPair, hostLayoutFromSymbols, type HostLayout } from './host-
 import type { ComposedLegend, HostLegendView } from './types.js'
 import { LARK_AU_BASIC, LARK_RU_LEGACY } from './lark-host-symbols.js'
 import { SYSTEM_RU_SYMBOLS } from './system-ru-symbols.js'
+import { SYSTEM_US_SYMBOLS } from './system-us-symbols.js'
+
+export type HostLanguageId = 'en' | 'ru'
+export type HostLayoutKind = 'system' | 'in-layout'
 
 /** English (Australian) LARK host group. */
 export const larkEnglishLayout: HostLayout = hostLayoutFromSymbols(
@@ -26,11 +30,22 @@ export function larkHostLegend(
 
 export interface HostLayoutChoice {
   id: string
-  language: string
-  /** Symbols section, shown next to the flag (`au`, `ru`). */
+  language: HostLanguageId
+  languageName: string
+  /** Symbols section, shown next to the flag (`us`, `au`, `winkeys`). */
   layoutName: string
   flag: string
+  kind: HostLayoutKind
 }
+
+/** System English group (`us(basic)`). */
+export const SYSTEM_US_LAYOUT_ID = 'system-us'
+
+export const systemEnglishLayout: HostLayout = hostLayoutFromSymbols(
+  SYSTEM_US_SYMBOLS,
+  'basic',
+  SYSTEM_US_LAYOUT_ID
+)
 
 /** System Russian group (`ru(winkeys)`), not the LARK legacy group. */
 export const SYSTEM_RU_LAYOUT_ID = 'system-ru'
@@ -57,10 +72,73 @@ export function systemRuHostLegendView(): HostLegendView {
 }
 
 export const hostLayoutChoices: readonly HostLayoutChoice[] = [
-  { id: 'lark-en', language: 'English', layoutName: 'au', flag: '🇦🇺' },
-  { id: 'lark-ru', language: 'Russian', layoutName: 'ru', flag: '🇷🇺' },
-  { id: SYSTEM_RU_LAYOUT_ID, language: 'Russian', layoutName: 'winkeys', flag: '🇷🇺' }
+  {
+    id: SYSTEM_US_LAYOUT_ID,
+    language: 'en',
+    languageName: 'English',
+    layoutName: 'us',
+    flag: '🇺🇸',
+    kind: 'system'
+  },
+  {
+    id: 'lark-en',
+    language: 'en',
+    languageName: 'English',
+    layoutName: 'au',
+    flag: '🇦🇺',
+    kind: 'in-layout'
+  },
+  {
+    id: SYSTEM_RU_LAYOUT_ID,
+    language: 'ru',
+    languageName: 'Russian',
+    layoutName: 'winkeys',
+    flag: '🇷🇺',
+    kind: 'system'
+  },
+  {
+    id: 'lark-ru',
+    language: 'ru',
+    languageName: 'Russian',
+    layoutName: 'legacy',
+    flag: '🇷🇺',
+    kind: 'in-layout'
+  }
 ]
+
+export function hostLayoutsForLanguage(language: HostLanguageId): HostLayoutChoice[] {
+  return hostLayoutChoices.filter(choice => choice.language === language)
+}
+
+export function builtinLanguageProfileId(
+  language: HostLanguageId,
+  kind: HostLayoutKind
+): string {
+  return `${language}:${kind}`
+}
+
+export function parseBuiltinLanguageProfileId(
+  id: string
+): { language: HostLanguageId; kind: HostLayoutKind } | null {
+  const match = /^(en|ru):(system|in-layout)$/.exec(id)
+  if (!match) return null
+  return { language: match[1] as HostLanguageId, kind: match[2] as HostLayoutKind }
+}
+
+export function builtinLanguageProfileLabel(kind: HostLayoutKind): string {
+  return kind === 'system' ? 'Системная' : 'В раскладке'
+}
+
+export function reservedHostProfileNames(): string[] {
+  return ['Системная', 'В раскладке', 'Стандарт', 'Системная ru']
+}
+
+export function layoutForLanguageKind(
+  language: HostLanguageId,
+  kind: HostLayoutKind
+): HostLayoutChoice | undefined {
+  return hostLayoutsForLanguage(language).find(choice => choice.kind === kind)
+}
 
 /** LARK preset: English `au` plus Russian, with AltGr. */
 export const LARK_STANDARD_VIEW: HostLegendView = {
@@ -78,6 +156,7 @@ export const LARK_STANDARD_VIEW: HostLegendView = {
 const layoutsById = new Map<string, HostLayout>([
   ['lark-en', larkEnglishLayout],
   ['lark-ru', larkRussianLayout],
+  [SYSTEM_US_LAYOUT_ID, systemEnglishLayout],
   [SYSTEM_RU_LAYOUT_ID, systemRussianLayout]
 ])
 
@@ -213,6 +292,22 @@ export function hostLegendFor(
   return composeHostPair(base, second, token, {
     altGr: view.altGr,
     altGrShift: view.altGrShift,
-    altGrFrom: view.secondId === SYSTEM_RU_LAYOUT_ID ? 'second' : 'base'
+    altGrFrom:
+      view.secondId === SYSTEM_RU_LAYOUT_ID || view.baseId === SYSTEM_US_LAYOUT_ID
+        ? 'second'
+        : 'base'
   })
+}
+
+/** Put a layout into the English (base) or Russian (second) column. */
+export function applyColumnLayout(
+  current: HostLegendView,
+  column: 'base' | 'second',
+  layoutId: string
+): HostLegendView {
+  const choice = hostLayoutChoice(layoutId)
+  if (!choice) return current
+  if (column === 'base' && choice.language !== 'en') return current
+  if (column === 'second' && choice.language !== 'ru') return current
+  return hostLegendView(current, column === 'base' ? { baseId: layoutId } : { secondId: layoutId })
 }
