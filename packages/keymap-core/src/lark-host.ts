@@ -25,13 +25,6 @@ export const larkRussianLayout: HostLayout = hostLayoutFromSymbols(
   'lark-ru'
 )
 
-/** Default host legend: English and Russian columns, AltGr from English. */
-export function larkHostLegend(
-  token: string
-): Pick<ComposedLegend, 'en' | 'second' | 'altGr' | 'altGrShift' | 'showAltGr' | 'showAltGrShift' | 'bilingualNote' | 'bilingualAlt' | 'keycode'> | null {
-  return composeHostPair(larkEnglishLayout, larkRussianLayout, token)
-}
-
 export interface HostLayoutChoice {
   id: string
   language: HostLanguageId
@@ -172,21 +165,6 @@ export const systemGermanLayout = germanSystemLayouts.find(
   layout => layout.id === SYSTEM_DE_LAYOUT_ID
 )!
 
-/** Built-in profile: English, then OS Russian. Both language columns are shown. */
-export function systemRuHostLegendView(): HostLegendView {
-  return {
-    baseId: 'lark-en',
-    secondId: SYSTEM_RU_LAYOUT_ID,
-    altGr: false,
-    altGrShift: false,
-    source: 'custom',
-    baseVisible: true,
-    secondVisible: true,
-    layers: [true, true, true, true],
-    shownLayers: [0, 1, 2, 3]
-  }
-}
-
 const russianSystemChoices: HostLayoutChoice[] = RU_SYSTEM_SECTIONS.map(section => ({
   id: russianSystemLayoutId(section),
   language: 'ru',
@@ -310,14 +288,7 @@ export function hostLayoutChoiceLabel(choice: HostLayoutChoice): string {
 }
 
 export function reservedHostProfileNames(): string[] {
-  return ['Системная', 'В раскладке', 'Стандарт', 'Системная ru']
-}
-
-export function layoutForLanguageKind(
-  language: HostLanguageId,
-  kind: HostLayoutKind
-): HostLayoutChoice | undefined {
-  return hostLayoutsForLanguage(language).find(choice => choice.kind === kind)
+  return ['Системная', 'В раскладке']
 }
 
 export function layoutForBuiltinProfile(id: string): HostLayoutChoice | undefined {
@@ -341,10 +312,8 @@ export const LARK_STANDARD_VIEW: HostLegendView = {
   secondId: 'lark-ru',
   altGr: true,
   altGrShift: true,
-  source: 'standard',
   baseVisible: true,
   secondVisible: true,
-  layers: [true, true, true, true],
   shownLayers: [0, 1, 2, 3]
 }
 
@@ -366,22 +335,17 @@ export function hostLayoutById(id: string): HostLayout | undefined {
   return layoutsById.get(id)
 }
 
-function sameLanguages(view: HostLegendView, preset: HostLegendView): boolean {
-  return view.baseId === preset.baseId && view.secondId === preset.secondId
-}
-
-/** Apply a language change. Matching the LARK preset returns `standard`. */
+/** Apply a language change. */
 export function hostLegendView(
   current: HostLegendView,
   patch: Partial<Pick<HostLegendView, 'baseId' | 'secondId'>>
 ): HostLegendView {
-  const next: HostLegendView = { ...current, ...patch, source: 'custom' }
+  const next: HostLegendView = { ...current, ...patch }
   if (next.secondId === next.baseId) next.secondId = null
-  if (sameLanguages(next, LARK_STANDARD_VIEW)) next.source = 'standard'
   return next
 }
 
-/** Show or hide columns and layer slots. Does not change `source`. */
+/** Show or hide columns and layer slots. */
 export function hostLegendPreview(
   current: HostLegendView,
   patch: Partial<
@@ -389,7 +353,6 @@ export function hostLegendPreview(
       HostLegendView,
       | 'baseVisible'
       | 'secondVisible'
-      | 'layers'
       | 'shownLayers'
       | 'altGr'
       | 'altGrShift'
@@ -475,11 +438,6 @@ export function standardHostLegendView(): HostLegendView {
   return { ...LARK_STANDARD_VIEW }
 }
 
-/** Keep the current languages and mark them as the user's own set. */
-export function customHostLegendView(current: HostLegendView): HostLegendView {
-  return { ...current, source: 'custom' }
-}
-
 /** Legend for a view. Unknown ids and non-character keys return null. */
 export function hostLegendFor(
   token: string,
@@ -497,19 +455,6 @@ export function hostLegendFor(
     secondAltGr: view.secondAltGr ?? view.altGr,
     secondAltGrShift: view.secondAltGrShift ?? view.altGrShift
   })
-}
-
-/** Put a layout into the English (base) or Russian (second) column. */
-export function applyColumnLayout(
-  current: HostLegendView,
-  column: 'base' | 'second',
-  layoutId: string
-): HostLegendView {
-  const choice = hostLayoutChoice(layoutId)
-  if (!choice) return current
-  if (column === 'base' && choice.language !== 'en') return current
-  if (column === 'second' && choice.language !== 'ru') return current
-  return hostLegendView(current, column === 'base' ? { baseId: layoutId } : { secondId: layoutId })
 }
 
 export interface HostLegendColumn {
@@ -609,7 +554,7 @@ export function replaceHostLanguage(
   const replacingOpen = hostLayoutChoice(view.secondId ?? '')?.language === from
   const next = replacingOpen
     ? hostLegendView(view, { secondId: choice.id })
-    : { ...view, source: 'custom' as const }
+    : { ...view }
   return { ...next, roster }
 }
 
@@ -623,7 +568,7 @@ export function removeHostLanguage(
   const roster = before.filter(slot => slot.language !== language)
   if (roster.length === before.length) return view
   const removingOpen = hostLayoutChoice(view.secondId ?? '')?.language === language
-  if (!removingOpen) return { ...view, roster, source: 'custom' }
+  if (!removingOpen) return { ...view, roster }
   const fallback =
     [...roster].reverse().find(slot => isAddableHostLanguage(slot.language)) ??
     roster.find(slot => slot.language === 'ru') ??
@@ -726,6 +671,6 @@ export function assignHostLanguageLayout(
   if (!updatesSecond && !roster.some(slot => slot.language === language)) return current
   const next = updatesSecond
     ? hostLegendView(current, { secondId: layoutId })
-    : { ...current, source: 'custom' as const }
+    : { ...current }
   return { ...next, roster }
 }

@@ -90,8 +90,6 @@ export interface ResolvedBinding {
 
 /**
  * Which host layouts fill the composed legend.
- * `source` records whether this is the LARK preset or the user's own pick.
- * It does not change glyphs by itself.
  */
 export interface HostLegendView {
   baseId: string
@@ -101,7 +99,6 @@ export interface HostLegendView {
   altGr: boolean
   /** AltGr+Shift column of the first language. */
   altGrShift: boolean
-  source: 'standard' | 'custom'
   /** Preview: hide first-language glyphs without changing `baseId`. */
   baseVisible?: boolean
   /** Preview: hide second-language glyphs without clearing `secondId`. */
@@ -120,11 +117,6 @@ export interface HostLegendView {
     altGr: boolean
     altGrShift: boolean
   }>
-  /**
-   * @deprecated Four-slot hide flags. Use `shownLayers`.
-   * Kept so compose still compiles until it reads the ordered set.
-   */
-  layers?: [boolean, boolean, boolean, boolean]
   /** Shown firmware-layer indices in the order they were turned on. */
   shownLayers?: number[]
   /** Layer 0 stays on the cap; when true the first row is the raw ZMK code. */

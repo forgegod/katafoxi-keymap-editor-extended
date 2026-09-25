@@ -22,7 +22,6 @@ import {
   prefixedCommandLegend,
   layerLegendSymbol,
   formatAltGrPair,
-  formatLegendCompact,
   getBehaviorCatalog,
   getKeycodeCatalog,
   hostLegendFor,
@@ -35,6 +34,15 @@ import {
   normalizeZmkKeycodes,
   resolveBinding
 } from '../src/index.js'
+
+/** Join live keycap columns the way the deleted compact helper did. */
+function compactKeycap(legend: NonNullable<ReturnType<typeof composeKey>>): string {
+  const cols = keycapColumns(legend).map(column =>
+    column.pieces.map(piece => piece.text).join('')
+  )
+  const hold = legend.hold ? ` ${legend.hold}` : ''
+  return `${cols.join(' ')}${hold}`.trim()
+}
 
 describe('parseKeyBinding', () => {
   it('parses simple &kp', () => {
@@ -123,7 +131,7 @@ describe('resolveBinding / composeKey', () => {
     expect(legend?.en).toEqual(['a', 'A'])
     expect(legend?.second).toEqual(['ф', 'Ф'])
     expect(legend?.hold).toBeUndefined()
-    expect(formatLegendCompact(legend!)).toBe('aA фФ @α')
+    expect(compactKeycap(legend!)).toBe('aA фФ @α')
     expect(legend?.bilingualNote).toBeUndefined()
   })
 
@@ -134,13 +142,13 @@ describe('resolveBinding / composeKey', () => {
     expect(tee?.altGr).toBe('Δ')
     expect(tee?.altGrShift).toBe('τ')
     expect(tee?.bilingualNote).toBe('Δτ/ёЁ')
-    expect(formatLegendCompact(tee!)).toBe('tT еЕ Δτ/ёЁ')
+    expect(compactKeycap(tee!)).toBe('tT еЕ Δτ/ёЁ')
 
     const em = composeKey({ binding: parseKeyBinding('&kp M') })
     expect(em?.en).toEqual(['m', 'M'])
     expect(em?.second).toEqual(['ь', 'Ь'])
     expect(em?.bilingualNote).toBe('ˬμ/ъЪ')
-    expect(formatLegendCompact(em!)).toBe('mM ьЬ ˬμ/ъЪ')
+    expect(compactKeycap(em!)).toBe('mM ьЬ ˬμ/ъЪ')
 
     const grave = composeKey({ binding: parseKeyBinding('&kp GRAVE') })
     expect(grave?.en).toEqual(['`', '~'])
@@ -152,7 +160,7 @@ describe('resolveBinding / composeKey', () => {
     const gee = composeKey({ binding: parseKeyBinding('&kp G'), hostView })
     expect(gee?.en).toEqual(['g', 'G'])
     expect(gee?.second).toEqual(['g', 'G'])
-    expect(formatLegendCompact(gee!)).toBe(`gG ${gee?.bilingualNote}`)
+    expect(compactKeycap(gee!)).toBe(`gG ${gee?.bilingualNote}`)
     expect(keycapColumns(gee!)[0]?.pieces).toEqual([{ text: 'gG', tone: 'base' }])
   })
 
@@ -179,7 +187,7 @@ describe('resolveBinding / composeKey', () => {
     expect(legend?.second).toEqual(['у', 'У'])
     expect(legend?.altGr).toBe('&')
     expect(legend?.altGrShift).toBe('ε')
-    expect(formatLegendCompact(legend!)).toBe('eE уУ &ε')
+    expect(compactKeycap(legend!)).toBe('eE уУ &ε')
   })
 
   it('puts hold badge only on &mt, not on bare &kp J', () => {
@@ -189,7 +197,7 @@ describe('resolveBinding / composeKey', () => {
     expect(kp?.second).toEqual(['о', 'О'])
     expect(kp?.altGr).toBe('')
     expect(kp?.altGrShift).toBe('ξ')
-    expect(formatLegendCompact(kp!)).toContain('ˬξ')
+    expect(compactKeycap(kp!)).toContain('ˬξ')
 
     const mt = composeKey({ binding: parseKeyBinding('&mt LCTRL J') })
     expect(mt?.en).toEqual(['j', 'J'])
@@ -307,15 +315,14 @@ describe('resolveBinding / composeKey', () => {
         baseId: 'lark-en',
         secondId: null,
         altGr: false,
-        altGrShift: false,
-        source: 'custom'
+        altGrShift: false
       }
     })
     expect(englishOnly?.en).toEqual(['a', 'A'])
     expect(englishOnly?.second).toBeNull()
     expect(englishOnly?.altGr).toBe('')
     expect(englishOnly?.altGrShift).toBe('')
-    expect(formatLegendCompact(englishOnly!)).toBe('aA')
+    expect(compactKeycap(englishOnly!)).toBe('aA')
     expect(formatAltGrPair(englishOnly!)).toBeNull()
   })
 
@@ -587,8 +594,7 @@ describe('composeLegendDecode', () => {
     const card = composeLegendDecode(parseKeyBinding('&kp MINUS'), {
       ...standardHostLegendView(),
       baseId: 'system-us',
-      secondId: 'system-ru',
-      source: 'custom'
+      secondId: 'system-ru'
     })
     expect(card.current.map(column => column.flag)).toEqual(['🇺🇸', '🇷🇺'])
     expect(card.current.map(formatDecodeWord)).toEqual(['-_ˬˬ', '-_ˬˬ'])

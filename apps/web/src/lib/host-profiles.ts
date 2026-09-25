@@ -11,11 +11,9 @@ import {
   hostLayoutChoiceLabel,
   layoutForBuiltinProfile,
   parseBuiltinLanguageProfileId,
-  assignHostLanguageLayout,
   reservedHostProfileNames,
   type HostLanguageId,
-  type HostLayoutKind,
-  type HostLegendView
+  type HostLayoutKind
 } from '@keymap-editor/keymap-core'
 
 export const SYSTEM_HOST_PROFILE_KIND = 'system' as const
@@ -97,15 +95,6 @@ export function reservedProfileName(name: string): boolean {
   return reservedHostProfileNames().some(
     reserved => reserved.toLocaleLowerCase('ru') === key
   )
-}
-
-/** Keep column and layer visibility, and replace one language column. */
-export function hostLegendWithLayout(
-  current: HostLegendView,
-  language: HostLanguageId,
-  layoutId: string
-): HostLegendView {
-  return assignHostLanguageLayout(current, language, layoutId)
 }
 
 function openDb(): Promise<IDBDatabase> {

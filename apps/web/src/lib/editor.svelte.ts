@@ -7,6 +7,7 @@ import {
   diffKeymaps,
   getBehaviorCatalog,
   getKeycodeCatalog,
+  assignHostLanguageLayout,
   hostLegendColumns,
   standardHostLegendView,
   remapShownLayersAfterDelete,
@@ -30,7 +31,6 @@ import {
 } from './draft-storage'
 import {
   defaultActiveLanguageProfiles,
-  hostLegendWithLayout,
   isBuiltinLanguageProfile,
   layoutIdForProfile,
   loadActiveLanguageProfiles,
@@ -255,8 +255,8 @@ class EditorState {
   ): HostLegendView {
     const en = layoutIdForProfile(active.en, profiles) ?? current.baseId
     const ru = layoutIdForProfile(active.ru, profiles) ?? current.secondId
-    let next = hostLegendWithLayout(current, 'en', en)
-    if (ru) next = hostLegendWithLayout(next, 'ru', ru)
+    let next = assignHostLanguageLayout(current, 'en', en)
+    if (ru) next = assignHostLanguageLayout(next, 'ru', ru)
     return next
   }
 
@@ -296,7 +296,7 @@ class EditorState {
     const layoutId = layoutIdForProfile(id, this.hostProfiles)
     if (!layoutId) return Promise.resolve()
     this.activeLanguageProfiles = { ...this.activeLanguageProfiles, [language]: id }
-    this.hostLegend = hostLegendWithLayout(this.hostLegend, language, layoutId)
+    this.hostLegend = assignHostLanguageLayout(this.hostLegend, language, layoutId)
     return saveActiveLanguageProfiles(this.activeLanguageProfiles)
   }
 
@@ -376,7 +376,7 @@ class EditorState {
     }
     this.hostProfiles = [...this.hostProfiles, profile]
     this.activeLanguageProfiles = { ...this.activeLanguageProfiles, [language]: profile.id }
-    this.hostLegend = hostLegendWithLayout(this.hostLegend, language, layoutId)
+    this.hostLegend = assignHostLanguageLayout(this.hostLegend, language, layoutId)
     this.hostProfilePrompt = null
     await saveHostProfile(profile)
     await saveActiveLanguageProfiles(this.activeLanguageProfiles)

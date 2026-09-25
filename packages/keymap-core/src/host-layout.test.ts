@@ -4,11 +4,10 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   addHostLanguage,
-  applyColumnLayout,
+  assignHostLanguageLayout,
   replaceHostLanguage,
   removeHostLanguage,
   builtinLanguageProfileId,
-  customHostLegendView,
   effectiveShownLayers,
   hostLegendColumns,
   hostLegendFor,
@@ -16,12 +15,11 @@ import {
   hostLegendView,
   hostLayoutsForLanguage,
   larkEnglishLayout,
-  larkHostLegend,
   larkRussianLayout,
   standardHostLegendView,
+  SYSTEM_RU_LAYOUT_ID,
   SYSTEM_US_LAYOUT_ID,
   systemEnglishLayout,
-  systemRuHostLegendView,
   systemRussianLayout,
   systemGermanLayout,
   systemUkrainianLayout,
@@ -84,10 +82,12 @@ describe('keysymToGlyph', () => {
 })
 
 describe('lark host layouts', () => {
+  const larkView = standardHostLegendView()
+
   it('joins AC01 to A / ф and keeps shared AltGr', () => {
     expect(larkEnglishLayout.byZmk.get('A')).toEqual(['a', 'A', '@', 'α'])
     expect(larkRussianLayout.byZmk.get('A')).toEqual(['ф', 'Ф', '@', 'α'])
-    expect(larkHostLegend('KC_A')).toEqual({
+    expect(hostLegendFor('KC_A', larkView)).toEqual({
       en: ['a', 'A'],
       second: ['ф', 'Ф'],
       altGr: '@',
@@ -100,7 +100,7 @@ describe('lark host layouts', () => {
   })
 
   it('keeps an empty AltGr cell empty', () => {
-    expect(larkHostLegend('J')).toMatchObject({
+    expect(hostLegendFor('J', larkView)).toMatchObject({
       en: ['j', 'J'],
       second: ['о', 'О'],
       altGr: '',
@@ -109,14 +109,14 @@ describe('lark host layouts', () => {
   })
 
   it('records the three LARK divergences', () => {
-    expect(larkHostLegend('T')?.bilingualNote).toBe('Δτ/ёЁ')
-    expect(larkHostLegend('M')?.bilingualNote).toBe('ˬμ/ъЪ')
-    expect(larkHostLegend('GRAVE')?.bilingualNote).toBe('/ёЁ')
-    expect(larkHostLegend('O')?.second).toEqual(['щ', 'Щ'])
+    expect(hostLegendFor('T', larkView)?.bilingualNote).toBe('Δτ/ёЁ')
+    expect(hostLegendFor('M', larkView)?.bilingualNote).toBe('ˬμ/ъЪ')
+    expect(hostLegendFor('GRAVE', larkView)?.bilingualNote).toBe('/ёЁ')
+    expect(hostLegendFor('O', larkView)?.second).toEqual(['щ', 'Щ'])
   })
 
   it('splits E into language and AltGr columns', () => {
-    expect(larkHostLegend('E')).toMatchObject({
+    expect(hostLegendFor('E', larkView)).toMatchObject({
       en: ['e', 'E'],
       second: ['у', 'У'],
       altGr: '&',
@@ -127,8 +127,8 @@ describe('lark host layouts', () => {
   it('skips modifier keysyms and keys outside the host block', () => {
     expect(larkEnglishLayout.byZmk.has('RALT')).toBe(false)
     expect(larkEnglishLayout.byZmk.has('RWIN')).toBe(false)
-    expect(larkHostLegend('ESC')).toBeNull()
-    expect(larkHostLegend('COLON')).toBeNull()
+    expect(hostLegendFor('ESC', larkView)).toBeNull()
+    expect(hostLegendFor('COLON', larkView)).toBeNull()
   })
 })
 
@@ -151,7 +151,11 @@ describe('system English us(basic)', () => {
   })
 
   it('fills the first column when chosen as the English system profile', () => {
-    const view = applyColumnLayout(standardHostLegendView(), 'base', SYSTEM_US_LAYOUT_ID)
+    const view = assignHostLanguageLayout(
+      standardHostLegendView(),
+      'en',
+      SYSTEM_US_LAYOUT_ID
+    )
     expect(view.baseId).toBe(SYSTEM_US_LAYOUT_ID)
     expect(hostLegendFor('E', view)).toMatchObject({
       en: ['e', 'E'],
@@ -188,7 +192,10 @@ describe('system English us(basic)', () => {
 })
 
 describe('system Russian winkeys', () => {
-  const view = systemRuHostLegendView()
+  const view = hostLegendPreview(
+    assignHostLanguageLayout(standardHostLegendView(), 'ru', SYSTEM_RU_LAYOUT_ID),
+    { altGr: false, altGrShift: false }
+  )
 
   it('uses common letters and winkeys punctuation', () => {
     expect(systemRussianLayout.byZmk.get('Q')).toEqual(['й', 'Й', '', ''])
@@ -365,7 +372,6 @@ describe('host legend view', () => {
 
   it('drops the second language back to the base shift', () => {
     const view = hostLegendView(standard, { secondId: null })
-    expect(view.source).toBe('custom')
     expect(hostLegendFor('A', view)).toMatchObject({
       en: ['a', 'A'],
       second: null,
@@ -377,7 +383,6 @@ describe('host legend view', () => {
 
   it('hides AltGr columns without changing the layout', () => {
     const noAlt = hostLegendPreview(standard, { altGr: false, altGrShift: false })
-    expect(noAlt.source).toBe('standard')
     expect(hostLegendFor('T', noAlt)).toMatchObject({
       en: ['t', 'T'],
       second: ['е', 'Е'],
@@ -387,7 +392,6 @@ describe('host legend view', () => {
     })
 
     const onlyShift = hostLegendPreview(standard, { altGr: false })
-    expect(onlyShift.source).toBe('standard')
     expect(hostLegendFor('E', onlyShift)).toMatchObject({
       altGr: '',
       altGrShift: 'ε'
@@ -400,22 +404,12 @@ describe('host legend view', () => {
     expect(hostLegendFor('A', view)?.second).toBeNull()
   })
 
-  it('returns to standard when the pick matches the LARK preset', () => {
-    const declined = hostLegendView(standard, { secondId: null })
-    expect(hostLegendView(declined, { secondId: 'lark-ru' }).source).toBe('standard')
-  })
-
   it('refuses a second language that repeats the first', () => {
     expect(hostLegendView(standard, { secondId: 'lark-en' }).secondId).toBeNull()
   })
 
-  it('marks the current languages as custom without changing them', () => {
-    expect(customHostLegendView(standard)).toEqual({ ...standard, source: 'custom' })
-  })
-
-  it('toggles preview visibility without changing source', () => {
+  it('toggles preview visibility without changing the layout ids', () => {
     const hidden = hostLegendPreview(standard, { secondVisible: false })
-    expect(hidden.source).toBe('standard')
     expect(hidden.secondId).toBe('lark-ru')
     expect(hidden.secondVisible).toBe(false)
   })

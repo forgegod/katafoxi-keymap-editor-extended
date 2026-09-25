@@ -53,15 +53,6 @@ export function bindingReferencesLayer(node: KeyBindingNode, layer: number): boo
   return (node.params ?? []).some(child => bindingReferencesLayer(child, layer))
 }
 
-export function composedHoldReferencesLayer(
-  legend: ComposedLegend,
-  layer: number
-): boolean {
-  const hold = legend.hold
-  if (!hold) return false
-  return hold === `⧗${layerLegendSymbol(layer)}` || hold === `⧗${layer}`
-}
-
 function isRAltCode(value: string | number | undefined | null): boolean {
   if (value == null) return false
   const key = modifierHoldForKey(value)
@@ -90,14 +81,6 @@ export function bindingSendsShift(node: KeyBindingNode): boolean {
   if (behavior === '&kp') return isShiftKeyCode(node.params[0]?.value)
   if (behavior === '&mt') return isShiftKeyCode(node.params[0]?.value)
   return (node.params ?? []).some(bindingSendsShift)
-}
-
-export function composedHoldSendsAltGr(legend: ComposedLegend): boolean {
-  return legend.hold === `⧗R${modifierRoleGlyph('alt')}`
-}
-
-export function composedHoldSendsShift(legend: ComposedLegend): boolean {
-  return legend.hold === '⧗⇧' || legend.hold === '⧗R⇧'
 }
 
 /** What the hover preview should mark: the whole combo, or only the hold badge. */
@@ -424,14 +407,6 @@ export function keycapColumns(legend: ComposedLegend): KeycapColumn[] {
     if (alt) columns.push({ kind: 'alt', pieces: [{ text: alt, tone: null }] })
   }
   return columns
-}
-
-export function formatLegendCompact(legend: ComposedLegend): string {
-  const cols = keycapColumns(legend).map(column =>
-    column.pieces.map(piece => piece.text).join('')
-  )
-  const hold = legend.hold ? ` ${legend.hold}` : ''
-  return `${cols.join(' ')}${hold}`.trim()
 }
 
 export interface LegendDecodeSlot {
