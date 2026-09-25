@@ -8,6 +8,7 @@ import {
   getBehaviorCatalog,
   getKeycodeCatalog,
   standardHostLegendView,
+  remapShownLayersAfterDelete,
   summarizeKeymapDiff,
   type HostLegendView,
   type LegendHover,
@@ -149,7 +150,7 @@ class EditorState {
   undoStack = $state<ParsedKeymap[]>([])
   redoStack = $state<ParsedKeymap[]>([])
   saving = $state(false)
-  legendMode = $state<LegendMode>('zmk')
+  legendMode = $state<LegendMode>('composed')
   /** View over the host profile. It does not edit the keymap. */
   hostLegend = $state<HostLegendView>(standardHostLegendView())
   hostProfiles = $state<HostProfile[]>([])
@@ -602,6 +603,39 @@ class EditorState {
     }
   }
 
+  addLayer() {
+    const km = this.draftKeymap
+    if (!km) return
+    const width = this.layout?.length ?? km.layers[0]?.length ?? 0
+    const index = km.layers.length
+    const names = this.hostLegendLayerNames
+    const blank = (): KeyBindingNode => ({ value: '&trans', params: [] })
+    this.updateKeymap({
+      ...km,
+      layer_names: [...names, `Layer #${index}`],
+      layers: [...km.layers, Array.from({ length: width }, blank)]
+    })
+  }
+
+  renameLayer(index: number, name: string) {
+    const km = this.draftKeymap
+    if (!km || index < 0 || index >= km.layers.length) return
+    const names = [...this.hostLegendLayerNames]
+    names[index] = name
+    this.updateKeymap({ ...km, layer_names: names })
+  }
+
+  deleteLayer(index: number) {
+    const km = this.draftKeymap
+    if (!km || km.layers.length <= 1) return
+    if (index < 0 || index >= km.layers.length) return
+    const names = [...this.hostLegendLayerNames]
+    names.splice(index, 1)
+    const layers = km.layers.filter((_, i) => i !== index)
+    this.updateKeymap({ ...km, layer_names: names, layers })
+    this.hostLegend = remapShownLayersAfterDelete(this.hostLegend, index, layers.length)
+  }
+
   updateKeymap(next: ParsedKeymap) {
     if (this.draftKeymap) {
       const prev = cloneParsedKeymap(this.draftKeymap)
@@ -699,7 +733,7 @@ class EditorState {
     this.draftKeymap = null
     this.clearHistory()
     this.saving = false
-    this.legendMode = 'zmk'
+    this.legendMode = 'composed'
     this.hostLegend = standardHostLegendView()
     this.hostProfiles = []
     this.activeHostProfileId = STANDARD_HOST_PROFILE_ID
