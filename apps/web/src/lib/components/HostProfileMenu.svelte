@@ -3,6 +3,7 @@
     hostLayoutChoice,
     hostLayoutChoiceLabel,
     hostLayoutShelves,
+    listXkbSections,
     type HostLanguageId,
     type HostLayoutChoice
   } from '@keymap-editor/keymap-core'
@@ -25,6 +26,90 @@
   const customs = $derived(shelves.users)
   const activeId = $derived(editor.activeProfileId(language))
   const canStore = true
+
+  type XkbSectionChoice = { section: string; name: string }
+
+  let importing = $state(false)
+  let importText = $state('')
+  let importFileName = $state('paste')
+  let importSections = $state<XkbSectionChoice[]>([])
+  let importSection = $state('')
+  let importError = $state('')
+
+  $effect(() => {
+    if (open) return
+    importing = false
+    importText = ''
+    importFileName = 'paste'
+    importSections = []
+    importSection = ''
+    importError = ''
+  })
+
+  function beginImport(event: MouseEvent) {
+    event.stopPropagation()
+    importing = true
+    importText = ''
+    importFileName = 'paste'
+    importSections = []
+    importSection = ''
+    importError = ''
+  }
+
+  function applyImportText(text: string, fileName: string) {
+    importText = text
+    importFileName = fileName
+    importSections = listXkbSections(text)
+    importError = ''
+    if (importSections.length === 0) {
+      importSection = ''
+      importError = 'В файле нет секций xkb_symbols'
+      return
+    }
+    importSection = importSections[0].section
+  }
+
+  async function onImportFile(event: Event) {
+    const input = event.currentTarget
+    if (!(input instanceof HTMLInputElement)) return
+    const file = input.files?.[0]
+    input.value = ''
+    if (!file) return
+    applyImportText(await file.text(), file.name)
+    if (importSections.length === 1) await submitImport()
+  }
+
+  async function submitImport() {
+    if (!importText.trim()) {
+      importError = 'Вставьте текст xkb или выберите файл'
+      return
+    }
+    if (importSections.length === 0) {
+      applyImportText(importText, importFileName)
+      if (importSections.length === 0) return
+    }
+    if (importSections.length > 1 && !importSection) {
+      importError = 'Выберите секцию'
+      return
+    }
+    const section = importSection || importSections[0]?.section
+    if (!section) {
+      importError = 'Выберите секцию'
+      return
+    }
+    const message = await editor.importHostLayoutFromXkb(
+      language,
+      importText,
+      section,
+      importFileName
+    )
+    if (message) {
+      importError = message
+      return
+    }
+    importing = false
+    onClose()
+  }
 
   function currentLabel(): string {
     const user = editor.profilesForLanguage(language).find(profile => profile.id === activeId)
@@ -86,7 +171,48 @@
   >
     {currentLabel()}
   </button>
-  {#if open}
+  {#if open && importing}
+    <div class="profile-import" role="dialog" aria-label="Импортировать xkb">
+      <input
+        type="file"
+        accept=".xkb,text/plain"
+        aria-label="Файл xkb"
+        onchange={event => void onImportFile(event)}
+      />
+      <textarea
+        aria-label="Текст xkb"
+        placeholder="Вставить xkb…"
+        bind:value={importText}
+        oninput={() => {
+          importError = ''
+          const sections = listXkbSections(importText)
+          importSections = sections
+          if (sections.length > 0 && !sections.some(item => item.section === importSection)) {
+            importSection = sections[0].section
+          }
+          if (importFileName === '') importFileName = 'paste'
+        }}
+      ></textarea>
+      {#if importSections.length > 1}
+        <select
+          aria-label="Секция xkb"
+          value={importSection}
+          onchange={event => (importSection = event.currentTarget.value)}
+        >
+          {#each importSections as item (item.section)}
+            <option value={item.section}>{item.name}</option>
+          {/each}
+        </select>
+      {/if}
+      {#if importError}
+        <p class="profile-import-error" role="alert">{importError}</p>
+      {/if}
+      <div class="profile-import-actions">
+        <button type="button" onclick={() => void submitImport()}>Импортировать</button>
+        <button type="button" onclick={() => (importing = false)}>Назад</button>
+      </div>
+    </div>
+  {:else if open}
     <ul class="profile-list" role="listbox" aria-label="Профиль {languageName}">
       {#each customs as profile (profile.id)}
         <li class="profile-row">
@@ -232,6 +358,12 @@
           {/if}
         </li>
       {/each}
+      <li class="profile-sep" aria-hidden="true"></li>
+      <li class="profile-row">
+        <button type="button" class="profile-action" onclick={beginImport}>
+          Импортировать xkb…
+        </button>
+      </li>
     </ul>
   {/if}
 </div>
@@ -343,5 +475,83 @@
     stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
+  }
+
+  .profile-action {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 4px 8px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .profile-action:hover {
+    background: rgba(29, 111, 138, 0.08);
+  }
+
+  .profile-import {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    z-index: 8;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 16rem;
+    padding: 8px;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+  }
+
+  .profile-import textarea,
+  .profile-import select,
+  .profile-import input[type='file'] {
+    box-sizing: border-box;
+    width: 100%;
+    font: inherit;
+    font-size: 12px;
+  }
+
+  .profile-import textarea {
+    min-height: 7rem;
+    resize: vertical;
+  }
+
+  .profile-import-error {
+    margin: 0;
+    color: #842029;
+    font-size: 12px;
+  }
+
+  .profile-import-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .profile-import-actions button {
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    padding: 4px 10px;
+    font: inherit;
+    font-size: 12px;
+  }
+
+  .profile-import-actions button:first-child {
+    background: var(--hover-selection);
+    color: #fff;
+  }
+
+  .profile-import-actions button:last-child {
+    background: #eee;
+    color: #333;
   }
 </style>

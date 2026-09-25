@@ -87,6 +87,27 @@ export function reservedProfileName(name: string): boolean {
   )
 }
 
+export function uniqueUserHostLayoutName(
+  language: HostLanguageId,
+  preferred: string,
+  existing: readonly Pick<UserHostLayout, 'language' | 'name'>[]
+): string {
+  const base = preferred.trim() || 'xkb'
+  const taken = new Set(
+    existing
+      .filter(layout => layout.language === language)
+      .map(layout => layout.name.toLocaleLowerCase('ru'))
+  )
+  const used = (name: string) =>
+    reservedProfileName(name) || taken.has(name.toLocaleLowerCase('ru'))
+  if (!used(base)) return base
+  for (let n = 2; n < 1000; n++) {
+    const name = `${base} ${n}`
+    if (!used(name)) return name
+  }
+  return `${base} ${crypto.randomUUID()}`
+}
+
 export function cloneHostLayoutTable(source: HostLayout, id: string): HostLayout {
   const byZmk = new Map<string, HostKeyLevels>()
   for (const [zmk, levels] of source.byZmk) {

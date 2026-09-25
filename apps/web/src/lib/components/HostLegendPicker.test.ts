@@ -1,7 +1,8 @@
 import type { HostLegendView, KeyBindingNode, ParsedKeymap } from '@keymap-editor/keymap-core'
 import { flushSync, mount, unmount } from 'svelte'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { editor } from '../editor.svelte.js'
+import { clearHostLayoutStore, loadUserHostLayouts } from '../host-layout-store'
 import HostLegendPicker from './HostLegendPicker.svelte'
 
 const happyComment = document.createComment('')
@@ -395,5 +396,136 @@ describe('HostLegendPicker', () => {
     )
     flushSync()
     expect(editor.draftKeymap?.layer_names).toEqual(['Lower', 'raise'])
+  })
+
+  const importedXkb = `
+    xkb_symbols "basic" {
+      name[Group1]= "Imported EN";
+      key <AD03> {[ Greek_alpha, Greek_ALPHA, at, numbersign ]};
+    };
+  `
+
+  function englishPair(): string {
+    const row = target.querySelector('.legend-panel tbody tr')
+    const cells = row ? [...row.querySelectorAll('td')] : []
+    return cells[1]?.textContent?.replace(/\s+/g, '') ?? ''
+  }
+
+  async function assignImportedFile() {
+    const english = [...target.querySelectorAll('.legend-panel .profile-trigger')].find(
+      el => el.getAttribute('aria-label') === 'Профиль English'
+    )
+    if (!(english instanceof HTMLButtonElement)) throw new Error('missing English profile')
+    english.click()
+    flushSync()
+    const importItem = [...target.querySelectorAll('.profile-action')].find(
+      el => el.textContent?.includes('Импортировать xkb')
+    )
+    if (!(importItem instanceof HTMLButtonElement)) throw new Error('missing import item')
+    importItem.click()
+    flushSync()
+    const input = target.querySelector('input[type="file"][aria-label="Файл xkb"]')
+    if (!(input instanceof HTMLInputElement)) throw new Error('missing file input')
+    const file = new File([importedXkb], 'imported.xkb', { type: 'text/plain' })
+    const transfer = new DataTransfer()
+    transfer.items.add(file)
+    input.files = transfer.files
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+    await vi.waitFor(async () => {
+      expect(editor.activeProfileId('en')).toMatch(/^user:/)
+      expect(await loadUserHostLayouts()).toHaveLength(1)
+    })
+    flushSync()
+  }
+
+  it('imports an xkb file into the column and keeps it after reload', async () => {
+    await clearHostLayoutStore()
+    await open(keymapOf(['default']))
+    expect(englishPair()).toBe('eE')
+
+    await assignImportedFile()
+    expect(editor.activeProfileId('en')).toMatch(/^user:/)
+    expect(editor.userLayouts[0]?.origin).toEqual({
+      from: 'xkb',
+      fileName: 'imported.xkb',
+      section: 'basic'
+    })
+    expect(englishPair()).toBe('αΑ')
+
+    if (view) unmount(view)
+    view = undefined
+    editor.resetForTests()
+    await editor.restoreHostProfiles()
+    await editor.selectKeyboard({
+      source: 'local',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: keymapOf(['default'])
+    })
+    view = mount(HostLegendPicker, { target })
+    flushSync()
+    expect(editor.activeProfileId('en')).toMatch(/^user:/)
+    expect(editor.userLayouts[0]?.origin).toEqual({
+      from: 'xkb',
+      fileName: 'imported.xkb',
+      section: 'basic'
+    })
+    expect(englishPair()).toBe('αΑ')
+  })
+
+  it('lets the user pick a section when the file has several', async () => {
+    await clearHostLayoutStore()
+    await open(keymapOf(['default']))
+    const english = [...target.querySelectorAll('.legend-panel .profile-trigger')].find(
+      el => el.getAttribute('aria-label') === 'Профиль English'
+    )
+    if (!(english instanceof HTMLButtonElement)) throw new Error('missing English profile')
+    english.click()
+    flushSync()
+    const importItem = [...target.querySelectorAll('.profile-action')].find(
+      el => el.textContent?.includes('Импортировать xkb')
+    )
+    if (!(importItem instanceof HTMLButtonElement)) throw new Error('missing import item')
+    importItem.click()
+    flushSync()
+
+    const textarea = target.querySelector('textarea[aria-label="Текст xkb"]')
+    if (!(textarea instanceof HTMLTextAreaElement)) throw new Error('missing paste field')
+    textarea.value = `
+      xkb_symbols "one" {
+        name[Group1]= "First";
+        key <AD03> {[ a, A, at, numbersign ]};
+      };
+      xkb_symbols "two" {
+        name[Group1]= "Second";
+        key <AD03> {[ Greek_alpha, Greek_ALPHA, at, numbersign ]};
+      };
+    `
+    textarea.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+    const select = target.querySelector('select[aria-label="Секция xkb"]')
+    if (!(select instanceof HTMLSelectElement)) throw new Error('missing section select')
+    expect([...select.options].map(option => option.textContent)).toEqual(['First', 'Second'])
+    select.value = 'two'
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+    flushSync()
+    const confirm = [...target.querySelectorAll('.profile-import button')].find(
+      el => el.textContent?.trim() === 'Импортировать'
+    )
+    if (!(confirm instanceof HTMLButtonElement)) throw new Error('missing import confirm')
+    confirm.click()
+    await vi.waitFor(() => {
+      expect(editor.userLayouts[0]?.origin).toEqual({
+        from: 'xkb',
+        fileName: 'paste',
+        section: 'two'
+      })
+    })
+    flushSync()
+    expect(editor.userLayouts[0]?.origin).toEqual({
+      from: 'xkb',
+      fileName: 'paste',
+      section: 'two'
+    })
+    expect(englishPair()).toBe('αΑ')
   })
 })

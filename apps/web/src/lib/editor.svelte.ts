@@ -10,7 +10,9 @@ import {
   assignHostLanguageLayout,
   hostLanguage,
   hostLayout,
+  hostLayoutFromXkb,
   hostLegendColumns,
+  listXkbSections,
   primarySystemLayoutId,
   registerHostLayout,
   resetHostLayoutRegistry,
@@ -44,6 +46,7 @@ import {
   loadHostLegendView,
   loadUserHostLayouts,
   reservedProfileName,
+  uniqueUserHostLayoutName,
   sanitizeHostLegendView,
   saveHostLegendView,
   saveUserHostLayout,
@@ -314,6 +317,53 @@ export class EditorState {
   beginCopyHostProfile(language: HostLanguageId, layoutId?: string) {
     this.hostProfileNote = null
     this.hostProfilePrompt = { kind: 'copy', language, layoutId }
+  }
+
+  /** Import an xkb section as a user layout and assign it to the language column. */
+  async importHostLayoutFromXkb(
+    language: HostLanguageId,
+    text: string,
+    section: string,
+    fileName: string
+  ): Promise<string | null> {
+    const listed = listXkbSections(text)
+    if (!listed.some(item => item.section === section)) {
+      return `Секция «${section}» не найдена`
+    }
+    try {
+      const imported = hostLayoutFromXkb(text, section, { fileName })
+      const label = listed.find(item => item.section === section)?.name ?? section
+      const name = uniqueUserHostLayoutName(language, label, this.userLayouts)
+      const id = `user:${crypto.randomUUID()}`
+      const layout = cloneHostLayoutTable(imported, id)
+      const record: UserHostLayoutRecord = {
+        id,
+        name,
+        language,
+        origin: { from: 'xkb', fileName, section },
+        updatedAt: Date.now(),
+        layout
+      }
+      this.#registerUserLayout(record)
+      this.userLayouts = [
+        ...this.userLayouts,
+        {
+          id: record.id,
+          name: record.name,
+          language: record.language,
+          origin: record.origin,
+          updatedAt: record.updatedAt
+        }
+      ]
+      this.hostLegend = assignHostLanguageLayout(this.hostLegend, language, id)
+      this.hostProfilePrompt = null
+      this.hostProfileNote = null
+      await saveUserHostLayout(record)
+      await saveHostLegendView(this.hostLegend)
+      return null
+    } catch (error) {
+      return error instanceof Error ? error.message : 'Не удалось импортировать xkb'
+    }
   }
 
   beginRenameHostProfile(language: HostLanguageId, profileId?: string) {

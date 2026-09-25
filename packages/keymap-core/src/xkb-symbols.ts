@@ -42,6 +42,33 @@ function symbolLists(body: string): string[][] {
 export interface ParseXkbOptions {
   files?: Readonly<Record<string, string>>
   fileId?: string
+  /** When set, a missing include throws and names the include spec. */
+  strictIncludes?: boolean
+}
+
+export interface XkbSectionInfo {
+  section: string
+  name: string
+}
+
+const SECTION_HEADER = /xkb_symbols\s*"([^"]+)"/g
+const SECTION_NAME = /name\[Group1\]\s*=\s*"([^"]*)"/
+
+/** Every `xkb_symbols` section and its `name[Group1]`, or the section id. */
+export function listXkbSections(text: string): XkbSectionInfo[] {
+  const source = stripXkbComments(text)
+  const sections: XkbSectionInfo[] = []
+  for (const match of source.matchAll(SECTION_HEADER)) {
+    const section = match[1]
+    const open = source.indexOf('{', match.index ?? 0)
+    if (open < 0) {
+      sections.push({ section, name: section })
+      continue
+    }
+    const body = sliceBrace(source, open)
+    sections.push({ section, name: SECTION_NAME.exec(body)?.[1] ?? section })
+  }
+  return sections
 }
 
 /** `ru(common)` → file `ru`, section `common`. Bare `latin` → `latin(basic)`. */
@@ -83,16 +110,34 @@ export function parseXkbSymbolsSection(
   for (const match of body.matchAll(token)) {
     if (match[1]) {
       const spec = includedSpec(match[1])
-      if (!spec) continue
+      if (!spec) {
+        if (options.strictIncludes) {
+          throw new Error(`Unresolved xkb include "${match[1]}"`)
+        }
+        continue
+      }
       const fromFiles = options.files?.[spec.file]
-      const nestedSource = fromFiles ?? (hasSection(source, spec.section) ? source : null)
-      if (!nestedSource) continue
-      const nestedId = fromFiles ? spec.file : fileId
+      const fromVendored = !!(fromFiles && hasSection(fromFiles, spec.section))
+      const nestedSource =
+        (fromVendored ? fromFiles : null) ??
+        (hasSection(source, spec.section) ? source : null)
+      if (!nestedSource) {
+        if (options.strictIncludes) {
+          throw new Error(`Unresolved xkb include "${match[1]}"`)
+        }
+        continue
+      }
+      const nestedId = fromVendored ? spec.file : fileId
       for (const [name, levels] of parseXkbSymbolsSection(
         nestedSource,
         spec.section,
         [...stack, frame],
-        { ...options, fileId: nestedId }
+        {
+          ...options,
+          fileId: nestedId,
+          // Vendored modules keep the builtin skip for their own missing includes.
+          strictIncludes: fromVendored ? false : options.strictIncludes
+        }
       )) {
         keys.set(name, levels)
       }

@@ -15,7 +15,8 @@ import {
   HOST_LAYOUT_DB_NAME,
   loadUserHostLayouts,
   saveHostLegendView,
-  UNKNOWN_HOST_LAYOUT_NOTE
+  UNKNOWN_HOST_LAYOUT_NOTE,
+  uniqueUserHostLayoutName
 } from './host-layout-store'
 
 function openLayoutId(view: HostLegendView): string | null {
@@ -305,5 +306,61 @@ describe('host layout store', () => {
       hostLayout(SYSTEM_RU_LAYOUT_ID)?.byZmk.get('Q')?.glyphs
     )
     expect(next.hostLegend.columns.some(column => column.language === 'uk')).toBe(false)
+  })
+
+  it('avoids reserved and duplicate imported names', () => {
+    expect(uniqueUserHostLayoutName('en', 'Системная', [])).toBe('Системная 2')
+    expect(
+      uniqueUserHostLayoutName('en', 'Imported EN', [
+        { language: 'en', name: 'Imported EN' },
+        { language: 'ru', name: 'Imported EN' }
+      ])
+    ).toBe('Imported EN 2')
+  })
+
+  it('imports an xkb section as a user layout assigned to the column', async () => {
+    const text = `
+      xkb_symbols "basic" {
+        name[Group1]= "Imported EN";
+        key <AD03> {[ Greek_alpha, Greek_ALPHA, at, numbersign ]};
+      };
+    `
+    expect(await editor.importHostLayoutFromXkb('en', text, 'basic', 'imported.xkb')).toBeNull()
+    expect(editor.activeProfileId('en')).toMatch(/^user:/)
+    expect(editor.userLayouts[0]?.origin).toEqual({
+      from: 'xkb',
+      fileName: 'imported.xkb',
+      section: 'basic'
+    })
+    expect(editor.userLayouts[0]?.name).toBe('Imported EN')
+    expect(hostLayout(editor.activeProfileId('en'))?.byZmk.get('E')?.glyphs).toEqual([
+      'α',
+      'Α',
+      '@',
+      '#'
+    ])
+
+    const next = new EditorState()
+    await next.restoreHostProfiles()
+    expect(next.activeProfileId('en')).toBe(editor.activeProfileId('en'))
+    expect(hostLayout(next.activeProfileId('en'))?.byZmk.get('E')?.glyphs).toEqual([
+      'α',
+      'Α',
+      '@',
+      '#'
+    ])
+  })
+
+  it('names an unresolved include when importing xkb', async () => {
+    const text = `
+      xkb_symbols "broken" {
+        include "level3(ralt_switch)"
+        key <AC01> {[ a, A ]};
+      };
+    `
+    expect(await editor.importHostLayoutFromXkb('en', text, 'broken', 'broken.xkb')).toBe(
+      'Unresolved xkb include "level3(ralt_switch)"'
+    )
+    expect(editor.userLayouts).toHaveLength(0)
   })
 })
