@@ -16,7 +16,7 @@ cmd //c "mklink /J zmk-config C:\path\to\your\zmk-config"
 ln -s ../zmk-keyboard-lark zmk-config
 ```
 
-**Load:** Local mode prefers `config/keymap.json` when it exists and its `layers` are non-empty and valid. Otherwise it reads the raw `.keymap` (so a missing file, empty `layers`, or `layers: [[]]` all fall back). After the first **Write files**, `keymap.json` is written and becomes the primary source on the next load (with expanded binds). `*.keymap.template` is never treated as the keymap file to overwrite. The LARK repo also has `host_keymap/` for later host-compose work.
+**Load:** Local mode prefers `config/keymap.json` when it exists and its `layers` are non-empty and valid. Otherwise it reads the raw `.keymap` (so a missing file, empty `layers`, or `layers: [[]]` all fall back). After the first **Write files**, `keymap.json` is written and becomes the primary source on the next load (with expanded binds). `*.keymap.template` is never treated as the keymap file to overwrite. Loading host layouts from a keyboard repo (`host_keymap/`) is future work and needs an ADR — do not teach the product a concrete board.
 4. Install [pnpm](https://pnpm.io/) (Node 20+), then run:
 
 ```bash
@@ -50,7 +50,15 @@ Set `PORT` if the API port must change. Set `APP_BASE_URL` to the browser-facing
 
 Your selected keyboard should load automatically when Source is **Local**. Click a key to open the editor: pick a behaviour, then a value. Enter applies a complete binding; Esc cancels.
 
-The board shows the host composed stack: click a keycap row to edit that layer’s ZMK binding. Add, rename, and delete layers from the host-legend table. Each language column has its own host profile: system, the layout’s current map, or a named copy.
+The board shows the host composed stack: click a keycap row to edit that layer’s ZMK binding. Add, rename, and delete layers from the host-legend table. Each language column picks a host **layout** (a system catalog id such as `system-us` / `system-ru`, or a user layout `user:<uuid>`). Copy and **Импортировать xkb…** create user layouts; they persist in IndexedDB with the whole legend view.
+
+In a **clean browser profile** the default view is system English + Russian (`system-us` + `system-ru`, AltGr on). The editor does not ship a keyboard-specific host map. To get the LARK host glyphs in dev, import the fixture files from the profile menu:
+
+1. Open a language column’s profile control and choose **Импортировать xkb…**.
+2. Pick `packages/keymap-core/fixtures/lark/host/au` (section `basic`) for English and/or `packages/keymap-core/fixtures/lark/host/ru` (section `legacy`) for Russian — or paste the file text.
+3. The column switches to the imported user layout. Reload the page: the layout stays (IDB v3).
+
+Includes inside those files resolve against vendored system modules (`us(basic)`, and so on).
 
 Click **Write files** to write `keymap.json` and update the `.keymap` in `zmk-config`. On GitHub the same action is **Commit to GitHub**. The write path depends on what is already on disk:
 

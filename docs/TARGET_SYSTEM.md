@@ -11,7 +11,7 @@ Users combine:
 1. **Firmware keymap** (ZMK layers, behaviors, hold-taps, etc.)
 2. **Host input layouts** (e.g. Windows/Linux layouts for EN + RU and AltGr levels)
 
-so each physical key can show a compact **composed legend** (LARK-style: several host-resolved glyphs + optional hold annotation), not a single-layer dump of the text file.
+so each physical key can show a compact **composed legend** (host-resolved glyphs from the selected language columns + optional hold annotation), not a single-layer dump of the text file.
 
 Editing should stay honest to ZMK: composed view is an **editor** over firmware bindings — a stack row opens KeyEditor for that layer — but you still change the ZMK binding, not the host glyph.
 
@@ -21,7 +21,7 @@ Primary user workflows (aligned with upstream intent):
 
 | Source | Role |
 |--------|------|
-| **GitHub** | Load/save `zmk-config` (and later `host_keymap/` or equivalent) via GitHub App + OAuth |
+| **GitHub** | Load/save `zmk-config` via GitHub App + OAuth. Loading host layouts from a keyboard repo (`host_keymap/` or equivalent) is future work and needs its own ADR. |
 | **Clipboard** | Paste/copy keymap text (planned / restore) |
 | **File System Access API** | Chromium: read/write local files without a Node file server (planned / restore) |
 
@@ -29,7 +29,7 @@ The Node API exists mainly for **GitHub secrets and commits**. It is not the lon
 
 ### Dev-only local bridge
 
-Sibling/`zmk-config` junction + `GET/POST /layout|/keymap` is a **development adapter** so we can iterate on real boards (e.g. LARK) quickly. Do not grow product features that *require* this path. Prefer the same file contracts as GitHub (parse/generate/splice in `keymap-core`).
+Sibling/`zmk-config` junction + `GET/POST /layout|/keymap` is a **development adapter** so we can iterate on a cloned firmware repo quickly. Do not grow product features that *require* this path. Prefer the same file contracts as GitHub (parse/generate/splice in `keymap-core`). Host layouts the user imports or copies live in the browser (IndexedDB), not on this adapter.
 
 See [ADR 0001](adr/0001-persistence-github-first.md).
 
@@ -38,7 +38,7 @@ See [ADR 0001](adr/0001-persistence-github-first.md).
 ```
 apps/web          Svelte 5 + Vite SPA — UI, pickers, composed key editor
 apps/api          Thin Hono API — GitHub OAuth/App + optional dev-local I/O
-packages/keymap-core   Pure TS — parse/generate/splice .keymap, layout validate, compose stubs
+packages/keymap-core   Pure TS — parse/generate/splice .keymap, host-layout registry, compose
 ```
 
 - **Domain logic** lives in `keymap-core` and runs in the browser (and on the API only when needed for GitHub/dev I/O).
@@ -64,9 +64,19 @@ Click a stacked keycap row. One dialog edits that layer’s ZMK binding:
   - Behaviour on the cap: hide `&kp`; hide `&mt`/`&lt` when the hold-tap pill is shown; `&none` / `&trans` / instant binds are the center legend; other behaviours stay a small corner mark.
   - Caps Lock `⇪`. Browser back/forward `←` / `→` (not cursor `⏴` `⏵`). Number-row `-` / `=` (not the words `MINUS` / `EQUAL`). Tooltip keeps the raw code.
   - Keypad (`KP_*`): same glyph as the number row (`7`), boxed. Operators `+ - / *`, plus `KP_ENTER` `⮐`, `KP_DOT` `.`, `KP_EQUAL` `=`. Color is only a light fill. Host composed stays the same glyph.
-- **Composed view**: quadrant-style host legend (base/shift language pair + AltGr pair + hold badge), driven by a `ComposedLegend` model in core.
-- **Stub today:** `resolveBinding` splits tap/hold (`&kp` / `&mt` / `&lt`); glyphs come from a tiny tap-keycode fixture map. Hold badges attach only when the binding has a hold side — not from letter fixtures. Full `HostLayout` / host editors are post-migration work.
-- Full host-layout editors and XKB/KLC export are product steps *after* round-trip safety and a stable compose model.
+- **Composed view**: an N-column `ComposedLegend` in core (visible extras; a hidden base column is kept so AltGr collapse can still see it). The keycap still draws the visible base column plus the open extra (`onKeycap`); the table and decode card share the same `hostLevels` / `resolveHostColumns` path. Hold badges come from the binding (`holdRef`), not from the letter.
+- Full in-app host-layout editors and KLC export are still future work. An xkb section writer already round-trips builtin layouts; the editor is not built yet.
+
+## Host layouts
+
+Core and the web app do **not** know any concrete keyboard. Built-in host data is OS language tables (`HOST_LANGUAGES`: en, ru, uk, de) plus vendored xkb modules. A named board (for example LARK) is only a test/dev fixture — see [running-locally.md](../running-locally.md).
+
+- **Registry.** `hostLayout(id)` / `hostLayoutMeta(id)` resolve both builtins and layouts registered at runtime. Builtin xkb sections parse on first use. `registerHostLayout` / `unregisterHostLayout` make an imported or copied layout available to the keycap, table, decode card, and profile menu the same way as a system id.
+- **Storage in the layout.** Each `HostLayout` stores four **keysyms** per key and derives glyphs. `'NoSymbol'` is explicit. Non-character bases (`dead_*`, `Multi_key`) stay in the table; composition filters them.
+- **Legend view.** `HostLegendView = { columns, open }`. `columns[0]` is the base language. Each `HostColumn` is `{ language, layoutId, visible, altGr, altGrShift }`. The default view is primary system English (`system-us`, `us(basic)`) plus primary system Russian (`system-ru`, `ru(winkeys)`), AltGr on for both, `open: 'ru'`.
+- **Layer view.** Firmware-layer visibility is a separate `LayerView = { shown, layer0Raw }` on the editor (`editor.layerView`). It is not part of the host-legend view.
+- **Profile = layout.** One id space: catalog ids (`system-us`, `system-ru-legacy`, …) and user layouts `user:<uuid>`. A profile menu entry is a layout. Copies materialize the source table; xkb import (`Импортировать xkb…`) registers a user layout with origin `{ from: 'xkb', fileName, section }` and assigns it to that language column. Browser IndexedDB v3 stores user layouts plus the whole legend view (`columns`, `open`).
+- **Keyboard-repo host files.** Loading layouts that ship with a keyboard (`host_keymap/` in a config repo) is out of scope here and needs an ADR.
 
 ## Keymap file contract
 
