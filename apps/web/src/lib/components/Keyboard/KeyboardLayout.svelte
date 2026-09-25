@@ -1,6 +1,7 @@
 <script lang="ts">
   import type {
     HostLegendView,
+    LayerView,
     KeyBindingNode,
     LayoutKey,
     LegendHover
@@ -14,6 +15,7 @@
     onUpdate: (keyIndex: number, layerIndex: number, binding: KeyBindingNode) => void
     legendMode?: LegendMode
     hostView?: HostLegendView
+    layerView?: LayerView
     legendHover?: LegendHover | null
     layerIndex?: number
     layerStack?: KeyBindingNode[][]
@@ -29,6 +31,7 @@
     onUpdate,
     legendMode = 'zmk',
     hostView,
+    layerView,
     legendHover = null,
     layerIndex,
     layerStack,
@@ -72,6 +75,7 @@
       {usedLayerLabels}
       {legendMode}
       {hostView}
+      {layerView}
       {legendHover}
       layerBindings={layerStack?.map(layer => layer[i] ?? { value: '&none', params: [] })}
       {onUpdate}

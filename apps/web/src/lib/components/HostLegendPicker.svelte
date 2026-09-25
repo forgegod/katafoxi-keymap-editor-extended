@@ -13,7 +13,6 @@
     assignHostLanguageLayout,
     layoutForBuiltinProfile,
     hostLegendFor,
-    hostLegendPreview,
     getKeycodeCatalog,
     resolveBinding,
     replaceHostLanguage,
@@ -33,9 +32,10 @@
   import Icon from './Common/Icon.svelte'
 
   const view = $derived(editor.hostLegend)
+  const layers = $derived(editor.layerView)
   const columns = $derived(hostLegendColumns(view))
   const addable = $derived(hostLanguagesAvailable(view))
-  const markedLayers = $derived(view.shownLayers ?? [0, 1, 2, 3])
+  const markedLayers = $derived(layers.shown)
   const layerNames = $derived(editor.hostLegendLayerNames)
   const anchorIndex = $derived(hostLegendAnchorIndex(editor.draftKeymap))
   const keycodes = $derived(getKeycodeCatalog().byCode)
@@ -159,26 +159,34 @@
 
   function toggleLayer(index: number) {
     if (index === 0) {
-      editor.hostLegend = hostLegendPreview(view, { layer0Raw: !view.layer0Raw })
+      editor.layerView = { ...layers, layer0Raw: !layers.layer0Raw }
       return
     }
-    editor.hostLegend = toggleShownLayer(view, index)
+    editor.layerView = toggleShownLayer(layers, index)
   }
 
   function toggleAlt(language: HostLanguageId, field: 'altGr' | 'altGrShift', on: boolean) {
     editor.hostLegend = setHostColumnAlt(view, language, field, !on)
   }
 
+  function oneColumnView(column: HostLegendColumn) {
+    return {
+      columns: [
+        {
+          language: column.language,
+          layoutId: column.layoutId,
+          visible: true,
+          altGr: true,
+          altGrShift: true
+        }
+      ],
+      open: null
+    }
+  }
+
   function columnPair(column: HostLegendColumn, tap: string | null): string {
     if (!tap) return ''
-    const legend = hostLegendFor(tap, {
-      ...view,
-      baseId: column.layoutId,
-      secondId: null,
-      baseVisible: true,
-      altGr: true,
-      altGrShift: true
-    })
+    const legend = hostLegendFor(tap, oneColumnView(column))
     return legend ? `${legend.en[0]}${legend.en[1]}` : ''
   }
 
@@ -188,14 +196,7 @@
     field: 'altGr' | 'altGrShift'
   ): string {
     if (!tap || !column[field]) return ''
-    const legend = hostLegendFor(tap, {
-      ...view,
-      baseId: column.layoutId,
-      secondId: null,
-      baseVisible: true,
-      altGr: true,
-      altGrShift: true
-    })
+    const legend = hostLegendFor(tap, oneColumnView(column))
     return legend?.[field] ?? ''
   }
 
@@ -477,7 +478,7 @@
         <tr
           data-layer={row.index}
           class:off={!row.marked}
-          class:raw={row.index === 0 && view.layer0Raw}
+          class:raw={row.index === 0 && layers.layer0Raw}
           onmouseenter={interactive ? () => hoverLayer(row.index) : undefined}
           onmouseleave={interactive ? clearHover : undefined}
         >
@@ -485,7 +486,7 @@
             <div class="row-head">
               {#if interactive}
                 <EyeToggle
-                  on={row.index === 0 ? !view.layer0Raw : row.marked}
+                  on={row.index === 0 ? !layers.layer0Raw : row.marked}
                   label={
                     row.index === 0
                       ? `Показать host-легенду ${row.name}`

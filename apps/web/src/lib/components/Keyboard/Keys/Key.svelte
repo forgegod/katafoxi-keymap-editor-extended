@@ -12,6 +12,7 @@
     isHoldTapBehavior,
     isSimple,
     type HostLegendView,
+    type LayerView,
     type KeyBindingNode,
     type LegendHover
   } from '@keymap-editor/keymap-core'
@@ -51,6 +52,7 @@
     onUpdate: (keyIndex: number, layerIndex: number, binding: KeyBindingNode) => void
     legendMode?: LegendMode
     hostView?: HostLegendView
+    layerView?: LayerView
     legendHover?: LegendHover | null
     layerBindings?: KeyBindingNode[]
     usedKeycodes?: ReadonlyMap<string, readonly number[]>
@@ -70,6 +72,7 @@
     onUpdate,
     legendMode = 'zmk',
     hostView,
+    layerView,
     legendHover = null,
     layerBindings,
     usedKeycodes = new Map(),
@@ -142,7 +145,7 @@
   const stacked = $derived(legendMode === 'composed' && (layerBindings?.length ?? 0) > 0)
   const composedRows = $derived.by(() => {
     if (legendMode !== 'composed') return []
-    if (stacked && layerBindings) return composeLayerRows(layerBindings, hostView)
+    if (stacked && layerBindings) return composeLayerRows(layerBindings, hostView, layerView)
     if (layerIndex == null) return []
     const binding = {
       value,

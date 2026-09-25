@@ -5,6 +5,7 @@
     layerLegendSymbol,
     usedKeycodesRevision,
     type HostLegendView,
+    type LayerView,
     type LegendHover,
     type KeyBindingNode,
     type LayoutKey,
@@ -26,11 +27,19 @@
     onUpdate: (keymap: ParsedKeymap) => void
     legendMode?: LegendMode
     hostView?: HostLegendView
+    layerView?: LayerView
     legendHover?: LegendHover | null
   }
 
-  let { layout, keymap, onUpdate, legendMode = 'composed', hostView, legendHover = null }: Props =
-    $props()
+  let {
+    layout,
+    keymap,
+    onUpdate,
+    legendMode = 'composed',
+    hostView,
+    layerView,
+    legendHover = null
+  }: Props = $props()
 
   const definitionsBox = getDefinitionsContext()
   const definitions = $derived(definitionsBox.current)
@@ -235,6 +244,7 @@
             layerIndex={0}
             {legendMode}
             {hostView}
+            {layerView}
             {legendHover}
             {usedKeycodes}
             {usedRevision}

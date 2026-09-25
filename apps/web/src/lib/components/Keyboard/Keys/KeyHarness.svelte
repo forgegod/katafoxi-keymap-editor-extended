@@ -3,7 +3,8 @@
     getBehaviorCatalog,
     getKeycodeCatalog,
     layerLegendSymbol,
-    type KeyBindingNode
+    type KeyBindingNode,
+    type LayerView
   } from '@keymap-editor/keymap-core'
   import { setSearchContext, type LegendMode } from '../../../context'
   import { buildSearchContext } from '../../../search-context'
@@ -18,6 +19,7 @@
     keyIndex?: number
     layerIndex?: number
     layerBindings?: KeyBindingNode[]
+    layerView?: LayerView
     onUpdate?: (keyIndex: number, layerIndex: number, binding: KeyBindingNode) => void
   }
 
@@ -30,6 +32,7 @@
     keyIndex = 0,
     layerIndex = 0,
     layerBindings,
+    layerView,
     onUpdate = () => {}
   }: Props = $props()
 
@@ -61,6 +64,7 @@
   {keyIndex}
   {layerIndex}
   {layerBindings}
+  {layerView}
   {legendMode}
   onUpdate={(keyIndex, layerIndex, binding) => onUpdate(keyIndex, layerIndex, binding)}
 />

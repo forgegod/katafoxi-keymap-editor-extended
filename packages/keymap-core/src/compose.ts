@@ -12,17 +12,18 @@ import { ALT_LEVEL_EMPTY, hostComposeGlyphs, type HostLevels } from './host-layo
 import { hostLayoutShelves } from './host-layout-catalog.js'
 import { hostLayoutMeta, hostLevels } from './host-layout-registry.js'
 import {
-  effectiveShownLayers,
   hostLegendColumns,
   hostLegendFor,
   standardHostLegendView
 } from './host-legend-view.js'
+import { effectiveShownLayers, standardLayerView } from './layer-view.js'
 import type { HostLanguageId } from './host-languages.js'
 import type {
   ComposedLegend,
   ComposeKeyInput,
   HostLegendView,
   KeyBindingNode,
+  LayerView,
   LegendHover,
   ResolvedBinding
 } from './types.js'
@@ -289,10 +290,12 @@ export function applyHostLegendPreview(
   view?: HostLegendView
 ): ComposedLegend {
   if (!view) return legend
+  const base = view.columns[0]
+  const extra = view.open == null ? undefined : view.columns.find(column => column.language === view.open)
   return {
     ...legend,
-    en: view.baseVisible === false ? ['', ''] : legend.en,
-    second: view.secondVisible === false ? null : legend.second
+    en: base && !base.visible ? ['', ''] : legend.en,
+    second: extra && !extra.visible ? null : legend.second
   }
 }
 
@@ -322,7 +325,8 @@ export function isBlankLayerBinding(node: KeyBindingNode): boolean {
 
 export function composeLayerRows(
   bindings: KeyBindingNode[],
-  hostView?: HostLegendView
+  hostView?: HostLegendView,
+  layerView?: LayerView
 ): Array<{
   layer: number
   binding: KeyBindingNode
@@ -331,11 +335,12 @@ export function composeLayerRows(
   raw: boolean
   title: string
 }> {
-  const shown = effectiveShownLayers(hostView ?? standardHostLegendView(), bindings.length)
+  const layers = layerView ?? standardLayerView()
+  const shown = effectiveShownLayers(layers, bindings.length)
   return shown.map(layer => {
     const binding = bindings[layer]
     const blank = isBlankLayerBinding(binding)
-    const raw = layer === 0 && hostView?.layer0Raw === true
+    const raw = layer === 0 && layers.layer0Raw
     return {
       layer,
       binding,

@@ -18,11 +18,9 @@ export const larkRussianLayout: HostLayout = hostLayoutFromSymbols(
 
 /** LARK preset: English `au` plus Russian, with AltGr. */
 export const LARK_STANDARD_VIEW: HostLegendView = {
-  baseId: 'lark-en',
-  secondId: 'lark-ru',
-  altGr: true,
-  altGrShift: true,
-  baseVisible: true,
-  secondVisible: true,
-  shownLayers: [0, 1, 2, 3]
+  columns: [
+    { language: 'en', layoutId: 'lark-en', visible: true, altGr: true, altGrShift: true },
+    { language: 'ru', layoutId: 'lark-ru', visible: true, altGr: true, altGrShift: true }
+  ],
+  open: 'ru'
 }

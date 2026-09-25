@@ -26,9 +26,12 @@ import {
   getKeycodeCatalog,
   hostLegendFor,
   addHostLanguage,
+  assignHostLanguageLayout,
   keycapColumns,
   parseKeyBinding,
+  setHostColumnAlt,
   standardHostLegendView,
+  toggleHostLanguage,
   parseKeymap,
   generateKeymap,
   normalizeZmkKeycodes,
@@ -233,7 +236,7 @@ describe('resolveBinding / composeKey', () => {
   it('hides language columns on the keycap without dropping the host pick', () => {
     const hiddenEn = composeKey({
       binding: parseKeyBinding('&kp E'),
-      hostView: { ...standardHostLegendView(), baseVisible: false }
+      hostView: toggleHostLanguage(standardHostLegendView(), 'en')
     })
     expect(hiddenEn?.en).toEqual(['', ''])
     expect(hiddenEn?.second).toEqual(['у', 'У'])
@@ -248,7 +251,8 @@ describe('resolveBinding / composeKey', () => {
         parseKeyBinding('&kp F8'),
         parseKeyBinding('&kp SLCK')
       ],
-      { ...standardHostLegendView(), shownLayers: [0, 2, 3] }
+      standardHostLegendView(),
+      { shown: [0, 2, 3], layer0Raw: false }
     )
     expect(rows).toHaveLength(3)
     expect(rows.map(row => row.layer)).toEqual([0, 2, 3])
@@ -263,7 +267,8 @@ describe('resolveBinding / composeKey', () => {
         parseKeyBinding('&kp F8'),
         parseKeyBinding('&kp SLCK')
       ],
-      { ...standardHostLegendView(), shownLayers: [0, 2] }
+      standardHostLegendView(),
+      { shown: [0, 2], layer0Raw: false }
     )
     expect(rows).toHaveLength(2)
     expect(rows.map(row => row.layer)).toEqual([0, 2])
@@ -278,17 +283,18 @@ describe('resolveBinding / composeKey', () => {
   it('marks &trans and &none as blank rows', () => {
     const rows = composeLayerRows(
       [parseKeyBinding('&trans'), parseKeyBinding('&none'), parseKeyBinding('&kp E')],
-      { ...standardHostLegendView(), shownLayers: [0, 1, 2] }
+      standardHostLegendView(),
+      { shown: [0, 1, 2], layer0Raw: false }
     )
     expect(rows.map(row => row.blank)).toEqual([true, true, false])
   })
 
   it('drops the host legend on layer0 when layer0Raw is set', () => {
-    const rows = composeLayerRows([parseKeyBinding('&kp E'), parseKeyBinding('&kp A')], {
-      ...standardHostLegendView(),
-      shownLayers: [0, 1],
-      layer0Raw: true
-    })
+    const rows = composeLayerRows(
+      [parseKeyBinding('&kp E'), parseKeyBinding('&kp A')],
+      standardHostLegendView(),
+      { shown: [0, 1], layer0Raw: true }
+    )
     expect(rows[0].legend).toBeNull()
     expect(rows[0].blank).toBe(false)
     expect(rows[0].raw).toBe(true)
@@ -300,9 +306,9 @@ describe('resolveBinding / composeKey', () => {
   it('sets each row title to the encoded binding', () => {
     const holdTap = parseKeyBinding('&mt LCTRL J')
     const letter = parseKeyBinding('&kp E')
-    const rows = composeLayerRows([holdTap, letter], {
-      ...standardHostLegendView(),
-      shownLayers: [0, 1]
+    const rows = composeLayerRows([holdTap, letter], standardHostLegendView(), {
+      shown: [0, 1],
+      layer0Raw: false
     })
     expect(rows[0].title).toBe(encodeKeyBinding(holdTap))
     expect(rows[1].title).toBe(encodeKeyBinding(letter))
@@ -312,10 +318,16 @@ describe('resolveBinding / composeKey', () => {
     const englishOnly = composeKey({
       binding: parseKeyBinding('&kp A'),
       hostView: {
-        baseId: 'lark-en',
-        secondId: null,
-        altGr: false,
-        altGrShift: false
+        columns: [
+          {
+            language: 'en',
+            layoutId: 'lark-en',
+            visible: true,
+            altGr: false,
+            altGrShift: false
+          }
+        ],
+        open: null
       }
     })
     expect(englishOnly?.en).toEqual(['a', 'A'])
@@ -334,13 +346,28 @@ describe('resolveBinding / composeKey', () => {
 
     const shiftOnly = composeKey({
       binding: parseKeyBinding('&kp K'),
-      hostView: { ...standardHostLegendView(), altGr: false }
+      hostView: setHostColumnAlt(
+        setHostColumnAlt(standardHostLegendView(), 'en', 'altGr', false),
+        'ru',
+        'altGr',
+        false
+      )
     })
     expect(formatAltGrPair(shiftOnly!)).toBe('ˬ')
 
     const hidden = composeKey({
       binding: parseKeyBinding('&kp E'),
-      hostView: { ...standardHostLegendView(), altGr: false, altGrShift: false }
+      hostView: setHostColumnAlt(
+        setHostColumnAlt(
+          setHostColumnAlt(setHostColumnAlt(standardHostLegendView(), 'en', 'altGr', false), 'en', 'altGrShift', false),
+          'ru',
+          'altGr',
+          false
+        ),
+        'ru',
+        'altGrShift',
+        false
+      )
     })
     expect(formatAltGrPair(hidden!)).toBeNull()
   })
@@ -591,11 +618,14 @@ describe('composeLegendDecode', () => {
   })
 
   it('hides the system row when the profile already is the primary', () => {
-    const card = composeLegendDecode(parseKeyBinding('&kp MINUS'), {
-      ...standardHostLegendView(),
-      baseId: 'system-us',
-      secondId: 'system-ru'
-    })
+    const card = composeLegendDecode(
+      parseKeyBinding('&kp MINUS'),
+      assignHostLanguageLayout(
+        assignHostLanguageLayout(standardHostLegendView(), 'en', 'system-us'),
+        'ru',
+        'system-ru'
+      )
+    )
     expect(card.current.map(column => column.flag)).toEqual(['🇺🇸', '🇷🇺'])
     expect(card.current.map(formatDecodeWord)).toEqual(['-_ˬˬ', '-_ˬˬ'])
     expect(card.system).toBeNull()

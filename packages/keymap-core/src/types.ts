@@ -90,39 +90,29 @@ export interface ResolvedBinding {
   hold?: string
 }
 
+/** One language column in the host-legend view. `columns[0]` is the base. */
+export interface HostColumn {
+  language: HostLanguageId
+  layoutId: string
+  visible: boolean
+  altGr: boolean
+  altGrShift: boolean
+}
+
 /**
  * Which host layouts fill the composed legend.
+ * `columns[0]` is the base column. `open` is the extra language shown
+ * next to the base, or `null` when no extra is selected.
  */
 export interface HostLegendView {
-  baseId: string
-  /** Second national language. `null` declines it. */
-  secondId: string | null
-  /** AltGr column of the first language. */
-  altGr: boolean
-  /** AltGr+Shift column of the first language. */
-  altGrShift: boolean
-  /** Preview: hide first-language glyphs without changing `baseId`. */
-  baseVisible?: boolean
-  /** Preview: hide second-language glyphs without clearing `secondId`. */
-  secondVisible?: boolean
-  /** AltGr column of the second language. Defaults to `altGr`. */
-  secondAltGr?: boolean
-  /** AltGr+Shift column of the second language. Defaults to `altGrShift`. */
-  secondAltGrShift?: boolean
-  /**
-   * Languages after the base column, in table order.
-   * Absent means just `secondId`, when that is set.
-   */
-  roster?: ReadonlyArray<{
-    language: HostLanguageId
-    layoutId: string
-    altGr: boolean
-    altGrShift: boolean
-  }>
-  /** Shown firmware-layer indices in the order they were turned on. */
-  shownLayers?: number[]
-  /** Layer 0 stays on the cap; when true the first row is the raw ZMK code. */
-  layer0Raw?: boolean
+  columns: HostColumn[]
+  open: HostLanguageId | null
+}
+
+/** Which firmware layers are drawn on the keycap. */
+export interface LayerView {
+  shown: number[]
+  layer0Raw: boolean
 }
 
 /**

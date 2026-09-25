@@ -10,9 +10,11 @@ import {
   assignHostLanguageLayout,
   hostLegendColumns,
   standardHostLegendView,
+  standardLayerView,
   remapShownLayersAfterDelete,
   summarizeKeymapDiff,
   type HostLegendView,
+  type LayerView,
   type LegendHover,
   type KeyBindingNode,
   type KeymapChange,
@@ -155,6 +157,8 @@ class EditorState {
   legendMode = $state<LegendMode>('composed')
   /** View over the host profile. It does not edit the keymap. */
   hostLegend = $state<HostLegendView>(standardHostLegendView())
+  /** Which firmware layers are drawn on the keycap. */
+  layerView = $state<LayerView>(standardLayerView())
   hostProfiles = $state<HostProfile[]>([])
   activeLanguageProfiles = $state<ActiveLanguageProfiles>(defaultActiveLanguageProfiles())
   hostProfilePrompt = $state<HostProfilePrompt | null>(null)
@@ -245,6 +249,7 @@ class EditorState {
       this.hostProfiles = []
       this.activeLanguageProfiles = defaultActiveLanguageProfiles()
       this.hostLegend = standardHostLegendView()
+      this.layerView = standardLayerView()
     }
   }
 
@@ -253,8 +258,9 @@ class EditorState {
     active: ActiveLanguageProfiles,
     profiles: readonly HostProfile[]
   ): HostLegendView {
-    const en = layoutIdForProfile(active.en, profiles) ?? current.baseId
-    const ru = layoutIdForProfile(active.ru, profiles) ?? current.secondId
+    const en = layoutIdForProfile(active.en, profiles) ?? current.columns[0]?.layoutId
+    const ruColumn = current.columns.find(column => column.language === 'ru')
+    const ru = layoutIdForProfile(active.ru, profiles) ?? ruColumn?.layoutId
     let next = assignHostLanguageLayout(current, 'en', en)
     if (ru) next = assignHostLanguageLayout(next, 'ru', ru)
     return next
@@ -624,7 +630,7 @@ class EditorState {
     names.splice(index, 1)
     const layers = km.layers.filter((_, i) => i !== index)
     this.updateKeymap({ ...km, layer_names: names, layers })
-    this.hostLegend = remapShownLayersAfterDelete(this.hostLegend, index, layers.length)
+    this.layerView = remapShownLayersAfterDelete(this.layerView, index, layers.length)
   }
 
   updateKeymap(next: ParsedKeymap) {
@@ -726,6 +732,7 @@ class EditorState {
     this.saving = false
     this.legendMode = 'composed'
     this.hostLegend = standardHostLegendView()
+    this.layerView = standardLayerView()
     this.hostProfiles = []
     this.activeLanguageProfiles = defaultActiveLanguageProfiles()
     this.hostProfilePrompt = null

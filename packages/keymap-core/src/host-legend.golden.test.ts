@@ -66,36 +66,37 @@ const VIEW_BUILDERS: ReadonlyArray<{ id: string; build: () => HostLegendView }> 
   }
 ]
 
+function oneColumnView(column: HostLegendColumn): HostLegendView {
+  return {
+    columns: [
+      {
+        language: column.language,
+        layoutId: column.layoutId,
+        visible: true,
+        altGr: true,
+        altGrShift: true
+      }
+    ],
+    open: null
+  }
+}
+
 /** Copied from HostLegendPicker.svelte columnPair (one-column hostLegendFor). */
-function columnPair(view: HostLegendView, column: HostLegendColumn, tap: string | null): string {
+function columnPair(_view: HostLegendView, column: HostLegendColumn, tap: string | null): string {
   if (!tap) return ''
-  const legend = hostLegendFor(tap, {
-    ...view,
-    baseId: column.layoutId,
-    secondId: null,
-    baseVisible: true,
-    altGr: true,
-    altGrShift: true
-  })
+  const legend = hostLegendFor(tap, oneColumnView(column))
   return legend ? `${legend.en[0]}${legend.en[1]}` : ''
 }
 
 /** Copied from HostLegendPicker.svelte columnAlt (one-column hostLegendFor). */
 function columnAlt(
-  view: HostLegendView,
+  _view: HostLegendView,
   column: HostLegendColumn,
   tap: string | null,
   field: 'altGr' | 'altGrShift'
 ): string {
   if (!tap || !column[field]) return ''
-  const legend = hostLegendFor(tap, {
-    ...view,
-    baseId: column.layoutId,
-    secondId: null,
-    baseVisible: true,
-    altGr: true,
-    altGrShift: true
-  })
+  const legend = hostLegendFor(tap, oneColumnView(column))
   return legend?.[field] ?? ''
 }
 

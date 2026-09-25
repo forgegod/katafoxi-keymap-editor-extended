@@ -1,4 +1,4 @@
-import type { KeyBindingNode, ParsedKeymap } from '@keymap-editor/keymap-core'
+import type { HostLegendView, KeyBindingNode, ParsedKeymap } from '@keymap-editor/keymap-core'
 import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { editor } from '../editor.svelte.js'
@@ -12,6 +12,11 @@ if (!(happyComment instanceof Comment)) {
     writable: true,
     value: CommentCtor
   })
+}
+
+function openLayoutId(view: HostLegendView): string | null {
+  if (view.open == null) return null
+  return view.columns.find(column => column.language === view.open)?.layoutId ?? null
 }
 
 function kp(code: string): KeyBindingNode {
@@ -104,7 +109,7 @@ describe('HostLegendPicker', () => {
     await open(
       keymapOf(['base', 'num'], [kp('A'), kp('E')])
     )
-    editor.hostLegend = { ...editor.hostLegend, shownLayers: [0, 1] }
+    editor.layerView = { ...editor.layerView, shown: [0, 1] }
     flushSync()
     const codes = panelRows().map(row => row.querySelector('.zmk')?.textContent?.trim())
     expect(codes[0]).toMatch(/E/)
@@ -158,18 +163,18 @@ describe('HostLegendPicker', () => {
 
   it('toggles layer0 to a raw ZMK row instead of hiding it', async () => {
     await open(keymapOf(['default', 'raise']))
-    const shownBefore = editor.hostLegend.shownLayers
+    const shownBefore = editor.layerView.shown
     const eye = target.querySelector('.legend-panel [aria-label="Показать host-легенду default"]')
     if (!(eye instanceof HTMLButtonElement)) throw new Error('missing layer0 eye')
     expect(eye.getAttribute('aria-pressed')).toBe('true')
     eye.click()
     flushSync()
-    expect(editor.hostLegend.layer0Raw).toBe(true)
-    expect(editor.hostLegend.shownLayers).toEqual(shownBefore)
+    expect(editor.layerView.layer0Raw).toBe(true)
+    expect(editor.layerView.shown).toEqual(shownBefore)
     expect(eye.getAttribute('aria-pressed')).toBe('false')
     eye.click()
     flushSync()
-    expect(editor.hostLegend.layer0Raw).toBe(false)
+    expect(editor.layerView.layer0Raw).toBe(false)
     expect(eye.getAttribute('aria-pressed')).toBe('true')
   })
 
@@ -179,7 +184,7 @@ describe('HostLegendPicker', () => {
     if (!(eye instanceof HTMLButtonElement)) throw new Error('missing raise eye')
     eye.click()
     flushSync()
-    expect(editor.hostLegend.shownLayers).toEqual([0, 2, 3])
+    expect(editor.layerView.shown).toEqual([0, 2, 3])
   })
 
   it('adds a transparent Layer #2 from the table footer', async () => {
@@ -222,7 +227,7 @@ describe('HostLegendPicker', () => {
     if (!(system instanceof HTMLButtonElement)) throw new Error('missing system option')
     system.click()
     flushSync()
-    expect(editor.hostLegend.baseId).toBe('system-us')
+    expect(editor.hostLegend.columns[0].layoutId).toBe('system-us')
     expect(editor.activeProfileId('en')).toBe('en:system')
   })
 
@@ -247,7 +252,7 @@ describe('HostLegendPicker', () => {
     if (!(phonetic instanceof HTMLButtonElement)) throw new Error('missing phonetic')
     phonetic.click()
     flushSync()
-    expect(editor.hostLegend.secondId).toBe('system-ru-phonetic')
+    expect(openLayoutId(editor.hostLegend)).toBe('system-ru-phonetic')
     expect(editor.activeProfileId('ru')).toBe('ru:system:phonetic')
   })
 
@@ -265,13 +270,13 @@ describe('HostLegendPicker', () => {
     if (!(add instanceof HTMLButtonElement)) throw new Error('missing add language')
     add.click()
     flushSync()
-    expect(editor.hostLegend.secondId).toBe('lark-ru')
+    expect(openLayoutId(editor.hostLegend)).toBe('lark-ru')
     const options = [...target.querySelectorAll('.legend-panel .language-select option')].map(
       el => el.textContent?.trim()
     )
     expect(options).toEqual(['Язык', 'Ukrainian', 'German'])
     chooseLanguage('uk')
-    expect(editor.hostLegend.secondId).toBe('system-ua')
+    expect(openLayoutId(editor.hostLegend)).toBe('system-ua')
     const flags = [...target.querySelectorAll('.legend-panel .lang-flag')].map(
       el => el.textContent
     )
@@ -334,7 +339,7 @@ describe('HostLegendPicker', () => {
       )
     ).toEqual(['Язык', 'German'])
     chooseLanguage('de')
-    expect(editor.hostLegend.secondId).toBe('system-de')
+    expect(openLayoutId(editor.hostLegend)).toBe('system-de')
     const flags = [...target.querySelectorAll('.legend-panel .lang-flag')].map(
       el => el.textContent
     )

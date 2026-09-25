@@ -1,8 +1,10 @@
 import {
   addHostLanguage,
   hostLegendFor,
+  setHostColumnAlt,
   SYSTEM_RU_LAYOUT_ID,
-  SYSTEM_US_LAYOUT_ID
+  SYSTEM_US_LAYOUT_ID,
+  type HostLegendView
 } from '@keymap-editor/keymap-core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { editor } from './editor.svelte.js'
@@ -13,6 +15,11 @@ import {
   loadHostProfiles
 } from './host-profiles'
 
+function openLayoutId(view: HostLegendView): string | null {
+  if (view.open == null) return null
+  return view.columns.find(column => column.language === view.open)?.layoutId ?? null
+}
+
 describe('host profiles', () => {
   beforeEach(async () => {
     editor.resetForTests()
@@ -21,7 +28,7 @@ describe('host profiles', () => {
 
   it('switches a language column without asking for a name', async () => {
     await editor.selectLanguageProfile('ru', 'ru:system')
-    expect(editor.hostLegend.secondId).toBe(SYSTEM_RU_LAYOUT_ID)
+    expect(openLayoutId(editor.hostLegend)).toBe(SYSTEM_RU_LAYOUT_ID)
     expect(editor.hostProfilePrompt).toBeNull()
     expect(editor.activeProfileId('ru')).toBe('ru:system')
     expect(hostLegendFor('Q', editor.hostLegend)?.second).toEqual(['й', 'Й'])
@@ -33,7 +40,7 @@ describe('host profiles', () => {
 
   it('puts system US in the English column', async () => {
     await editor.selectLanguageProfile('en', 'en:system')
-    expect(editor.hostLegend.baseId).toBe(SYSTEM_US_LAYOUT_ID)
+    expect(editor.hostLegend.columns[0].layoutId).toBe(SYSTEM_US_LAYOUT_ID)
     expect(hostLegendFor('N1', editor.hostLegend)?.en).toEqual(['1', '!'])
     expect(editor.activeProfileId('en')).toBe('en:system')
   })
@@ -43,13 +50,13 @@ describe('host profiles', () => {
     editor.beginSaveHostProfile('ru')
     expect(await editor.confirmHostProfileName('Домашняя')).toBeNull()
     expect(editor.activeProfileId('ru')).not.toBe('ru:system')
-    expect(editor.hostLegend.secondId).toBe(SYSTEM_RU_LAYOUT_ID)
+    expect(openLayoutId(editor.hostLegend)).toBe(SYSTEM_RU_LAYOUT_ID)
 
     editor.resetForTests()
     await editor.restoreHostProfiles()
     expect(editor.hostProfiles.map(profile => profile.name)).toEqual(['Домашняя'])
     expect(editor.hostProfiles[0]?.language).toBe('ru')
-    expect(editor.hostLegend.secondId).toBe(SYSTEM_RU_LAYOUT_ID)
+    expect(openLayoutId(editor.hostLegend)).toBe(SYSTEM_RU_LAYOUT_ID)
     expect(editor.activeProfileId('en')).toBe('en:in-layout')
   })
 
@@ -57,7 +64,7 @@ describe('host profiles', () => {
     await editor.selectLanguageProfile('en', 'en:system')
     editor.beginSaveHostProfile('ru')
     await editor.confirmHostProfileName('Домашняя')
-    expect(editor.hostLegend.baseId).toBe(SYSTEM_US_LAYOUT_ID)
+    expect(editor.hostLegend.columns[0].layoutId).toBe(SYSTEM_US_LAYOUT_ID)
     expect(editor.activeProfileId('en')).toBe('en:system')
   })
 
@@ -97,14 +104,14 @@ describe('host profiles', () => {
     expect(editor.activeProfileId('ru')).toBe('ru:in-layout')
     expect(editor.hostProfiles).toHaveLength(0)
     expect(await loadHostProfiles()).toHaveLength(0)
-    expect(editor.hostLegend.secondId).toBe('lark-ru')
+    expect(openLayoutId(editor.hostLegend)).toBe('lark-ru')
   })
 
   it('copies a named system variant, not only the open profile', async () => {
     await editor.selectLanguageProfile('ru', 'ru:system')
     editor.beginCopyHostProfile('ru', 'system-ru-phonetic')
     expect(await editor.confirmHostProfileName('Фонетика')).toBeNull()
-    expect(editor.hostLegend.secondId).toBe('system-ru-phonetic')
+    expect(openLayoutId(editor.hostLegend)).toBe('system-ru-phonetic')
     expect(editor.hostProfiles[0]?.layoutId).toBe('system-ru-phonetic')
   })
 
@@ -112,7 +119,7 @@ describe('host profiles', () => {
     await editor.commitHostMap(addHostLanguage(editor.hostLegend, 'uk'))
     editor.beginCopyHostProfile('uk', 'system-ua-phonetic')
     expect(await editor.confirmHostProfileName('Фонетика uk')).toBeNull()
-    expect(editor.hostLegend.secondId).toBe('system-ua-phonetic')
+    expect(openLayoutId(editor.hostLegend)).toBe('system-ua-phonetic')
     expect(editor.activeProfileId('uk')).not.toBe('uk:system')
     expect(editor.hostProfiles[0]).toMatchObject({
       language: 'uk',
@@ -126,7 +133,7 @@ describe('host profiles', () => {
     const savedUk = editor.activeProfileId('uk')
     editor.resetForTests()
     await editor.restoreHostProfiles()
-    expect(editor.hostLegend.secondId).toBe('lark-ru')
+    expect(openLayoutId(editor.hostLegend)).toBe('lark-ru')
     expect(editor.activeProfileId('uk')).toBe(savedUk)
   })
 
@@ -135,7 +142,7 @@ describe('host profiles', () => {
     editor.beginCopyHostProfile('ru')
     expect(editor.hostProfilePrompt?.kind).toBe('copy')
     expect(await editor.confirmHostProfileName('Копия ru')).toBeNull()
-    expect(editor.hostLegend.secondId).toBe(SYSTEM_RU_LAYOUT_ID)
+    expect(openLayoutId(editor.hostLegend)).toBe(SYSTEM_RU_LAYOUT_ID)
     expect(editor.activeProfileId('ru')).not.toBe('ru:system')
     expect(editor.hostProfiles.map(profile => profile.name)).toEqual(['Копия ru'])
 
@@ -151,14 +158,11 @@ describe('host profiles', () => {
   })
 
   it('keeps layer visibility when switching the English profile', async () => {
-    editor.hostLegend = {
-      ...editor.hostLegend,
-      shownLayers: [0, 2],
-      altGr: false
-    }
+    editor.layerView = { ...editor.layerView, shown: [0, 2] }
+    editor.hostLegend = setHostColumnAlt(editor.hostLegend, 'en', 'altGr', false)
     await editor.selectLanguageProfile('en', 'en:system')
-    expect(editor.hostLegend.shownLayers).toEqual([0, 2])
-    expect(editor.hostLegend.altGr).toBe(false)
-    expect(editor.hostLegend.baseId).toBe(SYSTEM_US_LAYOUT_ID)
+    expect(editor.layerView.shown).toEqual([0, 2])
+    expect(editor.hostLegend.columns[0].altGr).toBe(false)
+    expect(editor.hostLegend.columns[0].layoutId).toBe(SYSTEM_US_LAYOUT_ID)
   })
 })

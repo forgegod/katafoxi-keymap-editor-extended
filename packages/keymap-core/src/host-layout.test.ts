@@ -16,18 +16,15 @@ import { hostLayout, hostLevels } from './host-layout-registry.js'
 import {
   addHostLanguage,
   assignHostLanguageLayout,
-  effectiveShownLayers,
   hostLegendColumns,
   hostLegendFor,
-  hostLegendPreview,
-  hostLegendView,
-  remapShownLayersAfterDelete,
   removeHostLanguage,
   replaceHostLanguage,
+  setHostColumnAlt,
   standardHostLegendView,
-  toggleHostLanguage,
-  toggleShownLayer
+  toggleHostLanguage
 } from './host-legend-view.js'
+import type { HostLegendView } from './types.js'
 import { SYSTEM_US_SYMBOLS } from './system-us-symbols.js'
 import { parseXkbSymbolsSection } from './xkb-symbols.js'
 import { keysymToGlyph } from './xkb-keysyms.js'
@@ -186,7 +183,7 @@ describe('system English us(basic)', () => {
       'en',
       SYSTEM_US_LAYOUT_ID
     )
-    expect(view.baseId).toBe(SYSTEM_US_LAYOUT_ID)
+    expect(view.columns[0].layoutId).toBe(SYSTEM_US_LAYOUT_ID)
     expect(hostLegendFor('E', view)).toMatchObject({
       en: ['e', 'E'],
       second: ['у', 'У'],
@@ -210,21 +207,37 @@ describe('system English us(basic)', () => {
   })
 
   it('maps phonetic Q to я and typewriter slash to ё', () => {
-    const phonetic = hostLegendView(standardHostLegendView(), {
-      secondId: 'system-ru-phonetic'
-    })
+    const phonetic = assignHostLanguageLayout(
+      standardHostLegendView(),
+      'ru',
+      'system-ru-phonetic'
+    )
     expect(hostLegendFor('Q', phonetic)?.second).toEqual(['я', 'Я'])
-    const typewriter = hostLegendView(standardHostLegendView(), {
-      secondId: 'system-ru-typewriter'
-    })
+    const typewriter = assignHostLanguageLayout(
+      standardHostLegendView(),
+      'ru',
+      'system-ru-typewriter'
+    )
     expect(hostLegendFor('SLASH', typewriter)?.second?.[0]).toBe('ё')
   })
 })
 
+function hideAllAlt(view: HostLegendView): HostLegendView {
+  return view.columns.reduce(
+    (next, column) =>
+      setHostColumnAlt(setHostColumnAlt(next, column.language, 'altGr', false), column.language, 'altGrShift', false),
+    view
+  )
+}
+
+function openLayoutId(view: HostLegendView): string | null {
+  if (view.open == null) return null
+  return view.columns.find(column => column.language === view.open)?.layoutId ?? null
+}
+
 describe('system Russian winkeys', () => {
-  const view = hostLegendPreview(
-    assignHostLanguageLayout(standardHostLegendView(), 'ru', SYSTEM_RU_LAYOUT_ID),
-    { altGr: false, altGrShift: false }
+  const view = hideAllAlt(
+    assignHostLanguageLayout(standardHostLegendView(), 'ru', SYSTEM_RU_LAYOUT_ID)
   )
 
   it('uses common letters and winkeys punctuation', () => {
@@ -241,12 +254,12 @@ describe('system Russian winkeys', () => {
   })
 
   it('shows English first and system Russian second, both visible', () => {
-    expect(view.baseId).toBe('lark-en')
-    expect(view.secondId).toBe('system-ru')
-    expect(view.baseVisible).toBe(true)
-    expect(view.secondVisible).toBe(true)
-    expect(view.altGr).toBe(false)
-    expect(view.altGrShift).toBe(false)
+    expect(view.columns[0].layoutId).toBe('lark-en')
+    expect(openLayoutId(view)).toBe('system-ru')
+    expect(view.columns[0].visible).toBe(true)
+    expect(view.columns.find(column => column.language === 'ru')?.visible).toBe(true)
+    expect(view.columns[0].altGr).toBe(false)
+    expect(view.columns[0].altGrShift).toBe(false)
     expect(hostLegendFor('Q', view)).toMatchObject({
       en: ['q', 'Q'],
       second: ['й', 'Й'],
@@ -257,7 +270,11 @@ describe('system Russian winkeys', () => {
   })
 
   it('shows both AltGr pairs when LARK English and winkeys differ', () => {
-    const shown = { ...view, altGr: true, altGrShift: true }
+    const shown = view.columns.reduce(
+      (next, column) =>
+        setHostColumnAlt(setHostColumnAlt(next, column.language, 'altGr', true), column.language, 'altGrShift', true),
+      view
+    )
     expect(hostLegendFor('A', shown)).toMatchObject({
       en: ['a', 'A'],
       second: ['ф', 'Ф'],
@@ -288,9 +305,11 @@ describe('Ukrainian system layout', () => {
       'phonetic',
       'homophonic'
     ])
-    const phonetic = hostLegendView(addHostLanguage(standardHostLegendView(), 'uk'), {
-      secondId: 'system-ua-phonetic'
-    })
+    const phonetic = assignHostLanguageLayout(
+      addHostLanguage(standardHostLegendView(), 'uk'),
+      'uk',
+      'system-ua-phonetic'
+    )
     expect(hostLegendFor('Q', phonetic)?.second).toEqual(['я', 'Я'])
   })
 
@@ -302,7 +321,7 @@ describe('Ukrainian system layout', () => {
       ['ru', false],
       ['uk', true]
     ])
-    expect(view.secondId).toBe('system-ua')
+    expect(openLayoutId(view)).toBe('system-ua')
     expect(hostLegendFor('SQT', view)?.second?.[0]).toBe('є')
   })
 
@@ -343,10 +362,18 @@ describe('German system layout', () => {
       'NoSymbol',
       'NoSymbol'
     ])
-    const deOnly = hostLegendView(standardHostLegendView(), {
-      baseId: SYSTEM_DE_LAYOUT_ID,
-      secondId: null
-    })
+    const deOnly: HostLegendView = {
+      columns: [
+        {
+          language: 'de',
+          layoutId: SYSTEM_DE_LAYOUT_ID,
+          visible: true,
+          altGr: true,
+          altGrShift: true
+        }
+      ],
+      open: null
+    }
     expect(hostLegendFor('GRAVE', deOnly)).toBeNull()
     expect(hostLegendFor('EQUAL', deOnly)).toBeNull()
   })
@@ -379,9 +406,11 @@ describe('German system layout', () => {
       'neo_qwerty',
       'noted'
     ])
-    const nodead = hostLegendView(addHostLanguage(standardHostLegendView(), 'de'), {
-      secondId: 'system-de-nodeadkeys'
-    })
+    const nodead = assignHostLanguageLayout(
+      addHostLanguage(standardHostLegendView(), 'de'),
+      'de',
+      'system-de-nodeadkeys'
+    )
     expect(hostLegendFor('GRAVE', nodead)?.second?.[0]).toBe('^')
   })
 
@@ -394,7 +423,7 @@ describe('German system layout', () => {
       ['uk', false],
       ['de', true]
     ])
-    expect(de.secondId).toBe('system-de')
+    expect(openLayoutId(de)).toBe('system-de')
     expect(hostLegendFor('Y', de)?.second?.[0]).toBe('z')
   })
 
@@ -406,7 +435,7 @@ describe('German system layout', () => {
       ['ru', false],
       ['de', true]
     ])
-    expect(de.secondId).toBe('system-de')
+    expect(openLayoutId(de)).toBe('system-de')
     expect(hostLegendFor('Y', de)?.second?.[0]).toBe('z')
   })
 
@@ -417,7 +446,7 @@ describe('German system layout', () => {
       ['en', true],
       ['ru', true]
     ])
-    expect(gone.secondId).toBe('lark-ru')
+    expect(openLayoutId(gone)).toBe('lark-ru')
   })
 })
 
@@ -425,7 +454,9 @@ describe('host legend view', () => {
   const standard = standardHostLegendView()
 
   it('drops the second language back to the base shift', () => {
-    const view = hostLegendView(standard, { secondId: null })
+    const view = toggleHostLanguage(standard, 'ru')
+    expect(view.open).toBe('ru')
+    expect(view.columns.find(column => column.language === 'ru')?.visible).toBe(false)
     expect(hostLegendFor('A', view)).toMatchObject({
       en: ['a', 'A'],
       second: null,
@@ -436,7 +467,7 @@ describe('host legend view', () => {
   })
 
   it('hides AltGr columns without changing the layout', () => {
-    const noAlt = hostLegendPreview(standard, { altGr: false, altGrShift: false })
+    const noAlt = hideAllAlt(standard)
     expect(hostLegendFor('T', noAlt)).toMatchObject({
       en: ['t', 'T'],
       second: ['е', 'Е'],
@@ -445,7 +476,7 @@ describe('host legend view', () => {
       bilingualNote: undefined
     })
 
-    const onlyShift = hostLegendPreview(standard, { altGr: false })
+    const onlyShift = setHostColumnAlt(setHostColumnAlt(standard, 'en', 'altGr', false), 'ru', 'altGr', false)
     expect(hostLegendFor('E', onlyShift)).toMatchObject({
       altGr: '',
       altGrShift: 'ε'
@@ -453,77 +484,26 @@ describe('host legend view', () => {
   })
 
   it('uses Russian as the base alphabet', () => {
-    const view = hostLegendView(standard, { baseId: 'lark-ru', secondId: null })
+    const view: HostLegendView = {
+      columns: [
+        { language: 'ru', layoutId: 'lark-ru', visible: true, altGr: true, altGrShift: true }
+      ],
+      open: null
+    }
     expect(hostLegendFor('A', view)?.en).toEqual(['ф', 'Ф'])
     expect(hostLegendFor('A', view)?.second).toBeNull()
   })
 
-  it('refuses a second language that repeats the first', () => {
-    expect(hostLegendView(standard, { secondId: 'lark-en' }).secondId).toBeNull()
+  it('keeps open off the base language', () => {
+    expect(standard.open).not.toBe(standard.columns[0].language)
+    const hiddenBase = toggleHostLanguage(standard, 'en')
+    expect(hiddenBase.open).not.toBe(hiddenBase.columns[0].language)
   })
 
   it('toggles preview visibility without changing the layout ids', () => {
-    const hidden = hostLegendPreview(standard, { secondVisible: false })
-    expect(hidden.secondId).toBe('lark-ru')
-    expect(hidden.secondVisible).toBe(false)
-  })
-})
-
-describe('shown layers', () => {
-  const standard = standardHostLegendView()
-
-  it('evicts the earliest marked layer when a fifth is picked', () => {
-    const next = toggleShownLayer(standard, 4)
-    expect(next.shownLayers).toEqual([0, 2, 3, 4])
-  })
-
-  it('never evicts layer0', () => {
-    const afterFourth = toggleShownLayer(standard, 4)
-    expect(afterFourth.shownLayers).toContain(0)
-    const afterFifth = toggleShownLayer(afterFourth, 5)
-    expect(afterFifth.shownLayers).toEqual([0, 3, 4, 5])
-  })
-
-  it('adds layer0 when exactly one non-zero layer is marked', () => {
-    const view = { ...standard, shownLayers: [2] }
-    expect(effectiveShownLayers(view, 4)).toEqual([0, 2])
-  })
-
-  it('keeps a single layer0 mark as one row', () => {
-    const view = { ...standard, shownLayers: [0] }
-    expect(effectiveShownLayers(view, 4)).toEqual([0])
-  })
-
-  it('returns to layer0 when the last eye is cleared', () => {
-    expect(toggleShownLayer({ ...standard, shownLayers: [0] }, 0).shownLayers).toEqual([0])
-    expect(toggleShownLayer({ ...standard, shownLayers: [3] }, 3).shownLayers).toEqual([0])
-  })
-
-  it('drops indices at or above layerCount', () => {
-    expect(effectiveShownLayers(standard, 2)).toEqual([0, 1])
-    const missing = { ...standard, shownLayers: undefined }
-    expect(effectiveShownLayers(missing, 2)).toEqual([0, 1])
-  })
-
-  it('sorts the effective set in ascending order', () => {
-    const view = { ...standard, shownLayers: [3, 1, 0] }
-    expect(effectiveShownLayers(view, 4)).toEqual([0, 1, 3])
-  })
-
-  it('shifts shownLayers after a middle layer is deleted', () => {
-    const view = { ...standard, shownLayers: [0, 2, 3] }
-    expect(remapShownLayersAfterDelete(view, 1, 3).shownLayers).toEqual([0, 1, 2])
-  })
-
-  it('drops the deleted mark and resets layer0Raw when layer0 is removed', () => {
-    const view = { ...standard, shownLayers: [0, 2], layer0Raw: true }
-    const next = remapShownLayersAfterDelete(view, 0, 3)
-    expect(next.shownLayers).toEqual([1])
-    expect(next.layer0Raw).toBe(false)
-  })
-
-  it('falls back to layer0 when the last marked layer is deleted', () => {
-    const view = { ...standard, shownLayers: [2] }
-    expect(remapShownLayersAfterDelete(view, 2, 2).shownLayers).toEqual([0])
+    const hidden = toggleHostLanguage(standard, 'ru')
+    expect(openLayoutId(hidden)).toBe('lark-ru')
+    expect(hidden.columns.find(column => column.language === 'ru')?.visible).toBe(false)
+    expect(hidden.columns[0].layoutId).toBe('lark-en')
   })
 })
