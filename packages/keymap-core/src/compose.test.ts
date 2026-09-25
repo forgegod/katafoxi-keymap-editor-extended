@@ -6,6 +6,7 @@ import {
   bindingSendsShift,
   composeKey,
   composeLayerRows,
+  encodeKeyBinding,
   legendHoverHit,
   isCompactKeycapLegend,
   isCompactModifierChord,
@@ -200,7 +201,7 @@ describe('resolveBinding / composeKey', () => {
     expect(hostLegendFor('E')?.en).toEqual(['e', 'E'])
   })
 
-  it('keeps a hidden layer slot so the others do not move', () => {
+  it('omits a hidden layer so remaining rows keep their real indices', () => {
     const rows = composeLayerRows(
       [
         parseKeyBinding('&kp E'),
@@ -208,10 +209,50 @@ describe('resolveBinding / composeKey', () => {
         parseKeyBinding('&kp F8'),
         parseKeyBinding('&kp SLCK')
       ],
-      { ...standardHostLegendView(), layers: [true, false, true, true] }
+      { ...standardHostLegendView(), shownLayers: [0, 2, 3] }
     )
-    expect(rows.map(row => row.hidden)).toEqual([false, true, false, false])
-    expect(rows.map(row => row.layer)).toEqual([0, 1, 2, 3])
+    expect(rows).toHaveLength(3)
+    expect(rows.map(row => row.layer)).toEqual([0, 2, 3])
+    expect(rows.some(row => row.layer === 1)).toBe(false)
+  })
+
+  it('returns only the two shown layers with their real indices', () => {
+    const rows = composeLayerRows(
+      [
+        parseKeyBinding('&kp E'),
+        parseKeyBinding('&kp KP_N8'),
+        parseKeyBinding('&kp F8'),
+        parseKeyBinding('&kp SLCK')
+      ],
+      { ...standardHostLegendView(), shownLayers: [0, 2] }
+    )
+    expect(rows).toHaveLength(2)
+    expect(rows.map(row => row.layer)).toEqual([0, 2])
+  })
+
+  it('returns one row for a single-layer keymap', () => {
+    const rows = composeLayerRows([parseKeyBinding('&kp E')])
+    expect(rows).toHaveLength(1)
+    expect(rows[0].layer).toBe(0)
+  })
+
+  it('marks &trans and &none as blank rows', () => {
+    const rows = composeLayerRows(
+      [parseKeyBinding('&trans'), parseKeyBinding('&none'), parseKeyBinding('&kp E')],
+      { ...standardHostLegendView(), shownLayers: [0, 1, 2] }
+    )
+    expect(rows.map(row => row.blank)).toEqual([true, true, false])
+  })
+
+  it('sets each row title to the encoded binding', () => {
+    const holdTap = parseKeyBinding('&mt LCTRL J')
+    const letter = parseKeyBinding('&kp E')
+    const rows = composeLayerRows([holdTap, letter], {
+      ...standardHostLegendView(),
+      shownLayers: [0, 1]
+    })
+    expect(rows[0].title).toBe(encodeKeyBinding(holdTap))
+    expect(rows[1].title).toBe(encodeKeyBinding(letter))
   })
 
   it('follows the host view for the second language and AltGr columns', () => {
@@ -335,12 +376,13 @@ describe('resolveBinding / composeKey', () => {
     expect(rows[3].legend?.en).toEqual(['s', 'S'])
   })
 
-  it('pads a short keymap to four layer slots', () => {
+  it('does not pad a short keymap to four layer slots', () => {
     const rows = composeLayerRows([
       parseKeyBinding('&trans'),
       parseKeyBinding('&none')
     ])
-    expect(rows).toHaveLength(4)
+    expect(rows).toHaveLength(2)
+    expect(rows.map(row => row.layer)).toEqual([0, 1])
     expect(rows.every(row => row.blank)).toBe(true)
   })
 

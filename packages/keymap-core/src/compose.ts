@@ -5,7 +5,8 @@ import {
   modifierRoleGlyph,
   modifierSide
 } from './modifiers.js'
-import { hostLegendFor } from './lark-host.js'
+import { encodeKeyBinding } from './keymap.js'
+import { effectiveShownLayers, hostLegendFor, standardHostLegendView } from './lark-host.js'
 import type {
   ComposedLegend,
   ComposeKeyInput,
@@ -323,31 +324,25 @@ export function isBlankLayerBinding(node: KeyBindingNode): boolean {
   return value === '&trans' || value === '&none'
 }
 
-/** All-layers preview shows this many firmware layers. */
-export const ALL_LAYERS_PREVIEW = 4
-
 export function composeLayerRows(
   bindings: KeyBindingNode[],
-  hostView?: HostLegendView,
-  layerLimit = ALL_LAYERS_PREVIEW
+  hostView?: HostLegendView
 ): Array<{
   layer: number
   binding: KeyBindingNode
   legend: ComposedLegend | null
   blank: boolean
-  hidden: boolean
+  title: string
 }> {
-  const scoped = [...(layerLimit == null ? bindings : bindings.slice(0, layerLimit))]
-  const empty: KeyBindingNode = { value: '&none', params: [] }
-  while (layerLimit != null && scoped.length < layerLimit) scoped.push(empty)
-  const layers = hostView?.layers
-  return scoped.map((binding, layer) => {
+  const shown = effectiveShownLayers(hostView ?? standardHostLegendView(), bindings.length)
+  return shown.map(layer => {
+    const binding = bindings[layer]
     const blank = isBlankLayerBinding(binding)
     return {
       layer,
       binding,
       blank,
-      hidden: layers?.[layer] === false,
+      title: encodeKeyBinding(binding),
       legend: blank ? null : composeKey({ binding, hostView })
     }
   })

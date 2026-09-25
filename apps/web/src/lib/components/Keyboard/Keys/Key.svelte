@@ -151,7 +151,7 @@
         layer: 0,
         binding,
         blank: false,
-        hidden: false,
+        title: encodeKeyBinding(binding),
         legend: composeKey({ binding, hostView })
       }
     ]
@@ -361,7 +361,7 @@
       {#each composedRows as row (row.layer)}
         {@const hit = rowHoverHit(row.binding)}
         <div class="layer-slot" data-layer={row.layer}>
-          {#if row.blank || row.hidden}
+          {#if row.blank}
             <span class="layer-empty" aria-hidden="true"></span>
           {:else if row.legend}
             <KeyCap legend={row.legend} mode="composed" stacked {hit} />
