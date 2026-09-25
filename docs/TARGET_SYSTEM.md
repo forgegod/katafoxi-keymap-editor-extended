@@ -13,7 +13,7 @@ Users combine:
 
 so each physical key can show a compact **composed legend** (LARK-style: several host-resolved glyphs + optional hold annotation), not a single-layer dump of the text file.
 
-Editing should stay honest to ZMK: composed view is a **preview**; firmware bindings remain editable in ZMK-code mode.
+Editing should stay honest to ZMK: composed view is an **editor** over firmware bindings — a stack row opens KeyEditor for that layer — but you still change the ZMK binding, not the host glyph.
 
 ## Persistence (product)
 
@@ -64,7 +64,7 @@ Click a key in **ZMK code** mode. One dialog edits the binding:
   - Behaviour on the cap: hide `&kp`; hide `&mt`/`&lt` when the hold-tap pill is shown; `&none` / `&trans` / instant binds are the center legend; other behaviours stay a small corner mark.
   - Caps Lock `⇪`. Browser back/forward `←` / `→` (not cursor `⏴` `⏵`). Number-row `-` / `=` (not the words `MINUS` / `EQUAL`). Tooltip keeps the raw code.
   - Keypad (`KP_*`): same glyph as the number row (`7`), boxed. Operators `+ - / *`, plus `KP_ENTER` `⮐`, `KP_DOT` `.`, `KP_EQUAL` `=`. Color is only a light fill. Host composed stays the same glyph.
-- **Composed preview**: quadrant-style host legend (base/shift language pair + AltGr pair + hold badge), driven by a `ComposedLegend` model in core.
+- **Composed view**: quadrant-style host legend (base/shift language pair + AltGr pair + hold badge), driven by a `ComposedLegend` model in core.
 - **Stub today:** `resolveBinding` splits tap/hold (`&kp` / `&mt` / `&lt`); glyphs come from a tiny tap-keycode fixture map. Hold badges attach only when the binding has a hold side — not from letter fixtures. Full `HostLayout` / host editors are post-migration work.
 - Full host-layout editors and XKB/KLC export are product steps *after* round-trip safety and a stable compose model.
 
