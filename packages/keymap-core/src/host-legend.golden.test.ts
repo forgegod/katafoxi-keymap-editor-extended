@@ -8,8 +8,7 @@ import {
   composeKey,
   composeLegendDecode,
   HOST_KEY_IDS,
-  hostLegendColumns,
-  hostLegendFor,
+  hostLegendTableRow,
   keycapColumns,
   parseKeyBinding,
   setHostColumnAlt,
@@ -17,7 +16,6 @@ import {
   SYSTEM_RU_LAYOUT_ID,
   SYSTEM_US_LAYOUT_ID,
   toggleHostLanguage,
-  type HostLegendColumn,
   type HostLegendView,
   type KeycapColumn,
   type LegendDecodeCard
@@ -66,51 +64,6 @@ const VIEW_BUILDERS: ReadonlyArray<{ id: string; build: () => HostLegendView }> 
   }
 ]
 
-function oneColumnView(column: HostLegendColumn): HostLegendView {
-  return {
-    columns: [
-      {
-        language: column.language,
-        layoutId: column.layoutId,
-        visible: true,
-        altGr: true,
-        altGrShift: true
-      }
-    ],
-    open: null
-  }
-}
-
-/** Copied from HostLegendPicker.svelte columnPair (one-column hostLegendFor). */
-function columnPair(_view: HostLegendView, column: HostLegendColumn, tap: string | null): string {
-  if (!tap) return ''
-  const legend = hostLegendFor(tap, oneColumnView(column))
-  return legend ? `${legend.en[0]}${legend.en[1]}` : ''
-}
-
-/** Copied from HostLegendPicker.svelte columnAlt (one-column hostLegendFor). */
-function columnAlt(
-  _view: HostLegendView,
-  column: HostLegendColumn,
-  tap: string | null,
-  field: 'altGr' | 'altGrShift'
-): string {
-  if (!tap || !column[field]) return ''
-  const legend = hostLegendFor(tap, oneColumnView(column))
-  return legend?.[field] ?? ''
-}
-
-function tableCells(view: HostLegendView, tap: string | null) {
-  return hostLegendColumns(view).map(column => ({
-    language: column.language,
-    layoutId: column.layoutId,
-    shown: column.shown,
-    wide: column.wide,
-    pair: column.wide ? columnPair(view, column, tap) : '',
-    altGr: column.wide ? columnAlt(view, column, tap, 'altGr') : '',
-    altGrShift: column.wide ? columnAlt(view, column, tap, 'altGrShift') : ''
-  }))
-}
 
 interface GoldenRecord {
   view: string
@@ -119,7 +72,7 @@ interface GoldenRecord {
   keycap: KeycapColumn[] | null
   hold: string | null
   decode: LegendDecodeCard
-  table: ReturnType<typeof tableCells>
+  table: ReturnType<typeof hostLegendTableRow>
 }
 
 interface GoldenSnapshot {
@@ -149,7 +102,7 @@ function captureSnapshot(): GoldenSnapshot {
           keycap: legend ? keycapColumns(legend) : null,
           hold: legend?.hold ?? null,
           decode: composeLegendDecode(binding, view),
-          table: tableCells(view, key.zmk)
+          table: hostLegendTableRow(binding, view)
         })
       }
     }

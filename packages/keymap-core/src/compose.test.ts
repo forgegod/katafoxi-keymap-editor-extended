@@ -25,6 +25,7 @@ import {
   getBehaviorCatalog,
   getKeycodeCatalog,
   hostLegendFor,
+  resolveHostColumns,
   addHostLanguage,
   assignHostLanguageLayout,
   keycapColumns,
@@ -45,6 +46,19 @@ function compactKeycap(legend: NonNullable<ReturnType<typeof composeKey>>): stri
   )
   const hold = legend.hold ? ` ${legend.hold}` : ''
   return `${cols.join(' ')}${hold}`.trim()
+}
+
+function baseColumn(legend: NonNullable<ReturnType<typeof composeKey>>) {
+  return legend.columns.find(column => column.tone === 'base')
+}
+
+function extraColumn(legend: NonNullable<ReturnType<typeof composeKey>>) {
+  return legend.columns.find(column => column.tone === 'second' && column.onKeycap) ?? null
+}
+
+function altText(legend: NonNullable<ReturnType<typeof composeKey>>): string | undefined {
+  const alt = keycapColumns(legend).find(column => column.kind === 'alt')
+  return alt?.pieces.map(piece => piece.text).join('')
 }
 
 describe('parseKeyBinding', () => {
@@ -131,39 +145,39 @@ describe('resolveBinding / composeKey', () => {
   it('resolves &kp tap without hold', () => {
     expect(resolveBinding(parseKeyBinding('&kp A'))).toEqual({ tap: 'A' })
     const legend = composeKey({ binding: parseKeyBinding('&kp A') })
-    expect(legend?.en).toEqual(['a', 'A'])
-    expect(legend?.second).toEqual(['ф', 'Ф'])
+    expect(baseColumn(legend!)?.pair).toEqual(['a', 'A'])
+    expect(extraColumn(legend!)?.pair).toEqual(['ф', 'Ф'])
     expect(legend?.hold).toBeUndefined()
     expect(compactKeycap(legend!)).toBe('aA фФ @α')
-    expect(legend?.bilingualNote).toBeUndefined()
+    expect(altText(legend!)).toBe('@α')
   })
 
   it('marks host levels that differ between English and Russian', () => {
     const tee = composeKey({ binding: parseKeyBinding('&kp T') })
-    expect(tee?.en).toEqual(['t', 'T'])
-    expect(tee?.second).toEqual(['е', 'Е'])
-    expect(tee?.altGr).toBe('Δ')
-    expect(tee?.altGrShift).toBe('τ')
-    expect(tee?.bilingualNote).toBe('Δτ/ёЁ')
+    expect(baseColumn(tee!)?.pair).toEqual(['t', 'T'])
+    expect(extraColumn(tee!)?.pair).toEqual(['е', 'Е'])
+    expect(baseColumn(tee!)?.altGr).toBe('Δ')
+    expect(baseColumn(tee!)?.altGrShift).toBe('τ')
+    expect(altText(tee!)).toBe('Δτ/ёЁ')
     expect(compactKeycap(tee!)).toBe('tT еЕ Δτ/ёЁ')
 
     const em = composeKey({ binding: parseKeyBinding('&kp M') })
-    expect(em?.en).toEqual(['m', 'M'])
-    expect(em?.second).toEqual(['ь', 'Ь'])
-    expect(em?.bilingualNote).toBe('ˬμ/ъЪ')
+    expect(baseColumn(em!)?.pair).toEqual(['m', 'M'])
+    expect(extraColumn(em!)?.pair).toEqual(['ь', 'Ь'])
+    expect(altText(em!)).toBe('ˬμ/ъЪ')
     expect(compactKeycap(em!)).toBe('mM ьЬ ˬμ/ъЪ')
 
     const grave = composeKey({ binding: parseKeyBinding('&kp GRAVE') })
-    expect(grave?.en).toEqual(['`', '~'])
-    expect(grave?.bilingualNote).toBe('/ёЁ')
+    expect(baseColumn(grave!)?.pair).toEqual(['`', '~'])
+    expect(altText(grave!)).toBe('/ёЁ')
   })
 
   it('draws a second-language pair once when it matches the first', () => {
     const hostView = addHostLanguage(standardHostLegendView(), 'de')
     const gee = composeKey({ binding: parseKeyBinding('&kp G'), hostView })
-    expect(gee?.en).toEqual(['g', 'G'])
-    expect(gee?.second).toEqual(['g', 'G'])
-    expect(compactKeycap(gee!)).toBe(`gG ${gee?.bilingualNote}`)
+    expect(baseColumn(gee!)?.pair).toEqual(['g', 'G'])
+    expect(extraColumn(gee!)?.pair).toEqual(['g', 'G'])
+    expect(compactKeycap(gee!)).toBe(`gG ${altText(gee!)}`)
     expect(keycapColumns(gee!)[0]?.pieces).toEqual([{ text: 'gG', tone: 'base' }])
   })
 
@@ -186,24 +200,24 @@ describe('resolveBinding / composeKey', () => {
 
   it('splits E into En / Ru / AltGr columns', () => {
     const legend = composeKey({ binding: parseKeyBinding('&kp E') })
-    expect(legend?.en).toEqual(['e', 'E'])
-    expect(legend?.second).toEqual(['у', 'У'])
-    expect(legend?.altGr).toBe('&')
-    expect(legend?.altGrShift).toBe('ε')
+    expect(baseColumn(legend!)?.pair).toEqual(['e', 'E'])
+    expect(extraColumn(legend!)?.pair).toEqual(['у', 'У'])
+    expect(baseColumn(legend!)?.altGr).toBe('&')
+    expect(baseColumn(legend!)?.altGrShift).toBe('ε')
     expect(compactKeycap(legend!)).toBe('eE уУ &ε')
   })
 
   it('puts hold badge only on &mt, not on bare &kp J', () => {
     const kp = composeKey({ binding: parseKeyBinding('&kp J') })
     expect(kp?.hold).toBeUndefined()
-    expect(kp?.en).toEqual(['j', 'J'])
-    expect(kp?.second).toEqual(['о', 'О'])
-    expect(kp?.altGr).toBe('')
-    expect(kp?.altGrShift).toBe('ξ')
+    expect(baseColumn(kp!)?.pair).toEqual(['j', 'J'])
+    expect(extraColumn(kp!)?.pair).toEqual(['о', 'О'])
+    expect(baseColumn(kp!)?.altGr).toBe('')
+    expect(baseColumn(kp!)?.altGrShift).toBe('ξ')
     expect(compactKeycap(kp!)).toContain('ˬξ')
 
     const mt = composeKey({ binding: parseKeyBinding('&mt LCTRL J') })
-    expect(mt?.en).toEqual(['j', 'J'])
+    expect(baseColumn(mt!)?.pair).toEqual(['j', 'J'])
     expect(mt?.hold).toBe('⧗⌃')
   })
 
@@ -238,9 +252,29 @@ describe('resolveBinding / composeKey', () => {
       binding: parseKeyBinding('&kp E'),
       hostView: toggleHostLanguage(standardHostLegendView(), 'en')
     })
-    expect(hiddenEn?.en).toEqual(['', ''])
-    expect(hiddenEn?.second).toEqual(['у', 'У'])
-    expect(hostLegendFor('E')?.en).toEqual(['e', 'E'])
+    expect(baseColumn(hiddenEn!)?.onKeycap).toBe(false)
+    expect(baseColumn(hiddenEn!)?.pair).toEqual(['e', 'E'])
+    expect(extraColumn(hiddenEn!)?.pair).toEqual(['у', 'У'])
+    expect(keycapColumns(hiddenEn!).filter(column => column.kind === 'letters')).toEqual([
+      { kind: 'letters', pieces: [{ text: 'уУ', tone: 'second' }] }
+    ])
+    expect(hostLegendFor('E')?.columns[0]?.pair).toEqual(['e', 'E'])
+  })
+
+  it('keeps three visible columns on the legend and draws base plus open on the keycap', () => {
+    const hostView = addHostLanguage(standardHostLegendView(), 'uk')
+    expect(resolveHostColumns(hostView).filter(column => column.visible)).toHaveLength(3)
+    const legend = composeKey({ binding: parseKeyBinding('&kp A'), hostView })
+    expect(legend?.columns.map(column => column.language)).toEqual(['en', 'ru', 'uk'])
+    expect(legend?.columns.map(column => column.onKeycap)).toEqual([true, false, true])
+    expect(
+      keycapColumns(legend!)
+        .filter(column => column.kind === 'letters')
+        .map(column => column.pieces[0])
+    ).toEqual([
+      { text: 'aA', tone: 'base' },
+      { text: 'фФ', tone: 'second' }
+    ])
   })
 
   it('omits a hidden layer so remaining rows keep their real indices', () => {
@@ -300,7 +334,7 @@ describe('resolveBinding / composeKey', () => {
     expect(rows[0].raw).toBe(true)
     expect(rows[0].title).toBe('&kp E')
     expect(rows[1].raw).toBe(false)
-    expect(rows[1].legend?.en).toEqual(['a', 'A'])
+    expect(rows[1].legend?.columns[0]?.pair).toEqual(['a', 'A'])
   })
 
   it('sets each row title to the encoded binding', () => {
@@ -330,19 +364,19 @@ describe('resolveBinding / composeKey', () => {
         open: null
       }
     })
-    expect(englishOnly?.en).toEqual(['a', 'A'])
-    expect(englishOnly?.second).toBeNull()
-    expect(englishOnly?.altGr).toBe('')
-    expect(englishOnly?.altGrShift).toBe('')
+    expect(baseColumn(englishOnly!)?.pair).toEqual(['a', 'A'])
+    expect(extraColumn(englishOnly!)).toBeNull()
+    expect(baseColumn(englishOnly!)?.altGr).toBe('')
+    expect(baseColumn(englishOnly!)?.altGrShift).toBe('')
     expect(compactKeycap(englishOnly!)).toBe('aA')
-    expect(formatAltGrPair(englishOnly!)).toBeNull()
+    expect(formatAltGrPair(baseColumn(englishOnly!)!)).toBeNull()
   })
 
   it('keeps an AltGr pair of empty marks while either column is on', () => {
     const both = composeKey({ binding: parseKeyBinding('&kp K') })
-    expect(both?.altGr).toBe('')
-    expect(both?.altGrShift).toBe('')
-    expect(formatAltGrPair(both!)).toBe('ˬˬ')
+    expect(baseColumn(both!)?.altGr).toBe('')
+    expect(baseColumn(both!)?.altGrShift).toBe('')
+    expect(formatAltGrPair(baseColumn(both!)!)).toBe('ˬˬ')
 
     const shiftOnly = composeKey({
       binding: parseKeyBinding('&kp K'),
@@ -353,7 +387,7 @@ describe('resolveBinding / composeKey', () => {
         false
       )
     })
-    expect(formatAltGrPair(shiftOnly!)).toBe('ˬ')
+    expect(formatAltGrPair(baseColumn(shiftOnly!)!)).toBe('ˬ')
 
     const hidden = composeKey({
       binding: parseKeyBinding('&kp E'),
@@ -369,7 +403,7 @@ describe('resolveBinding / composeKey', () => {
         false
       )
     })
-    expect(formatAltGrPair(hidden!)).toBeNull()
+    expect(formatAltGrPair(baseColumn(hidden!)!)).toBeNull()
   })
 
   it('detects layer references on &mo / &lt / &to', () => {
@@ -425,8 +459,8 @@ describe('resolveBinding / composeKey', () => {
 
   it('still composes a host letter on a hold-tap', () => {
     const legend = composeKey({ binding: parseKeyBinding('&lt 1 A') })
-    expect(legend?.en).toEqual(['a', 'A'])
-    expect(legend?.second).toEqual(['ф', 'Ф'])
+    expect(baseColumn(legend!)?.pair).toEqual(['a', 'A'])
+    expect(extraColumn(legend!)?.pair).toEqual(['ф', 'Ф'])
     expect(legend?.hold).toBe('⧗L1')
   })
 
@@ -439,7 +473,7 @@ describe('resolveBinding / composeKey', () => {
     ])
     expect(rows.map(row => row.layer)).toEqual([0, 1, 2, 3])
     expect(rows.map(row => row.blank)).toEqual([false, true, false, true])
-    expect(rows[0].legend?.en).toEqual(['e', 'E'])
+    expect(rows[0].legend?.columns[0]?.pair).toEqual(['e', 'E'])
     expect(rows[2].legend).toBeNull()
   })
 
@@ -452,7 +486,7 @@ describe('resolveBinding / composeKey', () => {
       parseKeyBinding('&kp D')
     ])
     expect(rows.map(row => row.layer)).toEqual([0, 1, 2, 3])
-    expect(rows[3].legend?.en).toEqual(['s', 'S'])
+    expect(rows[3].legend?.columns[0]?.pair).toEqual(['s', 'S'])
   })
 
   it('does not pad a short keymap to four layer slots', () => {

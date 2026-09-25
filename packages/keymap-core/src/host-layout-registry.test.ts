@@ -1,10 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { composeLegendDecode } from './compose.js'
+import { composeLegendDecode, hostLegendFor } from './compose.js'
 import { parseKeyBinding } from './keymap.js'
 import {
   assignHostLanguageLayout,
   hostLegendColumns,
-  hostLegendFor,
   standardHostLegendView,
   toggleHostLanguage
 } from './host-legend-view.js'

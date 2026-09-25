@@ -1,13 +1,11 @@
-import { composeHostPair } from './host-layout.js'
 import { hostLayoutsForLanguage } from './host-layout-catalog.js'
-import { hostLayout } from './host-layout-registry.js'
 import { LARK_STANDARD_VIEW } from './host-legend-presets.js'
 import {
   ADDABLE_HOST_LANGUAGE_IDS,
   isAddableHostLanguage,
   type HostLanguageId
 } from './host-languages.js'
-import type { ComposedLegend, HostColumn, HostLegendView } from './types.js'
+import type { HostColumn, HostLegendView } from './types.js'
 
 function cloneView(view: HostLegendView): HostLegendView {
   return {
@@ -20,45 +18,8 @@ function columnOf(view: HostLegendView, language: HostLanguageId): HostColumn | 
   return view.columns.find(column => column.language === language)
 }
 
-function openColumn(view: HostLegendView): HostColumn | undefined {
-  return view.open == null ? undefined : columnOf(view, view.open)
-}
-
 export function standardHostLegendView(): HostLegendView {
   return cloneView(LARK_STANDARD_VIEW)
-}
-
-/** Legend for a view. Unknown ids and non-character keys return null. */
-export function hostLegendFor(
-  token: string,
-  view: HostLegendView = LARK_STANDARD_VIEW
-): Pick<
-  ComposedLegend,
-  | 'en'
-  | 'second'
-  | 'altGr'
-  | 'altGrShift'
-  | 'showAltGr'
-  | 'showAltGrShift'
-  | 'bilingualNote'
-  | 'bilingualAlt'
-  | 'keycode'
-> | null {
-  const baseColumn = view.columns[0]
-  if (!baseColumn) return null
-  const base = hostLayout(baseColumn.layoutId)
-  if (!base) return null
-  const extra = openColumn(view)
-  const second =
-    extra && extra.visible && extra.layoutId !== baseColumn.layoutId
-      ? (hostLayout(extra.layoutId) ?? null)
-      : null
-  return composeHostPair(base, second, token, {
-    altGr: baseColumn.altGr,
-    altGrShift: baseColumn.altGrShift,
-    secondAltGr: extra?.altGr ?? baseColumn.altGr,
-    secondAltGrShift: extra?.altGrShift ?? baseColumn.altGrShift
-  })
 }
 
 export interface HostLegendColumn {

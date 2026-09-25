@@ -56,26 +56,30 @@ export interface NormalizedKeycode {
   isModifier: boolean
 }
 
-/** LARK-style host legend: language columns + optional hold annotation. */
-export interface ComposedLegend {
-  /** First language: level 1 + Shift (`eE`) */
-  en: [string, string]
-  /** Second language pair, or `null` when declined */
-  second: [string, string] | null
-  /** AltGr of the base layout; empty when the column is off or the level is NoSymbol */
+/** One language column in a composed host legend. */
+export interface ComposedLegendColumn {
+  language: HostLanguageId
+  /** Keycap color. Base column is `base`; extras are `second`. */
+  tone: 'base' | 'second'
+  /** Level 1 + Shift (`eE`). */
+  pair: [string, string]
+  /** AltGr glyph; empty when the column is off or the level is NoSymbol. */
   altGr: string
-  /** AltGr+Shift of the base layout; empty when the column is off or the level is NoSymbol */
+  /** AltGr+Shift glyph; empty when the column is off or the level is NoSymbol. */
   altGrShift: string
   /** AltGr column toggle. False hides that slot; an empty glyph still shows ˬ when true. */
-  showAltGr?: boolean
+  showAltGr: boolean
   /** AltGr+Shift column toggle. False hides that slot. */
-  showAltGrShift?: boolean
+  showAltGrShift: boolean
+  /** D9: this column's letter pair is drawn on the keycap. */
+  onKeycap: boolean
+}
+
+/** Host legend: N language columns + optional hold annotation. */
+export interface ComposedLegend {
+  columns: ComposedLegendColumn[]
   /** Hold-tap or home-row mod annotation (e.g. ⧗LC) */
   hold?: string
-  /** When EN/RU AltGr pairs diverge (e.g. Δτ/ёЁ) */
-  bilingualNote?: string
-  /** The two AltGr pairs behind `bilingualNote`, first language then second. */
-  bilingualAlt?: [string, string]
   /** Firmware keycode that produced this (gray in LARK sheet) */
   keycode?: string
   /** Tap is HID keypad (`KP_*`); UI boxes the glyph, host text stays `7`. */

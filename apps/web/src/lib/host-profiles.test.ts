@@ -1,6 +1,7 @@
 import {
   addHostLanguage,
-  hostLegendFor,
+  composeKey,
+  parseKeyBinding,
   setHostColumnAlt,
   SYSTEM_RU_LAYOUT_ID,
   SYSTEM_US_LAYOUT_ID,
@@ -31,7 +32,12 @@ describe('host profiles', () => {
     expect(openLayoutId(editor.hostLegend)).toBe(SYSTEM_RU_LAYOUT_ID)
     expect(editor.hostProfilePrompt).toBeNull()
     expect(editor.activeProfileId('ru')).toBe('ru:system')
-    expect(hostLegendFor('Q', editor.hostLegend)?.second).toEqual(['й', 'Й'])
+    expect(
+      composeKey({
+        binding: parseKeyBinding('&kp Q'),
+        hostView: editor.hostLegend
+      })?.columns.find(column => column.language === 'ru' && column.onKeycap)?.pair
+    ).toEqual(['й', 'Й'])
     expect(await loadActiveLanguageProfiles()).toEqual({
       ...defaultActiveLanguageProfiles(),
       ru: 'ru:system'
@@ -41,7 +47,12 @@ describe('host profiles', () => {
   it('puts system US in the English column', async () => {
     await editor.selectLanguageProfile('en', 'en:system')
     expect(editor.hostLegend.columns[0].layoutId).toBe(SYSTEM_US_LAYOUT_ID)
-    expect(hostLegendFor('N1', editor.hostLegend)?.en).toEqual(['1', '!'])
+    expect(
+      composeKey({
+        binding: parseKeyBinding('&kp N1'),
+        hostView: editor.hostLegend
+      })?.columns[0]?.pair
+    ).toEqual(['1', '!'])
     expect(editor.activeProfileId('en')).toBe('en:system')
   })
 

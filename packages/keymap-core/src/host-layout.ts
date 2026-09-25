@@ -1,5 +1,4 @@
-import { hostKeyByXkb, hostKeyByZmk } from './host-key-id.js'
-import type { ComposedLegend } from './types.js'
+import { hostKeyByXkb } from './host-key-id.js'
 import { parseXkbSymbolsSection, type ParseXkbOptions } from './xkb-symbols.js'
 import { keysymToGlyph } from './xkb-keysyms.js'
 
@@ -17,15 +16,6 @@ export interface HostKeyLevels {
 
 /** Marks a missing shown AltGr / AltGr+Shift glyph so the other level stays anchored. */
 export const ALT_LEVEL_EMPTY = 'ˬ'
-
-export interface HostColumnOptions {
-  altGr?: boolean
-  altGrShift?: boolean
-  /** Second language's AltGr column. Defaults to the first language's flag. */
-  secondAltGr?: boolean
-  /** Second language's AltGr+Shift column. Defaults to the first language's flag. */
-  secondAltGrShift?: boolean
-}
 
 export interface HostLayout {
   id: string
@@ -87,67 +77,3 @@ export function hostComposeGlyphs(levels: HostKeyLevels | undefined): HostLevels
   return levels.glyphs
 }
 
-function shownPair(
-  levels: HostLevels,
-  alt: boolean,
-  altShift: boolean
-): string {
-  const left = alt ? levels[2] : ''
-  const right = altShift ? levels[3] : ''
-  if (!left && !right) return ''
-  return `${alt ? left || ALT_LEVEL_EMPTY : ''}${altShift ? right || ALT_LEVEL_EMPTY : ''}`
-}
-
-/**
- * Language columns from one or two host groups.
- * `en` is the first layout's own case pair. `second` is the other alphabet
- * when chosen. Each layout has its own AltGr pair. A pair that is the same
- * on both open languages is returned once. A pair that differs is
- * `bilingualNote` (`Δτ/ёЁ`).
- */
-export function composeHostPair(
-  base: HostLayout,
-  second: HostLayout | null,
-  token: string,
-  columns: HostColumnOptions = {}
-): Pick<ComposedLegend, 'en' | 'second' | 'altGr' | 'altGrShift' | 'showAltGr' | 'showAltGrShift' | 'bilingualNote' | 'bilingualAlt' | 'keycode'> | null {
-  const showAlt = columns.altGr !== false
-  const showAltShift = columns.altGrShift !== false
-  const showSecondAlt = columns.secondAltGr ?? showAlt
-  const showSecondAltShift = columns.secondAltGrShift ?? showAltShift
-  const id = hostKeyByZmk(token)
-  if (!id) return null
-  const baseLevels = hostComposeGlyphs(base.byZmk.get(id.zmk))
-  if (!baseLevels || baseLevels[0] === '') return null
-  const secondLevels = hostComposeGlyphs(second?.byZmk.get(id.zmk))
-  const baseShown = showAlt || showAltShift
-  const secondShown = Boolean(secondLevels) && (showSecondAlt || showSecondAltShift)
-  const basePair = shownPair(baseLevels, showAlt, showAltShift)
-  const secondPair = secondLevels
-    ? shownPair(secondLevels, showSecondAlt, showSecondAltShift)
-    : ''
-  let bilingualNote: string | undefined
-  let bilingualAlt: [string, string] | undefined
-  let altLevels = baseLevels
-  let altOn = showAlt
-  let altShiftOn = showAltShift
-  if (secondLevels && baseShown && secondShown && basePair !== secondPair) {
-    bilingualNote = `${basePair}/${secondPair}`
-    bilingualAlt = [basePair, secondPair]
-  } else if (secondLevels && secondShown && !baseShown) {
-    altLevels = secondLevels
-    altOn = showSecondAlt
-    altShiftOn = showSecondAltShift
-  }
-  return {
-    en: [baseLevels[0], baseLevels[1]],
-    second: secondLevels ? [secondLevels[0], secondLevels[1]] : null,
-    altGr: altOn ? altLevels[2] : '',
-    altGrShift: altShiftOn ? altLevels[3] : '',
-    showAltGr: altOn,
-    showAltGrShift: altShiftOn,
-    bilingualNote,
-    bilingualAlt,
-    keycode: `KC_${id.zmk}`
-  }
-}

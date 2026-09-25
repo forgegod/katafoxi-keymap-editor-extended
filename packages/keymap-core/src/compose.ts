@@ -11,15 +11,12 @@ import { hostKeyByZmk } from './host-key-id.js'
 import { ALT_LEVEL_EMPTY, hostComposeGlyphs, type HostLevels } from './host-layout.js'
 import { hostLayoutShelves } from './host-layout-catalog.js'
 import { hostLayoutMeta, hostLevels } from './host-layout-registry.js'
-import {
-  hostLegendColumns,
-  hostLegendFor,
-  standardHostLegendView
-} from './host-legend-view.js'
+import { standardHostLegendView } from './host-legend-view.js'
 import { effectiveShownLayers, standardLayerView } from './layer-view.js'
 import type { HostLanguageId } from './host-languages.js'
 import type {
   ComposedLegend,
+  ComposedLegendColumn,
   ComposeKeyInput,
   HostLegendView,
   KeyBindingNode,
@@ -278,25 +275,80 @@ function formatHoldBadge(hold: string): string {
   return `⧗${keycapLegend(hold, modifierRoleGlyph(info.role))}`
 }
 
-function legendForTap(tap: string, view?: HostLegendView): ComposedLegend | null {
-  const host = hostLegendFor(tap, view)
-  if (!host) return null
-  return applyHostLegendPreview({ ...host, keypad: isKeypadCode(tap) }, view)
+export interface ResolvedHostColumn {
+  language: HostLanguageId
+  layoutId: string
+  visible: boolean
+  altGr: boolean
+  altGrShift: boolean
+  /** D9: letter pair is drawn on the keycap (visible base, or the open extra). */
+  onKeycap: boolean
+  /** Table: base is always wide; an extra is wide when it is open and visible. */
+  wide: boolean
+  tone: ComposedLegendColumn['tone']
+  flag: string
 }
 
-/** Drop hidden language columns on the keycap; the strip still uses `hostLegendFor`. */
-export function applyHostLegendPreview(
-  legend: ComposedLegend,
-  view?: HostLegendView
-): ComposedLegend {
-  if (!view) return legend
-  const base = view.columns[0]
-  const extra = view.open == null ? undefined : view.columns.find(column => column.language === view.open)
+/** View columns with layout metadata and the D9 keycap flag. */
+export function resolveHostColumns(view: HostLegendView): ResolvedHostColumn[] {
+  return view.columns.map((column, index): ResolvedHostColumn => {
+    const extraOpen = view.open === column.language && column.visible
+    const isBase = index === 0
+    return {
+      language: column.language,
+      layoutId: column.layoutId,
+      visible: column.visible,
+      altGr: column.altGr,
+      altGrShift: column.altGrShift,
+      onKeycap: isBase ? column.visible : extraOpen,
+      wide: isBase || extraOpen,
+      tone: isBase ? 'base' : 'second',
+      flag: hostLayoutMeta(column.layoutId)?.flag ?? ''
+    }
+  })
+}
+
+function composeColumn(
+  resolved: ResolvedHostColumn,
+  zmk: string
+): ComposedLegendColumn | null {
+  const levels = hostComposeGlyphs(hostLevels(resolved.layoutId, zmk))
+  if (!levels || levels[0] === '') return null
   return {
-    ...legend,
-    en: base && !base.visible ? ['', ''] : legend.en,
-    second: extra && !extra.visible ? null : legend.second
+    language: resolved.language,
+    tone: resolved.tone,
+    pair: [levels[0], levels[1]],
+    altGr: resolved.altGr ? levels[2] : '',
+    altGrShift: resolved.altGrShift ? levels[3] : '',
+    showAltGr: resolved.altGr,
+    showAltGrShift: resolved.altGrShift,
+    onKeycap: resolved.onKeycap
   }
+}
+
+/**
+ * N-column host legend for a ZMK token. Unknown ids and non-character
+ * keys return null. Hidden extras are omitted; a hidden base stays so
+ * AltGr collapse can still see it.
+ */
+export function hostLegendFor(
+  token: string,
+  view?: HostLegendView
+): ComposedLegend | null {
+  const id = hostKeyByZmk(token)
+  if (!id) return null
+  const resolved = resolveHostColumns(view ?? standardHostLegendView())
+  const base = resolved[0]
+  if (!base) return null
+  const baseColumn = composeColumn(base, id.zmk)
+  if (!baseColumn) return null
+  const columns: ComposedLegendColumn[] = [baseColumn]
+  for (const column of resolved.slice(1)) {
+    if (!column.visible) continue
+    const composed = composeColumn(column, id.zmk)
+    if (composed) columns.push(composed)
+  }
+  return { columns, keycode: `KC_${id.zmk}` }
 }
 
 /**
@@ -310,8 +362,9 @@ export function composeKey(input: ComposeKeyInput): ComposedLegend | null {
   const resolved = resolveBinding(input.binding)
   if (resolved.tap == null) return null
 
-  const legend = legendForTap(resolved.tap, input.hostView)
+  const legend = hostLegendFor(resolved.tap, input.hostView)
   if (!legend) return null
+  legend.keypad = isKeypadCode(resolved.tap)
   if (resolved.hold) {
     legend.hold = formatHoldBadge(resolved.hold)
   }
@@ -358,14 +411,24 @@ export function composeLayerRows(
  * The pair is omitted only when both column toggles are off.
  */
 export function formatAltGrPair(
-  legend: Pick<ComposedLegend, 'altGr' | 'altGrShift' | 'showAltGr' | 'showAltGrShift'>
+  column: Pick<ComposedLegendColumn, 'altGr' | 'altGrShift' | 'showAltGr' | 'showAltGrShift'>
 ): string | null {
-  const showAlt = legend.showAltGr !== false
-  const showShift = legend.showAltGrShift !== false
-  if (!showAlt && !showShift) return null
-  const alt = showAlt ? legend.altGr || ALT_LEVEL_EMPTY : ''
-  const shift = showShift ? legend.altGrShift || ALT_LEVEL_EMPTY : ''
+  if (!column.showAltGr && !column.showAltGrShift) return null
+  const alt = column.showAltGr ? column.altGr || ALT_LEVEL_EMPTY : ''
+  const shift = column.showAltGrShift ? column.altGrShift || ALT_LEVEL_EMPTY : ''
   return `${alt}${shift}`
+}
+
+/** AltGr pair used to decide bilingual collapse. Empty glyphs stay empty. */
+function shownAltPair(
+  column: Pick<ComposedLegendColumn, 'altGr' | 'altGrShift' | 'showAltGr' | 'showAltGrShift'>
+): string {
+  const left = column.showAltGr ? column.altGr : ''
+  const right = column.showAltGrShift ? column.altGrShift : ''
+  if (!left && !right) return ''
+  return `${column.showAltGr ? left || ALT_LEVEL_EMPTY : ''}${
+    column.showAltGrShift ? right || ALT_LEVEL_EMPTY : ''
+  }`
 }
 
 export type KeycapTone = 'base' | 'second'
@@ -383,31 +446,41 @@ export interface KeycapColumn {
 
 /**
  * What one keycap line shows, left to right.
+ * D9: only the visible base and the open extra are drawn.
  * A second-language case pair equal to the first is drawn once.
  * Diverging AltGr pairs stay one column, each half in its language color.
  */
 export function keycapColumns(legend: ComposedLegend): KeycapColumn[] {
   const columns: KeycapColumn[] = []
-  const base = `${legend.en[0]}${legend.en[1]}`
-  if (base) columns.push({ kind: 'letters', pieces: [{ text: base, tone: 'base' }] })
-  if (legend.second) {
-    const second = `${legend.second[0]}${legend.second[1]}`
-    if (second && second !== base) {
-      columns.push({ kind: 'letters', pieces: [{ text: second, tone: 'second' }] })
+  const letters = legend.columns.filter(column => column.onKeycap)
+  let firstPair = ''
+  for (const column of letters) {
+    const text = `${column.pair[0]}${column.pair[1]}`
+    if (!text || text === firstPair) continue
+    if (!firstPair) firstPair = text
+    columns.push({ kind: 'letters', pieces: [{ text, tone: column.tone }] })
+  }
+
+  const base = legend.columns.find(column => column.tone === 'base')
+  const extra = legend.columns.find(column => column.tone === 'second' && column.onKeycap)
+  const baseAltOn = Boolean(base && (base.showAltGr || base.showAltGrShift))
+  const extraAltOn = Boolean(extra && (extra.showAltGr || extra.showAltGrShift))
+  if (base && extra && baseAltOn && extraAltOn) {
+    const baseAlt = shownAltPair(base)
+    const extraAlt = shownAltPair(extra)
+    if (baseAlt !== extraAlt) {
+      const pieces: KeycapPiece[] = [
+        { text: baseAlt, tone: 'base' },
+        { text: '/', tone: null },
+        { text: extraAlt, tone: 'second' }
+      ]
+      columns.push({ kind: 'alt', pieces: pieces.filter(piece => piece.text !== '') })
+      return columns
     }
   }
-  if (legend.bilingualAlt) {
-    const [baseAlt, secondAlt] = legend.bilingualAlt
-    const pieces: KeycapPiece[] = [
-      { text: baseAlt, tone: 'base' },
-      { text: '/', tone: null },
-      { text: secondAlt, tone: 'second' }
-    ]
-    columns.push({ kind: 'alt', pieces: pieces.filter(piece => piece.text !== '') })
-  } else if (legend.bilingualNote) {
-    columns.push({ kind: 'alt', pieces: [{ text: legend.bilingualNote, tone: null }] })
-  } else {
-    const alt = formatAltGrPair(legend)
+  const altSource = extra && extraAltOn && !baseAltOn ? extra : base
+  if (altSource) {
+    const alt = formatAltGrPair(altSource)
     if (alt) columns.push({ kind: 'alt', pieces: [{ text: alt, tone: null }] })
   }
   return columns
@@ -502,16 +575,15 @@ export function composeLegendDecode(
   const hostView = view ?? standardHostLegendView()
   const current: LegendDecodeColumn[] = []
   const system: LegendDecodeColumn[] = []
-  for (const column of hostLegendColumns(hostView).filter(item => item.shown)) {
+  for (const column of resolveHostColumns(hostView).filter(item => item.onKeycap)) {
     const levels = hostComposeGlyphs(hostLevels(column.layoutId, host.zmk))
     if (!levels) continue
-    const flag = hostLayoutMeta(column.layoutId)?.flag ?? ''
-    current.push({ language: column.language, flag, slots: slotsFromLevels(levels) })
+    current.push({ language: column.language, flag: column.flag, slots: slotsFromLevels(levels) })
     const primary = hostLayoutShelves(column.language).primary
     const sysLevels = primary ? hostComposeGlyphs(hostLevels(primary.id, host.zmk)) : undefined
     system.push({
       language: column.language,
-      flag,
+      flag: column.flag,
       slots: sysLevels ? slotsFromLevels(sysLevels) : emptySlots()
     })
   }

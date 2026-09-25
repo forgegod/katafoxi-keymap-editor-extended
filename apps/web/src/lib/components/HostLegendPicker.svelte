@@ -10,9 +10,9 @@
     isAddableHostLanguage,
     hostLayoutChoiceLabel,
     hostLegendColumns,
+    hostLegendTableRow,
     assignHostLanguageLayout,
     layoutForBuiltinProfile,
-    hostLegendFor,
     getKeycodeCatalog,
     resolveBinding,
     replaceHostLanguage,
@@ -167,37 +167,6 @@
 
   function toggleAlt(language: HostLanguageId, field: 'altGr' | 'altGrShift', on: boolean) {
     editor.hostLegend = setHostColumnAlt(view, language, field, !on)
-  }
-
-  function oneColumnView(column: HostLegendColumn) {
-    return {
-      columns: [
-        {
-          language: column.language,
-          layoutId: column.layoutId,
-          visible: true,
-          altGr: true,
-          altGrShift: true
-        }
-      ],
-      open: null
-    }
-  }
-
-  function columnPair(column: HostLegendColumn, tap: string | null): string {
-    if (!tap) return ''
-    const legend = hostLegendFor(tap, oneColumnView(column))
-    return legend ? `${legend.en[0]}${legend.en[1]}` : ''
-  }
-
-  function columnAlt(
-    column: HostLegendColumn,
-    tap: string | null,
-    field: 'altGr' | 'altGrShift'
-  ): string {
-    if (!tap || !column[field]) return ''
-    const legend = hostLegendFor(tap, oneColumnView(column))
-    return legend?.[field] ?? ''
   }
 
   const columnCount = $derived(
@@ -474,7 +443,7 @@
     </thead>
     <tbody id={interactive ? 'host-legend-layers' : undefined}>
       {#each rows as row (row.index)}
-        {@const tap = bindingTap(row.binding)}
+        {@const cells = hostLegendTableRow(row.binding, view)}
         <tr
           data-layer={row.index}
           class:off={!row.marked}
@@ -528,12 +497,12 @@
           <td class="zmk">{zmkCell(row.binding)}</td>
           {#each columns as column (column.language)}
             <td class:second={column.language !== 'en'} class:off={!column.shown} class:narrow={!column.wide}>
-              {column.wide ? columnPair(column, tap) : ''}
+              {cells.find(item => item.language === column.language)?.pair ?? ''}
             </td>
             {#if column.wide}
-              <td class="alt" class:off={!column.altGr}>{columnAlt(column, tap, 'altGr')}</td>
+              <td class="alt" class:off={!column.altGr}>{cells.find(item => item.language === column.language)?.altGr ?? ''}</td>
               <td class="alt" class:off={!column.altGrShift}>
-                {columnAlt(column, tap, 'altGrShift')}
+                {cells.find(item => item.language === column.language)?.altGrShift ?? ''}
               </td>
             {/if}
           {/each}

@@ -37,7 +37,7 @@
     </span>
   </div>
 {:else}
-  <span class="zmk-fallback">{legend.keycode || legend.en[0]}</span>
+  <span class="zmk-fallback">{legend.keycode || legend.columns[0]?.pair[0]}</span>
 {/if}
 
 <style>
