@@ -1,3 +1,5 @@
+import type { HostLanguageId } from './host-languages.js'
+
 export interface KeyBindingNode {
   value: string | number
   params: KeyBindingNode[]
@@ -112,7 +114,7 @@ export interface HostLegendView {
    * Absent means just `secondId`, when that is set.
    */
   roster?: ReadonlyArray<{
-    language: 'en' | 'ru' | 'uk' | 'de'
+    language: HostLanguageId
     layoutId: string
     altGr: boolean
     altGrShift: boolean

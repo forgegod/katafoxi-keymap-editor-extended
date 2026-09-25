@@ -6,7 +6,7 @@ import {
 } from './host-layout-catalog.js'
 import { LARK_STANDARD_VIEW } from './host-legend-presets.js'
 import {
-  hostLanguagesAvailable,
+  ADDABLE_HOST_LANGUAGE_IDS,
   isAddableHostLanguage,
   type HostLanguageId
 } from './host-languages.js'
@@ -184,6 +184,12 @@ export function hostLegendColumns(view: HostLegendView): HostLegendColumn[] {
     }
   })
   return [base, ...extras]
+}
+
+/** Languages that can still be added after the open columns. */
+export function hostLanguagesAvailable(view: HostLegendView): HostLanguageId[] {
+  const used = new Set(hostLegendColumns(view).map(column => column.language))
+  return ADDABLE_HOST_LANGUAGE_IDS.filter(language => !used.has(language))
 }
 
 /** Swap an extra language for another unused one. Keeps the slot order. */

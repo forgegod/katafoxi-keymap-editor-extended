@@ -7,8 +7,11 @@
 import {
   builtinLanguageProfileId,
   builtinProfileIdForChoice,
+  HOST_LANGUAGE_IDS,
   hostLayoutChoice,
   hostLayoutChoiceLabel,
+  hostLayoutsForLanguage,
+  isHostLanguageId,
   layoutForBuiltinProfile,
   parseBuiltinLanguageProfileId,
   reservedHostProfileNames,
@@ -33,28 +36,23 @@ export interface HostProfile {
   updatedAt: number
 }
 
-export interface ActiveLanguageProfiles {
-  en: string
-  ru: string
-  uk: string
-  de: string
-}
+export type ActiveLanguageProfiles = Record<HostLanguageId, string>
 
 type ActiveSetting = {
   id: typeof ACTIVE_SETTING_ID
-  en: string
-  ru: string
-  uk?: string
-  de?: string
-}
+} & Partial<Record<HostLanguageId, string>>
 
 export function defaultActiveLanguageProfiles(): ActiveLanguageProfiles {
-  return {
-    en: builtinLanguageProfileId('en', 'in-layout'),
-    ru: builtinLanguageProfileId('ru', 'in-layout'),
-    uk: builtinLanguageProfileId('uk', 'system'),
-    de: builtinLanguageProfileId('de', 'system')
+  const active = {} as ActiveLanguageProfiles
+  for (const language of HOST_LANGUAGE_IDS) {
+    const kind: HostLayoutKind = hostLayoutsForLanguage(language).some(
+      choice => choice.kind === 'in-layout'
+    )
+      ? 'in-layout'
+      : 'system'
+    active[language] = builtinLanguageProfileId(language, kind)
   }
+  return active
 }
 
 export function isBuiltinLanguageProfile(id: string): boolean {
@@ -142,10 +140,7 @@ function isLanguageProfile(row: unknown): row is HostProfile {
   return (
     typeof item.id === 'string' &&
     typeof item.name === 'string' &&
-    (item.language === 'en' ||
-      item.language === 'ru' ||
-      item.language === 'uk' ||
-      item.language === 'de') &&
+    isHostLanguageId(item.language) &&
     typeof item.layoutId === 'string'
   )
 }
@@ -201,12 +196,12 @@ export async function loadActiveLanguageProfiles(): Promise<ActiveLanguageProfil
     )
     await txDone(tx)
     if (!row) return defaults
-    return {
-      en: typeof row.en === 'string' ? row.en : defaults.en,
-      ru: typeof row.ru === 'string' ? row.ru : defaults.ru,
-      uk: typeof row.uk === 'string' ? row.uk : defaults.uk,
-      de: typeof row.de === 'string' ? row.de : defaults.de
+    const next = { ...defaults }
+    for (const language of HOST_LANGUAGE_IDS) {
+      const value = row[language]
+      if (typeof value === 'string') next[language] = value
     }
+    return next
   } finally {
     db.close()
   }
@@ -218,12 +213,9 @@ export async function saveActiveLanguageProfiles(
   const db = await openDb()
   try {
     const tx = db.transaction(SETTINGS_STORE, 'readwrite')
-    const record: ActiveSetting = {
-      id: ACTIVE_SETTING_ID,
-      en: active.en,
-      ru: active.ru,
-      uk: active.uk,
-      de: active.de
+    const record: ActiveSetting = { id: ACTIVE_SETTING_ID }
+    for (const language of HOST_LANGUAGE_IDS) {
+      record[language] = active[language]
     }
     await idbRequest(tx.objectStore(SETTINGS_STORE).put(record))
     await txDone(tx)

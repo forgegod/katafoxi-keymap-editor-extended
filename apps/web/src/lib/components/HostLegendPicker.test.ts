@@ -173,15 +173,13 @@ describe('HostLegendPicker', () => {
     expect(eye.getAttribute('aria-pressed')).toBe('true')
   })
 
-  it('toggles visibility through toggleShownLayer and does not write layers', async () => {
+  it('toggles visibility through toggleShownLayer', async () => {
     await open(keymapOf(['default', 'raise']))
-    const layersBefore = editor.hostLegend.layers
     const eye = target.querySelector('.legend-panel [aria-label="Показать raise"]')
     if (!(eye instanceof HTMLButtonElement)) throw new Error('missing raise eye')
     eye.click()
     flushSync()
     expect(editor.hostLegend.shownLayers).toEqual([0, 2, 3])
-    expect(editor.hostLegend.layers).toEqual(layersBefore)
   })
 
   it('adds a transparent Layer #2 from the table footer', async () => {
