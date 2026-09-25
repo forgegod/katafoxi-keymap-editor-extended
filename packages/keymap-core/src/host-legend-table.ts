@@ -32,7 +32,7 @@ export function hostLegendTableRow(
     return {
       language: column.language,
       layoutId: column.layoutId,
-      shown: column.onKeycap,
+      shown: column.shown,
       wide: column.wide,
       pair: column.wide && levels ? `${levels[0]}${levels[1]}` : '',
       altGr: column.wide && column.altGr && levels ? levels[2] : '',

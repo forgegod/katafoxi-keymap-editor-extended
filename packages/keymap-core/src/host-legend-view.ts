@@ -25,6 +25,8 @@ export function standardHostLegendView(): HostLegendView {
 export interface HostLegendColumn {
   language: HostLanguageId
   layoutId: string
+  /** Eye state of the column itself, before the base/extra rule. */
+  visible: boolean
   /** Drawn on the keycap. */
   shown: boolean
   /** Profile and AltGr columns. A collapsed language is only the eye and flag. */
@@ -40,6 +42,7 @@ export function hostLegendColumns(view: HostLegendView): HostLegendColumn[] {
     return {
       language: column.language,
       layoutId: column.layoutId,
+      visible: column.visible,
       shown: index === 0 ? column.visible : extraOpen,
       wide: index === 0 || extraOpen,
       altGr: column.altGr,

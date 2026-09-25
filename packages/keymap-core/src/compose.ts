@@ -11,7 +11,11 @@ import { hostKeyByZmk } from './host-key-id.js'
 import { ALT_LEVEL_EMPTY, hostComposeGlyphs, type HostLevels } from './host-layout.js'
 import { hostLayoutShelves } from './host-layout-registry.js'
 import { hostLayoutMeta, hostLevels } from './host-layout-registry.js'
-import { standardHostLegendView } from './host-legend-view.js'
+import {
+  hostLegendColumns,
+  standardHostLegendView,
+  type HostLegendColumn
+} from './host-legend-view.js'
 import { effectiveShownLayers, standardLayerView } from './layer-view.js'
 import type { HostLanguageId } from './host-languages.js'
 import type {
@@ -295,37 +299,18 @@ function formatHoldBadge(hold: HoldRef): string {
   return `⧗${keycapLegend(hold.code, modifierRoleGlyph(info.role))}`
 }
 
-export interface ResolvedHostColumn {
-  language: HostLanguageId
-  layoutId: string
-  visible: boolean
-  altGr: boolean
-  altGrShift: boolean
-  /** D9: letter pair is drawn on the keycap (visible base, or the open extra). */
-  onKeycap: boolean
-  /** Table: base is always wide; an extra is wide when it is open and visible. */
-  wide: boolean
+export interface ResolvedHostColumn extends HostLegendColumn {
   tone: ComposedLegendColumn['tone']
   flag: string
 }
 
-/** View columns with layout metadata and the D9 keycap flag. */
+/** Legend columns plus the tone and flag the composed legend draws. */
 export function resolveHostColumns(view: HostLegendView): ResolvedHostColumn[] {
-  return view.columns.map((column, index): ResolvedHostColumn => {
-    const extraOpen = view.open === column.language && column.visible
-    const isBase = index === 0
-    return {
-      language: column.language,
-      layoutId: column.layoutId,
-      visible: column.visible,
-      altGr: column.altGr,
-      altGrShift: column.altGrShift,
-      onKeycap: isBase ? column.visible : extraOpen,
-      wide: isBase || extraOpen,
-      tone: isBase ? 'base' : 'second',
-      flag: hostLayoutMeta(column.layoutId)?.flag ?? ''
-    }
-  })
+  return hostLegendColumns(view).map((column, index): ResolvedHostColumn => ({
+    ...column,
+    tone: index === 0 ? 'base' : 'second',
+    flag: hostLayoutMeta(column.layoutId)?.flag ?? ''
+  }))
 }
 
 function composeColumn(
@@ -342,7 +327,7 @@ function composeColumn(
     altGrShift: resolved.altGrShift ? levels[3] : '',
     showAltGr: resolved.altGr,
     showAltGrShift: resolved.altGrShift,
-    onKeycap: resolved.onKeycap
+    onKeycap: resolved.shown
   }
 }
 
@@ -596,7 +581,7 @@ export function composeLegendDecode(
   const hostView = view ?? standardHostLegendView()
   const current: LegendDecodeColumn[] = []
   const system: LegendDecodeColumn[] = []
-  for (const column of resolveHostColumns(hostView).filter(item => item.onKeycap)) {
+  for (const column of resolveHostColumns(hostView).filter(item => item.shown)) {
     const levels = hostComposeGlyphs(hostLevels(column.layoutId, host.zmk))
     if (!levels) continue
     current.push({ language: column.language, flag: column.flag, slots: slotsFromLevels(levels) })
