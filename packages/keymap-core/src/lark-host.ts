@@ -2,9 +2,10 @@ import { composeHostPair, hostLayoutFromSymbols, type HostLayout } from './host-
 import type { ComposedLegend, HostLegendView } from './types.js'
 import { LARK_AU_BASIC, LARK_RU_LEGACY } from './lark-host-symbols.js'
 import { SYSTEM_RU_SYMBOLS } from './system-ru-symbols.js'
+import { SYSTEM_UA_SYMBOLS } from './system-ua-symbols.js'
 import { SYSTEM_US_SYMBOLS } from './system-us-symbols.js'
 
-export type HostLanguageId = 'en' | 'ru'
+export type HostLanguageId = 'en' | 'ru' | 'uk'
 export type HostLayoutKind = 'system' | 'in-layout'
 
 /** English (Australian) LARK host group. */
@@ -56,6 +57,15 @@ export const systemRussianLayout: HostLayout = hostLayoutFromSymbols(
   SYSTEM_RU_LAYOUT_ID
 )
 
+/** System Ukrainian group (`ua(unicode)`). */
+export const SYSTEM_UA_LAYOUT_ID = 'system-ua'
+
+export const systemUkrainianLayout: HostLayout = hostLayoutFromSymbols(
+  SYSTEM_UA_SYMBOLS,
+  'unicode',
+  SYSTEM_UA_LAYOUT_ID
+)
+
 /** Built-in profile: English, then OS Russian. Both language columns are shown. */
 export function systemRuHostLegendView(): HostLegendView {
   return {
@@ -103,6 +113,14 @@ export const hostLayoutChoices: readonly HostLayoutChoice[] = [
     layoutName: 'legacy',
     flag: '🇷🇺',
     kind: 'in-layout'
+  },
+  {
+    id: SYSTEM_UA_LAYOUT_ID,
+    language: 'uk',
+    languageName: 'Ukrainian',
+    layoutName: 'unicode',
+    flag: '🇺🇦',
+    kind: 'system'
   }
 ]
 
@@ -120,7 +138,7 @@ export function builtinLanguageProfileId(
 export function parseBuiltinLanguageProfileId(
   id: string
 ): { language: HostLanguageId; kind: HostLayoutKind } | null {
-  const match = /^(en|ru):(system|in-layout)$/.exec(id)
+  const match = /^(en|ru|uk):(system|in-layout)$/.exec(id)
   if (!match) return null
   return { language: match[1] as HostLanguageId, kind: match[2] as HostLayoutKind }
 }
@@ -157,7 +175,8 @@ const layoutsById = new Map<string, HostLayout>([
   ['lark-en', larkEnglishLayout],
   ['lark-ru', larkRussianLayout],
   [SYSTEM_US_LAYOUT_ID, systemEnglishLayout],
-  [SYSTEM_RU_LAYOUT_ID, systemRussianLayout]
+  [SYSTEM_RU_LAYOUT_ID, systemRussianLayout],
+  [SYSTEM_UA_LAYOUT_ID, systemUkrainianLayout]
 ])
 
 export function hostLayoutChoice(id: string): HostLayoutChoice | undefined {
@@ -286,16 +305,14 @@ export function hostLegendFor(
   const base = layoutsById.get(view.baseId)
   if (!base) return null
   const second =
-    view.secondId && view.secondId !== view.baseId
+    view.secondVisible !== false && view.secondId && view.secondId !== view.baseId
       ? (layoutsById.get(view.secondId) ?? null)
       : null
   return composeHostPair(base, second, token, {
     altGr: view.altGr,
     altGrShift: view.altGrShift,
-    altGrFrom:
-      view.secondId === SYSTEM_RU_LAYOUT_ID || view.baseId === SYSTEM_US_LAYOUT_ID
-        ? 'second'
-        : 'base'
+    secondAltGr: view.secondAltGr ?? view.altGr,
+    secondAltGrShift: view.secondAltGrShift ?? view.altGrShift
   })
 }
 
@@ -310,4 +327,155 @@ export function applyColumnLayout(
   if (column === 'base' && choice.language !== 'en') return current
   if (column === 'second' && choice.language !== 'ru') return current
   return hostLegendView(current, column === 'base' ? { baseId: layoutId } : { secondId: layoutId })
+}
+
+export interface HostLegendColumn {
+  language: HostLanguageId
+  layoutId: string
+  /** Drawn on the keycap. */
+  shown: boolean
+  /** Profile and AltGr columns. A collapsed language is only the eye and flag. */
+  wide: boolean
+  altGr: boolean
+  altGrShift: boolean
+}
+
+type HostRosterSlot = NonNullable<HostLegendView['roster']>[number]
+
+const ADDABLE_LANGUAGES: readonly HostLanguageId[] = ['uk']
+
+function rosterOf(view: HostLegendView): HostRosterSlot[] {
+  if (view.roster && view.roster.length > 0) return view.roster.map(slot => ({ ...slot }))
+  if (!view.secondId) return []
+  const choice = hostLayoutChoice(view.secondId)
+  return [
+    {
+      language: choice?.language ?? 'ru',
+      layoutId: view.secondId,
+      altGr: view.secondAltGr ?? view.altGr,
+      altGrShift: view.secondAltGrShift ?? view.altGrShift
+    }
+  ]
+}
+
+/** Base column, then the other languages in table order. */
+export function hostLegendColumns(view: HostLegendView): HostLegendColumn[] {
+  const baseChoice = hostLayoutChoice(view.baseId)
+  const base: HostLegendColumn = {
+    language: baseChoice?.language ?? 'en',
+    layoutId: view.baseId,
+    shown: view.baseVisible !== false,
+    wide: true,
+    altGr: view.altGr,
+    altGrShift: view.altGrShift
+  }
+  const extras = rosterOf(view).map((slot): HostLegendColumn => {
+    const active = view.secondId === slot.layoutId && view.secondVisible !== false
+    return {
+      language: slot.language,
+      layoutId: slot.layoutId,
+      shown: active,
+      wide: active,
+      altGr: active ? (view.secondAltGr ?? slot.altGr) : slot.altGr,
+      altGrShift: active ? (view.secondAltGrShift ?? slot.altGrShift) : slot.altGrShift
+    }
+  })
+  return [base, ...extras]
+}
+
+/** Languages that can still be added after the open columns. */
+export function hostLanguagesAvailable(view: HostLegendView): HostLanguageId[] {
+  const used = new Set(hostLegendColumns(view).map(column => column.language))
+  return ADDABLE_LANGUAGES.filter(language => !used.has(language))
+}
+
+/** Open another language. The previous second column collapses to its flag. */
+export function addHostLanguage(
+  view: HostLegendView,
+  language: HostLanguageId
+): HostLegendView {
+  if (!hostLanguagesAvailable(view).includes(language)) return view
+  const choice = hostLayoutsForLanguage(language).find(item => item.kind === 'system')
+  if (!choice) return view
+  const roster = rosterOf(view)
+  roster.push({
+    language,
+    layoutId: choice.id,
+    altGr: true,
+    altGrShift: true
+  })
+  const next = hostLegendView(view, { secondId: choice.id })
+  return {
+    ...next,
+    roster,
+    secondVisible: true,
+    secondAltGr: true,
+    secondAltGrShift: true
+  }
+}
+
+/**
+ * Eye on the base column hides its glyphs. Eye on the open second column
+ * collapses it. Eye on a collapsed language opens it and collapses the other.
+ */
+export function toggleHostLanguage(
+  view: HostLegendView,
+  language: HostLanguageId
+): HostLegendView {
+  const columns = hostLegendColumns(view)
+  const column = columns.find(item => item.language === language)
+  if (!column) return view
+  if (column.layoutId === view.baseId) {
+    return hostLegendPreview(view, { baseVisible: !column.shown })
+  }
+  const roster = rosterOf(view)
+  if (column.wide) return { ...view, roster, secondVisible: false }
+  const next = hostLegendView({ ...view, roster }, { secondId: column.layoutId })
+  return {
+    ...next,
+    roster,
+    secondVisible: true,
+    secondAltGr: column.altGr,
+    secondAltGrShift: column.altGrShift
+  }
+}
+
+export function setHostColumnAlt(
+  view: HostLegendView,
+  language: HostLanguageId,
+  field: 'altGr' | 'altGrShift',
+  on: boolean
+): HostLegendView {
+  const columns = hostLegendColumns(view)
+  const column = columns.find(item => item.language === language)
+  if (!column) return view
+  if (column.layoutId === view.baseId) return hostLegendPreview(view, { [field]: on })
+  const roster = rosterOf(view).map(slot =>
+    slot.language === language ? { ...slot, [field]: on } : slot
+  )
+  const next: HostLegendView = { ...view, roster }
+  if (view.secondId === column.layoutId) {
+    if (field === 'altGr') next.secondAltGr = on
+    else next.secondAltGrShift = on
+  }
+  return next
+}
+
+/** Replace the layout of one language column, including a collapsed one. */
+export function assignHostLanguageLayout(
+  current: HostLegendView,
+  language: HostLanguageId,
+  layoutId: string
+): HostLegendView {
+  const baseLanguage = hostLayoutChoice(current.baseId)?.language
+  if (language === baseLanguage) return hostLegendView(current, { baseId: layoutId })
+  const roster = rosterOf(current).map(slot =>
+    slot.language === language ? { ...slot, layoutId } : slot
+  )
+  const updatesSecond = hostLayoutChoice(current.secondId ?? '')?.language === language
+  if (!updatesSecond && !roster.some(slot => slot.language === language)) return current
+  const next = updatesSecond
+    ? hostLegendView(current, { secondId: layoutId })
+    : { ...current, source: 'custom' as const }
+  return { ...next, roster }
 }

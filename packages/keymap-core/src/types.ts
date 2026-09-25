@@ -104,6 +104,20 @@ export interface HostLegendView {
   baseVisible?: boolean
   /** Preview: hide second-language glyphs without clearing `secondId`. */
   secondVisible?: boolean
+  /** AltGr column of the second language. Defaults to `altGr`. */
+  secondAltGr?: boolean
+  /** AltGr+Shift column of the second language. Defaults to `altGrShift`. */
+  secondAltGrShift?: boolean
+  /**
+   * Languages after the base column, in table order.
+   * Absent means just `secondId`, when that is set.
+   */
+  roster?: ReadonlyArray<{
+    language: 'en' | 'ru' | 'uk'
+    layoutId: string
+    altGr: boolean
+    altGrShift: boolean
+  }>
   /**
    * @deprecated Four-slot hide flags. Use `shownLayers`.
    * Kept so compose still compiles until it reads the ordered set.

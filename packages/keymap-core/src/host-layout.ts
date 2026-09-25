@@ -9,8 +9,10 @@ export type HostLevels = readonly [string, string, string, string]
 export interface HostColumnOptions {
   altGr?: boolean
   altGrShift?: boolean
-  /** Which layout supplies levels 3–4. Default is the first language. */
-  altGrFrom?: 'base' | 'second'
+  /** Second language's AltGr column. Defaults to the first language's flag. */
+  secondAltGr?: boolean
+  /** Second language's AltGr+Shift column. Defaults to the first language's flag. */
+  secondAltGrShift?: boolean
 }
 
 export interface HostLayout {
@@ -48,12 +50,20 @@ export function hostLayoutFromSymbols(source: string, section: string, id: strin
   return { id, byZmk }
 }
 
+function shownPair(
+  levels: HostLevels,
+  alt: boolean,
+  altShift: boolean
+): string {
+  return `${alt ? levels[2] : ''}${altShift ? levels[3] : ''}`
+}
+
 /**
  * Language columns from one or two host groups.
  * `en` is the first layout's own case pair. `second` is the other alphabet
- * when chosen. AltGr columns come from the first layout and stay empty when
- * the level is NoSymbol or the column is hidden. When the visible AltGr
- * pair differs from the second language, `bilingualNote` is `Δτ/ёЁ`.
+ * when chosen. Each layout has its own AltGr pair. A pair that is the same
+ * on both open languages is returned once. A pair that differs is
+ * `bilingualNote` (`Δτ/ёЁ`).
  */
 export function composeHostPair(
   base: HostLayout,
@@ -63,26 +73,37 @@ export function composeHostPair(
 ): Pick<ComposedLegend, 'en' | 'second' | 'altGr' | 'altGrShift' | 'showAltGr' | 'showAltGrShift' | 'bilingualNote' | 'keycode'> | null {
   const showAlt = columns.altGr !== false
   const showAltShift = columns.altGrShift !== false
+  const showSecondAlt = columns.secondAltGr ?? showAlt
+  const showSecondAltShift = columns.secondAltGrShift ?? showAltShift
   const id = hostKeyByZmk(token)
   if (!id) return null
   const baseLevels = base.byZmk.get(id.zmk)
   if (!baseLevels || baseLevels[0] === '') return null
   const secondLevels = second?.byZmk.get(id.zmk)
-  const altLevels =
-    columns.altGrFrom === 'second' && secondLevels ? secondLevels : baseLevels
+  const baseShown = showAlt || showAltShift
+  const secondShown = Boolean(secondLevels) && (showSecondAlt || showSecondAltShift)
+  const basePair = shownPair(baseLevels, showAlt, showAltShift)
+  const secondPair = secondLevels
+    ? shownPair(secondLevels, showSecondAlt, showSecondAltShift)
+    : ''
   let bilingualNote: string | undefined
-  if (secondLevels && (showAlt || showAltShift) && columns.altGrFrom !== 'second') {
-    const baseAlt = `${showAlt ? baseLevels[2] : ''}${showAltShift ? baseLevels[3] : ''}`
-    const secondAlt = `${showAlt ? secondLevels[2] : ''}${showAltShift ? secondLevels[3] : ''}`
-    if (baseAlt !== secondAlt) bilingualNote = `${baseAlt}/${secondAlt}`
+  let altLevels = baseLevels
+  let altOn = showAlt
+  let altShiftOn = showAltShift
+  if (secondLevels && baseShown && secondShown && basePair !== secondPair) {
+    bilingualNote = `${basePair}/${secondPair}`
+  } else if (secondLevels && secondShown && !baseShown) {
+    altLevels = secondLevels
+    altOn = showSecondAlt
+    altShiftOn = showSecondAltShift
   }
   return {
     en: [baseLevels[0], baseLevels[1]],
     second: secondLevels ? [secondLevels[0], secondLevels[1]] : null,
-    altGr: showAlt ? altLevels[2] : '',
-    altGrShift: showAltShift ? altLevels[3] : '',
-    showAltGr: showAlt,
-    showAltGrShift: showAltShift,
+    altGr: altOn ? altLevels[2] : '',
+    altGrShift: altShiftOn ? altLevels[3] : '',
+    showAltGr: altOn,
+    showAltGrShift: altShiftOn,
     bilingualNote,
     keycode: `KC_${id.zmk}`
   }

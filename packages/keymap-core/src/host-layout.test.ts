@@ -3,10 +3,12 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
+  addHostLanguage,
   applyColumnLayout,
   builtinLanguageProfileId,
   customHostLegendView,
   effectiveShownLayers,
+  hostLegendColumns,
   hostLegendFor,
   hostLegendPreview,
   hostLegendView,
@@ -19,6 +21,8 @@ import {
   systemEnglishLayout,
   systemRuHostLegendView,
   systemRussianLayout,
+  systemUkrainianLayout,
+  toggleHostLanguage,
   toggleShownLayer,
   remapShownLayersAfterDelete
 } from './lark-host.js'
@@ -149,8 +153,7 @@ describe('system English us(basic)', () => {
     expect(hostLegendFor('E', view)).toMatchObject({
       en: ['e', 'E'],
       second: ['у', 'У'],
-      altGr: '&',
-      altGrShift: 'ε'
+      bilingualNote: '/&ε'
     })
     expect(hostLegendFor('N1', view)?.en).toEqual(['1', '!'])
   })
@@ -199,19 +202,46 @@ describe('system Russian winkeys', () => {
     expect(hostLegendFor('N8', view)?.second).toEqual(['8', '*'])
   })
 
-  it('takes AltGr from winkeys, not from LARK English', () => {
+  it('shows both AltGr pairs when LARK English and winkeys differ', () => {
     const shown = { ...view, altGr: true, altGrShift: true }
     expect(hostLegendFor('A', shown)).toMatchObject({
       en: ['a', 'A'],
       second: ['ф', 'Ф'],
-      altGr: '',
-      altGrShift: '',
-      bilingualNote: undefined
+      bilingualNote: '@α/'
     })
-    expect(hostLegendFor('Q', shown)?.altGr).toBe('')
-    expect(hostLegendFor('Q', shown)?.bilingualNote).toBeUndefined()
-    expect(hostLegendFor('N8', shown)?.altGr).toBe('₽')
-    expect(hostLegendFor('N8', shown)?.altGrShift).toBe('')
+    expect(hostLegendFor('Q', shown)?.bilingualNote).toBe('øØ/')
+    expect(hostLegendFor('N8', shown)?.bilingualNote).toContain('₽')
+  })
+})
+
+describe('Ukrainian system layout', () => {
+  it('uses Ukrainian letters on the quote key', () => {
+    expect(systemUkrainianLayout.byZmk.get('SQT')?.[0]).toBe('є')
+    expect(systemUkrainianLayout.byZmk.get('Q')?.[0]).toBe('й')
+  })
+
+  it('adds Ukrainian and collapses Russian to a flag', () => {
+    const view = addHostLanguage(standardHostLegendView(), 'uk')
+    const columns = hostLegendColumns(view)
+    expect(columns.map(column => [column.language, column.wide])).toEqual([
+      ['en', true],
+      ['ru', false],
+      ['uk', true]
+    ])
+    expect(view.secondId).toBe('system-ua')
+    expect(hostLegendFor('SQT', view)?.second?.[0]).toBe('є')
+  })
+
+  it('opens Russian again and collapses Ukrainian', () => {
+    const added = addHostLanguage(standardHostLegendView(), 'uk')
+    const back = toggleHostLanguage(added, 'ru')
+    const columns = hostLegendColumns(back)
+    expect(columns.map(column => [column.language, column.wide])).toEqual([
+      ['en', true],
+      ['ru', true],
+      ['uk', false]
+    ])
+    expect(hostLegendFor('Q', back)?.second).toEqual(['й', 'Й'])
   })
 })
 
