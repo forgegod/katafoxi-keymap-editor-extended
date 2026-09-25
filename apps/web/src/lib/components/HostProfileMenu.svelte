@@ -1,13 +1,12 @@
 <script lang="ts">
   import {
-    builtinProfileIdForChoice,
+    hostLayoutChoice,
     hostLayoutChoiceLabel,
     hostLayoutShelves,
     type HostLanguageId,
     type HostLayoutChoice
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
-  import { builtinProfileLabel } from '../host-profiles.js'
 
   interface Props {
     language: HostLanguageId
@@ -19,23 +18,22 @@
 
   let { language, languageName, open, onToggle, onClose }: Props = $props()
 
-  const shelves = $derived(hostLayoutShelves(language))
-  const customs = $derived(editor.profilesForLanguage(language))
+  const shelves = $derived.by(() => {
+    editor.userLayouts
+    return hostLayoutShelves(language)
+  })
+  const customs = $derived(shelves.users)
   const activeId = $derived(editor.activeProfileId(language))
   const canStore = true
 
   function currentLabel(): string {
-    const builtin = builtinProfileLabel(activeId)
-    if (builtin) return builtin
-    return customs.find(profile => profile.id === activeId)?.name ?? ''
+    const user = editor.profilesForLanguage(language).find(profile => profile.id === activeId)
+    if (user) return user.name
+    const choice = hostLayoutChoice(activeId)
+    return choice ? hostLayoutChoiceLabel(choice) : ''
   }
 
-  function selectBuiltin(choice: HostLayoutChoice) {
-    void editor.selectLanguageProfile(language, builtinProfileIdForChoice(choice))
-    onClose()
-  }
-
-  function selectCustom(id: string) {
+  function selectLayout(id: string) {
     void editor.selectLanguageProfile(language, id)
     onClose()
   }
@@ -48,9 +46,8 @@
 
   function copyCustom(id: string, event: MouseEvent) {
     event.stopPropagation()
-    const profile = customs.find(item => item.id === id)
     onClose()
-    editor.beginCopyHostProfile(language, profile?.layoutId)
+    editor.beginCopyHostProfile(language, id)
   }
 
   function renameCustom(id: string, event: MouseEvent) {
@@ -99,16 +96,16 @@
             class:selected={profile.id === activeId}
             role="option"
             aria-selected={profile.id === activeId}
-            onclick={() => selectCustom(profile.id)}
+            onclick={() => selectLayout(profile.id)}
           >
-            {profile.name}
+            {profile.layoutName}
           </button>
           {#if canStore}
           <button
             type="button"
             class="profile-icon"
             title="Скопировать профиль"
-            aria-label="Скопировать {profile.name}"
+            aria-label="Скопировать {profile.layoutName}"
             onclick={event => copyCustom(profile.id, event)}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -120,7 +117,7 @@
             type="button"
             class="profile-icon stub"
             title="Переименовать профиль"
-            aria-label="Переименовать {profile.name}"
+            aria-label="Переименовать {profile.layoutName}"
             onclick={event => renameCustom(profile.id, event)}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -132,7 +129,7 @@
             type="button"
             class="profile-icon stub danger"
             title="Удалить профиль"
-            aria-label="Удалить {profile.name}"
+            aria-label="Удалить {profile.layoutName}"
             onclick={event => deleteCustom(profile.id, event)}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -147,24 +144,25 @@
         <li class="profile-sep" aria-hidden="true"></li>
       {/if}
       {#if shelves.inLayout}
+        {@const inLayout = shelves.inLayout}
         <li class="profile-row">
           <button
             type="button"
             class="profile-item"
-            class:selected={builtinProfileIdForChoice(shelves.inLayout) === activeId}
+            class:selected={inLayout.id === activeId}
             role="option"
-            aria-selected={builtinProfileIdForChoice(shelves.inLayout) === activeId}
-            onclick={() => selectBuiltin(shelves.inLayout!)}
+            aria-selected={inLayout.id === activeId}
+            onclick={() => selectLayout(inLayout.id)}
           >
-            {hostLayoutChoiceLabel(shelves.inLayout)}
+            {hostLayoutChoiceLabel(inLayout)}
           </button>
           {#if canStore}
           <button
             type="button"
             class="profile-icon"
             title="Скопировать профиль"
-            aria-label="Скопировать {hostLayoutChoiceLabel(shelves.inLayout)}"
-            onclick={event => copyLayout(shelves.inLayout!, event)}
+            aria-label="Скопировать {hostLayoutChoiceLabel(inLayout)}"
+            onclick={event => copyLayout(inLayout, event)}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <rect x="8" y="8" width="12" height="12" rx="1.5" />
@@ -178,24 +176,25 @@
         <li class="profile-sep" aria-hidden="true"></li>
       {/if}
       {#if shelves.primary}
+        {@const primary = shelves.primary}
         <li class="profile-row">
           <button
             type="button"
             class="profile-item"
-            class:selected={builtinProfileIdForChoice(shelves.primary) === activeId}
+            class:selected={primary.id === activeId}
             role="option"
-            aria-selected={builtinProfileIdForChoice(shelves.primary) === activeId}
-            onclick={() => selectBuiltin(shelves.primary!)}
+            aria-selected={primary.id === activeId}
+            onclick={() => selectLayout(primary.id)}
           >
-            {hostLayoutChoiceLabel(shelves.primary)}
+            {hostLayoutChoiceLabel(primary)}
           </button>
           {#if canStore}
           <button
             type="button"
             class="profile-icon"
             title="Скопировать профиль"
-            aria-label="Скопировать {hostLayoutChoiceLabel(shelves.primary)}"
-            onclick={event => copyLayout(shelves.primary!, event)}
+            aria-label="Скопировать {hostLayoutChoiceLabel(primary)}"
+            onclick={event => copyLayout(primary, event)}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <rect x="8" y="8" width="12" height="12" rx="1.5" />
@@ -210,10 +209,10 @@
           <button
             type="button"
             class="profile-item"
-            class:selected={builtinProfileIdForChoice(choice) === activeId}
+            class:selected={choice.id === activeId}
             role="option"
-            aria-selected={builtinProfileIdForChoice(choice) === activeId}
-            onclick={() => selectBuiltin(choice)}
+            aria-selected={choice.id === activeId}
+            onclick={() => selectLayout(choice.id)}
           >
             {hostLayoutChoiceLabel(choice)}
           </button>

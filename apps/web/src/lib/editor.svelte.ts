@@ -8,10 +8,16 @@ import {
   getBehaviorCatalog,
   getKeycodeCatalog,
   assignHostLanguageLayout,
+  hostLanguage,
+  hostLayout,
   hostLegendColumns,
+  primarySystemLayoutId,
+  registerHostLayout,
+  resetHostLayoutRegistry,
   standardHostLegendView,
   standardLayerView,
   remapShownLayersAfterDelete,
+  unregisterHostLayout,
   summarizeKeymapDiff,
   type HostLegendView,
   type LayerView,
@@ -32,20 +38,20 @@ import {
   type DraftIdentity
 } from './draft-storage'
 import {
-  defaultActiveLanguageProfiles,
-  isBuiltinLanguageProfile,
-  layoutIdForProfile,
-  loadActiveLanguageProfiles,
-  deleteHostProfile,
-  loadHostProfiles,
-  profileIdForLayout,
+  cloneHostLayoutTable,
+  deleteUserHostLayout,
+  isUserHostLayoutId,
+  loadHostLegendView,
+  loadUserHostLayouts,
   reservedProfileName,
-  saveActiveLanguageProfiles,
-  saveHostProfile,
-  type ActiveLanguageProfiles,
+  sanitizeHostLegendView,
+  saveHostLegendView,
+  saveUserHostLayout,
+  UNKNOWN_HOST_LAYOUT_NOTE,
   type HostLanguageId,
-  type HostProfile
-} from './host-profiles'
+  type UserHostLayout,
+  type UserHostLayoutRecord
+} from './host-layout-store'
 
 export type LegendMode = 'zmk' | 'composed'
 
@@ -141,7 +147,7 @@ export type KeyboardSelection = {
   [key: string]: unknown
 }
 
-class EditorState {
+export class EditorState {
   definitions = $state<Definitions | null>(null)
   source = $state<string | null>(null)
   githubMeta = $state<GithubMeta | null>(null)
@@ -159,8 +165,7 @@ class EditorState {
   hostLegend = $state<HostLegendView>(standardHostLegendView())
   /** Which firmware layers are drawn on the keycap. */
   layerView = $state<LayerView>(standardLayerView())
-  hostProfiles = $state<HostProfile[]>([])
-  activeLanguageProfiles = $state<ActiveLanguageProfiles>(defaultActiveLanguageProfiles())
+  userLayouts = $state<UserHostLayout[]>([])
   hostProfilePrompt = $state<HostProfilePrompt | null>(null)
   hostProfileNote = $state<string | null>(null)
   legendHover = $state<LegendHover | null>(null)
@@ -237,42 +242,49 @@ class EditorState {
     }
   }
 
-  /** Restore named per-language profiles. Failures leave the in-layout pair. */
+  /** Restore user layouts into the registry, then the saved view. */
   async restoreHostProfiles() {
     try {
-      const profiles = await loadHostProfiles()
-      const active = await loadActiveLanguageProfiles()
-      this.hostProfiles = profiles
-      this.activeLanguageProfiles = active
-      this.hostLegend = this.#viewFromActive(this.hostLegend, active, profiles)
+      resetHostLayoutRegistry()
+      const records = await loadUserHostLayouts()
+      for (const record of records) this.#registerUserLayout(record)
+      this.userLayouts = records.map(({ layout: _layout, ...rest }) => rest)
+      const stored = await loadHostLegendView()
+      const { view, replaced } = sanitizeHostLegendView(
+        stored ?? standardHostLegendView()
+      )
+      this.hostLegend = view
+      this.hostProfileNote = replaced.length > 0 ? UNKNOWN_HOST_LAYOUT_NOTE : null
+      if (replaced.length > 0) await saveHostLegendView(view)
     } catch {
-      this.hostProfiles = []
-      this.activeLanguageProfiles = defaultActiveLanguageProfiles()
+      resetHostLayoutRegistry()
+      this.userLayouts = []
       this.hostLegend = standardHostLegendView()
       this.layerView = standardLayerView()
+      this.hostProfileNote = null
     }
   }
 
-  #viewFromActive(
-    current: HostLegendView,
-    active: ActiveLanguageProfiles,
-    profiles: readonly HostProfile[]
-  ): HostLegendView {
-    const en = layoutIdForProfile(active.en, profiles) ?? current.columns[0]?.layoutId
-    const ruColumn = current.columns.find(column => column.language === 'ru')
-    const ru = layoutIdForProfile(active.ru, profiles) ?? ruColumn?.layoutId
-    let next = assignHostLanguageLayout(current, 'en', en)
-    if (ru) next = assignHostLanguageLayout(next, 'ru', ru)
-    return next
+  #registerUserLayout(record: UserHostLayoutRecord) {
+    registerHostLayout(
+      {
+        id: record.id,
+        language: record.language,
+        name: record.name,
+        flag: hostLanguage(record.language).flag,
+        origin: 'user'
+      },
+      record.layout
+    )
   }
 
   activeProfileId(language: HostLanguageId): string {
-    return this.activeLanguageProfiles[language]
+    return this.hostLegend.columns.find(column => column.language === language)?.layoutId ?? ''
   }
 
-  profilesForLanguage(language: HostLanguageId): HostProfile[] {
-    return this.hostProfiles
-      .filter(profile => profile.language === language)
+  profilesForLanguage(language: HostLanguageId): UserHostLayout[] {
+    return this.userLayouts
+      .filter(layout => layout.language === language)
       .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
   }
 
@@ -282,28 +294,16 @@ class EditorState {
    */
   commitHostMap(next: HostLegendView): Promise<void> {
     this.hostLegend = { ...next }
-    const active = { ...this.activeLanguageProfiles }
-    for (const column of hostLegendColumns(next)) {
-      active[column.language] = profileIdForLayout(
-        column.language,
-        column.layoutId,
-        this.activeLanguageProfiles[column.language],
-        this.hostProfiles
-      )
-    }
-    this.activeLanguageProfiles = active
-    return saveActiveLanguageProfiles(this.activeLanguageProfiles)
+    return saveHostLegendView(this.hostLegend)
   }
 
   selectLanguageProfile(language: HostLanguageId, id: string): Promise<void> {
-    if (this.activeLanguageProfiles[language] === id) return Promise.resolve()
+    if (this.activeProfileId(language) === id) return Promise.resolve()
     this.hostProfilePrompt = null
     this.hostProfileNote = null
-    const layoutId = layoutIdForProfile(id, this.hostProfiles)
-    if (!layoutId) return Promise.resolve()
-    this.activeLanguageProfiles = { ...this.activeLanguageProfiles, [language]: id }
-    this.hostLegend = assignHostLanguageLayout(this.hostLegend, language, layoutId)
-    return saveActiveLanguageProfiles(this.activeLanguageProfiles)
+    if (!hostLayout(id)) return Promise.resolve()
+    this.hostLegend = assignHostLanguageLayout(this.hostLegend, language, id)
+    return saveHostLegendView(this.hostLegend)
   }
 
   beginSaveHostProfile(language: HostLanguageId) {
@@ -317,17 +317,17 @@ class EditorState {
   }
 
   beginRenameHostProfile(language: HostLanguageId, profileId?: string) {
-    const id = profileId ?? this.activeLanguageProfiles[language]
-    if (isBuiltinLanguageProfile(id)) return
-    if (!this.hostProfiles.some(profile => profile.id === id)) return
+    const id = profileId ?? this.activeProfileId(language)
+    if (!isUserHostLayoutId(id)) return
+    if (!this.userLayouts.some(layout => layout.id === id)) return
     this.hostProfileNote = null
     this.hostProfilePrompt = { kind: 'rename', language, profileId: id }
   }
 
   beginDeleteHostProfile(language: HostLanguageId, profileId?: string) {
-    const id = profileId ?? this.activeLanguageProfiles[language]
-    if (isBuiltinLanguageProfile(id)) return
-    if (!this.hostProfiles.some(profile => profile.id === id)) return
+    const id = profileId ?? this.activeProfileId(language)
+    if (!isUserHostLayoutId(id)) return
+    if (!this.userLayouts.some(layout => layout.id === id)) return
     this.hostProfileNote = null
     this.hostProfilePrompt = { kind: 'delete', language, profileId: id }
   }
@@ -336,15 +336,17 @@ class EditorState {
     const prompt = this.hostProfilePrompt
     if (prompt?.kind !== 'delete') return
     const language = prompt.language
-    const id = prompt.profileId ?? this.activeLanguageProfiles[language]
-    if (isBuiltinLanguageProfile(id)) return
-    const existed = this.hostProfiles.some(profile => profile.id === id)
+    const id = prompt.profileId ?? this.activeProfileId(language)
+    if (!isUserHostLayoutId(id)) return
+    const existed = this.userLayouts.some(layout => layout.id === id)
     if (!existed) return
-    this.hostProfiles = this.hostProfiles.filter(profile => profile.id !== id)
+    this.userLayouts = this.userLayouts.filter(layout => layout.id !== id)
     this.hostProfilePrompt = null
-    await deleteHostProfile(id)
-    if (this.activeLanguageProfiles[language] === id) {
-      await this.selectLanguageProfile(language, defaultActiveLanguageProfiles()[language])
+    unregisterHostLayout(id)
+    await deleteUserHostLayout(id)
+    if (this.activeProfileId(language) === id) {
+      const primary = primarySystemLayoutId(language)
+      if (primary) await this.selectLanguageProfile(language, primary)
     }
   }
 
@@ -362,30 +364,44 @@ class EditorState {
     if (prompt.kind === 'delete') return null
     if (prompt.kind === 'rename') return this.#renameHostProfile(prompt.language, name)
     const language = prompt.language
-    const taken = this.hostProfiles.some(
-      profile =>
-        profile.language === language &&
-        profile.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru')
+    const taken = this.userLayouts.some(
+      layout =>
+        layout.language === language &&
+        layout.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru')
     )
     if (taken) return 'Профиль с таким именем уже есть'
-    const layoutId =
+    const sourceId =
       (prompt.kind === 'copy' ? prompt.layoutId : undefined) ??
-      hostLegendColumns(this.hostLegend).find(column => column.language === language)?.layoutId ??
+      hostLegendColumns(this.hostLegend).find(column => column.language === language)
+        ?.layoutId ??
       ''
-    if (!layoutId) return 'Нет раскладки для этого языка'
-    const profile: HostProfile = {
-      id: crypto.randomUUID(),
+    const source = sourceId ? hostLayout(sourceId) : undefined
+    if (!source) return 'Нет раскладки для этого языка'
+    const id = `user:${crypto.randomUUID()}`
+    const layout = cloneHostLayoutTable(source, id)
+    const record: UserHostLayoutRecord = {
+      id,
       name,
       language,
-      layoutId,
-      updatedAt: Date.now()
+      origin: { from: 'copy', layoutId: sourceId },
+      updatedAt: Date.now(),
+      layout
     }
-    this.hostProfiles = [...this.hostProfiles, profile]
-    this.activeLanguageProfiles = { ...this.activeLanguageProfiles, [language]: profile.id }
-    this.hostLegend = assignHostLanguageLayout(this.hostLegend, language, layoutId)
+    this.#registerUserLayout(record)
+    this.userLayouts = [
+      ...this.userLayouts,
+      {
+        id: record.id,
+        name: record.name,
+        language: record.language,
+        origin: record.origin,
+        updatedAt: record.updatedAt
+      }
+    ]
+    this.hostLegend = assignHostLanguageLayout(this.hostLegend, language, id)
     this.hostProfilePrompt = null
-    await saveHostProfile(profile)
-    await saveActiveLanguageProfiles(this.activeLanguageProfiles)
+    await saveUserHostLayout(record)
+    await saveHostLegendView(this.hostLegend)
     return null
   }
 
@@ -393,26 +409,29 @@ class EditorState {
     const id =
       this.hostProfilePrompt?.kind === 'rename'
         ? this.hostProfilePrompt.profileId
-        : this.activeLanguageProfiles[language]
-    const current = this.hostProfiles.find(profile => profile.id === id)
+        : this.activeProfileId(language)
+    const current = this.userLayouts.find(layout => layout.id === id)
     if (!current) return null
     if (current.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru')) {
       this.hostProfilePrompt = null
       return null
     }
-    const taken = this.hostProfiles.some(
-      profile =>
-        profile.id !== current.id &&
-        profile.language === language &&
-        profile.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru')
+    const taken = this.userLayouts.some(
+      layout =>
+        layout.id !== current.id &&
+        layout.language === language &&
+        layout.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru')
     )
     if (taken) return 'Профиль с таким именем уже есть'
-    const updated: HostProfile = { ...current, name, updatedAt: Date.now() }
-    this.hostProfiles = this.hostProfiles.map(profile =>
-      profile.id === updated.id ? updated : profile
+    const table = hostLayout(current.id)
+    if (!table) return null
+    const updated: UserHostLayout = { ...current, name, updatedAt: Date.now() }
+    this.#registerUserLayout({ ...updated, layout: table })
+    this.userLayouts = this.userLayouts.map(layout =>
+      layout.id === updated.id ? updated : layout
     )
     this.hostProfilePrompt = null
-    await saveHostProfile(updated)
+    await saveUserHostLayout({ ...updated, layout: table })
     return null
   }
 
@@ -731,10 +750,10 @@ class EditorState {
     this.clearHistory()
     this.saving = false
     this.legendMode = 'composed'
+    resetHostLayoutRegistry()
     this.hostLegend = standardHostLegendView()
     this.layerView = standardLayerView()
-    this.hostProfiles = []
-    this.activeLanguageProfiles = defaultActiveLanguageProfiles()
+    this.userLayouts = []
     this.hostProfilePrompt = null
     this.hostProfileNote = null
     this.legendHover = null

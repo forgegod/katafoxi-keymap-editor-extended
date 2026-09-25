@@ -2,8 +2,14 @@
   import { hostLayoutChoice, hostLayoutChoiceLabel } from '@keymap-editor/keymap-core'
   import { onDestroy } from 'svelte'
   import { editor } from '../editor.svelte.js'
-  import { builtinProfileLabel } from '../host-profiles'
   import Modal from './Common/Modal.svelte'
+
+  function layoutLabel(id: string): string {
+    const user = editor.userLayouts.find(layout => layout.id === id)
+    if (user) return user.name
+    const choice = hostLayoutChoice(id)
+    return choice ? hostLayoutChoiceLabel(choice) : ''
+  }
 
   onDestroy(() => {
     editor.hostProfileNote = null
@@ -29,8 +35,8 @@
       if (choice) return hostLayoutChoiceLabel(choice)
     }
     return (
-      builtinProfileLabel(editor.activeProfileId(promptLanguage)) ??
-      targetProfile?.name ??
+      layoutLabel(editor.activeProfileId(promptLanguage)) ||
+      targetProfile?.name ||
       ''
     )
   })

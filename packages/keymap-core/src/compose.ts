@@ -9,7 +9,7 @@ import {
 import { encodeKeyBinding } from './keymap.js'
 import { hostKeyByZmk } from './host-key-id.js'
 import { ALT_LEVEL_EMPTY, hostComposeGlyphs, type HostLevels } from './host-layout.js'
-import { hostLayoutShelves } from './host-layout-catalog.js'
+import { hostLayoutShelves } from './host-layout-registry.js'
 import { hostLayoutMeta, hostLevels } from './host-layout-registry.js'
 import { standardHostLegendView } from './host-legend-view.js'
 import { effectiveShownLayers, standardLayerView } from './layer-view.js'

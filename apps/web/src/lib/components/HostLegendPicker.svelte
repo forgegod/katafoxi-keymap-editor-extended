@@ -11,8 +11,6 @@
     hostLayoutChoiceLabel,
     hostLegendColumns,
     hostLegendTableRow,
-    assignHostLanguageLayout,
-    layoutForBuiltinProfile,
     getKeycodeCatalog,
     resolveBinding,
     replaceHostLanguage,
@@ -25,7 +23,6 @@
     type KeyBindingNode
   } from '@keymap-editor/keymap-core'
   import { editor, hostLegendAnchorIndex } from '../editor.svelte.js'
-  import { layoutIdForProfile } from '../host-profiles.js'
   import EyeToggle from './EyeToggle.svelte'
   import HostProfileBar from './HostProfileBar.svelte'
   import HostProfileMenu from './HostProfileMenu.svelte'
@@ -89,21 +86,17 @@
 
   function activeProfileLabel(language: HostLanguageId): string {
     const id = editor.activeProfileId(language)
-    const builtin = layoutForBuiltinProfile(id)
-    if (builtin) return hostLayoutChoiceLabel(builtin)
-    return editor.profilesForLanguage(language).find(profile => profile.id === id)?.name ?? ''
+    const user = editor.profilesForLanguage(language).find(profile => profile.id === id)
+    if (user) return user.name
+    const choice = hostLayoutChoice(id)
+    return choice ? hostLayoutChoiceLabel(choice) : ''
   }
 
   function toggleLanguage(language: HostLanguageId) {
     void editor.commitHostMap(toggleHostLanguage(view, language))
   }
 
-  function applyLanguage(language: HostLanguageId, next: ReturnType<typeof addHostLanguage>) {
-    const stored = layoutIdForProfile(
-      editor.activeProfileId(language),
-      editor.hostProfiles
-    )
-    if (stored) next = assignHostLanguageLayout(next, language, stored)
+  function applyLanguage(_language: HostLanguageId, next: ReturnType<typeof addHostLanguage>) {
     pickingNew = false
     pickingFor = null
     void editor.commitHostMap(next)
@@ -166,7 +159,7 @@
   }
 
   function toggleAlt(language: HostLanguageId, field: 'altGr' | 'altGrShift', on: boolean) {
-    editor.hostLegend = setHostColumnAlt(view, language, field, !on)
+    void editor.commitHostMap(setHostColumnAlt(view, language, field, !on))
   }
 
   const columnCount = $derived(

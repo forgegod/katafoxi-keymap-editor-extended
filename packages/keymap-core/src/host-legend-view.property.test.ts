@@ -1,6 +1,6 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { hostLayoutsForLanguage } from './host-layout-catalog.js'
+import { hostLayoutsForLanguage } from './host-layout-registry.js'
 import { hostLayoutMeta } from './host-layout-registry.js'
 import {
   addHostLanguage,

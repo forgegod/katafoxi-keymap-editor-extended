@@ -1,5 +1,6 @@
 import {
   builtinHostLayoutSpecs,
+  catalogLayoutsForLanguage,
   hostLayoutChoices,
   type BuiltinHostLayoutSpec,
   type HostLayoutChoice
@@ -81,7 +82,7 @@ function choiceFromMeta(meta: HostLayoutMeta): HostLayoutChoice {
     languageName: language.name,
     layoutName: meta.name,
     flag: meta.flag,
-    kind: meta.origin === 'user' ? 'in-layout' : 'system',
+    kind: meta.origin === 'user' ? 'user' : 'system',
     primary: meta.primary
   }
 }
@@ -92,6 +93,34 @@ export function hostLayoutChoice(id: string): HostLayoutChoice | undefined {
   if (listed) return listed
   const meta = hostLayoutMeta(id)
   return meta ? choiceFromMeta(meta) : undefined
+}
+
+function registeredChoices(language: HostLanguageId): HostLayoutChoice[] {
+  const rows: HostLayoutChoice[] = []
+  for (const { meta } of registered.values()) {
+    if (meta.language === language) rows.push(choiceFromMeta(meta))
+  }
+  return rows.sort((a, b) => a.layoutName.localeCompare(b.layoutName, 'ru'))
+}
+
+/** Catalog rows plus registered user layouts for one language. */
+export function hostLayoutsForLanguage(language: HostLanguageId): HostLayoutChoice[] {
+  return [...catalogLayoutsForLanguage(language), ...registeredChoices(language)]
+}
+
+export function hostLayoutShelves(language: HostLanguageId): {
+  primary?: HostLayoutChoice
+  systems: HostLayoutChoice[]
+  inLayout?: HostLayoutChoice
+  users: HostLayoutChoice[]
+} {
+  const layouts = hostLayoutsForLanguage(language)
+  return {
+    primary: layouts.find(choice => choice.kind === 'system' && choice.primary),
+    systems: layouts.filter(choice => choice.kind === 'system' && !choice.primary),
+    inLayout: layouts.find(choice => choice.kind === 'in-layout'),
+    users: layouts.filter(choice => choice.kind === 'user')
+  }
 }
 
 /**

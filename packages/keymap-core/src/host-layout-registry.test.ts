@@ -12,6 +12,8 @@ import {
   hostLayoutById,
   hostLayoutChoice,
   hostLayoutMeta,
+  hostLayoutsForLanguage,
+  hostLayoutShelves,
   registerHostLayout,
   resetHostLayoutRegistry,
   unregisterHostLayout
@@ -153,5 +155,7 @@ describe('host layout registry', () => {
       language: 'ru',
       flag: '🇷🇺'
     })
+    expect(hostLayoutsForLanguage('ru').some(choice => choice.id === USER_RU_ID)).toBe(true)
+    expect(hostLayoutShelves('ru').users.map(choice => choice.id)).toContain(USER_RU_ID)
   })
 })

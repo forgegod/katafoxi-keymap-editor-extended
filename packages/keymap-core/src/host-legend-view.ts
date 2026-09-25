@@ -1,4 +1,4 @@
-import { hostLayoutsForLanguage } from './host-layout-catalog.js'
+import { primarySystemLayoutId } from './host-layout-catalog.js'
 import { LARK_STANDARD_VIEW } from './host-legend-presets.js'
 import {
   ADDABLE_HOST_LANGUAGE_IDS,
@@ -64,13 +64,13 @@ export function replaceHostLanguage(
     return view
   }
   if (!hostLanguagesAvailable(view).includes(to)) return view
-  const choice = hostLayoutsForLanguage(to).find(item => item.kind === 'system')
-  if (!choice) return view
+  const layoutId = primarySystemLayoutId(to)
+  if (!layoutId) return view
   const next = cloneView(view)
   const slot = next.columns.find(column => column.language === from)
   if (!slot || slot === next.columns[0]) return view
   slot.language = to
-  slot.layoutId = choice.id
+  slot.layoutId = layoutId
   if (next.open === from) next.open = to
   return next
 }
@@ -106,12 +106,12 @@ export function addHostLanguage(
   language: HostLanguageId
 ): HostLegendView {
   if (!hostLanguagesAvailable(view).includes(language)) return view
-  const choice = hostLayoutsForLanguage(language).find(item => item.kind === 'system')
-  if (!choice) return view
+  const layoutId = primarySystemLayoutId(language)
+  if (!layoutId) return view
   const next = cloneView(view)
   next.columns.push({
     language,
-    layoutId: choice.id,
+    layoutId,
     visible: true,
     altGr: true,
     altGrShift: true

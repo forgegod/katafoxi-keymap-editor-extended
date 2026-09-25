@@ -6,8 +6,7 @@ import { larkEnglishLayout, larkRussianLayout } from './host-legend-presets.js'
 import { hostComposeGlyphs, hostLayoutFromSymbols } from './host-layout.js'
 import { hostLegendFor, keycapColumns } from './compose.js'
 import {
-  builtinLanguageProfileId,
-  hostLayoutsForLanguage,
+  catalogLayoutsForLanguage,
   SYSTEM_DE_LAYOUT_ID,
   SYSTEM_RU_LAYOUT_ID,
   SYSTEM_UA_LAYOUT_ID,
@@ -215,12 +214,11 @@ describe('system English us(basic)', () => {
   })
 
   it('groups system and in-layout variants by language', () => {
-    expect(hostLayoutsForLanguage('en').map(choice => choice.kind)).toEqual([
+    expect(catalogLayoutsForLanguage('en').map(choice => choice.kind)).toEqual([
       'system',
       'in-layout'
     ])
-    expect(builtinLanguageProfileId('en', 'system')).toBe('en:system')
-    const russian = hostLayoutsForLanguage('ru')
+    const russian = catalogLayoutsForLanguage('ru')
     expect(russian[0]?.id).toBe('system-ru')
     expect(russian[0]?.primary).toBe(true)
     expect(russian.map(choice => choice.id)).toContain('system-ru-phonetic')
@@ -313,7 +311,7 @@ describe('Ukrainian system layout', () => {
   })
 
   it('lists Ukrainian system variants and maps phonetic Q to я', () => {
-    const ukrainian = hostLayoutsForLanguage('uk')
+    const ukrainian = catalogLayoutsForLanguage('uk')
     expect(ukrainian[0]?.id).toBe('system-ua')
     expect(ukrainian[0]?.primary).toBe(true)
     expect(ukrainian.map(choice => choice.layoutName)).toEqual([
@@ -399,7 +397,7 @@ describe('German system layout', () => {
   })
 
   it('lists German system variants and maps nodeadkeys caret', () => {
-    const german = hostLayoutsForLanguage('de')
+    const german = catalogLayoutsForLanguage('de')
     expect(german[0]?.id).toBe('system-de')
     expect(german[0]?.primary).toBe(true)
     expect(german.map(choice => choice.layoutName)).toEqual([

@@ -1,8 +1,6 @@
 import {
   HOST_LANGUAGES,
-  HOST_LANGUAGE_IDS,
   hostLanguage,
-  isHostLanguageId,
   type HostLanguage,
   type HostLanguageId
 } from './host-languages.js'
@@ -12,7 +10,7 @@ import { SYSTEM_LATIN_SYMBOLS } from './system-latin-symbols.js'
 import { SYSTEM_US_XKB_SYMBOLS } from './system-us-xkb-symbols.js'
 import type { ParseXkbOptions } from './xkb-symbols.js'
 
-export type HostLayoutKind = 'system' | 'in-layout'
+export type HostLayoutKind = 'system' | 'in-layout' | 'user'
 
 export interface HostLayoutChoice {
   id: string
@@ -24,12 +22,6 @@ export interface HostLayoutChoice {
   kind: HostLayoutKind
   /** The usual OS layout for this language. */
   primary?: boolean
-}
-
-export interface BuiltinLanguageProfile {
-  language: HostLanguageId
-  kind: HostLayoutKind
-  variant?: string
 }
 
 /** One builtin section the registry can parse on first `hostLayout(id)`. */
@@ -141,7 +133,8 @@ export const SYSTEM_UA_LAYOUT_ID = systemLayoutId(hostLanguage('uk'), hostLangua
 /** System German group (`de(basic)` over `latin(type4)`). */
 export const SYSTEM_DE_LAYOUT_ID = systemLayoutId(hostLanguage('de'), hostLanguage('de').primarySection)
 
-export function hostLayoutsForLanguage(language: HostLanguageId): HostLayoutChoice[] {
+/** Static catalog rows for one language. Runtime layouts are merged in the registry. */
+export function catalogLayoutsForLanguage(language: HostLanguageId): HostLayoutChoice[] {
   const all = hostLayoutChoices.filter(choice => choice.language === language)
   return [
     ...all.filter(choice => choice.kind === 'system' && choice.primary),
@@ -150,50 +143,10 @@ export function hostLayoutsForLanguage(language: HostLanguageId): HostLayoutChoi
   ]
 }
 
-export function hostLayoutShelves(language: HostLanguageId): {
-  primary?: HostLayoutChoice
-  systems: HostLayoutChoice[]
-  inLayout?: HostLayoutChoice
-} {
-  const layouts = hostLayoutsForLanguage(language)
-  return {
-    primary: layouts.find(choice => choice.kind === 'system' && choice.primary),
-    systems: layouts.filter(choice => choice.kind === 'system' && !choice.primary),
-    inLayout: layouts.find(choice => choice.kind === 'in-layout')
-  }
-}
-
-export function builtinLanguageProfileId(
-  language: HostLanguageId,
-  kind: HostLayoutKind,
-  variant?: string
-): string {
-  if (kind === 'system' && variant) {
-    const primary = hostLayoutShelves(language).primary
-    if (primary && variant !== primary.layoutName) return `${language}:system:${variant}`
-  }
-  return `${language}:${kind}`
-}
-
-export function builtinProfileIdForChoice(choice: HostLayoutChoice): string {
-  if (choice.kind === 'in-layout' || choice.primary) {
-    return `${choice.language}:${choice.kind}`
-  }
-  return `${choice.language}:system:${choice.layoutName}`
-}
-
-const BUILTIN_PROFILE_ID = new RegExp(
-  `^(${HOST_LANGUAGE_IDS.join('|')}):(in-layout|system)(?::([A-Za-z0-9_-]+))?$`
-)
-
-export function parseBuiltinLanguageProfileId(id: string): BuiltinLanguageProfile | null {
-  const match = BUILTIN_PROFILE_ID.exec(id)
-  if (!match || !isHostLanguageId(match[1])) return null
-  return {
-    language: match[1],
-    kind: match[2] as HostLayoutKind,
-    variant: match[3]
-  }
+export function primarySystemLayoutId(language: HostLanguageId): string | undefined {
+  return catalogLayoutsForLanguage(language).find(
+    choice => choice.kind === 'system' && choice.primary
+  )?.id
 }
 
 export function builtinLanguageProfileLabel(kind: HostLayoutKind): string {
@@ -208,19 +161,4 @@ export function hostLayoutChoiceLabel(choice: HostLayoutChoice): string {
 
 export function reservedHostProfileNames(): string[] {
   return ['Системная', 'В раскладке']
-}
-
-export function layoutForBuiltinProfile(id: string): HostLayoutChoice | undefined {
-  const parsed = parseBuiltinLanguageProfileId(id)
-  if (!parsed) return undefined
-  const layouts = hostLayoutsForLanguage(parsed.language)
-  if (parsed.kind === 'in-layout') {
-    return layouts.find(choice => choice.kind === 'in-layout')
-  }
-  if (parsed.variant) {
-    return layouts.find(
-      choice => choice.kind === 'system' && choice.layoutName === parsed.variant
-    )
-  }
-  return layouts.find(choice => choice.kind === 'system' && choice.primary)
 }

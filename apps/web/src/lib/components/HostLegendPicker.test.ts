@@ -228,7 +228,7 @@ describe('HostLegendPicker', () => {
     system.click()
     flushSync()
     expect(editor.hostLegend.columns[0].layoutId).toBe('system-us')
-    expect(editor.activeProfileId('en')).toBe('en:system')
+    expect(editor.activeProfileId('en')).toBe('system-us')
   })
 
   it('lists Russian system variants and copies from a row', async () => {
@@ -253,7 +253,7 @@ describe('HostLegendPicker', () => {
     phonetic.click()
     flushSync()
     expect(openLayoutId(editor.hostLegend)).toBe('system-ru-phonetic')
-    expect(editor.activeProfileId('ru')).toBe('ru:system:phonetic')
+    expect(editor.activeProfileId('ru')).toBe('system-ru-phonetic')
   })
 
   function chooseLanguage(value: string) {

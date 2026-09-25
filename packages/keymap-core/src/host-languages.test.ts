@@ -5,7 +5,7 @@ import {
   HOST_LANGUAGE_IDS,
   hostLanguageName
 } from './host-languages.js'
-import { hostLayoutChoices, hostLayoutsForLanguage } from './host-layout-catalog.js'
+import { catalogLayoutsForLanguage, hostLayoutChoices } from './host-layout-catalog.js'
 import {
   addHostLanguage,
   hostLanguagesAvailable,
@@ -33,7 +33,7 @@ describe('HOST_LANGUAGES table', () => {
     expect([...catalogLanguages].sort()).toEqual([...HOST_LANGUAGE_IDS].sort())
 
     for (const language of HOST_LANGUAGES) {
-      const system = hostLayoutsForLanguage(language.id).filter(choice => choice.kind === 'system')
+      const system = catalogLayoutsForLanguage(language.id).filter(choice => choice.kind === 'system')
       const expectedNames =
         language.sections.length === 1 ? [language.xkbModule] : [...language.sections]
       expect(system.map(choice => choice.layoutName)).toEqual(expectedNames)
