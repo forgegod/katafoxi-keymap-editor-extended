@@ -1,5 +1,3 @@
-import { hostLayoutFromSymbols, type HostLayout } from './host-layout.js'
-import { larkEnglishLayout, larkRussianLayout } from './host-legend-presets.js'
 import {
   HOST_LANGUAGES,
   HOST_LANGUAGE_IDS,
@@ -8,9 +6,11 @@ import {
   type HostLanguage,
   type HostLanguageId
 } from './host-languages.js'
+import { LARK_AU_BASIC, LARK_RU_LEGACY } from './lark-host-symbols.js'
 import { SYSTEM_DE_SYMBOLS } from './system-de-symbols.js'
 import { SYSTEM_LATIN_SYMBOLS } from './system-latin-symbols.js'
 import { SYSTEM_US_XKB_SYMBOLS } from './system-us-xkb-symbols.js'
+import type { ParseXkbOptions } from './xkb-symbols.js'
 
 export type HostLayoutKind = 'system' | 'in-layout'
 
@@ -30,6 +30,18 @@ export interface BuiltinLanguageProfile {
   language: HostLanguageId
   kind: HostLayoutKind
   variant?: string
+}
+
+/** One builtin section the registry can parse on first `hostLayout(id)`. */
+export interface BuiltinHostLayoutSpec {
+  id: string
+  language: HostLanguageId
+  name: string
+  flag: string
+  primary?: boolean
+  source: string
+  section: string
+  files?: ParseXkbOptions['files']
 }
 
 /** Include map for xkb modules that pull in another file (`de` → `latin`). */
@@ -62,15 +74,29 @@ function systemChoice(language: HostLanguage, section: string): HostLayoutChoice
   }
 }
 
+function systemSpec(language: HostLanguage, section: string): BuiltinHostLayoutSpec {
+  return {
+    id: systemLayoutId(language, section),
+    language: language.id as HostLanguageId,
+    name: systemLayoutName(language, section),
+    flag: language.flag,
+    primary: section === language.primarySection,
+    source: language.symbols,
+    section,
+    files: XKB_INCLUDE_FILES[language.xkbModule]
+  }
+}
+
 const IN_LAYOUT_EXTRAS: ReadonlyArray<{
   id: string
   language: HostLanguageId
   layoutName: string
   flag: string
-  layout: HostLayout
+  source: string
+  section: string
 }> = [
-  { id: 'lark-en', language: 'en', layoutName: 'au', flag: '🇦🇺', layout: larkEnglishLayout },
-  { id: 'lark-ru', language: 'ru', layoutName: 'legacy', flag: '🇷🇺', layout: larkRussianLayout }
+  { id: 'lark-en', language: 'en', layoutName: 'au', flag: '🇦🇺', source: LARK_AU_BASIC, section: 'basic' },
+  { id: 'lark-ru', language: 'ru', layoutName: 'legacy', flag: '🇷🇺', source: LARK_RU_LEGACY, section: 'legacy' }
 ]
 
 function inLayoutChoices(language: HostLanguageId): HostLayoutChoice[] {
@@ -85,21 +111,23 @@ function inLayoutChoices(language: HostLanguageId): HostLayoutChoice[] {
   }))
 }
 
-const systemLayouts: HostLayout[] = HOST_LANGUAGES.flatMap(language =>
-  language.sections.map(section =>
-    hostLayoutFromSymbols(
-      language.symbols,
-      section,
-      systemLayoutId(language, section),
-      XKB_INCLUDE_FILES[language.xkbModule]
-    )
-  )
-)
-
 export const hostLayoutChoices: readonly HostLayoutChoice[] = HOST_LANGUAGES.flatMap(language => [
   ...language.sections.map(section => systemChoice(language, section)),
   ...inLayoutChoices(language.id)
 ])
+
+/** Builtin sections the registry parses lazily. Importing this list does not parse. */
+export const builtinHostLayoutSpecs: readonly BuiltinHostLayoutSpec[] = [
+  ...HOST_LANGUAGES.flatMap(language => language.sections.map(section => systemSpec(language, section))),
+  ...IN_LAYOUT_EXTRAS.map(extra => ({
+    id: extra.id,
+    language: extra.language,
+    name: extra.layoutName,
+    flag: extra.flag,
+    source: extra.source,
+    section: extra.section
+  }))
+]
 
 /** System English group (`us(basic)`). */
 export const SYSTEM_US_LAYOUT_ID = systemLayoutId(hostLanguage('en'), hostLanguage('en').primarySection)
@@ -112,27 +140,6 @@ export const SYSTEM_UA_LAYOUT_ID = systemLayoutId(hostLanguage('uk'), hostLangua
 
 /** System German group (`de(basic)` over `latin(type4)`). */
 export const SYSTEM_DE_LAYOUT_ID = systemLayoutId(hostLanguage('de'), hostLanguage('de').primarySection)
-
-function layoutsForModule(xkbModule: string): HostLayout[] {
-  const prefix = `system-${xkbModule}`
-  return systemLayouts.filter(layout => layout.id === prefix || layout.id.startsWith(`${prefix}-`))
-}
-
-export const systemEnglishLayout = systemLayouts.find(layout => layout.id === SYSTEM_US_LAYOUT_ID)!
-export const russianSystemLayouts: readonly HostLayout[] = layoutsForModule(hostLanguage('ru').xkbModule)
-export const systemRussianLayout = russianSystemLayouts.find(
-  layout => layout.id === SYSTEM_RU_LAYOUT_ID
-)!
-export const ukrainianSystemLayouts: readonly HostLayout[] = layoutsForModule(
-  hostLanguage('uk').xkbModule
-)
-export const systemUkrainianLayout = ukrainianSystemLayouts.find(
-  layout => layout.id === SYSTEM_UA_LAYOUT_ID
-)!
-export const germanSystemLayouts: readonly HostLayout[] = layoutsForModule(hostLanguage('de').xkbModule)
-export const systemGermanLayout = germanSystemLayouts.find(
-  layout => layout.id === SYSTEM_DE_LAYOUT_ID
-)!
 
 export function hostLayoutsForLanguage(language: HostLanguageId): HostLayoutChoice[] {
   const all = hostLayoutChoices.filter(choice => choice.language === language)
@@ -216,18 +223,4 @@ export function layoutForBuiltinProfile(id: string): HostLayoutChoice | undefine
     )
   }
   return layouts.find(choice => choice.kind === 'system' && choice.primary)
-}
-
-export const layoutsById = new Map<string, HostLayout>([
-  ...IN_LAYOUT_EXTRAS.map(extra => [extra.id, extra.layout] as const),
-  ...systemLayouts.map(layout => [layout.id, layout] as const)
-])
-
-export function hostLayoutChoice(id: string): HostLayoutChoice | undefined {
-  return hostLayoutChoices.find(choice => choice.id === id)
-}
-
-/** Symbols for a built-in layout id (`lark-en`, `system-ru`, …). */
-export function hostLayoutById(id: string): HostLayout | undefined {
-  return layoutsById.get(id)
 }

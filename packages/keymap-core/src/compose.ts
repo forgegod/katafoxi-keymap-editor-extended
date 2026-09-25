@@ -9,11 +9,8 @@ import {
 import { encodeKeyBinding } from './keymap.js'
 import { hostKeyByZmk } from './host-key-id.js'
 import { ALT_LEVEL_EMPTY, type HostLevels } from './host-layout.js'
-import {
-  hostLayoutById,
-  hostLayoutChoice,
-  hostLayoutShelves
-} from './host-layout-catalog.js'
+import { hostLayoutShelves } from './host-layout-catalog.js'
+import { hostLayout, hostLayoutMeta } from './host-layout-registry.js'
 import {
   effectiveShownLayers,
   hostLegendColumns,
@@ -501,12 +498,12 @@ export function composeLegendDecode(
   const current: LegendDecodeColumn[] = []
   const system: LegendDecodeColumn[] = []
   for (const column of hostLegendColumns(hostView).filter(item => item.shown)) {
-    const levels = hostLayoutById(column.layoutId)?.byZmk.get(host.zmk)
+    const levels = hostLayout(column.layoutId)?.byZmk.get(host.zmk)
     if (!levels) continue
-    const flag = hostLayoutChoice(column.layoutId)?.flag ?? ''
+    const flag = hostLayoutMeta(column.layoutId)?.flag ?? ''
     current.push({ language: column.language, flag, slots: slotsFromLevels(levels) })
     const primary = hostLayoutShelves(column.language).primary
-    const sysLevels = primary ? hostLayoutById(primary.id)?.byZmk.get(host.zmk) : undefined
+    const sysLevels = primary ? hostLayout(primary.id)?.byZmk.get(host.zmk) : undefined
     system.push({
       language: column.language,
       flag,

@@ -6,13 +6,12 @@ import { larkEnglishLayout, larkRussianLayout } from './host-legend-presets.js'
 import {
   builtinLanguageProfileId,
   hostLayoutsForLanguage,
+  SYSTEM_DE_LAYOUT_ID,
   SYSTEM_RU_LAYOUT_ID,
-  SYSTEM_US_LAYOUT_ID,
-  systemEnglishLayout,
-  systemGermanLayout,
-  systemRussianLayout,
-  systemUkrainianLayout
+  SYSTEM_UA_LAYOUT_ID,
+  SYSTEM_US_LAYOUT_ID
 } from './host-layout-catalog.js'
+import { hostLayout } from './host-layout-registry.js'
 import {
   addHostLanguage,
   assignHostLanguageLayout,
@@ -142,6 +141,7 @@ describe('system English us(basic)', () => {
   })
 
   it('uses US letters and punctuation, without AltGr', () => {
+    const systemEnglishLayout = hostLayout(SYSTEM_US_LAYOUT_ID)!
     expect(systemEnglishLayout.id).toBe(SYSTEM_US_LAYOUT_ID)
     expect(systemEnglishLayout.byZmk.get('A')).toEqual(['a', 'A', '', ''])
     expect(systemEnglishLayout.byZmk.get('E')).toEqual(['e', 'E', '', ''])
@@ -199,6 +199,7 @@ describe('system Russian winkeys', () => {
   )
 
   it('uses common letters and winkeys punctuation', () => {
+    const systemRussianLayout = hostLayout(SYSTEM_RU_LAYOUT_ID)!
     expect(systemRussianLayout.byZmk.get('Q')).toEqual(['й', 'Й', '', ''])
     expect(systemRussianLayout.byZmk.get('A')).toEqual(['ф', 'Ф', '', ''])
     expect(systemRussianLayout.byZmk.get('GRAVE')).toEqual(['ё', 'Ё', '', ''])
@@ -240,6 +241,7 @@ describe('system Russian winkeys', () => {
 
 describe('Ukrainian system layout', () => {
   it('uses Ukrainian letters on the quote key', () => {
+    const systemUkrainianLayout = hostLayout(SYSTEM_UA_LAYOUT_ID)!
     expect(systemUkrainianLayout.byZmk.get('SQT')?.[0]).toBe('є')
     expect(systemUkrainianLayout.byZmk.get('Q')?.[0]).toBe('й')
   })
@@ -290,6 +292,7 @@ describe('Ukrainian system layout', () => {
 
 describe('German system layout', () => {
   it('uses QWERTZ letters and ß on the minus key', () => {
+    const systemGermanLayout = hostLayout(SYSTEM_DE_LAYOUT_ID)!
     expect(systemGermanLayout.byZmk.get('A')?.slice(0, 2)).toEqual(['a', 'A'])
     expect(systemGermanLayout.byZmk.get('Y')?.[0]).toBe('z')
     expect(systemGermanLayout.byZmk.get('Z')?.[0]).toBe('y')

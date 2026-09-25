@@ -1,9 +1,6 @@
 import { composeHostPair } from './host-layout.js'
-import {
-  hostLayoutChoice,
-  hostLayoutsForLanguage,
-  layoutsById
-} from './host-layout-catalog.js'
+import { hostLayoutsForLanguage } from './host-layout-catalog.js'
+import { hostLayout, hostLayoutMeta } from './host-layout-registry.js'
 import { LARK_STANDARD_VIEW } from './host-legend-presets.js'
 import {
   ADDABLE_HOST_LANGUAGE_IDS,
@@ -120,11 +117,11 @@ export function hostLegendFor(
   token: string,
   view: HostLegendView = LARK_STANDARD_VIEW
 ): Pick<ComposedLegend, 'en' | 'second' | 'altGr' | 'altGrShift' | 'showAltGr' | 'showAltGrShift' | 'bilingualNote' | 'bilingualAlt' | 'keycode'> | null {
-  const base = layoutsById.get(view.baseId)
+  const base = hostLayout(view.baseId)
   if (!base) return null
   const second =
     view.secondVisible !== false && view.secondId && view.secondId !== view.baseId
-      ? (layoutsById.get(view.secondId) ?? null)
+      ? (hostLayout(view.secondId) ?? null)
       : null
   return composeHostPair(base, second, token, {
     altGr: view.altGr,
@@ -150,10 +147,10 @@ type HostRosterSlot = NonNullable<HostLegendView['roster']>[number]
 function rosterOf(view: HostLegendView): HostRosterSlot[] {
   if (view.roster && view.roster.length > 0) return view.roster.map(slot => ({ ...slot }))
   if (!view.secondId) return []
-  const choice = hostLayoutChoice(view.secondId)
+  const language = hostLayoutMeta(view.secondId)?.language
   return [
     {
-      language: choice?.language ?? 'ru',
+      language: language ?? 'ru',
       layoutId: view.secondId,
       altGr: view.secondAltGr ?? view.altGr,
       altGrShift: view.secondAltGrShift ?? view.altGrShift
@@ -163,9 +160,9 @@ function rosterOf(view: HostLegendView): HostRosterSlot[] {
 
 /** Base column, then the other languages in table order. */
 export function hostLegendColumns(view: HostLegendView): HostLegendColumn[] {
-  const baseChoice = hostLayoutChoice(view.baseId)
+  const baseLanguage = hostLayoutMeta(view.baseId)?.language
   const base: HostLegendColumn = {
-    language: baseChoice?.language ?? 'en',
+    language: baseLanguage ?? 'en',
     layoutId: view.baseId,
     shown: view.baseVisible !== false,
     wide: true,
@@ -216,7 +213,7 @@ export function replaceHostLanguage(
     }
   })
   if (!found) return view
-  const replacingOpen = hostLayoutChoice(view.secondId ?? '')?.language === from
+  const replacingOpen = hostLayoutMeta(view.secondId ?? '')?.language === from
   const next = replacingOpen
     ? hostLegendView(view, { secondId: choice.id })
     : { ...view }
@@ -232,7 +229,7 @@ export function removeHostLanguage(
   const before = rosterOf(view)
   const roster = before.filter(slot => slot.language !== language)
   if (roster.length === before.length) return view
-  const removingOpen = hostLayoutChoice(view.secondId ?? '')?.language === language
+  const removingOpen = hostLayoutMeta(view.secondId ?? '')?.language === language
   if (!removingOpen) return { ...view, roster }
   const fallback =
     [...roster].reverse().find(slot => isAddableHostLanguage(slot.language)) ??
@@ -327,12 +324,12 @@ export function assignHostLanguageLayout(
   language: HostLanguageId,
   layoutId: string
 ): HostLegendView {
-  const baseLanguage = hostLayoutChoice(current.baseId)?.language
+  const baseLanguage = hostLayoutMeta(current.baseId)?.language
   if (language === baseLanguage) return hostLegendView(current, { baseId: layoutId })
   const roster = rosterOf(current).map(slot =>
     slot.language === language ? { ...slot, layoutId } : slot
   )
-  const updatesSecond = hostLayoutChoice(current.secondId ?? '')?.language === language
+  const updatesSecond = hostLayoutMeta(current.secondId ?? '')?.language === language
   if (!updatesSecond && !roster.some(slot => slot.language === language)) return current
   const next = updatesSecond
     ? hostLegendView(current, { secondId: layoutId })
