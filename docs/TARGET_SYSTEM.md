@@ -77,6 +77,7 @@ Core and the web app do **not** know any concrete keyboard. Built-in host data i
 - **Layer view.** Firmware-layer visibility is a separate `LayerView = { shown, layer0Raw }` on the editor (`editor.layerView`). It is not part of the host-legend view.
 - **Profile = layout.** One id space: catalog ids (`system-us`, `system-ru-legacy`, …) and user layouts `user:<uuid>`. A profile menu entry is a layout. Copies materialize the source table; xkb import (`Импортировать xkb…`) registers a user layout with origin `{ from: 'xkb', fileName, section }` and assigns it to that language column. Browser IndexedDB v3 stores user layouts plus the whole legend view (`columns`, `open`).
 - **Keyboard-repo host files.** Loading layouts that ship with a keyboard (`host_keymap/` in a config repo) is out of scope here and needs an ADR.
+- **Vendored xkb ships eagerly.** All `system-*-symbols.ts` blobs (364 KB raw, ~64 KB gzip) sit in the web entry chunk; only ru + us (~19 KB gzip) are needed for the default view. Splitting them out was measured at −25.8 KB gzip (177.4 → 151.6), but it is all-or-nothing: `host-layout-catalog.ts` imports the same modules statically for `de`, so a dynamic import in `host-layout-import.ts` alone is defeated by Rollup and costs ~1 KB. Doing it properly means an async preload step in front of the synchronous `hostLayout()` used during render, whose failure mode is a silently blank legend. Deferred as not worth that trade today; revisit when the language catalog grows.
 
 ## Keymap file contract
 
