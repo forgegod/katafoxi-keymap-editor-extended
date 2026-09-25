@@ -11,7 +11,8 @@ import {
   standardHostLegendView,
   systemRuHostLegendView,
   systemRussianLayout,
-  toggleShownLayer
+  toggleShownLayer,
+  remapShownLayersAfterDelete
 } from './lark-host.js'
 import { parseXkbSymbolsSection } from './xkb-symbols.js'
 import { keysymToGlyph } from './xkb-keysyms.js'
@@ -258,5 +259,22 @@ describe('shown layers', () => {
   it('sorts the effective set in ascending order', () => {
     const view = { ...standard, shownLayers: [3, 1, 0] }
     expect(effectiveShownLayers(view, 4)).toEqual([0, 1, 3])
+  })
+
+  it('shifts shownLayers after a middle layer is deleted', () => {
+    const view = { ...standard, shownLayers: [0, 2, 3] }
+    expect(remapShownLayersAfterDelete(view, 1, 3).shownLayers).toEqual([0, 1, 2])
+  })
+
+  it('drops the deleted mark and resets layer0Raw when layer0 is removed', () => {
+    const view = { ...standard, shownLayers: [0, 2], layer0Raw: true }
+    const next = remapShownLayersAfterDelete(view, 0, 3)
+    expect(next.shownLayers).toEqual([1])
+    expect(next.layer0Raw).toBe(false)
+  })
+
+  it('falls back to layer0 when the last marked layer is deleted', () => {
+    const view = { ...standard, shownLayers: [2] }
+    expect(remapShownLayersAfterDelete(view, 2, 2).shownLayers).toEqual([0])
   })
 })

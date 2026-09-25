@@ -152,6 +152,27 @@ export function toggleShownLayer(
 }
 
 /**
+ * Shift `shownLayers` after a keymap layer is removed. Layer0 raw view
+ * resets when the old layer0 is gone. An empty mark set falls back to [0].
+ */
+export function remapShownLayersAfterDelete(
+  view: HostLegendView,
+  deletedIndex: number,
+  nextLayerCount: number
+): HostLegendView {
+  let remapped = markedShownLayers(view)
+    .filter(index => index !== deletedIndex)
+    .map(index => (index > deletedIndex ? index - 1 : index))
+    .filter(index => index >= 0 && index < nextLayerCount)
+  if (remapped.length === 0 && nextLayerCount > 0) remapped = [0]
+  return {
+    ...view,
+    shownLayers: remapped,
+    layer0Raw: deletedIndex === 0 ? false : view.layer0Raw
+  }
+}
+
+/**
  * Layers drawn on the keycap: section-6 rules, clipped to `layerCount`,
  * sorted ascending. Missing `shownLayers` defaults to [0, 1, 2, 3].
  */
