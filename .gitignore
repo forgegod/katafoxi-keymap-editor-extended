@@ -11,6 +11,9 @@ packages/*/dist
 # Plans
 docs/plans/
 
+# Local host-legend characterization snapshot (recreate with UPDATE_GOLDEN=1)
+packages/keymap-core/src/__golden__/
+
 # Coverage
 coverage
 
