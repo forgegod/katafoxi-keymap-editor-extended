@@ -3,6 +3,7 @@
     behaviorKeycapRole,
     composeKey,
     compactBehaviorLegend,
+    composeLegendDecode,
     legendHoverHit,
     composeLayerRows,
     encodeKeyBinding,
@@ -33,6 +34,7 @@
   import { pick } from '../../../utils'
   import KeyParamlist from './KeyParamlist.svelte'
   import KeyCap from '../../KeyCap.svelte'
+  import LegendDecodeCard from '../../LegendDecodeCard.svelte'
   import './Key.css'
   import Modal from '../../Common/Modal.svelte'
   import KeyEditor from '../../KeyEditor/KeyEditor.svelte'
@@ -304,6 +306,7 @@
       }
     }
     editing = { rowKey, slotCodeIndex }
+    hideDecode()
   }
 
   function handleSelectCode(event: {
@@ -344,6 +347,23 @@
     if (code === '&trans') return `${title}, layer ${row.layer}, passes through`
     if (code === '&none') return `${title}, layer ${row.layer}, silent`
     return `${title}, layer ${row.layer}`
+  }
+
+  let decode = $state<{ layer: number; rect: DOMRect } | null>(null)
+  const decodeCard = $derived(
+    decode ? composeLegendDecode(bindingForLayer(decode.layer), hostView) : null
+  )
+  const decodeTooltipId = $derived(
+    decode ? `legend-decode-${keyIndex}-${decode.layer}` : undefined
+  )
+
+  function openDecode(layer: number, target: EventTarget | null) {
+    if (!(target instanceof HTMLElement)) return
+    decode = { layer, rect: target.getBoundingClientRect() }
+  }
+
+  function hideDecode() {
+    decode = null
   }
 
   function blankRowMark(binding: KeyBindingNode): string {
@@ -428,6 +448,8 @@
     .map(([k, v]) => `${k.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`)}:${v}`)
     .join(';')}
   onclick={handleKeyClick}
+  onmouseenter={showComposed && !showStack ? event => openDecode(layerIndex ?? 0, event.currentTarget) : undefined}
+  onmouseleave={showComposed && !showStack ? hideDecode : undefined}
 >
   {#if showStack}
     <div class="keycap-wrap layer-stack" style="--layer-rows: {composedRows.length || 1}">
@@ -437,9 +459,13 @@
           type="button"
           class="layer-slot"
           data-layer={row.layer}
-          title={rowTitle(row)}
           aria-label={rowAriaLabel(row)}
+          aria-describedby={decode?.layer === row.layer ? decodeTooltipId : undefined}
           onclick={event => handleRowClick(event, row.layer)}
+          onmouseenter={event => openDecode(row.layer, event.currentTarget)}
+          onmouseleave={hideDecode}
+          onfocus={event => openDecode(row.layer, event.currentTarget)}
+          onblur={hideDecode}
         >
           {#if row.blank}
             <span class="layer-empty" aria-hidden="true">{blankRowMark(row.binding)}</span>
@@ -496,6 +522,10 @@
       onSelect={handleSelectCode}
     />
     </span>
+  {/if}
+
+  {#if decode && decodeCard && !editing}
+    <LegendDecodeCard card={decodeCard} anchor={decode.rect} tooltipId={decodeTooltipId ?? ''} />
   {/if}
 
   {#if editing && canEdit && activeSlot}

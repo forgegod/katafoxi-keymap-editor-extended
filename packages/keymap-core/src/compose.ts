@@ -7,7 +7,18 @@ import {
   MODIFIER_ROLE_GLYPH
 } from './modifiers.js'
 import { encodeKeyBinding } from './keymap.js'
-import { effectiveShownLayers, hostLegendFor, standardHostLegendView } from './lark-host.js'
+import { hostKeyByZmk } from './host-key-id.js'
+import { ALT_LEVEL_EMPTY, type HostLevels } from './host-layout.js'
+import {
+  effectiveShownLayers,
+  hostLayoutById,
+  hostLayoutChoice,
+  hostLayoutShelves,
+  hostLegendColumns,
+  hostLegendFor,
+  standardHostLegendView,
+  type HostLanguageId
+} from './lark-host.js'
 import type {
   ComposedLegend,
   ComposeKeyInput,
@@ -16,6 +27,8 @@ import type {
   LegendHover,
   ResolvedBinding
 } from './types.js'
+
+export { ALT_LEVEL_EMPTY } from './host-layout.js'
 
 /** Compact layer index for key legends (`1` → `L1`). Binding value stays numeric. */
 export function layerLegendSymbol(index: number | string): string {
@@ -352,9 +365,6 @@ export function composeLayerRows(
   })
 }
 
-/** Marks a missing AltGr or AltGr+Shift glyph so the other level stays anchored. */
-export const ALT_LEVEL_EMPTY = 'ˬ'
-
 /**
  * AltGr and AltGr+Shift sit in one token, with no space.
  * A shown column with no glyph is `ˬ`, including `ˬˬ` when both columns are on.
@@ -422,4 +432,112 @@ export function formatLegendCompact(legend: ComposedLegend): string {
   )
   const hold = legend.hold ? ` ${legend.hold}` : ''
   return `${cols.join(' ')}${hold}`.trim()
+}
+
+export interface LegendDecodeSlot {
+  text: string
+  /** True when this current-row cell differs from the language's primary system. */
+  differs: boolean
+}
+
+export interface LegendDecodeColumn {
+  language: HostLanguageId
+  /** Same flag as the host-legend strip for the column's current layout. */
+  flag: string
+  slots: [LegendDecodeSlot, LegendDecodeSlot, LegendDecodeSlot, LegendDecodeSlot]
+}
+
+/** Full host decode for a composed-row tooltip: ids + optional system/current grid. */
+export interface LegendDecodeCard {
+  binding: string
+  keycode?: string
+  vk?: string
+  evdevName?: string
+  hold?: string
+  current: LegendDecodeColumn[]
+  /** Omitted when every shown language matches its primary system layout. */
+  system: LegendDecodeColumn[] | null
+}
+
+export function formatDecodeWord(column: Pick<LegendDecodeColumn, 'slots'>): string {
+  return column.slots.map(slot => slot.text).join('')
+}
+
+function slotsFromLevels(levels: HostLevels): LegendDecodeColumn['slots'] {
+  return [
+    { text: levels[0] || ALT_LEVEL_EMPTY, differs: false },
+    { text: levels[1] || ALT_LEVEL_EMPTY, differs: false },
+    { text: levels[2] || ALT_LEVEL_EMPTY, differs: false },
+    { text: levels[3] || ALT_LEVEL_EMPTY, differs: false }
+  ]
+}
+
+function emptySlots(): LegendDecodeColumn['slots'] {
+  return [
+    { text: ALT_LEVEL_EMPTY, differs: false },
+    { text: ALT_LEVEL_EMPTY, differs: false },
+    { text: ALT_LEVEL_EMPTY, differs: false },
+    { text: ALT_LEVEL_EMPTY, differs: false }
+  ]
+}
+
+function markDiffs(
+  current: LegendDecodeColumn[],
+  system: LegendDecodeColumn[]
+): { current: LegendDecodeColumn[]; system: LegendDecodeColumn[] | null } {
+  let any = false
+  const marked = current.map(column => {
+    const baseline = system.find(item => item.language === column.language)
+    if (!baseline) return column
+    const slots = column.slots.map((slot, index) => {
+      const differs = slot.text !== baseline.slots[index].text
+      if (differs) any = true
+      return { ...slot, differs }
+    }) as LegendDecodeColumn['slots']
+    return { ...column, slots }
+  })
+  return { current: marked, system: any ? system : null }
+}
+
+/**
+ * Identifiers plus a 4-level grid per shown language.
+ * The faded system row is the language's primary OS layout (`us` / `winkeys`).
+ */
+export function composeLegendDecode(
+  binding: KeyBindingNode,
+  view?: HostLegendView
+): LegendDecodeCard {
+  const resolved = resolveBinding(binding)
+  const host = resolved.tap ? hostKeyByZmk(resolved.tap) : undefined
+  const card: LegendDecodeCard = {
+    binding: encodeKeyBinding(binding),
+    keycode: host ? `KC_${host.zmk}` : undefined,
+    vk: host?.vk,
+    evdevName: host?.evdevName,
+    hold: resolved.hold ? formatHoldBadge(resolved.hold) : undefined,
+    current: [],
+    system: null
+  }
+  if (!host) return card
+
+  const hostView = view ?? standardHostLegendView()
+  const current: LegendDecodeColumn[] = []
+  const system: LegendDecodeColumn[] = []
+  for (const column of hostLegendColumns(hostView).filter(item => item.shown)) {
+    const levels = hostLayoutById(column.layoutId)?.byZmk.get(host.zmk)
+    if (!levels) continue
+    const flag = hostLayoutChoice(column.layoutId)?.flag ?? ''
+    current.push({ language: column.language, flag, slots: slotsFromLevels(levels) })
+    const primary = hostLayoutShelves(column.language).primary
+    const sysLevels = primary ? hostLayoutById(primary.id)?.byZmk.get(host.zmk) : undefined
+    system.push({
+      language: column.language,
+      flag,
+      slots: sysLevels ? slotsFromLevels(sysLevels) : emptySlots()
+    })
+  }
+  const compared = markDiffs(current, system)
+  card.current = compared.current
+  card.system = compared.system
+  return card
 }

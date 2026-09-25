@@ -15,9 +15,6 @@
 
   let { legend, mode = 'composed', stacked = false, hit = 'none' }: Props = $props()
 
-  const title = $derived(
-    [legend.keycode, legend.bilingualNote].filter(Boolean).join(' ')
-  )
   const columns = $derived(keycapColumns(legend))
 </script>
 
@@ -26,7 +23,6 @@
     class="keycap"
     class:keypad={legend.keypad}
     class:stacked
-    {title}
   >
     <span class="line" class:legend-hit={hit === 'combo'}>
       {#each columns as column, index (index)}

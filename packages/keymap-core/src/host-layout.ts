@@ -6,6 +6,9 @@ import { keysymToGlyph } from './xkb-keysyms.js'
 /** Four glyphs: base, Shift, AltGr, AltGr+Shift. Empty string is NoSymbol. */
 export type HostLevels = readonly [string, string, string, string]
 
+/** Marks a missing shown AltGr / AltGr+Shift glyph so the other level stays anchored. */
+export const ALT_LEVEL_EMPTY = 'ˬ'
+
 export interface HostColumnOptions {
   altGr?: boolean
   altGrShift?: boolean
@@ -63,7 +66,10 @@ function shownPair(
   alt: boolean,
   altShift: boolean
 ): string {
-  return `${alt ? levels[2] : ''}${altShift ? levels[3] : ''}`
+  const left = alt ? levels[2] : ''
+  const right = altShift ? levels[3] : ''
+  if (!left && !right) return ''
+  return `${alt ? left || ALT_LEVEL_EMPTY : ''}${altShift ? right || ALT_LEVEL_EMPTY : ''}`
 }
 
 /**

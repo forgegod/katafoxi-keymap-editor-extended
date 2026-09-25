@@ -252,6 +252,39 @@ describe('Key click editor', () => {
     expect(encodeKeyBinding(binding as KeyBindingNode)).toBe('&kp D')
   })
 
+  it('opens a host decode card on composed row hover', () => {
+    open({
+      legendMode: 'composed',
+      layerBindings: [
+        { value: '&kp', params: [{ value: 'MINUS', params: [] }] },
+        { value: '&kp', params: [{ value: 'B', params: [] }] }
+      ]
+    })
+    const row = stackRows()[0]
+    expect(row.getAttribute('title')).toBeNull()
+    expect(row.querySelector('.keycap')?.getAttribute('title')).toBeNull()
+    row.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+
+    const tip = document.querySelector('[role="tooltip"].legend-decode')
+    expect(tip).toBeInstanceOf(HTMLElement)
+    expect(tip?.id).toBe('legend-decode-0-0')
+    expect(row.getAttribute('aria-describedby')).toBe(tip?.id)
+    expect(tip?.textContent).toContain('KC_MINUS')
+    expect(tip?.textContent).toContain('VK_OEM_MINUS')
+    expect(tip?.textContent).toContain('KEY_MINUS')
+    expect(tip?.querySelector('.id[title="ZMK keycode"]')?.textContent).toMatch(/ZMK/)
+    expect(tip?.querySelector('.id[title="Windows virtual-key"]')?.textContent).toMatch(/Win/)
+    expect(tip?.querySelector('.id[title="Linux evdev"]')?.textContent).toMatch(/Lin/)
+    expect(
+      [...(tip?.querySelectorAll('.row.flags .flag') ?? [])].map(el => el.textContent)
+    ).toEqual(['🇦🇺', '🇷🇺'])
+    expect(tip?.querySelector('.row.system')).toBeInstanceOf(HTMLElement)
+    expect(
+      [...(tip?.querySelectorAll('.row.current .lang') ?? [])].map(el => el.textContent)
+    ).toEqual(['-_±ˬ', 'хХ±ˬ'])
+  })
+
   it('opens the editor from a blank &trans composed row', () => {
     open({
       legendMode: 'composed',

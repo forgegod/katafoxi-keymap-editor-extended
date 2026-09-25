@@ -117,7 +117,7 @@ function closeDialog() {
 
 function keySlotTitles(root: ParentNode): string[] {
   return [...root.querySelectorAll('.key .layer-slot[data-layer="0"]')].map(el =>
-    (el.getAttribute('title') ?? '').trim()
+    (el.getAttribute('aria-label') ?? '').replace(/, layer \d.*$/, '').trim()
   )
 }
 

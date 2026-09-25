@@ -361,6 +361,11 @@ export function hostLayoutChoice(id: string): HostLayoutChoice | undefined {
   return hostLayoutChoices.find(choice => choice.id === id)
 }
 
+/** Symbols for a built-in layout id (`lark-en`, `system-ru`, …). */
+export function hostLayoutById(id: string): HostLayout | undefined {
+  return layoutsById.get(id)
+}
+
 function sameLanguages(view: HostLegendView, preset: HostLegendView): boolean {
   return view.baseId === preset.baseId && view.secondId === preset.secondId
 }

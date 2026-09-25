@@ -6,7 +6,9 @@ import {
   bindingSendsShift,
   composeKey,
   composeLayerRows,
+  composeLegendDecode,
   encodeKeyBinding,
+  formatDecodeWord,
   legendHoverHit,
   isCompactKeycapLegend,
   isCompactModifierChord,
@@ -137,7 +139,8 @@ describe('resolveBinding / composeKey', () => {
     const em = composeKey({ binding: parseKeyBinding('&kp M') })
     expect(em?.en).toEqual(['m', 'M'])
     expect(em?.second).toEqual(['ь', 'Ь'])
-    expect(em?.bilingualNote).toBe('μ/ъЪ')
+    expect(em?.bilingualNote).toBe('ˬμ/ъЪ')
+    expect(formatLegendCompact(em!)).toBe('mM ьЬ ˬμ/ъЪ')
 
     const grave = composeKey({ binding: parseKeyBinding('&kp GRAVE') })
     expect(grave?.en).toEqual(['`', '~'])
@@ -556,6 +559,49 @@ describe('keycapLegend', () => {
     expect(symbol('SCRL_DOWN')).toBe('SCRL⬇')
     expect(symbol('SCRL_LEFT')).toBe('SCRL⬅')
     expect(symbol('SCRL_RIGHT')).toBe('SCRL➡')
+  })
+})
+
+describe('composeLegendDecode', () => {
+  it('names the physical key and grids LARK against the system primary', () => {
+    const card = composeLegendDecode(parseKeyBinding('&kp MINUS'))
+    expect(card.keycode).toBe('KC_MINUS')
+    expect(card.vk).toBe('VK_OEM_MINUS')
+    expect(card.evdevName).toBe('KEY_MINUS')
+    expect(card.current.map(column => column.language)).toEqual(['en', 'ru'])
+    expect(card.current.map(column => column.flag)).toEqual(['🇦🇺', '🇷🇺'])
+    expect(card.current.map(formatDecodeWord)).toEqual(['-_±ˬ', 'хХ±ˬ'])
+    expect(card.system?.map(formatDecodeWord)).toEqual(['-_ˬˬ', '-_ˬˬ'])
+    expect(card.current[0].slots.map(slot => slot.differs)).toEqual([false, false, true, false])
+    expect(card.current[1].slots.map(slot => slot.differs)).toEqual([true, true, true, false])
+  })
+
+  it('keeps an empty AltGr slot so μ stays on Shift-AltGr', () => {
+    const card = composeLegendDecode(parseKeyBinding('&kp M'))
+    expect(formatDecodeWord(card.current[0])).toBe('mMˬμ')
+    expect(formatDecodeWord(card.current[1])).toBe('ьЬъЪ')
+    expect(card.system?.map(formatDecodeWord)).toEqual(['mMˬˬ', 'ьЬˬˬ'])
+  })
+
+  it('hides the system row when the profile already is the primary', () => {
+    const card = composeLegendDecode(parseKeyBinding('&kp MINUS'), {
+      ...standardHostLegendView(),
+      baseId: 'system-us',
+      secondId: 'system-ru',
+      source: 'custom'
+    })
+    expect(card.current.map(column => column.flag)).toEqual(['🇺🇸', '🇷🇺'])
+    expect(card.current.map(formatDecodeWord)).toEqual(['-_ˬˬ', '-_ˬˬ'])
+    expect(card.system).toBeNull()
+    expect(card.current.every(column => column.slots.every(slot => !slot.differs))).toBe(true)
+  })
+
+  it('keeps identifiers and skips the grid for a non-character bind', () => {
+    const card = composeLegendDecode(parseKeyBinding('&mo 1'))
+    expect(card.binding).toBe('&mo 1')
+    expect(card.keycode).toBeUndefined()
+    expect(card.current).toEqual([])
+    expect(card.system).toBeNull()
   })
 })
 

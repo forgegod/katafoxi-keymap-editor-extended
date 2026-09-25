@@ -110,7 +110,7 @@ describe('lark host layouts', () => {
 
   it('records the three LARK divergences', () => {
     expect(larkHostLegend('T')?.bilingualNote).toBe('Δτ/ёЁ')
-    expect(larkHostLegend('M')?.bilingualNote).toBe('μ/ъЪ')
+    expect(larkHostLegend('M')?.bilingualNote).toBe('ˬμ/ъЪ')
     expect(larkHostLegend('GRAVE')?.bilingualNote).toBe('/ёЁ')
     expect(larkHostLegend('O')?.second).toEqual(['щ', 'Щ'])
   })
