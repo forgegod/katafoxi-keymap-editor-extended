@@ -1,6 +1,7 @@
 import { composeHostPair, hostLayoutFromSymbols, type HostLayout } from './host-layout.js'
 import type { ComposedLegend, HostLegendView } from './types.js'
 import { LARK_AU_BASIC, LARK_RU_LEGACY } from './lark-host-symbols.js'
+import { SYSTEM_RU_SYMBOLS } from './system-ru-symbols.js'
 
 /** English (Australian) LARK host group. */
 export const larkEnglishLayout: HostLayout = hostLayoutFromSymbols(
@@ -31,9 +32,33 @@ export interface HostLayoutChoice {
   flag: string
 }
 
+/** System Russian group (`ru(winkeys)`), not the LARK legacy group. */
+export const SYSTEM_RU_LAYOUT_ID = 'system-ru'
+
+export const systemRussianLayout: HostLayout = hostLayoutFromSymbols(
+  SYSTEM_RU_SYMBOLS,
+  'winkeys',
+  SYSTEM_RU_LAYOUT_ID
+)
+
+/** Built-in profile: English, then OS Russian. Both language columns are shown. */
+export function systemRuHostLegendView(): HostLegendView {
+  return {
+    baseId: 'lark-en',
+    secondId: SYSTEM_RU_LAYOUT_ID,
+    altGr: false,
+    altGrShift: false,
+    source: 'custom',
+    baseVisible: true,
+    secondVisible: true,
+    layers: [true, true, true, true]
+  }
+}
+
 export const hostLayoutChoices: readonly HostLayoutChoice[] = [
   { id: 'lark-en', language: 'English', layoutName: 'au', flag: '🇦🇺' },
-  { id: 'lark-ru', language: 'Russian', layoutName: 'ru', flag: '🇷🇺' }
+  { id: 'lark-ru', language: 'Russian', layoutName: 'ru', flag: '🇷🇺' },
+  { id: SYSTEM_RU_LAYOUT_ID, language: 'Russian', layoutName: 'winkeys', flag: '🇷🇺' }
 ]
 
 /** LARK preset: English `au` plus Russian, with AltGr. */
@@ -50,7 +75,8 @@ export const LARK_STANDARD_VIEW: HostLegendView = {
 
 const layoutsById = new Map<string, HostLayout>([
   ['lark-en', larkEnglishLayout],
-  ['lark-ru', larkRussianLayout]
+  ['lark-ru', larkRussianLayout],
+  [SYSTEM_RU_LAYOUT_ID, systemRussianLayout]
 ])
 
 export function hostLayoutChoice(id: string): HostLayoutChoice | undefined {
@@ -58,18 +84,13 @@ export function hostLayoutChoice(id: string): HostLayoutChoice | undefined {
 }
 
 function sameLanguages(view: HostLegendView, preset: HostLegendView): boolean {
-  return (
-    view.baseId === preset.baseId &&
-    view.secondId === preset.secondId &&
-    view.altGr === preset.altGr &&
-    view.altGrShift === preset.altGrShift
-  )
+  return view.baseId === preset.baseId && view.secondId === preset.secondId
 }
 
-/** Apply a language or column change. Matching the LARK preset returns `standard`. */
+/** Apply a language change. Matching the LARK preset returns `standard`. */
 export function hostLegendView(
   current: HostLegendView,
-  patch: Partial<Pick<HostLegendView, 'baseId' | 'secondId' | 'altGr' | 'altGrShift'>>
+  patch: Partial<Pick<HostLegendView, 'baseId' | 'secondId'>>
 ): HostLegendView {
   const next: HostLegendView = { ...current, ...patch, source: 'custom' }
   if (next.secondId === next.baseId) next.secondId = null
@@ -77,10 +98,12 @@ export function hostLegendView(
   return next
 }
 
-/** Show/hide columns or layer slots. Does not change `source`. */
+/** Show or hide columns and layer slots. Does not change `source`. */
 export function hostLegendPreview(
   current: HostLegendView,
-  patch: Partial<Pick<HostLegendView, 'baseVisible' | 'secondVisible' | 'layers'>>
+  patch: Partial<
+    Pick<HostLegendView, 'baseVisible' | 'secondVisible' | 'layers' | 'altGr' | 'altGrShift'>
+  >
 ): HostLegendView {
   return { ...current, ...patch }
 }
@@ -107,6 +130,7 @@ export function hostLegendFor(
       : null
   return composeHostPair(base, second, token, {
     altGr: view.altGr,
-    altGrShift: view.altGrShift
+    altGrShift: view.altGrShift,
+    altGrFrom: view.secondId === SYSTEM_RU_LAYOUT_ID ? 'second' : 'base'
   })
 }

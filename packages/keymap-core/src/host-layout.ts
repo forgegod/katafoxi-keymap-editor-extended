@@ -9,6 +9,8 @@ export type HostLevels = readonly [string, string, string, string]
 export interface HostColumnOptions {
   altGr?: boolean
   altGrShift?: boolean
+  /** Which layout supplies levels 3–4. Default is the first language. */
+  altGrFrom?: 'base' | 'second'
 }
 
 export interface HostLayout {
@@ -65,8 +67,10 @@ export function composeHostPair(
   const baseLevels = base.byZmk.get(id.zmk)
   if (!baseLevels || baseLevels[0] === '') return null
   const secondLevels = second?.byZmk.get(id.zmk)
+  const altLevels =
+    columns.altGrFrom === 'second' && secondLevels ? secondLevels : baseLevels
   let bilingualNote: string | undefined
-  if (secondLevels && (showAlt || showAltShift)) {
+  if (secondLevels && (showAlt || showAltShift) && columns.altGrFrom !== 'second') {
     const baseAlt = `${showAlt ? baseLevels[2] : ''}${showAltShift ? baseLevels[3] : ''}`
     const secondAlt = `${showAlt ? secondLevels[2] : ''}${showAltShift ? secondLevels[3] : ''}`
     if (baseAlt !== secondAlt) bilingualNote = `${baseAlt}/${secondAlt}`
@@ -74,8 +78,8 @@ export function composeHostPair(
   return {
     en: [baseLevels[0], baseLevels[1]],
     second: secondLevels ? [secondLevels[0], secondLevels[1]] : null,
-    altGr: showAlt ? baseLevels[2] : '',
-    altGrShift: showAltShift ? baseLevels[3] : '',
+    altGr: showAlt ? altLevels[2] : '',
+    altGrShift: showAltShift ? altLevels[3] : '',
     showAltGr: showAlt,
     showAltGrShift: showAltShift,
     bilingualNote,

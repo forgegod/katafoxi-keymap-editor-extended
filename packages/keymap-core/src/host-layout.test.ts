@@ -7,7 +7,9 @@ import {
   larkEnglishLayout,
   larkHostLegend,
   larkRussianLayout,
-  standardHostLegendView
+  standardHostLegendView,
+  systemRuHostLegendView,
+  systemRussianLayout
 } from './lark-host.js'
 import { parseXkbSymbolsSection } from './xkb-symbols.js'
 import { keysymToGlyph } from './xkb-keysyms.js'
@@ -107,6 +109,53 @@ describe('lark host layouts', () => {
   })
 })
 
+describe('system Russian winkeys', () => {
+  const view = systemRuHostLegendView()
+
+  it('uses common letters and winkeys punctuation', () => {
+    expect(systemRussianLayout.byZmk.get('Q')).toEqual(['й', 'Й', '', ''])
+    expect(systemRussianLayout.byZmk.get('A')).toEqual(['ф', 'Ф', '', ''])
+    expect(systemRussianLayout.byZmk.get('GRAVE')).toEqual(['ё', 'Ё', '', ''])
+    expect(systemRussianLayout.byZmk.get('N3')).toEqual(['3', '№', '', ''])
+    expect(systemRussianLayout.byZmk.get('N4')).toEqual(['4', ';', '', ''])
+    expect(systemRussianLayout.byZmk.get('N8')).toEqual(['8', '*', '₽', ''])
+    expect(systemRussianLayout.byZmk.get('SLASH')).toEqual(['.', ',', '', ''])
+    expect(systemRussianLayout.byZmk.get('BSLH')).toEqual(['\\', '/', '', ''])
+    expect(systemRussianLayout.byZmk.get('MINUS')).toEqual(['-', '_', '', ''])
+  })
+
+  it('shows English first and system Russian second, both visible', () => {
+    expect(view.baseId).toBe('lark-en')
+    expect(view.secondId).toBe('system-ru')
+    expect(view.baseVisible).toBe(true)
+    expect(view.secondVisible).toBe(true)
+    expect(view.altGr).toBe(false)
+    expect(view.altGrShift).toBe(false)
+    expect(hostLegendFor('Q', view)).toMatchObject({
+      en: ['q', 'Q'],
+      second: ['й', 'Й'],
+      altGr: '',
+      altGrShift: ''
+    })
+    expect(hostLegendFor('N8', view)?.second).toEqual(['8', '*'])
+  })
+
+  it('takes AltGr from winkeys, not from LARK English', () => {
+    const shown = { ...view, altGr: true, altGrShift: true }
+    expect(hostLegendFor('A', shown)).toMatchObject({
+      en: ['a', 'A'],
+      second: ['ф', 'Ф'],
+      altGr: '',
+      altGrShift: '',
+      bilingualNote: undefined
+    })
+    expect(hostLegendFor('Q', shown)?.altGr).toBe('')
+    expect(hostLegendFor('Q', shown)?.bilingualNote).toBeUndefined()
+    expect(hostLegendFor('N8', shown)?.altGr).toBe('₽')
+    expect(hostLegendFor('N8', shown)?.altGrShift).toBe('')
+  })
+})
+
 describe('host legend view', () => {
   const standard = standardHostLegendView()
 
@@ -122,8 +171,9 @@ describe('host legend view', () => {
     })
   })
 
-  it('hides AltGr columns independently', () => {
-    const noAlt = hostLegendView(standard, { altGr: false, altGrShift: false })
+  it('hides AltGr columns without changing the layout', () => {
+    const noAlt = hostLegendPreview(standard, { altGr: false, altGrShift: false })
+    expect(noAlt.source).toBe('standard')
     expect(hostLegendFor('T', noAlt)).toMatchObject({
       en: ['t', 'T'],
       second: ['е', 'Е'],
@@ -132,7 +182,8 @@ describe('host legend view', () => {
       bilingualNote: undefined
     })
 
-    const onlyShift = hostLegendView(standard, { altGr: false })
+    const onlyShift = hostLegendPreview(standard, { altGr: false })
+    expect(onlyShift.source).toBe('standard')
     expect(hostLegendFor('E', onlyShift)).toMatchObject({
       altGr: '',
       altGrShift: 'ε'
