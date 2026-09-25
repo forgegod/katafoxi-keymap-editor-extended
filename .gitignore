@@ -8,6 +8,9 @@ dist
 apps/*/dist
 packages/*/dist
 
+# Plans
+docs/plans/
+
 # Coverage
 coverage
 
