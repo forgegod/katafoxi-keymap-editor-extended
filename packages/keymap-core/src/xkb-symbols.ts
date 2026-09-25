@@ -1,7 +1,9 @@
 /**
  * Read `key <NAME> { [ level1, level2, ... ] }` statements from one
- * `xkb_symbols` section. `include` lines are not expanded: LARK writes
- * every alphanumeric key in the section itself.
+ * `xkb_symbols` section.
+ * `include "file(section)"` is expanded when that section is in the same
+ * source, and later keys replace included ones. Includes of other files
+ * stay unresolved: LARK writes its own alphanumeric keys in the section.
  */
 
 const KEYSYM =
@@ -37,11 +39,22 @@ function symbolLists(body: string): string[][] {
   return lists
 }
 
-/** XKB key name → keysym names, in level order. Later statements win. */
+/** `ru(common)` → `common`. A bare file name has no section in this source. */
+function includedSection(spec: string): string | null {
+  const match = /^[A-Za-z0-9_]+\(([^)]+)\)$/.exec(spec.trim())
+  return match?.[1] ?? null
+}
+
+/**
+ * XKB key name → keysym names, in level order.
+ * Included sections are applied first; a later statement in this section wins.
+ */
 export function parseXkbSymbolsSection(
   source: string,
-  section: string
+  section: string,
+  stack: readonly string[] = []
 ): Map<string, string[]> {
+  if (stack.includes(section)) return new Map()
   const text = stripXkbComments(source)
   const header = new RegExp(`xkb_symbols\\s*"${section}"`)
   const found = header.exec(text)
@@ -50,11 +63,23 @@ export function parseXkbSymbolsSection(
   if (open < 0) throw new Error(`xkb symbols section "${section}" has no body`)
   const body = sliceBrace(text, open)
   const keys = new Map<string, string[]>()
-  const keyRe = /key\s*<([A-Za-z0-9]+)>\s*(\{[\s\S]*?\}|\[[^\]]*\])\s*;/g
-  for (const key of body.matchAll(keyRe)) {
-    const lists = symbolLists(key[2])
+  const token =
+    /include\s+"([^"]+)"|key\s*<([A-Za-z0-9]+)>\s*(\{[\s\S]*?\}|\[[^\]]*\])\s*;/g
+  for (const match of body.matchAll(token)) {
+    if (match[1]) {
+      const nested = includedSection(match[1])
+      if (!nested || !new RegExp(`xkb_symbols\\s*"${nested}"`).test(text)) continue
+      for (const [name, levels] of parseXkbSymbolsSection(source, nested, [
+        ...stack,
+        section
+      ])) {
+        keys.set(name, levels)
+      }
+      continue
+    }
+    const lists = symbolLists(match[3])
     if (lists.length === 0) continue
-    keys.set(key[1].toUpperCase(), lists[0])
+    keys.set(match[2].toUpperCase(), lists[0])
   }
   return keys
 }
