@@ -7,7 +7,6 @@ import { HOST_LANGUAGES } from './host-languages.js'
 import { hostLayoutFromSymbols, type HostLayout } from './host-layout.js'
 import { SYSTEM_LATIN_SYMBOLS } from './system-latin-symbols.js'
 import { SYSTEM_US_XKB_SYMBOLS } from './system-us-xkb-symbols.js'
-import { parseXkbSymbolsSection } from './xkb-symbols.js'
 
 export interface HostLayoutFromXkbOptions {
   fileName: string
@@ -39,10 +38,8 @@ export function hostLayoutFromXkb(
 ): HostLayout {
   const files = vendoredXkbFiles()
   const fileId = fileIdFromName(options.fileName)
-  parseXkbSymbolsSection(text, section, [], {
-    files,
+  return hostLayoutFromSymbols(text, section, `xkb:${fileId}:${section}`, files, {
     fileId,
     strictIncludes: true
   })
-  return hostLayoutFromSymbols(text, section, `xkb:${fileId}:${section}`, files)
 }

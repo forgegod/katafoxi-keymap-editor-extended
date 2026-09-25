@@ -41,6 +41,13 @@ function levelsFromKeysyms(keysyms: string[]): HostKeyLevels {
   }
 }
 
+export interface HostLayoutFromSymbolsOptions {
+  /** Name `source` goes by in `files`. Looked up in `files` when omitted. */
+  fileId?: string
+  /** When set, a missing include throws and names the include spec. */
+  strictIncludes?: boolean
+}
+
 /**
  * Host keys in one symbols section, joined to canonical ZMK names.
  * Non-character bases (`Multi_key`, `ISO_Level3_Shift`, `dead_*`) stay in
@@ -50,15 +57,16 @@ export function hostLayoutFromSymbols(
   source: string,
   section: string,
   id: string,
-  files?: ParseXkbOptions['files']
+  files?: ParseXkbOptions['files'],
+  options: HostLayoutFromSymbolsOptions = {}
 ): HostLayout {
+  const fileId =
+    options.fileId ?? (files ? Object.keys(files).find(name => files[name] === source) : undefined)
   const byZmk = new Map<string, HostKeyLevels>()
-  const fileId = files
-    ? Object.keys(files).find(name => files[name] === source)
-    : undefined
   for (const [xkb, keysyms] of parseXkbSymbolsSection(source, section, [], {
     files,
-    fileId
+    fileId,
+    strictIncludes: options.strictIncludes
   })) {
     const host = hostKeyByXkb(xkb)
     if (!host) continue
