@@ -127,21 +127,7 @@
     {/if}
 
     <span class="chrome-sep" aria-hidden="true"></span>
-    <div id="legend-mode" class="chrome-group" role="radiogroup" aria-label="Legend mode">
-      <span class="legend-mode-label">Legend:</span>
-      <label class:active={editor.legendMode === 'zmk'}>
-        <input type="radio" bind:group={editor.legendMode} value="zmk" />
-        ZMK code
-      </label>
-      <label class:active={editor.legendMode === 'composed'}>
-        <input type="radio" bind:group={editor.legendMode} value="composed" />
-        Host composed
-      </label>
-    </div>
-    {#if editor.legendMode === 'composed'}
-      <span class="chrome-sep" aria-hidden="true"></span>
-      <HostProfileBar />
-    {/if}
+    <HostProfileBar />
 
     <div class="chrome-end">
       <span class="chrome-sep" aria-hidden="true"></span>
@@ -225,7 +211,7 @@
     {/if}
   </div>
   <div class="board-stack">
-    {#if editor.legendMode === 'composed'}
+    {#if editor.draftKeymap}
       <div class="host-legend-wrap">
         <HostLegendPicker />
       </div>
@@ -235,7 +221,7 @@
         layout={editor.layout}
         keymap={editor.draftKeymap}
         onUpdate={next => editor.updateKeymap(next)}
-        legendMode={editor.legendMode}
+        legendMode="composed"
         hostView={editor.hostLegend}
         legendHover={editor.legendHover}
       />
@@ -313,25 +299,12 @@
     min-height: 0;
     min-width: 0;
     display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
-    column-gap: 12px;
-  }
-
-  /* keyboard-root is display:contents, so these are grid items of .board-stack */
-  .board-stack :global(.layer-row) {
-    grid-column: 1 / -1;
-    grid-row: 1;
-    align-self: center;
-  }
-
-  .board-stack:has(.host-legend-wrap) :global(.layer-row) {
-    grid-column: 2;
-    padding-left: 8px;
   }
 
   .board-stack :global(.keyboard-stage) {
-    grid-column: 1 / -1;
+    grid-column: 1;
     grid-row: 2;
     min-width: 0;
     min-height: 0;
@@ -343,45 +316,6 @@
     align-self: start;
     padding: 0 0 4px 12px;
     min-width: max-content;
-  }
-
-  #legend-mode {
-    font-size: 90%;
-  }
-
-  .legend-mode-label {
-    color: var(--muted, #555);
-    margin-right: 4px;
-  }
-
-  #legend-mode label {
-    cursor: pointer;
-    user-select: none;
-    background-color: rgba(201, 201, 201, 0.85);
-    color: darkgray;
-    border-radius: 13px;
-    height: 26px;
-    line-height: 26px;
-    padding: 0 10px;
-    margin: 0;
-  }
-
-  #legend-mode label:hover {
-    background-color: var(--hover-selection);
-    color: white;
-  }
-
-  #legend-mode label.active {
-    background-color: var(--selection);
-    color: white;
-  }
-
-  #legend-mode input {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-    pointer-events: none;
   }
 
   .change-status {

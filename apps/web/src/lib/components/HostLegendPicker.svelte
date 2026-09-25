@@ -13,6 +13,7 @@
   } from '@keymap-editor/keymap-core'
   import { editor, hostLegendAnchorIndex } from '../editor.svelte.js'
   import EyeToggle from './EyeToggle.svelte'
+  import Icon from './Common/Icon.svelte'
 
   const view = $derived(editor.hostLegend)
   const base = $derived(hostLayoutChoice(view.baseId))
@@ -30,8 +31,12 @@
   let hovered = $state(false)
   let pinned = $state(false)
   let focused = $state(false)
+  let renamingIndex = $state<number | null>(null)
+  let editing = $state('')
+  let pendingDelete = $state<{ index: number; name: string } | null>(null)
   let stripEl: HTMLDivElement | undefined = $state()
-  const open = $derived(hovered || pinned || focused)
+  const busy = $derived(renamingIndex != null || pendingDelete != null)
+  const open = $derived(hovered || pinned || focused || busy)
 
   type LayerRow = {
     index: number
@@ -133,17 +138,87 @@
 
   function handleMouseLeave() {
     hovered = false
-    if (pinned) return
+    if (pinned || busy) return
     focused = false
     const active = document.activeElement
     if (active instanceof HTMLElement && stripEl?.contains(active)) active.blur()
   }
 
+  function cancelRename() {
+    renamingIndex = null
+    editing = ''
+  }
+
+  function finishRename() {
+    if (renamingIndex == null) return
+    const index = renamingIndex
+    const name = editing
+    cancelRename()
+    editor.renameLayer(index, name)
+  }
+
+  function startRename(event: MouseEvent, index: number) {
+    event.stopPropagation()
+    pendingDelete = null
+    renamingIndex = index
+    editing = layerNames[index] ?? ''
+  }
+
+  function requestDelete(event: MouseEvent, index: number, name: string) {
+    event.stopPropagation()
+    cancelRename()
+    pendingDelete = { index, name }
+  }
+
+  function confirmDelete() {
+    if (!pendingDelete) return
+    const index = pendingDelete.index
+    pendingDelete = null
+    editor.deleteLayer(index)
+  }
+
+  function cancelDelete() {
+    pendingDelete = null
+  }
+
+  function focusInput(node: HTMLInputElement) {
+    node.focus()
+    node.select()
+  }
+
+  function onRenameKey(event: KeyboardEvent) {
+    if (event.key === 'Enter') finishRename()
+    if (event.key === 'Escape') {
+      event.stopPropagation()
+      cancelRename()
+    }
+  }
+
   function handleKeydown(event: KeyboardEvent) {
     if (event.key !== 'Escape') return
+    if (renamingIndex != null) {
+      cancelRename()
+      event.stopPropagation()
+      return
+    }
+    if (pendingDelete) {
+      cancelDelete()
+      event.stopPropagation()
+      return
+    }
     pinned = false
     hovered = false
   }
+
+  $effect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!stripEl || stripEl.contains(event.target as Node)) return
+      cancelRename()
+      cancelDelete()
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  })
 
   function togglePinned(event: MouseEvent) {
     event.stopPropagation()
@@ -268,6 +343,7 @@
         {@const tap = bindingTap(row.binding)}
         {@const letter = tap ? hostLegendFor(tap, view) : null}
         <tr
+          data-layer={row.index}
           class:off={!row.marked}
           class:raw={row.index === 0 && view.layer0Raw}
           onmouseenter={interactive ? () => hoverLayer(row.index) : undefined}
@@ -285,10 +361,35 @@
                   }
                   onclick={() => toggleLayer(row.index)}
                 />
+                {#if renamingIndex === row.index}
+                  <input
+                    use:focusInput
+                    class="name layer-name"
+                    value={editing}
+                    oninput={event => (editing = event.currentTarget.value)}
+                    onkeydown={onRenameKey}
+                  />
+                {:else}
+                  <button
+                    type="button"
+                    class="layer-name"
+                    onclick={event => startRename(event, row.index)}
+                  >
+                    {row.name}
+                  </button>
+                {/if}
+                {#if layerNames.length > 1}
+                  <Icon
+                    name="times-circle"
+                    class="delete"
+                    title={`Delete layer ${row.name}`}
+                    onclick={event => requestDelete(event, row.index, row.name)}
+                  />
+                {/if}
               {:else}
                 <span class="eye-spacer"></span>
+                {row.name}
               {/if}
-              {row.name}
             </div>
           </th>
           <td class="zmk">{zmkCell(row.binding)}</td>
@@ -303,6 +404,17 @@
         </tr>
       {/each}
     </tbody>
+    {#if interactive && open}
+      <tfoot>
+        <tr>
+          <th colspan="6">
+            <button type="button" class="add-layer" onclick={() => editor.addLayer()}>
+              Add Layer
+            </button>
+          </th>
+        </tr>
+      </tfoot>
+    {/if}
   </table>
 {/snippet}
 
@@ -325,6 +437,19 @@
   </div>
   <div class="legend-panel" style="position: absolute">
     {@render legendTable(visibleRows, true)}
+    {#if pendingDelete}
+      <div class="delete-confirm" role="alertdialog" aria-label="Delete layer">
+        <p>Delete layer {pendingDelete.name}?</p>
+        <div class="delete-confirm-actions">
+          <button type="button" class="confirm-delete" onclick={confirmDelete}>
+            Delete
+          </button>
+          <button type="button" class="cancel-delete" onclick={cancelDelete}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -499,6 +624,101 @@
   .layer-disclosure.on {
     background: #fff;
     border-color: #1d6f8a;
+    color: #333;
+  }
+
+  .layer-name {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: text;
+  }
+
+  input.layer-name {
+    width: 8em;
+    padding: 0 2px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    background: #fff;
+    color: #222;
+    cursor: text;
+  }
+
+  .row-head :global(.delete) {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    color: #999;
+    cursor: pointer;
+  }
+
+  .row-head :global(.delete:hover) {
+    color: #c0392b;
+  }
+
+  .add-layer {
+    margin: 0;
+    padding: 1px 0;
+    border: 0;
+    background: transparent;
+    color: #1d6f8a;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .add-layer:hover {
+    text-decoration: underline;
+  }
+
+  tfoot th {
+    font-weight: 400;
+  }
+
+  .delete-confirm {
+    position: absolute;
+    top: calc(100% - 2px);
+    left: 0;
+    z-index: 5;
+    margin: 0;
+    padding: 10px 12px;
+    width: 180px;
+    background: #fff;
+    color: #222;
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+  }
+
+  .delete-confirm p {
+    margin: 0 0 8px;
+    font-size: 90%;
+  }
+
+  .delete-confirm-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .delete-confirm button {
+    flex: 1;
+    height: 26px;
+    border: none;
+    border-radius: 13px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 85%;
+  }
+
+  .confirm-delete {
+    background: #c0392b;
+    color: #fff;
+  }
+
+  .cancel-delete {
+    background: #ddd;
     color: #333;
   }
 </style>
