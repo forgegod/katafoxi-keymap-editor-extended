@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from 'svelte'
   import { editor } from '../editor.svelte.js'
-  import { STANDARD_HOST_PROFILE_ID } from '../host-profiles'
+  import { builtinHostProfile, builtinHostProfiles } from '../host-profiles'
   import Modal from './Common/Modal.svelte'
 
   onDestroy(() => {
@@ -19,11 +19,21 @@
   const profiles = $derived(
     [...editor.hostProfiles].sort((a, b) => a.name.localeCompare(b.name, 'ru'))
   )
+  const activeUserProfile = $derived(
+    editor.hostProfiles.find(profile => profile.id === editor.activeHostProfileId)
+  )
+  const canEditProfile = $derived(
+    activeUserProfile != null && !builtinHostProfile(editor.activeHostProfileId)
+  )
+  const activeProfileName = $derived(
+    builtinHostProfile(editor.activeHostProfileId)?.name ?? activeUserProfile?.name ?? ''
+  )
 
   $effect(() => {
-    if (!editor.hostProfilePrompt) return
-    name = ''
+    const prompt = editor.hostProfilePrompt
+    if (!prompt) return
     error = ''
+    name = prompt.kind === 'rename' ? (activeUserProfile?.name ?? '') : ''
   })
 
   function submit(event: SubmitEvent) {
@@ -40,7 +50,9 @@
     value={editor.activeHostProfileId}
     onchange={event => editor.selectHostProfile(event.currentTarget.value)}
   >
-    <option value={STANDARD_HOST_PROFILE_ID}>Стандарт</option>
+    {#each builtinHostProfiles() as preset (preset.id)}
+      <option value={preset.id}>{preset.name}</option>
+    {/each}
     {#each profiles as profile (profile.id)}
       <option value={profile.id}>{profile.name}</option>
     {/each}
@@ -56,6 +68,44 @@
       <path d="M5 3h11l3 3v15H5z" />
       <path d="M8 3v6h8V3" />
       <path d="M8 21v-6h8v6" />
+    </svg>
+  </button>
+  <button
+    type="button"
+    class="profile-icon"
+    title="Скопировать профиль"
+    aria-label="Скопировать профиль"
+    onclick={() => editor.beginCopyHostProfile()}
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="8" y="8" width="12" height="12" rx="1.5" />
+      <path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4H5.5A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8" />
+    </svg>
+  </button>
+  <button
+    type="button"
+    class="profile-icon stub"
+    title="Переименовать профиль"
+    aria-label="Переименовать профиль"
+    disabled={!canEditProfile}
+    onclick={() => editor.beginRenameHostProfile()}
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 20h4L18 10l-4-4L4 16v4z" />
+      <path d="M13 7l4 4" />
+    </svg>
+  </button>
+  <button
+    type="button"
+    class="profile-icon stub danger"
+    title="Удалить профиль"
+    aria-label="Удалить профиль"
+    disabled={!canEditProfile}
+    onclick={() => editor.beginDeleteHostProfile()}
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 6l12 12" />
+      <path d="M18 6L6 18" />
     </svg>
   </button>
   <button
@@ -95,15 +145,32 @@
   <Modal onBackdrop={() => editor.cancelHostProfilePrompt()}>
     <form class="profile-dialog" onsubmit={submit}>
       <h2>
-        {editor.hostProfilePrompt.kind === 'fork' ? 'Новый профиль' : 'Сохранить как'}
+        {#if editor.hostProfilePrompt.kind === 'fork'}
+          Новый профиль
+        {:else if editor.hostProfilePrompt.kind === 'rename'}
+          Переименовать
+        {:else if editor.hostProfilePrompt.kind === 'delete'}
+          Удалить профиль
+        {:else if editor.hostProfilePrompt.kind === 'copy'}
+          Скопировать профиль
+        {:else}
+          Сохранить как
+        {/if}
       </h2>
       <p>
         {#if editor.hostProfilePrompt.kind === 'fork'}
           Стандартный профиль не меняется. Введите имя для этой раскладки.
+        {:else if editor.hostProfilePrompt.kind === 'rename'}
+          Новое имя для «{activeUserProfile?.name}».
+        {:else if editor.hostProfilePrompt.kind === 'delete'}
+          Профиль «{activeUserProfile?.name}» будет удалён из браузера.
+        {:else if editor.hostProfilePrompt.kind === 'copy'}
+          Копия «{activeProfileName}» сохранится под новым именем.
         {:else}
           Текущая раскладка сохранится отдельным профилем.
         {/if}
       </p>
+      {#if editor.hostProfilePrompt.kind !== 'delete'}
       <input
         bind:value={name}
         aria-label="Имя профиля"
@@ -113,8 +180,17 @@
       {#if error}
         <p class="profile-error" role="alert">{error}</p>
       {/if}
+      {/if}
       <div class="profile-actions">
-        <button type="submit">Сохранить</button>
+        {#if editor.hostProfilePrompt.kind === 'delete'}
+          <button type="button" class="danger" onclick={() => editor.deleteActiveHostProfile()}>
+            Удалить
+          </button>
+        {:else if editor.hostProfilePrompt.kind === 'copy'}
+          <button type="submit">Скопировать</button>
+        {:else}
+          <button type="submit">Сохранить</button>
+        {/if}
         <button type="button" onclick={() => editor.cancelHostProfilePrompt()}>Отмена</button>
       </div>
     </form>
@@ -152,9 +228,25 @@
     box-shadow: none;
   }
 
-  :global(#actions) button.profile-icon.stub:hover,
+  :global(#actions) button.profile-icon.stub:hover:not(:disabled),
   :global(#actions) button.profile-icon.stub[aria-pressed='true'] {
     background: rgba(0, 0, 0, 0.06);
+  }
+
+  :global(#actions) button.profile-icon.danger:not(:disabled) {
+    color: #842029;
+    border-color: #e2b6bb;
+  }
+
+  :global(#actions) button.profile-icon.danger:hover:not(:disabled) {
+    background: #f8d7da;
+  }
+
+  :global(#actions) button.profile-icon:disabled {
+    background: transparent;
+    color: #ccc;
+    border-color: #e6e6e6;
+    cursor: not-allowed;
   }
 
   .profile-icon svg {
@@ -241,5 +333,10 @@
   .profile-actions button[type='button'] {
     background: #eee;
     color: #333;
+  }
+
+  .profile-actions button.danger {
+    background: #f8d7da;
+    color: #842029;
   }
 </style>

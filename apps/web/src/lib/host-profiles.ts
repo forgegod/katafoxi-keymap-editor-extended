@@ -1,15 +1,23 @@
 /**
  * Named host-legend profiles in IndexedDB.
- * A profile is the language pair and AltGr columns, not layer-row visibility
+ * A profile is the language pair, not column or layer visibility
  * and not the ZMK keymap. Symbol tables are not stored yet.
  */
 
 import {
   standardHostLegendView,
+  systemRuHostLegendView,
   type HostLegendView
 } from '@keymap-editor/keymap-core'
 
 export const STANDARD_HOST_PROFILE_ID = 'standard'
+export const SYSTEM_RU_PROFILE_ID = 'system-ru'
+
+export interface BuiltinHostProfile {
+  id: string
+  name: string
+  view: HostLegendView
+}
 
 const DB_NAME = 'keymap-editor-host-profiles'
 const PROFILES_STORE = 'profiles'
@@ -20,8 +28,6 @@ const ACTIVE_SETTING_ID = 'active'
 export interface HostProfileMap {
   baseId: string
   secondId: string | null
-  altGr: boolean
-  altGrShift: boolean
 }
 
 export interface HostProfile {
@@ -39,9 +45,7 @@ type ActiveSetting = {
 export function hostProfileMap(view: HostLegendView): HostProfileMap {
   return {
     baseId: view.baseId,
-    secondId: view.secondId,
-    altGr: view.altGr,
-    altGrShift: view.altGrShift
+    secondId: view.secondId
   }
 }
 
@@ -49,22 +53,42 @@ export function standardHostProfileMap(): HostProfileMap {
   return hostProfileMap(standardHostLegendView())
 }
 
-export function sameHostProfileMap(a: HostProfileMap, b: HostProfileMap): boolean {
-  return (
-    a.baseId === b.baseId &&
-    a.secondId === b.secondId &&
-    a.altGr === b.altGr &&
-    a.altGrShift === b.altGrShift
-  )
+/** Presets shown in the profile menu. They are not stored as user profiles. */
+export function builtinHostProfiles(): BuiltinHostProfile[] {
+  return [
+    {
+      id: STANDARD_HOST_PROFILE_ID,
+      name: 'Стандарт',
+      view: standardHostLegendView()
+    },
+    {
+      id: SYSTEM_RU_PROFILE_ID,
+      name: 'Системная ru',
+      view: systemRuHostLegendView()
+    }
+  ]
 }
 
-/** Keep preview flags (eyes, layer rows) and replace the stored map. */
+export function builtinHostProfile(id: string): BuiltinHostProfile | undefined {
+  return builtinHostProfiles().find(profile => profile.id === id)
+}
+
+export function sameHostProfileMap(a: HostProfileMap, b: HostProfileMap): boolean {
+  return a.baseId === b.baseId && a.secondId === b.secondId
+}
+
+/** Keep column and layer visibility, and replace the stored language pair. */
 export function hostLegendWithMap(
   current: HostLegendView,
   map: HostProfileMap,
   source: HostLegendView['source']
 ): HostLegendView {
-  return { ...current, ...map, source }
+  return {
+    ...current,
+    baseId: map.baseId,
+    secondId: map.secondId,
+    source
+  }
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -115,11 +139,31 @@ export async function loadHostProfiles(): Promise<HostProfile[]> {
   }
 }
 
-export async function saveHostProfile(profile: HostProfile): Promise<void> {
+export async function deleteHostProfile(id: string): Promise<void> {
   const db = await openDb()
   try {
     const tx = db.transaction(PROFILES_STORE, 'readwrite')
-    await idbRequest(tx.objectStore(PROFILES_STORE).put(profile))
+    await idbRequest(tx.objectStore(PROFILES_STORE).delete(id))
+    await txDone(tx)
+  } finally {
+    db.close()
+  }
+}
+
+export async function saveHostProfile(profile: HostProfile): Promise<void> {
+  const record: HostProfile = {
+    id: profile.id,
+    name: profile.name,
+    updatedAt: profile.updatedAt,
+    map: {
+      baseId: profile.map.baseId,
+      secondId: profile.map.secondId
+    }
+  }
+  const db = await openDb()
+  try {
+    const tx = db.transaction(PROFILES_STORE, 'readwrite')
+    await idbRequest(tx.objectStore(PROFILES_STORE).put(record))
     await txDone(tx)
   } finally {
     db.close()

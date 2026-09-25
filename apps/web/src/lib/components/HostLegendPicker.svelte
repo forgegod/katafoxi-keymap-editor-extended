@@ -62,7 +62,7 @@
   }
 
   function toggleAlt(field: 'altGr' | 'altGrShift') {
-    void editor.commitHostMap(hostLegendView(view, { [field]: !view[field] }))
+    editor.hostLegend = hostLegendPreview(view, { [field]: !view[field] })
   }
 
   function closeDetails(event: Event) {
