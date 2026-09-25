@@ -175,10 +175,10 @@
     <div class="profile-import" role="dialog" aria-label="Импортировать xkb">
       <input
         type="file"
-        accept=".xkb,text/plain"
         aria-label="Файл xkb"
         onchange={event => void onImportFile(event)}
       />
+      <p class="profile-import-hint">Файлы символов xkb часто без расширения, например au или ru.</p>
       <textarea
         aria-label="Текст xkb"
         placeholder="Вставить xkb…"
@@ -491,6 +491,12 @@
   .profile-import textarea {
     min-height: 7rem;
     resize: vertical;
+  }
+
+  .profile-import-hint {
+    margin: 0;
+    color: #555;
+    font-size: 11px;
   }
 
   .profile-import-error {

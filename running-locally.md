@@ -55,7 +55,7 @@ The board shows the host composed stack: click a keycap row to edit that layer�
 In a **clean browser profile** the default view is system English + Russian (`system-us` + `system-ru`, AltGr on). The editor does not ship a keyboard-specific host map. To get the LARK host glyphs in dev, import the fixture files from the profile menu:
 
 1. Open a language column’s profile control and choose **Импортировать xkb…**.
-2. Pick `packages/keymap-core/fixtures/lark/host/au` (section `basic`) for English and/or `packages/keymap-core/fixtures/lark/host/ru` (section `legacy`) for Russian — or paste the file text.
+2. Pick `packages/keymap-core/fixtures/lark/host/au` (section `basic`) for English and/or `packages/keymap-core/fixtures/lark/host/ru` (section `legacy`) for Russian — or paste the file text. Those files have no extension (xkb symbols convention); the file picker lists all files.
 3. The column switches to the imported user layout. Reload the page: the layout stays (IDB v3).
 
 Includes inside those files resolve against vendored system modules (`us(basic)`, and so on).
