@@ -28,42 +28,58 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value))
 }
 
+function hoverLegend(root: ParentNode) {
+  const strip = root.querySelector('.host-legend-strip')
+  if (!(strip instanceof HTMLElement)) {
+    throw new Error('missing host legend')
+  }
+  strip.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+  flushSync()
+}
+
 function clickAddLayer(root: ParentNode) {
-  const item = [...root.querySelectorAll('.layer-selector li')].find(
-    li => li.querySelector('.name')?.textContent?.trim() === 'Add Layer'
-  )
-  if (!(item instanceof HTMLLIElement)) {
+  hoverLegend(root)
+  const button = root.querySelector('.legend-panel .add-layer')
+  if (!(button instanceof HTMLButtonElement)) {
     throw new Error('missing Add Layer')
   }
-  item.click()
+  button.click()
   flushSync()
 }
 
 function layerItem(root: ParentNode, index: number) {
-  const item = root.querySelector(`li[data-layer="${index}"]`)
-  if (!(item instanceof HTMLLIElement)) {
+  const item = root.querySelector(`.legend-panel tr[data-layer="${index}"]`)
+  if (!(item instanceof HTMLTableRowElement)) {
     throw new Error(`missing layer ${index}`)
   }
   return item
 }
 
 function renameField(root: ParentNode) {
-  return root.querySelector('input.name')
+  return root.querySelector('.legend-panel input.layer-name')
 }
 
 function startRename(root: ParentNode, index = 0) {
-  const item = layerItem(root, index)
-  if (!item.classList.contains('active')) {
-    item.click()
-    flushSync()
+  const name = layerItem(root, index).querySelector('.layer-name')
+  if (!(name instanceof HTMLButtonElement)) {
+    throw new Error(`missing layer name ${index}`)
   }
-  layerItem(root, index).click()
+  name.click()
   flushSync()
   const input = renameField(root)
   if (!(input instanceof HTMLInputElement)) {
     throw new Error('rename field did not appear')
   }
   return input
+}
+
+function layerSlot(root: ParentNode, keyIndex: number, layer = 0) {
+  const key = root.querySelectorAll('.key')[keyIndex]
+  const slot = key?.querySelector(`.layer-slot[data-layer="${layer}"]`)
+  if (!(slot instanceof HTMLButtonElement)) {
+    throw new Error(`missing layer-slot ${layer} on key ${keyIndex}`)
+  }
+  return slot
 }
 
 function clickNode(node: EventTarget) {
@@ -99,8 +115,10 @@ function closeDialog() {
   flushSync()
 }
 
-function keyLegends(root: ParentNode): string[] {
-  return [...root.querySelectorAll('.key .code')].map(el => (el.textContent ?? '').trim())
+function keySlotTitles(root: ParentNode): string[] {
+  return [...root.querySelectorAll('.key .layer-slot[data-layer="0"]')].map(el =>
+    (el.getAttribute('title') ?? '').trim()
+  )
 }
 
 describe('Keyboard layers', () => {
@@ -109,6 +127,7 @@ describe('Keyboard layers', () => {
   let view: HarnessView | undefined
 
   beforeEach(() => {
+    editor.resetForTests()
     target = document.createElement('div')
     document.body.appendChild(target)
     modalRoot = document.createElement('div')
@@ -121,6 +140,7 @@ describe('Keyboard layers', () => {
     if (view) unmount(view)
     view = undefined
     target?.remove()
+    editor.resetForTests()
     vi.restoreAllMocks()
   })
 
@@ -150,12 +170,8 @@ describe('Keyboard layers', () => {
     const harness = open()
     const original = clone(harness.getKeymap())
 
-    layerItem(target, 1).click()
-    flushSync()
-
-    const keys = target.querySelectorAll('.key')
-    expect(keys.length).toBe(2)
-    ;(keys[0] as HTMLElement).click()
+    expect(target.querySelectorAll('.key').length).toBe(2)
+    layerSlot(target, 0, 1).click()
     flushSync()
 
     const dialog = document.querySelector('[role="dialog"][aria-label="Edit key"]')
@@ -255,10 +271,6 @@ describe('Keyboard layers', () => {
   it('removes the last layer and keeps an active remaining layer', () => {
     const harness = open()
 
-    layerItem(target, 1).click()
-    flushSync()
-    expect(layerItem(target, 1).classList.contains('active')).toBe(true)
-
     const del = layerItem(target, 1).querySelector('.delete')
     expect(del).toBeInstanceOf(SVGElement)
     clickNode(del as SVGElement)
@@ -270,13 +282,14 @@ describe('Keyboard layers', () => {
     expect(target.querySelector('[role=alertdialog]')).toBeNull()
     expect(harness.getKeymap().layers).toHaveLength(1)
     expect(harness.getKeymap().layer_names).toEqual(['Base'])
-    expect(target.querySelector('li[data-layer].active')).toBeInstanceOf(HTMLLIElement)
+    expect(layerItem(target, 0).textContent).toContain('Base')
+    expect(target.querySelector('.legend-panel tr[data-layer="1"]')).toBeNull()
     expect(target.querySelectorAll('.key').length).toBe(2)
   })
 
   it('clears used marks for keycodes that lived only on the deleted layer', () => {
     open()
-    ;(target.querySelector('.key') as HTMLElement).click()
+    layerSlot(target, 0, 0).click()
     flushSync()
 
     const before = document.querySelector('[role="dialog"][aria-label="Edit key"]')
@@ -291,13 +304,11 @@ describe('Keyboard layers', () => {
     )
     flushSync()
 
-    layerItem(target, 1).click()
-    flushSync()
     clickNode(layerItem(target, 1).querySelector('.delete') as SVGElement)
     clickNode(target.querySelector('.confirm-delete') as HTMLButtonElement)
 
     expect(document.querySelector('[role="dialog"][aria-label="Edit key"]')).toBeNull()
-    ;(target.querySelector('.key') as HTMLElement).click()
+    layerSlot(target, 0, 0).click()
     flushSync()
 
     const after = document.querySelector('[role="dialog"][aria-label="Edit key"]')
@@ -311,8 +322,7 @@ describe('Keyboard layers', () => {
 
   it('marks a newly applied key and leaves the open value undimmed', () => {
     open()
-    const keys = target.querySelectorAll('.key')
-    ;(keys[0] as HTMLElement).click()
+    layerSlot(target, 0, 0).click()
     flushSync()
 
     const editing = document.querySelector('[role="dialog"][aria-label="Edit key"]')
@@ -322,7 +332,7 @@ describe('Keyboard layers', () => {
     ;(editing?.querySelector('[aria-label="Apply"]') as HTMLButtonElement).click()
     flushSync()
 
-    ;(target.querySelectorAll('.key')[1] as HTMLElement).click()
+    layerSlot(target, 1, 0).click()
     flushSync()
 
     const dialog = document.querySelector('[role="dialog"][aria-label="Edit key"]')
@@ -336,7 +346,7 @@ describe('Keyboard layers', () => {
     expect(pickChoice(dialog as HTMLElement, 'A').classList.contains('used')).toBe(false)
 
     closeDialog()
-    ;(target.querySelectorAll('.key')[0] as HTMLElement).click()
+    layerSlot(target, 0, 0).click()
     flushSync()
 
     const reopened = document.querySelector('[role="dialog"][aria-label="Edit key"]')
@@ -358,7 +368,7 @@ describe('Keyboard layers', () => {
       ]
     })
 
-    ;(target.querySelectorAll('.key')[1] as HTMLElement).click()
+    layerSlot(target, 1, 0).click()
     flushSync()
 
     const dialog = document.querySelector('[role="dialog"][aria-label="Edit key"]')
@@ -384,7 +394,7 @@ describe('Keyboard layers', () => {
       ]
     })
 
-    ;(target.querySelectorAll('.key')[1] as HTMLElement).click()
+    layerSlot(target, 1, 0).click()
     flushSync()
     const dialog = document.querySelector('[role="dialog"][aria-label="Edit key"]')
     expect(dialog).toBeInstanceOf(HTMLElement)
@@ -403,11 +413,10 @@ describe('Keyboard layers', () => {
     clickNode(target.querySelector('.confirm-delete') as HTMLButtonElement)
 
     expect(target.querySelector('[role=alertdialog]')).toBeNull()
-    expect(layerItem(target, 0).classList.contains('active')).toBe(true)
     expect(layerItem(target, 0).textContent).toContain('Raise')
-    expect(keyLegends(target)).toEqual(['F4', 'F12'])
+    expect(target.querySelector('.legend-panel tr[data-layer="1"]')).toBeNull()
 
-    ;(target.querySelector('.key') as HTMLElement).click()
+    layerSlot(target, 0, 0).click()
     flushSync()
 
     const dialog = document.querySelector('[role="dialog"][aria-label="Edit key"]')
@@ -471,9 +480,9 @@ describe('Keyboard draft undo', () => {
     flushSync()
 
     expect(target.querySelector('.editor-status')?.textContent).toBe('Up to date with disk')
-    expect(keyLegends(target)).toEqual(['A', 'B'])
+    expect(keySlotTitles(target)).toEqual(['&kp A', '&kp B'])
 
-    ;(target.querySelector('.key') as HTMLElement).click()
+    layerSlot(target, 0, 0).click()
     flushSync()
     const dialog = document.querySelector('[role="dialog"][aria-label="Edit key"]')
     expect(dialog).toBeInstanceOf(HTMLElement)
@@ -482,7 +491,7 @@ describe('Keyboard draft undo', () => {
     ;(dialog?.querySelector('[aria-label="Apply"]') as HTMLButtonElement).click()
     flushSync()
 
-    expect(keyLegends(target)).toEqual(['Q', 'B'])
+    expect(keySlotTitles(target)).toEqual(['&kp Q', '&kp B'])
     expect(target.querySelector('.editor-status')?.textContent).toMatch(/^Draft/)
     const undo = target.querySelector('.undo')
     expect(undo).toBeInstanceOf(HTMLButtonElement)
@@ -490,7 +499,7 @@ describe('Keyboard draft undo', () => {
     ;(undo as HTMLButtonElement).click()
     flushSync()
 
-    expect(keyLegends(target)).toEqual(['A', 'B'])
+    expect(keySlotTitles(target)).toEqual(['&kp A', '&kp B'])
     expect(target.querySelector('.editor-status')?.textContent).toBe('Up to date with disk')
     expect((undo as HTMLButtonElement).disabled).toBe(true)
   })

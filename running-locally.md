@@ -50,7 +50,7 @@ Set `PORT` if the API port must change. Set `APP_BASE_URL` to the browser-facing
 
 Your selected keyboard should load automatically when Source is **Local**. Click a key to open the editor: pick a behaviour, then a value. Enter applies a complete binding; Esc cancels.
 
-Use the **ZMK code** / **Host composed** toggle to switch between firmware bindings and the LARK-style composed legend stub.
+The board shows the host composed stack: click a keycap row to edit that layer’s ZMK binding. Add, rename, and delete layers from the host-legend table.
 
 Click **Write files** to write `keymap.json` and update the `.keymap` in `zmk-config`. On GitHub the same action is **Commit to GitHub**. The write path depends on what is already on disk:
 

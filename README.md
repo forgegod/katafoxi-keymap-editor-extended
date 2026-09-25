@@ -15,7 +15,7 @@ The original README is kept as [old-readme.md](old-readme.md).
 
 - Sources: **Local** (dev adapter, sibling `zmk-config`) and **GitHub**.
 - One key editor: behaviour, then the value list for that slot (keys, layers, modifiers, mouse commands). Enter applies a complete binding; Esc cancels.
-- ZMK-mode legends (`L1`, `⌃`, `⇧⇪`, hold-tap pills) live in `keymap-core`. **Host composed** is a preview stub.
+- Composed host legends on the keycap; compact ZMK tokens (`L1`, `⌃`, `⇧⇪`, hold-tap pills) live in `keymap-core`.
 - Undo/redo, a draft, **Write files**, and **Commit to GitHub**.
 
 Clipboard, browser File System Access, combo/macro editors, and dark mode are upstream or planned. They are not in this tree. Vision: [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md).

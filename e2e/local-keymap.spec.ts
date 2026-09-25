@@ -36,7 +36,7 @@ async function openLocalEditor(page: Page) {
 async function applyEscToF13(page: Page) {
   const key = page.locator(ESC_KEY)
   await key.scrollIntoViewIfNeeded()
-  await key.click()
+  await key.locator('button.layer-slot[data-layer="0"]').click()
   await applyF13InEditor(page)
 }
 
@@ -102,7 +102,6 @@ test.describe('local adapter smoke', () => {
     expect(originalLayer0).not.toContain(EDITED_BIND)
 
     await openLocalEditor(page)
-    await page.locator('#legend-mode').getByText('Host composed').click()
 
     const key = page.locator(E_KEY)
     await key.scrollIntoViewIfNeeded()

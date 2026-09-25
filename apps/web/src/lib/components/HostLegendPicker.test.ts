@@ -183,4 +183,40 @@ describe('HostLegendPicker', () => {
     expect(editor.hostLegend.shownLayers).toEqual([0, 2, 3])
     expect(editor.hostLegend.layers).toEqual(layersBefore)
   })
+
+  it('adds a transparent Layer #2 from the table footer', async () => {
+    await open(keymapOf(['default', 'raise']))
+    expect(target.querySelector('.legend-panel .add-layer')).toBeNull()
+
+    const strip = target.querySelector('.host-legend-strip')
+    if (!(strip instanceof HTMLElement)) throw new Error('missing strip')
+    strip.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+
+    const add = target.querySelector('.legend-panel .add-layer')
+    if (!(add instanceof HTMLButtonElement)) throw new Error('missing Add Layer')
+    add.click()
+    flushSync()
+    expect(editor.draftKeymap?.layer_names).toEqual(['default', 'raise', 'Layer #2'])
+    expect(editor.draftKeymap?.layers).toHaveLength(3)
+    expect(editor.draftKeymap?.layers[2]).toEqual([{ value: '&trans', params: [] }])
+  })
+
+  it('renames a layer from the table name button', async () => {
+    await open(keymapOf(['default', 'raise']))
+    const name = target.querySelector('.legend-panel tr[data-layer="0"] .layer-name')
+    if (!(name instanceof HTMLButtonElement)) throw new Error('missing name')
+    name.click()
+    flushSync()
+    const input = target.querySelector('.legend-panel input.layer-name')
+    if (!(input instanceof HTMLInputElement)) throw new Error('missing rename field')
+    input.value = 'Lower'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+    )
+    flushSync()
+    expect(editor.draftKeymap?.layer_names).toEqual(['Lower', 'raise'])
+  })
 })

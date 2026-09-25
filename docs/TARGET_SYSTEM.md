@@ -36,7 +36,7 @@ See [ADR 0001](adr/0001-persistence-github-first.md).
 ## Runtime shape
 
 ```
-apps/web          Svelte 5 + Vite SPA — UI, pickers, legend modes
+apps/web          Svelte 5 + Vite SPA — UI, pickers, composed key editor
 apps/api          Thin Hono API — GitHub OAuth/App + optional dev-local I/O
 packages/keymap-core   Pure TS — parse/generate/splice .keymap, layout validate, compose stubs
 ```
@@ -47,7 +47,7 @@ packages/keymap-core   Pure TS — parse/generate/splice .keymap, layout validat
 
 ## Key editor
 
-Click a key in **ZMK code** mode. One dialog edits the binding:
+Click a stacked keycap row. One dialog edits that layer’s ZMK binding:
 
 - Behaviour chips, then the value list for the active slot. `code` is Keyboard/Keypad, `command` is that behaviour's commands (`&mkp`, `&msc`, `&mmv`, `&bt`, `&out`, …), `layer` and `mod` are the layer or modifier slot (`&mo`, `&mt`, `&lt`).
 - Enter applies a complete binding. Esc cancels. An unfinished hold-tap stays open.
@@ -55,8 +55,7 @@ Click a key in **ZMK code** mode. One dialog edits the binding:
 
 ## Keycap / compose (target UX)
 
-- **ZMK mode**: behavior + params (current editor). Display-only legends — binding tokens stay ZMK (`1`, `LCTRL`, `LC(DEL)`).
-- **ZMK legends (now):** helpers in `packages/keymap-core` `compose.ts` (`layerLegendSymbol`, `keycapLegend`, `isHoldTapBehavior`).
+- **ZMK legends** (compact codes on a raw layer0 row, and inside KeyEditor): helpers in `packages/keymap-core` `compose.ts` (`layerLegendSymbol`, `keycapLegend`, `isHoldTapBehavior`). Binding tokens stay ZMK (`1`, `LCTRL`, `LC(DEL)`).
   - Layers: `L1` (index, not the layer name).
   - Left modifiers unmarked (`⌃ ⌥ ⌘ ⇧`); right side `R⌃` / `R⌥` / `R⌘` / `R⇧`.
   - Compact chords drop parens: `LC(DEL)` → `⌃⌦`, `LS(CAPS)` → `⇧⇪`, and a short token `LA(F4)` → `⌥F4`, `LA(TAB)` → `⌥TAB`, `LA(ESC)` → `⌥ESC` (`F1`–`F12`).
