@@ -148,8 +148,24 @@ describe('resolveBinding / composeKey', () => {
     expect(baseColumn(legend!)?.pair).toEqual(['a', 'A'])
     expect(extraColumn(legend!)?.pair).toEqual(['ф', 'Ф'])
     expect(legend?.hold).toBeUndefined()
+    expect(legend?.holdRef).toBeUndefined()
     expect(compactKeycap(legend!)).toBe('aA фФ @α')
     expect(altText(legend!)).toBe('@α')
+  })
+
+  it('carries hold as a layer or modifier ref', () => {
+    expect(resolveBinding(parseKeyBinding('&lt 1 A'))).toEqual({
+      tap: 'A',
+      hold: { kind: 'layer', layer: 1 }
+    })
+    expect(resolveBinding(parseKeyBinding('&mt LCTRL J'))).toEqual({
+      tap: 'J',
+      hold: { kind: 'mod', code: 'LCTRL' }
+    })
+    expect(resolveBinding(parseKeyBinding('&mt RALT LBKT'))).toEqual({
+      tap: 'LBKT',
+      hold: { kind: 'mod', code: 'RALT' }
+    })
   })
 
   it('marks host levels that differ between English and Russian', () => {
@@ -219,6 +235,11 @@ describe('resolveBinding / composeKey', () => {
     const mt = composeKey({ binding: parseKeyBinding('&mt LCTRL J') })
     expect(baseColumn(mt!)?.pair).toEqual(['j', 'J'])
     expect(mt?.hold).toBe('⧗⌃')
+    expect(mt?.holdRef).toEqual({ kind: 'mod', code: 'LCTRL' })
+
+    const ralt = composeKey({ binding: parseKeyBinding('&mt RALT LBKT') })
+    expect(ralt?.hold).toBe('⧗R⎇')
+    expect(ralt?.holdRef).toEqual({ kind: 'mod', code: 'RALT' })
   })
 
   it('keeps ZMK glyphs for keys that are not host characters', () => {
@@ -462,6 +483,7 @@ describe('resolveBinding / composeKey', () => {
     expect(baseColumn(legend!)?.pair).toEqual(['a', 'A'])
     expect(extraColumn(legend!)?.pair).toEqual(['ф', 'Ф'])
     expect(legend?.hold).toBe('⧗L1')
+    expect(legend?.holdRef).toEqual({ kind: 'layer', layer: 1 })
   })
 
   it('keeps empty layer slots so a missing row does not shift the others', () => {

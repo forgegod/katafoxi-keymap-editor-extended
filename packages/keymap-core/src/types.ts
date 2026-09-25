@@ -75,11 +75,18 @@ export interface ComposedLegendColumn {
   onKeycap: boolean
 }
 
+/** Hold target extracted from a binding, before it is formatted for the keycap. */
+export type HoldRef =
+  | { kind: 'layer'; layer: number }
+  | { kind: 'mod'; code: string }
+
 /** Host legend: N language columns + optional hold annotation. */
 export interface ComposedLegend {
   columns: ComposedLegendColumn[]
   /** Hold-tap or home-row mod annotation (e.g. ⧗LC) */
   hold?: string
+  /** Structured hold target that produced `hold`. */
+  holdRef?: HoldRef
   /** Firmware keycode that produced this (gray in LARK sheet) */
   keycode?: string
   /** Tap is HID keypad (`KP_*`); UI boxes the glyph, host text stays `7`. */
@@ -90,8 +97,8 @@ export interface ComposedLegend {
 export interface ResolvedBinding {
   /** Keycode sent on tap, if any (`A`, `ESC`, …). */
   tap: string | null
-  /** Hold side: modifier, layer id, etc. (`LCTRL`, `1`, …). */
-  hold?: string
+  /** Hold side: layer momentary or modifier, before badge formatting. */
+  hold?: HoldRef
 }
 
 /** One language column in the host-legend view. `columns[0]` is the base. */

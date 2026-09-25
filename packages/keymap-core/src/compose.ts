@@ -18,6 +18,7 @@ import type {
   ComposedLegend,
   ComposedLegendColumn,
   ComposeKeyInput,
+  HoldRef,
   HostLegendView,
   KeyBindingNode,
   LayerView,
@@ -83,23 +84,33 @@ export function bindingSendsShift(node: KeyBindingNode): boolean {
 /** What the hover preview should mark: the whole combo, or only the hold badge. */
 export type LegendHoverHit = 'none' | 'combo' | 'hold'
 
+function holdRefMatchesHover(hold: HoldRef | undefined, hover: LegendHover): boolean {
+  if (!hold) return false
+  if (hover.kind === 'layer') return hold.kind === 'layer' && hold.layer === hover.layer
+  if (hover.kind === 'altGr') return hold.kind === 'mod' && isRAltCode(hold.code)
+  return hold.kind === 'mod' && isShiftKeyCode(hold.code)
+}
+
 export function legendHoverHit(
   binding: KeyBindingNode,
   hover: LegendHover | null
 ): LegendHoverHit {
   if (!hover) return 'none'
+  const resolved = resolveBinding(binding)
   if (hover.kind === 'layer') {
     if (!bindingReferencesLayer(binding, hover.layer)) return 'none'
-    if (isHoldTapBehavior(binding.value) && composeKey({ binding })) return 'hold'
-    return 'combo'
+    return holdRefMatchesHover(resolved.hold, hover) &&
+      resolved.tap != null &&
+      hostKeyByZmk(resolved.tap)
+      ? 'hold'
+      : 'combo'
   }
-  const holdTap = isHoldTapBehavior(binding.value)
   if (hover.kind === 'altGr') {
     if (!bindingSendsAltGr(binding)) return 'none'
-    return holdTap ? 'hold' : 'combo'
+    return holdRefMatchesHover(resolved.hold, hover) ? 'hold' : 'combo'
   }
   if (!bindingSendsAltGr(binding) && !bindingSendsShift(binding)) return 'none'
-  return holdTap ? 'hold' : 'combo'
+  return holdRefMatchesHover(resolved.hold, hover) ? 'hold' : 'combo'
 }
 
 export function isLayerLegendSymbol(text: string): boolean {
@@ -251,17 +262,17 @@ export function resolveBinding(node: KeyBindingNode): ResolvedBinding {
     const tap = node.params[1]?.value
     return {
       tap: tap != null ? String(tap) : null,
-      hold: hold != null ? String(hold) : undefined
+      hold: hold != null && hold !== '' ? { kind: 'mod', code: String(hold) } : undefined
     }
   }
 
   // &lt layer tap_keycode
   if (behavior === '&lt') {
-    const layer = node.params[0]?.value
+    const layer = parseHoldLayer(node.params[0]?.value)
     const tap = node.params[1]?.value
     return {
       tap: tap != null ? String(tap) : null,
-      hold: layer != null ? layerLegendSymbol(layer) : undefined
+      hold: layer != null ? { kind: 'layer', layer } : undefined
     }
   }
 
@@ -269,10 +280,19 @@ export function resolveBinding(node: KeyBindingNode): ResolvedBinding {
   return { tap: tap != null ? String(tap) : null }
 }
 
-function formatHoldBadge(hold: string): string {
-  const info = modifierHoldForKey(hold) ?? modifierHoldForWrap(hold)
-  if (!info) return `⧗${hold}`
-  return `⧗${keycapLegend(hold, modifierRoleGlyph(info.role))}`
+function parseHoldLayer(value: string | number | undefined | null): number | undefined {
+  if (value == null || value === '') return undefined
+  const numeric = Number(value)
+  if (Number.isInteger(numeric)) return numeric
+  const match = /^L(\d+)$/i.exec(String(value))
+  return match ? Number(match[1]) : undefined
+}
+
+function formatHoldBadge(hold: HoldRef): string {
+  if (hold.kind === 'layer') return `⧗${layerLegendSymbol(hold.layer)}`
+  const info = modifierHoldForKey(hold.code) ?? modifierHoldForWrap(hold.code)
+  if (!info) return `⧗${hold.code}`
+  return `⧗${keycapLegend(hold.code, modifierRoleGlyph(info.role))}`
 }
 
 export interface ResolvedHostColumn {
@@ -367,6 +387,7 @@ export function composeKey(input: ComposeKeyInput): ComposedLegend | null {
   legend.keypad = isKeypadCode(resolved.tap)
   if (resolved.hold) {
     legend.hold = formatHoldBadge(resolved.hold)
+    legend.holdRef = resolved.hold
   }
   return legend
 }
