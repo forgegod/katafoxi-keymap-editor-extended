@@ -9,7 +9,6 @@ import {
 } from './host-legend-view.js'
 import {
   hostLayout,
-  hostLayoutById,
   hostLayoutChoice,
   hostLayoutMeta,
   hostLayoutsForLanguage,
@@ -55,7 +54,6 @@ describe('host layout registry', () => {
       origin: 'system'
     })
     expect(hostLayout(BUILTIN_RU)?.byZmk.get('A')?.glyphs).toEqual(['ф', 'Ф', '', ''])
-    expect(hostLayoutById(BUILTIN_RU)).toBe(hostLayout(BUILTIN_RU))
     expect(hostLayoutChoice(BUILTIN_RU)?.kind).toBe('system')
     expect(hostLayout('missing-id')).toBeUndefined()
     expect(hostLayoutMeta('missing-id')).toBeUndefined()

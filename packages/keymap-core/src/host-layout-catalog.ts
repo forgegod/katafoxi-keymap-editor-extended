@@ -114,10 +114,6 @@ export function primarySystemLayoutId(language: HostLanguageId): string | undefi
   )?.id
 }
 
-export function builtinLanguageProfileLabel(_kind: HostLayoutKind): string {
-  return 'Системная'
-}
-
 export function hostLayoutChoiceLabel(choice: HostLayoutChoice): string {
   if (choice.primary) return 'Системная'
   return choice.layoutName

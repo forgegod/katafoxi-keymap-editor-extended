@@ -64,11 +64,6 @@ export function hostLayoutMeta(id: string): HostLayoutMeta | undefined {
   return spec ? metaFromSpec(spec) : undefined
 }
 
-/** Same as `hostLayout`; kept so existing imports keep working. */
-export function hostLayoutById(id: string): HostLayout | undefined {
-  return hostLayout(id)
-}
-
 /** Four keysyms and glyphs for one ZMK name, or undefined when the key is absent. */
 export function hostLevels(layoutId: string, zmk: string): HostKeyLevels | undefined {
   return hostLayout(layoutId)?.byZmk.get(zmk)
