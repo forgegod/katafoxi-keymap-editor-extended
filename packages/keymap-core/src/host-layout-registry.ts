@@ -5,7 +5,7 @@ import {
   type HostLayoutChoice
 } from './host-layout-catalog.js'
 import { hostLanguage, type HostLanguageId } from './host-languages.js'
-import { hostLayoutFromSymbols, type HostLayout } from './host-layout.js'
+import { hostLayoutFromSymbols, type HostKeyLevels, type HostLayout } from './host-layout.js'
 
 export interface HostLayoutMeta {
   id: string
@@ -66,6 +66,11 @@ export function hostLayoutMeta(id: string): HostLayoutMeta | undefined {
 /** Same as `hostLayout`; kept so existing imports keep working. */
 export function hostLayoutById(id: string): HostLayout | undefined {
   return hostLayout(id)
+}
+
+/** Four keysyms and glyphs for one ZMK name, or undefined when the key is absent. */
+export function hostLevels(layoutId: string, zmk: string): HostKeyLevels | undefined {
+  return hostLayout(layoutId)?.byZmk.get(zmk)
 }
 
 function choiceFromMeta(meta: HostLayoutMeta): HostLayoutChoice {

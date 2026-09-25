@@ -52,7 +52,7 @@ describe('host layout registry', () => {
       flag: '🇷🇺',
       origin: 'system'
     })
-    expect(hostLayout('lark-ru')?.byZmk.get('A')).toEqual(['ф', 'Ф', '@', 'α'])
+    expect(hostLayout('lark-ru')?.byZmk.get('A')?.glyphs).toEqual(['ф', 'Ф', '@', 'α'])
     expect(hostLayoutById('lark-ru')).toBe(hostLayout('lark-ru'))
     expect(hostLayoutChoice('lark-ru')?.kind).toBe('in-layout')
     expect(hostLayout('missing-id')).toBeUndefined()
@@ -99,7 +99,7 @@ describe('host layout registry', () => {
         empty
       )
     ).toThrow(/built-in/)
-    expect(hostLayout('lark-ru')?.byZmk.get('A')).toEqual(['ф', 'Ф', '@', 'α'])
+    expect(hostLayout('lark-ru')?.byZmk.get('A')?.glyphs).toEqual(['ф', 'Ф', '@', 'α'])
 
     unregisterHostLayout('lark-ru')
     expect(hostLayout('lark-ru')).toBeDefined()

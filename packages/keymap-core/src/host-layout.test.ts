@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { larkEnglishLayout, larkRussianLayout } from './host-legend-presets.js'
+import { composeHostPair, hostLayoutFromSymbols } from './host-layout.js'
 import {
   builtinLanguageProfileId,
   hostLayoutsForLanguage,
@@ -11,7 +12,7 @@ import {
   SYSTEM_UA_LAYOUT_ID,
   SYSTEM_US_LAYOUT_ID
 } from './host-layout-catalog.js'
-import { hostLayout } from './host-layout-registry.js'
+import { hostLayout, hostLevels } from './host-layout-registry.js'
 import {
   addHostLanguage,
   assignHostLanguageLayout,
@@ -78,6 +79,7 @@ describe('keysymToGlyph', () => {
     expect(keysymToGlyph('U20BD')).toBe('₽')
     expect(keysymToGlyph('0x01000451')).toBe('ё')
     expect(keysymToGlyph('Multi_key')).toBeNull()
+    expect(keysymToGlyph('dead_acute')).toBeNull()
   })
 })
 
@@ -85,8 +87,8 @@ describe('lark host layouts', () => {
   const larkView = standardHostLegendView()
 
   it('joins AC01 to A / ф and keeps shared AltGr', () => {
-    expect(larkEnglishLayout.byZmk.get('A')).toEqual(['a', 'A', '@', 'α'])
-    expect(larkRussianLayout.byZmk.get('A')).toEqual(['ф', 'Ф', '@', 'α'])
+    expect(larkEnglishLayout.byZmk.get('A')?.glyphs).toEqual(['a', 'A', '@', 'α'])
+    expect(larkRussianLayout.byZmk.get('A')?.glyphs).toEqual(['ф', 'Ф', '@', 'α'])
     expect(hostLegendFor('KC_A', larkView)).toEqual({
       en: ['a', 'A'],
       second: ['ф', 'Ф'],
@@ -124,9 +126,36 @@ describe('lark host layouts', () => {
     })
   })
 
-  it('skips modifier keysyms and keys outside the host block', () => {
-    expect(larkEnglishLayout.byZmk.has('RALT')).toBe(false)
-    expect(larkEnglishLayout.byZmk.has('RWIN')).toBe(false)
+  it('keeps non-character bases in the table and skips them in composition', () => {
+    const layout = hostLayoutFromSymbols(
+      `
+      xkb_symbols "basic" {
+        key <AC01> {[ a, A, at, Greek_alpha ]};
+        key <RALT> {[ ISO_Level3_Shift, Multi_key ]};
+        key <TLDE> {[ dead_circumflex, degree, U2032, U2033 ]};
+      };
+    `,
+      'basic',
+      'test-nonchar'
+    )
+    expect(layout.byZmk.get('RALT')).toEqual({
+      keysyms: ['ISO_Level3_Shift', 'Multi_key', 'NoSymbol', 'NoSymbol'],
+      glyphs: ['', '', '', '']
+    })
+    expect(layout.byZmk.get('GRAVE')).toEqual({
+      keysyms: ['dead_circumflex', 'degree', 'U2032', 'U2033'],
+      glyphs: ['', '°', '′', '″']
+    })
+    expect(composeHostPair(layout, null, 'RALT')).toBeNull()
+    expect(composeHostPair(layout, null, 'GRAVE')).toBeNull()
+    expect(larkEnglishLayout.byZmk.get('RWIN')).toEqual({
+      keysyms: ['Multi_key', 'NoSymbol', 'NoSymbol', 'NoSymbol'],
+      glyphs: ['', '', '', '']
+    })
+    expect(larkEnglishLayout.byZmk.get('RALT')?.keysyms[0]).toBe('ISO_Level3_Shift')
+    expect(larkEnglishLayout.byZmk.get('RALT')?.glyphs[0]).toBe('')
+    expect(hostLegendFor('RWIN', larkView)).toBeNull()
+    expect(hostLegendFor('RALT', larkView)).toBeNull()
     expect(hostLegendFor('ESC', larkView)).toBeNull()
     expect(hostLegendFor('COLON', larkView)).toBeNull()
   })
@@ -143,12 +172,12 @@ describe('system English us(basic)', () => {
   it('uses US letters and punctuation, without AltGr', () => {
     const systemEnglishLayout = hostLayout(SYSTEM_US_LAYOUT_ID)!
     expect(systemEnglishLayout.id).toBe(SYSTEM_US_LAYOUT_ID)
-    expect(systemEnglishLayout.byZmk.get('A')).toEqual(['a', 'A', '', ''])
-    expect(systemEnglishLayout.byZmk.get('E')).toEqual(['e', 'E', '', ''])
-    expect(systemEnglishLayout.byZmk.get('N1')).toEqual(['1', '!', '', ''])
-    expect(systemEnglishLayout.byZmk.get('SEMI')).toEqual([';', ':', '', ''])
-    expect(systemEnglishLayout.byZmk.get('SLASH')).toEqual(['/', '?', '', ''])
-    expect(systemEnglishLayout.byZmk.get('GRAVE')).toEqual(['`', '~', '', ''])
+    expect(systemEnglishLayout.byZmk.get('A')?.glyphs).toEqual(['a', 'A', '', ''])
+    expect(systemEnglishLayout.byZmk.get('E')?.glyphs).toEqual(['e', 'E', '', ''])
+    expect(systemEnglishLayout.byZmk.get('N1')?.glyphs).toEqual(['1', '!', '', ''])
+    expect(systemEnglishLayout.byZmk.get('SEMI')?.glyphs).toEqual([';', ':', '', ''])
+    expect(systemEnglishLayout.byZmk.get('SLASH')?.glyphs).toEqual(['/', '?', '', ''])
+    expect(systemEnglishLayout.byZmk.get('GRAVE')?.glyphs).toEqual(['`', '~', '', ''])
   })
 
   it('fills the first column when chosen as the English system profile', () => {
@@ -200,15 +229,15 @@ describe('system Russian winkeys', () => {
 
   it('uses common letters and winkeys punctuation', () => {
     const systemRussianLayout = hostLayout(SYSTEM_RU_LAYOUT_ID)!
-    expect(systemRussianLayout.byZmk.get('Q')).toEqual(['й', 'Й', '', ''])
-    expect(systemRussianLayout.byZmk.get('A')).toEqual(['ф', 'Ф', '', ''])
-    expect(systemRussianLayout.byZmk.get('GRAVE')).toEqual(['ё', 'Ё', '', ''])
-    expect(systemRussianLayout.byZmk.get('N3')).toEqual(['3', '№', '', ''])
-    expect(systemRussianLayout.byZmk.get('N4')).toEqual(['4', ';', '', ''])
-    expect(systemRussianLayout.byZmk.get('N8')).toEqual(['8', '*', '₽', ''])
-    expect(systemRussianLayout.byZmk.get('SLASH')).toEqual(['.', ',', '', ''])
-    expect(systemRussianLayout.byZmk.get('BSLH')).toEqual(['\\', '/', '', ''])
-    expect(systemRussianLayout.byZmk.get('MINUS')).toEqual(['-', '_', '', ''])
+    expect(systemRussianLayout.byZmk.get('Q')?.glyphs).toEqual(['й', 'Й', '', ''])
+    expect(systemRussianLayout.byZmk.get('A')?.glyphs).toEqual(['ф', 'Ф', '', ''])
+    expect(systemRussianLayout.byZmk.get('GRAVE')?.glyphs).toEqual(['ё', 'Ё', '', ''])
+    expect(systemRussianLayout.byZmk.get('N3')?.glyphs).toEqual(['3', '№', '', ''])
+    expect(systemRussianLayout.byZmk.get('N4')?.glyphs).toEqual(['4', ';', '', ''])
+    expect(systemRussianLayout.byZmk.get('N8')?.glyphs).toEqual(['8', '*', '₽', ''])
+    expect(systemRussianLayout.byZmk.get('SLASH')?.glyphs).toEqual(['.', ',', '', ''])
+    expect(systemRussianLayout.byZmk.get('BSLH')?.glyphs).toEqual(['\\', '/', '', ''])
+    expect(systemRussianLayout.byZmk.get('MINUS')?.glyphs).toEqual(['-', '_', '', ''])
   })
 
   it('shows English first and system Russian second, both visible', () => {
@@ -242,8 +271,8 @@ describe('system Russian winkeys', () => {
 describe('Ukrainian system layout', () => {
   it('uses Ukrainian letters on the quote key', () => {
     const systemUkrainianLayout = hostLayout(SYSTEM_UA_LAYOUT_ID)!
-    expect(systemUkrainianLayout.byZmk.get('SQT')?.[0]).toBe('є')
-    expect(systemUkrainianLayout.byZmk.get('Q')?.[0]).toBe('й')
+    expect(systemUkrainianLayout.byZmk.get('SQT')?.glyphs[0]).toBe('є')
+    expect(systemUkrainianLayout.byZmk.get('Q')?.glyphs[0]).toBe('й')
   })
 
   it('lists Ukrainian system variants and maps phonetic Q to я', () => {
@@ -293,12 +322,33 @@ describe('Ukrainian system layout', () => {
 describe('German system layout', () => {
   it('uses QWERTZ letters and ß on the minus key', () => {
     const systemGermanLayout = hostLayout(SYSTEM_DE_LAYOUT_ID)!
-    expect(systemGermanLayout.byZmk.get('A')?.slice(0, 2)).toEqual(['a', 'A'])
-    expect(systemGermanLayout.byZmk.get('Y')?.[0]).toBe('z')
-    expect(systemGermanLayout.byZmk.get('Z')?.[0]).toBe('y')
-    expect(systemGermanLayout.byZmk.get('MINUS')?.[0]).toBe('ß')
-    expect(systemGermanLayout.byZmk.get('SEMI')?.[0]).toBe('ö')
-    expect(systemGermanLayout.byZmk.get('SQT')?.[0]).toBe('ä')
+    expect(systemGermanLayout.byZmk.get('A')?.glyphs.slice(0, 2)).toEqual(['a', 'A'])
+    expect(systemGermanLayout.byZmk.get('Y')?.glyphs[0]).toBe('z')
+    expect(systemGermanLayout.byZmk.get('Z')?.glyphs[0]).toBe('y')
+    expect(systemGermanLayout.byZmk.get('MINUS')?.glyphs[0]).toBe('ß')
+    expect(systemGermanLayout.byZmk.get('SEMI')?.glyphs[0]).toBe('ö')
+    expect(systemGermanLayout.byZmk.get('SQT')?.glyphs[0]).toBe('ä')
+  })
+
+  it('keeps dead_* keysyms on de(basic) and winkeys AC01 names from source', () => {
+    const grave = hostLevels(SYSTEM_DE_LAYOUT_ID, 'GRAVE')
+    expect(grave?.keysyms).toEqual(['dead_circumflex', 'degree', 'U2032', 'U2033'])
+    expect(grave?.glyphs[0]).toBe('')
+    const equal = hostLevels(SYSTEM_DE_LAYOUT_ID, 'EQUAL')
+    expect(equal?.keysyms).toEqual(['dead_acute', 'dead_grave', 'dead_cedilla', 'dead_ogonek'])
+    expect(equal?.glyphs[0]).toBe('')
+    expect(hostLevels(SYSTEM_RU_LAYOUT_ID, 'A')?.keysyms).toEqual([
+      'Cyrillic_ef',
+      'Cyrillic_EF',
+      'NoSymbol',
+      'NoSymbol'
+    ])
+    const deOnly = hostLegendView(standardHostLegendView(), {
+      baseId: SYSTEM_DE_LAYOUT_ID,
+      secondId: null
+    })
+    expect(hostLegendFor('GRAVE', deOnly)).toBeNull()
+    expect(hostLegendFor('EQUAL', deOnly)).toBeNull()
   })
 
   it('lists German system variants and maps nodeadkeys caret', () => {

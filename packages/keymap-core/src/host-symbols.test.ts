@@ -53,6 +53,6 @@ describe('host symbol dictionary', () => {
     const layout = hostLayoutFromSymbols(uaSymbols, 'unicode', 'ua-unicode')
     const quote = hostKeyByXkb('AC11')
     expect(quote?.zmk).toBe('SQT')
-    expect(layout.byZmk.get('SQT')).toEqual(['є', 'Є', 'э', 'Э'])
+    expect(layout.byZmk.get('SQT')?.glyphs).toEqual(['є', 'Є', 'э', 'Э'])
   })
 })

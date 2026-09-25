@@ -1,7 +1,8 @@
 /**
  * Keysym name → glyph, via the host symbol dictionary.
  * `NoSymbol` is an empty string. Modifier keysyms (`Multi_key`, `dead_*`)
- * are null: they are not characters.
+ * are null: they are not characters. The layout still stores those names
+ * as keysyms; only the derived glyph is empty.
  */
 
 import { codepointFromKeysymSpelling, hostSymbolByKeysym } from './host-symbols.js'
