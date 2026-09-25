@@ -18,6 +18,7 @@ export interface HostLayout {
   byZmk: ReadonlyMap<string, HostLevels>
 }
 
+/** Names and `U` / `0x01` spellings resolve through the host symbol dictionary. */
 function padLevels(keysyms: string[]): [string, string, string, string] {
   const glyphs = [0, 1, 2, 3].map(index => {
     const name = keysyms[index] ?? 'NoSymbol'
