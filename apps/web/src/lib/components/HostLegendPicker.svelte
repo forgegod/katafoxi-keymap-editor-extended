@@ -1,18 +1,25 @@
 <script lang="ts">
   import {
+    ALT_GR_COLUMN_LABEL,
+    ALT_GR_SHIFT_COLUMN_LABEL,
+    addHostLanguage,
     builtinLanguageProfileId,
     builtinLanguageProfileLabel,
     encodeKeyBinding,
+    hostLanguagesAvailable,
     hostLayoutChoice,
     hostLayoutsForLanguage,
+    hostLegendColumns,
     hostLegendFor,
     hostLegendPreview,
     getKeycodeCatalog,
-    hostLegendView,
     parseBuiltinLanguageProfileId,
     resolveBinding,
+    setHostColumnAlt,
+    toggleHostLanguage,
     toggleShownLayer,
     type HostLanguageId,
+    type HostLegendColumn,
     type KeyBindingNode
   } from '@keymap-editor/keymap-core'
   import { editor, hostLegendAnchorIndex } from '../editor.svelte.js'
@@ -22,15 +29,8 @@
   import Icon from './Common/Icon.svelte'
 
   const view = $derived(editor.hostLegend)
-  const base = $derived(hostLayoutChoice(view.baseId))
-  const secondId = $derived(
-    view.secondId ??
-      hostLayoutsForLanguage('ru').find(choice => choice.kind === 'in-layout')?.id ??
-      view.baseId
-  )
-  const second = $derived(hostLayoutChoice(secondId))
-  const baseOn = $derived(view.baseVisible !== false)
-  const secondOn = $derived(view.secondId != null && view.secondVisible !== false)
+  const columns = $derived(hostLegendColumns(view))
+  const addable = $derived(hostLanguagesAvailable(view))
   const markedLayers = $derived(view.shownLayers ?? [0, 1, 2, 3])
   const layerNames = $derived(editor.hostLegendLayerNames)
   const anchorIndex = $derived(hostLegendAnchorIndex(editor.draftKeymap))
@@ -91,24 +91,12 @@
     return editor.profilesForLanguage(language).find(profile => profile.id === id)?.name ?? ''
   }
 
-  function toggleBase() {
-    editor.hostLegend = hostLegendPreview(view, { baseVisible: !baseOn })
+  function toggleLanguage(language: HostLanguageId) {
+    void editor.commitHostMap(toggleHostLanguage(view, language))
   }
 
-  function toggleSecond() {
-    if (secondOn) {
-      editor.hostLegend = hostLegendPreview(view, { secondVisible: false })
-      return
-    }
-    if (view.secondId) {
-      editor.hostLegend = hostLegendPreview(view, { secondVisible: true })
-      return
-    }
-    void editor.commitHostMap(
-      hostLegendPreview(hostLegendView(view, { secondId }), {
-        secondVisible: true
-      })
-    )
+  function addLanguage(language: HostLanguageId) {
+    void editor.commitHostMap(addHostLanguage(view, language))
   }
 
   function toggleLayer(index: number) {
@@ -119,9 +107,43 @@
     editor.hostLegend = toggleShownLayer(view, index)
   }
 
-  function toggleAlt(field: 'altGr' | 'altGrShift') {
-    editor.hostLegend = hostLegendPreview(view, { [field]: !view[field] })
+  function toggleAlt(language: HostLanguageId, field: 'altGr' | 'altGrShift', on: boolean) {
+    editor.hostLegend = setHostColumnAlt(view, language, field, !on)
   }
+
+  function columnPair(column: HostLegendColumn, tap: string | null): string {
+    if (!tap) return ''
+    const legend = hostLegendFor(tap, {
+      ...view,
+      baseId: column.layoutId,
+      secondId: null,
+      baseVisible: true,
+      altGr: true,
+      altGrShift: true
+    })
+    return legend ? `${legend.en[0]}${legend.en[1]}` : ''
+  }
+
+  function columnAlt(
+    column: HostLegendColumn,
+    tap: string | null,
+    field: 'altGr' | 'altGrShift'
+  ): string {
+    if (!tap || !column[field]) return ''
+    const legend = hostLegendFor(tap, {
+      ...view,
+      baseId: column.layoutId,
+      secondId: null,
+      baseVisible: true,
+      altGr: true,
+      altGrShift: true
+    })
+    return legend?.[field] ?? ''
+  }
+
+  const columnCount = $derived(
+    2 + columns.reduce((count, column) => count + (column.wide ? 3 : 1), 0) + (addable.length ? 1 : 0)
+  )
 
   function hoverLayer(layer: number) {
     editor.legendHover = { kind: 'layer', layer }
@@ -287,40 +309,73 @@
   </button>
 {/snippet}
 
-{#snippet languageHead(
-  language: HostLanguageId,
-  choice: ReturnType<typeof hostLayoutChoice>,
-  visible: boolean,
-  toggle: () => void,
-  eyeLabel: string,
-  interactive: boolean
-)}
-  <div class="lang-head">
+{#snippet languageHead(column: HostLegendColumn, interactive: boolean)}
+  {@const choice = hostLayoutChoice(column.layoutId)}
+  {@const language = column.language}
+  <div class="lang-head" class:narrow={!column.wide}>
     {#if interactive}
-      <EyeToggle on={visible} label={eyeLabel} onclick={toggle} />
+      <EyeToggle
+        on={column.shown}
+        label={column.shown ? `Скрыть ${choice?.languageName ?? language}` : `Показать ${choice?.languageName ?? language}`}
+        onclick={() => toggleLanguage(language)}
+      />
       <span class="lang-flag" title={choice?.languageName ?? language}>{choice?.flag ?? '—'}</span>
-      <select
-        class="profile-select"
-        aria-label="Профиль {choice?.languageName ?? language}"
-        value={editor.activeProfileId(language)}
-        onchange={event => chooseColumnProfile(language, event.currentTarget.value)}
-      >
-        {#each hostLayoutsForLanguage(language) as option (option.id)}
-          <option value={builtinLanguageProfileId(language, option.kind)}>
-            {builtinLanguageProfileLabel(option.kind)}
-          </option>
-        {/each}
-        {#each editor.profilesForLanguage(language) as profile (profile.id)}
-          <option value={profile.id}>{profile.name}</option>
-        {/each}
-      </select>
-      {@render profileIcons(language)}
+      <div class="lang-tools" hidden={!column.wide}>
+        {#if language !== 'en' && language !== 'ru'}
+          <select class="language-select" aria-label="Язык" value={language}>
+            <option value={language}>{choice?.languageName ?? language}</option>
+          </select>
+        {/if}
+        <select
+          class="profile-select"
+          aria-label="Профиль {choice?.languageName ?? language}"
+          value={editor.activeProfileId(language)}
+          onchange={event => chooseColumnProfile(language, event.currentTarget.value)}
+        >
+          {#each hostLayoutsForLanguage(language) as option (option.id)}
+            <option value={builtinLanguageProfileId(language, option.kind)}>
+              {builtinLanguageProfileLabel(option.kind)}
+            </option>
+          {/each}
+          {#each editor.profilesForLanguage(language) as profile (profile.id)}
+            <option value={profile.id}>{profile.name}</option>
+          {/each}
+        </select>
+        {#if language === 'en' || language === 'ru'}
+          {@render profileIcons(language)}
+        {/if}
+      </div>
     {:else}
       <span class="eye-spacer"></span>
       <span class="lang-flag">{choice?.flag ?? '—'}</span>
-      <span class="profile-name">{activeProfileLabel(language)}</span>
+      {#if column.wide}
+        <span class="profile-name">{activeProfileLabel(language)}</span>
+      {/if}
     {/if}
   </div>
+{/snippet}
+
+{#snippet altHead(column: HostLegendColumn, field: 'altGr' | 'altGrShift', label: string, name: string, interactive: boolean)}
+  <th
+    class:off={!column[field]}
+    onmouseenter={interactive ? () => hoverAlt(field) : undefined}
+    onmouseleave={interactive ? clearHover : undefined}
+  >
+    {#if interactive}
+      <button
+        type="button"
+        class="col-toggle"
+        class:on={column[field]}
+        aria-label={name}
+        title={name}
+        onclick={() => toggleAlt(column.language, field, column[field])}
+      >
+        {label}
+      </button>
+    {:else}
+      {label}
+    {/if}
+  </th>
 {/snippet}
 
 {#snippet legendTable(rows: LayerRow[], interactive: boolean)}
@@ -344,61 +399,33 @@
           {/if}
         </th>
         <th>ZMK keycode</th>
-        <th class:off={!baseOn}>
-          {@render languageHead('en', base, baseOn, toggleBase, 'Показать первый язык', interactive)}
-        </th>
-        <th class:off={!secondOn}>
-          {@render languageHead(
-            'ru',
-            second,
-            secondOn,
-            toggleSecond,
-            'Показать второй язык',
-            interactive
-          )}
-        </th>
-        <th
-          class:off={!view.altGr}
-          onmouseenter={interactive ? () => hoverAlt('altGr') : undefined}
-          onmouseleave={interactive ? clearHover : undefined}
-        >
-          {#if interactive}
+        {#each columns as column (column.language)}
+          <th class:off={!column.shown} class:narrow={!column.wide}>
+            {@render languageHead(column, interactive)}
+          </th>
+          {#if column.wide}
+            {@render altHead(column, 'altGr', ALT_GR_COLUMN_LABEL, 'AltGr', interactive)}
+            {@render altHead(column, 'altGrShift', ALT_GR_SHIFT_COLUMN_LABEL, 'AltGr+Shift', interactive)}
+          {/if}
+        {/each}
+        {#if interactive && addable.length > 0}
+          <th class="add-language-cell">
             <button
               type="button"
-              class="col-toggle"
-              class:on={view.altGr}
-              onclick={() => toggleAlt('altGr')}
+              class="add-language"
+              aria-label="Добавить язык"
+              title="Добавить язык"
+              onclick={() => addLanguage(addable[0])}
             >
-              AltGr
+              +
             </button>
-          {:else}
-            AltGr
-          {/if}
-        </th>
-        <th
-          class:off={!view.altGrShift}
-          onmouseenter={interactive ? () => hoverAlt('altGrShift') : undefined}
-          onmouseleave={interactive ? clearHover : undefined}
-        >
-          {#if interactive}
-            <button
-              type="button"
-              class="col-toggle"
-              class:on={view.altGrShift}
-              onclick={() => toggleAlt('altGrShift')}
-            >
-              AltGr+Shift
-            </button>
-          {:else}
-            AltGr+Shift
-          {/if}
-        </th>
+          </th>
+        {/if}
       </tr>
     </thead>
     <tbody id={interactive ? 'host-legend-layers' : undefined}>
       {#each rows as row (row.index)}
         {@const tap = bindingTap(row.binding)}
-        {@const letter = tap ? hostLegendFor(tap, view) : null}
         <tr
           data-layer={row.index}
           class:off={!row.marked}
@@ -450,21 +477,27 @@
             </div>
           </th>
           <td class="zmk">{zmkCell(row.binding)}</td>
-          <td>{letter ? `${letter.en[0]}${letter.en[1]}` : ''}</td>
-          <td class="second" class:off={!secondOn}>
-            {letter?.second ? `${letter.second[0]}${letter.second[1]}` : ''}
-          </td>
-          <td class="alt" class:off={!view.altGr}>{view.altGr ? (letter?.altGr ?? '') : ''}</td>
-          <td class="alt" class:off={!view.altGrShift}>
-            {view.altGrShift ? (letter?.altGrShift ?? '') : ''}
-          </td>
+          {#each columns as column (column.language)}
+            <td class:second={column.language !== 'en'} class:off={!column.shown} class:narrow={!column.wide}>
+              {column.wide ? columnPair(column, tap) : ''}
+            </td>
+            {#if column.wide}
+              <td class="alt" class:off={!column.altGr}>{columnAlt(column, tap, 'altGr')}</td>
+              <td class="alt" class:off={!column.altGrShift}>
+                {columnAlt(column, tap, 'altGrShift')}
+              </td>
+            {/if}
+          {/each}
+          {#if interactive && addable.length > 0}
+            <td></td>
+          {/if}
         </tr>
       {/each}
     </tbody>
     {#if interactive && open}
       <tfoot>
         <tr>
-          <th colspan="6">
+          <th colspan={columnCount}>
             <button type="button" class="add-layer" onclick={() => editor.addLayer()}>
               Add Layer
             </button>
@@ -599,6 +632,47 @@
 
   .lang-head {
     min-width: 16.5rem;
+  }
+
+  .lang-head.narrow,
+  th.narrow,
+  td.narrow {
+    min-width: 0;
+    width: 1%;
+  }
+
+  .lang-tools[hidden] {
+    display: none;
+  }
+
+  .language-select {
+    max-width: 7.5rem;
+    min-height: 24px;
+    padding: 1px 4px;
+    font: inherit;
+    font-size: 12px;
+  }
+
+  .add-language-cell {
+    width: 1%;
+  }
+
+  .add-language {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px dashed #1d6f8a;
+    border-radius: 4px;
+    background: #fff;
+    color: #1d6f8a;
+    font: inherit;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .add-language:hover {
+    background: rgba(29, 111, 138, 0.08);
   }
 
   .lang-flag {

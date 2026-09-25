@@ -4,9 +4,12 @@
  */
 
 import {
+  builtinLanguageProfileId,
   diffKeymaps,
   getBehaviorCatalog,
   getKeycodeCatalog,
+  hostLayoutChoice,
+  hostLegendColumns,
   standardHostLegendView,
   remapShownLayersAfterDelete,
   summarizeKeymapDiff,
@@ -260,7 +263,13 @@ class EditorState {
   }
 
   activeProfileId(language: HostLanguageId): string {
-    return this.activeLanguageProfiles[language]
+    if (language === 'en' || language === 'ru') return this.activeLanguageProfiles[language]
+    const column = hostLegendColumns(this.hostLegend).find(item => item.language === language)
+    const choice = column ? hostLayoutChoice(column.layoutId) : undefined
+    if (choice && choice.language === language) {
+      return builtinLanguageProfileId(language, choice.kind)
+    }
+    return builtinLanguageProfileId(language, 'system')
   }
 
   profilesForLanguage(language: HostLanguageId): HostProfile[] {
@@ -275,6 +284,7 @@ class EditorState {
    */
   commitHostMap(next: HostLegendView): Promise<void> {
     this.hostLegend = { ...next }
+    const secondLanguage = next.secondId ? hostLayoutChoice(next.secondId)?.language : undefined
     this.activeLanguageProfiles = {
       en: profileIdForLayout(
         'en',
@@ -282,25 +292,30 @@ class EditorState {
         this.activeLanguageProfiles.en,
         this.hostProfiles
       ),
-      ru: next.secondId
-        ? profileIdForLayout(
-            'ru',
-            next.secondId,
-            this.activeLanguageProfiles.ru,
-            this.hostProfiles
-          )
-        : this.activeLanguageProfiles.ru
+      ru:
+        secondLanguage === 'ru' && next.secondId
+          ? profileIdForLayout(
+              'ru',
+              next.secondId,
+              this.activeLanguageProfiles.ru,
+              this.hostProfiles
+            )
+          : this.activeLanguageProfiles.ru
     }
     return saveActiveLanguageProfiles(this.activeLanguageProfiles)
   }
 
   selectLanguageProfile(language: HostLanguageId, id: string): Promise<void> {
-    if (this.activeLanguageProfiles[language] === id) return Promise.resolve()
+    if (language === 'en' || language === 'ru') {
+      if (this.activeLanguageProfiles[language] === id) return Promise.resolve()
+    }
     this.hostProfilePrompt = null
     this.hostProfileNote = null
     const layoutId = layoutIdForProfile(id, this.hostProfiles)
     if (!layoutId) return Promise.resolve()
-    this.activeLanguageProfiles = { ...this.activeLanguageProfiles, [language]: id }
+    if (language === 'en' || language === 'ru') {
+      this.activeLanguageProfiles = { ...this.activeLanguageProfiles, [language]: id }
+    }
     this.hostLegend = hostLegendWithLayout(this.hostLegend, language, layoutId)
     return saveActiveLanguageProfiles(this.activeLanguageProfiles)
   }
@@ -362,7 +377,8 @@ class EditorState {
     )
     if (taken) return 'Профиль с таким именем уже есть'
     const layoutId =
-      language === 'en' ? this.hostLegend.baseId : (this.hostLegend.secondId ?? '')
+      hostLegendColumns(this.hostLegend).find(column => column.language === language)?.layoutId ??
+      ''
     if (!layoutId) return 'Нет раскладки для этого языка'
     const profile: HostProfile = {
       id: crypto.randomUUID(),

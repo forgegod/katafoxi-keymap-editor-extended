@@ -223,6 +223,25 @@ describe('HostLegendPicker', () => {
     expect(editor.activeProfileId('en')).toBe('en:system')
   })
 
+  it('adds Ukrainian and collapses the Russian block to a flag', async () => {
+    await open(keymapOf(['default']))
+    const add = target.querySelector('.legend-panel .add-language')
+    if (!(add instanceof HTMLButtonElement)) throw new Error('missing add language')
+    add.click()
+    flushSync()
+    expect(editor.hostLegend.secondId).toBe('system-ua')
+    const flags = [...target.querySelectorAll('.legend-panel .lang-flag')].map(
+      el => el.textContent
+    )
+    expect(flags).toEqual(['🇦🇺', '🇷🇺', '🇺🇦'])
+    const selects = [...target.querySelectorAll('.legend-panel select.profile-select')]
+      .filter(el => !el.closest('.lang-head.narrow'))
+      .map(el => el.getAttribute('aria-label'))
+    expect(selects).toEqual(['Профиль English', 'Профиль Ukrainian'])
+    const russian = target.querySelector('.legend-panel .lang-head.narrow .lang-flag')
+    expect(russian?.textContent).toBe('🇷🇺')
+  })
+
   it('renames a layer from the table name button', async () => {
     await open(keymapOf(['default', 'raise']))
     const name = target.querySelector('.legend-panel tr[data-layer="0"] .layer-name')

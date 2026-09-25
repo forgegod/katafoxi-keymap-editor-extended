@@ -7,8 +7,8 @@
 import {
   builtinLanguageProfileId,
   builtinLanguageProfileLabel,
+  assignHostLanguageLayout,
   hostLayoutChoice,
-  hostLegendView,
   layoutForLanguageKind,
   parseBuiltinLanguageProfileId,
   reservedHostProfileNames,
@@ -98,10 +98,7 @@ export function hostLegendWithLayout(
   language: HostLanguageId,
   layoutId: string
 ): HostLegendView {
-  return hostLegendView(
-    current,
-    language === 'en' ? { baseId: layoutId } : { secondId: layoutId }
-  )
+  return assignHostLanguageLayout(current, language, layoutId)
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -149,7 +146,7 @@ function isLanguageProfile(row: unknown): row is HostProfile {
   return (
     typeof item.id === 'string' &&
     typeof item.name === 'string' &&
-    (item.language === 'en' || item.language === 'ru') &&
+    (item.language === 'en' || item.language === 'ru' || item.language === 'uk') &&
     typeof item.layoutId === 'string'
   )
 }
