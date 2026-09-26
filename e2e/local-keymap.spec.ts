@@ -152,7 +152,9 @@ test.describe('local adapter smoke', () => {
   test('decode card host level edit updates the keycap and survives reload', async ({
     page
   }) => {
+    // Pick α from the collapsed Greek shelf (stable catalog path for ru).
     const hostGlyph = 'α'
+    const glyphLabel = 'α Greek_alpha'
 
     await openLocalEditor(page)
 
@@ -162,7 +164,7 @@ test.describe('local adapter smoke', () => {
     await expect(layer0Row).toBeVisible()
     await expect(key.locator('.keycap')).not.toContainText(hostGlyph)
 
-    // Hover opens the decode tooltip; clicking a level cell pins it and starts edit.
+    // Hover opens the decode tooltip; clicking a level cell pins it and opens the catalog.
     // Edit the open Russian column so the keycap (open: 'ru') repaints immediately.
     await layer0Row.hover()
     const card = page.locator('.legend-decode')
@@ -171,12 +173,15 @@ test.describe('local adapter smoke', () => {
 
     const decodeDialog = page.getByRole('dialog', { name: /Legend decode/ })
     await expect(decodeDialog).toBeVisible()
-    const input = decodeDialog.locator('input.cell-input')
-    await expect(input).toBeVisible()
-    await input.fill(hostGlyph)
-    await expect(decodeDialog.locator('.keysym')).toHaveText('Greek_alpha')
-    await input.press('Enter')
-    await expect(input).toBeHidden()
+    const catalog = page.getByRole('dialog', { name: 'Host symbol catalog' })
+    await expect(catalog).toBeVisible()
+    await expect(catalog.locator(`button.glyph[aria-label="${glyphLabel}"]`)).toHaveCount(0)
+
+    const greekShelf = catalog.locator('[data-shelf="greek"]')
+    await greekShelf.locator('button.shelf-toggle').click()
+    await expect(greekShelf).toHaveAttribute('data-open', 'true')
+    await catalog.locator(`button.glyph[aria-label="${glyphLabel}"]`).click()
+    await expect(catalog).toBeHidden()
 
     await expect(page.getByRole('status')).toContainText('Создана копия')
     await expect(key.locator('.keycap')).toContainText(hostGlyph)
