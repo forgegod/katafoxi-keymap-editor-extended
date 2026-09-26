@@ -74,6 +74,7 @@ describe('Key click editor', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     if (view) unmount(view)
     view = undefined
     modalRoot?.remove()
@@ -281,6 +282,170 @@ describe('Key click editor', () => {
     expect(
       [...(tip?.querySelectorAll('.row.current .lang') ?? [])].map(el => el.textContent)
     ).toEqual(['-_ˬˬ', '-_ˬˬ'])
+  })
+
+  it('keeps the decode card open when the pointer moves from the row onto the card', () => {
+    vi.useFakeTimers()
+    open({
+      layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
+    })
+    const row = stackRows()[0]
+    row.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    const tip = document.querySelector('.legend-decode')
+    expect(tip).toBeInstanceOf(HTMLElement)
+
+    row.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }))
+    tip?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    vi.advanceTimersByTime(150)
+    flushSync()
+
+    expect(document.querySelector('.legend-decode')).toBeInstanceOf(HTMLElement)
+    vi.useRealTimers()
+  })
+
+  it('closes the decode card after the pointer leaves the card to the outside', () => {
+    vi.useFakeTimers()
+    open({
+      layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
+    })
+    const row = stackRows()[0]
+    row.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    const tip = document.querySelector('.legend-decode')
+    expect(tip).toBeInstanceOf(HTMLElement)
+
+    row.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }))
+    tip?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    tip?.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }))
+    flushSync()
+    vi.advanceTimersByTime(150)
+    flushSync()
+
+    expect(document.querySelector('.legend-decode')).toBeNull()
+    vi.useRealTimers()
+  })
+
+  it('pins the decode card on click without opening the key editor', () => {
+    open({
+      layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
+    })
+    const row = stackRows()[0]
+    row.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    const tip = document.querySelector('.legend-decode')
+    expect(tip).toBeInstanceOf(HTMLElement)
+
+    tip?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    flushSync()
+
+    expect(editorDialog()).toBeNull()
+    const pinned = document.querySelector('[role="dialog"].legend-decode')
+    expect(pinned).toBeInstanceOf(HTMLElement)
+    expect(pinned?.getAttribute('aria-label')).toMatch(/Legend decode/)
+    expect(row.getAttribute('aria-describedby')).toBeNull()
+  })
+
+  it('unpins the decode card on Escape and returns focus to the row', () => {
+    open({
+      layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
+    })
+    const row = stackRows()[0]
+    row.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    const tip = document.querySelector('.legend-decode')
+    tip?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    flushSync()
+    expect(document.querySelector('[role="dialog"].legend-decode')).toBeInstanceOf(HTMLElement)
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    )
+    flushSync()
+
+    expect(document.activeElement).toBe(row)
+    const after = document.querySelector('.legend-decode')
+    expect(after).toBeInstanceOf(HTMLElement)
+    expect(after?.getAttribute('role')).toBe('tooltip')
+    expect(editorDialog()).toBeNull()
+  })
+
+  it('hides the decode card when the key editor opens', () => {
+    open({
+      layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
+    })
+    const row = stackRows()[0]
+    row.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    expect(document.querySelector('.legend-decode')).toBeInstanceOf(HTMLElement)
+
+    row.click()
+    flushSync()
+
+    expect(editorDialog()).toBeInstanceOf(HTMLElement)
+    expect(document.querySelector('.legend-decode')).toBeNull()
+  })
+
+  it('keeps an open unpinned decode card as a real pointer target above the board', () => {
+    open({
+      layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
+    })
+    const row = stackRows()[0]
+    row.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    const tip = document.querySelector('.legend-decode')
+    expect(tip).toBeInstanceOf(HTMLElement)
+    if (!(tip instanceof HTMLElement)) throw new Error('missing decode card')
+    // Risk: pointer-events are enabled (no longer `none`) and z-index is 40, so
+    // any key whose box intersects the card cannot be clicked while the card is
+    // open. Neighboring keys become clickable again after the card closes.
+    expect(tip.style.zIndex).toBe('40')
+    tip.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    flushSync()
+    expect(document.querySelector('[role="dialog"].legend-decode')).toBeInstanceOf(HTMLElement)
+    expect(editorDialog()).toBeNull()
+  })
+
+  it('restores row clicks after the unpinned decode card closes', () => {
+    vi.useFakeTimers()
+    open({
+      layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
+    })
+    const row = stackRows()[0]
+    row.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    expect(document.querySelector('.legend-decode')).toBeInstanceOf(HTMLElement)
+
+    row.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }))
+    flushSync()
+    vi.advanceTimersByTime(150)
+    flushSync()
+    expect(document.querySelector('.legend-decode')).toBeNull()
+
+    row.click()
+    flushSync()
+    expect(editorDialog()).toBeInstanceOf(HTMLElement)
+    vi.useRealTimers()
+  })
+
+  it('opens the decode card from keyboard focus and closes it on blur', () => {
+    vi.useFakeTimers()
+    open({
+      layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
+    })
+    const row = stackRows()[0]
+    row.focus()
+    flushSync()
+    expect(document.querySelector('[role="tooltip"].legend-decode')).toBeInstanceOf(HTMLElement)
+
+    row.blur()
+    flushSync()
+    vi.advanceTimersByTime(150)
+    flushSync()
+    expect(document.querySelector('.legend-decode')).toBeNull()
+    vi.useRealTimers()
   })
 
   it('opens the editor from a blank &trans composed row', () => {

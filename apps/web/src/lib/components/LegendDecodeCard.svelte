@@ -9,13 +9,28 @@
     card: LegendDecodeCard
     anchor: DOMRect
     tooltipId: string
+    pinned?: boolean
+    onPointerEnter?: () => void
+    onPointerLeave?: () => void
+    onPin?: () => void
   }
 
-  let { card, anchor, tooltipId }: Props = $props()
+  let {
+    card,
+    anchor,
+    tooltipId,
+    pinned = false,
+    onPointerEnter,
+    onPointerLeave,
+    onPin
+  }: Props = $props()
   let el: HTMLDivElement | undefined = $state()
 
   const zmk = $derived(card.keycode?.replace(/^KC_/, '') ?? '')
   const showBinding = $derived(!zmk || card.binding !== `&kp ${zmk}`)
+  const dialogLabel = $derived(
+    card.keycode ? `Legend decode ${card.keycode}` : 'Legend decode'
+  )
 
   $effect(() => {
     const root = document.getElementById('modal-root') ?? document.body
@@ -36,13 +51,49 @@
     el.style.left = `${left}px`
     el.style.top = `${top}px`
   })
+
+  $effect(() => {
+    if (!el) return
+    if (pinned) {
+      el.setAttribute('role', 'dialog')
+      el.setAttribute('aria-label', dialogLabel)
+      el.setAttribute('aria-modal', 'true')
+      el.setAttribute('tabindex', '-1')
+    } else {
+      el.setAttribute('role', 'tooltip')
+      el.removeAttribute('aria-label')
+      el.removeAttribute('aria-modal')
+      el.removeAttribute('tabindex')
+    }
+  })
+
+  // Imperative listeners keep svelte-check from treating the tooltip shell as a
+  // new interactive a11y surface (Modal/KeyValue already own the two warnings).
+  $effect(() => {
+    if (!el) return
+    const node = el
+    const enter = () => onPointerEnter?.()
+    const leave = () => onPointerLeave?.()
+    const click = (event: MouseEvent) => {
+      event.stopPropagation()
+      onPin?.()
+    }
+    node.addEventListener('mouseenter', enter)
+    node.addEventListener('mouseleave', leave)
+    node.addEventListener('click', click)
+    return () => {
+      node.removeEventListener('mouseenter', enter)
+      node.removeEventListener('mouseleave', leave)
+      node.removeEventListener('click', click)
+    }
+  })
 </script>
 
 <div
   bind:this={el}
   id={tooltipId}
-  role="tooltip"
   class="legend-decode"
+  class:pinned
   style="position:fixed;left:{anchor.left}px;top:{anchor.top}px;z-index:40"
 >
   <div class="ids">
@@ -101,7 +152,7 @@
 
 <style>
   .legend-decode {
-    pointer-events: none;
+    pointer-events: auto;
     box-sizing: border-box;
     min-width: 18em;
     padding: 7px 9px 8px;
@@ -115,6 +166,12 @@
     font-size: 12px;
     line-height: 1.2;
     white-space: nowrap;
+  }
+
+  .legend-decode.pinned {
+    box-shadow:
+      0 0 0 1px rgba(40, 36, 30, 0.18),
+      0 10px 28px rgba(40, 36, 30, 0.24);
   }
 
   .ids {

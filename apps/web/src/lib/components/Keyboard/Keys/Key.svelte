@@ -93,6 +93,9 @@
   )
 
   let decode = $state<{ layer: number; rect: DOMRect } | null>(null)
+  let decodePinned = $state(false)
+  let decodeHideTimer: ReturnType<typeof setTimeout> | null = null
+  let keyRoot: HTMLDivElement | undefined = $state()
   const decodeCard = $derived(
     decode ? composeLegendDecode(session.bindingForLayer(decode.layer), hostView) : null
   )
@@ -100,13 +103,72 @@
     decode ? `legend-decode-${keyIndex}-${decode.layer}` : undefined
   )
 
+  const DECODE_HIDE_MS = 100
+
+  function cancelDecodeHide() {
+    if (decodeHideTimer == null) return
+    clearTimeout(decodeHideTimer)
+    decodeHideTimer = null
+  }
+
+  function decodeRowEl(): HTMLElement | null {
+    const layer = decode?.layer
+    if (layer == null || !keyRoot) return null
+    const row = keyRoot.querySelector(`.layer-slot[data-layer="${layer}"]`)
+    return row instanceof HTMLElement ? row : null
+  }
+
   function openDecode(layer: number, target: EventTarget | null) {
     if (!(target instanceof HTMLElement)) return
+    cancelDecodeHide()
     decode = { layer, rect: target.getBoundingClientRect() }
   }
 
   function hideDecode() {
+    cancelDecodeHide()
+    decodePinned = false
     decode = null
+  }
+
+  function requestHideDecode() {
+    if (decodePinned) return
+    cancelDecodeHide()
+    decodeHideTimer = setTimeout(() => {
+      decodeHideTimer = null
+      if (decodePinned) return
+      decode = null
+    }, DECODE_HIDE_MS)
+  }
+
+  function keepDecodeAlive() {
+    cancelDecodeHide()
+  }
+
+  function pinDecode() {
+    if (!decode) return
+    decodePinned = true
+    cancelDecodeHide()
+    const id = decodeTooltipId
+    queueMicrotask(() => {
+      const card = id ? document.getElementById(id) : null
+      if (card instanceof HTMLElement) card.focus()
+    })
+  }
+
+  function unpinDecode() {
+    if (!decodePinned) return
+    decodePinned = false
+    const row = decodeRowEl()
+    if (row) {
+      row.focus()
+      return
+    }
+    requestHideDecode()
+  }
+
+  function handleRowBlur() {
+    if (decodePinned) return
+    requestHideDecode()
   }
 
   function openEditor(slotCodeIndex: number, fromLayer?: number) {
@@ -119,6 +181,38 @@
     hideDecode()
     session.openRow(fromLayer)
   }
+
+  $effect(() => {
+    return () => cancelDecodeHide()
+  })
+
+  $effect(() => {
+    if (!decodePinned || !decodeTooltipId) return
+    const cardId = decodeTooltipId
+    function onKeydown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      unpinDecode()
+    }
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      const card = document.getElementById(cardId)
+      if (card?.contains(target)) return
+      const row = decodeRowEl()
+      if (row?.contains(target)) return
+      event.preventDefault()
+      event.stopPropagation()
+      unpinDecode()
+    }
+    window.addEventListener('keydown', onKeydown, true)
+    window.addEventListener('pointerdown', onPointerDown, true)
+    return () => {
+      window.removeEventListener('keydown', onKeydown, true)
+      window.removeEventListener('pointerdown', onPointerDown, true)
+    }
+  })
 
   function rowTitle(row: { title: string; binding: KeyBindingNode }): string {
     return row.title || encodeKeyBinding(row.binding)
@@ -139,6 +233,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
+  bind:this={keyRoot}
   class="key"
   data-label={label}
   data-u={size.u}
@@ -161,12 +256,14 @@
         class="layer-slot"
         data-layer={row.layer}
         aria-label={rowAriaLabel(row)}
-        aria-describedby={decode?.layer === row.layer ? decodeTooltipId : undefined}
+        aria-describedby={
+          decode?.layer === row.layer && !decodePinned ? decodeTooltipId : undefined
+        }
         onclick={event => handleRowClick(event, row.layer)}
         onmouseenter={event => openDecode(row.layer, event.currentTarget)}
-        onmouseleave={hideDecode}
+        onmouseleave={requestHideDecode}
         onfocus={event => openDecode(row.layer, event.currentTarget)}
-        onblur={hideDecode}
+        onblur={handleRowBlur}
       >
         {#if row.blank}
           <span class="layer-empty" aria-hidden="true">{blankRowMark(row.binding)}</span>
@@ -180,7 +277,15 @@
   </div>
 
   {#if decode && decodeCard && !session.editing}
-    <LegendDecodeCard card={decodeCard} anchor={decode.rect} tooltipId={decodeTooltipId ?? ''} />
+    <LegendDecodeCard
+      card={decodeCard}
+      anchor={decode.rect}
+      tooltipId={decodeTooltipId ?? ''}
+      pinned={decodePinned}
+      onPointerEnter={keepDecodeAlive}
+      onPointerLeave={requestHideDecode}
+      onPin={pinDecode}
+    />
   {/if}
 
   {#if session.editing && session.canEdit && session.activeSlot}
