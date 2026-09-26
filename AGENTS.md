@@ -21,6 +21,8 @@ Use **pnpm** workspaces. Dev: `pnpm dev` (API `127.0.0.1:8080`, Vite `127.0.0.1:
 5. **Prefer shared file contracts** — anything about `.keymap` / `keymap.json` / host layout formats should land in core once, then be used by GitHub and any local/dev adapters. Save/load rules: [docs/adr/0002-keymap-file-contract.md](docs/adr/0002-keymap-file-contract.md). Loading host layouts from a keyboard repo (`host_keymap/`) is future work and needs an ADR.
 6. **GitHub auth is server-session** — OAuth tokens stay on the API; browser gets HttpOnly `sid` only. See [docs/adr/0003-github-auth-server-session.md](docs/adr/0003-github-auth-server-session.md).
 7. Read product vision in [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md) before large feature work.
+8. **UI language is English only** for now — labels, buttons, hints, aria-labels, and user-facing notices in `apps/web` (and core strings that surface in the SPA). Do not add new non-English UI copy; when editing a screen, rename leftover tails to English when practical. See [`.cursor/rules/ui-english.mdc`](.cursor/rules/ui-english.mdc).
+9. **Host edit vs ZMK** — hover decode is peek-only; **Alt+click** starts the host-edit session. Host OS install is the chrome **Host** lane (Linux/Windows dialogs), not buried Export alone. See [docs/adr/0004-host-edit-and-os-deliverables.md](docs/adr/0004-host-edit-and-os-deliverables.md).
 
 ## Commit messages
 
@@ -48,9 +50,11 @@ Before committing, the subject should complete “This commit will ___”, say w
 - Assume `POST /keymap` sibling-folder save is how end users will work long-term.
 - Silently overwrite a user’s `.keymap` preamble (`#define`, includes, behavior stubs) with the default generated template when a safer path exists (see ADR 0002).
 - Work around empty Vite CSS HMR (`__vite__css = ""`) by inlining a sidecar `.css` into the Svelte component. Restart/clear the Vite cache and keep the file split. See [`.cursor/rules/vite-css.mdc`](.cursor/rules/vite-css.mdc).
+- Add non-English UI strings; the SPA chrome is English-only for now (see invariant 8).
+- Reintroduce hover-to-edit / pin-without-Alt on the decode card, or treat Export xkb as the only host install path (see ADR 0004).
 
 ## Docs map
 
 - Vision: `docs/TARGET_SYSTEM.md` (key editor, host-layout registry, composed legends)
-- ADRs: `docs/adr/` (0001 persistence, 0002 keymap file contract, 0003 GitHub auth session)
+- ADRs: `docs/adr/` (0001 persistence, 0002 keymap file contract, 0003 GitHub auth session, 0004 host-edit + OS deliverables)
 - Local run and tests: `running-locally.md`

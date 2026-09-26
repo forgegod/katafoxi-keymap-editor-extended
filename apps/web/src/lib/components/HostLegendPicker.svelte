@@ -46,7 +46,7 @@
   const visibleRows = $derived(open ? allRows : collapsedRows)
 
   const columnCount = $derived(
-    2 +
+    1 +
       columns.reduce((count, column) => count + (column.wide ? 3 : 1), 0) +
       (addable.length || pickingNew ? 1 : 0)
   )
@@ -140,7 +140,6 @@
             </button>
           {/if}
         </th>
-        <th>ZMK keycode</th>
         {#each columns as column (column.language)}
           <HostLegendLanguageHead
             {column}

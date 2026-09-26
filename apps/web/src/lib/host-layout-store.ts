@@ -22,7 +22,7 @@ import {
 
 export const HOST_LAYOUT_DB_NAME = 'keymap-editor-host-profiles'
 export const UNKNOWN_HOST_LAYOUT_NOTE =
-  'Неизвестная раскладка заменена основной системной.'
+  'Unknown layout was replaced with the primary system layout.'
 
 const DB_NAME = HOST_LAYOUT_DB_NAME
 const LAYOUTS_STORE = 'layouts'

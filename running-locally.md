@@ -50,11 +50,11 @@ Set `PORT` if the API port must change. Set `APP_BASE_URL` to the browser-facing
 
 Your selected keyboard should load automatically when Source is **Local**. Click a key to open the editor: pick a behaviour, then a value. Enter applies a complete binding; Esc cancels.
 
-The board shows the host composed stack: click a keycap row to edit that layer’s ZMK binding. Add, rename, and delete layers from the host-legend table. Each language column picks a host **layout** (a system catalog id such as `system-us` / `system-ru`, or a user layout `user:<uuid>`). Copy and **Импортировать xkb…** create user layouts; they persist in IndexedDB with the whole legend view.
+The board shows the host composed stack: click a keycap row to edit that layer’s ZMK binding; **Alt+click** starts a host-edit session (glyph catalog) when the key is a host character key. Hover is a read-only peek. The header **ZMK** lane publishes the keymap; the **Host** lane opens Linux/Windows install dialogs when a user layout is active. Add, rename, and delete layers from the host-legend table. Each language column picks a host **layout** (a system catalog id such as `system-us` / `system-ru`, or a user layout `user:<uuid>`). Copy and **Import xkb…** create user layouts; they persist in IndexedDB with the whole legend view.
 
 In a **clean browser profile** the default view is system English + Russian (`system-us` + `system-ru`, AltGr on). The editor does not ship a keyboard-specific host map. To get the LARK host glyphs in dev, import the fixture files from the profile menu:
 
-1. Open a language column’s profile control and choose **Импортировать xkb…**.
+1. Open a language column’s profile control and choose **Import xkb…**.
 2. Pick `packages/keymap-core/fixtures/lark/host/au` (section `basic`) for English and/or `packages/keymap-core/fixtures/lark/host/ru` (section `legacy`) for Russian — or paste the file text. Those files have no extension (xkb symbols convention); the file picker lists all files.
 3. The column switches to the imported user layout. Reload the page: the layout stays (IDB v3).
 

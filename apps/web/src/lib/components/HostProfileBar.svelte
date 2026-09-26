@@ -65,31 +65,31 @@
     <form class="profile-dialog" onsubmit={submit}>
       <h2>
         {#if editor.hostProfilePrompt.kind === 'rename'}
-          Переименовать
+          Rename
         {:else if editor.hostProfilePrompt.kind === 'delete'}
-          Удалить профиль
+          Delete profile
         {:else if editor.hostProfilePrompt.kind === 'copy'}
-          Скопировать профиль
+          Copy profile
         {:else}
-          Сохранить как
+          Save as
         {/if}
       </h2>
       <p>
         {#if editor.hostProfilePrompt.kind === 'rename'}
-          Новое имя для «{targetProfile?.name}».
+          New name for “{targetProfile?.name}”.
         {:else if editor.hostProfilePrompt.kind === 'delete'}
-          Профиль «{targetProfile?.name}» будет удалён из браузера.
+          Profile “{targetProfile?.name}” will be removed from this browser.
         {:else if editor.hostProfilePrompt.kind === 'copy'}
-          Копия «{activeProfileName}» сохранится под новым именем.
+          A copy of “{activeProfileName}” will be saved under a new name.
         {:else}
-          Текущая раскладка этого языка сохранится отдельным профилем.
+          The current layout for this language will be saved as a separate profile.
         {/if}
       </p>
       {#if editor.hostProfilePrompt.kind !== 'delete'}
       <input
         bind:value={name}
-        aria-label="Имя профиля"
-        placeholder="Имя профиля"
+        aria-label="Profile name"
+        placeholder="Profile name"
         maxlength="40"
       />
       {#if error}
@@ -99,14 +99,14 @@
       <div class="profile-actions">
         {#if editor.hostProfilePrompt.kind === 'delete'}
           <button type="button" class="danger" onclick={() => editor.deleteActiveHostProfile()}>
-            Удалить
+            Delete
           </button>
         {:else if editor.hostProfilePrompt.kind === 'copy'}
-          <button type="submit">Скопировать</button>
+          <button type="submit">Copy</button>
         {:else}
-          <button type="submit">Сохранить</button>
+          <button type="submit">Save</button>
         {/if}
-        <button type="button" onclick={() => editor.cancelHostProfilePrompt()}>Отмена</button>
+        <button type="button" onclick={() => editor.cancelHostProfilePrompt()}>Cancel</button>
       </div>
     </form>
   </Modal>

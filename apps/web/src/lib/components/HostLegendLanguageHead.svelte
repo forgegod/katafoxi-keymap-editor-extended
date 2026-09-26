@@ -47,9 +47,14 @@
     if (!language) return ''
     const id = editor.activeProfileId(language)
     const user = editor.profilesForLanguage(language).find(profile => profile.id === id)
-    if (user) return user.name
-    const selected = hostLayoutChoice(id)
-    return selected ? hostLayoutChoiceLabel(selected) : ''
+    const full = user
+      ? user.name
+      : (() => {
+          const selected = hostLayoutChoice(id)
+          return selected ? hostLayoutChoiceLabel(selected) : ''
+        })()
+    const paren = full.match(/\(([^)]+)\)\s*$/)
+    return paren ? paren[1] : full
   }
 
   function toggleLanguage() {
@@ -125,11 +130,11 @@
         <select
           use:focusSelect
           class="language-select"
-          aria-label="Язык"
+          aria-label="Language"
           value=""
           onchange={event => pickNewLanguage(event.currentTarget.value)}
         >
-          <option value="" disabled>Язык</option>
+          <option value="" disabled>Language</option>
           {#each addable as option (option)}
             <option value={option}>{hostLanguageName(option)}</option>
           {/each}
@@ -139,8 +144,8 @@
       <button
         type="button"
         class="add-language"
-        aria-label="Добавить язык"
-        title="Добавить язык"
+        aria-label="Add language"
+        title="Add language"
         onclick={startAddLanguage}
       >
         +
@@ -153,7 +158,7 @@
       {#if interactive}
         <EyeToggle
           on={column.shown}
-          label={column.shown ? `Скрыть ${choice?.languageName ?? language}` : `Показать ${choice?.languageName ?? language}`}
+          label={column.shown ? `Hide ${choice?.languageName ?? language}` : `Show ${choice?.languageName ?? language}`}
           onclick={toggleLanguage}
         />
         {#if extra}
@@ -161,7 +166,7 @@
             type="button"
             class="lang-flag"
             title={choice?.languageName ?? language}
-            aria-label={`Язык ${choice?.languageName ?? language}`}
+            aria-label={`Language ${choice?.languageName ?? language}`}
             aria-expanded={choosing}
             onclick={toggleLanguagePicker}
           >
@@ -175,12 +180,12 @@
             <select
               use:focusSelect
               class="language-select"
-              aria-label="Язык"
+              aria-label="Language"
               value=""
               onchange={event => changeLanguage(event.currentTarget.value)}
             >
               <option value="" disabled hidden></option>
-              <option value={REMOVE_LANGUAGE}>Убрать язык</option>
+              <option value={REMOVE_LANGUAGE}>Remove language</option>
               {#each languageChoices() as option (option)}
                 <option value={option}>{hostLanguageName(option)}</option>
               {/each}

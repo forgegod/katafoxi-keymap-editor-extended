@@ -1,0 +1,15 @@
+---
+description: App UI copy is English-only for now
+globs:
+  - apps/web/**
+  - packages/keymap-core/src/host-layout-catalog.ts
+  - packages/keymap-core/src/host-languages.ts
+---
+
+# UI language
+
+The product UI is **English only** for now (labels, buttons, hints, aria-labels, user-facing notices).
+
+- Do not add new Russian (or other) UI strings in `apps/web` or in core helpers that feed the SPA (`hostLayoutChoiceLabel`, reserved profile names, etc.).
+- When touching a screen that still has leftover non-English copy, rename those strings to English in the same change when practical.
+- Fixtures, xkb source comments, and tests that assert glyph content (Cyrillic letters on keycaps) are fine; user-visible chrome is not.

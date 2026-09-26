@@ -1,9 +1,6 @@
 <script lang="ts">
   import {
-    encodeKeyBinding,
-    getKeycodeCatalog,
     hostLegendTableRow,
-    resolveBinding,
     toggleShownLayer,
     type HostLegendColumn,
     type KeyBindingNode
@@ -41,28 +38,11 @@
     pendingDelete = $bindable(null)
   }: Props = $props()
 
-  const keycodes = $derived(getKeycodeCatalog().byCode)
   const cells = $derived.by(() => {
     void editor.hostLayoutRevision
     return hostLegendTableRow(row.binding, editor.hostLegend)
   })
   const layer0Raw = $derived(editor.layerView.layer0Raw)
-
-  function keycodeName(code: string) {
-    const aliases = keycodes[code]?.aliases ?? [code]
-    return aliases.reduce((best, name) => (name.length > best.length ? name : best))
-  }
-
-  function bindingTap(node: KeyBindingNode | undefined): string | null {
-    if (!node) return null
-    return resolveBinding(node).tap
-  }
-
-  function zmkCell(node: KeyBindingNode | undefined): string {
-    const tap = bindingTap(node)
-    if (tap) return keycodeName(tap)
-    return node ? encodeKeyBinding(node) : ''
-  }
 
   function toggleLayer() {
     if (row.index === 0) {
@@ -133,8 +113,8 @@
           on={row.index === 0 ? !layer0Raw : row.marked}
           label={
             row.index === 0
-              ? `Показать host-легенду ${row.name}`
-              : `Показать ${row.name}`
+              ? `Show host legend ${row.name}`
+              : `Show ${row.name}`
           }
           onclick={toggleLayer}
         />
@@ -169,7 +149,6 @@
       {/if}
     </div>
   </th>
-  <td class="zmk">{zmkCell(row.binding)}</td>
   {#each columns as column (column.language)}
     <td class:second={column.language !== 'en'} class:off={!column.shown} class:narrow={!column.wide}>
       {cells.find(item => item.language === column.language)?.pair ?? ''}
@@ -202,12 +181,6 @@
     font-weight: 400;
   }
 
-  .zmk {
-    color: #9a9a9a;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 12px;
-  }
-
   .second {
     color: #1d6f8a;
   }
@@ -220,7 +193,7 @@
     opacity: 0.4;
   }
 
-  tr.raw td:not(.zmk) {
+  tr.raw td {
     opacity: 0.4;
   }
 

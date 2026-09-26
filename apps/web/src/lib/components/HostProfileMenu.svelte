@@ -64,7 +64,7 @@
     importError = ''
     if (importSections.length === 0) {
       importSection = ''
-      importError = 'В файле нет секций xkb_symbols'
+      importError = 'No xkb_symbols sections in this file'
       return
     }
     importSection = importSections[0].section
@@ -82,7 +82,7 @@
 
   async function submitImport() {
     if (!importText.trim()) {
-      importError = 'Вставьте текст xkb или выберите файл'
+      importError = 'Paste xkb text or choose a file'
       return
     }
     if (importSections.length === 0) {
@@ -90,12 +90,12 @@
       if (importSections.length === 0) return
     }
     if (importSections.length > 1 && !importSection) {
-      importError = 'Выберите секцию'
+      importError = 'Choose a section'
       return
     }
     const section = importSection || importSections[0]?.section
     if (!section) {
-      importError = 'Выберите секцию'
+      importError = 'Choose a section'
       return
     }
     const message = await editor.importHostLayoutFromXkb(
@@ -112,7 +112,20 @@
     onClose()
   }
 
+  function shortProfileLabel(full: string): string {
+    const paren = full.match(/\(([^)]+)\)\s*$/)
+    if (paren) return paren[1]
+    return full
+  }
+
   function currentLabel(): string {
+    const user = editor.profilesForLanguage(language).find(profile => profile.id === activeId)
+    if (user) return shortProfileLabel(user.name)
+    const choice = hostLayoutChoice(activeId)
+    return choice ? shortProfileLabel(hostLayoutChoiceLabel(choice)) : ''
+  }
+
+  function currentFullLabel(): string {
     const user = editor.profilesForLanguage(language).find(profile => profile.id === activeId)
     if (user) return user.name
     const choice = hostLayoutChoice(activeId)
@@ -201,7 +214,8 @@
   <button
     type="button"
     class="profile-trigger"
-    aria-label="Профиль {languageName}"
+    aria-label="Profile {languageName}: {currentFullLabel()}"
+    title={currentFullLabel()}
     aria-haspopup="listbox"
     aria-expanded={open}
     onclick={onToggle}
@@ -209,16 +223,16 @@
     {currentLabel()}
   </button>
   {#if open && importing}
-    <div class="profile-import" role="dialog" aria-label="Импортировать xkb">
+    <div class="profile-import" role="dialog" aria-label="Import xkb">
       <input
         type="file"
-        aria-label="Файл xkb"
+        aria-label="xkb file"
         onchange={event => void onImportFile(event)}
       />
-      <p class="profile-import-hint">Файлы символов xkb часто без расширения, например au или ru.</p>
+      <p class="profile-import-hint">xkb symbol files often have no extension, for example au or ru.</p>
       <textarea
-        aria-label="Текст xkb"
-        placeholder="Вставить xkb…"
+        aria-label="xkb text"
+        placeholder="Paste xkb…"
         bind:value={importText}
         oninput={() => {
           importError = ''
@@ -232,7 +246,7 @@
       ></textarea>
       {#if importSections.length > 1}
         <select
-          aria-label="Секция xkb"
+          aria-label="xkb section"
           value={importSection}
           onchange={event => (importSection = event.currentTarget.value)}
         >
@@ -245,12 +259,12 @@
         <p class="profile-import-error" role="alert">{importError}</p>
       {/if}
       <div class="profile-import-actions">
-        <button type="button" onclick={() => void submitImport()}>Импортировать</button>
-        <button type="button" onclick={() => (importing = false)}>Назад</button>
+        <button type="button" onclick={() => void submitImport()}>Import</button>
+        <button type="button" onclick={() => (importing = false)}>Back</button>
       </div>
     </div>
   {:else if open}
-    <ul class="profile-list" role="listbox" aria-label="Профиль {languageName}">
+    <ul class="profile-list" role="listbox" aria-label="Profile {languageName}">
       {#each customs as profile (profile.id)}
         <li class="profile-row">
           <button
@@ -267,8 +281,8 @@
           <button
             type="button"
             class="profile-icon"
-            title="Экспортировать xkb"
-            aria-label="Экспортировать {profile.layoutName}"
+            title="Export xkb"
+            aria-label="Export {profile.layoutName}"
             onclick={event => exportCustom(profile.id, event)}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -280,8 +294,8 @@
           <button
             type="button"
             class="profile-icon"
-            title="Скопировать профиль"
-            aria-label="Скопировать {profile.layoutName}"
+            title="Copy profile"
+            aria-label="Copy {profile.layoutName}"
             onclick={event => copyCustom(profile.id, event)}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -292,8 +306,8 @@
           <button
             type="button"
             class="profile-icon stub"
-            title="Переименовать профиль"
-            aria-label="Переименовать {profile.layoutName}"
+            title="Rename profile"
+            aria-label="Rename {profile.layoutName}"
             onclick={event => renameCustom(profile.id, event)}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -304,8 +318,8 @@
           <button
             type="button"
             class="profile-icon stub danger"
-            title="Удалить профиль"
-            aria-label="Удалить {profile.layoutName}"
+            title="Delete profile"
+            aria-label="Delete {profile.layoutName}"
             onclick={event => deleteCustom(profile.id, event)}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -336,8 +350,8 @@
           <button
             type="button"
             class="profile-icon"
-            title="Скопировать профиль"
-            aria-label="Скопировать {hostLayoutChoiceLabel(primary)}"
+            title="Copy profile"
+            aria-label="Copy {hostLayoutChoiceLabel(primary)}"
             onclick={event => copyLayout(primary, event)}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -364,8 +378,8 @@
           <button
             type="button"
             class="profile-icon"
-            title="Скопировать профиль"
-            aria-label="Скопировать {hostLayoutChoiceLabel(choice)}"
+            title="Copy profile"
+            aria-label="Copy {hostLayoutChoiceLabel(choice)}"
             onclick={event => copyLayout(choice, event)}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -380,13 +394,13 @@
       {#if isUserHostLayoutId(activeId)}
         <li class="profile-row">
           <button type="button" class="profile-action" onclick={exportActive}>
-            Экспортировать xkb
+            Export xkb
           </button>
         </li>
       {/if}
       <li class="profile-row">
         <button type="button" class="profile-action" onclick={beginImport}>
-          Импортировать xkb…
+          Import xkb…
         </button>
       </li>
     </ul>
@@ -399,7 +413,7 @@
   }
 
   .profile-trigger {
-    max-width: 9.5rem;
+    max-width: 5.5rem;
     min-height: 24px;
     padding: 1px 18px 1px 6px;
     border: 1px solid #ccc;
@@ -410,6 +424,9 @@
     font: inherit;
     font-size: 12px;
     text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     cursor: pointer;
   }
 

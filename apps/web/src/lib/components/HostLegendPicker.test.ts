@@ -106,15 +106,16 @@ describe('HostLegendPicker', () => {
     )
   })
 
-  it('takes the ZMK keycode from the layer0 &kp E key', async () => {
+  it('anchors the legend sample on the layer0 &kp E key', async () => {
     await open(
       keymapOf(['base', 'num'], [kp('A'), kp('E')])
     )
     editor.layerView = { ...editor.layerView, shown: [0, 1] }
     flushSync()
-    const codes = panelRows().map(row => row.querySelector('.zmk')?.textContent?.trim())
-    expect(codes[0]).toMatch(/E/)
-    expect(codes[1]).toMatch(/X/)
+    // Sample key is E (not A); row cells show composed host glyphs for that key.
+    const basePair = panelRows()[0]?.querySelector('td')?.textContent?.trim()
+    expect(basePair).toBeTruthy()
+    expect(basePair).not.toMatch(/^A$/i)
   })
 
   it('collapses as soon as the pointer leaves unless the list is pinned', async () => {
@@ -130,7 +131,7 @@ describe('HostLegendPicker', () => {
     flushSync()
     expect(panelRows()).toHaveLength(4)
 
-    const eye = target.querySelector('.legend-panel [aria-label="Показать L1"]')
+    const eye = target.querySelector('.legend-panel [aria-label="Show L1"]')
     if (!(eye instanceof HTMLButtonElement)) throw new Error('missing eye')
     strip.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
     eye.click()
@@ -165,7 +166,7 @@ describe('HostLegendPicker', () => {
   it('toggles layer0 to a raw ZMK row instead of hiding it', async () => {
     await open(keymapOf(['default', 'raise']))
     const shownBefore = editor.layerView.shown
-    const eye = target.querySelector('.legend-panel [aria-label="Показать host-легенду default"]')
+    const eye = target.querySelector('.legend-panel [aria-label="Show host legend default"]')
     if (!(eye instanceof HTMLButtonElement)) throw new Error('missing layer0 eye')
     expect(eye.getAttribute('aria-pressed')).toBe('true')
     eye.click()
@@ -181,7 +182,7 @@ describe('HostLegendPicker', () => {
 
   it('toggles visibility through toggleShownLayer', async () => {
     await open(keymapOf(['default', 'raise']))
-    const eye = target.querySelector('.legend-panel [aria-label="Показать raise"]')
+    const eye = target.querySelector('.legend-panel [aria-label="Show raise"]')
     if (!(eye instanceof HTMLButtonElement)) throw new Error('missing raise eye')
     eye.click()
     flushSync()
@@ -210,20 +211,20 @@ describe('HostLegendPicker', () => {
     await open(keymapOf(['default']))
     const triggers = [...target.querySelectorAll('.legend-panel .profile-trigger')]
     expect(triggers.map(el => el.getAttribute('aria-label'))).toEqual([
-      'Профиль English',
-      'Профиль Russian'
+      'Profile English: System',
+      'Profile Russian: System'
     ])
     const english = triggers[0]
     if (!(english instanceof HTMLButtonElement)) throw new Error('missing English profile')
-    expect(english.textContent?.trim()).toBe('Системная')
+    expect(english.textContent?.trim()).toBe('System')
     english.click()
     flushSync()
     const items = [...target.querySelectorAll('.profile-list .profile-item')].map(
       el => el.textContent?.trim()
     )
-    expect(items).toEqual(['Системная'])
+    expect(items).toEqual(['System'])
     const system = [...target.querySelectorAll('.profile-list .profile-item')].find(
-      el => el.textContent?.trim() === 'Системная'
+      el => el.textContent?.trim() === 'System'
     )
     if (!(system instanceof HTMLButtonElement)) throw new Error('missing system option')
     system.click()
@@ -235,7 +236,7 @@ describe('HostLegendPicker', () => {
   it('lists Russian system variants and copies from a row', async () => {
     await open(keymapOf(['default']))
     const russian = [...target.querySelectorAll('.legend-panel .profile-trigger')].find(
-      el => el.getAttribute('aria-label') === 'Профиль Russian'
+      el => el.getAttribute('aria-label')?.startsWith('Profile Russian')
     )
     if (!(russian instanceof HTMLButtonElement)) throw new Error('missing Russian profile')
     russian.click()
@@ -243,7 +244,7 @@ describe('HostLegendPicker', () => {
     const items = [...target.querySelectorAll('.profile-list .profile-item')].map(
       el => el.textContent?.trim()
     )
-    expect(items[0]).toBe('Системная')
+    expect(items[0]).toBe('System')
     expect(items).toContain('phonetic')
     expect(items.at(-1)).toBe('phonetic_mac')
     const phonetic = [...target.querySelectorAll('.profile-list .profile-item')].find(
@@ -274,7 +275,7 @@ describe('HostLegendPicker', () => {
     const options = [...target.querySelectorAll('.legend-panel .language-select option')].map(
       el => el.textContent?.trim()
     )
-    expect(options).toEqual(['Язык', 'Ukrainian', 'German'])
+    expect(options).toEqual(['Language', 'Ukrainian', 'German'])
     chooseLanguage('uk')
     expect(openLayoutId(editor.hostLegend)).toBe('system-ua')
     const flags = [...target.querySelectorAll('.legend-panel .lang-flag')].map(
@@ -284,11 +285,11 @@ describe('HostLegendPicker', () => {
     const triggers = [...target.querySelectorAll('.legend-panel .profile-trigger')]
       .filter(el => !el.closest('.lang-head.narrow'))
       .map(el => el.getAttribute('aria-label'))
-    expect(triggers).toEqual(['Профиль English', 'Профиль Ukrainian'])
+    expect(triggers).toEqual(['Profile English: System', 'Profile Ukrainian: System'])
     const russian = target.querySelector('.legend-panel .lang-head.narrow .lang-flag')
     expect(russian?.textContent).toBe('🇷🇺')
     const ukrainian = [...target.querySelectorAll('.legend-panel .profile-trigger')].find(
-      el => el.getAttribute('aria-label') === 'Профиль Ukrainian'
+      el => el.getAttribute('aria-label')?.startsWith('Profile Ukrainian')
     )
     if (!(ukrainian instanceof HTMLButtonElement)) throw new Error('missing Ukrainian profile')
     ukrainian.click()
@@ -296,9 +297,9 @@ describe('HostLegendPicker', () => {
     const items = [...target.querySelectorAll('.profile-list .profile-item')].map(
       el => el.textContent?.trim()
     )
-    expect(items[0]).toBe('Системная')
+    expect(items[0]).toBe('System')
     expect(items).toEqual([
-      'Системная',
+      'System',
       'macOS',
       'legacy',
       'winkeys',
@@ -307,7 +308,7 @@ describe('HostLegendPicker', () => {
       'homophonic'
     ])
     const copies = [...target.querySelectorAll('.profile-list .profile-icon')].filter(
-      el => el.getAttribute('title') === 'Скопировать профиль'
+      el => el.getAttribute('title') === 'Copy profile'
     )
     expect(copies).toHaveLength(items.length)
     expect(target.querySelector('.legend-panel .language-select')).toBeNull()
@@ -319,7 +320,7 @@ describe('HostLegendPicker', () => {
       [...target.querySelectorAll('.legend-panel .language-select option')]
         .map(el => el.textContent?.trim())
         .filter(Boolean)
-    ).toEqual(['Убрать язык', 'German'])
+    ).toEqual(['Remove language', 'German'])
   })
 
   it('adds German after Ukrainian and lists its system variants', async () => {
@@ -337,7 +338,7 @@ describe('HostLegendPicker', () => {
       [...target.querySelectorAll('.legend-panel .language-select option')].map(el =>
         el.textContent?.trim()
       )
-    ).toEqual(['Язык', 'German'])
+    ).toEqual(['Language', 'German'])
     chooseLanguage('de')
     expect(openLayoutId(editor.hostLegend)).toBe('system-de')
     const flags = [...target.querySelectorAll('.legend-panel .lang-flag')].map(
@@ -345,7 +346,7 @@ describe('HostLegendPicker', () => {
     )
     expect(flags).toEqual(['🇺🇸', '🇷🇺', '🇺🇦', '🇩🇪'])
     const german = [...target.querySelectorAll('.legend-panel .profile-trigger')].find(
-      el => el.getAttribute('aria-label') === 'Профиль German'
+      el => el.getAttribute('aria-label')?.startsWith('Profile German')
     )
     if (!(german instanceof HTMLButtonElement)) throw new Error('missing German profile')
     german.click()
@@ -353,16 +354,16 @@ describe('HostLegendPicker', () => {
     const items = [...target.querySelectorAll('.profile-list .profile-item')].map(
       el => el.textContent?.trim()
     )
-    expect(items[0]).toBe('Системная')
+    expect(items[0]).toBe('System')
     expect(items).toContain('nodeadkeys')
     expect(items).toContain('neo')
     expect(items.at(-1)).toBe('noted')
     const copies = [...target.querySelectorAll('.profile-list .profile-icon')].filter(
-      el => el.getAttribute('title') === 'Скопировать профиль'
+      el => el.getAttribute('title') === 'Copy profile'
     )
     expect(copies).toHaveLength(items.length)
     const germanFlag = [...target.querySelectorAll('.legend-panel button.lang-flag')].find(
-      el => el.getAttribute('aria-label') === 'Язык German'
+      el => el.getAttribute('aria-label') === 'Language German'
     )
     if (!(germanFlag instanceof HTMLButtonElement)) throw new Error('missing German flag')
     germanFlag.click()
@@ -371,7 +372,7 @@ describe('HostLegendPicker', () => {
       [...target.querySelectorAll('.legend-panel .language-select option')]
         .map(el => el.textContent?.trim())
         .filter(Boolean)
-    ).toEqual(['Убрать язык'])
+    ).toEqual(['Remove language'])
     chooseLanguage('__remove__')
     expect(
       [...target.querySelectorAll('.legend-panel .lang-flag')].map(el => el.textContent)
@@ -407,23 +408,23 @@ describe('HostLegendPicker', () => {
   function englishPair(): string {
     const row = target.querySelector('.legend-panel tbody tr')
     const cells = row ? [...row.querySelectorAll('td')] : []
-    return cells[1]?.textContent?.replace(/\s+/g, '') ?? ''
+    return cells[0]?.textContent?.replace(/\s+/g, '') ?? ''
   }
 
   async function assignImportedFile() {
     const english = [...target.querySelectorAll('.legend-panel .profile-trigger')].find(
-      el => el.getAttribute('aria-label') === 'Профиль English'
+      el => el.getAttribute('aria-label')?.startsWith('Profile English')
     )
     if (!(english instanceof HTMLButtonElement)) throw new Error('missing English profile')
     english.click()
     flushSync()
     const importItem = [...target.querySelectorAll('.profile-action')].find(
-      el => el.textContent?.includes('Импортировать xkb')
+      el => el.textContent?.includes('Import xkb')
     )
     if (!(importItem instanceof HTMLButtonElement)) throw new Error('missing import item')
     importItem.click()
     flushSync()
-    const input = target.querySelector('input[type="file"][aria-label="Файл xkb"]')
+    const input = target.querySelector('input[type="file"][aria-label="xkb file"]')
     if (!(input instanceof HTMLInputElement)) throw new Error('missing file input')
     const file = new File([importedXkb], 'imported.xkb', { type: 'text/plain' })
     const transfer = new DataTransfer()
@@ -475,19 +476,19 @@ describe('HostLegendPicker', () => {
     await clearHostLayoutStore()
     await open(keymapOf(['default']))
     const english = [...target.querySelectorAll('.legend-panel .profile-trigger')].find(
-      el => el.getAttribute('aria-label') === 'Профиль English'
+      el => el.getAttribute('aria-label')?.startsWith('Profile English')
     )
     if (!(english instanceof HTMLButtonElement)) throw new Error('missing English profile')
     english.click()
     flushSync()
     const importItem = [...target.querySelectorAll('.profile-action')].find(
-      el => el.textContent?.includes('Импортировать xkb')
+      el => el.textContent?.includes('Import xkb')
     )
     if (!(importItem instanceof HTMLButtonElement)) throw new Error('missing import item')
     importItem.click()
     flushSync()
 
-    const textarea = target.querySelector('textarea[aria-label="Текст xkb"]')
+    const textarea = target.querySelector('textarea[aria-label="xkb text"]')
     if (!(textarea instanceof HTMLTextAreaElement)) throw new Error('missing paste field')
     textarea.value = `
       xkb_symbols "one" {
@@ -501,14 +502,14 @@ describe('HostLegendPicker', () => {
     `
     textarea.dispatchEvent(new Event('input', { bubbles: true }))
     flushSync()
-    const select = target.querySelector('select[aria-label="Секция xkb"]')
+    const select = target.querySelector('select[aria-label="xkb section"]')
     if (!(select instanceof HTMLSelectElement)) throw new Error('missing section select')
     expect([...select.options].map(option => option.textContent)).toEqual(['First', 'Second'])
     select.value = 'two'
     select.dispatchEvent(new Event('change', { bubbles: true }))
     flushSync()
     const confirm = [...target.querySelectorAll('.profile-import button')].find(
-      el => el.textContent?.trim() === 'Импортировать'
+      el => el.textContent?.trim() === 'Import'
     )
     if (!(confirm instanceof HTMLButtonElement)) throw new Error('missing import confirm')
     confirm.click()

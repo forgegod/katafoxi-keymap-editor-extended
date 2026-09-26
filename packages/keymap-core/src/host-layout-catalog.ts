@@ -115,10 +115,10 @@ export function primarySystemLayoutId(language: HostLanguageId): string | undefi
 }
 
 export function hostLayoutChoiceLabel(choice: HostLayoutChoice): string {
-  if (choice.primary) return 'Системная'
+  if (choice.primary) return 'System'
   return choice.layoutName
 }
 
 export function reservedHostProfileNames(): string[] {
-  return ['Системная']
+  return ['System']
 }
