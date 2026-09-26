@@ -148,4 +148,42 @@ test.describe('local adapter smoke', () => {
     expect(readTempKeymap()).toContain(ORIGINAL_BIND)
     expect(readTempKeymap()).not.toContain(EDITED_BIND)
   })
+
+  test('decode card host level edit updates the keycap and survives reload', async ({
+    page
+  }) => {
+    const hostGlyph = 'α'
+
+    await openLocalEditor(page)
+
+    const key = page.locator(E_KEY)
+    await key.scrollIntoViewIfNeeded()
+    const layer0Row = key.locator('button.layer-slot[data-layer="0"]')
+    await expect(layer0Row).toBeVisible()
+    await expect(key.locator('.keycap')).not.toContainText(hostGlyph)
+
+    // Hover opens the decode tooltip; clicking a level cell pins it and starts edit.
+    // Edit the open Russian column so the keycap (open: 'ru') repaints immediately.
+    await layer0Row.hover()
+    const card = page.locator('.legend-decode')
+    await expect(card).toBeVisible()
+    await card.getByRole('button', { name: 'Edit ru level 0' }).click()
+
+    const decodeDialog = page.getByRole('dialog', { name: /Legend decode/ })
+    await expect(decodeDialog).toBeVisible()
+    const input = decodeDialog.locator('input.cell-input')
+    await expect(input).toBeVisible()
+    await input.fill(hostGlyph)
+    await expect(decodeDialog.locator('.keysym')).toHaveText('Greek_alpha')
+    await input.press('Enter')
+    await expect(input).toBeHidden()
+
+    await expect(page.getByRole('status')).toContainText('Создана копия')
+    await expect(key.locator('.keycap')).toContainText(hostGlyph)
+
+    await page.reload()
+    await expect(page.locator('#source')).toBeVisible()
+    await expect(page.locator(E_KEY)).toBeVisible()
+    await expect(page.locator(E_KEY).locator('.keycap')).toContainText(hostGlyph)
+  })
 })
