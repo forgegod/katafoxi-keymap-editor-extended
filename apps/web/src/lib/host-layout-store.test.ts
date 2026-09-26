@@ -534,11 +534,7 @@ describe('host layout store', () => {
   it('does not bump hostLayoutRevision on hover-only editor state', async () => {
     await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
     const before = editor.hostLayoutRevision
-    editor.legendHover = {
-      kind: 'keycode',
-      code: 'A',
-      keyIndexes: [0]
-    }
+    editor.legendHover = { kind: 'altGr' }
     expect(editor.hostLayoutRevision).toBe(before)
     editor.legendHover = null
     expect(editor.hostLayoutRevision).toBe(before)
