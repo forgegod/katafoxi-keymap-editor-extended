@@ -21,6 +21,7 @@ import {
   remapShownLayersAfterDelete,
   unregisterHostLayout,
   summarizeKeymapDiff,
+  type HostLayout,
   type HostLegendView,
   type LayerView,
   type LegendHover,
@@ -53,6 +54,7 @@ import {
   UNKNOWN_HOST_LAYOUT_NOTE,
   type HostLanguageId,
   type UserHostLayout,
+  type UserHostLayoutOrigin,
   type UserHostLayoutRecord
 } from './host-layout-store'
 
@@ -278,6 +280,46 @@ export class EditorState {
     )
   }
 
+  /**
+   * Create a user layout from a table: unique name → id → clone → register →
+   * assign column → persist layout and view. Shared by xkb import and profile copy.
+   */
+  async #materializeUserHostLayoutFromTable(
+    language: HostLanguageId,
+    preferredName: string,
+    source: HostLayout,
+    origin: UserHostLayoutOrigin
+  ): Promise<string> {
+    const name = uniqueUserHostLayoutName(language, preferredName, this.userLayouts)
+    const id = `user:${crypto.randomUUID()}`
+    const layout = cloneHostLayoutTable(source, id)
+    const record: UserHostLayoutRecord = {
+      id,
+      name,
+      language,
+      origin,
+      updatedAt: Date.now(),
+      layout
+    }
+    this.#registerUserLayout(record)
+    this.userLayouts = [
+      ...this.userLayouts,
+      {
+        id: record.id,
+        name: record.name,
+        language: record.language,
+        origin: record.origin,
+        updatedAt: record.updatedAt
+      }
+    ]
+    this.hostLegend = assignHostLanguageLayout(this.hostLegend, language, id)
+    this.hostProfilePrompt = null
+    this.hostProfileNote = null
+    await saveUserHostLayout(record)
+    await saveHostLegendView(this.hostLegend)
+    return id
+  }
+
   activeProfileId(language: HostLanguageId): string {
     return this.hostLegend.columns.find(column => column.language === language)?.layoutId ?? ''
   }
@@ -330,33 +372,11 @@ export class EditorState {
     try {
       const imported = hostLayoutFromXkb(text, section, { fileName })
       const label = listed.find(item => item.section === section)?.name ?? section
-      const name = uniqueUserHostLayoutName(language, label, this.userLayouts)
-      const id = `user:${crypto.randomUUID()}`
-      const layout = cloneHostLayoutTable(imported, id)
-      const record: UserHostLayoutRecord = {
-        id,
-        name,
-        language,
-        origin: { from: 'xkb', fileName, section },
-        updatedAt: Date.now(),
-        layout
-      }
-      this.#registerUserLayout(record)
-      this.userLayouts = [
-        ...this.userLayouts,
-        {
-          id: record.id,
-          name: record.name,
-          language: record.language,
-          origin: record.origin,
-          updatedAt: record.updatedAt
-        }
-      ]
-      this.hostLegend = assignHostLanguageLayout(this.hostLegend, language, id)
-      this.hostProfilePrompt = null
-      this.hostProfileNote = null
-      await saveUserHostLayout(record)
-      await saveHostLegendView(this.hostLegend)
+      await this.#materializeUserHostLayoutFromTable(language, label, imported, {
+        from: 'xkb',
+        fileName,
+        section
+      })
       return null
     } catch (error) {
       return error instanceof Error ? error.message : 'Не удалось импортировать xkb'
@@ -424,31 +444,10 @@ export class EditorState {
       ''
     const source = sourceId ? hostLayout(sourceId) : undefined
     if (!source) return 'Нет раскладки для этого языка'
-    const id = `user:${crypto.randomUUID()}`
-    const layout = cloneHostLayoutTable(source, id)
-    const record: UserHostLayoutRecord = {
-      id,
-      name,
-      language,
-      origin: { from: 'copy', layoutId: sourceId },
-      updatedAt: Date.now(),
-      layout
-    }
-    this.#registerUserLayout(record)
-    this.userLayouts = [
-      ...this.userLayouts,
-      {
-        id: record.id,
-        name: record.name,
-        language: record.language,
-        origin: record.origin,
-        updatedAt: record.updatedAt
-      }
-    ]
-    this.hostLegend = assignHostLanguageLayout(this.hostLegend, language, id)
-    this.hostProfilePrompt = null
-    await saveUserHostLayout(record)
-    await saveHostLegendView(this.hostLegend)
+    await this.#materializeUserHostLayoutFromTable(language, name, source, {
+      from: 'copy',
+      layoutId: sourceId
+    })
     return null
   }
 
