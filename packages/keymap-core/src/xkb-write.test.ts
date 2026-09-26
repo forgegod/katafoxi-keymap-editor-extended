@@ -3,8 +3,14 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { HOST_KEY_IDS } from './host-key-id.js'
-import { builtinHostLayoutSpecs } from './host-layout-catalog.js'
-import { hostLayoutFromSymbols, type HostKeyLevels, type HostLayout } from './host-layout.js'
+import { builtinHostLayoutSpecs, SYSTEM_US_LAYOUT_ID } from './host-layout-catalog.js'
+import {
+  hostLayoutFromSymbols,
+  withHostKey,
+  type HostKeyLevels,
+  type HostLayout
+} from './host-layout.js'
+import { glyphToKeysym } from './xkb-keysyms.js'
 import { hostLayoutToXkbSection } from './xkb-write.js'
 
 const LARK_HOST_DIR = fileURLToPath(new URL('../fixtures/lark/host', import.meta.url))
@@ -139,5 +145,38 @@ describe('xkb host layout round-trip', () => {
       expect(writtenKeyNames(written), spec.id).toEqual(expectedKeyOrder(original))
       expect(byZmkRecord(again), spec.id).toEqual(byZmkRecord(original))
     }
+  })
+
+  it('keeps withHostKey edits through write and reparse', () => {
+    const spec = builtinHostLayoutSpecs.find(item => item.id === SYSTEM_US_LAYOUT_ID)
+    expect(spec).toBeDefined()
+    let edited = hostLayoutFromSymbols(spec!.source, spec!.section, 'edited-us', spec!.files)
+    expect(edited.byZmk.has('NON_US_BSLH')).toBe(false)
+
+    const dictionary = glyphToKeysym('ё')
+    expect(dictionary).toEqual({ ok: true, keysym: 'Cyrillic_io' })
+    if (!dictionary.ok) throw new Error('expected dictionary keysym')
+    const outsideDictionary = glyphToKeysym('☕')
+    expect(outsideDictionary).toEqual({ ok: true, keysym: 'U2615' })
+    if (!outsideDictionary.ok) throw new Error('expected U-spelling keysym')
+
+    edited = withHostKey(edited, 'A', 2, dictionary.keysym)!
+    edited = withHostKey(edited, 'Q', 2, outsideDictionary.keysym)!
+    edited = withHostKey(edited, 'W', 1, 'NoSymbol')!
+    edited = withHostKey(edited, 'E', 0, 'dead_acute')!
+    edited = withHostKey(edited, 'NON_US_BSLH', 0, 'bar')!
+
+    expect(edited.byZmk.get('A')?.keysyms[2]).toBe('Cyrillic_io')
+    expect(edited.byZmk.get('Q')?.keysyms[2]).toBe('U2615')
+    expect(edited.byZmk.get('W')?.keysyms[1]).toBe('NoSymbol')
+    expect(edited.byZmk.get('E')?.keysyms[0]).toBe('dead_acute')
+    expect(edited.byZmk.get('NON_US_BSLH')).toEqual({
+      keysyms: ['bar', 'NoSymbol', 'NoSymbol', 'NoSymbol'],
+      glyphs: ['|', '', '', '']
+    })
+
+    const written = hostLayoutToXkbSection(edited, { section: 'edited', name: 'Edited US' })
+    const again = hostLayoutFromSymbols(written, 'edited', 'edited-us')
+    expect(byZmkRecord(again)).toEqual(byZmkRecord(edited))
   })
 })
