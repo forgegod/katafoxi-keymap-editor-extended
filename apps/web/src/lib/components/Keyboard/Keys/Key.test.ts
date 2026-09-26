@@ -351,7 +351,7 @@ describe('Key click editor', () => {
     expect(document.querySelector('.legend-decode .cell-input')).toBeNull()
   })
 
-  it('opens a host level field on cell click without opening the key editor', () => {
+  it('opens a host symbol catalog on cell click without opening the key editor', () => {
     open({
       layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
     })
@@ -365,9 +365,10 @@ describe('Key click editor', () => {
 
     expect(editorDialog()).toBeNull()
     expect(document.querySelector('[role="dialog"].legend-decode')).toBeInstanceOf(HTMLElement)
-    const input = document.querySelector('.legend-decode .cell-input')
-    expect(input).toBeInstanceOf(HTMLInputElement)
-    expect(document.querySelector('.legend-decode .keysym')?.textContent).toMatch(/minus/i)
+    expect(document.querySelector('.legend-decode .cell-input')).toBeNull()
+    expect(
+      document.querySelector('[role="dialog"][aria-label="Host symbol catalog"]')
+    ).toBeInstanceOf(HTMLElement)
   })
 
   it('unpins the decode card on Escape and returns focus to the row', () => {

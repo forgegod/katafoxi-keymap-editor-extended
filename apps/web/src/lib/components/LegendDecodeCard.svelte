@@ -2,15 +2,14 @@
   import {
     ALT_LEVEL_EMPTY,
     composeLegendDecode,
-    glyphToKeysym,
     hostLanguageName,
-    keysymToGlyph,
     parseKeyBinding,
     withEditableLegendDecodeGaps,
     type HostLanguageId,
     type LegendDecodeCard
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
+  import HostSymbolPicker from './HostSymbolPicker.svelte'
 
   interface Props {
     card: LegendDecodeCard
@@ -32,10 +31,17 @@
     onPin
   }: Props = $props()
   let el: HTMLDivElement | undefined = $state()
+  let pickerEl: HTMLElement | null = $state(null)
   let editing = $state<{ language: HostLanguageId; level: number } | null>(null)
-  let draft = $state('')
+  let editAnchor = $state<DOMRect | null>(null)
+  let returnFocus: HTMLElement | null = null
   let fieldError = $state<string | null>(null)
+  let dropsWarning = $state(false)
   let busy = $state(false)
+  let editGuards: {
+    onKeydown: (event: KeyboardEvent) => void
+    onPointerDown: (event: PointerEvent) => void
+  } | null = null
 
   const zmk = $derived(card.keycode?.replace(/^KC_/, '') ?? '')
   const showBinding = $derived(!zmk || card.binding !== `&kp ${zmk}`)
@@ -51,10 +57,6 @@
       return card
     }
   })
-  const preview = $derived(glyphToKeysym(draft))
-  const dropsWarning = $derived(
-    editing?.level === 0 && preview.ok && keysymToGlyph(preview.keysym) == null
-  )
 
   $effect(() => {
     const root = document.getElementById('modal-root') ?? document.body
@@ -91,6 +93,10 @@
     }
   })
 
+  $effect(() => {
+    return () => uninstallEditGuards()
+  })
+
   // Imperative listeners keep svelte-check from treating the tooltip shell as a
   // new interactive a11y surface (Modal/KeyValue already own the two warnings).
   // Capture + stopPropagation so row/KeyEditor never see the click; cell edits are
@@ -109,10 +115,6 @@
         onPin?.()
         return
       }
-      if (target.closest('.cell-input, .cell-meta')) {
-        onPin?.()
-        return
-      }
       const revert = target.closest('[data-host-revert]')
       if (revert instanceof HTMLElement) {
         const language = revert.dataset.language as HostLanguageId
@@ -124,7 +126,7 @@
           try {
             const result = await editor.revertHostKeyLevel(language, key, level)
             if (result.ok) {
-              if (editing?.language === language && editing.level === level) cancelEdit()
+              if (editing?.language === language && editing.level === level) closePicker()
             }
           } finally {
             busy = false
@@ -136,12 +138,11 @@
       if (cell instanceof HTMLElement) {
         const language = cell.dataset.language as HostLanguageId
         const level = Number(cell.dataset.level)
-        const text = cell.dataset.text ?? ''
-        onPin?.()
-        if (!key || !Number.isInteger(level)) return
-        editing = { language, level }
-        draft = text === ALT_LEVEL_EMPTY ? '' : text
-        fieldError = null
+        if (!key || !Number.isInteger(level)) {
+          onPin?.()
+          return
+        }
+        beginEdit(language, level, cell)
         return
       }
       onPin?.()
@@ -156,54 +157,80 @@
     }
   })
 
-  function rejectionMessage(reason: string): string {
-    if (reason === 'multiple-code-points') return 'Нужен один символ или имя keysym'
-    if (reason === 'lone-surrogate') return 'Недопустимый символ'
-    return 'Не удалось разобрать ввод'
+  function uninstallEditGuards() {
+    if (!editGuards) return
+    window.removeEventListener('keydown', editGuards.onKeydown, true)
+    window.removeEventListener('pointerdown', editGuards.onPointerDown, true)
+    editGuards = null
   }
 
-  function cancelEdit() {
-    editing = null
-    draft = ''
+  function installEditGuards() {
+    uninstallEditGuards()
+    const onKeydown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      closePicker()
+    }
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      if (pickerEl?.contains(target)) return
+      const outsideCard = !el?.contains(target)
+      closePicker()
+      if (outsideCard) event.stopImmediatePropagation()
+    }
+    window.addEventListener('keydown', onKeydown, true)
+    window.addEventListener('pointerdown', onPointerDown, true)
+    editGuards = { onKeydown, onPointerDown }
+  }
+
+  function beginEdit(language: HostLanguageId, level: number, cell: HTMLElement) {
+    // Register before onPin so these win over Key's pinned Escape/outside handlers.
+    installEditGuards()
+    onPin?.()
+    editing = { language, level }
+    editAnchor = cell.getBoundingClientRect()
+    returnFocus = cell
     fieldError = null
+    dropsWarning = false
   }
 
-  async function commitEdit() {
+  function closePicker() {
+    uninstallEditGuards()
+    editing = null
+    editAnchor = null
+    fieldError = null
+    const focusTarget = returnFocus
+    returnFocus = null
+    queueMicrotask(() => focusTarget?.focus())
+  }
+
+  async function pickSymbol(text: string) {
     if (!editing || !zmk || busy) return
     const { language, level } = editing
-    const parsed = glyphToKeysym(draft)
-    if (!parsed.ok) {
-      fieldError = rejectionMessage(parsed.reason)
-      return
-    }
     busy = true
     fieldError = null
     try {
-      const result = await editor.setHostKeyLevel(language, zmk, level, draft)
+      const result = await editor.setHostKeyLevel(language, zmk, level, text)
       if (!result.ok) {
-        fieldError =
-          result.reason === 'rejected' && result.detail
-            ? rejectionMessage(result.detail)
-            : 'Не удалось сохранить уровень'
+        fieldError = 'Не удалось сохранить уровень'
         return
       }
-      cancelEdit()
+      dropsWarning = Boolean(result.dropsFromCompose)
+      if (dropsWarning) {
+        // Keep the cell marked while the warning is visible; close the catalog.
+        uninstallEditGuards()
+        editing = null
+        editAnchor = null
+        const focusTarget = returnFocus
+        returnFocus = null
+        queueMicrotask(() => focusTarget?.focus())
+        return
+      }
+      closePicker()
     } finally {
       busy = false
-    }
-  }
-
-  function onFieldKeydown(event: KeyboardEvent) {
-    if (event.key === 'Enter') {
-      event.preventDefault()
-      event.stopPropagation()
-      void commitEdit()
-      return
-    }
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      event.stopPropagation()
-      cancelEdit()
     }
   }
 </script>
@@ -259,76 +286,62 @@
               {@const isEditing =
                 editing?.language === column.language && editing.level === index}
               <div class="cell" class:editing={isEditing}>
-                {#if isEditing}
-                  <!-- svelte-ignore a11y_autofocus -->
-                  <input
-                    class="cell-input"
-                    class:invalid={fieldError != null}
-                    type="text"
-                    value={draft}
-                    aria-label={`Host level ${index} for ${column.language}`}
-                    autofocus
-                    disabled={busy}
-                    oninput={event => {
-                      draft = event.currentTarget.value
-                      fieldError = null
-                    }}
-                    onkeydown={onFieldKeydown}
-                    onclick={event => event.stopPropagation()}
-                  />
-                  <div class="cell-meta">
-                    {#if preview.ok}
-                      <span class="keysym">{preview.keysym}</span>
-                    {:else}
-                      <span class="keysym error">{rejectionMessage(preview.reason)}</span>
-                    {/if}
-                    {#if fieldError}
-                      <span class="error">{fieldError}</span>
-                    {/if}
-                    {#if dropsWarning}
-                      <span class="warn" role="status"
-                        >Базовый уровень несимвольный — клавиша пропадёт из композиции</span
-                      >
-                    {/if}
-                  </div>
-                {:else}
+                <button
+                  type="button"
+                  class="slot"
+                  class:empty={slot.text === ALT_LEVEL_EMPTY}
+                  class:diff={slot.differs}
+                  data-host-edit
+                  data-language={column.language}
+                  data-level={index}
+                  data-text={slot.text}
+                  disabled={!zmk}
+                  aria-label={`Edit ${column.language} level ${index}`}
+                  aria-expanded={isEditing}
+                  aria-haspopup="dialog"
+                >
+                  {slot.text}
+                </button>
+                {#if slot.differs}
                   <button
                     type="button"
-                    class="slot"
-                    class:empty={slot.text === ALT_LEVEL_EMPTY}
-                    class:diff={slot.differs}
-                    data-host-edit
+                    class="revert"
+                    data-host-revert
                     data-language={column.language}
                     data-level={index}
-                    data-text={slot.text}
-                    disabled={!zmk}
-                    aria-label={`Edit ${column.language} level ${index}`}
+                    title="Вернуть системный эталон"
+                    aria-label={`Revert ${column.language} level ${index}`}
+                    disabled={busy || !zmk}
                   >
-                    {slot.text}
+                    ↺
                   </button>
-                  {#if slot.differs}
-                    <button
-                      type="button"
-                      class="revert"
-                      data-host-revert
-                      data-language={column.language}
-                      data-level={index}
-                      title="Вернуть системный эталон"
-                      aria-label={`Revert ${column.language} level ${index}`}
-                      disabled={busy || !zmk}
-                    >
-                      ↺
-                    </button>
-                  {/if}
                 {/if}
               </div>
             {/each}
           </div>
         {/each}
       </div>
+      {#if dropsWarning}
+        <p class="warn" role="status">
+          Базовый уровень несимвольный — клавиша пропадёт из композиции
+        </p>
+      {/if}
+      {#if fieldError}
+        <p class="error" role="alert">{fieldError}</p>
+      {/if}
     </div>
   {/if}
 </div>
+
+{#if editing && editAnchor}
+  <HostSymbolPicker
+    language={editing.language}
+    anchor={editAnchor}
+    bind:element={pickerEl}
+    onPick={text => void pickSymbol(text)}
+    onClose={closePicker}
+  />
+{/if}
 
 <style>
   .legend-decode {
@@ -426,10 +439,10 @@
     min-width: 1.15em;
   }
 
-  .cell.editing {
-    min-width: 6.5em;
-    align-items: stretch;
-    grid-column: span 1;
+  .cell.editing .slot {
+    outline: 1px solid #8a847c;
+    border-radius: 3px;
+    background: #fff;
   }
 
   .slot {
@@ -485,44 +498,21 @@
     color: #0f4a5c;
   }
 
-  .cell-input {
-    box-sizing: border-box;
-    width: 100%;
-    min-width: 4.5em;
-    margin: 0;
-    padding: 1px 3px;
-    border: 1px solid #8a847c;
-    border-radius: 3px;
-    background: #fff;
-    color: #222;
-    font: inherit;
-  }
-
-  .cell-input.invalid {
-    border-color: #a33;
-  }
-
-  .cell-meta {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    max-width: 12em;
-    margin-top: 2px;
+  .error {
+    margin: 4px 0 0;
     white-space: normal;
     font-size: 10px;
     line-height: 1.25;
     font-family: Quicksand, avenir, sans-serif;
-  }
-
-  .keysym {
-    color: #5a554e;
-  }
-
-  .error {
     color: #a33;
   }
 
   .warn {
+    margin: 4px 0 0;
+    white-space: normal;
+    font-size: 10px;
+    line-height: 1.25;
+    font-family: Quicksand, avenir, sans-serif;
     color: #8a5a00;
   }
 
