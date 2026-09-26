@@ -8,7 +8,11 @@ import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { editor } from '../editor.svelte.js'
 import { clearHostLayoutStore } from '../host-layout-store'
-import HostSymbolPicker from './HostSymbolPicker.svelte'
+import HostSymbolCatalog from './HostSymbolCatalog.svelte'
+import HostSymbolPicker, {
+  hostSymbolExpandedByLanguage,
+  hostSymbolPickerFrame
+} from './HostSymbolPicker.svelte'
 import Harness from './Keyboard/Keys/KeyHarness.svelte'
 
 function stackRows(): HTMLButtonElement[] {
@@ -23,7 +27,9 @@ function catalog(): HTMLElement | null {
 
 function openDecodeCell(levelLabel = 'Edit en level 0'): HTMLButtonElement {
   const row = stackRows()[0]
-  row.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+  row.dispatchEvent(
+    new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true })
+  )
   flushSync()
   const slot = [...document.querySelectorAll('.legend-decode .row.current button.slot')].find(
     el => el.getAttribute('aria-label') === levelLabel
@@ -43,6 +49,8 @@ describe('HostSymbolPicker', () => {
 
   beforeEach(async () => {
     editor.resetForTests()
+    hostSymbolExpandedByLanguage.clear()
+    hostSymbolPickerFrame.geometry = null
     await clearHostLayoutStore()
     target = document.createElement('div')
     document.body.appendChild(target)
@@ -57,26 +65,25 @@ describe('HostSymbolPicker', () => {
     modalRoot?.remove()
     target?.remove()
     editor.resetForTests()
+    hostSymbolExpandedByLanguage.clear()
+    hostSymbolPickerFrame.geometry = null
     vi.restoreAllMocks()
   })
 
   function mountPicker(
     language: HostLanguageId = 'en',
-    handlers: { onPick?: (text: string) => void; onClose?: () => void } = {}
+    handlers: { onPick?: (text: string) => void } = {}
   ) {
     const onPick = handlers.onPick ?? vi.fn()
-    const onClose = handlers.onClose ?? vi.fn()
     view = mount(HostSymbolPicker, {
       target,
       props: {
         language,
-        anchor: new DOMRect(40, 40, 20, 20),
-        onPick,
-        onClose
+        onPick
       }
     })
     flushSync()
-    return { onPick, onClose }
+    return { onPick }
   }
 
   it('renders open shelves and keeps collapsed glyphs out of the tree until expanded', () => {
@@ -130,29 +137,60 @@ describe('HostSymbolPicker', () => {
     flushSync()
     expect(onPick).toHaveBeenCalledWith('NoSymbol')
   })
+
+  it('keeps an expanded collapsed shelf after remount', () => {
+    mountPicker('en')
+    const collapsed = hostSymbolShelves('en').find(shelf => !shelf.open)
+    expect(collapsed).toBeDefined()
+    if (!collapsed) throw new Error('expected a collapsed shelf')
+    const toggle = catalog()?.querySelector(
+      `[data-shelf="${collapsed.id}"] .shelf-toggle`
+    ) as HTMLButtonElement
+    toggle.click()
+    flushSync()
+    if (view) unmount(view)
+    view = undefined
+    flushSync()
+
+    mountPicker('en')
+    expect(
+      catalog()?.querySelector(`[data-shelf="${collapsed.id}"][data-open="true"]`)
+    ).toBeInstanceOf(HTMLElement)
+  })
 })
 
 describe('LegendDecodeCard host symbol catalog', () => {
   let target: HTMLDivElement
   let modalRoot: HTMLDivElement
   let view: ReturnType<typeof mount> | undefined
+  let catalogView: ReturnType<typeof mount> | undefined
 
   beforeEach(async () => {
     editor.resetForTests()
+    hostSymbolExpandedByLanguage.clear()
+    hostSymbolPickerFrame.geometry = null
     await clearHostLayoutStore()
     target = document.createElement('div')
     document.body.appendChild(target)
     modalRoot = document.createElement('div')
     modalRoot.id = 'modal-root'
     target.appendChild(modalRoot)
+    catalogView = mount(HostSymbolCatalog, {
+      target,
+      props: { showToggle: false }
+    })
   })
 
   afterEach(() => {
     if (view) unmount(view)
     view = undefined
+    if (catalogView) unmount(catalogView)
+    catalogView = undefined
     modalRoot?.remove()
     target?.remove()
     editor.resetForTests()
+    hostSymbolExpandedByLanguage.clear()
+    hostSymbolPickerFrame.geometry = null
   })
 
   function openKey(code = 'A') {
@@ -176,26 +214,25 @@ describe('LegendDecodeCard host symbol catalog', () => {
     expect(catalog()).toBeInstanceOf(HTMLElement)
     expect(document.querySelector('.cell-input')).toBeNull()
     expect(document.querySelector('[role="dialog"].legend-decode')).toBeInstanceOf(HTMLElement)
+    expect(editor.hostSymbolEditTarget).toEqual({ language: 'en', zmk: 'A', level: 0 })
   })
 
-  it('applies an open-shelf glyph through setHostKeyLevel', async () => {
+  it('applies an open-shelf glyph through setHostKeyLevel and keeps the catalog open', async () => {
     openKey('A')
     await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
     flushSync()
     openDecodeCell('Edit en level 0')
 
-    const setSpy = vi.spyOn(editor, 'setHostKeyLevel')
     const glyph = catalog()?.querySelector('button.glyph[aria-label="b b"]')
     expect(glyph).toBeInstanceOf(HTMLButtonElement)
+    expect((glyph as HTMLButtonElement).disabled).toBe(false)
     ;(glyph as HTMLButtonElement).click()
     flushSync()
     await vi.waitFor(() => {
-      expect(setSpy).toHaveBeenCalledWith('en', 'A', 0, 'b')
-      expect(catalog()).toBeNull()
+      const layoutId = editor.activeProfileId('en')
+      expect(hostLayout(layoutId)?.byZmk.get('A')?.keysyms[0]).toBe('b')
     })
-
-    const layoutId = editor.activeProfileId('en')
-    expect(hostLayout(layoutId)?.byZmk.get('A')?.keysyms[0]).toBe('b')
+    expect(catalog()).toBeInstanceOf(HTMLElement)
   })
 
   it('clears a level when NoSymbol is chosen from modifiers', async () => {
@@ -210,18 +247,20 @@ describe('LegendDecodeCard host symbol catalog', () => {
     expect(noSymbol).toBeInstanceOf(HTMLButtonElement)
     ;(noSymbol as HTMLButtonElement).click()
     flushSync()
-    await vi.waitFor(() => expect(catalog()).toBeNull())
-
-    const layoutId = editor.activeProfileId('en')
-    expect(hostLayout(layoutId)?.byZmk.get('A')?.keysyms[1]).toBe('NoSymbol')
+    await vi.waitFor(() => {
+      const layoutId = editor.activeProfileId('en')
+      expect(hostLayout(layoutId)?.byZmk.get('A')?.keysyms[1]).toBe('NoSymbol')
+    })
+    expect(catalog()).toBeInstanceOf(HTMLElement)
   })
 
-  it('closes the catalog on Escape and returns focus to the cell', async () => {
+  it('closes the catalog on Escape and ends the host-edit session', async () => {
     openKey('A')
     await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
     flushSync()
-    const cell = openDecodeCell('Edit en level 0')
+    openDecodeCell('Edit en level 0')
     expect(catalog()).toBeInstanceOf(HTMLElement)
+    expect(editor.hostEditSession).not.toBeNull()
 
     window.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
@@ -229,7 +268,8 @@ describe('LegendDecodeCard host symbol catalog', () => {
     flushSync()
     await vi.waitFor(() => expect(catalog()).toBeNull())
 
-    expect(document.activeElement).toBe(cell)
-    expect(document.querySelector('[role="dialog"].legend-decode')).toBeInstanceOf(HTMLElement)
+    expect(editor.hostSymbolCatalogOpen).toBe(false)
+    expect(editor.hostEditSession).toBeNull()
+    expect(document.querySelector('.legend-decode')).toBeNull()
   })
 })
