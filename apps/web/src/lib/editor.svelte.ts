@@ -15,6 +15,7 @@ import {
   hostLayoutFromXkb,
   hostLayoutMeta,
   hostLegendColumns,
+  hostLayoutToXkbSection,
   listXkbSections,
   primarySystemLayoutId,
   glyphToKeysym,
@@ -486,6 +487,23 @@ export class EditorState {
       return null
     } catch (error) {
       return error instanceof Error ? error.message : 'Не удалось импортировать xkb'
+    }
+  }
+
+  /**
+   * Export a user host layout as a standalone `xkb_symbols` section.
+   * Section id and `name[Group1]` both use the profile name. Returns null
+   * when the id is not a registered user layout.
+   */
+  exportUserHostLayoutXkb(layoutId: string): { text: string; name: string } | null {
+    if (!isUserHostLayoutId(layoutId)) return null
+    const profile = this.userLayouts.find(layout => layout.id === layoutId)
+    if (!profile) return null
+    const layout = hostLayout(layoutId)
+    if (!layout) return null
+    return {
+      text: hostLayoutToXkbSection(layout, { section: profile.name, name: profile.name }),
+      name: profile.name
     }
   }
 

@@ -8,6 +8,7 @@
     type HostLayoutChoice
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
+  import { isUserHostLayoutId } from '../host-layout-store.js'
 
   interface Props {
     language: HostLanguageId
@@ -147,6 +148,42 @@
     editor.beginDeleteHostProfile(language, id)
   }
 
+  function exportFileName(name: string): string {
+    const safe = name.replace(/[\\/:*?"<>|]+/g, '_').trim() || 'layout'
+    return `${safe}.xkb`
+  }
+
+  function downloadXkb(text: string, name: string) {
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = exportFileName(name)
+    link.rel = 'noopener'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  function exportLayout(id: string) {
+    const exported = editor.exportUserHostLayoutXkb(id)
+    if (!exported) return
+    downloadXkb(exported.text, exported.name)
+    onClose()
+  }
+
+  function exportCustom(id: string, event: MouseEvent) {
+    event.stopPropagation()
+    exportLayout(id)
+  }
+
+  function exportActive(event: MouseEvent) {
+    event.stopPropagation()
+    if (!isUserHostLayoutId(activeId)) return
+    exportLayout(activeId)
+  }
+
   let menuEl = $state<HTMLDivElement | undefined>()
 
   $effect(() => {
@@ -227,6 +264,19 @@
             {profile.layoutName}
           </button>
           {#if canStore}
+          <button
+            type="button"
+            class="profile-icon"
+            title="Экспортировать xkb"
+            aria-label="Экспортировать {profile.layoutName}"
+            onclick={event => exportCustom(profile.id, event)}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3v12" />
+              <path d="M8 11l4 4 4-4" />
+              <path d="M5 19h14" />
+            </svg>
+          </button>
           <button
             type="button"
             class="profile-icon"
@@ -327,6 +377,13 @@
         </li>
       {/each}
       <li class="profile-sep" aria-hidden="true"></li>
+      {#if isUserHostLayoutId(activeId)}
+        <li class="profile-row">
+          <button type="button" class="profile-action" onclick={exportActive}>
+            Экспортировать xkb
+          </button>
+        </li>
+      {/if}
       <li class="profile-row">
         <button type="button" class="profile-action" onclick={beginImport}>
           Импортировать xkb…

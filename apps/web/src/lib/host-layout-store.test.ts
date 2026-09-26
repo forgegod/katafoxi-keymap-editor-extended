@@ -3,10 +3,14 @@ import {
   composeKey,
   composeLegendDecode,
   hostLayout,
+  hostLayoutFromSymbols,
+  hostLayoutFromXkb,
   parseKeyBinding,
   setHostColumnAlt,
   SYSTEM_RU_LAYOUT_ID,
   SYSTEM_US_LAYOUT_ID,
+  type HostKeyLevels,
+  type HostLayout,
   type HostLegendView
 } from '@keymap-editor/keymap-core'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -23,6 +27,12 @@ import {
 function openLayoutId(view: HostLegendView): string | null {
   if (view.open == null) return null
   return view.columns.find(column => column.language === view.open)?.layoutId ?? null
+}
+
+function byZmkRecord(layout: HostLayout): Record<string, HostKeyLevels> {
+  return Object.fromEntries(
+    [...layout.byZmk.entries()].sort(([left], [right]) => left.localeCompare(right))
+  )
 }
 
 function deleteHostLayoutDb(): Promise<void> {
@@ -532,5 +542,32 @@ describe('host layout store', () => {
     expect(editor.hostLayoutRevision).toBe(before)
     editor.legendHover = null
     expect(editor.hostLayoutRevision).toBe(before)
+  })
+
+  it('exports a user host layout as xkb that round-trips through parse', async () => {
+    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    const edited = await editor.setHostKeyLevel('en', 'A', 0, 'α')
+    expect(edited.ok).toBe(true)
+    if (!edited.ok) throw new Error('edit failed')
+    const layoutId = edited.layoutId
+    await editor.setHostKeyLevel('en', 'A', 2, '')
+    await editor.setHostKeyLevel('en', 'Q', 1, 'ё')
+
+    const profile = editor.userLayouts.find(layout => layout.id === layoutId)
+    expect(profile).toBeDefined()
+    const exported = editor.exportUserHostLayoutXkb(layoutId)
+    expect(exported).not.toBeNull()
+    if (!exported) throw new Error('export failed')
+    expect(exported.name).toBe(profile!.name)
+    expect(exported.text).toContain(`xkb_symbols "${profile!.name}"`)
+    expect(exported.text).toContain(`name[Group1]= "${profile!.name}";`)
+
+    const original = hostLayout(layoutId)!
+    const viaXkb = hostLayoutFromXkb(exported.text, profile!.name, { fileName: 'export.xkb' })
+    const viaSymbols = hostLayoutFromSymbols(exported.text, profile!.name, 'round-trip')
+    expect(byZmkRecord(viaXkb)).toEqual(byZmkRecord(original))
+    expect(byZmkRecord(viaSymbols)).toEqual(byZmkRecord(original))
+
+    expect(editor.exportUserHostLayoutXkb(SYSTEM_US_LAYOUT_ID)).toBeNull()
   })
 })
