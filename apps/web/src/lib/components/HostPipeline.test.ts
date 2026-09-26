@@ -1,0 +1,160 @@
+import { flushSync, mount, unmount } from 'svelte'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { SYSTEM_US_LAYOUT_ID } from '@keymap-editor/keymap-core'
+import { editor } from '../editor.svelte.js'
+import { clearHostLayoutStore } from '../host-layout-store'
+import HostPipeline from './HostPipeline.svelte'
+
+describe('HostPipeline', () => {
+  let target: HTMLDivElement
+  let modalRoot: HTMLDivElement
+  let view: ReturnType<typeof mount> | undefined
+
+  beforeEach(async () => {
+    editor.resetForTests()
+    await clearHostLayoutStore()
+    await editor.restoreHostProfiles()
+    target = document.createElement('div')
+    document.body.appendChild(target)
+    modalRoot = document.createElement('div')
+    modalRoot.id = 'modal-root'
+    document.body.appendChild(modalRoot)
+  })
+
+  afterEach(() => {
+    if (view) unmount(view)
+    view = undefined
+    modalRoot.remove()
+    target.remove()
+    editor.resetForTests()
+    vi.restoreAllMocks()
+  })
+
+  function mountPipeline() {
+    view = mount(HostPipeline, { target })
+    flushSync()
+  }
+
+  it('disables OS buttons when only system layouts are active', () => {
+    mountPipeline()
+    const root = target.querySelector('.host-pipeline')
+    expect(root?.getAttribute('data-host-dirty')).toBe('false')
+    expect(root?.textContent).toMatch(/Clean/)
+    const buttons = [...target.querySelectorAll('button.download')] as HTMLButtonElement[]
+    expect(buttons).toHaveLength(2)
+    expect(buttons.every(button => button.disabled)).toBe(true)
+    expect(document.querySelector('.info')).toBeNull()
+  })
+
+  it('enables OS buttons after a host key edit forks a user layout', async () => {
+    mountPipeline()
+    await editor.setHostKeyLevel('en', 'A', 0, 'b')
+    flushSync()
+
+    const root = target.querySelector('.host-pipeline')
+    expect(root?.getAttribute('data-host-dirty')).toBe('true')
+    expect(root?.textContent).toMatch(/Changed/)
+    const buttons = [...target.querySelectorAll('button.download')] as HTMLButtonElement[]
+    expect(buttons.every(button => !button.disabled)).toBe(true)
+    expect(editor.activeProfileId('en')).not.toBe(SYSTEM_US_LAYOUT_ID)
+  })
+
+  it('opens a Linux install dialog with copy/download actions', async () => {
+    const createObjectURL = vi.fn(() => 'blob:host-test')
+    const revokeObjectURL = vi.fn()
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL,
+      revokeObjectURL
+    })
+    const click = vi.fn()
+    const originalCreate = document.createElement.bind(document)
+    vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      const el = originalCreate(tag)
+      if (tag === 'a') {
+        Object.defineProperty(el, 'click', { value: click })
+      }
+      return el
+    })
+
+    mountPipeline()
+    await editor.setHostKeyLevel('en', 'A', 0, 'b')
+    flushSync()
+
+    const linux = target.querySelector(
+      'button.download[aria-label="Install host layout on Linux"]'
+    ) as HTMLButtonElement
+    linux.click()
+    flushSync()
+
+    const dialog = document.querySelector('[aria-labelledby="linux-install-title"]')
+    expect(dialog).toBeInstanceOf(HTMLElement)
+    expect(dialog?.textContent).toMatch(/xkb_symbols/)
+    const pathInput = dialog?.querySelector('input.path-input')
+    expect(pathInput).toBeInstanceOf(HTMLInputElement)
+    expect((pathInput as HTMLInputElement).value).toContain('/usr/share/X11/xkb/symbols/au')
+    expect(dialog?.textContent).toMatch(/Australia/)
+    expect(dialog?.textContent).toMatch(/sudo/)
+    expect(dialog?.querySelectorAll('section.layout-card')).toHaveLength(1)
+
+    const downloadBtn = [...(dialog?.querySelectorAll('button') ?? [])].find(
+      button => button.textContent?.trim() === 'Download file'
+    )
+    expect(downloadBtn).toBeInstanceOf(HTMLButtonElement)
+    ;(downloadBtn as HTMLButtonElement).click()
+    flushSync()
+
+    expect(createObjectURL).toHaveBeenCalled()
+    expect(click).toHaveBeenCalled()
+    const blob = createObjectURL.mock.calls[0]?.[0] as Blob
+    expect(await blob.text()).toContain('xkb_symbols')
+  })
+
+  it('shows a Russian layout card only when Russian host work is dirty', async () => {
+    mountPipeline()
+    await editor.setHostKeyLevel('en', 'A', 0, 'b')
+    flushSync()
+
+    const linux = target.querySelector(
+      'button.download[aria-label="Install host layout on Linux"]'
+    ) as HTMLButtonElement
+    linux.click()
+    flushSync()
+    expect(document.querySelectorAll('section.layout-card')).toHaveLength(1)
+
+    document.querySelector('.dialog-foot button')?.dispatchEvent(
+      new MouseEvent('click', { bubbles: true })
+    )
+    flushSync()
+
+    await editor.setHostKeyLevel('ru', 'A', 0, 'ф')
+    flushSync()
+    linux.click()
+    flushSync()
+
+    const cards = document.querySelectorAll('section.layout-card')
+    expect(cards.length).toBe(2)
+    expect(document.querySelector('.tip-ru')?.textContent).toMatch(/legacy/)
+  })
+
+  it('opens a Windows install dialog with MSKLC link and disabled .klc download', async () => {
+    mountPipeline()
+    await editor.setHostKeyLevel('en', 'A', 0, 'b')
+    flushSync()
+
+    const windows = target.querySelector(
+      'button.download[aria-label="Install host layout on Windows"]'
+    ) as HTMLButtonElement
+    windows.click()
+    flushSync()
+
+    const dialog = document.querySelector('[aria-labelledby="windows-install-title"]')
+    expect(dialog).toBeInstanceOf(HTMLElement)
+    expect(dialog?.querySelector('a[href*="microsoft.com"]')).toBeInstanceOf(HTMLAnchorElement)
+    const klc = [...(dialog?.querySelectorAll('button') ?? [])].find(
+      button => button.textContent?.trim() === 'Download .klc file'
+    )
+    expect(klc).toBeInstanceOf(HTMLButtonElement)
+    expect((klc as HTMLButtonElement).disabled).toBe(true)
+  })
+})

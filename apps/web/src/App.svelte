@@ -11,6 +11,8 @@
   import Keyboard from './lib/components/Keyboard/Keyboard.svelte'
   import GitHubLink from './lib/components/GitHubLink.svelte'
   import HostLegendPicker from './lib/components/HostLegendPicker.svelte'
+  import HostSymbolCatalog from './lib/components/HostSymbolCatalog.svelte'
+  import HostPipeline from './lib/components/HostPipeline.svelte'
   import Loader from './lib/components/Common/Loader.svelte'
   import github from './lib/github/api.svelte.js'
   import { formatKeymapChange } from '@keymap-editor/keymap-core'
@@ -84,49 +86,48 @@
 
 <Loader load={initialize}>
   <div class="app-chrome" id="actions">
-    <div class="chrome-group chrome-source">
-      <KeyboardPicker
-        onSelect={event => {
-          void editor.selectKeyboard(event as KeyboardSelection)
-          changesOpen = false
-        }}
-      />
-    </div>
-
-    {#if editor.draftKeymap}
-      <span class="chrome-sep" aria-hidden="true"></span>
-      <div class="chrome-group actions-history">
-        <button
-          type="button"
-          class="history"
-          aria-label="Undo"
-          title="Undo (Ctrl/Cmd+Z)"
-          disabled={!editor.canUndo}
-          onclick={() => editor.undo()}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M9 14 4 9l5-5" />
-            <path d="M4 9h11a5 5 0 0 1 0 10H12" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          class="history"
-          aria-label="Redo"
-          title="Redo (Ctrl/Cmd+Shift+Z)"
-          disabled={!editor.canRedo}
-          onclick={() => editor.redo()}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="m15 14 5-5-5-5" />
-            <path d="M20 9H9a5 5 0 0 0 0 10h3" />
-          </svg>
-        </button>
+    <div class="chrome-lane chrome-zmk" aria-label="ZMK keymap">
+      <span class="lane-label" title="ZMK keymap: source, edit history, and publish">ZMK</span>
+      <div class="chrome-group chrome-source">
+        <KeyboardPicker
+          onSelect={event => {
+            void editor.selectKeyboard(event as KeyboardSelection)
+            changesOpen = false
+          }}
+        />
       </div>
-    {/if}
 
-    <div class="chrome-end">
-      <span class="chrome-sep" aria-hidden="true"></span>
+      {#if editor.draftKeymap}
+        <div class="chrome-group actions-history">
+          <button
+            type="button"
+            class="history"
+            aria-label="Undo"
+            title="Undo (Ctrl/Cmd+Z)"
+            disabled={!editor.canUndo}
+            onclick={() => editor.undo()}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 14 4 9l5-5" />
+              <path d="M4 9h11a5 5 0 0 1 0 10H12" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="history"
+            aria-label="Redo"
+            title="Redo (Ctrl/Cmd+Shift+Z)"
+            disabled={!editor.canRedo}
+            onclick={() => editor.redo()}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m15 14 5-5-5-5" />
+              <path d="M20 9H9a5 5 0 0 0 0 10h3" />
+            </svg>
+          </button>
+        </div>
+      {/if}
+
       <div class="chrome-group actions-publish">
         {#if editor.draftKeymap}
           <div class="change-status">
@@ -193,6 +194,12 @@
       </div>
     </div>
 
+    <span class="chrome-sep" aria-hidden="true"></span>
+
+    <div class="chrome-lane chrome-host" aria-label="Host layout">
+      <HostPipeline />
+    </div>
+
     {#if editor.saveNotice}
       <div
         class="save-notice"
@@ -210,6 +217,7 @@
     {#if editor.draftKeymap}
       <div class="host-legend-wrap">
         <HostLegendPicker />
+        <HostSymbolCatalog />
       </div>
     {/if}
     {#if editor.definitions && editor.layout && editor.draftKeymap}
@@ -235,8 +243,35 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 6px 8px;
+    gap: 6px 10px;
     padding: 2px 10px 4px;
+  }
+
+  .chrome-lane {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    min-width: 0;
+  }
+
+  .chrome-zmk {
+    flex: 1 1 280px;
+  }
+
+  .chrome-host {
+    flex: 0 1 auto;
+  }
+
+  .lane-label {
+    flex-shrink: 0;
+    margin: 0 2px 0 0;
+    padding: 2px 0;
+    color: #555;
+    font-size: 100%;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
   }
 
   .chrome-group {
@@ -276,18 +311,12 @@
 
   .chrome-sep {
     display: inline-block;
-    align-self: center;
+    align-self: stretch;
     width: 1px;
-    height: 22px;
+    min-height: 22px;
+    margin: 2px 0;
     background: #ccc;
     flex-shrink: 0;
-  }
-
-  .chrome-end {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-left: auto;
   }
 
   .board-stack {
@@ -310,7 +339,12 @@
     grid-column: 1;
     grid-row: 1;
     align-self: start;
-    padding: 0 0 4px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 8px 4px 12px;
     min-width: max-content;
   }
 
