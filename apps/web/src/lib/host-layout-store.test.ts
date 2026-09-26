@@ -362,4 +362,40 @@ describe('host layout store', () => {
     )
     expect(editor.userLayouts).toHaveLength(0)
   })
+
+  it('forks a system layout into a user copy before edit', async () => {
+    await editor.selectLanguageProfile('ru', SYSTEM_RU_LAYOUT_ID)
+    const system = hostLayout(SYSTEM_RU_LAYOUT_ID)!
+    const byZmkRef = system.byZmk
+    const qKeysyms = system.byZmk.get('Q')!.keysyms
+    const expectedName = uniqueUserHostLayoutName('ru', 'Системная', [])
+
+    const id = await editor.ensureEditableUserHostLayout('ru')
+    expect(id).toMatch(/^user:/)
+    expect(id).not.toBe(SYSTEM_RU_LAYOUT_ID)
+    expect(editor.activeProfileId('ru')).toBe(id)
+    expect(openLayoutId(editor.hostLegend)).toBe(id)
+    expect(editor.userLayouts).toHaveLength(1)
+    expect(editor.userLayouts[0]?.name).toBe(expectedName)
+    expect(editor.userLayouts[0]?.origin).toEqual({
+      from: 'copy',
+      layoutId: SYSTEM_RU_LAYOUT_ID
+    })
+    expect(editor.hostProfileNote).toBe(
+      `Создана копия «${expectedName}» для правок. Системная раскладка не изменена.`
+    )
+    expect(hostLayout(SYSTEM_RU_LAYOUT_ID)?.byZmk).toBe(byZmkRef)
+    expect(hostLayout(SYSTEM_RU_LAYOUT_ID)?.byZmk.get('Q')?.keysyms).toBe(qKeysyms)
+    expect(hostLayout(id)?.byZmk.get('Q')?.keysyms).toEqual([...qKeysyms])
+
+    const again = await editor.ensureEditableUserHostLayout('ru')
+    expect(again).toBe(id)
+    expect(editor.userLayouts).toHaveLength(1)
+
+    editor.resetForTests()
+    await editor.restoreHostProfiles()
+    expect(editor.activeProfileId('ru')).toBe(id)
+    expect(editor.userLayouts.map(layout => layout.name)).toEqual([expectedName])
+    expect((await loadUserHostLayouts()).map(layout => layout.id)).toEqual([id])
+  })
 })

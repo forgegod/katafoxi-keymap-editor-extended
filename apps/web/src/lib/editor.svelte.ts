@@ -10,7 +10,10 @@ import {
   assignHostLanguageLayout,
   hostLanguage,
   hostLayout,
+  hostLayoutChoice,
+  hostLayoutChoiceLabel,
   hostLayoutFromXkb,
+  hostLayoutMeta,
   hostLegendColumns,
   listXkbSections,
   primarySystemLayoutId,
@@ -322,6 +325,31 @@ export class EditorState {
 
   activeProfileId(language: HostLanguageId): string {
     return this.hostLegend.columns.find(column => column.language === language)?.layoutId ?? ''
+  }
+
+  /**
+   * User layout id safe to edit for this language column.
+   * Returns the active user layout as-is; forks a system layout into a copy first.
+   */
+  async ensureEditableUserHostLayout(language: HostLanguageId): Promise<string> {
+    const layoutId = this.activeProfileId(language)
+    if (isUserHostLayoutId(layoutId)) return layoutId
+    const source = hostLayout(layoutId)
+    if (!source) throw new Error('Нет раскладки для этого языка')
+    const choice = hostLayoutChoice(layoutId)
+    const preferredName = choice
+      ? hostLayoutChoiceLabel(choice)
+      : (hostLayoutMeta(layoutId)?.name ?? 'Копия')
+    const id = await this.#materializeUserHostLayoutFromTable(
+      language,
+      preferredName,
+      source,
+      { from: 'copy', layoutId }
+    )
+    const name = this.userLayouts.find(layout => layout.id === id)?.name ?? preferredName
+    this.hostProfileNote =
+      `Создана копия «${name}» для правок. Системная раскладка не изменена.`
+    return id
   }
 
   profilesForLanguage(language: HostLanguageId): UserHostLayout[] {
