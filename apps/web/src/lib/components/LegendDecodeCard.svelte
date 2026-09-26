@@ -1,47 +1,41 @@
 <script lang="ts">
   import {
+    ALT_GR_COLUMN_LABEL,
+    ALT_GR_SHIFT_COLUMN_LABEL,
     ALT_LEVEL_EMPTY,
     composeLegendDecode,
     hostLanguageName,
+    hostLevels,
+    keysymToGlyph,
     parseKeyBinding,
     withEditableLegendDecodeGaps,
     type HostLanguageId,
     type LegendDecodeCard
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
-  import HostSymbolPicker from './HostSymbolPicker.svelte'
 
   interface Props {
     card: LegendDecodeCard
     anchor: DOMRect
     tooltipId: string
-    pinned?: boolean
-    onPointerEnter?: () => void
-    onPointerLeave?: () => void
-    onPin?: () => void
+    /** Alt+click host-edit session for this card. */
+    hostSession?: boolean
+    onArmCell?: (language: HostLanguageId, level: number) => void
+    onEndSession?: () => void
   }
 
   let {
     card,
     anchor,
     tooltipId,
-    pinned = false,
-    onPointerEnter,
-    onPointerLeave,
-    onPin
+    hostSession = false,
+    onArmCell,
+    onEndSession
   }: Props = $props()
   let el: HTMLDivElement | undefined = $state()
-  let pickerEl: HTMLElement | null = $state(null)
-  let editing = $state<{ language: HostLanguageId; level: number } | null>(null)
-  let editAnchor = $state<DOMRect | null>(null)
-  let returnFocus: HTMLElement | null = null
-  let fieldError = $state<string | null>(null)
-  let dropsWarning = $state(false)
   let busy = $state(false)
-  let editGuards: {
-    onKeydown: (event: KeyboardEvent) => void
-    onPointerDown: (event: PointerEvent) => void
-  } | null = null
+
+  const LEVEL_LABELS = ['tap', '⇧', ALT_GR_COLUMN_LABEL, ALT_GR_SHIFT_COLUMN_LABEL] as const
 
   const zmk = $derived(card.keycode?.replace(/^KC_/, '') ?? '')
   const showBinding = $derived(!zmk || card.binding !== `&kp ${zmk}`)
@@ -57,6 +51,25 @@
       return card
     }
   })
+  const editing = $derived.by(() => {
+    const target = editor.hostSymbolEditTarget
+    if (!target || !zmk || target.zmk !== zmk) return null
+    return { language: target.language, level: target.level }
+  })
+  const dropsWarning = $derived.by(() => {
+    void editor.hostLayoutRevision
+    const target = editor.hostSymbolEditTarget
+    if (!target || target.zmk !== zmk || target.level !== 0) return false
+    const keysym = hostLevels(editor.activeProfileId(target.language), target.zmk)?.keysyms[0]
+    return keysym != null && keysymToGlyph(keysym) == null
+  })
+  /** Host levels exist only for keys in the host-key registry. */
+  const hostEditable = $derived(Boolean(displayCard.keycode))
+  const hasDiff = $derived(
+    displayCard.current.some(column => column.slots.some(slot => slot.differs))
+  )
+  /** Revert only in an Alt+click session — hover peek is read-only. */
+  const showRevertRow = $derived(hostSession && hasDiff)
 
   $effect(() => {
     const root = document.getElementById('modal-root') ?? document.body
@@ -69,18 +82,20 @@
     if (!el) return
     void displayCard
     void anchor
+    void hostSession
+    void showRevertRow
     const box = el.getBoundingClientRect()
     let left = anchor.left + anchor.width / 2 - box.width / 2
     left = Math.max(8, Math.min(left, window.innerWidth - box.width - 8))
-    let top = anchor.top - box.height - 8
-    if (top < 8) top = anchor.bottom + 8
+    let top = anchor.top - box.height - 2
+    if (top < 8) top = anchor.bottom + 2
     el.style.left = `${left}px`
     el.style.top = `${top}px`
   })
 
   $effect(() => {
     if (!el) return
-    if (pinned) {
+    if (hostSession) {
       el.setAttribute('role', 'dialog')
       el.setAttribute('aria-label', dialogLabel)
       el.setAttribute('aria-modal', 'true')
@@ -94,40 +109,49 @@
   })
 
   $effect(() => {
-    return () => uninstallEditGuards()
+    if (!hostSession) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Enter' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+        const target = event.target
+        if (target instanceof HTMLElement && target.closest('button.slot, button.revert, input, textarea')) {
+          return
+        }
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        onEndSession?.()
+        return
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        onEndSession?.()
+      }
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   })
 
-  // Imperative listeners keep svelte-check from treating the tooltip shell as a
-  // new interactive a11y surface (Modal/KeyValue already own the two warnings).
-  // Capture + stopPropagation so row/KeyEditor never see the click; cell edits are
-  // handled here because a bubble listener on the shell would swallow delegated
-  // Svelte onclick handlers on the buttons.
   $effect(() => {
-    if (!el) return
+    if (!el || !hostSession) return
     const node = el
     const key = zmk
-    const enter = () => onPointerEnter?.()
-    const leave = () => onPointerLeave?.()
     const click = (event: MouseEvent) => {
       event.stopPropagation()
       const target = event.target
-      if (!(target instanceof Element)) {
-        onPin?.()
+      if (!(target instanceof Element)) return
+      if (target.closest('[data-host-accept], [data-host-cancel]')) {
+        onEndSession?.()
         return
       }
       const revert = target.closest('[data-host-revert]')
       if (revert instanceof HTMLElement) {
         const language = revert.dataset.language as HostLanguageId
         const level = Number(revert.dataset.level)
-        onPin?.()
         if (!key || busy || !Number.isInteger(level)) return
         void (async () => {
           busy = true
           try {
-            const result = await editor.revertHostKeyLevel(language, key, level)
-            if (result.ok) {
-              if (editing?.language === language && editing.level === level) closePicker()
-            }
+            await editor.revertHostKeyLevel(language, key, level)
           } finally {
             busy = false
           }
@@ -138,108 +162,26 @@
       if (cell instanceof HTMLElement) {
         const language = cell.dataset.language as HostLanguageId
         const level = Number(cell.dataset.level)
-        if (!key || !Number.isInteger(level)) {
-          onPin?.()
-          return
-        }
-        beginEdit(language, level, cell)
-        return
+        if (!key || !Number.isInteger(level)) return
+        onArmCell?.(language, level)
+        queueMicrotask(() => {
+          if (cell instanceof HTMLElement) cell.focus()
+        })
       }
-      onPin?.()
     }
-    node.addEventListener('mouseenter', enter)
-    node.addEventListener('mouseleave', leave)
     node.addEventListener('click', click, true)
     return () => {
-      node.removeEventListener('mouseenter', enter)
-      node.removeEventListener('mouseleave', leave)
       node.removeEventListener('click', click, true)
     }
   })
-
-  function uninstallEditGuards() {
-    if (!editGuards) return
-    window.removeEventListener('keydown', editGuards.onKeydown, true)
-    window.removeEventListener('pointerdown', editGuards.onPointerDown, true)
-    editGuards = null
-  }
-
-  function installEditGuards() {
-    uninstallEditGuards()
-    const onKeydown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      event.preventDefault()
-      event.stopImmediatePropagation()
-      closePicker()
-    }
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target
-      if (!(target instanceof Node)) return
-      if (pickerEl?.contains(target)) return
-      const outsideCard = !el?.contains(target)
-      closePicker()
-      if (outsideCard) event.stopImmediatePropagation()
-    }
-    window.addEventListener('keydown', onKeydown, true)
-    window.addEventListener('pointerdown', onPointerDown, true)
-    editGuards = { onKeydown, onPointerDown }
-  }
-
-  function beginEdit(language: HostLanguageId, level: number, cell: HTMLElement) {
-    // Register before onPin so these win over Key's pinned Escape/outside handlers.
-    installEditGuards()
-    onPin?.()
-    editing = { language, level }
-    editAnchor = cell.getBoundingClientRect()
-    returnFocus = cell
-    fieldError = null
-    dropsWarning = false
-  }
-
-  function closePicker() {
-    uninstallEditGuards()
-    editing = null
-    editAnchor = null
-    fieldError = null
-    const focusTarget = returnFocus
-    returnFocus = null
-    queueMicrotask(() => focusTarget?.focus())
-  }
-
-  async function pickSymbol(text: string) {
-    if (!editing || !zmk || busy) return
-    const { language, level } = editing
-    busy = true
-    fieldError = null
-    try {
-      const result = await editor.setHostKeyLevel(language, zmk, level, text)
-      if (!result.ok) {
-        fieldError = 'Не удалось сохранить уровень'
-        return
-      }
-      dropsWarning = Boolean(result.dropsFromCompose)
-      if (dropsWarning) {
-        // Keep the cell marked while the warning is visible; close the catalog.
-        uninstallEditGuards()
-        editing = null
-        editAnchor = null
-        const focusTarget = returnFocus
-        returnFocus = null
-        queueMicrotask(() => focusTarget?.focus())
-        return
-      }
-      closePicker()
-    } finally {
-      busy = false
-    }
-  }
 </script>
 
 <div
   bind:this={el}
   id={tooltipId}
   class="legend-decode"
-  class:pinned
+  class:session={hostSession}
+  class:peek={!hostSession}
   style="position:fixed;left:{anchor.left}px;top:{anchor.top}px;z-index:40"
 >
   <div class="ids">
@@ -256,11 +198,17 @@
     {#if displayCard.hold}<span class="hold">{displayCard.hold}</span>{/if}
   </div>
   {#if displayCard.current.length}
-    <div class="grid">
-      <div class="row flags">
+    <div
+      class="decode-table"
+      style="--lang-count: {displayCard.current.length}"
+      role="table"
+      aria-label="Host levels"
+    >
+      <div class="row flags" role="row">
         {#each displayCard.current as column (column.language)}
           <div
-            class="lang flag"
+            class="lang-head flag"
+            role="columnheader"
             data-language={column.language}
             title={hostLanguageName(column.language)}
           >
@@ -268,84 +216,132 @@
           </div>
         {/each}
       </div>
+      <div class="row levels" role="row">
+        {#each displayCard.current as column (column.language)}
+          <div class="lang" data-language={column.language} role="rowgroup">
+            {#each LEVEL_LABELS as label, index (`${column.language}-lvl-${index}`)}
+              <span class="level-label" role="columnheader">{label}</span>
+            {/each}
+          </div>
+        {/each}
+      </div>
       {#if displayCard.system}
-        <div class="row system">
+        <div class="row system" role="row">
           {#each displayCard.system as column (column.language)}
-            <div class="lang" data-language={column.language}>
+            <div class="lang" data-language={column.language} role="rowgroup">
               {#each column.slots as slot, index (`${column.language}-sys-${index}`)}
-                <span class="slot" class:empty={slot.text === ALT_LEVEL_EMPTY}>{slot.text}</span>
+                <span class="slot" class:empty={slot.text === ALT_LEVEL_EMPTY} role="cell"
+                  >{slot.text}</span
+                >
               {/each}
             </div>
           {/each}
         </div>
       {/if}
-      <div class="row current">
+      <div class="row current" role="row">
         {#each displayCard.current as column (column.language)}
-          <div class="lang" data-language={column.language}>
+          <div class="lang" data-language={column.language} role="rowgroup">
             {#each column.slots as slot, index (`${column.language}-${index}`)}
               {@const isEditing =
-                editing?.language === column.language && editing.level === index}
-              <div class="cell" class:editing={isEditing}>
-                <button
-                  type="button"
-                  class="slot"
-                  class:empty={slot.text === ALT_LEVEL_EMPTY}
-                  class:diff={slot.differs}
-                  data-host-edit
-                  data-language={column.language}
-                  data-level={index}
-                  data-text={slot.text}
-                  disabled={!zmk}
-                  aria-label={`Edit ${column.language} level ${index}`}
-                  aria-expanded={isEditing}
-                  aria-haspopup="dialog"
-                >
-                  {slot.text}
-                </button>
-                {#if slot.differs}
+                hostSession &&
+                editing?.language === column.language &&
+                editing.level === index}
+              <div class="cell" class:editing={isEditing} role="cell">
+                {#if hostSession}
                   <button
                     type="button"
-                    class="revert"
-                    data-host-revert
+                    class="slot"
+                    class:empty={slot.text === ALT_LEVEL_EMPTY}
+                    class:diff={slot.differs}
+                    data-host-edit
                     data-language={column.language}
                     data-level={index}
-                    title="Вернуть системный эталон"
-                    aria-label={`Revert ${column.language} level ${index}`}
-                    disabled={busy || !zmk}
+                    data-text={slot.text}
+                    disabled={!zmk}
+                    aria-label={`Edit ${column.language} level ${index}`}
+                    aria-expanded={isEditing}
+                    aria-haspopup="dialog"
                   >
-                    ↺
+                    {slot.text}
                   </button>
+                {:else}
+                  <span
+                    class="slot"
+                    class:empty={slot.text === ALT_LEVEL_EMPTY}
+                    class:diff={slot.differs}
+                    >{slot.text}</span
+                  >
                 {/if}
               </div>
             {/each}
           </div>
         {/each}
       </div>
+      {#if showRevertRow}
+        <div class="row revert-row" role="row">
+          {#each displayCard.current as column (column.language)}
+            <div class="lang" data-language={column.language} role="rowgroup">
+              {#each column.slots as slot, index (`${column.language}-rev-${index}`)}
+                <div class="cell revert-cell" role="cell">
+                  {#if slot.differs}
+                    <button
+                      type="button"
+                      class="revert"
+                      data-host-revert
+                      data-language={column.language}
+                      data-level={index}
+                      title="Revert to system"
+                      aria-label={`Revert ${column.language} level ${index}`}
+                      disabled={busy || !zmk}
+                    >
+                      ↺
+                    </button>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          {/each}
+        </div>
+      {/if}
       {#if dropsWarning}
         <p class="warn" role="status">
-          Базовый уровень несимвольный — клавиша пропадёт из композиции
+          Base level is non-character — this key drops out of composition
         </p>
-      {/if}
-      {#if fieldError}
-        <p class="error" role="alert">{fieldError}</p>
       {/if}
     </div>
   {/if}
+  {#if hostSession}
+    <div class="session-bar" role="group" aria-label="Host edit session">
+      <button
+        type="button"
+        class="session-accept"
+        data-host-accept
+        title="Enter"
+        onclick={() => onEndSession?.()}
+      >
+        Accept <kbd>Enter</kbd>
+      </button>
+      <button
+        type="button"
+        class="session-cancel"
+        data-host-cancel
+        title="Edits are already saved — Escape only closes the session"
+        onclick={() => onEndSession?.()}
+      >
+        Cancel <kbd>Esc</kbd>
+      </button>
+    </div>
+  {:else if hostEditable}
+    <p class="mode-hint" role="note">
+      Click row — ZMK · Alt+click — host
+    </p>
+  {:else}
+    <p class="mode-hint" role="note">Click row — ZMK</p>
+  {/if}
 </div>
-
-{#if editing && editAnchor}
-  <HostSymbolPicker
-    language={editing.language}
-    anchor={editAnchor}
-    bind:element={pickerEl}
-    onPick={text => void pickSymbol(text)}
-    onClose={closePicker}
-  />
-{/if}
 
 <style>
   .legend-decode {
-    pointer-events: auto;
     box-sizing: border-box;
     min-width: 18em;
     padding: 7px 9px 8px;
@@ -361,7 +357,13 @@
     white-space: nowrap;
   }
 
-  .legend-decode.pinned {
+  /* Hover peek must not steal the pointer — no bridge / hold onto the card. */
+  .legend-decode.peek {
+    pointer-events: none;
+  }
+
+  .legend-decode.session {
+    pointer-events: auto;
     box-shadow:
       0 0 0 1px rgba(40, 36, 30, 0.18),
       0 10px 28px rgba(40, 36, 30, 0.24);
@@ -401,89 +403,91 @@
     color: #444;
   }
 
-  .grid {
-    display: grid;
-    gap: 3px 0;
+  .decode-table {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
 
   .row {
+    display: grid;
+    grid-template-columns: repeat(var(--lang-count, 1), minmax(0, 1fr));
+    column-gap: 12px;
+    align-items: center;
+  }
+
+  .lang-head {
     display: flex;
-    gap: 0.85em;
+    justify-content: center;
+    font-size: 14px;
+    line-height: 1;
   }
 
   .lang {
     display: grid;
-    grid-template-columns: repeat(4, minmax(1.15em, auto));
+    grid-template-columns: repeat(4, minmax(1.35em, 1fr));
+    column-gap: 2px;
+    align-items: center;
     justify-items: center;
-    align-items: start;
-    gap: 2px 0;
   }
 
-  .row.flags {
-    margin-bottom: 1px;
-  }
-
-  .lang.flag {
-    font-family: inherit;
-    font-size: 13px;
+  .level-label {
+    font-family: Quicksand, avenir, sans-serif;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #8a847c;
     line-height: 1;
-    justify-items: center;
-    align-content: center;
+  }
+
+  .row.system {
+    opacity: 0.45;
   }
 
   .cell {
-    position: relative;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    min-width: 1.15em;
+    justify-content: center;
+    min-width: 1.35em;
+    min-height: 1.35em;
   }
 
   .cell.editing .slot {
-    outline: 1px solid #8a847c;
-    border-radius: 3px;
-    background: #fff;
+    outline: 1px solid #1d6f8a;
+    outline-offset: 1px;
   }
 
-  .slot {
-    min-width: 1em;
+  .revert-cell {
+    min-height: 1.1em;
+  }
+
+  button.slot,
+  span.slot {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.35em;
+    min-height: 1.35em;
     margin: 0;
-    padding: 0;
+    padding: 1px 3px;
     border: 0;
+    border-radius: 3px;
     background: transparent;
     color: inherit;
     font: inherit;
-    text-align: center;
+  }
+
+  button.slot {
     cursor: pointer;
   }
 
-  .slot:disabled {
+  button.slot:disabled {
     cursor: default;
   }
 
   .slot.empty {
-    opacity: 0.38;
-  }
-
-  .row.system {
-    color: #8a847c;
-    opacity: 0.72;
-  }
-
-  .row.system .slot {
-    cursor: default;
-  }
-
-  .lang[data-language='ru'] .slot,
-  .lang[data-language='uk'] .slot,
-  .lang[data-language='de'] .slot {
-    color: #1d6f8a;
-  }
-
-  .row.system .lang[data-language='ru'] .slot,
-  .row.system .lang[data-language='uk'] .slot,
-  .row.system .lang[data-language='de'] .slot {
-    color: #5e8a96;
+    color: #aaa;
   }
 
   .slot.diff {
@@ -498,17 +502,9 @@
     color: #0f4a5c;
   }
 
-  .error {
-    margin: 4px 0 0;
-    white-space: normal;
-    font-size: 10px;
-    line-height: 1.25;
-    font-family: Quicksand, avenir, sans-serif;
-    color: #a33;
-  }
-
   .warn {
     margin: 4px 0 0;
+    grid-column: 1 / -1;
     white-space: normal;
     font-size: 10px;
     line-height: 1.25;
@@ -517,23 +513,75 @@
   }
 
   .revert {
-    position: absolute;
-    top: -0.55em;
-    right: -0.55em;
-    width: 1.1em;
-    height: 1.1em;
     margin: 0;
-    padding: 0;
+    padding: 0 2px;
     border: 0;
-    border-radius: 50%;
-    background: #e8e2d6;
-    color: #5a554e;
-    font-size: 9px;
+    border-radius: 3px;
+    background: transparent;
+    color: #7a746c;
+    font: inherit;
+    font-size: 11px;
     line-height: 1;
     cursor: pointer;
   }
 
-  .revert:hover {
-    background: #d8d0c0;
+  .revert:hover:not(:disabled) {
+    background: rgba(40, 36, 30, 0.08);
+    color: #333;
+  }
+
+  .mode-hint {
+    margin: 7px 0 0;
+    padding-top: 5px;
+    border-top: 1px solid rgba(40, 36, 30, 0.1);
+    white-space: normal;
+    font-family: Quicksand, avenir, sans-serif;
+    font-size: 10px;
+    line-height: 1.3;
+    color: #7a746c;
+  }
+
+  .session-bar {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(40, 36, 30, 0.12);
+  }
+
+  .session-bar button {
+    flex: 1;
+    height: 26px;
+    margin: 0;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 13px;
+    font-family: Quicksand, avenir, sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .session-bar kbd {
+    margin-left: 4px;
+    padding: 0 4px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.22);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .session-cancel kbd {
+    background: rgba(0, 0, 0, 0.08);
+  }
+
+  .session-accept {
+    background: #1d6f8a;
+    color: #fff;
+  }
+
+  .session-cancel {
+    background: #ddd;
+    color: #333;
   }
 </style>

@@ -141,9 +141,9 @@ describe('host layout store', () => {
 
   it('rejects an empty name and reserved builtin names', async () => {
     editor.beginSaveHostProfile('en')
-    expect(await editor.confirmHostProfileName('  ')).toMatch(/имя/i)
+    expect(await editor.confirmHostProfileName('  ')).toMatch(/name/i)
     expect(editor.hostProfilePrompt?.kind).toBe('save-as')
-    expect(await editor.confirmHostProfileName('Системная')).toMatch(/занято/)
+    expect(await editor.confirmHostProfileName('System')).toMatch(/reserved/)
     expect(editor.userLayouts).toHaveLength(0)
   })
 
@@ -161,8 +161,8 @@ describe('host layout store', () => {
     expect((await loadUserHostLayouts()).find(layout => layout.id === id)?.name).toBe('Дом')
 
     editor.beginRenameHostProfile('en')
-    expect(await editor.confirmHostProfileName('Другая')).toMatch(/уже есть/)
-    expect(await editor.confirmHostProfileName('Системная')).toMatch(/занято/)
+    expect(await editor.confirmHostProfileName('Другая')).toMatch(/already exists/)
+    expect(await editor.confirmHostProfileName('System')).toMatch(/reserved/)
   })
 
   it('deletes the active user layout and returns to the primary system layout', async () => {
@@ -236,8 +236,8 @@ describe('host layout store', () => {
     expect(editor.userLayouts.map(layout => layout.name)).toEqual(['Копия ru'])
 
     editor.beginCopyHostProfile('ru')
-    expect(await editor.confirmHostProfileName('Копия ru')).toMatch(/уже есть/)
-    expect(await editor.confirmHostProfileName('Системная')).toMatch(/занято/)
+    expect(await editor.confirmHostProfileName('Копия ru')).toMatch(/already exists/)
+    expect(await editor.confirmHostProfileName('System')).toMatch(/reserved/)
   })
 
   it('does not rename or delete a builtin layout', () => {
@@ -319,7 +319,7 @@ describe('host layout store', () => {
   })
 
   it('avoids reserved and duplicate imported names', () => {
-    expect(uniqueUserHostLayoutName('en', 'Системная', [])).toBe('Системная 2')
+    expect(uniqueUserHostLayoutName('en', 'System', [])).toBe('System 2')
     expect(
       uniqueUserHostLayoutName('en', 'Imported EN', [
         { language: 'en', name: 'Imported EN' },
@@ -379,7 +379,7 @@ describe('host layout store', () => {
     const system = hostLayout(SYSTEM_RU_LAYOUT_ID)!
     const byZmkRef = system.byZmk
     const qKeysyms = system.byZmk.get('Q')!.keysyms
-    const expectedName = uniqueUserHostLayoutName('ru', 'Системная', [])
+    const expectedName = uniqueUserHostLayoutName('ru', 'System', [])
 
     const id = await editor.ensureEditableUserHostLayout('ru')
     expect(id).toMatch(/^user:/)
@@ -393,7 +393,7 @@ describe('host layout store', () => {
       layoutId: SYSTEM_RU_LAYOUT_ID
     })
     expect(editor.hostProfileNote).toBe(
-      `Создана копия «${expectedName}» для правок. Системная раскладка не изменена.`
+      `Created copy “${expectedName}” for edits. The system layout is unchanged.`
     )
     expect(hostLayout(SYSTEM_RU_LAYOUT_ID)?.byZmk).toBe(byZmkRef)
     expect(hostLayout(SYSTEM_RU_LAYOUT_ID)?.byZmk.get('Q')?.keysyms).toBe(qKeysyms)
@@ -433,7 +433,7 @@ describe('host layout store', () => {
       beforeQ[3]
     ])
     expect(hostLayout(edited.layoutId)?.byZmk.get('A')?.keysyms).toEqual(beforeA)
-    expect(editor.hostProfileNote).toMatch(/Создана копия/)
+    expect(editor.hostProfileNote).toMatch(/Created copy/)
     expect(editor.hostProfileNote).not.toBe(noteBefore)
 
     const again = await editor.setHostKeyLevel('ru', 'Q', 2, '±')
@@ -565,5 +565,25 @@ describe('host layout store', () => {
     expect(byZmkRecord(viaSymbols)).toEqual(byZmkRecord(original))
 
     expect(editor.exportUserHostLayoutXkb(SYSTEM_US_LAYOUT_ID)).toBeNull()
+  })
+
+  it('treats active user layouts as host-dirty deliverables for chrome download', async () => {
+    expect(editor.isHostDirty).toBe(false)
+    expect(editor.hostDeliverableLayoutIds).toEqual([])
+    expect(editor.exportActiveHostLayoutsXkb()).toBeNull()
+
+    const edited = await editor.setHostKeyLevel('en', 'A', 0, 'b')
+    expect(edited.ok).toBe(true)
+    if (!edited.ok) throw new Error('edit failed')
+    expect(editor.isHostDirty).toBe(true)
+    expect(editor.hostDeliverableLayoutIds).toEqual([edited.layoutId])
+
+    const exported = editor.exportActiveHostLayoutsXkb()
+    expect(exported?.name).toBeTruthy()
+    expect(exported?.text).toContain('xkb_symbols')
+
+    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    expect(editor.isHostDirty).toBe(false)
+    expect(editor.exportActiveHostLayoutsXkb()).toBeNull()
   })
 })

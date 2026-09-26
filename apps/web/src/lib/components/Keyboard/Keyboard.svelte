@@ -227,7 +227,7 @@
         aria-expanded={revealEmptyRow}
         onclick={() => (revealEmptyRow = !revealEmptyRow)}
       >
-        {revealEmptyRow ? 'Скрыть пустой ряд' : 'Показать пустой ряд'}
+        {revealEmptyRow ? 'Hide empty row' : 'Show empty row'}
       </button>
     {/if}
     <div class="keyboard-fit" style={fitStyle}>

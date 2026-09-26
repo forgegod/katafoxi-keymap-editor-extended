@@ -73,6 +73,13 @@ export type HostProfilePrompt =
   | { kind: 'rename'; language: HostLanguageId; profileId?: string }
   | { kind: 'delete'; language: HostLanguageId; profileId?: string }
 
+/** Armed host-level cell that receives glyphs from the persistent symbol catalog. */
+export type HostSymbolEditTarget = {
+  language: HostLanguageId
+  zmk: string
+  level: number
+}
+
 /** Result of editing one host-layout level from the decode card. */
 export type HostKeyLevelEditResult =
   | {
@@ -84,7 +91,7 @@ export type HostKeyLevelEditResult =
     }
   | {
       ok: false
-      reason: 'rejected' | 'unknown-key' | 'missing-layout'
+      reason: 'rejected' | 'unknown-key' | 'missing-layout' | 'no-target'
       detail?: KeysymRejection
     }
 
@@ -200,7 +207,52 @@ export class EditorState {
   hostProfilePrompt = $state<HostProfilePrompt | null>(null)
   hostProfileNote = $state<string | null>(null)
   legendHover = $state<LegendHover | null>(null)
+  /** Persistent host-symbol catalog (docked, not per-cell popover). */
+  hostSymbolCatalogOpen = $state(false)
+  hostSymbolEditTarget = $state<HostSymbolEditTarget | null>(null)
+  /**
+   * Alt+click host-edit session on a composed row. Instant writes still go through
+   * setHostKeyLevel; this only locks the decode card until Accept/Cancel.
+   */
+  hostEditSession = $state<{ keyIndex: number; layer: number } | null>(null)
   saveNotice = $state<SaveNotice | null>(null)
+
+  armHostSymbolEdit(target: HostSymbolEditTarget) {
+    this.hostSymbolEditTarget = target
+    this.hostSymbolCatalogOpen = true
+  }
+
+  clearHostSymbolEdit() {
+    this.hostSymbolEditTarget = null
+  }
+
+  beginHostEditSession(keyIndex: number, layer: number) {
+    this.hostEditSession = { keyIndex, layer }
+    this.hostSymbolCatalogOpen = true
+  }
+
+  /** Close catalog + clear armed cell; caller unpins the decode card. */
+  endHostEditSession() {
+    this.hostEditSession = null
+    this.hostSymbolEditTarget = null
+    this.hostSymbolCatalogOpen = false
+  }
+
+  toggleHostSymbolCatalog() {
+    this.hostSymbolCatalogOpen = !this.hostSymbolCatalogOpen
+  }
+
+  closeHostSymbolCatalog() {
+    this.hostSymbolCatalogOpen = false
+  }
+
+  async pickHostSymbol(text: string): Promise<HostKeyLevelEditResult> {
+    const target = this.hostSymbolEditTarget
+    if (!target) {
+      return { ok: false, reason: 'no-target' }
+    }
+    return this.setHostKeyLevel(target.language, target.zmk, target.level, text)
+  }
 
   /** Bumps on select / new publish so stale reloads are ignored. */
   #publishGeneration = 0
@@ -230,6 +282,92 @@ export class EditorState {
 
   get dirtySummary(): string {
     return summarizeKeymapDiff(this.changes)
+  }
+
+  /**
+   * User layouts currently assigned to legend columns — work that should be
+   * installed on the host OS (not merely stored in IndexedDB).
+   */
+  get hostDeliverableLayoutIds(): string[] {
+    void this.hostLayoutRevision
+    void this.hostLegend
+    const ids: string[] = []
+    const seen = new Set<string>()
+    for (const column of hostLegendColumns(this.hostLegend)) {
+      if (!isUserHostLayoutId(column.layoutId) || seen.has(column.layoutId)) continue
+      seen.add(column.layoutId)
+      ids.push(column.layoutId)
+    }
+    return ids
+  }
+
+  get isHostDirty(): boolean {
+    return this.hostDeliverableLayoutIds.length > 0
+  }
+
+  /**
+   * Per-layout xkb sections for active user columns (install dialog / copy).
+   */
+  listActiveHostLayoutExports(): Array<{
+    layoutId: string
+    language: HostLanguageId
+    languageName: string
+    flag: string
+    xkbModule: string
+    name: string
+    text: string
+    exampleSystemPath: string
+    exampleUserPath: string
+  }> {
+    const out: Array<{
+      layoutId: string
+      language: HostLanguageId
+      languageName: string
+      flag: string
+      xkbModule: string
+      name: string
+      text: string
+      exampleSystemPath: string
+      exampleUserPath: string
+    }> = []
+    for (const id of this.hostDeliverableLayoutIds) {
+      const profile = this.userLayouts.find(layout => layout.id === id)
+      const exported = this.exportUserHostLayoutXkb(id)
+      if (!profile || !exported) continue
+      const language = hostLanguage(profile.language)
+      out.push({
+        layoutId: id,
+        language: profile.language,
+        languageName: language.name,
+        flag: language.flag,
+        xkbModule: language.xkbModule,
+        name: exported.name,
+        text: exported.text,
+        exampleSystemPath: `/usr/share/X11/xkb/symbols/${language.xkbModule}`,
+        exampleUserPath: `~/.xkb/symbols/${language.xkbModule}`
+      })
+    }
+    return out
+  }
+
+  /**
+   * Concatenated `xkb_symbols` sections for every active user layout.
+   * Returns null when there is nothing to install.
+   */
+  exportActiveHostLayoutsXkb(): { text: string; name: string } | null {
+    const parts: string[] = []
+    const names: string[] = []
+    for (const id of this.hostDeliverableLayoutIds) {
+      const exported = this.exportUserHostLayoutXkb(id)
+      if (!exported) continue
+      parts.push(exported.text.trimEnd())
+      names.push(exported.name)
+    }
+    if (!parts.length) return null
+    return {
+      text: `${parts.join('\n\n')}\n`,
+      name: names.length === 1 ? names[0] : 'host-layouts'
+    }
   }
 
   get statusText(): string {
@@ -362,11 +500,11 @@ export class EditorState {
     const layoutId = this.activeProfileId(language)
     if (isUserHostLayoutId(layoutId)) return layoutId
     const source = hostLayout(layoutId)
-    if (!source) throw new Error('Нет раскладки для этого языка')
+    if (!source) throw new Error('No layout for this language')
     const choice = hostLayoutChoice(layoutId)
     const preferredName = choice
       ? hostLayoutChoiceLabel(choice)
-      : (hostLayoutMeta(layoutId)?.name ?? 'Копия')
+      : (hostLayoutMeta(layoutId)?.name ?? 'Copy')
     const id = await this.#materializeUserHostLayoutFromTable(
       language,
       preferredName,
@@ -375,7 +513,7 @@ export class EditorState {
     )
     const name = this.userLayouts.find(layout => layout.id === id)?.name ?? preferredName
     this.hostProfileNote =
-      `Создана копия «${name}» для правок. Системная раскладка не изменена.`
+      `Created copy “${name}” for edits. The system layout is unchanged.`
     return id
   }
 
@@ -474,7 +612,7 @@ export class EditorState {
   ): Promise<string | null> {
     const listed = listXkbSections(text)
     if (!listed.some(item => item.section === section)) {
-      return `Секция «${section}» не найдена`
+      return `Section “${section}” was not found`
     }
     try {
       const imported = hostLayoutFromXkb(text, section, { fileName })
@@ -486,7 +624,7 @@ export class EditorState {
       })
       return null
     } catch (error) {
-      return error instanceof Error ? error.message : 'Не удалось импортировать xkb'
+      return error instanceof Error ? error.message : 'Could not import xkb'
     }
   }
 
@@ -550,8 +688,8 @@ export class EditorState {
     const prompt = this.hostProfilePrompt
     if (!prompt) return null
     const name = raw.trim()
-    if (!name) return 'Введите имя профиля'
-    if (reservedProfileName(name)) return `Имя «${name}» занято встроенным профилем`
+    if (!name) return 'Enter a profile name'
+    if (reservedProfileName(name)) return `Name “${name}” is reserved for a built-in profile`
     if (prompt.kind === 'delete') return null
     if (prompt.kind === 'rename') return this.#renameHostProfile(prompt.language, name)
     const language = prompt.language
@@ -560,14 +698,14 @@ export class EditorState {
         layout.language === language &&
         layout.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru')
     )
-    if (taken) return 'Профиль с таким именем уже есть'
+    if (taken) return 'A profile with this name already exists'
     const sourceId =
       (prompt.kind === 'copy' ? prompt.layoutId : undefined) ??
       hostLegendColumns(this.hostLegend).find(column => column.language === language)
         ?.layoutId ??
       ''
     const source = sourceId ? hostLayout(sourceId) : undefined
-    if (!source) return 'Нет раскладки для этого языка'
+    if (!source) return 'No layout for this language'
     await this.#materializeUserHostLayoutFromTable(language, name, source, {
       from: 'copy',
       layoutId: sourceId
@@ -592,7 +730,7 @@ export class EditorState {
         layout.language === language &&
         layout.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru')
     )
-    if (taken) return 'Профиль с таким именем уже есть'
+    if (taken) return 'A profile with this name already exists'
     const table = hostLayout(current.id)
     if (!table) return null
     const updated: UserHostLayout = { ...current, name, updatedAt: Date.now() }
@@ -927,6 +1065,9 @@ export class EditorState {
     this.hostProfilePrompt = null
     this.hostProfileNote = null
     this.legendHover = null
+    this.hostSymbolCatalogOpen = false
+    this.hostSymbolEditTarget = null
+    this.hostEditSession = null
     this.saveNotice = null
   }
 }

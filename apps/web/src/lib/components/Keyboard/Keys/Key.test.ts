@@ -4,6 +4,9 @@ import {
 } from '@keymap-editor/keymap-core'
 import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { editor } from '../../../editor.svelte.js'
+import { resetLegendDecodeActive } from '../../../legend-decode-active'
+import HostSymbolCatalog from '../../HostSymbolCatalog.svelte'
 import Harness from './KeyHarness.svelte'
 
 const typicalKey = {
@@ -63,22 +66,33 @@ describe('Key click editor', () => {
   let target: HTMLDivElement
   let modalRoot: HTMLDivElement
   let view: ReturnType<typeof mount> | undefined
+  let catalogView: ReturnType<typeof mount> | undefined
 
   beforeEach(() => {
+    editor.resetForTests()
+    resetLegendDecodeActive()
     target = document.createElement('div')
     document.body.appendChild(target)
     modalRoot = document.createElement('div')
     modalRoot.id = 'modal-root'
     // Keep the portal inside the Svelte mount so delegated clicks reach the dialog.
     target.appendChild(modalRoot)
+    catalogView = mount(HostSymbolCatalog, {
+      target,
+      props: { showToggle: false }
+    })
   })
 
   afterEach(() => {
     vi.useRealTimers()
     if (view) unmount(view)
     view = undefined
+    if (catalogView) unmount(catalogView)
+    catalogView = undefined
     modalRoot?.remove()
     target?.remove()
+    editor.resetForTests()
+    resetLegendDecodeActive()
   })
 
   function open(
@@ -286,85 +300,210 @@ describe('Key click editor', () => {
     ).toEqual(['-_ˬˬ', '-_ˬˬ'])
   })
 
-  it('keeps the decode card open when the pointer moves from the row onto the card', () => {
-    vi.useFakeTimers()
+  it('closes the hover decode peek as soon as the pointer leaves the row', () => {
     open({
       layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
     })
     const row = stackRows()[0]
     row.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
     flushSync()
-    const tip = document.querySelector('.legend-decode')
-    expect(tip).toBeInstanceOf(HTMLElement)
-
-    row.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }))
-    tip?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
-    flushSync()
-    vi.advanceTimersByTime(150)
-    flushSync()
-
     expect(document.querySelector('.legend-decode')).toBeInstanceOf(HTMLElement)
-    vi.useRealTimers()
-  })
-
-  it('closes the decode card after the pointer leaves the card to the outside', () => {
-    vi.useFakeTimers()
-    open({
-      layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
-    })
-    const row = stackRows()[0]
-    row.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
-    flushSync()
-    const tip = document.querySelector('.legend-decode')
-    expect(tip).toBeInstanceOf(HTMLElement)
 
     row.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }))
-    tip?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
     flushSync()
-    tip?.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }))
-    flushSync()
-    vi.advanceTimersByTime(150)
-    flushSync()
-
     expect(document.querySelector('.legend-decode')).toBeNull()
-    vi.useRealTimers()
   })
 
-  it('pins the decode card on click without opening the key editor', () => {
+  it('keeps the hover decode peek read-only (no edit or revert controls)', () => {
     open({
       layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
     })
     const row = stackRows()[0]
     row.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
     flushSync()
-    const tip = document.querySelector('.legend-decode')
+    const tip = document.querySelector('[role="tooltip"].legend-decode')
     expect(tip).toBeInstanceOf(HTMLElement)
+    expect(tip?.querySelector('button.slot')).toBeNull()
+    expect(tip?.querySelector('[data-host-revert]')).toBeNull()
+    expect(tip?.querySelector('[data-host-accept]')).toBeNull()
+    expect(tip?.classList.contains('peek')).toBe(true)
+    expect(tip?.classList.contains('session')).toBe(false)
+  })
 
-    tip?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  it('omits the Alt+click host hint on keys outside the host registry', () => {
+    open({
+      layerBindings: [{ value: '&kp', params: [{ value: 'BSPC', params: [] }] }]
+    })
+    const row = stackRows()[0]
+    row.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    const tip = document.querySelector('[role="tooltip"].legend-decode')
+    expect(tip).toBeInstanceOf(HTMLElement)
+    expect(tip?.textContent).toContain('&kp BSPC')
+    expect(tip?.textContent).toMatch(/Click row — ZMK/)
+    expect(tip?.textContent).not.toMatch(/Alt\+click/)
+    expect(tip?.querySelector('.row.current')).toBeNull()
+  })
+
+  it('does not open a host-edit session on Alt+click for non-host keys', () => {
+    open({
+      layerBindings: [{ value: '&kp', params: [{ value: 'BSPC', params: [] }] }]
+    })
+    const row = stackRows()[0]
+    row.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true })
+    )
+    flushSync()
+    expect(editor.hostEditSession).toBeNull()
+    expect(editor.hostSymbolCatalogOpen).toBe(false)
+    expect(document.querySelector('[role="dialog"].legend-decode')).toBeNull()
+    expect(document.querySelector('[data-host-accept]')).toBeNull()
+    expect(editorDialog()).toBeNull()
+  })
+
+  it('Alt+clicks a layer row to pin the decode card and open the host catalog', () => {
+    open({
+      layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
+    })
+    const row = stackRows()[0]
+    row.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true })
+    )
     flushSync()
 
     expect(editorDialog()).toBeNull()
-    const pinned = document.querySelector('[role="dialog"].legend-decode')
-    expect(pinned).toBeInstanceOf(HTMLElement)
-    expect(pinned?.getAttribute('aria-label')).toMatch(/Legend decode/)
-    expect(row.getAttribute('aria-describedby')).toBeNull()
-    expect(document.querySelector('.legend-decode .cell-input')).toBeNull()
+    expect(document.querySelector('[role="dialog"].legend-decode')).toBeInstanceOf(HTMLElement)
+    expect(document.querySelector('[data-host-accept]')).toBeInstanceOf(HTMLElement)
+    expect(document.querySelector('[data-host-cancel]')).toBeInstanceOf(HTMLElement)
+    expect(editor.hostEditSession).toEqual({ keyIndex: 0, layer: 0 })
+    expect(editor.hostSymbolCatalogOpen).toBe(true)
+    expect(
+      document.querySelector('[role="dialog"][aria-label="Host symbol catalog"]')
+    ).toBeInstanceOf(HTMLElement)
   })
 
-  it('opens a host symbol catalog on cell click without opening the key editor', () => {
+  it('keeps a host-edit session card when the pointer crosses another key', () => {
+    const first = document.createElement('div')
+    const second = document.createElement('div')
+    target.appendChild(first)
+    target.appendChild(second)
+    const viewA = mount(Harness, {
+      target: first,
+      props: {
+        ...typicalKey,
+        keyIndex: 0,
+        layerBindings: [{ value: '&kp', params: [{ value: 'H', params: [] }] }]
+      }
+    })
+    const viewB = mount(Harness, {
+      target: second,
+      props: {
+        ...typicalKey,
+        keyIndex: 1,
+        layerBindings: [{ value: '&kp', params: [{ value: 'I', params: [] }] }]
+      }
+    })
+    flushSync()
+
+    const rowA = first.querySelector('.layer-slot') as HTMLButtonElement
+    const rowB = second.querySelector('.layer-slot') as HTMLButtonElement
+    rowA.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true })
+    )
+    flushSync()
+    expect(document.querySelector('#legend-decode-0-0')).toBeInstanceOf(HTMLElement)
+    expect(document.querySelector('[data-host-accept]')).toBeInstanceOf(HTMLElement)
+
+    rowB.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    expect(document.querySelector('#legend-decode-0-0')).toBeInstanceOf(HTMLElement)
+    expect(document.querySelector('#legend-decode-1-0')).toBeNull()
+    expect(editor.hostEditSession?.keyIndex).toBe(0)
+
+    unmount(viewA)
+    unmount(viewB)
+  })
+
+  it('ends the host-edit session from Accept without opening the key editor', () => {
+    open({
+      layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
+    })
+    const row = stackRows()[0]
+    row.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true })
+    )
+    flushSync()
+    document.querySelector('[data-host-accept]')?.dispatchEvent(
+      new MouseEvent('click', { bubbles: true })
+    )
+    flushSync()
+    expect(editor.hostEditSession).toBeNull()
+    expect(editor.hostSymbolCatalogOpen).toBe(false)
+    expect(document.querySelector('.legend-decode')).toBeNull()
+    expect(editorDialog()).toBeNull()
+  })
+
+  it('switches the hover decode peek to another layer on the same key immediately', () => {
+    open({
+      layerBindings: [
+        { value: '&kp', params: [{ value: 'A', params: [] }] },
+        { value: '&kp', params: [{ value: 'B', params: [] }] }
+      ],
+      layerView: { shown: [0, 1], layer0Raw: false }
+    })
+    const rows = stackRows()
+    expect(rows.length).toBeGreaterThanOrEqual(2)
+    rows[1].dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    expect(document.querySelector('#legend-decode-0-1')).toBeInstanceOf(HTMLElement)
+
+    rows[0].dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    expect(document.querySelector('#legend-decode-0-1')).toBeNull()
+    expect(document.querySelector('#legend-decode-0-0')).toBeInstanceOf(HTMLElement)
+  })
+
+  it('does not start a host-edit session from a hover peek click', () => {
     open({
       layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
     })
     const row = stackRows()[0]
     row.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
     flushSync()
+    const tip = document.querySelector('.legend-decode')
+    expect(tip).toBeInstanceOf(HTMLElement)
+    expect(tip?.textContent).toMatch(/Alt\+click/)
+
+    tip?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    flushSync()
+    expect(editorDialog()).toBeNull()
+    expect(editor.hostEditSession).toBeNull()
+    expect(document.querySelector('[role="dialog"].legend-decode')).toBeNull()
+    expect(document.querySelector('[role="tooltip"].legend-decode')).toBeInstanceOf(HTMLElement)
+  })
+
+  it('arms a host level only after Alt+click opens the session', () => {
+    open({
+      layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
+    })
+    const row = stackRows()[0]
+    row.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true })
+    )
+    flushSync()
+    expect(document.querySelector('[role="dialog"].legend-decode')).toBeInstanceOf(HTMLElement)
+
     const slot = document.querySelector('.legend-decode .row.current button.slot')
     expect(slot).toBeInstanceOf(HTMLButtonElement)
     ;(slot as HTMLButtonElement).click()
     flushSync()
 
     expect(editorDialog()).toBeNull()
-    expect(document.querySelector('[role="dialog"].legend-decode')).toBeInstanceOf(HTMLElement)
+    expect(editor.hostSymbolEditTarget).toEqual({
+      language: 'en',
+      zmk: 'MINUS',
+      level: 0
+    })
     expect(document.querySelector('.legend-decode .cell-input')).toBeNull()
     expect(
       document.querySelector('[role="dialog"][aria-label="Host symbol catalog"]')
@@ -376,10 +515,9 @@ describe('Key click editor', () => {
       layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
     })
     const row = stackRows()[0]
-    row.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
-    flushSync()
-    const tip = document.querySelector('.legend-decode')
-    tip?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    row.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true })
+    )
     flushSync()
     expect(document.querySelector('[role="dialog"].legend-decode')).toBeInstanceOf(HTMLElement)
 
@@ -388,10 +526,8 @@ describe('Key click editor', () => {
     )
     flushSync()
 
-    expect(document.activeElement).toBe(row)
-    const after = document.querySelector('.legend-decode')
-    expect(after).toBeInstanceOf(HTMLElement)
-    expect(after?.getAttribute('role')).toBe('tooltip')
+    expect(editor.hostEditSession).toBeNull()
+    expect(document.querySelector('.legend-decode')).toBeNull()
     expect(editorDialog()).toBeNull()
   })
 
@@ -411,28 +547,62 @@ describe('Key click editor', () => {
     expect(document.querySelector('.legend-decode')).toBeNull()
   })
 
-  it('keeps an open unpinned decode card as a real pointer target above the board', () => {
+  it('dismisses a host-edit session on outside click instead of leaving a tooltip', () => {
     open({
       layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
     })
     const row = stackRows()[0]
-    row.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
-    flushSync()
-    const tip = document.querySelector('.legend-decode')
-    expect(tip).toBeInstanceOf(HTMLElement)
-    if (!(tip instanceof HTMLElement)) throw new Error('missing decode card')
-    // Risk: pointer-events are enabled (no longer `none`) and z-index is 40, so
-    // any key whose box intersects the card cannot be clicked while the card is
-    // open. Neighboring keys become clickable again after the card closes.
-    expect(tip.style.zIndex).toBe('40')
-    tip.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    row.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true })
+    )
     flushSync()
     expect(document.querySelector('[role="dialog"].legend-decode')).toBeInstanceOf(HTMLElement)
-    expect(editorDialog()).toBeNull()
+
+    window.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }))
+    flushSync()
+    expect(document.querySelector('.legend-decode')).toBeNull()
+    expect(editor.hostEditSession).toBeNull()
   })
 
-  it('restores row clicks after the unpinned decode card closes', () => {
-    vi.useFakeTimers()
+  it('closes the previous key decode card when another key opens one', () => {
+    const first = document.createElement('div')
+    const second = document.createElement('div')
+    target.appendChild(first)
+    target.appendChild(second)
+    const viewA = mount(Harness, {
+      target: first,
+      props: {
+        ...typicalKey,
+        keyIndex: 0,
+        layerBindings: [{ value: '&kp', params: [{ value: 'H', params: [] }] }]
+      }
+    })
+    const viewB = mount(Harness, {
+      target: second,
+      props: {
+        ...typicalKey,
+        keyIndex: 1,
+        layerBindings: [{ value: '&kp', params: [{ value: 'I', params: [] }] }]
+      }
+    })
+    flushSync()
+
+    const rowA = first.querySelector('.layer-slot') as HTMLButtonElement
+    const rowB = second.querySelector('.layer-slot') as HTMLButtonElement
+    rowA.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    expect(document.querySelector('#legend-decode-0-0')).toBeInstanceOf(HTMLElement)
+
+    rowB.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    expect(document.querySelector('#legend-decode-0-0')).toBeNull()
+    expect(document.querySelector('#legend-decode-1-0')).toBeInstanceOf(HTMLElement)
+
+    unmount(viewA)
+    unmount(viewB)
+  })
+
+  it('restores row clicks after the hover decode peek closes', () => {
     open({
       layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
     })
@@ -443,18 +613,14 @@ describe('Key click editor', () => {
 
     row.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }))
     flushSync()
-    vi.advanceTimersByTime(150)
-    flushSync()
     expect(document.querySelector('.legend-decode')).toBeNull()
 
     row.click()
     flushSync()
     expect(editorDialog()).toBeInstanceOf(HTMLElement)
-    vi.useRealTimers()
   })
 
-  it('opens the decode card from keyboard focus and closes it on blur', () => {
-    vi.useFakeTimers()
+  it('opens the decode peek from keyboard focus and closes it on blur', () => {
     open({
       layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
     })
@@ -465,10 +631,7 @@ describe('Key click editor', () => {
 
     row.blur()
     flushSync()
-    vi.advanceTimersByTime(150)
-    flushSync()
     expect(document.querySelector('.legend-decode')).toBeNull()
-    vi.useRealTimers()
   })
 
   it('opens the editor from a blank &trans composed row', () => {

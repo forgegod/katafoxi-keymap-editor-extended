@@ -4,10 +4,12 @@
     composeLegendDecode,
     composeLayerRows,
     encodeKeyBinding,
+    hostKeyByZmk,
     isComplex,
     isHoldTapBehavior,
     isSimple,
     legendHoverHit,
+    resolveBinding,
     type HostLegendView,
     type KeyBindingNode,
     type LayerView,
@@ -19,6 +21,14 @@
   import { getBehaviourParams } from '../../../hydrate'
   import { createKeyEditSession } from '../../../key-edit-session.svelte'
   import { getKeyStyles } from '../../../key-units'
+  import {
+    claimLegendDecode,
+    lockLegendDecode,
+    releaseLegendDecode,
+    unlockLegendDecode,
+    isLegendDecodeLocked,
+    lockedLegendDecodeKeyIndex
+  } from '../../../legend-decode-active'
   import KeyCap from '../../KeyCap.svelte'
   import LegendDecodeCard from '../../LegendDecodeCard.svelte'
   import './Key.css'
@@ -97,9 +107,8 @@
   )
 
   let decode = $state<{ layer: number; rect: DOMRect } | null>(null)
-  let decodePinned = $state(false)
-  let decodeHideTimer: ReturnType<typeof setTimeout> | null = null
   let keyRoot: HTMLDivElement | undefined = $state()
+  const inHostSession = $derived(editor.hostEditSession?.keyIndex === keyIndex)
   const decodeCard = $derived.by(() => {
     void editor.hostLayoutRevision
     return decode ? composeLegendDecode(session.bindingForLayer(decode.layer), hostView) : null
@@ -107,14 +116,6 @@
   const decodeTooltipId = $derived(
     decode ? `legend-decode-${keyIndex}-${decode.layer}` : undefined
   )
-
-  const DECODE_HIDE_MS = 100
-
-  function cancelDecodeHide() {
-    if (decodeHideTimer == null) return
-    clearTimeout(decodeHideTimer)
-    decodeHideTimer = null
-  }
 
   function decodeRowEl(): HTMLElement | null {
     const layer = decode?.layer
@@ -125,55 +126,38 @@
 
   function openDecode(layer: number, target: EventTarget | null) {
     if (!(target instanceof HTMLElement)) return
-    cancelDecodeHide()
-    decode = { layer, rect: target.getBoundingClientRect() }
+    // A locked host-edit session owns the board: no foreign hover tooltips.
+    if (isLegendDecodeLocked() && lockedLegendDecodeKeyIndex() !== keyIndex) return
+    if (inHostSession) return
+    const rect = target.getBoundingClientRect()
+    if (!claimLegendDecode(keyIndex, layer, hideDecode)) return
+    decode = { layer, rect }
   }
 
   function hideDecode() {
-    cancelDecodeHide()
-    decodePinned = false
+    unlockLegendDecode(keyIndex)
     decode = null
-  }
-
-  function requestHideDecode() {
-    if (decodePinned) return
-    cancelDecodeHide()
-    decodeHideTimer = setTimeout(() => {
-      decodeHideTimer = null
-      if (decodePinned) return
-      decode = null
-    }, DECODE_HIDE_MS)
-  }
-
-  function keepDecodeAlive() {
-    cancelDecodeHide()
-  }
-
-  function pinDecode() {
-    if (!decode) return
-    decodePinned = true
-    cancelDecodeHide()
-    const id = decodeTooltipId
-    queueMicrotask(() => {
-      const card = id ? document.getElementById(id) : null
-      if (card instanceof HTMLElement) card.focus()
-    })
-  }
-
-  function unpinDecode() {
-    if (!decodePinned) return
-    decodePinned = false
-    const row = decodeRowEl()
-    if (row) {
-      row.focus()
-      return
+    releaseLegendDecode(keyIndex)
+    if (editor.hostEditSession?.keyIndex === keyIndex) {
+      editor.endHostEditSession()
     }
-    requestHideDecode()
+  }
+
+  function endHostEditSession() {
+    editor.endHostEditSession()
+    unlockLegendDecode(keyIndex)
+    decode = null
+    releaseLegendDecode(keyIndex)
   }
 
   function handleRowBlur() {
-    if (decodePinned) return
-    requestHideDecode()
+    if (inHostSession) return
+    hideDecode()
+  }
+
+  function handleRowLeave() {
+    if (inHostSession) return
+    hideDecode()
   }
 
   function openEditor(slotCodeIndex: number, fromLayer?: number) {
@@ -181,35 +165,82 @@
     session.openEditor(slotCodeIndex, fromLayer)
   }
 
+  function bindingHasHostEdit(binding: KeyBindingNode): boolean {
+    const tap = resolveBinding(binding).tap
+    return tap != null && hostKeyByZmk(tap) != null
+  }
+
   function handleRowClick(event: MouseEvent, fromLayer: number) {
     event.stopPropagation()
+    // Alt+click: only entry into host-layout edit (locked card + catalog).
+    if (event.altKey) {
+      event.preventDefault()
+      if (!bindingHasHostEdit(session.bindingForLayer(fromLayer))) return
+      openDecode(fromLayer, event.currentTarget)
+      editor.beginHostEditSession(keyIndex, fromLayer)
+      claimLegendDecode(keyIndex, fromLayer, hideDecode)
+      lockLegendDecode(keyIndex)
+      const id = `legend-decode-${keyIndex}-${fromLayer}`
+      queueMicrotask(() => {
+        const card = document.getElementById(id)
+        if (card instanceof HTMLElement) card.focus()
+      })
+      return
+    }
     hideDecode()
     session.openRow(fromLayer)
   }
 
+  /** Arm a level only inside an existing Alt+click session — never starts one. */
+  function armHostCell(
+    language: import('@keymap-editor/keymap-core').HostLanguageId,
+    level: number
+  ) {
+    if (!inHostSession || !decode) return
+    const zmkCode = decodeCard?.keycode?.replace(/^KC_/, '') ?? ''
+    if (!zmkCode) return
+    editor.armHostSymbolEdit({ language, zmk: zmkCode, level })
+  }
+
   $effect(() => {
-    return () => cancelDecodeHide()
+    return () => {
+      unlockLegendDecode(keyIndex)
+      releaseLegendDecode(keyIndex)
+    }
   })
 
   $effect(() => {
-    if (!decodePinned || !decodeTooltipId) return
+    // Accept / catalog Escape may clear the session; drop our locked card with it.
+    if (editor.hostEditSession?.keyIndex === keyIndex) return
+    if (!decode || !isLegendDecodeLocked() || lockedLegendDecodeKeyIndex() !== keyIndex) return
+    unlockLegendDecode(keyIndex)
+    decode = null
+    releaseLegendDecode(keyIndex)
+  })
+
+  $effect(() => {
+    if (!inHostSession || !decodeTooltipId) return
     const cardId = decodeTooltipId
     function onKeydown(event: KeyboardEvent) {
       if (event.key !== 'Escape') return
       event.preventDefault()
-      event.stopPropagation()
-      unpinDecode()
+      event.stopImmediatePropagation()
+      endHostEditSession()
     }
     function onPointerDown(event: PointerEvent) {
       const target = event.target
-      if (!(target instanceof Node)) return
-      const card = document.getElementById(cardId)
-      if (card?.contains(target)) return
-      const row = decodeRowEl()
-      if (row?.contains(target)) return
+      if (target instanceof Element && target.closest('.host-symbol-picker, .catalog-toggle')) {
+        return
+      }
+      if (target instanceof Node) {
+        const card = document.getElementById(cardId)
+        if (card?.contains(target)) return
+        const row = decodeRowEl()
+        if (row?.contains(target)) return
+      }
       event.preventDefault()
       event.stopPropagation()
-      unpinDecode()
+      endHostEditSession()
     }
     window.addEventListener('keydown', onKeydown, true)
     window.addEventListener('pointerdown', onPointerDown, true)
@@ -218,7 +249,6 @@
       window.removeEventListener('pointerdown', onPointerDown, true)
     }
   })
-
   function rowTitle(row: { title: string; binding: KeyBindingNode }): string {
     return row.title || encodeKeyBinding(row.binding)
   }
@@ -262,11 +292,11 @@
         data-layer={row.layer}
         aria-label={rowAriaLabel(row)}
         aria-describedby={
-          decode?.layer === row.layer && !decodePinned ? decodeTooltipId : undefined
+          decode?.layer === row.layer && !inHostSession ? decodeTooltipId : undefined
         }
         onclick={event => handleRowClick(event, row.layer)}
         onmouseenter={event => openDecode(row.layer, event.currentTarget)}
-        onmouseleave={requestHideDecode}
+        onmouseleave={handleRowLeave}
         onfocus={event => openDecode(row.layer, event.currentTarget)}
         onblur={handleRowBlur}
       >
@@ -286,10 +316,9 @@
       card={decodeCard}
       anchor={decode.rect}
       tooltipId={decodeTooltipId ?? ''}
-      pinned={decodePinned}
-      onPointerEnter={keepDecodeAlive}
-      onPointerLeave={requestHideDecode}
-      onPin={pinDecode}
+      hostSession={inHostSession}
+      onArmCell={armHostCell}
+      onEndSession={endHostEditSession}
     />
   {/if}
 
