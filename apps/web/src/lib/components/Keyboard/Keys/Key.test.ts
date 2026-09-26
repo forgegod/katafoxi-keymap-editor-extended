@@ -280,7 +280,9 @@ describe('Key click editor', () => {
     ).toEqual(['🇺🇸', '🇷🇺'])
     expect(tip?.querySelector('.row.system')).toBeNull()
     expect(
-      [...(tip?.querySelectorAll('.row.current .lang') ?? [])].map(el => el.textContent)
+      [...(tip?.querySelectorAll('.row.current .lang') ?? [])].map(lang =>
+        [...lang.querySelectorAll('.slot')].map(slot => slot.textContent).join('')
+      )
     ).toEqual(['-_ˬˬ', '-_ˬˬ'])
   })
 
@@ -346,6 +348,26 @@ describe('Key click editor', () => {
     expect(pinned).toBeInstanceOf(HTMLElement)
     expect(pinned?.getAttribute('aria-label')).toMatch(/Legend decode/)
     expect(row.getAttribute('aria-describedby')).toBeNull()
+    expect(document.querySelector('.legend-decode .cell-input')).toBeNull()
+  })
+
+  it('opens a host level field on cell click without opening the key editor', () => {
+    open({
+      layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
+    })
+    const row = stackRows()[0]
+    row.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    const slot = document.querySelector('.legend-decode .row.current button.slot')
+    expect(slot).toBeInstanceOf(HTMLButtonElement)
+    ;(slot as HTMLButtonElement).click()
+    flushSync()
+
+    expect(editorDialog()).toBeNull()
+    expect(document.querySelector('[role="dialog"].legend-decode')).toBeInstanceOf(HTMLElement)
+    const input = document.querySelector('.legend-decode .cell-input')
+    expect(input).toBeInstanceOf(HTMLInputElement)
+    expect(document.querySelector('.legend-decode .keysym')?.textContent).toMatch(/minus/i)
   })
 
   it('unpins the decode card on Escape and returns focus to the row', () => {

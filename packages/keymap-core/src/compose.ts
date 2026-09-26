@@ -598,3 +598,46 @@ export function composeLegendDecode(
   card.system = compared.system
   return card
 }
+
+/**
+ * Fill empty editable columns for shown languages that `composeLegendDecode`
+ * skipped because the layout has no record for the key, when the system
+ * primary still has glyphs. Keeps the hover-only decode snapshot unchanged
+ * (golden) while the edit card can open a missing key.
+ */
+export function withEditableLegendDecodeGaps(
+  card: LegendDecodeCard,
+  view?: HostLegendView
+): LegendDecodeCard {
+  if (!card.keycode) return card
+  const zmk = card.keycode.replace(/^KC_/, '')
+  const hostView = view ?? standardHostLegendView()
+  const shown = resolveHostColumns(hostView).filter(item => item.shown)
+  const current = [...card.current]
+  const system = [...(card.system ?? [])]
+  let changed = false
+  for (const column of shown) {
+    if (current.some(item => item.language === column.language)) continue
+    if (hostLevels(column.layoutId, zmk)) continue
+    const primary = hostLayoutShelves(column.language).primary
+    const sysLevels = primary ? hostComposeGlyphs(hostLevels(primary.id, zmk)) : undefined
+    if (!sysLevels) continue
+    current.push({ language: column.language, flag: column.flag, slots: emptySlots() })
+    if (!system.some(item => item.language === column.language)) {
+      system.push({
+        language: column.language,
+        flag: column.flag,
+        slots: slotsFromLevels(sysLevels)
+      })
+    }
+    changed = true
+  }
+  if (!changed) return card
+  const order = shown.map(column => column.language)
+  const byLanguage = (columns: LegendDecodeColumn[]) =>
+    [...columns].sort(
+      (a, b) => order.indexOf(a.language) - order.indexOf(b.language)
+    )
+  const compared = markDiffs(byLanguage(current), byLanguage(system))
+  return { ...card, current: compared.current, system: compared.system }
+}

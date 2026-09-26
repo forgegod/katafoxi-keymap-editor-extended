@@ -17,6 +17,9 @@ import {
   hostLegendColumns,
   listXkbSections,
   primarySystemLayoutId,
+  glyphToKeysym,
+  hostLevels,
+  keysymToGlyph,
   registerHostLayout,
   resetHostLayoutRegistry,
   standardHostLegendView,
@@ -24,8 +27,10 @@ import {
   remapShownLayersAfterDelete,
   unregisterHostLayout,
   summarizeKeymapDiff,
+  withHostKey,
   type HostLayout,
   type HostLegendView,
+  type KeysymRejection,
   type LayerView,
   type LegendHover,
   type KeyBindingNode,
@@ -66,6 +71,21 @@ export type HostProfilePrompt =
   | { kind: 'copy'; language: HostLanguageId; layoutId?: string }
   | { kind: 'rename'; language: HostLanguageId; profileId?: string }
   | { kind: 'delete'; language: HostLanguageId; profileId?: string }
+
+/** Result of editing one host-layout level from the decode card. */
+export type HostKeyLevelEditResult =
+  | {
+      ok: true
+      keysym: string
+      layoutId: string
+      /** Base level is a non-character keysym — the key drops out of composition. */
+      dropsFromCompose: boolean
+    }
+  | {
+      ok: false
+      reason: 'rejected' | 'unknown-key' | 'missing-layout'
+      detail?: KeysymRejection
+    }
 
 export type SaveNotice = {
   kind: 'warning' | 'error'
@@ -350,6 +370,58 @@ export class EditorState {
     this.hostProfileNote =
       `Создана копия «${name}» для правок. Системная раскладка не изменена.`
     return id
+  }
+
+  /**
+   * Parse typed text via `glyphToKeysym`, fork a system column if needed, replace
+   * one level with `withHostKey`, re-register and persist. Does not bump a
+   * board revision — that is T8.
+   */
+  async setHostKeyLevel(
+    language: HostLanguageId,
+    zmk: string,
+    level: number,
+    text: string
+  ): Promise<HostKeyLevelEditResult> {
+    const parsed = glyphToKeysym(text)
+    if (!parsed.ok) {
+      return { ok: false, reason: 'rejected', detail: parsed.reason }
+    }
+    const layoutId = await this.ensureEditableUserHostLayout(language)
+    const current = hostLayout(layoutId)
+    if (!current) return { ok: false, reason: 'missing-layout' }
+    const next = withHostKey(current, zmk, level, parsed.keysym)
+    if (!next) return { ok: false, reason: 'unknown-key' }
+    const profile = this.userLayouts.find(layout => layout.id === layoutId)
+    if (!profile) return { ok: false, reason: 'missing-layout' }
+    const updated: UserHostLayout = { ...profile, updatedAt: Date.now() }
+    this.#registerUserLayout({ ...updated, layout: next })
+    this.userLayouts = this.userLayouts.map(layout =>
+      layout.id === updated.id ? updated : layout
+    )
+    await saveUserHostLayout({ ...updated, layout: next })
+    return {
+      ok: true,
+      keysym: parsed.keysym,
+      layoutId,
+      dropsFromCompose: level === 0 && keysymToGlyph(parsed.keysym) == null
+    }
+  }
+
+  /**
+   * Restore one level to the language's primary system layout (or `NoSymbol`
+   * when the system layout has no record for the key).
+   */
+  async revertHostKeyLevel(
+    language: HostLanguageId,
+    zmk: string,
+    level: number
+  ): Promise<HostKeyLevelEditResult> {
+    const primary = primarySystemLayoutId(language)
+    const keysym = primary
+      ? (hostLevels(primary, zmk)?.keysyms[level] ?? 'NoSymbol')
+      : 'NoSymbol'
+    return this.setHostKeyLevel(language, zmk, level, keysym)
   }
 
   profilesForLanguage(language: HostLanguageId): UserHostLayout[] {

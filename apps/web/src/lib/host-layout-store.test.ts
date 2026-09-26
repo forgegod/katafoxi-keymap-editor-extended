@@ -1,6 +1,7 @@
 import {
   addHostLanguage,
   composeKey,
+  composeLegendDecode,
   hostLayout,
   parseKeyBinding,
   setHostColumnAlt,
@@ -397,5 +398,108 @@ describe('host layout store', () => {
     expect(editor.activeProfileId('ru')).toBe(id)
     expect(editor.userLayouts.map(layout => layout.name)).toEqual([expectedName])
     expect((await loadUserHostLayouts()).map(layout => layout.id)).toEqual([id])
+  })
+
+  it('edits one host key level and forks a system column first', async () => {
+    await editor.selectLanguageProfile('ru', SYSTEM_RU_LAYOUT_ID)
+    const beforeQ = [...hostLayout(SYSTEM_RU_LAYOUT_ID)!.byZmk.get('Q')!.keysyms]
+    const beforeA = [...hostLayout(SYSTEM_RU_LAYOUT_ID)!.byZmk.get('A')!.keysyms]
+    const noteBefore = editor.hostProfileNote
+
+    const edited = await editor.setHostKeyLevel('ru', 'Q', 0, 'ё')
+    expect(edited).toMatchObject({
+      ok: true,
+      keysym: 'Cyrillic_io',
+      dropsFromCompose: false
+    })
+    if (!edited.ok) throw new Error('edit failed')
+    expect(edited.layoutId).toMatch(/^user:/)
+    expect(editor.activeProfileId('ru')).toBe(edited.layoutId)
+    expect(hostLayout(SYSTEM_RU_LAYOUT_ID)?.byZmk.get('Q')?.keysyms).toEqual(beforeQ)
+    expect(hostLayout(edited.layoutId)?.byZmk.get('Q')?.keysyms).toEqual([
+      'Cyrillic_io',
+      beforeQ[1],
+      beforeQ[2],
+      beforeQ[3]
+    ])
+    expect(hostLayout(edited.layoutId)?.byZmk.get('A')?.keysyms).toEqual(beforeA)
+    expect(editor.hostProfileNote).toMatch(/Создана копия/)
+    expect(editor.hostProfileNote).not.toBe(noteBefore)
+
+    const again = await editor.setHostKeyLevel('ru', 'Q', 2, '±')
+    expect(again).toMatchObject({ ok: true, layoutId: edited.layoutId, keysym: 'plusminus' })
+    expect(editor.userLayouts).toHaveLength(1)
+    expect(hostLayout(edited.layoutId)?.byZmk.get('Q')?.keysyms[0]).toBe('Cyrillic_io')
+    expect(hostLayout(edited.layoutId)?.byZmk.get('Q')?.keysyms[2]).toBe('plusminus')
+  })
+
+  it('rejects multi-code-point host level input without changing the layout', async () => {
+    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    const forked = await editor.ensureEditableUserHostLayout('en')
+    const before = [...hostLayout(forked)!.byZmk.get('A')!.keysyms]
+    const note = 'keep this note'
+    editor.hostProfileNote = note
+
+    const rejected = await editor.setHostKeyLevel('en', 'A', 1, 'ab')
+    expect(rejected).toEqual({
+      ok: false,
+      reason: 'rejected',
+      detail: 'multiple-code-points'
+    })
+    expect(hostLayout(forked)?.byZmk.get('A')?.keysyms).toEqual(before)
+    expect(editor.hostProfileNote).toBe(note)
+    expect(editor.userLayouts).toHaveLength(1)
+  })
+
+  it('stores NoSymbol for empty host level input', async () => {
+    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    const result = await editor.setHostKeyLevel('en', 'A', 2, '')
+    expect(result).toMatchObject({ ok: true, keysym: 'NoSymbol' })
+    if (!result.ok) throw new Error('edit failed')
+    expect(hostLayout(result.layoutId)?.byZmk.get('A')?.keysyms[2]).toBe('NoSymbol')
+    expect(hostLayout(result.layoutId)?.byZmk.get('A')?.glyphs[2]).toBe('')
+  })
+
+  it('reverts a host level to the system primary and clears the differ', async () => {
+    await editor.selectLanguageProfile('ru', SYSTEM_RU_LAYOUT_ID)
+    const systemKeysym = hostLayout(SYSTEM_RU_LAYOUT_ID)!.byZmk.get('Q')!.keysyms[0]
+    const edited = await editor.setHostKeyLevel('ru', 'Q', 0, 'ё')
+    expect(edited.ok).toBe(true)
+    if (!edited.ok) throw new Error('edit failed')
+    expect(hostLayout(edited.layoutId)?.byZmk.get('Q')?.keysyms[0]).toBe('Cyrillic_io')
+
+    const reverted = await editor.revertHostKeyLevel('ru', 'Q', 0)
+    expect(reverted).toMatchObject({ ok: true, keysym: systemKeysym, layoutId: edited.layoutId })
+    expect(hostLayout(edited.layoutId)?.byZmk.get('Q')?.keysyms[0]).toBe(systemKeysym)
+
+    const card = composeLegendDecode(parseKeyBinding('&kp Q'), editor.hostLegend)
+    const ru = card.current.find(column => column.language === 'ru')
+    expect(ru?.slots[0].differs).toBe(false)
+  })
+
+  it('persists a host key level edit across reset and restore', async () => {
+    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    const edited = await editor.setHostKeyLevel('en', 'A', 0, 'α')
+    expect(edited.ok).toBe(true)
+    if (!edited.ok) throw new Error('edit failed')
+    const layoutId = edited.layoutId
+    expect(hostLayout(layoutId)?.byZmk.get('A')?.keysyms[0]).toBe('Greek_alpha')
+
+    editor.resetForTests()
+    await editor.restoreHostProfiles()
+    expect(editor.activeProfileId('en')).toBe(layoutId)
+    expect(hostLayout(layoutId)?.byZmk.get('A')?.keysyms[0]).toBe('Greek_alpha')
+    expect(hostLayout(layoutId)?.byZmk.get('A')?.glyphs[0]).toBe('α')
+  })
+
+  it('warns when the base host level becomes a non-character keysym', async () => {
+    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    const result = await editor.setHostKeyLevel('en', 'A', 0, 'dead_acute')
+    expect(result).toEqual({
+      ok: true,
+      keysym: 'dead_acute',
+      layoutId: expect.stringMatching(/^user:/),
+      dropsFromCompose: true
+    })
   })
 })

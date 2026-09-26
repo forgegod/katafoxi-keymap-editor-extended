@@ -37,6 +37,10 @@ import {
   generateKeymap,
   normalizeZmkKeycodes,
   resolveBinding,
+  registerHostLayout,
+  unregisterHostLayout,
+  withEditableLegendDecodeGaps,
+  ALT_LEVEL_EMPTY,
   type HostLegendView
 } from '../src/index.js'
 import { registerLarkHostFixture } from './testing/lark-host.js'
@@ -706,6 +710,43 @@ describe('composeLegendDecode', () => {
     expect(card.keycode).toBeUndefined()
     expect(card.current).toEqual([])
     expect(card.system).toBeNull()
+  })
+
+  it('shows empty editable slots when the layout has no record for the key', () => {
+    registerHostLayout(
+      {
+        id: 'user:empty-en',
+        language: 'en',
+        name: 'Empty EN',
+        flag: '🇺🇸',
+        origin: 'user'
+      },
+      { id: 'user:empty-en', byZmk: new Map() }
+    )
+    try {
+      const base = composeLegendDecode(
+        parseKeyBinding('&kp A'),
+        assignHostLanguageLayout(standardHostLegendView(), 'en', 'user:empty-en')
+      )
+      expect(base.current.find(column => column.language === 'en')).toBeUndefined()
+      const card = withEditableLegendDecodeGaps(
+        base,
+        assignHostLanguageLayout(standardHostLegendView(), 'en', 'user:empty-en')
+      )
+      const en = card.current.find(column => column.language === 'en')
+      expect(en?.slots.map(slot => slot.text)).toEqual([
+        ALT_LEVEL_EMPTY,
+        ALT_LEVEL_EMPTY,
+        ALT_LEVEL_EMPTY,
+        ALT_LEVEL_EMPTY
+      ])
+      expect(en?.slots.map(slot => slot.differs)).toEqual([true, true, false, false])
+      expect(
+        card.system?.find(column => column.language === 'en')?.slots.map(slot => slot.text)
+      ).toEqual(['a', 'A', ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY])
+    } finally {
+      unregisterHostLayout('user:empty-en')
+    }
   })
 })
 
