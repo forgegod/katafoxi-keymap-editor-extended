@@ -2,7 +2,12 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { hostComposeGlyphs, hostLayoutFromSymbols } from './host-layout.js'
+import {
+  hostComposeGlyphs,
+  hostLayoutFromSymbols,
+  withHostKey,
+  type HostLayout
+} from './host-layout.js'
 import { registerLarkHostFixture } from './testing/lark-host.js'
 import { hostLegendFor, keycapColumns } from './compose.js'
 import {
@@ -532,5 +537,99 @@ describe('host legend view', () => {
     expect(openLayoutId(hidden)).toBe('lark-ru')
     expect(hidden.columns.find(column => column.language === 'ru')?.visible).toBe(false)
     expect(hidden.columns[0].layoutId).toBe('lark-en')
+  })
+})
+
+function editableLayout(): HostLayout {
+  return hostLayoutFromSymbols(
+    `
+      xkb_symbols "basic" {
+        key <AC01> {[ a, A, at, Greek_alpha ]};
+        key <AD01> {[ q, Q, NoSymbol, NoSymbol ]};
+      };
+    `,
+    'basic',
+    'test-edit'
+  )
+}
+
+function tableOf(layout: HostLayout): unknown {
+  return [...layout.byZmk].map(([zmk, levels]) => [zmk, [...levels.keysyms], [...levels.glyphs]])
+}
+
+describe('withHostKey', () => {
+  it('replaces one level and leaves the other levels and keys alone', () => {
+    const base = editableLayout()
+    const next = withHostKey(base, 'A', 2, 'Cyrillic_io')!
+    expect(next.id).toBe('test-edit')
+    expect(next.byZmk.get('A')).toEqual({
+      keysyms: ['a', 'A', 'Cyrillic_io', 'Greek_alpha'],
+      glyphs: ['a', 'A', 'ё', 'α']
+    })
+    expect(next.byZmk.get('Q')).toEqual(base.byZmk.get('Q'))
+    expect([...next.byZmk.keys()]).toEqual([...base.byZmk.keys()])
+  })
+
+  it('derives the glyph from the keysym instead of taking one', () => {
+    const next = withHostKey(editableLayout(), 'A', 1, 'U20BD')!
+    expect(next.byZmk.get('A')?.glyphs).toEqual(['a', '₽', '@', 'α'])
+    expect(withHostKey(editableLayout(), 'A', 3, '')?.byZmk.get('A')).toEqual({
+      keysyms: ['a', 'A', 'at', 'NoSymbol'],
+      glyphs: ['a', 'A', '@', '']
+    })
+  })
+
+  it('leaves the source layout identical to itself', () => {
+    const base = editableLayout()
+    const before = tableOf(base)
+    const next = withHostKey(base, 'A', 0, 'Cyrillic_ef')!
+    expect(tableOf(base)).toEqual(before)
+    expect(next.byZmk).not.toBe(base.byZmk)
+    expect(next.byZmk.get('A')).not.toBe(base.byZmk.get('A'))
+  })
+
+  it('leaves a registered system layout untouched', () => {
+    const system = hostLayout(SYSTEM_US_LAYOUT_ID)!
+    const before = tableOf(system)
+    withHostKey(system, 'A', 0, 'Cyrillic_ef')
+    expect(tableOf(hostLayout(SYSTEM_US_LAYOUT_ID)!)).toEqual(before)
+    expect(hostLevels(SYSTEM_US_LAYOUT_ID, 'A')?.glyphs).toEqual(['a', 'A', '', ''])
+  })
+
+  it('creates a missing key with NoSymbol on the other three levels', () => {
+    const base = editableLayout()
+    expect(base.byZmk.has('GRAVE')).toBe(false)
+    const next = withHostKey(base, 'GRAVE', 1, 'asciitilde')!
+    expect(next.byZmk.get('GRAVE')).toEqual({
+      keysyms: ['NoSymbol', 'asciitilde', 'NoSymbol', 'NoSymbol'],
+      glyphs: ['', '~', '', '']
+    })
+    expect(base.byZmk.has('GRAVE')).toBe(false)
+  })
+
+  it('writes an alias to the canonical key instead of a second entry', () => {
+    const next = withHostKey(editableLayout(), 'KC_A', 0, 'b')!
+    expect(next.byZmk.size).toBe(2)
+    expect(next.byZmk.get('A')?.glyphs[0]).toBe('b')
+  })
+
+  it('drops the key from composition when the base level is a dead key', () => {
+    // Known behaviour T7 leans on: the card has to warn before allowing this.
+    const next = withHostKey(editableLayout(), 'A', 0, 'dead_acute')!
+    const levels = next.byZmk.get('A')!
+    expect(levels.keysyms).toEqual(['dead_acute', 'A', 'at', 'Greek_alpha'])
+    expect(levels.glyphs).toEqual(['', 'A', '@', 'α'])
+    expect(hostComposeGlyphs(levels)).toBeUndefined()
+    expect(hostComposeGlyphs(next.byZmk.get('Q'))).toEqual(['q', 'Q', '', ''])
+  })
+
+  it('rejects an unknown key name and a level outside the four', () => {
+    const base = editableLayout()
+    expect(withHostKey(base, 'NOSUCHKEY', 0, 'a')).toBeUndefined()
+    expect(withHostKey(base, 'F13', 0, 'a')).toBeUndefined()
+    expect(withHostKey(base, 'A', 4, 'a')).toBeUndefined()
+    expect(withHostKey(base, 'A', -1, 'a')).toBeUndefined()
+    expect(withHostKey(base, 'A', 1.5, 'a')).toBeUndefined()
+    expect(tableOf(base)).toEqual(tableOf(editableLayout()))
   })
 })

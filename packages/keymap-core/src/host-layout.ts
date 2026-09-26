@@ -1,4 +1,4 @@
-import { hostKeyByXkb } from './host-key-id.js'
+import { hostKeyByXkb, hostKeyByZmk } from './host-key-id.js'
 import { parseXkbSymbolsSection, type ParseXkbOptions } from './xkb-symbols.js'
 import { keysymToGlyph } from './xkb-keysyms.js'
 
@@ -73,6 +73,32 @@ export function hostLayoutFromSymbols(
     byZmk.set(host.zmk, levelsFromKeysyms(keysyms))
   }
   return { id, byZmk }
+}
+
+/**
+ * One level of one key replaced, as a new layout. The source table is left
+ * alone and its `byZmk` is not reused. Glyphs come from the keysyms through
+ * the same path as parsing, so callers never pass them in. A key the layout
+ * has no record for is created with `NoSymbol` on the other three levels.
+ * An unknown ZMK name or a level outside `0..3` returns undefined rather
+ * than a junk entry; an empty keysym is stored as `NoSymbol`.
+ */
+export function withHostKey(
+  layout: HostLayout,
+  zmk: string,
+  level: number,
+  keysym: string
+): HostLayout | undefined {
+  const host = hostKeyByZmk(zmk)
+  if (!host) return undefined
+  if (!Number.isInteger(level) || level < 0 || level > 3) return undefined
+  const current =
+    layout.byZmk.get(host.zmk)?.keysyms ?? ['NoSymbol', 'NoSymbol', 'NoSymbol', 'NoSymbol']
+  const keysyms = [...current]
+  keysyms[level] = keysym.trim() || 'NoSymbol'
+  const byZmk = new Map(layout.byZmk)
+  byZmk.set(host.zmk, levelsFromKeysyms(keysyms))
+  return { id: layout.id, byZmk }
 }
 
 /**
