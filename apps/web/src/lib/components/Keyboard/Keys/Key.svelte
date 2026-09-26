@@ -15,6 +15,7 @@
   } from '@keymap-editor/keymap-core'
   import { currentBinding } from '../../../binding-tree'
   import { getSearchContext } from '../../../context'
+  import { editor } from '../../../editor.svelte.js'
   import { getBehaviourParams } from '../../../hydrate'
   import { createKeyEditSession } from '../../../key-edit-session.svelte'
   import { getKeyStyles } from '../../../key-units'
@@ -77,7 +78,10 @@
     keyIndex: () => keyIndex,
     onUpdate: (nextKey, nextLayer, binding) => onUpdate(nextKey, nextLayer, binding)
   })
-  const composedRows = $derived(composeLayerRows(stackBindings, hostView, layerView))
+  const composedRows = $derived.by(() => {
+    void editor.hostLayoutRevision
+    return composeLayerRows(stackBindings, hostView, layerView)
+  })
   const positioningStyle = $derived(getKeyStyles(position, size, rotation))
   const holdTapVisible = $derived(
     isHoldTapBehavior(value) && session.normalized.params.length === 2
@@ -96,9 +100,10 @@
   let decodePinned = $state(false)
   let decodeHideTimer: ReturnType<typeof setTimeout> | null = null
   let keyRoot: HTMLDivElement | undefined = $state()
-  const decodeCard = $derived(
-    decode ? composeLegendDecode(session.bindingForLayer(decode.layer), hostView) : null
-  )
+  const decodeCard = $derived.by(() => {
+    void editor.hostLayoutRevision
+    return decode ? composeLegendDecode(session.bindingForLayer(decode.layer), hostView) : null
+  })
   const decodeTooltipId = $derived(
     decode ? `legend-decode-${keyIndex}-${decode.layer}` : undefined
   )

@@ -1,8 +1,10 @@
 import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ParsedKeymap } from '@keymap-editor/keymap-core'
+import { SYSTEM_US_LAYOUT_ID } from '@keymap-editor/keymap-core'
 import { buildDraftIdentity, deleteStoredDraft } from '../../draft-storage'
 import { editor } from '../../editor.svelte.js'
+import { clearHostLayoutStore } from '../../host-layout-store'
 import EditorHarness from './EditorKeyboardHarness.svelte'
 import Harness from './KeyboardHarness.svelte'
 
@@ -120,6 +122,110 @@ function keySlotTitles(root: ParentNode): string[] {
     (el.getAttribute('aria-label') ?? '').replace(/, layer \d.*$/, '').trim()
   )
 }
+
+function keycapFace(root: ParentNode, keyIndex: number): string {
+  const key = root.querySelectorAll('.key')[keyIndex]
+  return (key?.querySelector('.keycap')?.textContent ?? '').replace(/\s+/g, '')
+}
+
+const twinAKeymap: ParsedKeymap = {
+  layer_names: ['Base'],
+  layers: [
+    [
+      { value: '&kp', params: [{ value: 'A', params: [] }] },
+      { value: '&kp', params: [{ value: 'A', params: [] }] }
+    ]
+  ]
+}
+
+describe('Keyboard host legend redraw', () => {
+  let target: HTMLDivElement
+  let modalRoot: HTMLDivElement
+  let view: HarnessView | undefined
+
+  beforeEach(async () => {
+    editor.resetForTests()
+    await clearHostLayoutStore()
+    target = document.createElement('div')
+    document.body.appendChild(target)
+    modalRoot = document.createElement('div')
+    modalRoot.id = 'modal-root'
+    target.appendChild(modalRoot)
+  })
+
+  afterEach(() => {
+    if (view) unmount(view)
+    view = undefined
+    target?.remove()
+    editor.resetForTests()
+    vi.restoreAllMocks()
+  })
+
+  function open(initialKeymap?: ParsedKeymap) {
+    view = mount(Harness, {
+      target,
+      props: initialKeymap ? { initialKeymap } : {}
+    }) as HarnessView
+    flushSync()
+    return view
+  }
+
+  it('repaints the same keycap after an in-place host level edit', async () => {
+    open(twinAKeymap)
+    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    flushSync()
+    const layoutId = await editor.ensureEditableUserHostLayout('en')
+    flushSync()
+    const before = keycapFace(target, 0)
+    expect(before).toContain('aA')
+    const viewId = editor.activeProfileId('en')
+    expect(viewId).toBe(layoutId)
+    const revisionBefore = editor.hostLayoutRevision
+    const columnsBefore = editor.hostLegend.columns.map(column => ({ ...column }))
+
+    const edited = await editor.setHostKeyLevel('en', 'A', 0, 'α')
+    flushSync()
+
+    expect(edited).toMatchObject({ ok: true, layoutId })
+    expect(editor.activeProfileId('en')).toBe(layoutId)
+    expect(editor.hostLegend.columns).toEqual(columnsBefore)
+    expect(editor.hostLayoutRevision).toBe(revisionBefore + 1)
+    const after = keycapFace(target, 0)
+    expect(after).not.toBe(before)
+    expect(after).toContain('αA')
+    expect(after).not.toContain('aA')
+  })
+
+  it('shows the same in-place edit on every key that uses that host key', async () => {
+    open(twinAKeymap)
+    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    flushSync()
+    await editor.ensureEditableUserHostLayout('en')
+    flushSync()
+    expect(keycapFace(target, 0)).toBe(keycapFace(target, 1))
+    expect(keycapFace(target, 0)).toContain('aA')
+
+    await editor.setHostKeyLevel('en', 'A', 0, 'α')
+    flushSync()
+
+    expect(keycapFace(target, 0)).toContain('αA')
+    expect(keycapFace(target, 1)).toContain('αA')
+    expect(keycapFace(target, 0)).toBe(keycapFace(target, 1))
+  })
+
+  it('does not bump hostLayoutRevision when the pointer only hovers a key', async () => {
+    open(twinAKeymap)
+    const before = editor.hostLayoutRevision
+    const slot = layerSlot(target, 0, 0)
+    slot.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    expect(document.querySelector('.legend-decode')).toBeInstanceOf(HTMLElement)
+    expect(editor.hostLayoutRevision).toBe(before)
+    slot.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }))
+    flushSync()
+    expect(editor.hostLayoutRevision).toBe(before)
+  })
+})
 
 describe('Keyboard layers', () => {
   let target: HTMLDivElement

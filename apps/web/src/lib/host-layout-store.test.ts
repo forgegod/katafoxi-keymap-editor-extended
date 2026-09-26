@@ -502,4 +502,35 @@ describe('host layout store', () => {
       dropsFromCompose: true
     })
   })
+
+  it('bumps hostLayoutRevision on in-place register without changing view or layout id', async () => {
+    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    const layoutId = await editor.ensureEditableUserHostLayout('en')
+    const viewBefore = {
+      open: editor.hostLegend.open,
+      columns: editor.hostLegend.columns.map(column => ({ ...column }))
+    }
+    const revisionBefore = editor.hostLayoutRevision
+
+    const edited = await editor.setHostKeyLevel('en', 'A', 0, 'α')
+    expect(edited).toMatchObject({ ok: true, layoutId })
+    expect(editor.activeProfileId('en')).toBe(layoutId)
+    expect(editor.hostLegend.open).toBe(viewBefore.open)
+    expect(editor.hostLegend.columns).toEqual(viewBefore.columns)
+    expect(editor.hostLayoutRevision).toBe(revisionBefore + 1)
+    expect(hostLayout(layoutId)?.byZmk.get('A')?.glyphs[0]).toBe('α')
+  })
+
+  it('does not bump hostLayoutRevision on hover-only editor state', async () => {
+    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    const before = editor.hostLayoutRevision
+    editor.legendHover = {
+      kind: 'keycode',
+      code: 'A',
+      keyIndexes: [0]
+    }
+    expect(editor.hostLayoutRevision).toBe(before)
+    editor.legendHover = null
+    expect(editor.hostLayoutRevision).toBe(before)
+  })
 })

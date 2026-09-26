@@ -32,8 +32,6 @@
     onPin
   }: Props = $props()
   let el: HTMLDivElement | undefined = $state()
-  /** Local bump so the card re-reads the registry after an in-place edit (board redraw is T8). */
-  let editRevision = $state(0)
   let editing = $state<{ language: HostLanguageId; level: number } | null>(null)
   let draft = $state('')
   let fieldError = $state<string | null>(null)
@@ -45,7 +43,7 @@
     card.keycode ? `Legend decode ${card.keycode}` : 'Legend decode'
   )
   const displayCard = $derived.by(() => {
-    void editRevision
+    void editor.hostLayoutRevision
     try {
       const base = composeLegendDecode(parseKeyBinding(card.binding), editor.hostLegend)
       return withEditableLegendDecodeGaps(base, editor.hostLegend)
@@ -126,7 +124,6 @@
           try {
             const result = await editor.revertHostKeyLevel(language, key, level)
             if (result.ok) {
-              editRevision += 1
               if (editing?.language === language && editing.level === level) cancelEdit()
             }
           } finally {
@@ -190,7 +187,6 @@
             : 'Не удалось сохранить уровень'
         return
       }
-      editRevision += 1
       cancelEdit()
     } finally {
       busy = false

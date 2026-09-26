@@ -188,6 +188,11 @@ export class EditorState {
   saving = $state(false)
   /** View over the host profile. It does not edit the keymap. */
   hostLegend = $state<HostLegendView>(standardHostLegendView())
+  /**
+   * Bumps when a user layout is registered/replaced in the core registry.
+   * The registry is not reactive; board compose reads this so keycaps repaint.
+   */
+  hostLayoutRevision = $state(0)
   /** Which firmware layers are drawn on the keycap. */
   layerView = $state<LayerView>(standardLayerView())
   userLayouts = $state<UserHostLayout[]>([])
@@ -301,6 +306,7 @@ export class EditorState {
       },
       record.layout
     )
+    this.hostLayoutRevision += 1
   }
 
   /**
@@ -374,8 +380,8 @@ export class EditorState {
 
   /**
    * Parse typed text via `glyphToKeysym`, fork a system column if needed, replace
-   * one level with `withHostKey`, re-register and persist. Does not bump a
-   * board revision — that is T8.
+   * one level with `withHostKey`, re-register and persist. Re-register bumps
+   * `hostLayoutRevision` so the board recomposes legends.
    */
   async setHostKeyLevel(
     language: HostLanguageId,
@@ -897,6 +903,7 @@ export class EditorState {
     this.saving = false
     resetHostLayoutRegistry()
     this.hostLegend = standardHostLegendView()
+    this.hostLayoutRevision = 0
     this.layerView = standardLayerView()
     this.userLayouts = []
     this.hostProfilePrompt = null
