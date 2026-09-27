@@ -353,7 +353,7 @@
       0 8px 22px rgba(40, 36, 30, 0.18);
     color: #333;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px;
+    font-size: 16px;
     line-height: 1.2;
     white-space: nowrap;
   }
@@ -391,7 +391,7 @@
     gap: 0.85em;
     margin-bottom: 6px;
     color: #6b6560;
-    font-size: 11px;
+    font-size: 13px;
     font-family: Quicksand, avenir, sans-serif;
   }
 
@@ -402,7 +402,7 @@
   }
 
   .ids .mark {
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.04em;
     color: #8a847c;
@@ -444,7 +444,7 @@
   .lang-head {
     display: flex;
     justify-content: center;
-    font-size: 14px;
+    font-size: 18px;
     line-height: 1;
   }
 
@@ -458,7 +458,7 @@
 
   .level-label {
     font-family: Quicksand, avenir, sans-serif;
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.02em;
     color: #8a847c;
@@ -533,7 +533,7 @@
     width: 0;
     min-width: 100%;
     white-space: normal;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.25;
     font-family: Quicksand, avenir, sans-serif;
     color: #8a5a00;
@@ -547,7 +547,7 @@
     background: transparent;
     color: #7a746c;
     font: inherit;
-    font-size: 11px;
+    font-size: 14px;
     line-height: 1;
     cursor: pointer;
   }
@@ -563,7 +563,7 @@
     border-top: 1px solid rgba(40, 36, 30, 0.1);
     white-space: normal;
     font-family: Quicksand, avenir, sans-serif;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.3;
     color: #7a746c;
   }
@@ -578,13 +578,13 @@
 
   .session-bar button {
     flex: 1;
-    height: 26px;
+    height: 30px;
     margin: 0;
     padding: 0 8px;
     border: 0;
     border-radius: 13px;
     font-family: Quicksand, avenir, sans-serif;
-    font-size: 12px;
+    font-size: 13px;
     cursor: pointer;
   }
 
@@ -594,7 +594,7 @@
     border-radius: 3px;
     background: rgba(255, 255, 255, 0.22);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 600;
   }
 
