@@ -182,6 +182,7 @@
   class="legend-decode"
   class:session={hostSession}
   class:peek={!hostSession}
+  class:has-table={displayCard.current.length > 0}
   style="position:fixed;left:{anchor.left}px;top:{anchor.top}px;z-index:40"
 >
   <div class="ids">
@@ -369,6 +370,21 @@
       0 10px 28px rgba(40, 36, 30, 0.24);
   }
 
+  /* Size to the level grid. Identifier and hint lines wrap to that width
+     instead of stretching the columns. */
+  .legend-decode.has-table {
+    display: inline-grid;
+    grid-template-columns: min-content;
+    min-width: 0;
+    max-width: min(40em, calc(100vw - 16px));
+  }
+
+  .legend-decode.has-table :is(.ids, .mode-hint, .session-bar) {
+    width: 0;
+    min-width: 100%;
+    white-space: normal;
+  }
+
   .ids {
     display: flex;
     flex-wrap: nowrap;
@@ -403,16 +419,25 @@
     color: #444;
   }
 
+  .legend-decode.has-table .ids {
+    flex-wrap: wrap;
+    column-gap: 0.85em;
+    row-gap: 0.25em;
+  }
+
   .decode-table {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+    display: grid;
+    grid-template-columns: repeat(var(--lang-count, 1), max-content);
+    column-gap: 12px;
+    row-gap: 2px;
+    width: max-content;
+    justify-self: start;
   }
 
   .row {
     display: grid;
-    grid-template-columns: repeat(var(--lang-count, 1), minmax(0, 1fr));
-    column-gap: 12px;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
     align-items: center;
   }
 
@@ -425,7 +450,7 @@
 
   .lang {
     display: grid;
-    grid-template-columns: repeat(4, minmax(1.35em, 1fr));
+    grid-template-columns: repeat(4, minmax(1.35em, max-content));
     column-gap: 2px;
     align-items: center;
     justify-items: center;
@@ -505,6 +530,8 @@
   .warn {
     margin: 4px 0 0;
     grid-column: 1 / -1;
+    width: 0;
+    min-width: 100%;
     white-space: normal;
     font-size: 10px;
     line-height: 1.25;
