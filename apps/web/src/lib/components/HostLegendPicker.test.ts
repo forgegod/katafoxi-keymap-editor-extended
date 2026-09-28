@@ -277,10 +277,10 @@ describe('HostLegendPicker', () => {
     expect(options).toEqual(['Choose', 'Russian', 'Ukrainian', 'German'])
     chooseLanguage('uk')
     expect(openLayoutId(editor.hostLegend)).toBe('system-ua')
-    const flags = [...target.querySelectorAll('.legend-panel .lang-flag')].map(el =>
-      el.textContent?.trim()
+    const flags = [...target.querySelectorAll('.legend-panel .lang-flag img')].map(el =>
+      el.getAttribute('src')
     )
-    expect(flags).toEqual(['🇺🇸', '🇺🇦'])
+    expect(flags).toEqual(['/flags/us.svg', '/flags/ua.svg'])
     const triggers = [...target.querySelectorAll('.legend-panel .profile-trigger')]
       .filter(el => !el.closest('.lang-head.narrow'))
       .map(el => el.getAttribute('aria-label'))
@@ -334,10 +334,10 @@ describe('HostLegendPicker', () => {
     ).toEqual(['Language', 'Russian', 'German'])
     chooseLanguage('de')
     expect(openLayoutId(editor.hostLegend)).toBe('system-de')
-    const flags = [...target.querySelectorAll('.legend-panel .lang-flag')].map(el =>
-      el.textContent?.trim()
+    const flags = [...target.querySelectorAll('.legend-panel .lang-flag img')].map(el =>
+      el.getAttribute('src')
     )
-    expect(flags).toEqual(['🇺🇸', '🇺🇦', '🇩🇪'])
+    expect(flags).toEqual(['/flags/us.svg', '/flags/ua.svg', '/flags/de.svg'])
     const german = [...target.querySelectorAll('.legend-panel .profile-trigger')].find(
       el => el.getAttribute('aria-label')?.startsWith('Profile German')
     )
@@ -368,8 +368,8 @@ describe('HostLegendPicker', () => {
     ).toEqual(['Remove language', 'Russian'])
     chooseLanguage('__remove__')
     expect(
-      [...target.querySelectorAll('.legend-panel .lang-flag')].map(el => el.textContent?.trim())
-    ).toEqual(['🇺🇸', '🇺🇦'])
+      [...target.querySelectorAll('.legend-panel .lang-flag img')].map(el => el.getAttribute('src'))
+    ).toEqual(['/flags/us.svg', '/flags/ua.svg'])
     expect(target.querySelector('.legend-panel .add-language')).toBeInstanceOf(HTMLButtonElement)
   })
 

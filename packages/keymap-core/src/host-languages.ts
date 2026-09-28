@@ -7,6 +7,8 @@ export interface HostLanguage {
   readonly id: string
   readonly name: string
   readonly flag: string
+  /** ISO 3166-1 alpha-2 file name for the vendored rectangular flag SVG. */
+  readonly flagCode: string
   /** xkb symbols file name (`us`, `ru`, `ua`, `de`). */
   readonly xkbModule: string
   readonly sections: readonly string[]
@@ -19,12 +21,16 @@ function language<Id extends string>(spec: HostLanguage & { id: Id }): HostLangu
   return spec
 }
 
-/** One row per host language. A new language is this entry plus its vendored xkb module. */
+/**
+ * One row per host language. A new language is this entry plus its vendored xkb
+ * module. `flagCode` selects `apps/web/public/flags/<code>.svg`.
+ */
 export const HOST_LANGUAGES = [
   language({
     id: 'en',
     name: 'English',
     flag: '🇺🇸',
+    flagCode: 'us',
     xkbModule: 'us',
     sections: ['basic'],
     primarySection: 'basic',
@@ -35,6 +41,7 @@ export const HOST_LANGUAGES = [
     id: 'ru',
     name: 'Russian',
     flag: '🇷🇺',
+    flagCode: 'ru',
     xkbModule: 'ru',
     sections: [
       'winkeys',
@@ -62,6 +69,7 @@ export const HOST_LANGUAGES = [
     id: 'uk',
     name: 'Ukrainian',
     flag: '🇺🇦',
+    flagCode: 'ua',
     xkbModule: 'ua',
     sections: ['unicode', 'macOS', 'legacy', 'winkeys', 'typewriter', 'phonetic', 'homophonic'],
     primarySection: 'unicode',
@@ -72,6 +80,7 @@ export const HOST_LANGUAGES = [
     id: 'de',
     name: 'German',
     flag: '🇩🇪',
+    flagCode: 'de',
     xkbModule: 'de',
     sections: [
       'basic',

@@ -13,6 +13,7 @@
     type LegendDecodeCard
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
+  import LangFlag from './LangFlag.svelte'
 
   interface Props {
     card: LegendDecodeCard
@@ -213,7 +214,7 @@
             data-language={column.language}
             title={hostLanguageName(column.language)}
           >
-            {column.flag}
+            <LangFlag language={column.language} alt={hostLanguageName(column.language)} />
           </div>
         {/each}
       </div>
@@ -444,8 +445,7 @@
   .lang-head {
     display: flex;
     justify-content: center;
-    font-size: 18px;
-    line-height: 1;
+    line-height: 0;
   }
 
   .lang {

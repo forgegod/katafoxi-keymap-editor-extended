@@ -290,8 +290,8 @@ describe('Key click editor', () => {
     expect(tip?.querySelector('.id[title="Windows virtual-key"]')?.textContent).toMatch(/Win/)
     expect(tip?.querySelector('.id[title="Linux evdev"]')?.textContent).toMatch(/Lin/)
     expect(
-      [...(tip?.querySelectorAll('.row.flags .flag') ?? [])].map(el => el.textContent)
-    ).toEqual(['🇺🇸'])
+      [...(tip?.querySelectorAll('.row.flags .flag img') ?? [])].map(el => el.getAttribute('src'))
+    ).toEqual(['/flags/us.svg'])
     expect(tip?.querySelector('.row.system')).toBeNull()
     expect(
       [...(tip?.querySelectorAll('.row.current .lang') ?? [])].map(lang =>
