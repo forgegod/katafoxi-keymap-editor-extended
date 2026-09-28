@@ -23,20 +23,22 @@ export interface HostLegendTableCell {
  */
 export function hostLegendTableRow(
   binding: KeyBindingNode | undefined,
-  view: HostLegendView
+  view: HostLegendView,
+  options?: { allWide?: boolean }
 ): HostLegendTableCell[] {
   const tap = binding ? resolveBinding(binding).tap : null
   const zmk = tap ? hostKeyByZmk(tap)?.zmk : undefined
   return resolveHostColumns(view).map(column => {
+    const wide = options?.allWide === true || column.wide
     const levels = zmk ? hostComposeGlyphs(hostLevels(column.layoutId, zmk)) : undefined
     return {
       language: column.language,
       layoutId: column.layoutId,
-      shown: column.shown,
-      wide: column.wide,
-      pair: column.wide && levels ? `${levels[0]}${levels[1]}` : '',
-      altGr: column.wide && column.altGr && levels ? levels[2] : '',
-      altGrShift: column.wide && column.altGrShift && levels ? levels[3] : ''
+      shown: options?.allWide === true || column.shown,
+      wide,
+      pair: wide && levels ? `${levels[0]}${levels[1]}` : '',
+      altGr: wide && column.altGr && levels ? levels[2] : '',
+      altGrShift: wide && column.altGrShift && levels ? levels[3] : ''
     }
   })
 }

@@ -6,9 +6,10 @@
     on: boolean
     label: string
     onclick: () => void
+    disabled?: boolean
   }
 
-  let { on, label, onclick }: Props = $props()
+  let { on, label, onclick, disabled = false }: Props = $props()
 </script>
 
 <button
@@ -17,6 +18,7 @@
   class:off={!on}
   aria-pressed={on}
   aria-label={label}
+  {disabled}
   {onclick}
 >
   <img src={on ? eyeView : eyeHide} alt="" width="16" height="16" />
@@ -36,8 +38,12 @@
     line-height: 0;
   }
 
-  .eye:hover {
+  .eye:hover:not(:disabled) {
     background: rgba(0, 0, 0, 0.06);
+  }
+
+  .eye:disabled {
+    cursor: default;
   }
 
   .eye.off {

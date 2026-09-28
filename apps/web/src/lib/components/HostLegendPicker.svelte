@@ -13,7 +13,12 @@
 
   const view = $derived(editor.hostLegend)
   const layers = $derived(editor.layerView)
-  const columns = $derived(hostLegendColumns(view))
+  const multilang = $derived(editor.multilangViewOn)
+  const columns = $derived(
+    multilang
+      ? hostLegendColumns(view).map(column => ({ ...column, wide: true, shown: true }))
+      : hostLegendColumns(view)
+  )
   const addable = $derived(hostLanguagesAvailable(view))
   const markedLayers = $derived(layers.shown)
   const layerNames = $derived(editor.hostLegendLayerNames)
@@ -42,8 +47,12 @@
       })
     )
   )
-  const collapsedRows = $derived(allRows.filter(row => row.marked))
-  const visibleRows = $derived(open ? allRows : collapsedRows)
+  const collapsedRows = $derived(
+    allRows.filter(row => row.marked && (!multilang || row.index === 0))
+  )
+  const visibleRows = $derived(
+    (open ? allRows : collapsedRows).filter(row => !multilang || row.index === 0)
+  )
 
   const columnCount = $derived(
     1 +
@@ -133,7 +142,9 @@
               aria-expanded={open}
               aria-pressed={pinned}
               aria-controls="host-legend-layers"
-              aria-label="Show all layers"
+              aria-label={multilang ? 'Firmware layers hidden' : 'Show all layers'}
+              title={multilang ? 'Firmware layers stay hidden while languages are stacked' : undefined}
+              disabled={multilang}
               onclick={togglePinned}
             >
               {open ? '▾' : '▸'}
@@ -144,6 +155,7 @@
           <HostLegendLanguageHead
             {column}
             {interactive}
+            languagesStacked={multilang}
             bind:pickingFor
             bind:pickingNew
             bind:openProfile
@@ -289,6 +301,11 @@
     background: #fff;
     border-color: #1d6f8a;
     color: #333;
+  }
+
+  .layer-disclosure:disabled {
+    opacity: 0.45;
+    cursor: default;
   }
 
   .add-layer {

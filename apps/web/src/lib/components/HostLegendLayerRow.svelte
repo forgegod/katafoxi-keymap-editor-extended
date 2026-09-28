@@ -40,7 +40,8 @@
 
   const cells = $derived.by(() => {
     void editor.hostLayoutRevision
-    return hostLegendTableRow(row.binding, editor.hostLegend)
+    const stacked = editor.multilangViewOn
+    return hostLegendTableRow(row.binding, editor.hostLegend, { allWide: stacked })
   })
   const layer0Raw = $derived(editor.layerView.layer0Raw)
 

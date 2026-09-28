@@ -25,6 +25,8 @@
   interface Props {
     column?: HostLegendColumn
     interactive: boolean
+    /** Multilang face shows every column; the eye waits until that face is off. */
+    languagesStacked?: boolean
     pickingFor?: HostLanguageId | null
     pickingNew?: boolean
     openProfile?: HostLanguageId | null
@@ -33,6 +35,7 @@
   let {
     column,
     interactive,
+    languagesStacked = false,
     pickingFor = $bindable(null),
     pickingNew = $bindable(false),
     openProfile = $bindable(null)
@@ -61,7 +64,7 @@
   }
 
   function toggleLanguage() {
-    if (!language) return
+    if (!language || languagesStacked) return
     void editor.commitHostMap(toggleHostLanguage(editor.hostLegend, language))
   }
 
@@ -175,8 +178,15 @@
     <div class="lang-head" class:narrow={!column.wide && !choosing}>
       {#if interactive}
         <EyeToggle
-          on={column.shown}
-          label={column.shown ? `Hide ${choice?.languageName ?? language}` : `Show ${choice?.languageName ?? language}`}
+          on={languagesStacked || column.shown}
+          disabled={languagesStacked}
+          label={
+            languagesStacked
+              ? `${choice?.languageName ?? language} stays on the key while languages are stacked`
+              : column.shown
+                ? `Hide ${choice?.languageName ?? language}`
+                : `Show ${choice?.languageName ?? language}`
+          }
           onclick={toggleLanguage}
         />
         {#if extra}
