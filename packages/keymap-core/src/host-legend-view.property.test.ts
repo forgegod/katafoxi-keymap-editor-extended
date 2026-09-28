@@ -5,6 +5,7 @@ import { hostLayoutMeta } from './host-layout-registry.js'
 import {
   addHostLanguage,
   assignHostLanguageLayout,
+  hostLegendColumns,
   removeHostLanguage,
   replaceHostLanguage,
   setHostColumnAlt,
@@ -56,6 +57,14 @@ function assertViewInvariants(view: HostLegendView) {
   }
   for (const column of view.columns) {
     expect(hostLayoutMeta(column.layoutId)?.language).toBe(column.language)
+  }
+  const shown = hostLegendColumns(view).filter(column => column.shown)
+  expect(shown.length).toBeLessThanOrEqual(2)
+  if (view.keycap) {
+    expect(view.keycap.length).toBeLessThanOrEqual(2)
+    for (const language of view.keycap) {
+      expect(languages).toContain(language)
+    }
   }
 }
 

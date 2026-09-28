@@ -231,7 +231,8 @@ describe('host layout store', () => {
     await editor.selectLanguageProfile('de', 'system-de-neo')
     const saved = {
       columns: editor.hostLegend.columns.map(column => ({ ...column })),
-      open: editor.hostLegend.open
+      open: editor.hostLegend.open,
+      keycap: editor.hostLegend.keycap ? [...editor.hostLegend.keycap] : undefined
     }
 
     editor.resetForTests()
@@ -239,6 +240,7 @@ describe('host layout store', () => {
     await openBoard()
     expect(editor.hostLegend.columns).toEqual(saved.columns)
     expect(editor.hostLegend.open).toBe(saved.open)
+    expect(editor.hostLegend.keycap).toEqual(saved.keycap)
     expect(editor.activeProfileId('uk')).toBe('system-ua-winkeys')
     expect(editor.activeProfileId('de')).toBe('system-de-neo')
   })

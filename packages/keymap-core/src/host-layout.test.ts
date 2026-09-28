@@ -369,6 +369,30 @@ describe('Ukrainian system layout', () => {
     ])
     expect(extraPair(hostLegendFor('Q', back)!)).toEqual(['й', 'Й'])
   })
+
+  it('draws Russian and Ukrainian once English is hidden', () => {
+    const added = addHostLanguage(withRussian(), 'uk')
+    const hiddenEnglish = toggleHostLanguage(added, 'en')
+    const both = toggleHostLanguage(hiddenEnglish, 'ru')
+    expect(hostLegendColumns(both).map(column => [column.language, column.shown, column.wide])).toEqual([
+      ['en', false, true],
+      ['ru', true, true],
+      ['uk', true, true]
+    ])
+    expect(both.open).toBe('ru')
+    const legend = hostLegendFor('S', both)!
+    expect(legend.columns.map(column => [column.language, column.onKeycap])).toEqual([
+      ['en', false],
+      ['ru', true],
+      ['uk', true]
+    ])
+    expect(legend.columns[0]?.pair).toEqual(['s', 'S'])
+    expect(
+      keycapColumns(legend)
+        .filter(column => column.kind === 'letters')
+        .map(column => column.pieces[0]?.text)
+    ).toEqual(['ыЫ', 'іІ'])
+  })
 })
 
 describe('German system layout', () => {

@@ -112,12 +112,16 @@ export interface HostColumn {
 
 /**
  * Which host layouts fill the composed legend.
- * `columns[0]` is the base column. `open` is the extra language shown
- * next to the base, or `null` when no extra is selected.
+ * `columns[0]` is the base column: the firmware alphabet, kept even when its
+ * glyphs are hidden. `open` is the national language paired with that base
+ * for Differences, Copy AltGr, and the combined Windows file.
+ * `keycap` is the languages drawn on the key, oldest first, at most two.
+ * Omitted on older saves: the visible base, plus `open` when that column is visible.
  */
 export interface HostLegendView {
   columns: HostColumn[]
   open: HostLanguageId | null
+  keycap?: HostLanguageId[]
 }
 
 /** Which firmware layers are drawn on the keycap. */

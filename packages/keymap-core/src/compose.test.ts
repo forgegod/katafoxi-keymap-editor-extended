@@ -298,6 +298,30 @@ describe('resolveBinding / composeKey', () => {
     expect(hostLegendFor('E', larkView())?.columns[0]?.pair).toEqual(['e', 'E'])
   })
 
+  it('draws two nationals and leaves hidden English AltGr off the key', () => {
+    const hostView = toggleHostLanguage(toggleHostLanguage(addHostLanguage(larkView(), 'uk'), 'en'), 'ru')
+    const legend = composeKey({ binding: parseKeyBinding('&kp T'), hostView })
+    expect(legend?.columns.map(column => [column.language, column.onKeycap])).toEqual([
+      ['en', false],
+      ['ru', true],
+      ['uk', true]
+    ])
+    expect(baseColumn(legend!)?.pair).toEqual(['t', 'T'])
+    const alt = keycapColumns(legend!).find(column => column.kind === 'alt')
+    const altText = alt?.pieces.map(piece => piece.text).join('') ?? ''
+    expect(altText).not.toContain('Δ')
+    expect(altText).not.toContain('τ')
+    const ess = composeKey({ binding: parseKeyBinding('&kp S'), hostView })
+    expect(
+      keycapColumns(ess!)
+        .filter(column => column.kind === 'letters')
+        .map(column => column.pieces[0])
+    ).toEqual([
+      { text: 'ыЫ', tone: 'base' },
+      { text: 'іІ', tone: 'second' }
+    ])
+  })
+
   it('keeps three visible columns on the legend and draws base plus open on the keycap', () => {
     const hostView = addHostLanguage(larkView(), 'uk')
     expect(resolveHostColumns(hostView).filter(column => column.visible)).toHaveLength(3)

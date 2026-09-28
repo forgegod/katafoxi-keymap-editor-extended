@@ -334,7 +334,7 @@ function composeColumn(
 /**
  * N-column host legend for a ZMK token. Unknown ids and non-character
  * keys return null. Hidden extras are omitted; a hidden base stays so
- * AltGr collapse can still see it.
+ * the firmware alphabet is still there when its glyphs are off the key.
  */
 export function hostLegendFor(
   token: string,
@@ -450,11 +450,17 @@ export interface KeycapColumn {
   pieces: KeycapPiece[]
 }
 
+/** Left slot keeps its own tone. Two drawn languages use base then second so the pair can be told apart. */
+function keycapTone(column: ComposedLegendColumn, drawn: readonly ComposedLegendColumn[]): KeycapTone {
+  if (drawn.length < 2) return column.tone
+  return drawn[0] === column ? 'base' : 'second'
+}
+
 /**
  * What one keycap line shows, left to right.
- * D9: only the visible base and the open extra are drawn.
- * A second-language case pair equal to the first is drawn once.
+ * At most two on-keycap languages. A case pair equal to the earlier one is drawn once.
  * Diverging AltGr pairs stay one column, each half in its language color.
+ * A language that is not on the keycap does not contribute glyphs, including AltGr.
  */
 export function keycapColumns(legend: ComposedLegend): KeycapColumn[] {
   const columns: KeycapColumn[] = []
@@ -464,27 +470,29 @@ export function keycapColumns(legend: ComposedLegend): KeycapColumn[] {
     const text = `${column.pair[0]}${column.pair[1]}`
     if (!text || text === firstPair) continue
     if (!firstPair) firstPair = text
-    columns.push({ kind: 'letters', pieces: [{ text, tone: column.tone }] })
+    columns.push({ kind: 'letters', pieces: [{ text, tone: keycapTone(column, letters) }] })
   }
 
-  const base = legend.columns.find(column => column.tone === 'base')
-  const extra = legend.columns.find(column => column.tone === 'second' && column.onKeycap)
-  const baseAltOn = Boolean(base && (base.showAltGr || base.showAltGrShift))
-  const extraAltOn = Boolean(extra && (extra.showAltGr || extra.showAltGrShift))
-  if (base && extra && baseAltOn && extraAltOn) {
-    const baseAlt = shownAltPair(base)
-    const extraAlt = shownAltPair(extra)
-    if (baseAlt !== extraAlt) {
+  const altColumns = letters.filter(column => column.showAltGr || column.showAltGrShift)
+  if (altColumns.length >= 2) {
+    const left = altColumns[0]!
+    const right = altColumns[1]!
+    const leftAlt = shownAltPair(left)
+    const rightAlt = shownAltPair(right)
+    if (leftAlt !== rightAlt) {
       const pieces: KeycapPiece[] = [
-        { text: baseAlt, tone: 'base' },
+        { text: leftAlt, tone: keycapTone(left, letters) },
         { text: '/', tone: null },
-        { text: extraAlt, tone: 'second' }
+        { text: rightAlt, tone: keycapTone(right, letters) }
       ]
       columns.push({ kind: 'alt', pieces: pieces.filter(piece => piece.text !== '') })
       return columns
     }
+    const shared = formatAltGrPair(left)
+    if (shared) columns.push({ kind: 'alt', pieces: [{ text: shared, tone: null }] })
+    return columns
   }
-  const altSource = extra && extraAltOn && !baseAltOn ? extra : base
+  const altSource = altColumns[0]
   if (altSource) {
     const alt = formatAltGrPair(altSource)
     if (alt) columns.push({ kind: 'alt', pieces: [{ text: alt, tone: null }] })

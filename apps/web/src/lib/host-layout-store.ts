@@ -67,6 +67,7 @@ type StoredView = {
   id: typeof VIEW_SETTING_ID
   columns: HostLegendView['columns']
   open: HostLegendView['open']
+  keycap?: HostLegendView['keycap']
 }
 
 type LegacyProfile = {
@@ -227,6 +228,14 @@ function isHostLegendView(value: unknown): value is HostLegendView {
   const view = value as HostLegendView
   if (!Array.isArray(view.columns)) return false
   if (view.open != null && !isHostLanguageId(view.open)) return false
+  if (
+    view.keycap != null &&
+    (!Array.isArray(view.keycap) ||
+      view.keycap.length > 2 ||
+      !view.keycap.every(language => isHostLanguageId(language)))
+  ) {
+    return false
+  }
   return view.columns.every(
     column =>
       column &&
@@ -244,7 +253,8 @@ export function sanitizeHostLegendView(view: HostLegendView): {
 } {
   const next: HostLegendView = {
     columns: view.columns.map(column => ({ ...column })),
-    open: view.open
+    open: view.open,
+    ...(view.keycap ? { keycap: view.keycap.filter(language => isHostLanguageId(language)).slice(-2) } : {})
   }
   const replaced: HostLanguageId[] = []
   for (const column of next.columns) {
@@ -421,7 +431,11 @@ export async function loadHostLegendView(
     )
     await txDone(tx)
     if (!row || !isHostLegendView(row)) return null
-    return { columns: row.columns.map(column => ({ ...column })), open: row.open }
+    return {
+      columns: row.columns.map(column => ({ ...column })),
+      open: row.open,
+      ...(row.keycap ? { keycap: [...row.keycap] } : {})
+    }
   } finally {
     db.close()
   }
@@ -445,7 +459,8 @@ export async function saveHostLegendView(
   const record: StoredView = {
     id: settingId,
     columns: view.columns.map(column => ({ ...column })),
-    open: view.open
+    open: view.open,
+    ...(view.keycap ? { keycap: [...view.keycap] } : {})
   }
   const db = await openDb()
   try {

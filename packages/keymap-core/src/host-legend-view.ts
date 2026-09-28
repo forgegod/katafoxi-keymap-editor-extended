@@ -10,8 +10,47 @@ import type { HostColumn, HostLegendView } from './types.js'
 function cloneView(view: HostLegendView): HostLegendView {
   return {
     columns: view.columns.map(column => ({ ...column })),
-    open: view.open
+    open: view.open,
+    ...(view.keycap ? { keycap: [...view.keycap] } : {})
   }
+}
+
+/** Languages drawn on the keycap, oldest first. At most two, and only visible columns. */
+function shownKeycap(view: HostLegendView): HostLanguageId[] {
+  const columns = new Map(view.columns.map(column => [column.language, column]))
+  const raw = view.keycap ?? derivedKeycap(view)
+  return raw.filter(language => columns.get(language)?.visible === true).slice(-2)
+}
+
+/** Legacy pair: the visible base, then the open language when that column is visible. */
+function derivedKeycap(view: HostLegendView): HostLanguageId[] {
+  const derived: HostLanguageId[] = []
+  const base = view.columns[0]
+  if (base?.visible) derived.push(base.language)
+  if (view.open && view.open !== base?.language) {
+    const extra = view.columns.find(column => column.language === view.open)
+    if (extra?.visible) derived.push(view.open)
+  }
+  return derived
+}
+
+/**
+ * Put `language` on the keycap.
+ * Two slots. When both are full and English is one of them, a national language
+ * replaces the other national. Otherwise the oldest glyph set leaves.
+ */
+function placeOnKeycap(view: HostLegendView, language: HostLanguageId): HostLanguageId[] {
+  const base = view.columns[0]?.language
+  let keycap = shownKeycap(view).filter(id => id !== language)
+  if (keycap.length >= 2) {
+    if (base != null && keycap.includes(base) && language !== base) {
+      keycap = keycap.filter(id => id === base)
+    } else {
+      keycap = keycap.slice(-1)
+    }
+  }
+  keycap.push(language)
+  return keycap
 }
 
 function columnOf(view: HostLegendView, language: HostLanguageId): HostColumn | undefined {
@@ -37,14 +76,15 @@ export interface HostLegendColumn {
 
 /** Base column, then the other languages in table order. */
 export function hostLegendColumns(view: HostLegendView): HostLegendColumn[] {
+  const onKeycap = new Set(shownKeycap(view))
   return view.columns.map((column, index): HostLegendColumn => {
-    const extraOpen = view.open === column.language && column.visible
+    const shown = onKeycap.has(column.language)
     return {
       language: column.language,
       layoutId: column.layoutId,
       visible: column.visible,
-      shown: index === 0 ? column.visible : extraOpen,
-      wide: index === 0 || extraOpen,
+      shown,
+      wide: index === 0 || shown,
       altGr: column.altGr,
       altGrShift: column.altGrShift
     }
@@ -75,6 +115,7 @@ export function replaceHostLanguage(
   slot.language = to
   slot.layoutId = layoutId
   if (next.open === from) next.open = to
+  if (next.keycap) next.keycap = next.keycap.map(id => (id === from ? to : id))
   return next
 }
 
@@ -88,6 +129,7 @@ export function removeHostLanguage(
   if (index <= 0) return view
   const next = cloneView(view)
   next.columns.splice(index, 1)
+  if (next.keycap) next.keycap = next.keycap.filter(id => id !== language)
   if (next.open !== language) return next
   const fallback = next.columns.at(-1)
   if (!fallback || fallback === next.columns[0]) {
@@ -96,10 +138,11 @@ export function removeHostLanguage(
   }
   fallback.visible = true
   next.open = fallback.language
+  next.keycap = placeOnKeycap(next, fallback.language)
   return next
 }
 
-/** Open another language. The previous second column collapses to its flag. */
+/** Open another language and draw it on the keycap. The install pair follows it. */
 export function addHostLanguage(
   view: HostLegendView,
   language: HostLanguageId
@@ -115,13 +158,15 @@ export function addHostLanguage(
     altGr: true,
     altGrShift: true
   })
+  next.keycap = placeOnKeycap(next, language)
   next.open = language
   return next
 }
 
 /**
- * Eye on the base column hides its glyphs. Eye on the open second column
- * collapses it. Eye on a collapsed language opens it and collapses the other.
+ * Eye toggles that language on the keycap. At most two languages are drawn.
+ * Hiding the base keeps it as the ZMK reference. Showing a national language
+ * makes it the install counterpart (`open`).
  */
 export function toggleHostLanguage(
   view: HostLegendView,
@@ -131,17 +176,19 @@ export function toggleHostLanguage(
   if (!column) return view
   const next = cloneView(view)
   const target = columnOf(next, language)!
-  if (next.columns[0].language === language) {
-    target.visible = !target.visible
-    return next
-  }
-  const wide = next.open === language && target.visible
-  if (wide) {
+  const base = next.columns[0]?.language
+  if (shownKeycap(next).includes(language)) {
     target.visible = false
+    next.keycap = shownKeycap(next).filter(id => id !== language)
+    if (next.open === language) {
+      const other = [...next.keycap].reverse().find(id => id !== base)
+      if (other) next.open = other
+    }
     return next
   }
   target.visible = true
-  next.open = language
+  next.keycap = placeOnKeycap(next, language)
+  if (language !== base) next.open = language
   return next
 }
 

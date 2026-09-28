@@ -22,7 +22,7 @@ ZMK already has a visible chrome pipeline (Source → draft → Write files / Gi
 ### Chrome: two lanes
 
 1. **ZMK** lane: Source, undo/redo, draft status, Write files / Commit.
-2. **Host** lane: Clean/Changed when any shown legend column uses a `user:` layout; **Linux** / **Windows** open install dialogs (not instant blob downloads). **Differences** (session toggle, on by default) marks shared non-letter glyphs that sit on a different key or level, and AltGr cells where both languages are non-empty and differ. **Copy AltGr** copies non-empty AltGr and AltGr+Shift from the open language onto the base layout.
+2. **Host** lane: Clean/Changed when any shown legend column uses a `user:` layout; **Linux** / **Windows** open install dialogs (not instant blob downloads). **Differences** (session toggle, on by default) marks shared non-letter glyphs that sit on a different key or level, and AltGr cells where both languages are non-empty and differ. **Copy AltGr** copies non-empty AltGr and AltGr+Shift from the open language onto the base layout. The keycap draws at most two languages, any pair (`keycap`). English stays column 0 when its eye is off. Differences, Copy AltGr, and the combined Windows file still use that base and `open`, not whichever pair is drawn.
 3. Tiny ⓘ tooltips are not the install channel — the OS button opens the sheet.
 
 ### Linux / Windows deliverables
