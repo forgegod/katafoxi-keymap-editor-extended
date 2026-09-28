@@ -78,7 +78,7 @@ export function replaceHostLanguage(
   return next
 }
 
-/** Drop an extra language. The last remaining extra, or Russian, stays open. */
+/** Drop an extra language. The last remaining extra stays open. */
 export function removeHostLanguage(
   view: HostLegendView,
   language: HostLanguageId
@@ -89,12 +89,8 @@ export function removeHostLanguage(
   const next = cloneView(view)
   next.columns.splice(index, 1)
   if (next.open !== language) return next
-  const extras = next.columns.slice(1)
-  const fallback =
-    [...extras].reverse().find(column => isAddableHostLanguage(column.language)) ??
-    extras.find(column => column.language === 'ru') ??
-    extras[0]
-  if (!fallback) {
+  const fallback = next.columns.at(-1)
+  if (!fallback || fallback === next.columns[0]) {
     next.open = null
     return next
   }

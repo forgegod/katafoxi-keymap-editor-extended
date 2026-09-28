@@ -291,13 +291,13 @@ describe('Key click editor', () => {
     expect(tip?.querySelector('.id[title="Linux evdev"]')?.textContent).toMatch(/Lin/)
     expect(
       [...(tip?.querySelectorAll('.row.flags .flag') ?? [])].map(el => el.textContent)
-    ).toEqual(['🇺🇸', '🇷🇺'])
+    ).toEqual(['🇺🇸'])
     expect(tip?.querySelector('.row.system')).toBeNull()
     expect(
       [...(tip?.querySelectorAll('.row.current .lang') ?? [])].map(lang =>
         [...lang.querySelectorAll('.slot')].map(slot => slot.textContent).join('')
       )
-    ).toEqual(['-_ˬˬ', '-_ˬˬ'])
+    ).toEqual(['-_ˬˬ'])
   })
 
   it('closes the hover decode peek as soon as the pointer leaves the row', () => {

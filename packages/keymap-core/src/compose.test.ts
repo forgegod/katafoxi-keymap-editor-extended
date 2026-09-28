@@ -47,8 +47,9 @@ import { registerLarkHostFixture } from './testing/lark-host.js'
 
 function larkView(): HostLegendView {
   registerLarkHostFixture()
+  const withRussian = addHostLanguage(standardHostLegendView(), 'ru')
   return assignHostLanguageLayout(
-    assignHostLanguageLayout(standardHostLegendView(), 'en', 'lark-en'),
+    assignHostLanguageLayout(withRussian, 'en', 'lark-en'),
     'ru',
     'lark-ru'
   )
@@ -495,7 +496,10 @@ describe('resolveBinding / composeKey', () => {
   })
 
   it('still composes a host letter on a hold-tap', () => {
-    const legend = composeKey({ binding: parseKeyBinding('&lt 1 A') })
+    const legend = composeKey({
+      binding: parseKeyBinding('&lt 1 A'),
+      hostView: addHostLanguage(standardHostLegendView(), 'ru')
+    })
     expect(baseColumn(legend!)?.pair).toEqual(['a', 'A'])
     expect(extraColumn(legend!)?.pair).toEqual(['ф', 'Ф'])
     expect(legend?.hold).toBe('⧗L1')
@@ -699,7 +703,7 @@ describe('composeLegendDecode', () => {
     const card = composeLegendDecode(
       parseKeyBinding('&kp MINUS'),
       assignHostLanguageLayout(
-        assignHostLanguageLayout(standardHostLegendView(), 'en', 'system-us'),
+        assignHostLanguageLayout(addHostLanguage(standardHostLegendView(), 'ru'), 'en', 'system-us'),
         'ru',
         'system-ru'
       )

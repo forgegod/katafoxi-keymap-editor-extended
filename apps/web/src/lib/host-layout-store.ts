@@ -30,6 +30,11 @@ const SETTINGS_STORE = 'settings'
 const LEGACY_PROFILES_STORE = 'profiles'
 const DB_VERSION = 3
 const VIEW_SETTING_ID = 'view'
+
+/** Legend view for one keymap identity. The unkeyed `view` row is the old browser-wide record. */
+export function hostLegendSettingId(identityKey: string): string {
+  return `view:${identityKey}`
+}
 const LEGACY_ACTIVE_SETTING_ID = 'active'
 
 export type UserHostLayoutOrigin =
@@ -405,12 +410,14 @@ export async function deleteUserHostLayout(id: string): Promise<void> {
   }
 }
 
-export async function loadHostLegendView(): Promise<HostLegendView | null> {
+export async function loadHostLegendView(
+  settingId: string = VIEW_SETTING_ID
+): Promise<HostLegendView | null> {
   const db = await openDb()
   try {
     const tx = db.transaction(SETTINGS_STORE, 'readonly')
     const row = await idbRequest<StoredView | undefined>(
-      tx.objectStore(SETTINGS_STORE).get(VIEW_SETTING_ID)
+      tx.objectStore(SETTINGS_STORE).get(settingId)
     )
     await txDone(tx)
     if (!row || !isHostLegendView(row)) return null
@@ -420,9 +427,23 @@ export async function loadHostLegendView(): Promise<HostLegendView | null> {
   }
 }
 
-export async function saveHostLegendView(view: HostLegendView): Promise<void> {
+export async function deleteHostLegendView(settingId: string = VIEW_SETTING_ID): Promise<void> {
+  const db = await openDb()
+  try {
+    const tx = db.transaction(SETTINGS_STORE, 'readwrite')
+    await idbRequest(tx.objectStore(SETTINGS_STORE).delete(settingId))
+    await txDone(tx)
+  } finally {
+    db.close()
+  }
+}
+
+export async function saveHostLegendView(
+  view: HostLegendView,
+  settingId: string = VIEW_SETTING_ID
+): Promise<void> {
   const record: StoredView = {
-    id: VIEW_SETTING_ID,
+    id: settingId,
     columns: view.columns.map(column => ({ ...column })),
     open: view.open
   }

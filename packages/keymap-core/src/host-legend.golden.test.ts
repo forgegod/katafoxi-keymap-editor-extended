@@ -34,7 +34,7 @@ const BINDINGS = [
 ] as const
 
 function assignColumns(enId: string, ruId: string): HostLegendView {
-  const started = standardHostLegendView()
+  const started = addHostLanguage(standardHostLegendView(), 'ru')
   const withEn = assignHostLanguageLayout(started, 'en', enId)
   return assignHostLanguageLayout(withEn, 'ru', ruId)
 }

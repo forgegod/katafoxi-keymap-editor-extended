@@ -24,6 +24,7 @@ import {
   registerHostLayout,
   resetHostLayoutRegistry,
   standardHostLegendView,
+  isLegacyBilingualHostLegend,
   standardLayerView,
   remapShownLayersAfterDelete,
   unregisterHostLayout,
@@ -53,6 +54,8 @@ import {
   cloneHostLayoutTable,
   deleteUserHostLayout,
   isUserHostLayoutId,
+  deleteHostLegendView,
+  hostLegendSettingId,
   loadHostLegendView,
   loadUserHostLayouts,
   reservedProfileName,
@@ -411,20 +414,13 @@ export class EditorState {
     }
   }
 
-  /** Restore user layouts into the registry, then the saved view. */
+  /** Restore user layouts into the registry. The legend view loads with the keymap. */
   async restoreHostProfiles() {
     try {
       resetHostLayoutRegistry()
       const records = await loadUserHostLayouts()
       for (const record of records) this.#registerUserLayout(record)
       this.userLayouts = records.map(({ layout: _layout, ...rest }) => rest)
-      const stored = await loadHostLegendView()
-      const { view, replaced } = sanitizeHostLegendView(
-        stored ?? standardHostLegendView()
-      )
-      this.hostLegend = view
-      this.hostProfileNote = replaced.length > 0 ? UNKNOWN_HOST_LAYOUT_NOTE : null
-      if (replaced.length > 0) await saveHostLegendView(view)
     } catch {
       resetHostLayoutRegistry()
       this.userLayouts = []
@@ -484,8 +480,51 @@ export class EditorState {
     this.hostProfilePrompt = null
     this.hostProfileNote = null
     await saveUserHostLayout(record)
-    await saveHostLegendView(this.hostLegend)
+    await this.#persistHostLegend()
     return id
+  }
+
+  #hostLegendSettingId(): string | null {
+    const identity = this.currentDraftIdentity()
+    return identity ? hostLegendSettingId(draftIdentityKey(identity)) : null
+  }
+
+  async #persistHostLegend(): Promise<void> {
+    const settingId = this.#hostLegendSettingId()
+    if (!settingId) return
+    await saveHostLegendView(this.hostLegend, settingId)
+  }
+
+  /**
+   * Load the legend for the open keymap. A leftover browser-wide view is
+   * adopted once when it is not the old English+Russian demo default.
+   */
+  async #restoreHostLegend(selectToken: number): Promise<void> {
+    const settingId = this.#hostLegendSettingId()
+    if (!settingId) {
+      this.hostLegend = standardHostLegendView()
+      return
+    }
+    try {
+      let stored = await loadHostLegendView(settingId)
+      if (!stored) {
+        const legacy = await loadHostLegendView()
+        if (legacy && !isLegacyBilingualHostLegend(legacy)) {
+          stored = legacy
+          await saveHostLegendView(legacy, settingId)
+        }
+        if (legacy) await deleteHostLegendView()
+      }
+      if (selectToken !== this.#selectGeneration) return
+      const { view, replaced } = sanitizeHostLegendView(stored ?? standardHostLegendView())
+      this.hostLegend = view
+      if (replaced.length > 0) {
+        this.hostProfileNote = UNKNOWN_HOST_LAYOUT_NOTE
+        await saveHostLegendView(view, settingId)
+      }
+    } catch {
+      /* keep the in-memory view */
+    }
   }
 
   activeProfileId(language: HostLanguageId): string {
@@ -537,20 +576,25 @@ export class EditorState {
     if (!current) return { ok: false, reason: 'missing-layout' }
     const next = withHostKey(current, zmk, level, parsed.keysym)
     if (!next) return { ok: false, reason: 'unknown-key' }
-    const profile = this.userLayouts.find(layout => layout.id === layoutId)
-    if (!profile) return { ok: false, reason: 'missing-layout' }
-    const updated: UserHostLayout = { ...profile, updatedAt: Date.now() }
-    this.#registerUserLayout({ ...updated, layout: next })
-    this.userLayouts = this.userLayouts.map(layout =>
-      layout.id === updated.id ? updated : layout
-    )
-    await saveUserHostLayout({ ...updated, layout: next })
+    if (!(await this.#commitUserHostLayout(layoutId, next))) {
+      return { ok: false, reason: 'missing-layout' }
+    }
     return {
       ok: true,
       keysym: parsed.keysym,
       layoutId,
       dropsFromCompose: level === 0 && keysymToGlyph(parsed.keysym) == null
     }
+  }
+
+  async #commitUserHostLayout(layoutId: string, layout: HostLayout): Promise<boolean> {
+    const profile = this.userLayouts.find(item => item.id === layoutId)
+    if (!profile) return false
+    const updated: UserHostLayout = { ...profile, updatedAt: Date.now() }
+    this.#registerUserLayout({ ...updated, layout })
+    this.userLayouts = this.userLayouts.map(item => (item.id === updated.id ? updated : item))
+    await saveUserHostLayout({ ...updated, layout })
+    return true
   }
 
   /**
@@ -581,7 +625,7 @@ export class EditorState {
    */
   commitHostMap(next: HostLegendView): Promise<void> {
     this.hostLegend = { ...next }
-    return saveHostLegendView(this.hostLegend)
+    return this.#persistHostLegend()
   }
 
   selectLanguageProfile(language: HostLanguageId, id: string): Promise<void> {
@@ -590,7 +634,7 @@ export class EditorState {
     this.hostProfileNote = null
     if (!hostLayout(id)) return Promise.resolve()
     this.hostLegend = assignHostLanguageLayout(this.hostLegend, language, id)
-    return saveHostLegendView(this.hostLegend)
+    return this.#persistHostLegend()
   }
 
   beginSaveHostProfile(language: HostLanguageId) {
@@ -879,6 +923,8 @@ export class EditorState {
     }
     this.saveNotice = null
 
+    if (!alreadyHandled) await this.#restoreHostLegend(selectToken)
+    if (selectToken !== this.#selectGeneration) return
     if (alreadyHandled) return
     await this.#maybeRestorePersistedDraft(selectToken)
   }

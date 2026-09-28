@@ -40,6 +40,8 @@
   const choice = $derived(column ? hostLayoutChoice(column.layoutId) : undefined)
   const language = $derived(column?.language)
   const extra = $derived(language != null && isAddableHostLanguage(language))
+  const needsHostLanguage = $derived(editor.hostLegend.columns.length < 2)
+  const languageName = $derived(choice?.languageName ?? language ?? '')
   const choosing = $derived(language != null && pickingFor === language)
   const addable = $derived(hostLanguagesAvailable(editor.hostLegend))
 
@@ -124,7 +126,7 @@
 </script>
 
 {#if !column}
-  <th class="add-language-cell">
+  <th class="add-language-cell" class:prompt={needsHostLanguage}>
     {#if pickingNew}
       <div class="lang-head">
         <select
@@ -135,6 +137,21 @@
           onchange={event => pickNewLanguage(event.currentTarget.value)}
         >
           <option value="" disabled>Language</option>
+          {#each addable as option (option)}
+            <option value={option}>{hostLanguageName(option)}</option>
+          {/each}
+        </select>
+      </div>
+    {:else if needsHostLanguage}
+      <div class="lang-head host-prompt">
+        <span class="prompt-label">Computer language</span>
+        <select
+          class="language-select"
+          aria-label="Computer language"
+          value=""
+          onchange={event => pickNewLanguage(event.currentTarget.value)}
+        >
+          <option value="" disabled>Choose</option>
           {#each addable as option (option)}
             <option value={option}>{hostLanguageName(option)}</option>
           {/each}
@@ -171,9 +188,11 @@
             onclick={toggleLanguagePicker}
           >
             {choice?.flag ?? '—'}
+            <span class="caret" aria-hidden="true"></span>
           </button>
         {:else}
-          <span class="lang-flag" title={choice?.languageName ?? language}>{choice?.flag ?? '—'}</span>
+          <span class="lang-flag" title={extra ? languageName : 'Firmware key codes (US)'}>{choice?.flag ?? '—'}</span>
+          {#if !extra}<span class="base-caption">Firmware</span>{/if}
         {/if}
         <div class="lang-tools" hidden={!column.wide && !choosing}>
           {#if choosing}
@@ -207,7 +226,8 @@
         </div>
       {:else}
         <span class="eye-spacer"></span>
-        <span class="lang-flag">{choice?.flag ?? '—'}</span>
+        <span class="lang-flag" title={extra ? languageName : 'Firmware key codes (US)'}>{choice?.flag ?? '—'}</span>
+        {#if !extra}<span class="base-caption">Firmware</span>{/if}
         {#if column.wide}
           <span class="profile-name">{activeProfileLabel()}</span>
         {/if}
@@ -329,21 +349,62 @@
     background: rgba(29, 111, 138, 0.08);
   }
 
-  .lang-flag {
-    font-size: 16px;
+  .host-prompt {
+    gap: 6px;
+  }
+
+  .prompt-label,
+  .base-caption {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
     line-height: 1.2;
+    color: #8a847c;
+  }
+
+  .prompt-label {
+    color: #1d6f8a;
+  }
+
+  .lang-flag {
+    display: inline-flex;
+    align-items: center;
+    line-height: 0;
   }
 
   button.lang-flag {
+    gap: 3px;
     margin: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    font-size: 16px;
-    line-height: 1.2;
+    padding: 2px 4px 2px 3px;
+    border: 1px solid #b7b1a8;
+    border-radius: 4px;
+    background: #fff;
+    color: #5c564e;
     cursor: pointer;
+  }
+
+  button.lang-flag:hover,
+  button.lang-flag[aria-expanded='true'] {
+    border-color: #1d6f8a;
+    background: rgba(29, 111, 138, 0.08);
+    color: #1d6f8a;
+  }
+
+  button.lang-flag:focus-visible {
+    outline: 2px solid #1d6f8a;
+    outline-offset: 1px;
+  }
+
+  button.lang-flag .caret {
+    width: 0;
+    height: 0;
+    border-left: 3px solid transparent;
+    border-right: 3px solid transparent;
+    border-top: 4px solid currentColor;
+  }
+
+  button.lang-flag[aria-expanded='true'] .caret {
+    transform: rotate(180deg);
   }
 
   .profile-name {

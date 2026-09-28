@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { composeLegendDecode, hostLegendFor } from './compose.js'
 import { parseKeyBinding } from './keymap.js'
 import {
+  addHostLanguage,
   assignHostLanguageLayout,
   hostLegendColumns,
   standardHostLegendView,
@@ -121,7 +122,7 @@ describe('host layout registry', () => {
       cloneLayout(USER_RU_ID, source)
     )
 
-    const started = standardHostLegendView()
+    const started = addHostLanguage(standardHostLegendView(), 'ru')
     const builtinView = assignHostLanguageLayout(started, 'ru', BUILTIN_RU)
     const userView = assignHostLanguageLayout(started, 'ru', USER_RU_ID)
 

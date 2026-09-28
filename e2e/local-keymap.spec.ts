@@ -164,8 +164,11 @@ test.describe('local adapter smoke', () => {
     await expect(layer0Row).toBeVisible()
     await expect(key.locator('.keycap')).not.toContainText(hostGlyph)
 
+    const hostLanguage = page.getByRole('combobox', { name: 'Computer language' })
+    if (await hostLanguage.isVisible()) await hostLanguage.selectOption('ru')
+
     // Alt+click is the only host-edit entry; then arm the open Russian column
-    // so the keycap (open: 'ru') repaints immediately.
+    // so the keycap repaints immediately.
     await layer0Row.click({ modifiers: ['Alt'] })
     const decodeDialog = page.getByRole('dialog', { name: /Legend decode/ })
     await expect(decodeDialog).toBeVisible()

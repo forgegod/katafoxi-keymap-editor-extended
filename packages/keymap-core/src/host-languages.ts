@@ -55,7 +55,7 @@ export const HOST_LANGUAGES = [
       'phonetic_mac'
     ],
     primarySection: 'winkeys',
-    addable: false,
+    addable: true,
     symbols: SYSTEM_RU_SYMBOLS
   }),
   language({

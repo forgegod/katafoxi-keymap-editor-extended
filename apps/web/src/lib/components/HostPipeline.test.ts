@@ -1,6 +1,6 @@
 import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { SYSTEM_US_LAYOUT_ID } from '@keymap-editor/keymap-core'
+import { addHostLanguage, SYSTEM_US_LAYOUT_ID } from '@keymap-editor/keymap-core'
 import { editor } from '../editor.svelte.js'
 import { clearHostLayoutStore } from '../host-layout-store'
 import HostPipeline from './HostPipeline.svelte'
@@ -127,6 +127,7 @@ describe('HostPipeline', () => {
     )
     flushSync()
 
+    await editor.commitHostMap(addHostLanguage(editor.hostLegend, 'ru'))
     await editor.setHostKeyLevel('ru', 'A', 0, 'ф')
     flushSync()
     linux.click()

@@ -93,10 +93,14 @@ describe('keysymToGlyph', () => {
   })
 })
 
+function withRussian(view: HostLegendView = standardHostLegendView()): HostLegendView {
+  return view.columns.some(column => column.language === 'ru') ? view : addHostLanguage(view, 'ru')
+}
+
 function larkView(): HostLegendView {
   registerLarkHostFixture()
   return assignHostLanguageLayout(
-    assignHostLanguageLayout(standardHostLegendView(), 'en', 'lark-en'),
+    assignHostLanguageLayout(withRussian(), 'en', 'lark-en'),
     'ru',
     'lark-ru'
   )
@@ -222,8 +226,7 @@ describe('system English us(basic)', () => {
     )
     expect(view.columns[0].layoutId).toBe(SYSTEM_US_LAYOUT_ID)
     expect(hostLegendFor('E', view)?.columns[0]?.pair).toEqual(['e', 'E'])
-    expect(extraPair(hostLegendFor('E', view)!)).toEqual(['у', 'У'])
-    expect(altNote(hostLegendFor('E', view)!)).toBe('ˬˬ')
+    expect(extraPair(hostLegendFor('E', view)!)).toBeNull()
     expect(hostLegendFor('N1', view)?.columns[0]?.pair).toEqual(['1', '!'])
   })
 
@@ -238,13 +241,13 @@ describe('system English us(basic)', () => {
 
   it('maps phonetic Q to я and typewriter slash to ё', () => {
     const phonetic = assignHostLanguageLayout(
-      standardHostLegendView(),
+      withRussian(),
       'ru',
       'system-ru-phonetic'
     )
     expect(extraPair(hostLegendFor('Q', phonetic)!)).toEqual(['я', 'Я'])
     const typewriter = assignHostLanguageLayout(
-      standardHostLegendView(),
+      withRussian(),
       'ru',
       'system-ru-typewriter'
     )
@@ -267,7 +270,7 @@ function openLayoutId(view: HostLegendView): string | null {
 
 describe('system Russian winkeys', () => {
   const view = hideAllAlt(
-    assignHostLanguageLayout(standardHostLegendView(), 'ru', SYSTEM_RU_LAYOUT_ID)
+    assignHostLanguageLayout(withRussian(), 'ru', SYSTEM_RU_LAYOUT_ID)
   )
 
   it('uses common letters and winkeys punctuation', () => {
@@ -344,7 +347,7 @@ describe('Ukrainian system layout', () => {
   })
 
   it('adds Ukrainian and collapses Russian to a flag', () => {
-    const view = addHostLanguage(standardHostLegendView(), 'uk')
+    const view = addHostLanguage(withRussian(), 'uk')
     const columns = hostLegendColumns(view)
     expect(columns.map(column => [column.language, column.wide])).toEqual([
       ['en', true],
@@ -356,7 +359,7 @@ describe('Ukrainian system layout', () => {
   })
 
   it('opens Russian again and collapses Ukrainian', () => {
-    const added = addHostLanguage(standardHostLegendView(), 'uk')
+    const added = addHostLanguage(withRussian(), 'uk')
     const back = toggleHostLanguage(added, 'ru')
     const columns = hostLegendColumns(back)
     expect(columns.map(column => [column.language, column.wide])).toEqual([
@@ -449,7 +452,6 @@ describe('German system layout', () => {
     const de = addHostLanguage(uk, 'de')
     expect(hostLegendColumns(de).map(column => [column.language, column.wide])).toEqual([
       ['en', true],
-      ['ru', false],
       ['uk', false],
       ['de', true]
     ])
@@ -462,7 +464,6 @@ describe('German system layout', () => {
     const de = replaceHostLanguage(uk, 'uk', 'de')
     expect(hostLegendColumns(de).map(column => [column.language, column.wide])).toEqual([
       ['en', true],
-      ['ru', false],
       ['de', true]
     ])
     expect(openLayoutId(de)).toBe('system-de')
@@ -470,7 +471,7 @@ describe('German system layout', () => {
   })
 
   it('removes an extra language and reopens Russian', () => {
-    const uk = addHostLanguage(standardHostLegendView(), 'uk')
+    const uk = addHostLanguage(withRussian(), 'uk')
     const gone = removeHostLanguage(uk, 'uk')
     expect(hostLegendColumns(gone).map(column => [column.language, column.wide])).toEqual([
       ['en', true],

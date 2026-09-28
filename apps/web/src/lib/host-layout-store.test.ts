@@ -14,7 +14,7 @@ import {
   type HostLegendView
 } from '@keymap-editor/keymap-core'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { EditorState, editor } from './editor.svelte.js'
+import { EditorState, editor, type KeyboardSelection } from './editor.svelte.js'
 import {
   clearHostLayoutStore,
   HOST_LAYOUT_DB_NAME,
@@ -23,6 +23,20 @@ import {
   UNKNOWN_HOST_LAYOUT_NOTE,
   uniqueUserHostLayoutName
 } from './host-layout-store'
+
+const BOARD: KeyboardSelection = {
+  source: 'local',
+  layout: [],
+  keymap: {
+    keyboard: 'board',
+    layers: [[{ value: '&none', params: [] }]],
+    layer_names: ['base']
+  }
+}
+
+async function openBoard(state: EditorState = editor) {
+  await state.selectKeyboard(BOARD)
+}
 
 function openLayoutId(view: HostLegendView): string | null {
   if (view.open == null) return null
@@ -86,6 +100,8 @@ describe('host layout store', () => {
   beforeEach(async () => {
     editor.resetForTests()
     await clearHostLayoutStore()
+    await openBoard()
+    editor.hostLegend = addHostLanguage(editor.hostLegend, 'ru')
   })
 
   it('switches a language column without asking for a name', async () => {
@@ -125,6 +141,7 @@ describe('host layout store', () => {
 
     editor.resetForTests()
     await editor.restoreHostProfiles()
+    await openBoard()
     expect(editor.userLayouts.map(layout => layout.name)).toEqual(['Домашняя'])
     expect(editor.userLayouts[0]?.language).toBe('ru')
     expect(openLayoutId(editor.hostLegend)).toBe(editor.activeProfileId('ru'))
@@ -201,6 +218,7 @@ describe('host layout store', () => {
 
     const next = new EditorState()
     await next.restoreHostProfiles()
+    await openBoard(next)
     expect(next.hostLegend.columns).toEqual(saved.columns)
     expect(next.hostLegend.open).toBe('uk')
     expect(next.activeProfileId('uk')).toBe('system-ua-winkeys')
@@ -218,6 +236,7 @@ describe('host layout store', () => {
 
     editor.resetForTests()
     await editor.restoreHostProfiles()
+    await openBoard()
     expect(editor.hostLegend.columns).toEqual(saved.columns)
     expect(editor.hostLegend.open).toBe(saved.open)
     expect(editor.activeProfileId('uk')).toBe('system-ua-winkeys')
@@ -277,6 +296,7 @@ describe('host layout store', () => {
     })
     editor.resetForTests()
     await editor.restoreHostProfiles()
+    await openBoard()
     expect(editor.hostLegend.columns[0].layoutId).toBe(SYSTEM_US_LAYOUT_ID)
     expect(editor.hostProfileNote).toBe(UNKNOWN_HOST_LAYOUT_NOTE)
   })
@@ -304,6 +324,7 @@ describe('host layout store', () => {
 
     const next = new EditorState()
     await next.restoreHostProfiles()
+    await openBoard(next)
     expect(next.userLayouts.map(layout => layout.name)).toEqual(['Домашняя'])
     expect(next.userLayouts[0]?.id).toBe('user:legacy-ru')
     expect(next.userLayouts[0]?.origin).toEqual({
@@ -352,6 +373,7 @@ describe('host layout store', () => {
 
     const next = new EditorState()
     await next.restoreHostProfiles()
+    await openBoard(next)
     expect(next.activeProfileId('en')).toBe(editor.activeProfileId('en'))
     expect(hostLayout(next.activeProfileId('en'))?.byZmk.get('E')?.glyphs).toEqual([
       'α',
@@ -405,6 +427,7 @@ describe('host layout store', () => {
 
     editor.resetForTests()
     await editor.restoreHostProfiles()
+    await openBoard()
     expect(editor.activeProfileId('ru')).toBe(id)
     expect(editor.userLayouts.map(layout => layout.name)).toEqual([expectedName])
     expect((await loadUserHostLayouts()).map(layout => layout.id)).toEqual([id])
@@ -497,6 +520,7 @@ describe('host layout store', () => {
 
     editor.resetForTests()
     await editor.restoreHostProfiles()
+    await openBoard()
     expect(editor.activeProfileId('en')).toBe(layoutId)
     expect(hostLayout(layoutId)?.byZmk.get('A')?.keysyms[0]).toBe('Greek_alpha')
     expect(hostLayout(layoutId)?.byZmk.get('A')?.glyphs[0]).toBe('α')

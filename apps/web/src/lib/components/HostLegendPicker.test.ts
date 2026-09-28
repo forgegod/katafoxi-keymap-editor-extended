@@ -39,8 +39,9 @@ describe('HostLegendPicker', () => {
   let target: HTMLDivElement
   let view: ReturnType<typeof mount> | undefined
 
-  beforeEach(() => {
+  beforeEach(async () => {
     editor.resetForTests()
+    await clearHostLayoutStore()
     target = document.createElement('div')
     document.body.appendChild(target)
   })
@@ -211,9 +212,11 @@ describe('HostLegendPicker', () => {
     await open(keymapOf(['default']))
     const triggers = [...target.querySelectorAll('.legend-panel .profile-trigger')]
     expect(triggers.map(el => el.getAttribute('aria-label'))).toEqual([
-      'Profile English: System',
-      'Profile Russian: System'
+      'Profile English: System'
     ])
+    expect(target.querySelector('.legend-panel .prompt-label')?.textContent).toBe(
+      'Computer language'
+    )
     const english = triggers[0]
     if (!(english instanceof HTMLButtonElement)) throw new Error('missing English profile')
     expect(english.textContent?.trim()).toBe('System')
@@ -235,6 +238,7 @@ describe('HostLegendPicker', () => {
 
   it('lists Russian system variants and copies from a row', async () => {
     await open(keymapOf(['default']))
+    chooseLanguage('ru')
     const russian = [...target.querySelectorAll('.legend-panel .profile-trigger')].find(
       el => el.getAttribute('aria-label')?.startsWith('Profile Russian')
     )
@@ -267,27 +271,20 @@ describe('HostLegendPicker', () => {
 
   it('adds Ukrainian after the language is chosen', async () => {
     await open(keymapOf(['default']))
-    const add = target.querySelector('.legend-panel .add-language')
-    if (!(add instanceof HTMLButtonElement)) throw new Error('missing add language')
-    add.click()
-    flushSync()
-    expect(openLayoutId(editor.hostLegend)).toBe('system-ru')
     const options = [...target.querySelectorAll('.legend-panel .language-select option')].map(
       el => el.textContent?.trim()
     )
-    expect(options).toEqual(['Language', 'Ukrainian', 'German'])
+    expect(options).toEqual(['Choose', 'Russian', 'Ukrainian', 'German'])
     chooseLanguage('uk')
     expect(openLayoutId(editor.hostLegend)).toBe('system-ua')
-    const flags = [...target.querySelectorAll('.legend-panel .lang-flag')].map(
-      el => el.textContent
+    const flags = [...target.querySelectorAll('.legend-panel .lang-flag')].map(el =>
+      el.textContent?.trim()
     )
-    expect(flags).toEqual(['🇺🇸', '🇷🇺', '🇺🇦'])
+    expect(flags).toEqual(['🇺🇸', '🇺🇦'])
     const triggers = [...target.querySelectorAll('.legend-panel .profile-trigger')]
       .filter(el => !el.closest('.lang-head.narrow'))
       .map(el => el.getAttribute('aria-label'))
     expect(triggers).toEqual(['Profile English: System', 'Profile Ukrainian: System'])
-    const russian = target.querySelector('.legend-panel .lang-head.narrow .lang-flag')
-    expect(russian?.textContent).toBe('🇷🇺')
     const ukrainian = [...target.querySelectorAll('.legend-panel .profile-trigger')].find(
       el => el.getAttribute('aria-label')?.startsWith('Profile Ukrainian')
     )
@@ -320,15 +317,11 @@ describe('HostLegendPicker', () => {
       [...target.querySelectorAll('.legend-panel .language-select option')]
         .map(el => el.textContent?.trim())
         .filter(Boolean)
-    ).toEqual(['Remove language', 'German'])
+    ).toEqual(['Remove language', 'Russian', 'German'])
   })
 
   it('adds German after Ukrainian and lists its system variants', async () => {
     await open(keymapOf(['default']))
-    const add = target.querySelector('.legend-panel .add-language')
-    if (!(add instanceof HTMLButtonElement)) throw new Error('missing add language')
-    add.click()
-    flushSync()
     chooseLanguage('uk')
     const addAgain = target.querySelector('.legend-panel .add-language')
     if (!(addAgain instanceof HTMLButtonElement)) throw new Error('missing second add language')
@@ -338,13 +331,13 @@ describe('HostLegendPicker', () => {
       [...target.querySelectorAll('.legend-panel .language-select option')].map(el =>
         el.textContent?.trim()
       )
-    ).toEqual(['Language', 'German'])
+    ).toEqual(['Language', 'Russian', 'German'])
     chooseLanguage('de')
     expect(openLayoutId(editor.hostLegend)).toBe('system-de')
-    const flags = [...target.querySelectorAll('.legend-panel .lang-flag')].map(
-      el => el.textContent
+    const flags = [...target.querySelectorAll('.legend-panel .lang-flag')].map(el =>
+      el.textContent?.trim()
     )
-    expect(flags).toEqual(['🇺🇸', '🇷🇺', '🇺🇦', '🇩🇪'])
+    expect(flags).toEqual(['🇺🇸', '🇺🇦', '🇩🇪'])
     const german = [...target.querySelectorAll('.legend-panel .profile-trigger')].find(
       el => el.getAttribute('aria-label')?.startsWith('Profile German')
     )
@@ -372,11 +365,11 @@ describe('HostLegendPicker', () => {
       [...target.querySelectorAll('.legend-panel .language-select option')]
         .map(el => el.textContent?.trim())
         .filter(Boolean)
-    ).toEqual(['Remove language'])
+    ).toEqual(['Remove language', 'Russian'])
     chooseLanguage('__remove__')
     expect(
-      [...target.querySelectorAll('.legend-panel .lang-flag')].map(el => el.textContent)
-    ).toEqual(['🇺🇸', '🇷🇺', '🇺🇦'])
+      [...target.querySelectorAll('.legend-panel .lang-flag')].map(el => el.textContent?.trim())
+    ).toEqual(['🇺🇸', '🇺🇦'])
     expect(target.querySelector('.legend-panel .add-language')).toBeInstanceOf(HTMLButtonElement)
   })
 
