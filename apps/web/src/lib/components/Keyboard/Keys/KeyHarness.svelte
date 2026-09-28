@@ -3,6 +3,7 @@
     getBehaviorCatalog,
     getKeycodeCatalog,
     layerLegendSymbol,
+    type HostLegendView,
     type KeyBindingNode,
     type LayerView
   } from '@keymap-editor/keymap-core'
@@ -19,6 +20,7 @@
     layerIndex?: number
     layerBindings?: KeyBindingNode[]
     layerView?: LayerView
+    hostView?: HostLegendView
     onUpdate?: (keyIndex: number, layerIndex: number, binding: KeyBindingNode) => void
   }
 
@@ -31,6 +33,7 @@
     layerIndex = 0,
     layerBindings,
     layerView,
+    hostView,
     onUpdate = () => {}
   }: Props = $props()
 
@@ -65,5 +68,6 @@
     layerBindings ?? [{ value, params: params as KeyBindingNode[] }]
   }
   {layerView}
+  {hostView}
   onUpdate={(keyIndex, layerIndex, binding) => onUpdate(keyIndex, layerIndex, binding)}
 />
