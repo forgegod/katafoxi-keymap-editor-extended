@@ -29,6 +29,7 @@ import {
   addHostLanguage,
   assignHostLanguageLayout,
   keycapColumns,
+  multilangKeycapLines,
   parseKeyBinding,
   setHostColumnAlt,
   standardHostLegendView,
@@ -320,6 +321,37 @@ describe('resolveBinding / composeKey', () => {
       { text: 'ыЫ', tone: 'base' },
       { text: 'іІ', tone: 'second' }
     ])
+  })
+
+  it('stacks every host column, including one the two-slot keycap left off', () => {
+    const hostView = addHostLanguage(larkView(), 'uk')
+    const legend = composeKey({ binding: parseKeyBinding('&kp A'), hostView })
+    expect(legend?.columns.map(column => column.onKeycap)).toEqual([true, false, true])
+    const lines = multilangKeycapLines(parseKeyBinding('&kp A'), hostView)
+    expect(lines?.map(line => line.language)).toEqual(['en', 'ru', 'uk'])
+    expect(
+      lines?.map(line =>
+        keycapColumns(line.legend)
+          .filter(column => column.kind === 'letters')
+          .map(column => column.pieces[0]?.text)
+          .join('')
+      )
+    ).toEqual(legend?.columns.map(column => `${column.pair[0]}${column.pair[1]}`))
+    expect(lines?.every(line => !keycapColumns(line.legend).some(column =>
+      column.pieces.some(piece => piece.text === '/')
+    ))).toBe(true)
+
+    const hidden = toggleHostLanguage(hostView, 'en')
+    expect(multilangKeycapLines(parseKeyBinding('&kp A'), hidden)?.map(line => line.language)).toEqual([
+      'en',
+      'ru',
+      'uk'
+    ])
+    expect(multilangKeycapLines(parseKeyBinding('&kp ESC'), hostView)).toBeNull()
+
+    const held = multilangKeycapLines(parseKeyBinding('&mt LCTRL A'), hostView)
+    expect(held?.[0]?.legend.hold).toBe('⧗⌃')
+    expect(held?.[1]?.legend.hold).toBeUndefined()
   })
 
   it('keeps three visible columns on the legend and draws base plus open on the keycap', () => {

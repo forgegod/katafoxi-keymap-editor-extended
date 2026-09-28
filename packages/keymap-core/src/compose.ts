@@ -500,6 +500,42 @@ export function keycapColumns(legend: ComposedLegend): KeycapColumn[] {
   return columns
 }
 
+export interface MultilangKeycapLine {
+  language: HostLanguageId
+  /** One language, including columns the two-slot keycap left off. */
+  legend: ComposedLegend
+}
+
+/**
+ * One face per host column, in column order.
+ * Languages the eye hid and languages past the two-slot keycap stay in the list,
+ * and an empty glyph still keeps its row, so every host character key lines up.
+ * Null when the tap is not a host character.
+ */
+export function multilangKeycapLines(
+  binding: KeyBindingNode,
+  view?: HostLegendView
+): MultilangKeycapLine[] | null {
+  const resolved = resolveBinding(binding)
+  if (resolved.tap == null) return null
+  const id = hostKeyByZmk(resolved.tap)
+  if (!id) return null
+  const columns = resolveHostColumns(view ?? standardHostLegendView())
+  if (columns.length === 0) return null
+  const hold = resolved.hold ? formatHoldBadge(resolved.hold) : undefined
+  const keypad = isKeypadCode(resolved.tap)
+  return columns.map((column, index) => {
+    const composed = composeColumn(column, id.zmk)
+    const face = composed ? { ...composed, onKeycap: true, tone: 'base' as const } : null
+    const legend: ComposedLegend = {
+      columns: face ? [face] : [],
+      ...(index === 0 && hold ? { hold } : {}),
+      ...(keypad ? { keypad: true } : {})
+    }
+    return { language: column.language, legend }
+  })
+}
+
 export interface LegendDecodeSlot {
   text: string
   /** True when this current-row cell differs from the language's primary system. */
