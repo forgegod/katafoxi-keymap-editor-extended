@@ -11,7 +11,8 @@ import { clearHostLayoutStore } from '../host-layout-store'
 import HostSymbolCatalog from './HostSymbolCatalog.svelte'
 import HostSymbolPicker, {
   hostSymbolExpandedByLanguage,
-  hostSymbolPickerFrame
+  hostSymbolPickerFrame,
+  placePickerClearOf
 } from './HostSymbolPicker.svelte'
 import Harness from './Keyboard/Keys/KeyHarness.svelte'
 
@@ -271,5 +272,57 @@ describe('LegendDecodeCard host symbol catalog', () => {
     expect(editor.hostSymbolCatalogOpen).toBe(false)
     expect(editor.hostEditSession).toBeNull()
     expect(document.querySelector('.legend-decode')).toBeNull()
+  })
+})
+
+describe('placePickerClearOf', () => {
+  const view = { width: 1400, height: 900 }
+  const card = { left: 29, top: 319, width: 227, height: 177 }
+
+  function overlaps(a: typeof card, b: typeof card): boolean {
+    const gap = 8
+    return (
+      a.left < b.left + b.width + gap &&
+      a.left + a.width + gap > b.left &&
+      a.top < b.top + b.height + gap &&
+      a.top + a.height + gap > b.top
+    )
+  }
+
+  it('moves a catalog that only invades the gutter', () => {
+    expect(
+      placePickerClearOf({ left: 263, top: 227, width: 560, height: 394 }, card, view)
+    ).toEqual({ left: 264, top: 227, width: 560, height: 394 })
+  })
+
+  it('leaves a catalog that already clears the card', () => {
+    const picker = { left: 400, top: 40, width: 560, height: 394 }
+    expect(placePickerClearOf(picker, card, view)).toEqual(picker)
+  })
+
+  it('steps to the right of a card it covers on the left', () => {
+    const next = placePickerClearOf({ left: 20, top: 300, width: 560, height: 394 }, card, view)
+    expect(next.left).toBe(29 + 227 + 8)
+    expect(overlaps(next, card)).toBe(false)
+  })
+
+  it('steps to the left when the card is against the right edge', () => {
+    const rightCard = { left: 1100, top: 200, width: 227, height: 177 }
+    const next = placePickerClearOf(
+      { left: 700, top: 180, width: 560, height: 394 },
+      rightCard,
+      view
+    )
+    expect(next.left + next.width).toBeLessThanOrEqual(1100 - 8)
+    expect(overlaps(next, rightCard)).toBe(false)
+  })
+
+  it('stacks clear of the card when neither side fits', () => {
+    const narrow = { width: 400, height: 900 }
+    const mid = { left: 80, top: 400, width: 227, height: 177 }
+    const next = placePickerClearOf({ left: 8, top: 40, width: 560, height: 300 }, mid, narrow)
+    expect(overlaps(next, mid)).toBe(false)
+    expect(next.width).toBeGreaterThanOrEqual(240)
+    expect(next.height).toBeGreaterThanOrEqual(180)
   })
 })

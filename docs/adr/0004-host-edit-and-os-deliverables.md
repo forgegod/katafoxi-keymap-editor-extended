@@ -17,7 +17,7 @@ ZMK already has a visible chrome pipeline (Source → draft → Write files / Gi
 2. **Alt+click** a composed row = only entry into a **host-edit session**: lock the decode card (board exclusivity via `legend-decode-active`), show Accept / Cancel (Enter / Escape), open the persistent Ω catalog. Glyph picks **write immediately**; Accept/Cancel only end the session (Cancel does not roll back).
 3. Plain click on the row = ZMK `KeyEditor` (unchanged).
 4. Host edit is offered only when the binding’s tap is in the **host-key registry** (`hostKeyByZmk`). Non-character keys (e.g. `BSPC`) peek without Alt+click host affordance.
-5. The docked **Host symbol catalog** (Ω) stays open across picks; expand/scroll/geometry persist in the module.
+5. The docked **Host symbol catalog** (Ω) stays open across picks; expand/scroll/geometry persist in the module. When a host-edit session opens, and when that session’s decode card moves to another key, the catalog shifts off the card (8px of clearance), shrinking toward its minimum if the roomier side is tight. A drag is left where it is dropped.
 
 ### Chrome: two lanes
 
