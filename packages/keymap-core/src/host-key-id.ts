@@ -31,6 +31,12 @@ export interface HostKeyId {
   /** Windows virtual-key name, as MSKLC spells it. */
   vk: string
   vkCode: number
+  /**
+   * Windows set-1 scan code for a .klc LAYOUT row.
+   * On the typewriter block this is the same number as `evdev`.
+   * Modifier keys have no scan: they are not character rows.
+   */
+  scan?: number
 }
 
 interface HostKeySeed {
@@ -249,6 +255,29 @@ const SEEDS: readonly HostKeySeed[] = [
   }
 ]
 
+/**
+ * Typewriter keys that occupy a .klc LAYOUT row. Their Windows scan code
+ * matches the evdev code; modifiers are absent from that set.
+ */
+const SCAN_IS_EVDEV = new Set<string>([
+  ...'1234567890'.split('').map(label => `N${label}`),
+  'GRAVE',
+  ...'QWERTYUIOP',
+  'LBKT',
+  'RBKT',
+  ...'ASDFGHJKL',
+  'SEMI',
+  'SQT',
+  'BSLH',
+  ...'ZXCVBNM',
+  'COMMA',
+  'DOT',
+  'SLASH',
+  'NON_US_BSLH',
+  'MINUS',
+  'EQUAL'
+])
+
 function freeze(seed: HostKeySeed): HostKeyId {
   return Object.freeze({
     zmk: seed.zmk,
@@ -259,7 +288,8 @@ function freeze(seed: HostKeySeed): HostKeyId {
     evdev: seed.evdev,
     evdevName: seed.evdevName,
     vk: seed.vk,
-    vkCode: seed.vkCode
+    vkCode: seed.vkCode,
+    ...(SCAN_IS_EVDEV.has(seed.zmk) ? { scan: seed.evdev } : {})
   })
 }
 

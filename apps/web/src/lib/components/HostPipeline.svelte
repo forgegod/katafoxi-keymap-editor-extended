@@ -3,6 +3,7 @@
   import logoLinux from '../assets/logo-linux.png'
   import logoWindows from '../assets/logo-windows.png'
   import Modal from './Common/Modal.svelte'
+  import LangFlag from './LangFlag.svelte'
 
   type InstallSheet = 'linux' | 'windows' | null
 
@@ -45,6 +46,11 @@
     void editor.hostLayoutRevision
     void editor.hostLegend
     return editor.listActiveHostLayoutExports()
+  })
+  const capsExports = $derived.by(() => {
+    void editor.hostLayoutRevision
+    void editor.hostLegend
+    return editor.listCapsAlphabetKlcExports()
   })
 
   /** Prefer small / easy-to-pick XKB modules over the huge defaults (us, winkeys, …). */
@@ -93,6 +99,31 @@
 
   function downloadSection(text: string, name: string) {
     downloadText(text, safeFileName(name, 'symbols.txt'))
+  }
+
+  function downloadBytes(bytes: Uint8Array, fileName: string) {
+    const blob = new Blob([new Uint8Array(bytes)], { type: 'application/octet-stream' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    link.rel = 'noopener'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  function downloadKlc(layoutId: string, name: string) {
+    const file = editor.exportUserHostLayoutKlc(layoutId)
+    if (!file) return
+    downloadBytes(file.bytes, safeFileName(name, 'klc'))
+  }
+
+  function downloadCapsKlc(item: (typeof capsExports)[number]) {
+    const file = editor.exportCapsAlphabetKlc(item.capsLanguage)
+    if (!file) return
+    downloadBytes(file.bytes, safeFileName(item.fileStem, 'klc'))
   }
 
   function downloadAllLinux() {
@@ -174,7 +205,7 @@
         {@const target = installTarget(item)}
         <section class="layout-card">
           <h3>
-            <span class="flag" aria-hidden="true">{item.flag}</span>
+            <span class="flag" aria-hidden="true"><LangFlag language={item.language} /></span>
             {item.languageName}
             <span class="profile-name">“{item.name}”</span>
             <span class="module">symbols/{target.module}{target.variant ? ` · ${target.variant}` : ''}</span>
@@ -273,9 +304,8 @@
         <div>
           <h2 id="windows-install-title">Install on Windows</h2>
           <p class="lede">
-            Windows custom layouts go through Microsoft Keyboard Layout Creator (MSKLC): edit →
-            build an installer → install → reboot. Automated <code>.klc</code> export is not ready
-            yet.
+            Open the <code>.klc</code> file in Microsoft Keyboard Layout Creator, build the installer,
+            then sign out so Windows loads the layout.
           </p>
         </div>
       </header>
@@ -286,35 +316,72 @@
           <a href={MSKLC_URL} target="_blank" rel="noopener noreferrer">MSKLC from Microsoft</a>
           if you do not have it.
         </li>
-        <li>Create or edit the layout in MSKLC (use the Linux section text as a glyph reference).</li>
-        <li>Build the installer from MSKLC, then run it.</li>
-        <li>Sign out or reboot so Windows loads the new layout.</li>
-        <li>
-          Two languages can share one Windows layout; a third usually needs its own — set switching
-          modes in Language settings.
-        </li>
+        <li>Download a <code>.klc</code> file below.</li>
+        <li>In MSKLC, use File → Load Source File, then Project → Build DLL and Setup Package.</li>
+        <li>Run the installer, then sign out or reboot so Windows loads the new layout.</li>
       </ol>
 
-      <div class="row-actions">
-        <a class="primary link-btn" href={MSKLC_URL} target="_blank" rel="noopener noreferrer">
-          Open MSKLC download
-        </a>
-        <button
-          type="button"
-          class="secondary"
-          disabled
-          title="KLC export is not implemented yet"
-        >
-          Download .klc file
-        </button>
-      </div>
-      <p class="aside">
-        Active host profiles:
-        {#each exports as item, i (item.layoutId)}
-          {#if i > 0}, {/if}{item.flag}
-          {item.languageName} (“{item.name}”)
-        {/each}
-      </p>
+      {#if capsExports.length > 0}
+        <section class="paired" aria-labelledby="windows-paired-title">
+          <h3 id="windows-paired-title">Two alphabets in one layout</h3>
+          <p>
+            This file stays an English keyboard in Windows. Caps Lock types the other language, so
+            one English entry in the language list covers both alphabets.
+          </p>
+          <p>
+            Some programs follow the active Windows language when they handle shortcuts. GIMP is a
+            common case: shortcuts work on an English layout and fail while a Russian layout is
+            selected. Here the active language stays English the whole time, and the second alphabet
+            is only Caps Lock, so those shortcuts keep working.
+          </p>
+          <p>On each key:</p>
+          <ul>
+            <li>the key types the English letter</li>
+            <li>Shift types the English capital</li>
+            <li>Caps Lock types the other language</li>
+            <li>Caps Lock together with Shift types that capital</li>
+            <li>
+              AltGr and AltGr+Shift type the other language’s extra symbols, with Caps Lock on or
+              off
+            </li>
+          </ul>
+          <p>Shift is how you get capitals. Caps Lock switches alphabet.</p>
+          <p>
+            AltGr and AltGr+Shift come from the other language. A plain US layout leaves those keys
+            empty, so the national layout is where those characters live — German @, €, and brackets
+            are typical. This file writes that national AltGr. When both columns show an AltGr
+            symbol on the same key, the file uses the other language’s symbol. An English symbol
+            remains where the other language’s AltGr level is empty.
+          </p>
+          <p>Each combined download pairs English with one other language on the board.</p>
+          {#each capsExports as item (item.capsLanguage)}
+            <p class="paired-source">
+              English column “{item.baseLayoutName}”, {item.capsLanguageName} column “{item.capsLayoutName}”.
+            </p>
+            <div class="row-actions">
+              <button type="button" class="primary" onclick={() => downloadCapsKlc(item)}>
+                Download {item.baseLanguageName} + {item.capsLanguageName} .klc
+              </button>
+            </div>
+          {/each}
+        </section>
+        <h3 class="files-heading">One language per file</h3>
+      {/if}
+
+      {#each exports as item (item.layoutId)}
+        <section class="layout-card">
+          <h3>
+            <span class="flag" aria-hidden="true"><LangFlag language={item.language} /></span>
+            {item.languageName}
+            <span class="profile-name">“{item.name}”</span>
+          </h3>
+          <div class="row-actions">
+            <button type="button" class="primary" onclick={() => downloadKlc(item.layoutId, item.name)}>
+              Download .klc
+            </button>
+          </div>
+        </section>
+      {/each}
 
       <div class="dialog-foot">
         <button type="button" class="secondary" onclick={closeSheet}>Close</button>
@@ -450,6 +517,50 @@
     margin-top: 6px;
   }
 
+  .paired {
+    margin: 0 0 14px;
+    padding: 12px 12px 10px;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid rgba(29, 111, 138, 0.45);
+  }
+
+  .paired h3,
+  .files-heading {
+    margin: 0 0 8px;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .files-heading {
+    margin-top: 2px;
+  }
+
+  .paired p,
+  .paired li {
+    margin: 0 0 8px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: #333;
+  }
+
+  .paired ul {
+    margin: 0 0 8px;
+    padding-left: 1.2em;
+  }
+
+  .paired li + li {
+    margin-top: 2px;
+  }
+
+  .paired-source {
+    color: #555;
+  }
+
+  .paired .row-actions {
+    margin-bottom: 8px;
+  }
+
   .layout-card {
     margin: 0 0 12px;
     padding: 10px 10px 8px;
@@ -461,7 +572,7 @@
   .layout-card h3 {
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
+    align-items: center;
     gap: 6px 8px;
     margin: 0 0 8px;
     font-size: 14px;
@@ -469,7 +580,9 @@
   }
 
   .flag {
-    font-size: 16px;
+    display: inline-flex;
+    align-items: center;
+    line-height: 0;
   }
 
   .profile-name {
@@ -550,8 +663,7 @@
   }
 
   .primary,
-  .secondary,
-  .link-btn {
+  .secondary {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -565,8 +677,7 @@
     text-decoration: none;
   }
 
-  .primary,
-  .link-btn.primary {
+  .primary {
     border: 0;
     background: #1d6f8a;
     color: #fff;
@@ -579,21 +690,13 @@
   }
 
   .secondary:hover:not(:disabled),
-  .primary:hover:not(:disabled),
-  .link-btn:hover {
+  .primary:hover:not(:disabled) {
     filter: brightness(1.05);
   }
 
   .secondary:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-  }
-
-  .aside {
-    margin: 10px 0 0;
-    font-size: 12px;
-    color: #666;
-    line-height: 1.35;
   }
 
   .copy-note {

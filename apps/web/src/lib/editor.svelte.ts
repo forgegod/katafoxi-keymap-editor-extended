@@ -16,6 +16,10 @@ import {
   hostLayoutMeta,
   hostLegendColumns,
   hostLayoutToXkbSection,
+  hostLayoutToKlc,
+  hostLayoutsToCapsKlc,
+  encodeKlc,
+  windowsLocale,
   listXkbSections,
   primarySystemLayoutId,
   glyphToKeysym,
@@ -687,6 +691,92 @@ export class EditorState {
       text: hostLayoutToXkbSection(layout, { section: profile.name, name: profile.name }),
       name: profile.name
     }
+  }
+
+  /**
+   * One MSKLC source file for a user layout. UTF-16 LE with BOM.
+   * Returns null for system layouts and unknown ids.
+   */
+  exportUserHostLayoutKlc(layoutId: string): { bytes: Uint8Array; name: string } | null {
+    if (!isUserHostLayoutId(layoutId)) return null
+    const profile = this.userLayouts.find(layout => layout.id === layoutId)
+    if (!profile) return null
+    const layout = hostLayout(layoutId)
+    if (!layout) return null
+    const text = hostLayoutToKlc(layout, {
+      name: profile.name,
+      locale: windowsLocale(profile.language)
+    })
+    return { bytes: encodeKlc(text), name: profile.name }
+  }
+
+  /**
+   * English on the normal keys, each other legend language on Caps Lock.
+   * The English column may still be the system layout.
+   */
+  listCapsAlphabetKlcExports(): Array<{
+    capsLanguage: HostLanguageId
+    capsLanguageName: string
+    baseLanguageName: string
+    baseLayoutName: string
+    capsLayoutName: string
+    fileStem: string
+  }> {
+    void this.hostLayoutRevision
+    void this.hostLegend
+    const columns = hostLegendColumns(this.hostLegend)
+    const base = columns.find(column => column.language === 'en')
+    if (!base || !hostLayout(base.layoutId)) return []
+    const baseLanguageName = hostLanguage('en').name
+    const baseLayoutName = this.#layoutColumnName(base.layoutId, 'en')
+    const out: Array<{
+      capsLanguage: HostLanguageId
+      capsLanguageName: string
+      baseLanguageName: string
+      baseLayoutName: string
+      capsLayoutName: string
+      fileStem: string
+    }> = []
+    for (const column of columns) {
+      if (column.language === 'en') continue
+      if (!hostLayout(column.layoutId)) continue
+      const capsLanguageName = hostLanguage(column.language).name
+      out.push({
+        capsLanguage: column.language,
+        capsLanguageName,
+        baseLanguageName,
+        baseLayoutName,
+        capsLayoutName: this.#layoutColumnName(column.layoutId, column.language),
+        fileStem: `${baseLanguageName}-${capsLanguageName}`
+      })
+    }
+    return out
+  }
+
+  /**
+   * One UTF-16 .klc: English locale and letters, `capsLanguage` on Caps Lock.
+   * Returns null when either column is missing.
+   */
+  exportCapsAlphabetKlc(capsLanguage: HostLanguageId): { bytes: Uint8Array; name: string } | null {
+    const columns = hostLegendColumns(this.hostLegend)
+    const base = columns.find(column => column.language === 'en')
+    const caps = columns.find(column => column.language === capsLanguage)
+    if (!base || !caps || caps.language === 'en') return null
+    const baseLayout = hostLayout(base.layoutId)
+    const capsLayout = hostLayout(caps.layoutId)
+    if (!baseLayout || !capsLayout) return null
+    const name = `${hostLanguage('en').name} + ${hostLanguage(capsLanguage).name}`
+    const text = hostLayoutsToCapsKlc(baseLayout, capsLayout, {
+      name,
+      locale: windowsLocale('en')
+    })
+    return { bytes: encodeKlc(text), name }
+  }
+
+  #layoutColumnName(layoutId: string, language: HostLanguageId): string {
+    const profile = this.userLayouts.find(layout => layout.id === layoutId)
+    if (profile) return profile.name
+    return hostLayoutMeta(layoutId)?.name ?? hostLanguage(language).name
   }
 
   beginRenameHostProfile(language: HostLanguageId, profileId?: string) {

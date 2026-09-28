@@ -22,8 +22,10 @@ function language<Id extends string>(spec: HostLanguage & { id: Id }): HostLangu
 }
 
 /**
- * One row per host language. A new language is this entry plus its vendored xkb
- * module. `flagCode` selects `apps/web/public/flags/<code>.svg`.
+ * One row per host language. A new language is this entry, its vendored xkb
+ * module, and a `WindowsLocale` in `klc-locale.ts` so .klc export knows the
+ * locale id. `flagCode` selects `apps/web/public/flags/<code>.svg`. Dead-key
+ * accents are shared (`klc-dead.ts`), not per language.
  */
 export const HOST_LANGUAGES = [
   language({

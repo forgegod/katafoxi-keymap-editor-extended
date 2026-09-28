@@ -138,7 +138,7 @@ describe('HostPipeline', () => {
     expect(document.querySelector('.tip-ru')?.textContent).toMatch(/legacy/)
   })
 
-  it('opens a Windows install dialog with MSKLC link and disabled .klc download', async () => {
+  it('opens a Windows install dialog with an MSKLC link and a .klc download', async () => {
     mountPipeline()
     await editor.setHostKeyLevel('en', 'A', 0, 'b')
     flushSync()
@@ -153,9 +153,69 @@ describe('HostPipeline', () => {
     expect(dialog).toBeInstanceOf(HTMLElement)
     expect(dialog?.querySelector('a[href*="microsoft.com"]')).toBeInstanceOf(HTMLAnchorElement)
     const klc = [...(dialog?.querySelectorAll('button') ?? [])].find(
-      button => button.textContent?.trim() === 'Download .klc file'
+      button => button.textContent?.trim() === 'Download .klc'
     )
     expect(klc).toBeInstanceOf(HTMLButtonElement)
-    expect((klc as HTMLButtonElement).disabled).toBe(true)
+    expect((klc as HTMLButtonElement).disabled).toBe(false)
+    expect(dialog?.querySelector('#windows-paired-title')).toBeNull()
+  })
+
+  it('explains a Caps Lock alphabet and downloads that .klc when another language is shown', async () => {
+    const createObjectURL = vi.fn(() => 'blob:caps-klc')
+    const revokeObjectURL = vi.fn()
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL,
+      revokeObjectURL
+    })
+    const click = vi.fn()
+    const originalCreate = document.createElement.bind(document)
+    vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      const el = originalCreate(tag)
+      if (tag === 'a') {
+        Object.defineProperty(el, 'click', { value: click })
+      }
+      return el
+    })
+
+    mountPipeline()
+    await editor.commitHostMap(addHostLanguage(editor.hostLegend, 'ru'))
+    await editor.setHostKeyLevel('en', 'A', 0, 'b')
+    flushSync()
+
+    const windows = target.querySelector(
+      'button.download[aria-label="Install host layout on Windows"]'
+    ) as HTMLButtonElement
+    windows.click()
+    flushSync()
+
+    const dialog = document.querySelector('[aria-labelledby="windows-install-title"]')
+    expect(dialog?.textContent).toMatch(/Two alphabets in one layout/)
+    expect(dialog?.textContent).toMatch(/GIMP/)
+    expect(dialog?.textContent).toMatch(/Caps Lock switches alphabet/)
+    expect(dialog?.textContent).toMatch(/AltGr and AltGr\+Shift come from the other language/)
+    expect(dialog?.textContent).toMatch(/German @/)
+    expect(dialog?.textContent).toMatch(/One language per file/)
+    const separate = [...(dialog?.querySelectorAll('button') ?? [])].find(
+      button => button.textContent?.trim() === 'Download .klc'
+    )
+    expect(separate).toBeInstanceOf(HTMLButtonElement)
+
+    const combined = [...(dialog?.querySelectorAll('button') ?? [])].find(button =>
+      button.textContent?.includes('English + Russian')
+    )
+    expect(combined).toBeInstanceOf(HTMLButtonElement)
+    ;(combined as HTMLButtonElement).click()
+    flushSync()
+
+    expect(click).toHaveBeenCalled()
+    const blob = createObjectURL.mock.calls[0]?.[0] as Blob
+    const bytes = new Uint8Array(await blob.arrayBuffer())
+    expect(bytes[0]).toBe(0xff)
+    expect(bytes[1]).toBe(0xfe)
+    const text = new TextDecoder('utf-16le').decode(bytes.subarray(2))
+    expect(text).toContain('LOCALEID\t"00000409"')
+    expect(text).toContain('SGCap')
+    expect(text).toContain('0439')
   })
 })

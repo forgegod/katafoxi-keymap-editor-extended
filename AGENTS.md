@@ -8,7 +8,7 @@ Short context for coding agents working in this repository.
 |------|------|
 | `apps/web` | Svelte 5 + Vite SPA |
 | `apps/api` | Thin Hono API (GitHub + optional dev-local I/O) |
-| `packages/keymap-core` | Pure TypeScript: ZMK parse/generate, DTS import, host-layout registry, compose, ZMK-mode legends |
+| `packages/keymap-core` | Pure TypeScript: ZMK parse/generate, DTS import, host-layout registry, compose, ZMK-mode legends, `.klc` export |
 
 Use **pnpm** workspaces. Dev: `pnpm dev` (API `127.0.0.1:8080`, Vite `127.0.0.1:5173`). Tests: `pnpm test` (Vitest). Browser smoke: `pnpm test:e2e` (Playwright, not part of `pnpm test`). Details: [running-locally.md](running-locally.md).
 
@@ -22,7 +22,7 @@ Use **pnpm** workspaces. Dev: `pnpm dev` (API `127.0.0.1:8080`, Vite `127.0.0.1:
 6. **GitHub auth is server-session** — OAuth tokens stay on the API; browser gets HttpOnly `sid` only. See [docs/adr/0003-github-auth-server-session.md](docs/adr/0003-github-auth-server-session.md).
 7. Read product vision in [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md) before large feature work.
 8. **UI language is English only** for now — labels, buttons, hints, aria-labels, and user-facing notices in `apps/web` (and core strings that surface in the SPA). Do not add new non-English UI copy; when editing a screen, rename leftover tails to English when practical. See [`.cursor/rules/ui-english.mdc`](.cursor/rules/ui-english.mdc).
-9. **Host edit vs ZMK** — hover decode is peek-only; **Alt+click** starts the host-edit session. Host OS install is the chrome **Host** lane (Linux/Windows dialogs), not buried Export alone. See [docs/adr/0004-host-edit-and-os-deliverables.md](docs/adr/0004-host-edit-and-os-deliverables.md).
+9. **Host edit vs ZMK** — hover decode is peek-only; **Alt+click** starts the host-edit session. Host OS install is the chrome **Host** lane (Linux/Windows dialogs), not buried Export alone. `.klc` export lives in core (`hostLayoutToKlc`); a new host language needs a `WINDOWS_LOCALES` entry, not a new writer. See [docs/adr/0004-host-edit-and-os-deliverables.md](docs/adr/0004-host-edit-and-os-deliverables.md).
 
 ## Commit messages
 

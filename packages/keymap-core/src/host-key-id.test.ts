@@ -76,7 +76,8 @@ describe('host key ids', () => {
       evdev: 30,
       evdevName: 'KEY_A',
       vk: 'VK_A',
-      vkCode: 0x41
+      vkCode: 0x41,
+      scan: 0x1e
     })
     expect(key!.evdev + 8).toBe(38)
     expect(hostKeyByZmk('KC_A')).toBe(key)
