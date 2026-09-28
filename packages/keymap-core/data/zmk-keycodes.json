@@ -2266,7 +2266,7 @@
   },
   {
     "names": ["K_MUTE"],
-    "faIcon": "volume-mute",
+    "symbol": "🔇",
     "description": "Mute",
     "context": "Keyboard",
     "clarify": true,
@@ -2282,6 +2282,7 @@
   },
   {
     "names": ["K_VOLUME_UP", "K_VOL_UP"],
+    "symbol": "🔊",
     "description": "Volume Up",
     "context": "Keyboard",
     "clarify": true,
@@ -2297,6 +2298,7 @@
   },
   {
     "names": ["K_VOLUME_DOWN", "K_VOL_DN"],
+    "symbol": "🔉",
     "description": "Volume Down",
     "context": "Keyboard",
     "clarify": true,
@@ -3105,6 +3107,7 @@
   },
   {
     "names": ["K_VOLUME_UP2", "K_VOL_UP2"],
+    "symbol": "🔊",
     "description": "Volume Up",
     "context": "Keyboard",
     "clarify": true,
@@ -3120,6 +3123,7 @@
   },
   {
     "names": ["K_VOLUME_DOWN2", "K_VOL_DN2"],
+    "symbol": "🔉",
     "description": "Volume Down",
     "context": "Keyboard",
     "clarify": true,
@@ -3135,6 +3139,7 @@
   },
   {
     "names": ["K_MUTE2"],
+    "symbol": "🔇",
     "description": "Mute",
     "context": "Keyboard",
     "clarify": true,
@@ -4325,6 +4330,7 @@
   },
   {
     "names": ["C_MUTE"],
+    "symbol": "🔇",
     "description": "Mute",
     "context": "Consumer",
     "clarify": true,
@@ -4355,7 +4361,7 @@
   },
   {
     "names": ["C_VOLUME_UP", "C_VOL_UP"],
-    "faIcon": "volume-up",
+    "symbol": "🔊",
     "description": "Volume Up",
     "context": "Consumer",
     "clarify": true,
@@ -4371,7 +4377,7 @@
   },
   {
     "names": ["C_VOLUME_DOWN", "C_VOL_DN"],
-    "faIcon": "volume-down",
+    "symbol": "🔉",
     "description": "Volume Down",
     "context": "Consumer",
     "clarify": true,

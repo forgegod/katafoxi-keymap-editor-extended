@@ -652,10 +652,16 @@ describe('keycapLegend', () => {
     expect(isCompactKeycapLegend('F4')).toBe(false)
   })
 
-  it('uses display symbols for pause and mouse scroll', () => {
+  it('uses display symbols for pause, volume, and mouse scroll', () => {
     expect(getKeycodeCatalog().byCode.LALT?.symbol).toBe('⎇')
     expect(getKeycodeCatalog().byCode.RALT?.symbol).toBe('⎇')
     expect(getKeycodeCatalog().byCode.PAUSE_BREAK?.symbol).toBe('⏸')
+    expect(getKeycodeCatalog().byCode.C_VOL_UP?.symbol).toBe('🔊')
+    expect(getKeycodeCatalog().byCode.C_VOL_DN?.symbol).toBe('🔉')
+    expect(getKeycodeCatalog().byCode.C_MUTE?.symbol).toBe('🔇')
+    expect(getKeycodeCatalog().byCode.K_VOL_UP?.symbol).toBe('🔊')
+    expect(getKeycodeCatalog().byCode.K_VOL_DN?.symbol).toBe('🔉')
+    expect(getKeycodeCatalog().byCode.K_MUTE?.symbol).toBe('🔇')
     expect(getKeycodeCatalog().byCode.MINUS?.symbol).toBe('-')
     expect(getKeycodeCatalog().byCode.EQUAL?.symbol).toBe('=')
     const scroll = getBehaviorCatalog().byCode['&msc']?.commands ?? []

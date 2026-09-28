@@ -64,7 +64,7 @@ Click a stacked keycap row. One dialog edits that layer’s ZMK binding:
   - Left modifiers unmarked (`⌃ ⎇ ⌘ ⇧`); right side `R⌃` / `R⎇` / `R⌘` / `R⇧`. Alt is the ISO alternative-key symbol.
   - Compact chords drop parens: `LC(DEL)` → `⌃⌦`, `LS(CAPS)` → `⇧⇪`, and a short token `LA(F4)` → `⎇F4`, `LA(TAB)` → `⎇TAB`, `LA(ESC)` → `⎇ESC` (`F1`–`F12`).
   - Host-legend AltGr columns use the same mark: `R⎇` and `⇧R⎇`.
-  - Mouse scroll keeps the family prefix: `SCRL⬆` `SCRL⬇` `SCRL⬅` `SCRL➡`. Pause/Break is `⏸`. Tooltip keeps the raw code.
+  - Mouse scroll keeps the family prefix: `SCRL⬆` `SCRL⬇` `SCRL⬅` `SCRL➡`. Pause/Break is `⏸`. Volume up / down / mute are `🔊` `🔉` `🔇`. Tooltip keeps the raw code.
   - Behaviour on the cap: hide `&kp`; hide `&mt`/`&lt` when the hold-tap pill is shown; `&none` / `&trans` / instant binds are the center legend; other behaviours stay a small corner mark.
   - Caps Lock `⇪`. Browser back/forward `←` / `→` (not cursor `⏴` `⏵`). Number-row `-` / `=` (not the words `MINUS` / `EQUAL`). Tooltip keeps the raw code.
   - Keypad (`KP_*`): same glyph as the number row (`7`), boxed. Operators `+ - / *`, plus `KP_ENTER` `⮐`, `KP_DOT` `.`, `KP_EQUAL` `=`. Color is only a light fill. Host composed stays the same glyph.
