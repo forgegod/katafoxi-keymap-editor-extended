@@ -9,9 +9,11 @@
     legend: ComposedLegend
     stacked?: boolean
     hit?: LegendHoverHit
+    /** AltGr pair disagrees; Windows keeps the other language. */
+    conflict?: boolean
   }
 
-  let { legend, stacked = false, hit = 'none' }: Props = $props()
+  let { legend, stacked = false, hit = 'none', conflict = false }: Props = $props()
 
   const columns = $derived(keycapColumns(legend))
 </script>
@@ -23,7 +25,7 @@
 >
   <span class="line" class:legend-hit={hit === 'combo'}>
     {#each columns as column, index (index)}
-      <span class="col" class:alt={column.kind === 'alt'}>
+      <span class="col" class:alt={column.kind === 'alt'} class:os-conflict={conflict && column.kind === 'alt'}>
         {#each column.pieces as piece, pieceIndex (pieceIndex)}<span
             class:second={piece.tone === 'second'}>{piece.text}</span>{/each}
       </span>
@@ -77,6 +79,11 @@
 
   .col.alt {
     opacity: 0.7;
+  }
+
+  .col.alt.os-conflict {
+    opacity: 1;
+    color: #9a3412;
   }
 
   .line.legend-hit,

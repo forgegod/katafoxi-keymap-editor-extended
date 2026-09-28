@@ -1,5 +1,6 @@
 import {
   encodeKeyBinding,
+  addHostLanguage,
   type KeyBindingNode
 } from '@keymap-editor/keymap-core'
 import { flushSync, mount, unmount } from 'svelte'
@@ -689,5 +690,22 @@ describe('Key click editor', () => {
     const layer0 = stackRows().find(row => row.dataset.layer === '0')
     expect(layer0?.querySelector('.zmk-row.zmk-raw')).toBeInstanceOf(HTMLElement)
     expect(layer0?.querySelector('.keycap')).toBeNull()
+  })
+
+  it('underlines punctuation that sits on a different key in the other language', () => {
+    editor.hostLegend = addHostLanguage(editor.hostLegend, 'ru')
+    open({ params: [{ value: 'COMMA', params: [] }] })
+    const slot = document.querySelector('.layer-slot')
+    expect(slot?.classList.contains('symbol-moved')).toBe(true)
+    expect(slot?.getAttribute('title')).toMatch(/Different position/)
+  })
+
+  it('does not mark a letter that only changes alphabet', () => {
+    editor.hostLegend = addHostLanguage(editor.hostLegend, 'ru')
+    open()
+    const slot = document.querySelector('.layer-slot')
+    expect(slot?.classList.contains('symbol-moved')).toBe(false)
+    expect(slot?.classList.contains('altgr-conflict')).toBe(false)
+    expect(slot?.getAttribute('title')).toBeNull()
   })
 })

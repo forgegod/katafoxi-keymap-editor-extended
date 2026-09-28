@@ -1,6 +1,6 @@
 import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { addHostLanguage, SYSTEM_US_LAYOUT_ID } from '@keymap-editor/keymap-core'
+import { addHostLanguage, hostLevels, SYSTEM_US_LAYOUT_ID } from '@keymap-editor/keymap-core'
 import { editor } from '../editor.svelte.js'
 import { clearHostLayoutStore } from '../host-layout-store'
 import HostPipeline from './HostPipeline.svelte'
@@ -217,5 +217,30 @@ describe('HostPipeline', () => {
     expect(text).toContain('LOCALEID\t"00000409"')
     expect(text).toContain('SGCap')
     expect(text).toContain('0439')
+  })
+
+  it('confirms copying AltGr from the open language onto English', async () => {
+    editor.hostLegend = addHostLanguage(editor.hostLegend, 'ru')
+    mountPipeline()
+    const copy = target.querySelector(
+      'button[aria-label="Copy AltGr from the other language onto English"]'
+    ) as HTMLButtonElement
+    expect(copy.disabled).toBe(false)
+    copy.click()
+    flushSync()
+
+    const dialog = document.querySelector('[aria-labelledby="altgr-copy-title"]')
+    expect(dialog?.textContent).toMatch(/Russian/)
+    expect(dialog?.textContent).toMatch(/Replaced|Filled/)
+    await editor.confirmAltGrCopy()
+    flushSync()
+
+    expect(editor.altGrCopyPlan).toBeNull()
+    expect(editor.activeProfileId('en')).toMatch(/^user:/)
+    expect(editor.hostProfileNote).toMatch(/copied AltGr from Russian/)
+    expect(hostLevels(SYSTEM_US_LAYOUT_ID, 'N8')?.keysyms[2]).toBe('NoSymbol')
+    const copied = hostLevels(editor.activeProfileId('en'), 'N8')
+    expect(copied?.keysyms[2]).not.toBe('NoSymbol')
+    expect(document.querySelector('[aria-labelledby="altgr-copy-title"]')).toBeNull()
   })
 })

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { editor } from '../editor.svelte.js'
+  import { formatAltGrCopyLine, hostLanguage } from '@keymap-editor/keymap-core'
   import logoLinux from '../assets/logo-linux.png'
   import logoWindows from '../assets/logo-windows.png'
   import Modal from './Common/Modal.svelte'
@@ -52,6 +53,19 @@
     void editor.hostLegend
     return editor.listCapsAlphabetKlcExports()
   })
+  const canAlign = $derived(editor.canAlignHostSymbols)
+  const alignExtraName = $derived.by(() => {
+    const open = editor.hostLegend.open
+    return open ? hostLanguage(open).name : 'the other language'
+  })
+  const alignBaseName = $derived.by(() => {
+    const language = editor.hostLegend.columns[0]?.language
+    return language ? hostLanguage(language).name : 'English'
+  })
+  const altGrReplacements = $derived(
+    (editor.altGrCopyPlan ?? []).filter(edit => edit.overwrites)
+  )
+  const altGrFills = $derived((editor.altGrCopyPlan ?? []).filter(edit => !edit.overwrites))
 
   /** Prefer small / easy-to-pick XKB modules over the huge defaults (us, winkeys, …). */
   function installTarget(item: (typeof exports)[number]) {
@@ -141,6 +155,35 @@
 >
   <span class="label">Host</span>
   <span class="status" aria-live="polite">{status}</span>
+
+  <button
+    type="button"
+    class="tool"
+    class:on={canAlign && editor.symbolAlignOn}
+    aria-pressed={canAlign && editor.symbolAlignOn}
+    aria-label="Highlight symbol differences"
+    title="Underline punctuation that sits on a different key. Outline AltGr that Windows keeps from the other language only."
+    disabled={!canAlign}
+    onclick={() => (editor.symbolAlignOn = !editor.symbolAlignOn)}
+  >
+    Differences
+  </button>
+  {#if canAlign && editor.symbolAlignOn}
+    <span class="align-legend">
+      <span class="moved">position</span>
+      <span class="win">Win AltGr</span>
+    </span>
+  {/if}
+  <button
+    type="button"
+    class="tool"
+    aria-label="Copy AltGr from the other language onto English"
+    title="Copy AltGr and AltGr+Shift from {alignExtraName} onto {alignBaseName}. Empty cells stay as they are."
+    disabled={!canAlign || editor.altGrCopyBusy}
+    onclick={() => editor.beginAltGrCopy()}
+  >
+    Copy AltGr
+  </button>
 
   <button
     type="button"
@@ -390,6 +433,68 @@
   </Modal>
 {/if}
 
+{#if editor.altGrCopyPlan}
+  <Modal onBackdrop={() => editor.cancelAltGrCopy()}>
+    <div
+      class="install-dialog align-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="altgr-copy-title"
+    >
+      <header class="dialog-head">
+        <div>
+          <h2 id="altgr-copy-title">Copy AltGr from {alignExtraName}</h2>
+          <p class="lede">
+            AltGr and AltGr+Shift are copied onto {alignBaseName} where {alignExtraName} has a
+            symbol. Empty {alignExtraName} cells stay as they are. Letters on the main shift levels
+            are not copied. {alignBaseName} is saved as your layout, so the Linux
+            <code>symbols/au</code> section matches the AltGr the combined Windows file keeps.
+          </p>
+        </div>
+      </header>
+      {#if editor.altGrCopyPlan.length === 0}
+        <p>AltGr already matches.</p>
+      {:else}
+        {#if altGrReplacements.length}
+          <h3 class="files-heading">Replaced on {alignBaseName}</h3>
+          <ul class="align-list">
+            {#each altGrReplacements.slice(0, 40) as edit (`${edit.zmk}:${edit.level}`)}
+              <li>{formatAltGrCopyLine(edit)}</li>
+            {/each}
+            {#if altGrReplacements.length > 40}
+              <li>and {altGrReplacements.length - 40} more</li>
+            {/if}
+          </ul>
+        {/if}
+        {#if altGrFills.length}
+          <h3 class="files-heading">Filled where {alignBaseName} was empty</h3>
+          <ul class="align-list">
+            {#each altGrFills.slice(0, 40) as edit (`${edit.zmk}:${edit.level}`)}
+              <li>{formatAltGrCopyLine(edit)}</li>
+            {/each}
+            {#if altGrFills.length > 40}
+              <li>and {altGrFills.length - 40} more</li>
+            {/if}
+          </ul>
+        {/if}
+      {/if}
+      <div class="dialog-foot">
+        <button type="button" class="secondary" onclick={() => editor.cancelAltGrCopy()}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="primary"
+          disabled={editor.altGrCopyPlan.length === 0 || editor.altGrCopyBusy}
+          onclick={() => editor.confirmAltGrCopy()}
+        >
+          Copy
+        </button>
+      </div>
+    </div>
+  </Modal>
+{/if}
+
 <style>
   .host-pipeline {
     display: inline-flex;
@@ -443,6 +548,67 @@
   .download:disabled {
     opacity: 0.45;
     cursor: default;
+  }
+
+  .tool {
+    display: inline-flex;
+    align-items: center;
+    height: 28px;
+    margin: 0;
+    padding: 0 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #f3f3f3;
+    color: #333;
+    font: inherit;
+    font-size: 90%;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .tool:hover:not(:disabled) {
+    background: #fff;
+    border-color: #1d6f8a;
+    color: #1d6f8a;
+  }
+
+  .tool.on {
+    background: #fff;
+    border-color: #1d6f8a;
+    color: #1d6f8a;
+  }
+
+  .tool:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .align-legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 75%;
+    color: #555;
+    white-space: nowrap;
+  }
+
+  .align-legend .moved {
+    border-bottom: 2px solid #c47b00;
+  }
+
+  .align-legend .win {
+    padding: 0 3px;
+    border-radius: 3px;
+    box-shadow: inset 0 0 0 1.5px #b42318;
+    color: #9a3412;
+  }
+
+  .align-list {
+    max-height: 180px;
+    margin: 0 0 10px;
+    padding-left: 1.2em;
+    overflow: auto;
+    font-size: 13px;
   }
 
   .os-icon {

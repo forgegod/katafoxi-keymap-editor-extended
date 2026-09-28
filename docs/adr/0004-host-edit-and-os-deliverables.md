@@ -22,7 +22,7 @@ ZMK already has a visible chrome pipeline (Source → draft → Write files / Gi
 ### Chrome: two lanes
 
 1. **ZMK** lane: Source, undo/redo, draft status, Write files / Commit.
-2. **Host** lane: Clean/Changed when any shown legend column uses a `user:` layout; **Linux** / **Windows** open install dialogs (not instant blob downloads).
+2. **Host** lane: Clean/Changed when any shown legend column uses a `user:` layout; **Linux** / **Windows** open install dialogs (not instant blob downloads). **Differences** (session toggle, on by default) marks shared non-letter glyphs that sit on a different key or level, and AltGr cells where both languages are non-empty and differ. **Copy AltGr** copies non-empty AltGr and AltGr+Shift from the open language onto the base layout.
 3. Tiny ⓘ tooltips are not the install channel — the OS button opens the sheet.
 
 ### Linux / Windows deliverables
@@ -30,6 +30,15 @@ ZMK already has a visible chrome pipeline (Source → draft → Write files / Gi
 1. **Linux dialog:** per dirty language — copy/download `xkb_symbols` section, copyable example paths, install steps. Prefer **`symbols/au`** for English (not the huge `us` file) and **`legacy`** in `symbols/ru` for Russian. Mention `sudo` for system paths. Cards appear only for languages that actually have dirty user layouts.
 2. **Windows dialog:** link to official MSKLC download, install steps, and **Download .klc** for each active user layout. One of those files is one language. When the legend also has another language, the dialog explains and offers a combined file: English stays the Windows language, that language’s levels 0 and 1 sit on Caps Lock, and AltGr comes from that language. An English AltGr symbol is written only where the other language’s AltGr level is empty. The same AltGr symbols are repeated on the Caps Lock row. Do not pretend a checklist `.txt` is a `.klc`.
 3. Profile-menu **Export xkb** may remain as an advanced round-trip aid; the Host lane is the product path for “take my host work to the OS.”
+
+### Symbol differences
+
+When a second language is open, **Differences** paints two marks. Neither is stored in the legend view.
+
+1. **Position** (amber underline): a punctuation mark or other non-letter glyph that both languages produce, but not on the same key and level. Letters are not marked. A glyph that exists in only one language is not marked.
+2. **Win AltGr** (red outline): AltGr or AltGr+Shift is non-empty in both languages and the glyphs differ. That is the combined Windows file (`mergedAltGr` / `hostLayoutsToCapsKlc`): the open language wins, and an English symbol is written only where that language’s AltGr cell is empty. Two separate Windows layouts, switched with Win+Space, each keep their own AltGr; the outline is about the combined file.
+
+**Copy AltGr** writes the open language’s non-empty AltGr and AltGr+Shift onto the base layout. An empty national cell does not clear English. The same glyph is left alone. Levels 0 and 1 are not copied. The confirm lists replacements and fills. The first copy forks a `user:` layout and leaves the system table unchanged, same as a decode-card edit. After that, Linux `symbols/au` and the combined `.klc` describe one AltGr plane.
 
 ### `.klc` writer
 
@@ -58,6 +67,7 @@ IndexedDB already persists user layouts. Host **Changed** means “there is an a
 ## Consequences
 
 - Agents must not reintroduce hover-to-edit, card pin-without-Alt, or bridge delays for decode cards.
+- Do not invent a second AltGr merge for the Differences outline or Copy AltGr. Both follow the combined Windows file: the open language wins, and an empty national cell keeps the base symbol.
 - Do not add API routes for host layout files; install remains client-side download/copy + OS tools.
 - KLC export stays one writer. A new host language adds a `WINDOWS_LOCALES` entry (and a dead-key row only when the accent is new). Do not grow a second `.klc` implementation in the web app, and do not commit stock Microsoft `.klc` files.
 - UI chrome stays English; a short Russian tip on the Russian Linux card is allowed as install **content** for that language only (see TARGET / ui-english).

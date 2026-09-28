@@ -10,6 +10,7 @@
     isSimple,
     legendHoverHit,
     resolveBinding,
+    symbolAlignCaption,
     type HostLegendView,
     type KeyBindingNode,
     type LayerView,
@@ -264,6 +265,17 @@
   function blankRowMark(binding: KeyBindingNode): string {
     return String(binding.value) === '&trans' ? '↓' : '∅'
   }
+
+  function slotAlign(binding: KeyBindingNode): { moved: boolean; conflict: boolean; title: string } {
+    const align = editor.symbolAlignIndex
+    const tap = resolveBinding(binding).tap
+    if (!align || tap == null || !hostKeyByZmk(tap)) {
+      return { moved: false, conflict: false, title: '' }
+    }
+    const moved = align.byZmk.has(tap)
+    const conflict = align.conflictByZmk.has(tap)
+    return { moved, conflict, title: moved || conflict ? symbolAlignCaption(tap, align) : '' }
+  }
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -286,14 +298,18 @@
   <div class="keycap-wrap layer-stack" style="--layer-rows: {composedRows.length || 1}">
     {#each composedRows as row (row.layer)}
       {@const hit = legendHoverHit(row.binding, legendHover)}
+      {@const marks = slotAlign(row.binding)}
       <button
         type="button"
         class="layer-slot"
+        class:symbol-moved={marks.moved}
+        class:altgr-conflict={marks.conflict}
         data-layer={row.layer}
         aria-label={rowAriaLabel(row)}
         aria-describedby={
           decode?.layer === row.layer && !inHostSession ? decodeTooltipId : undefined
         }
+        title={marks.title || undefined}
         onclick={event => handleRowClick(event, row.layer)}
         onmouseenter={event => openDecode(row.layer, event.currentTarget)}
         onmouseleave={handleRowLeave}
@@ -303,7 +319,7 @@
         {#if row.blank}
           <span class="layer-empty" aria-hidden="true">{blankRowMark(row.binding)}</span>
         {:else if row.legend}
-          <KeyCap legend={row.legend} stacked {hit} />
+          <KeyCap legend={row.legend} stacked {hit} conflict={marks.conflict} />
         {:else}
           <ZmkLegend binding={row.binding} raw={row.raw} {hit} />
         {/if}

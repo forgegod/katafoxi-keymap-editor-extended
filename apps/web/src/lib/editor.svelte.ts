@@ -34,7 +34,12 @@ import {
   unregisterHostLayout,
   summarizeKeymapDiff,
   withHostKey,
+  applyAltGrCopy,
+  planAltGrCopy,
+  symbolAlign,
+  type AltGrCopyEdit,
   type HostLayout,
+  type SymbolAlign,
   type HostLegendView,
   type KeysymRejection,
   type LayerView,
@@ -208,6 +213,13 @@ export class EditorState {
    * The registry is not reactive; board compose reads this so keycaps repaint.
    */
   hostLayoutRevision = $state(0)
+  /**
+   * Session toggle. On paints punctuation that moved and AltGr cells the
+   * combined Windows file cannot keep. Not stored with the legend view.
+   */
+  symbolAlignOn = $state(true)
+  altGrCopyPlan = $state<AltGrCopyEdit[] | null>(null)
+  altGrCopyBusy = $state(false)
   /** Which firmware layers are drawn on the keycap. */
   layerView = $state<LayerView>(standardLayerView())
   userLayouts = $state<UserHostLayout[]>([])
@@ -277,6 +289,14 @@ export class EditorState {
   #changes = $derived.by(() => {
     if (!this.baselineKeymap || !this.draftKeymap) return []
     return diffKeymaps(this.baselineKeymap, this.draftKeymap)
+  })
+
+  /** Null when the toggle is off or no second language is open. */
+  symbolAlignIndex = $derived.by((): SymbolAlign | null => {
+    void this.hostLayoutRevision
+    if (!this.symbolAlignOn) return null
+    const pair = this.#alignInputs()
+    return pair ? symbolAlign(pair.base, pair.extra, { levels: pair.levels }) : null
   })
 
   get isDirty(): boolean {
@@ -535,6 +555,32 @@ export class EditorState {
     return this.hostLegend.columns.find(column => column.language === language)?.layoutId ?? ''
   }
 
+  /** Base column plus the open extra, when that extra is visible. */
+  #alignInputs(): {
+    base: HostLayout
+    extra: HostLayout
+    levels: (0 | 1 | 2 | 3)[]
+    extraLanguage: HostLanguageId
+  } | null {
+    const view = this.hostLegend
+    const open = view.open
+    const baseCol = view.columns[0]
+    const extraCol = open ? view.columns.find(column => column.language === open) : undefined
+    if (!baseCol || !extraCol?.visible) return null
+    const base = hostLayout(baseCol.layoutId)
+    const extra = hostLayout(extraCol.layoutId)
+    if (!base || !extra) return null
+    const levels: (0 | 1 | 2 | 3)[] = [0, 1]
+    if (baseCol.altGr && extraCol.altGr) levels.push(2)
+    if (baseCol.altGrShift && extraCol.altGrShift) levels.push(3)
+    return { base, extra, levels, extraLanguage: extraCol.language }
+  }
+
+  /** True when a second language is open, so Differences and Copy AltGr apply. */
+  get canAlignHostSymbols(): boolean {
+    return this.#alignInputs() != null
+  }
+
   /**
    * User layout id safe to edit for this language column.
    * Returns the active user layout as-is; forks a system layout into a copy first.
@@ -599,6 +645,55 @@ export class EditorState {
     this.userLayouts = this.userLayouts.map(item => (item.id === updated.id ? updated : item))
     await saveUserHostLayout({ ...updated, layout })
     return true
+  }
+
+  /** Open the confirm list. An empty plan means AltGr already matches. */
+  beginAltGrCopy() {
+    const pair = this.#alignInputs()
+    if (!pair || this.altGrCopyBusy) return
+    this.altGrCopyPlan = planAltGrCopy(pair.base, pair.extra)
+  }
+
+  cancelAltGrCopy() {
+    if (this.altGrCopyBusy) return
+    this.altGrCopyPlan = null
+  }
+
+  /**
+   * Copy non-empty AltGr and AltGr+Shift from the open language onto the base
+   * layout. Forks a user copy when the base column is still a system layout.
+   */
+  async confirmAltGrCopy(): Promise<void> {
+    if (this.altGrCopyBusy) return
+    const pair = this.#alignInputs()
+    const shown = this.altGrCopyPlan
+    if (!pair || !shown?.length) {
+      this.altGrCopyPlan = null
+      return
+    }
+    const language = this.hostLegend.columns[0]?.language
+    if (!language) {
+      this.altGrCopyPlan = null
+      return
+    }
+    this.altGrCopyBusy = true
+    try {
+      const before = this.activeProfileId(language)
+      const layoutId = await this.ensureEditableUserHostLayout(language)
+      const current = hostLayout(layoutId)
+      if (!current) return
+      const next = applyAltGrCopy(current, pair.extra)
+      if (!(await this.#commitUserHostLayout(layoutId, next))) return
+      const name = this.userLayouts.find(item => item.id === layoutId)?.name ?? 'English'
+      const from = hostLanguage(pair.extraLanguage).name
+      this.hostProfileNote =
+        before === layoutId
+          ? `Copied AltGr from ${from} onto “${name}”.`
+          : `Created copy “${name}” and copied AltGr from ${from}. The system layout is unchanged.`
+    } finally {
+      this.altGrCopyBusy = false
+      this.altGrCopyPlan = null
+    }
   }
 
   /**
@@ -1196,6 +1291,9 @@ export class EditorState {
     resetHostLayoutRegistry()
     this.hostLegend = standardHostLegendView()
     this.hostLayoutRevision = 0
+    this.symbolAlignOn = true
+    this.altGrCopyPlan = null
+    this.altGrCopyBusy = false
     this.layerView = standardLayerView()
     this.userLayouts = []
     this.hostProfilePrompt = null

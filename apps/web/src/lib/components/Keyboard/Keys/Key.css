@@ -167,6 +167,17 @@
   pointer-events: auto;
   border-radius: 3px;
 }
+.key .layer-slot.symbol-moved {
+  box-shadow: inset 0 -2px 0 #c47b00;
+}
+.key .layer-slot.altgr-conflict {
+  box-shadow: inset 0 0 0 1.5px #b42318;
+}
+.key .layer-slot.symbol-moved.altgr-conflict {
+  box-shadow:
+    inset 0 0 0 1.5px #b42318,
+    inset 0 -2px 0 #c47b00;
+}
 .key[data-stacked='true'] .layer-slot:hover,
 .key[data-stacked='true'] .layer-slot:focus-visible {
   background-color: var(--hover-selection);
