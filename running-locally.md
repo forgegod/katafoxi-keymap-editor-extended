@@ -5,7 +5,7 @@ This tool helps edit keymap files in repositories already cloned onto your compu
 ## Setup
 
 1. Clone this repo and open the new directory in a terminal.
-2. Copy `.env.template` to `.env`. Defaults are enough for local editing (GitHub optional).
+2. Copy `.env.template` to `.env`. Defaults are enough for local editing (GitHub optional). Copy `apps/web/.env.development.example` to `apps/web/.env.development`. That file is gitignored; do not commit it.
 3. Point `zmk-config` at a firmware repo with `config/info.json` (and ideally `config/keymap.json`). For this project the LARK board works well:
 
 ```bash
@@ -31,7 +31,7 @@ pnpm dev
 For Source **Local** (`/layout`, `/keymap` sibling bridge):
 
 - Set `ENABLE_LOCAL=true` in the repo root `.env`
-- Set `VITE_ENABLE_LOCAL=true` in `apps/web/.env.development`
+- Set `VITE_ENABLE_LOCAL=true` in `apps/web/.env.development` (create it from the example; it is not in git)
 
 Both must be true; the API gates the routes, and the SPA hides Local unless the Vite flag is set. Default in `.env.template` is `ENABLE_LOCAL=false`.
 
@@ -39,8 +39,10 @@ Both must be true; the API gates the routes, and the SPA hides Local unless the 
 
 ### GitHub auth
 
-- Enable GitHub with `ENABLE_GITHUB=true` and the GitHub App fields in `.env`, plus matching `VITE_*` values in `apps/web/.env.development`.
+- Enable GitHub with `ENABLE_GITHUB=true` and the GitHub App fields in `.env`. In `apps/web/.env.development`, set `VITE_ENABLE_GITHUB=true` and `VITE_GITHUB_APP_NAME` to the same slug as `GITHUB_APP_NAME`. In dev, `VITE_APP_BASE_URL` must be `http://127.0.0.1:5173`.
 - Login uses an HttpOnly session cookie (`sid`). The browser never gets a GitHub OAuth access token, and there is no `?token=` on the redirect after OAuth.
+- Opening a repository needs `config/info.json` and a user `config/*.keymap`. Bindings come from `config/keymap.json` when that file has non-empty valid layers, and from the `.keymap` otherwise. `*.keymap.template` is read only when committing.
+- The ZMK lane shows **Latest (sha)** for that branch’s Actions firmware build. A successful run with a firmware artifact downloads the zip through the API. A failed, cancelled, or artifact-less run opens the Actions page.
 - In dev, `GITHUB_OAUTH_CALLBACK_URL` must be the **Vite** origin (e.g. `http://127.0.0.1:5173/github/authorize`), not `:8080`, so `Set-Cookie` attaches via the Vite proxy. Production uses same-origin `{APP_BASE_URL}/github/authorize`.
 - Decision record: [docs/adr/0003-github-auth-server-session.md](docs/adr/0003-github-auth-server-session.md).
 
@@ -50,9 +52,9 @@ Set `PORT` if the API port must change. Set `APP_BASE_URL` to the browser-facing
 
 Your selected keyboard should load automatically when Source is **Local**. Click a key to open the editor: pick a behaviour, then a value. Enter applies a complete binding; Esc cancels.
 
-The board shows the host composed stack: click a keycap row to edit that layer’s ZMK binding; **Alt+click** starts a host-edit session (glyph catalog) when the key is a host character key. Hover is a read-only peek. The header **ZMK** lane publishes the keymap; the **Host** lane opens Linux/Windows install dialogs when a user layout is active. Add, rename, and delete layers from the host-legend table. Each language column picks a host **layout** (a system catalog id such as `system-us` / `system-ru`, or a user layout `user:<uuid>`). Copy and **Import xkb…** create user layouts; they persist in IndexedDB with the whole legend view.
+The board shows the host composed stack: click a keycap row to edit that layer’s ZMK binding; **Alt+click** starts a host-edit session (glyph catalog) when the key is a host character key. Hover is a read-only peek. If that row has an unpublished binding, the card’s first line is what it was (`Was …`). The header **ZMK** lane publishes the keymap; a dirty keymap says **Draft**, and the changed layer row stays washed until Write files or Commit. **Discard draft** restores the last loaded keymap, including edits Undo can no longer reach. The **Host** lane opens Linux/Windows install dialogs when a user layout is active. Left of the legend table, **Stack languages** stays pale until a third host language is open, and **Highlight symbol differences** marks a shared symbol that moved and an AltGr cell the combined Windows file cannot keep. Add, rename, and delete layers from the host-legend table. Each language column picks a host **layout** (a system catalog id such as `system-us` / `system-ru`, or a user layout `user:<uuid>`). Copy and **Import xkb…** create user layouts; they persist in IndexedDB with the whole legend view.
 
-In a **clean browser profile** the legend is system English only (`system-us`). The header asks which language the computer types; that choice is saved for this keymap and is not written into the firmware repo. The editor does not ship a keyboard-specific host map. To get the LARK host glyphs in dev, choose Russian (or another language), then import the fixture files from the profile menu:
+In a **clean browser profile** the legend is system English only (`system-us`). Add a language from the legend table; that choice is saved for this keymap and is not written into the firmware repo. The editor does not ship a keyboard-specific host map. To get the LARK host glyphs in dev, choose Russian (or another language), then import the fixture files from the profile menu:
 
 1. Open a language column’s profile control and choose **Import xkb…**.
 2. Pick `packages/keymap-core/fixtures/lark/host/au` (section `basic`) for English and/or `packages/keymap-core/fixtures/lark/host/ru` (section `legacy`) for Russian — or paste the file text. Those files have no extension (xkb symbols convention); the file picker lists all files.
