@@ -3,6 +3,8 @@
   import { formatAltGrCopyLine, hostLanguage } from '@keymap-editor/keymap-core'
   import logoLinux from '../assets/logo-linux.png'
   import logoWindows from '../assets/logo-windows.png'
+  import stackLanguagesIcon from '../assets/stack-languages.png'
+  import symbolDifferencesIcon from '../assets/symbol-differences.png'
   import Modal from './Common/Modal.svelte'
   import LangFlag from './LangFlag.svelte'
 
@@ -54,6 +56,14 @@
     return editor.listCapsAlphabetKlcExports()
   })
   const canAlign = $derived(editor.canAlignHostSymbols)
+  const canStackLanguages = $derived(editor.hostLegend.columns.length >= 3)
+  const languagesStacked = $derived(editor.multilangViewOn)
+
+  $effect(() => {
+    if (editor.hostLegend.columns.length < 3 && editor.multilangView) {
+      editor.multilangView = false
+    }
+  })
   const alignExtraName = $derived.by(() => {
     const open = editor.hostLegend.open
     return open ? hostLanguage(open).name : 'the other language'
@@ -156,9 +166,22 @@
   <span class="label">Host</span>
   <span class="status" aria-live="polite">{status}</span>
 
+  {#if canStackLanguages}
+    <button
+      type="button"
+      class="tool icon toggle"
+      class:on={languagesStacked}
+      aria-pressed={languagesStacked}
+      aria-label="Stack languages"
+      title="Show every host language as its own row on the key and hide other firmware layers."
+      onclick={() => (editor.multilangView = !editor.multilangView)}
+    >
+      <img src={stackLanguagesIcon} alt="" width="22" height="22" />
+    </button>
+  {/if}
   <button
     type="button"
-    class="tool"
+    class="tool icon toggle"
     class:on={canAlign && editor.symbolAlignOn}
     aria-pressed={canAlign && editor.symbolAlignOn}
     aria-label="Highlight symbol differences"
@@ -166,7 +189,7 @@
     disabled={!canAlign}
     onclick={() => (editor.symbolAlignOn = !editor.symbolAlignOn)}
   >
-    Differences
+    <img src={symbolDifferencesIcon} alt="" width="22" height="22" />
   </button>
   {#if canAlign && editor.symbolAlignOn}
     <span class="align-legend">
@@ -581,6 +604,48 @@
   .tool:disabled {
     opacity: 0.45;
     cursor: default;
+  }
+
+  .tool.icon {
+    width: 28px;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .tool.icon img {
+    display: block;
+    width: 22px;
+    height: 22px;
+  }
+
+  /* #actions paints every button as a green action. Toggles follow the legend
+     chips: quiet while off, white with a teal edge while on, flat when unavailable. */
+  :global(#actions button.toggle) {
+    background: #f3f3f3;
+    color: #333;
+    border: 1px solid #c4c4c4;
+    border-radius: 6px;
+    box-shadow: none;
+  }
+
+  :global(#actions button.toggle:hover:not(:disabled):not([aria-pressed='true'])) {
+    background: #fff;
+    border-color: #1d6f8a;
+    color: #1d6f8a;
+  }
+
+  :global(#actions button.toggle[aria-pressed='true']:not(:disabled)) {
+    background: #fff;
+    color: #1d6f8a;
+    border: 2px solid #1d6f8a;
+  }
+
+  :global(#actions button.toggle:disabled) {
+    background: #e4e4e4;
+    color: #9a9a9a;
+    border: 1px solid #e4e4e4;
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 
   .align-legend {

@@ -85,6 +85,29 @@ export function bindingSendsShift(node: KeyBindingNode): boolean {
   return (node.params ?? []).some(bindingSendsShift)
 }
 
+/**
+ * `&kp LS(RALT)` and `&kp RA(LSHFT)`: the key is the AltGr+Shift chord itself.
+ * A letter inside the wraps (`LS(A)`) is not that key.
+ */
+export function bindingIsAltGrShiftChord(node: KeyBindingNode): boolean {
+  if (String(node.value) !== '&kp' || node.params.length !== 1) return false
+  const parts = new Set<'shift' | 'ralt'>()
+  const root = node.params[0]
+  if (!root || !collectAltGrShiftParts(root, parts)) return false
+  return parts.has('shift') && parts.has('ralt')
+}
+
+function collectAltGrShiftParts(
+  node: KeyBindingNode,
+  parts: Set<'shift' | 'ralt'>
+): boolean {
+  const hold = modifierHoldForWrap(node.value) ?? modifierHoldForKey(node.value)
+  if (hold?.role === 'shift') parts.add('shift')
+  else if (hold?.role === 'alt' && hold.side === 'R') parts.add('ralt')
+  else return false
+  return (node.params ?? []).every(child => collectAltGrShiftParts(child, parts))
+}
+
 /** What the hover preview should mark: the whole combo, or only the hold badge. */
 export type LegendHoverHit = 'none' | 'combo' | 'hold'
 
@@ -113,6 +136,7 @@ export function legendHoverHit(
     if (!bindingSendsAltGr(binding)) return 'none'
     return holdRefMatchesHover(resolved.hold, hover) ? 'hold' : 'combo'
   }
+  if (bindingIsAltGrShiftChord(binding)) return 'combo'
   if (!bindingSendsAltGr(binding) && !bindingSendsShift(binding)) return 'none'
   return holdRefMatchesHover(resolved.hold, hover) ? 'hold' : 'combo'
 }
@@ -498,6 +522,42 @@ export function keycapColumns(legend: ComposedLegend): KeycapColumn[] {
     if (alt) columns.push({ kind: 'alt', pieces: [{ text: alt, tone: null }] })
   }
   return columns
+}
+
+export interface MultilangKeycapLine {
+  language: HostLanguageId
+  /** One language, including columns the two-slot keycap left off. */
+  legend: ComposedLegend
+}
+
+/**
+ * One face per host column, in column order.
+ * Languages the eye hid and languages past the two-slot keycap stay in the list,
+ * and an empty glyph still keeps its row, so every host character key lines up.
+ * Null when the tap is not a host character.
+ */
+export function multilangKeycapLines(
+  binding: KeyBindingNode,
+  view?: HostLegendView
+): MultilangKeycapLine[] | null {
+  const resolved = resolveBinding(binding)
+  if (resolved.tap == null) return null
+  const id = hostKeyByZmk(resolved.tap)
+  if (!id) return null
+  const columns = resolveHostColumns(view ?? standardHostLegendView())
+  if (columns.length === 0) return null
+  const hold = resolved.hold ? formatHoldBadge(resolved.hold) : undefined
+  const keypad = isKeypadCode(resolved.tap)
+  return columns.map((column, index) => {
+    const composed = composeColumn(column, id.zmk)
+    const face = composed ? { ...composed, onKeycap: true, tone: 'base' as const } : null
+    const legend: ComposedLegend = {
+      columns: face ? [face] : [],
+      ...(index === 0 && hold ? { hold } : {}),
+      ...(keypad ? { keypad: true } : {})
+    }
+    return { language: column.language, legend }
+  })
 }
 
 export interface LegendDecodeSlot {

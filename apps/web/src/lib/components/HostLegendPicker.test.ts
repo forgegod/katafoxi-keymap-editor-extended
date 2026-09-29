@@ -1,4 +1,9 @@
-import type { HostLegendView, KeyBindingNode, ParsedKeymap } from '@keymap-editor/keymap-core'
+import {
+  addHostLanguage,
+  type HostLegendView,
+  type KeyBindingNode,
+  type ParsedKeymap
+} from '@keymap-editor/keymap-core'
 import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { editor } from '../editor.svelte.js'
@@ -76,6 +81,21 @@ describe('HostLegendPicker', () => {
     flushSync()
     return button
   }
+
+  it('hides firmware layers and shows every language while languages are stacked', async () => {
+    await open(keymapOf(['default', 'raise', 'adjust']))
+    editor.hostLegend = addHostLanguage(addHostLanguage(editor.hostLegend, 'ru'), 'uk')
+    editor.multilangView = true
+    flushSync()
+    expect(panelRows().map(row => row.querySelector('th')?.textContent?.trim())).toEqual(['default'])
+    const disclosure = target.querySelector('.legend-panel .layer-disclosure')
+    expect(disclosure).toHaveProperty('disabled', true)
+    const russian = target.querySelector('.legend-panel [aria-label="Russian stays on the key while languages are stacked"]')
+    expect(russian).toHaveProperty('disabled', true)
+    const text = (panelRows()[0]?.textContent ?? '').replace(/\s+/g, '')
+    expect(text).toContain('eE')
+    expect(text).toContain('уУ')
+  })
 
   it('builds one row per keymap layer when the list is short', async () => {
     await open(keymapOf(['default', 'raise']))

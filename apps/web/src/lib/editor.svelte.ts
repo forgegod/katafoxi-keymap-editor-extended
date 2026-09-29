@@ -218,6 +218,12 @@ export class EditorState {
    * combined Windows file cannot keep. Not stored with the legend view.
    */
   symbolAlignOn = $state(true)
+  /**
+   * Session toggle. Stacks every host language on the key and hides other
+   * firmware layers. Needs at least three host columns (`multilangViewOn`).
+   * Not stored with the legend view or the layer view.
+   */
+  multilangView = $state(false)
   altGrCopyPlan = $state<AltGrCopyEdit[] | null>(null)
   altGrCopyBusy = $state(false)
   /** Which firmware layers are drawn on the keycap. */
@@ -579,6 +585,11 @@ export class EditorState {
   /** True when a second language is open, so Differences and Copy AltGr apply. */
   get canAlignHostSymbols(): boolean {
     return this.#alignInputs() != null
+  }
+
+  /** Stacked language face. Two languages already share the key, so this waits for a third. */
+  get multilangViewOn(): boolean {
+    return this.multilangView && this.hostLegend.columns.length >= 3
   }
 
   /**
@@ -1292,6 +1303,7 @@ export class EditorState {
     this.hostLegend = standardHostLegendView()
     this.hostLayoutRevision = 0
     this.symbolAlignOn = true
+    this.multilangView = false
     this.altGrCopyPlan = null
     this.altGrCopyBusy = false
     this.layerView = standardLayerView()

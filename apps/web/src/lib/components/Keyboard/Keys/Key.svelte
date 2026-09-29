@@ -5,7 +5,9 @@
     composeLayerRows,
     encodeKeyBinding,
     hostKeyByZmk,
+    isBlankLayerBinding,
     isComplex,
+    multilangKeycapLines,
     isHoldTapBehavior,
     isSimple,
     legendHoverHit,
@@ -93,6 +95,21 @@
     void editor.hostLayoutRevision
     return composeLayerRows(stackBindings, hostView, layerView)
   })
+  const activeHostView = $derived(hostView ?? editor.hostLegend)
+  /** Session face: every host language as its own row, firmware layers other than 0 hidden. */
+  const multilangOn = $derived(editor.multilangViewOn)
+  const multilangFace = $derived.by(() => {
+    void editor.hostLayoutRevision
+    if (!multilangOn || layerView?.layer0Raw) return null
+    const binding = stackBindings[0]
+    if (!binding || isBlankLayerBinding(binding)) return null
+    const lines = multilangKeycapLines(binding, activeHostView)
+    if (!lines) return null
+    return { binding, lines }
+  })
+  const faceRows = $derived(
+    multilangOn ? composedRows.filter(row => row.layer === 0) : composedRows
+  )
   const positioningStyle = $derived(getKeyStyles(position, size, rotation))
   const holdTapVisible = $derived(
     isHoldTapBehavior(value) && session.normalized.params.length === 2
@@ -295,8 +312,43 @@
     .map(([k, v]) => `${k.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`)}:${v}`)
     .join(';')}
 >
-  <div class="keycap-wrap layer-stack" style="--layer-rows: {composedRows.length || 1}">
-    {#each composedRows as row (row.layer)}
+  {#if multilangFace}
+    {@const hit = legendHoverHit(multilangFace.binding, legendHover)}
+    {@const marks = slotAlign(multilangFace.binding)}
+    <div
+      class="keycap-wrap layer-stack multilang"
+      style="--layer-rows: {multilangFace.lines.length || 1}"
+    >
+      <button
+        type="button"
+        class="layer-slot multilang-face"
+        class:symbol-moved={marks.moved}
+        class:altgr-conflict={marks.conflict}
+        data-layer="0"
+        style="grid-row: 1 / -1"
+        aria-label={rowAriaLabel({
+          layer: 0,
+          title: encodeKeyBinding(multilangFace.binding),
+          binding: multilangFace.binding
+        })}
+        aria-describedby={decode?.layer === 0 && !inHostSession ? decodeTooltipId : undefined}
+        title={marks.title || undefined}
+        onclick={event => handleRowClick(event, 0)}
+        onmouseenter={event => openDecode(0, event.currentTarget)}
+        onmouseleave={handleRowLeave}
+        onfocus={event => openDecode(0, event.currentTarget)}
+        onblur={handleRowBlur}
+      >
+        {#each multilangFace.lines as line, index (line.language)}
+          <span class="lang-line" data-lang-index={index}>
+            <KeyCap legend={line.legend} stacked {hit} conflict={marks.conflict} />
+          </span>
+        {/each}
+      </button>
+    </div>
+  {:else}
+  <div class="keycap-wrap layer-stack" style="--layer-rows: {faceRows.length || 1}">
+    {#each faceRows as row (row.layer)}
       {@const hit = legendHoverHit(row.binding, legendHover)}
       {@const marks = slotAlign(row.binding)}
       <button
@@ -326,6 +378,7 @@
       </button>
     {/each}
   </div>
+  {/if}
 
   {#if decode && decodeCard && !session.editing}
     <LegendDecodeCard

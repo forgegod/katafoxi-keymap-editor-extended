@@ -1,6 +1,7 @@
 import {
   encodeKeyBinding,
   addHostLanguage,
+  type HostLegendView,
   type KeyBindingNode
 } from '@keymap-editor/keymap-core'
 import { flushSync, mount, unmount } from 'svelte'
@@ -103,6 +104,7 @@ describe('Key click editor', () => {
       params?: Array<{ value?: string | number; params?: unknown[] }>
       layerBindings?: KeyBindingNode[]
       layerView?: { shown: number[]; layer0Raw: boolean }
+      hostView?: HostLegendView
     } = {}
   ) {
     const onUpdate = props.onUpdate ?? vi.fn()
@@ -114,6 +116,7 @@ describe('Key click editor', () => {
         params: props.params ?? typicalKey.params,
         layerBindings: props.layerBindings,
         layerView: props.layerView,
+        hostView: props.hostView,
         onUpdate
       }
     })
@@ -698,6 +701,52 @@ describe('Key click editor', () => {
     const slot = document.querySelector('.layer-slot')
     expect(slot?.classList.contains('symbol-moved')).toBe(true)
     expect(slot?.getAttribute('title')).toMatch(/Different position/)
+  })
+
+  it('stacks every host language on layer 0 and hides the other layers', () => {
+    editor.hostLegend = addHostLanguage(addHostLanguage(editor.hostLegend, 'ru'), 'uk')
+    open({
+      hostView: editor.hostLegend,
+      layerBindings: [
+        { value: '&kp', params: [{ value: 'S', params: [] }] },
+        { value: '&kp', params: [{ value: 'B', params: [] }] },
+        { value: '&kp', params: [{ value: 'C', params: [] }] }
+      ],
+      layerView: { shown: [0, 1, 2], layer0Raw: false }
+    })
+    expect(stackRows().length).toBeGreaterThan(1)
+    expect(document.querySelector('.lang-line')).toBeNull()
+
+    editor.multilangView = true
+    flushSync()
+    const rows = stackRows()
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.dataset.layer).toBe('0')
+    const lines = [...rows[0].querySelectorAll('.lang-line')].map(line =>
+      (line.textContent ?? '').replace(/\s+/g, '')
+    )
+    expect(lines).toHaveLength(3)
+    expect(lines[0]).toContain('sS')
+    expect(lines[1]).toContain('ыЫ')
+    expect(lines[2]).toContain('іІ')
+    expect(rows[0].textContent).not.toMatch(/bB|cC/)
+  })
+
+  it('keeps a non-character key on one row while languages are stacked', () => {
+    editor.hostLegend = addHostLanguage(addHostLanguage(editor.hostLegend, 'ru'), 'uk')
+    editor.multilangView = true
+    open({
+      hostView: editor.hostLegend,
+      params: [{ value: 'ESC', params: [] }],
+      layerBindings: [
+        { value: '&kp', params: [{ value: 'ESC', params: [] }] },
+        { value: '&kp', params: [{ value: 'B', params: [] }] }
+      ],
+      layerView: { shown: [0, 1], layer0Raw: false }
+    })
+    expect(stackRows()).toHaveLength(1)
+    expect(document.querySelector('.lang-line')).toBeNull()
+    expect(stackRows()[0]?.dataset.layer).toBe('0')
   })
 
   it('does not mark a letter that only changes alphabet', () => {
