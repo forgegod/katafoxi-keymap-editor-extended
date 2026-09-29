@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   behaviorKeycapRole,
   bindingReferencesLayer,
+  bindingIsAltGrShiftChord,
   bindingSendsAltGr,
   bindingSendsShift,
   composeKey,
@@ -549,6 +550,19 @@ describe('resolveBinding / composeKey', () => {
       'hold'
     )
     expect(legendHoverHit(parseKeyBinding('&kp E'), { kind: 'altGr' })).toBe('none')
+    expect(bindingIsAltGrShiftChord(parseKeyBinding('&kp LS(RALT)'))).toBe(true)
+    expect(bindingIsAltGrShiftChord(parseKeyBinding('&kp RS(RALT)'))).toBe(true)
+    expect(bindingIsAltGrShiftChord(parseKeyBinding('&kp RA(LSHFT)'))).toBe(true)
+    expect(bindingIsAltGrShiftChord(parseKeyBinding('&kp LS(A)'))).toBe(false)
+    expect(bindingIsAltGrShiftChord(parseKeyBinding('&kp RALT'))).toBe(false)
+    expect(legendHoverHit(parseKeyBinding('&kp LS(RALT)'), { kind: 'altGrShift' })).toBe(
+      'combo'
+    )
+    expect(legendHoverHit(parseKeyBinding('&kp RA(RSHIFT)'), { kind: 'altGrShift' })).toBe(
+      'combo'
+    )
+    expect(legendHoverHit(parseKeyBinding('&kp LS(RALT)'), { kind: 'altGr' })).toBe('none')
+    expect(legendHoverHit(parseKeyBinding('&kp LS(A)'), { kind: 'altGrShift' })).toBe('none')
   })
 
   it('still composes a host letter on a hold-tap', () => {

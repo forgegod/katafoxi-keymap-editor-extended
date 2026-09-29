@@ -85,6 +85,29 @@ export function bindingSendsShift(node: KeyBindingNode): boolean {
   return (node.params ?? []).some(bindingSendsShift)
 }
 
+/**
+ * `&kp LS(RALT)` and `&kp RA(LSHFT)`: the key is the AltGr+Shift chord itself.
+ * A letter inside the wraps (`LS(A)`) is not that key.
+ */
+export function bindingIsAltGrShiftChord(node: KeyBindingNode): boolean {
+  if (String(node.value) !== '&kp' || node.params.length !== 1) return false
+  const parts = new Set<'shift' | 'ralt'>()
+  const root = node.params[0]
+  if (!root || !collectAltGrShiftParts(root, parts)) return false
+  return parts.has('shift') && parts.has('ralt')
+}
+
+function collectAltGrShiftParts(
+  node: KeyBindingNode,
+  parts: Set<'shift' | 'ralt'>
+): boolean {
+  const hold = modifierHoldForWrap(node.value) ?? modifierHoldForKey(node.value)
+  if (hold?.role === 'shift') parts.add('shift')
+  else if (hold?.role === 'alt' && hold.side === 'R') parts.add('ralt')
+  else return false
+  return (node.params ?? []).every(child => collectAltGrShiftParts(child, parts))
+}
+
 /** What the hover preview should mark: the whole combo, or only the hold badge. */
 export type LegendHoverHit = 'none' | 'combo' | 'hold'
 
@@ -113,6 +136,7 @@ export function legendHoverHit(
     if (!bindingSendsAltGr(binding)) return 'none'
     return holdRefMatchesHover(resolved.hold, hover) ? 'hold' : 'combo'
   }
+  if (bindingIsAltGrShiftChord(binding)) return 'combo'
   if (!bindingSendsAltGr(binding) && !bindingSendsShift(binding)) return 'none'
   return holdRefMatchesHover(resolved.hold, hover) ? 'hold' : 'combo'
 }
