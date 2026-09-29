@@ -35,6 +35,27 @@ export interface GitHubBranch {
   [key: string]: unknown
 }
 
+export type FirmwareBuildStatus =
+  | 'none'
+  | 'pending'
+  | 'queued'
+  | 'in_progress'
+  | 'success'
+  | 'failure'
+  | 'cancelled'
+  | 'unavailable'
+
+export interface FirmwareBuild {
+  status: FirmwareBuildStatus
+  sha: string | null
+  shortSha: string | null
+  at: string | null
+  htmlUrl: string | null
+  artifactId: number | null
+  artifactName: string | null
+  detail: string | null
+}
+
 interface RequestOptions {
   url: string
   method?: string
@@ -226,6 +247,27 @@ export class API extends EventEmitter {
       }
       throw err
     }
+  }
+
+  async fetchFirmwareBuild(repo: string, branch: string): Promise<FirmwareBuild> {
+    const installation = encodeURIComponent(this.repoInstallationMap![repo])
+    const repository = encodeURIComponent(repo)
+    const path = `/github/builds/${installation}/${repository}?${new URLSearchParams({ branch })}`
+    const { data } = await this._request(path)
+    if (!data || typeof data !== 'object' || !('status' in data)) {
+      throw new Error('Firmware build response was not JSON')
+    }
+    return data as FirmwareBuild
+  }
+
+  firmwareDownloadUrl(repo: string, artifactId: number, artifactName: string | null): string {
+    const installation = encodeURIComponent(this.repoInstallationMap![repo])
+    const repository = encodeURIComponent(repo)
+    const params = new URLSearchParams()
+    if (artifactName) params.set('name', artifactName)
+    const query = params.toString()
+    const path = `/github/builds/${installation}/${repository}/artifact/${artifactId}`
+    return `${config.apiBaseUrl}${path}${query ? `?${query}` : ''}`
   }
 
   commitChanges(

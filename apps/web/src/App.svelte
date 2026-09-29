@@ -15,6 +15,7 @@
   import HostPipeline from './lib/components/HostPipeline.svelte'
   import Loader from './lib/components/Common/Loader.svelte'
   import github from './lib/github/api.svelte.js'
+  import FirmwareBuild from './lib/components/FirmwareBuild.svelte'
   import { formatKeymapChange } from '@keymap-editor/keymap-core'
 
   // Proxy so context consumers stay reactive to editor.definitions ($state).
@@ -28,6 +29,7 @@
   })
 
   let changesOpen = $state(false)
+  let buildRefresh = $state(0)
 
   onMount(() => {
     const onKeyDown = (event: KeyboardEvent) =>
@@ -80,7 +82,10 @@
       },
       reload: () => github.fetchLayoutAndKeymap(gh.repository, gh.branch)
     })
-    if (ok) changesOpen = false
+    if (ok) {
+      changesOpen = false
+      buildRefresh += 1
+    }
   }
 </script>
 
@@ -190,6 +195,13 @@
             {editor.saving ? 'Saving' : 'Commit to GitHub'}
             {#if editor.saving}<Spinner />{/if}
           </button>
+          {#if editor.githubMeta}
+            <FirmwareBuild
+              repository={editor.githubMeta.repository}
+              branch={editor.githubMeta.branch}
+              refreshKey={buildRefresh}
+            />
+          {/if}
         {/if}
       </div>
     </div>

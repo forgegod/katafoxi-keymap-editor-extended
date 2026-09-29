@@ -27,9 +27,28 @@ if (config.ENABLE_GITHUB) {
   app.route('/github', githubRoutes)
 }
 
+function isApiPath(path: string): boolean {
+  return (
+    path === '/health' ||
+    path.startsWith('/github') ||
+    path.startsWith('/layout') ||
+    path.startsWith('/keymap')
+  )
+}
+
 if (fs.existsSync(config.WEB_DIST)) {
-  app.use('/*', serveStatic({ root: config.WEB_DIST }))
-  app.get('*', serveStatic({ root: config.WEB_DIST, path: 'index.html' }))
+  const files = serveStatic({ root: config.WEB_DIST })
+  const index = serveStatic({ root: config.WEB_DIST, path: 'index.html' })
+  // The SPA fallback must not answer API routes. A miss was returning index.html
+  // with 200, and the firmware chip treated that page as an empty build.
+  app.use('/*', async (c, next) => {
+    if (isApiPath(c.req.path)) return next()
+    return files(c, next)
+  })
+  app.get('*', async (c, next) => {
+    if (isApiPath(c.req.path)) return c.notFound()
+    return index(c, next)
+  })
 } else if (!config.ENABLE_DEV_SERVER) {
   console.warn(`Web dist not found at ${config.WEB_DIST}; API-only mode`)
 }
