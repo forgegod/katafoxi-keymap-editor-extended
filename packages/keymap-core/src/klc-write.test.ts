@@ -158,6 +158,16 @@ describe('klc export', () => {
     expect(lines[e + 1]?.startsWith('-1\t')).toBe(false)
   })
 
+  it('ends every line with CRLF so MSKLC can split key names', () => {
+    const text = hostLayoutToKlc(systemLayout('system-us'), {
+      name: 'US',
+      locale: windowsLocale('en')
+    })
+    expect(text.replace(/\r\n/g, '')).not.toContain('\n')
+    expect(text).toContain('\r\n36\t"Right Shift"\r\n')
+    expect(text).toContain('\r\n4d\tRight\r\n')
+  })
+
   it('encodes the file as UTF-16 LE with a BOM', () => {
     const text = hostLayoutToKlc(systemLayout('system-us'), {
       name: 'US',

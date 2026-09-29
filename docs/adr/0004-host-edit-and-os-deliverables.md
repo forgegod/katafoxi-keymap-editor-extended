@@ -49,6 +49,8 @@ Characters come from the host layout’s four keysyms. Levels 0, 1, 2, 3 land on
 
 `hostLayoutsToCapsKlc` is the same writer with a second layout. The base layout fills the normal letters and the virtual keys. Where the second layout’s levels 0 and 1 differ, the key is `SGCap` and the next line holds that alphabet for Caps Lock and Caps Lock+Shift. AltGr columns come from the second layout; a base AltGr symbol fills a level the second layout leaves empty. Those AltGr symbols are copied onto the Caps Lock row. Shift states 6 and 7 are added when either layout uses them. `LOCALEID` stays English (`00000409`). A new language still needs its own `WINDOWS_LOCALES` entry for a one-language file.
 
+MSKLC splits a section on CRLF only. A `KEYNAME` or `KEYNAME_EXT` block written with bare LF becomes one key name: scan code `01` and the rest of the list as its label. Project → Build rewrites the loaded file before `kbdutool`, so the same text can compile from the command line and still fail in the GUI. The rewritten C then reports `C2061` (identifier `Right`, from the glued `"Right Shift"`) and `C2021` / `C2059` (`0e`, the next scan code, read as a number). `KeyboardVerify.log` does not fail that build. Duplicate glyphs are the layout. Cyrillic and symbols outside CP1252 are expected on the combined file, whose `LOCALEID` stays `00000409`.
+
 What is data, and what the writer infers:
 
 | Piece | Where | Adding a language |
@@ -71,6 +73,7 @@ IndexedDB already persists user layouts. Host **Changed** means “there is an a
 - Do not invent a second AltGr merge for the Win AltGr mark or Copy AltGr. Both follow the combined Windows file: the open language wins, and an empty national cell keeps the base symbol.
 - Do not add API routes for host layout files; install remains client-side download/copy + OS tools.
 - KLC export stays one writer. A new host language adds a `WINDOWS_LOCALES` entry (and a dead-key row only when the accent is new). Do not grow a second `.klc` implementation in the web app, and do not commit stock Microsoft `.klc` files.
+- Every `.klc` line is CRLF. A bare LF inside `KEYNAME` is the `Right` / `0e` compile failure above. Leave `KeyboardVerify.log` warnings alone: do not drop characters, and do not move the combined file off `00000409`, to silence them.
 - UI chrome stays English; a short Russian tip on the Russian Linux card is allowed as install **content** for that language only (see TARGET / ui-english).
 
 ## Related

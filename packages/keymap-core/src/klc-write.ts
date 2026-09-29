@@ -448,7 +448,9 @@ export function hostLayoutToKlc(layout: HostLayout, options: HostLayoutKlcOption
   ]
   const dead = deadSections(layout, locale, capsLayout)
   for (const item of dead) lines.push(...deadKeyLines(item), '')
-  lines.push('KEYNAME', '', KEYNAME, '', 'KEYNAME_EXT', '', KEYNAME_EXT, '')
+  // MSKLC splits a section on CRLF only. A LF-only block is one key name, and the
+  // quotes inside "Right Shift" then break the generated C file.
+  lines.push('KEYNAME', '', ...KEYNAME.split('\n'), '', 'KEYNAME_EXT', '', ...KEYNAME_EXT.split('\n'), '')
   if (dead.length) {
     lines.push('KEYNAME_DEAD', '')
     for (const item of dead) {
