@@ -7,8 +7,15 @@ import {
   diffKeymaps,
   getBehaviorCatalog,
   getKeycodeCatalog,
+  addHostLanguage,
   assignHostLanguageLayout,
+  hostAssemblyName,
+  HOST_ASSEMBLY_LIMIT,
+  sameHostLegendView,
+  decodeKlc,
   hostLanguage,
+  hostLanguageName,
+  hostLanguagesAvailable,
   hostLayout,
   hostLayoutChoice,
   hostLayoutChoiceLabel,
@@ -22,6 +29,7 @@ import {
   encodeKlc,
   windowsLocale,
   listXkbSections,
+  parseKlc,
   primarySystemLayoutId,
   glyphToKeysym,
   hostLevels,
@@ -29,6 +37,7 @@ import {
   registerHostLayout,
   resetHostLayoutRegistry,
   standardHostLegendView,
+  toggleHostLanguage,
   isLegacyBilingualHostLegend,
   standardLayerView,
   remapShownLayersAfterDelete,
@@ -65,16 +74,20 @@ import {
   deleteUserHostLayout,
   isUserHostLayoutId,
   deleteHostLegendView,
+  hostAssembliesSettingId,
   hostLegendSettingId,
+  loadHostAssemblies,
   loadHostLegendView,
   loadUserHostLayouts,
   reservedProfileName,
   uniqueUserHostLayoutName,
   sanitizeHostLegendView,
+  saveHostAssemblies,
   saveHostLegendView,
   saveUserHostLayout,
   UNKNOWN_HOST_LAYOUT_NOTE,
   type HostLanguageId,
+  type StoredHostAssembly,
   type UserHostLayout,
   type UserHostLayoutOrigin,
   type UserHostLayoutRecord
@@ -126,6 +139,29 @@ const WARNING_MESSAGES: Record<string, string> = {
     'Macros were expanded to raw keycodes (for example VU → C_VOL_UP). #define lines in the keymap may now be unused.',
   generated_default_template:
     'No existing keymap or template was used, so the file was saved from the default generated template.'
+}
+
+function cloneHostLegendView(view: HostLegendView): HostLegendView {
+  return {
+    columns: view.columns.map(column => ({ ...column })),
+    open: view.open,
+    ...(view.keycap ? { keycap: [...view.keycap] } : {})
+  }
+}
+
+function pairedImportNames(
+  description: string,
+  caps: HostLanguageId,
+  stem: string
+): { baseName: string; capsName: string } {
+  const parts = description.split(/\s+\+\s+/)
+  if (parts.length >= 2 && parts[0].trim() && parts[1].trim()) {
+    return { baseName: parts[0].trim(), capsName: parts.slice(1).join(' + ').trim() }
+  }
+  return {
+    baseName: description.trim() || stem,
+    capsName: hostLanguageName(caps)
+  }
 }
 
 function formatWarnings(warnings: unknown): string[] {
@@ -209,6 +245,8 @@ export class EditorState {
   saving = $state(false)
   /** View over the host profile. It does not edit the keymap. */
   hostLegend = $state<HostLegendView>(standardHostLegendView())
+  /** Column sets remembered for this keyboard. Each one points at layouts. */
+  hostAssemblies = $state<StoredHostAssembly[]>([])
   /**
    * Bumps when a user layout is registered/replaced in the core registry.
    * The registry is not reactive; board compose reads this so keycaps repaint.
@@ -465,6 +503,7 @@ export class EditorState {
       resetHostLayoutRegistry()
       this.userLayouts = []
       this.hostLegend = standardHostLegendView()
+      this.hostAssemblies = []
       this.layerView = standardLayerView()
       this.hostProfileNote = null
     }
@@ -543,6 +582,7 @@ export class EditorState {
     const settingId = this.#hostLegendSettingId()
     if (!settingId) {
       this.hostLegend = standardHostLegendView()
+      this.hostAssemblies = []
       return
     }
     try {
@@ -565,6 +605,107 @@ export class EditorState {
     } catch {
       /* keep the in-memory view */
     }
+    if (selectToken !== this.#selectGeneration) return
+    await this.#restoreHostAssemblies(selectToken)
+  }
+
+  #hostAssembliesSettingId(): string | null {
+    const identity = this.currentDraftIdentity()
+    return identity ? hostAssembliesSettingId(draftIdentityKey(identity)) : null
+  }
+
+  async #persistHostAssemblies(): Promise<void> {
+    const settingId = this.#hostAssembliesSettingId()
+    if (!settingId) return
+    await saveHostAssemblies(settingId, this.hostAssemblies)
+  }
+
+  async #restoreHostAssemblies(selectToken: number): Promise<void> {
+    const settingId = this.#hostAssembliesSettingId()
+    if (!settingId) {
+      this.hostAssemblies = []
+      return
+    }
+    try {
+      const items = await loadHostAssemblies(settingId)
+      if (selectToken !== this.#selectGeneration) return
+      let replacedAny = false
+      const next: StoredHostAssembly[] = []
+      for (const item of items) {
+        const { view, replaced } = sanitizeHostLegendView(item.view)
+        if (replaced.length > 0) replacedAny = true
+        next.push({ id: item.id, view })
+      }
+      this.hostAssemblies = next
+      if (replacedAny) {
+        this.hostProfileNote = UNKNOWN_HOST_LAYOUT_NOTE
+        await this.#persistHostAssemblies()
+      }
+    } catch {
+      this.hostAssemblies = []
+    }
+  }
+
+  /** Short layout name for one column, matching the profile menu. */
+  #layoutShortName(layoutId: string, language: HostLanguageId): string {
+    const user = this.userLayouts.find(item => item.id === layoutId)
+    if (user?.name.trim()) return user.name.trim()
+    const choice = hostLayoutChoice(layoutId)
+    if (choice) return hostLayoutChoiceLabel(choice)
+    return hostLanguageName(language)
+  }
+
+  hostAssemblyLabel(view: HostLegendView): string {
+    return hostAssemblyName(
+      view.columns.map(column => ({
+        languageName: hostLanguageName(column.language),
+        layoutName: this.#layoutShortName(column.layoutId, column.language)
+      }))
+    )
+  }
+
+  hostAssemblyActive(view: HostLegendView): boolean {
+    return sameHostLegendView(view, this.hostLegend)
+  }
+
+  /** The live columns are already one of the remembered sets. */
+  hostAssemblySaved(): boolean {
+    return this.hostAssemblies.some(item => sameHostLegendView(item.view, this.hostLegend))
+  }
+
+  /** Three sets are kept and the live columns are not one of them. */
+  hostAssemblyRememberBlocked(): boolean {
+    return this.hostAssemblies.length >= HOST_ASSEMBLY_LIMIT && !this.hostAssemblySaved()
+  }
+
+  async rememberHostAssembly(): Promise<void> {
+    if (this.hostAssemblySaved() || this.hostAssemblyRememberBlocked()) return
+    const { view } = sanitizeHostLegendView(cloneHostLegendView(this.hostLegend))
+    this.hostAssemblies = [...this.hostAssemblies, { id: crypto.randomUUID(), view }]
+    await this.#persistHostAssemblies()
+  }
+
+  async showHostAssembly(id: string): Promise<void> {
+    const index = this.hostAssemblies.findIndex(item => item.id === id)
+    if (index < 0) return
+    const { view, replaced } = sanitizeHostLegendView(
+      cloneHostLegendView(this.hostAssemblies[index].view)
+    )
+    if (replaced.length > 0) {
+      const next = this.hostAssemblies.slice()
+      next[index] = { id, view }
+      this.hostAssemblies = next
+      this.hostProfileNote = UNKNOWN_HOST_LAYOUT_NOTE
+      await this.#persistHostAssemblies()
+    }
+    await this.commitHostMap(view)
+  }
+
+  async forgetHostAssembly(id: string): Promise<void> {
+    const next = this.hostAssemblies.filter(item => item.id !== id)
+    if (next.length === this.hostAssemblies.length) return
+    this.hostAssemblies = next
+    await this.#persistHostAssemblies()
   }
 
   activeProfileId(language: HostLanguageId): string {
@@ -790,6 +931,85 @@ export class EditorState {
     } catch (error) {
       return error instanceof Error ? error.message : 'Could not import xkb'
     }
+  }
+
+  /** Open a language column, adding it when the legend does not have it yet. */
+  #showHostLanguage(language: HostLanguageId) {
+    if (!this.hostLegend.columns.some(column => column.language === language)) {
+      this.hostLegend = addHostLanguage(this.hostLegend, language)
+      return
+    }
+    if (language === this.hostLegend.columns[0]?.language) return
+    const shown = hostLegendColumns(this.hostLegend).some(
+      column => column.language === language && column.shown
+    )
+    if (!shown) {
+      this.hostLegend = toggleHostLanguage(this.hostLegend, language)
+      return
+    }
+    if (this.hostLegend.open !== language) {
+      this.hostLegend = { ...this.hostLegend, open: language }
+    }
+  }
+
+  /**
+   * Import a .klc file. A one-language file fills the column that asked.
+   * A Caps Lock alphabet fills the base language and that second language.
+   * `source` is the file bytes, or already-decoded text from a paste.
+   */
+  async importHostLayoutFromKlc(
+    language: HostLanguageId,
+    source: Uint8Array | string,
+    fileName: string
+  ): Promise<string | null> {
+    let parsed
+    try {
+      parsed = parseKlc(typeof source === 'string' ? source : decodeKlc(source))
+    } catch (error) {
+      return error instanceof Error ? error.message : 'Could not import klc'
+    }
+    const stem = fileName.replace(/^.*[/\\]/, '').replace(/\.[^.]+$/, '') || 'klc'
+    if (parsed.kind === 'single') {
+      await this.#materializeUserHostLayoutFromTable(
+        language,
+        parsed.description || stem,
+        parsed.base,
+        { from: 'klc', fileName, role: 'single' }
+      )
+      if (parsed.warnings.length > 0) this.hostProfileNote = parsed.warnings.join(' ')
+      return null
+    }
+    const baseLanguage = parsed.baseLanguage ?? 'en'
+    const capsLanguage =
+      parsed.capsLanguage ?? (language !== baseLanguage ? language : null)
+    if (!capsLanguage || !parsed.caps) {
+      return "This file puts another alphabet on Caps Lock. Import it from that language's column."
+    }
+    const present = (id: HostLanguageId) =>
+      this.hostLegend.columns.some(column => column.language === id) ||
+      hostLanguagesAvailable(this.hostLegend).includes(id)
+    if (!present(baseLanguage) || !present(capsLanguage)) {
+      return 'This .klc file names a language the legend cannot open.'
+    }
+    this.#showHostLanguage(baseLanguage)
+    this.#showHostLanguage(capsLanguage)
+    const names = pairedImportNames(parsed.description, capsLanguage, stem)
+    await this.#materializeUserHostLayoutFromTable(baseLanguage, names.baseName, parsed.base, {
+      from: 'klc',
+      fileName,
+      role: 'base'
+    })
+    await this.#materializeUserHostLayoutFromTable(capsLanguage, names.capsName, parsed.caps, {
+      from: 'klc',
+      fileName,
+      role: 'caps'
+    })
+    const baseLabel = hostLanguageName(baseLanguage)
+    const capsLabel = hostLanguageName(capsLanguage)
+    const extra = parsed.warnings.length > 0 ? ` ${parsed.warnings.join(' ')}` : ''
+    this.hostProfileNote =
+      `Imported ${baseLabel} and ${capsLabel} from a paired layout. AltGr is on ${capsLabel}.${extra}`
+    return null
   }
 
   /**
@@ -1318,6 +1538,7 @@ export class EditorState {
     this.saving = false
     resetHostLayoutRegistry()
     this.hostLegend = standardHostLegendView()
+    this.hostAssemblies = []
     this.hostLayoutRevision = 0
     this.symbolAlignOn = true
     this.multilangView = false

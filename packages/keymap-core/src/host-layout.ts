@@ -76,6 +76,24 @@ export function hostLayoutFromSymbols(
 }
 
 /**
+ * One layout from keysym names. An unknown ZMK name is skipped. Glyphs come
+ * from the keysyms through the same path as parsing, so callers never pass
+ * them in. Missing levels are `NoSymbol`.
+ */
+export function hostLayoutFromKeysyms(
+  id: string,
+  entries: Iterable<readonly [string, readonly string[]]>
+): HostLayout {
+  const byZmk = new Map<string, HostKeyLevels>()
+  for (const [zmk, keysyms] of entries) {
+    const host = hostKeyByZmk(zmk)
+    if (!host) continue
+    byZmk.set(host.zmk, levelsFromKeysyms([...keysyms]))
+  }
+  return { id, byZmk }
+}
+
+/**
  * One level of one key replaced, as a new layout. The source table is left
  * alone and its `byZmk` is not reused. Glyphs come from the keysyms through
  * the same path as parsing, so callers never pass them in. A key the layout

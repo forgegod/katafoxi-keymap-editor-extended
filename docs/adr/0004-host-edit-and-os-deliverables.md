@@ -63,6 +63,10 @@ What is data, and what the writer infers:
 
 Scan codes for the typewriter block are the evdev code (`HostKeyId.scan`). Do not vendor Microsoft `.klc` dumps into the repo; they are a local oracle for filling the tables above.
 
+### Reading a `.klc`
+
+`parseKlc` / `decodeKlc` in `klc-read.ts`. The profile menu offers **Import klc…** beside **Import xkb…**. A file with one alphabet becomes one user layout on the column that imported it. A file whose Caps Lock rows carry another alphabet (the shape `hostLayoutsToCapsKlc` writes; eight or more keys whose unshifted or shifted character differs) becomes two layouts: the base language is `LOCALEID`, and the Caps Lock language is guessed from the letters (Russian, Ukrainian, or German). AltGr in that file stays on the Caps Lock language. An English AltGr symbol that was only filling a hole cannot be told apart and lands on the Caps Lock language too. Virtual keys, the Ctrl column, key names, and custom dead-key compositions are not stored. A few `SGCap` rows that only replace Shift stay in the one layout, and those Caps Lock characters are dropped. If the Caps Lock letters are not Russian, Ukrainian, or German, import from that language’s column so the second layout has a place to go.
+
 ### Persistence reminder
 
 IndexedDB already persists user layouts. Host **Changed** means “there is an active user layout to install,” not “unsaved in the browser.”
@@ -72,7 +76,7 @@ IndexedDB already persists user layouts. Host **Changed** means “there is an a
 - Agents must not reintroduce hover-to-edit, card pin-without-Alt, or bridge delays for decode cards.
 - Do not invent a second AltGr merge for the Win AltGr mark or Copy AltGr. Both follow the combined Windows file: the open language wins, and an empty national cell keeps the base symbol.
 - Do not add API routes for host layout files; install remains client-side download/copy + OS tools.
-- KLC export stays one writer. A new host language adds a `WINDOWS_LOCALES` entry (and a dead-key row only when the accent is new). Do not grow a second `.klc` implementation in the web app, and do not commit stock Microsoft `.klc` files.
+- KLC export stays one writer. A new host language adds a `WINDOWS_LOCALES` entry (and a dead-key row only when the accent is new). Do not grow a second `.klc` implementation in the web app, and do not commit stock Microsoft `.klc` files. KLC import stays the one reader in `klc-read.ts`. Do not store a paired file as a third profile type.
 - Every `.klc` line is CRLF. A bare LF inside `KEYNAME` is the `Right` / `0e` compile failure above. Leave `KeyboardVerify.log` warnings alone: do not drop characters, and do not move the combined file off `00000409`, to silence them.
 - UI chrome stays English; a short Russian tip on the Russian Linux card is allowed as install **content** for that language only (see TARGET / ui-english).
 

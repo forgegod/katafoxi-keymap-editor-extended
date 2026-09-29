@@ -1,5 +1,6 @@
 import {
   addHostLanguage,
+  encodeKlc,
   type HostLegendView,
   type KeyBindingNode,
   type ParsedKeymap
@@ -485,6 +486,57 @@ describe('HostLegendPicker', () => {
     expect(englishPair()).toBe('αΑ')
   })
 
+  it('imports a klc file into the column', async () => {
+    await clearHostLayoutStore()
+    await open(keymapOf(['default']))
+    expect(englishPair()).toBe('eE')
+
+    const english = [...target.querySelectorAll('.legend-panel .profile-trigger')].find(
+      el => el.getAttribute('aria-label')?.startsWith('Profile English')
+    )
+    if (!(english instanceof HTMLButtonElement)) throw new Error('missing English profile')
+    english.click()
+    flushSync()
+    const importItem = [...target.querySelectorAll('.profile-action')].find(
+      el => el.textContent?.includes('Import klc')
+    )
+    if (!(importItem instanceof HTMLButtonElement)) throw new Error('missing klc import')
+    importItem.click()
+    flushSync()
+    const input = target.querySelector('input[type="file"][aria-label="klc file"]')
+    if (!(input instanceof HTMLInputElement)) throw new Error('missing klc file input')
+    const bytes = encodeKlc(
+      [
+        'KBD\tTest\t"Imported KLC"',
+        'LOCALEID\t"00000409"',
+        'SHIFTSTATE',
+        '',
+        '0',
+        '1',
+        '2',
+        '',
+        'LAYOUT',
+        '',
+        '12\tE\t1\t03b2\t0392\t-1'
+      ].join('\r\n')
+    )
+    const file = new File([bytes], 'imported.klc')
+    const transfer = new DataTransfer()
+    transfer.items.add(file)
+    input.files = transfer.files
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+    await vi.waitFor(async () => {
+      expect(editor.activeProfileId('en')).toMatch(/^user:/)
+      expect(englishPair()).toBe('βΒ')
+    })
+    expect(editor.userLayouts[0]?.origin).toEqual({
+      from: 'klc',
+      fileName: 'imported.klc',
+      role: 'single'
+    })
+    expect(editor.userLayouts[0]?.name).toBe('Imported KLC')
+  })
+
   it('lets the user pick a section when the file has several', async () => {
     await clearHostLayoutStore()
     await open(keymapOf(['default']))
@@ -540,5 +592,61 @@ describe('HostLegendPicker', () => {
       section: 'two'
     })
     expect(englishPair()).toBe('αΑ')
+  })
+
+  it('remembers a column set and switches back to it', async () => {
+    const keymap = keymapOf(['Base'])
+    await open(keymap)
+    const remember = () => {
+      const button = target.querySelector('.legend-panel .remember')
+      if (!(button instanceof HTMLButtonElement)) throw new Error('missing remember')
+      return button
+    }
+    const chipLabels = () =>
+      [...target.querySelectorAll('.legend-panel .chip .show')].map(el => el.textContent?.trim())
+
+    remember().click()
+    await vi.waitFor(() => {
+      expect(chipLabels()).toEqual(['System'])
+    })
+    expect(remember().disabled).toBe(true)
+
+    await editor.commitHostMap(addHostLanguage(editor.hostLegend, 'ru'))
+    flushSync()
+    expect(target.querySelector('.legend-panel .chip.on')).toBeNull()
+    expect(remember().disabled).toBe(false)
+
+    remember().click()
+    await vi.waitFor(() => {
+      expect(chipLabels()).toEqual(['System', 'English System + Russian System'])
+    })
+
+    const first = target.querySelector('.legend-panel .chip .show')
+    if (!(first instanceof HTMLButtonElement)) throw new Error('missing assembly')
+    first.click()
+    await vi.waitFor(() => {
+      expect(editor.hostLegend.columns.map(column => column.language)).toEqual(['en'])
+    })
+    flushSync()
+    expect(target.querySelector('.legend-panel .chip.on .show')?.textContent?.trim()).toBe('System')
+
+    const forget = target.querySelector(
+      '.legend-panel [aria-label="Forget English System + Russian System"]'
+    )
+    if (!(forget instanceof HTMLButtonElement)) throw new Error('missing forget')
+    forget.click()
+    await vi.waitFor(() => {
+      expect(chipLabels()).toEqual(['System'])
+    })
+
+    await editor.selectKeyboard({
+      source: 'local',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap
+    })
+    flushSync()
+    await vi.waitFor(() => {
+      expect(chipLabels()).toEqual(['System'])
+    })
   })
 })

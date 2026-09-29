@@ -7,6 +7,7 @@ import {
   addHostLanguage,
   assignHostLanguageLayout,
   catalogLayoutsForLanguage,
+  HOST_ASSEMBLY_LIMIT,
   HOST_LANGUAGE_IDS,
   hostLayout,
   hostLayoutMeta,
@@ -35,11 +36,22 @@ const VIEW_SETTING_ID = 'view'
 export function hostLegendSettingId(identityKey: string): string {
   return `view:${identityKey}`
 }
+
+/** Remembered legend views for one keymap. Each item points at layouts; it does not copy them. */
+export function hostAssembliesSettingId(identityKey: string): string {
+  return `assemblies:${identityKey}`
+}
+
+export interface StoredHostAssembly {
+  id: string
+  view: HostLegendView
+}
 const LEGACY_ACTIVE_SETTING_ID = 'active'
 
 export type UserHostLayoutOrigin =
   | { from: 'copy'; layoutId: string }
   | { from: 'xkb'; fileName: string; section: string }
+  | { from: 'klc'; fileName: string; role: 'single' | 'base' | 'caps' }
 
 export interface UserHostLayout {
   id: string
@@ -387,6 +399,7 @@ export async function loadUserHostLayouts(): Promise<UserHostLayoutRecord[]> {
 
 function plainOrigin(origin: UserHostLayoutOrigin): UserHostLayoutOrigin {
   if (origin.from === 'copy') return { from: 'copy', layoutId: origin.layoutId }
+  if (origin.from === 'klc') return { from: 'klc', fileName: origin.fileName, role: origin.role }
   return { from: 'xkb', fileName: origin.fileName, section: origin.section }
 }
 
@@ -461,6 +474,63 @@ export async function saveHostLegendView(
     columns: view.columns.map(column => ({ ...column })),
     open: view.open,
     ...(view.keycap ? { keycap: [...view.keycap] } : {})
+  }
+  const db = await openDb()
+  try {
+    const tx = db.transaction(SETTINGS_STORE, 'readwrite')
+    await idbRequest(tx.objectStore(SETTINGS_STORE).put(record))
+    await txDone(tx)
+  } finally {
+    db.close()
+  }
+}
+
+function isStoredAssembly(value: unknown): value is StoredHostAssembly {
+  if (!value || typeof value !== 'object') return false
+  const item = value as StoredHostAssembly
+  return typeof item.id === 'string' && item.id.length > 0 && isHostLegendView(item.view)
+}
+
+function cloneStoredView(view: HostLegendView): HostLegendView {
+  return {
+    columns: view.columns.map(column => ({ ...column })),
+    open: view.open,
+    ...(view.keycap ? { keycap: [...view.keycap] } : {})
+  }
+}
+
+export async function loadHostAssemblies(settingId: string): Promise<StoredHostAssembly[]> {
+  const db = await openDb()
+  try {
+    const tx = db.transaction(SETTINGS_STORE, 'readonly')
+    const row = await idbRequest<{ id: string; items?: unknown } | undefined>(
+      tx.objectStore(SETTINGS_STORE).get(settingId)
+    )
+    await txDone(tx)
+    if (!row || !Array.isArray(row.items)) return []
+    const items: StoredHostAssembly[] = []
+    for (const item of row.items) {
+      if (!isStoredAssembly(item)) continue
+      if (items.some(kept => kept.id === item.id)) continue
+      items.push({ id: item.id, view: cloneStoredView(item.view) })
+      if (items.length >= HOST_ASSEMBLY_LIMIT) break
+    }
+    return items
+  } finally {
+    db.close()
+  }
+}
+
+export async function saveHostAssemblies(
+  settingId: string,
+  items: readonly StoredHostAssembly[]
+): Promise<void> {
+  const record = {
+    id: settingId,
+    items: items.slice(0, HOST_ASSEMBLY_LIMIT).map(item => ({
+      id: item.id,
+      view: cloneStoredView(item.view)
+    }))
   }
   const db = await openDb()
   try {

@@ -30,7 +30,7 @@
 
   type XkbSectionChoice = { section: string; name: string }
 
-  let importing = $state(false)
+  let importKind = $state<'xkb' | 'klc' | null>(null)
   let importText = $state('')
   let importFileName = $state('paste')
   let importSections = $state<XkbSectionChoice[]>([])
@@ -39,7 +39,7 @@
 
   $effect(() => {
     if (open) return
-    importing = false
+    importKind = null
     importText = ''
     importFileName = 'paste'
     importSections = []
@@ -47,9 +47,9 @@
     importError = ''
   })
 
-  function beginImport(event: MouseEvent) {
+  function beginImport(kind: 'xkb' | 'klc', event: MouseEvent) {
     event.stopPropagation()
-    importing = true
+    importKind = kind
     importText = ''
     importFileName = 'paste'
     importSections = []
@@ -108,7 +108,40 @@
       importError = message
       return
     }
-    importing = false
+    importKind = null
+    onClose()
+  }
+
+  async function onImportKlcFile(event: Event) {
+    const input = event.currentTarget
+    if (!(input instanceof HTMLInputElement)) return
+    const file = input.files?.[0]
+    input.value = ''
+    if (!file) return
+    const message = await editor.importHostLayoutFromKlc(
+      language,
+      new Uint8Array(await file.arrayBuffer()),
+      file.name
+    )
+    if (message) {
+      importError = message
+      return
+    }
+    importKind = null
+    onClose()
+  }
+
+  async function submitKlcImport() {
+    if (!importText.trim()) {
+      importError = 'Paste klc text or choose a file'
+      return
+    }
+    const message = await editor.importHostLayoutFromKlc(language, importText, importFileName)
+    if (message) {
+      importError = message
+      return
+    }
+    importKind = null
     onClose()
   }
 
@@ -222,7 +255,7 @@
   >
     {currentLabel()}
   </button>
-  {#if open && importing}
+  {#if open && importKind === 'xkb'}
     <div class="profile-import" role="dialog" aria-label="Import xkb">
       <input
         type="file"
@@ -260,7 +293,32 @@
       {/if}
       <div class="profile-import-actions">
         <button type="button" onclick={() => void submitImport()}>Import</button>
-        <button type="button" onclick={() => (importing = false)}>Back</button>
+        <button type="button" onclick={() => (importKind = null)}>Back</button>
+      </div>
+    </div>
+  {:else if open && importKind === 'klc'}
+    <div class="profile-import" role="dialog" aria-label="Import klc">
+      <input
+        type="file"
+        accept=".klc"
+        aria-label="klc file"
+        onchange={event => void onImportKlcFile(event)}
+      />
+      <p class="profile-import-hint">
+        A one-language file fills this column. A Caps Lock alphabet also fills that language.
+      </p>
+      <textarea
+        aria-label="klc text"
+        placeholder="Paste klc…"
+        bind:value={importText}
+        oninput={() => (importError = '')}
+      ></textarea>
+      {#if importError}
+        <p class="profile-import-error" role="alert">{importError}</p>
+      {/if}
+      <div class="profile-import-actions">
+        <button type="button" onclick={() => void submitKlcImport()}>Import</button>
+        <button type="button" onclick={() => (importKind = null)}>Back</button>
       </div>
     </div>
   {:else if open}
@@ -399,8 +457,13 @@
         </li>
       {/if}
       <li class="profile-row">
-        <button type="button" class="profile-action" onclick={beginImport}>
+        <button type="button" class="profile-action" onclick={event => beginImport('xkb', event)}>
           Import xkb…
+        </button>
+      </li>
+      <li class="profile-row">
+        <button type="button" class="profile-action" onclick={event => beginImport('klc', event)}>
+          Import klc…
         </button>
       </li>
     </ul>
