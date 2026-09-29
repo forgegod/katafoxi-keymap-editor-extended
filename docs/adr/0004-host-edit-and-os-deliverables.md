@@ -21,9 +21,10 @@ ZMK already has a visible chrome pipeline (Source → draft → Write files / Gi
 
 ### Chrome: two lanes
 
-1. **ZMK** lane: Source, undo/redo, draft status, Write files / Commit.
-2. **Host** lane: Clean/Changed when any shown legend column uses a `user:` layout; **Linux** / **Windows** open install dialogs (not instant blob downloads). **Differences** (session toggle, on by default) marks shared non-letter glyphs that sit on a different key or level, and AltGr cells where both languages are non-empty and differ. **Copy AltGr** copies non-empty AltGr and AltGr+Shift from the open language onto the base layout. The keycap draws at most two languages, any pair (`keycap`). English stays column 0 when its eye is off. Differences, Copy AltGr, and the combined Windows file still use that base and `open`, not whichever pair is drawn.
-3. Tiny ⓘ tooltips are not the install channel — the OS button opens the sheet.
+1. **ZMK** lane: Source, undo/redo, draft status (**Draft**, or **Up to date with repo** / **disk**), Write files / Commit. On GitHub, **Latest** is the branch’s Actions firmware build. A successful run with a firmware artifact downloads the zip through the API; the browser never sees the installation token. Any other finished state opens the Actions page. An unpublished binding washes that layer’s row until publish. The decode card’s first line is `Was …`, and the ZMK / Windows / Linux identifiers stay on the next line. Layer add, rename, and remove stay **Draft** without a per-key mark. **Discard draft** restores the last loaded keymap. Undo only walks the in-memory stack.
+2. **Host** lane: Clean/Changed when any shown legend column uses a `user:` layout; **Copy AltGr**; **Linux** / **Windows** open install dialogs (not instant blob downloads). The keycap draws at most two languages, any pair (`keycap`). English stays column 0 when its eye is off. Copy AltGr and the combined Windows file still use that base and `open`, not whichever pair is drawn.
+3. **Legend column**, left of the host table: **Stack languages** stays pale until three host columns exist (two languages already share the key). **Highlight symbol differences** is on when a second language is open. While it is on, the samples `position` and `Win AltGr` sit under the button.
+4. Tiny ⓘ tooltips are not the install channel — the OS button opens the sheet.
 
 ### Linux / Windows deliverables
 
@@ -33,7 +34,7 @@ ZMK already has a visible chrome pipeline (Source → draft → Write files / Gi
 
 ### Symbol differences
 
-When a second language is open, **Differences** paints two marks. Neither is stored in the legend view.
+When a second language is open, **Highlight symbol differences** paints two marks. Neither is stored in the legend view.
 
 1. **Position** (amber underline): a punctuation mark or other non-letter glyph that both languages produce, but not on the same key and level. Letters are not marked. A glyph that exists in only one language is not marked.
 2. **Win AltGr** (red outline): AltGr or AltGr+Shift is non-empty in both languages and the glyphs differ. That is the combined Windows file (`mergedAltGr` / `hostLayoutsToCapsKlc`): the open language wins, and an English symbol is written only where that language’s AltGr cell is empty. Two separate Windows layouts, switched with Win+Space, each keep their own AltGr; the outline is about the combined file.
@@ -67,7 +68,7 @@ IndexedDB already persists user layouts. Host **Changed** means “there is an a
 ## Consequences
 
 - Agents must not reintroduce hover-to-edit, card pin-without-Alt, or bridge delays for decode cards.
-- Do not invent a second AltGr merge for the Differences outline or Copy AltGr. Both follow the combined Windows file: the open language wins, and an empty national cell keeps the base symbol.
+- Do not invent a second AltGr merge for the Win AltGr mark or Copy AltGr. Both follow the combined Windows file: the open language wins, and an empty national cell keeps the base symbol.
 - Do not add API routes for host layout files; install remains client-side download/copy + OS tools.
 - KLC export stays one writer. A new host language adds a `WINDOWS_LOCALES` entry (and a dead-key row only when the accent is new). Do not grow a second `.klc` implementation in the web app, and do not commit stock Microsoft `.klc` files.
 - UI chrome stays English; a short Russian tip on the Russian Linux card is allowed as install **content** for that language only (see TARGET / ui-english).

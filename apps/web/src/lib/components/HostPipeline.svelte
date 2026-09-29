@@ -3,8 +3,6 @@
   import { formatAltGrCopyLine, hostLanguage } from '@keymap-editor/keymap-core'
   import logoLinux from '../assets/logo-linux.png'
   import logoWindows from '../assets/logo-windows.png'
-  import stackLanguagesIcon from '../assets/stack-languages.png'
-  import symbolDifferencesIcon from '../assets/symbol-differences.png'
   import Modal from './Common/Modal.svelte'
   import LangFlag from './LangFlag.svelte'
 
@@ -56,8 +54,6 @@
     return editor.listCapsAlphabetKlcExports()
   })
   const canAlign = $derived(editor.canAlignHostSymbols)
-  const canStackLanguages = $derived(editor.hostLegend.columns.length >= 3)
-  const languagesStacked = $derived(editor.multilangViewOn)
 
   $effect(() => {
     if (editor.hostLegend.columns.length < 3 && editor.multilangView) {
@@ -166,37 +162,6 @@
   <span class="label">Host</span>
   <span class="status" aria-live="polite">{status}</span>
 
-  {#if canStackLanguages}
-    <button
-      type="button"
-      class="tool icon toggle"
-      class:on={languagesStacked}
-      aria-pressed={languagesStacked}
-      aria-label="Stack languages"
-      title="Show every host language as its own row on the key and hide other firmware layers."
-      onclick={() => (editor.multilangView = !editor.multilangView)}
-    >
-      <img src={stackLanguagesIcon} alt="" width="22" height="22" />
-    </button>
-  {/if}
-  <button
-    type="button"
-    class="tool icon toggle"
-    class:on={canAlign && editor.symbolAlignOn}
-    aria-pressed={canAlign && editor.symbolAlignOn}
-    aria-label="Highlight symbol differences"
-    title="Underline punctuation that sits on a different key. Outline AltGr that Windows keeps from the other language only."
-    disabled={!canAlign}
-    onclick={() => (editor.symbolAlignOn = !editor.symbolAlignOn)}
-  >
-    <img src={symbolDifferencesIcon} alt="" width="22" height="22" />
-  </button>
-  {#if canAlign && editor.symbolAlignOn}
-    <span class="align-legend">
-      <span class="moved">position</span>
-      <span class="win">Win AltGr</span>
-    </span>
-  {/if}
   <button
     type="button"
     class="tool"
@@ -521,24 +486,31 @@
 <style>
   .host-pipeline {
     display: inline-flex;
-    flex-wrap: wrap;
-    align-items: center;
+    flex-wrap: nowrap;
+    align-items: flex-end;
     gap: 6px 8px;
-    margin: 5px;
+    margin: 0;
     color: #555;
-    font-size: 100%;
+    font-size: 13px;
   }
 
   .label {
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
     white-space: nowrap;
+    font-size: 13px;
     font-weight: 600;
     letter-spacing: 0.02em;
   }
 
   .status {
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
     min-width: 4.2em;
     color: #777;
-    font-size: 90%;
+    font-size: 13px;
   }
 
   .host-pipeline.dirty .status {
@@ -550,7 +522,8 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    height: 28px;
+    box-sizing: border-box;
+    height: 26px;
     margin: 0;
     padding: 0 8px 0 6px;
     border: 1px solid #ccc;
@@ -558,7 +531,7 @@
     background: #f3f3f3;
     color: #333;
     font: inherit;
-    font-size: 90%;
+    font-size: 13px;
     cursor: pointer;
   }
 
@@ -576,7 +549,8 @@
   .tool {
     display: inline-flex;
     align-items: center;
-    height: 28px;
+    box-sizing: border-box;
+    height: 26px;
     margin: 0;
     padding: 0 8px;
     border: 1px solid #ccc;
@@ -584,7 +558,7 @@
     background: #f3f3f3;
     color: #333;
     font: inherit;
-    font-size: 90%;
+    font-size: 13px;
     cursor: pointer;
     white-space: nowrap;
   }
@@ -595,77 +569,9 @@
     color: #1d6f8a;
   }
 
-  .tool.on {
-    background: #fff;
-    border-color: #1d6f8a;
-    color: #1d6f8a;
-  }
-
   .tool:disabled {
     opacity: 0.45;
     cursor: default;
-  }
-
-  .tool.icon {
-    width: 28px;
-    justify-content: center;
-    padding: 0;
-  }
-
-  .tool.icon img {
-    display: block;
-    width: 22px;
-    height: 22px;
-  }
-
-  /* #actions paints every button as a green action. Toggles follow the legend
-     chips: quiet while off, white with a teal edge while on, flat when unavailable. */
-  :global(#actions button.toggle) {
-    background: #f3f3f3;
-    color: #333;
-    border: 1px solid #c4c4c4;
-    border-radius: 6px;
-    box-shadow: none;
-  }
-
-  :global(#actions button.toggle:hover:not(:disabled):not([aria-pressed='true'])) {
-    background: #fff;
-    border-color: #1d6f8a;
-    color: #1d6f8a;
-  }
-
-  :global(#actions button.toggle[aria-pressed='true']:not(:disabled)) {
-    background: #fff;
-    color: #1d6f8a;
-    border: 2px solid #1d6f8a;
-  }
-
-  :global(#actions button.toggle:disabled) {
-    background: #e4e4e4;
-    color: #9a9a9a;
-    border: 1px solid #e4e4e4;
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-
-  .align-legend {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 75%;
-    color: #555;
-    white-space: nowrap;
-  }
-
-  .align-legend .moved {
-    border-bottom: 2px solid #c47b00;
-  }
-
-  .align-legend .win {
-    padding: 0 3px;
-    border-radius: 3px;
-    box-shadow: inset 0 0 0 1.5px #b42318;
-    color: #9a3412;
   }
 
   .align-list {

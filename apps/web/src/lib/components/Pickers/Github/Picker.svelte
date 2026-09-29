@@ -187,9 +187,16 @@
   const repositoryChoices = $derived(
     (github.repositories || []).map(repo => ({
       id: repo.id,
-      name: repo.full_name
+      name: repoLabel(repo),
+      title: repo.full_name
     }))
   )
+
+  function repoLabel(repo: { full_name: string; name?: unknown }): string {
+    if (typeof repo.name === 'string' && repo.name) return repo.name
+    const slash = repo.full_name.lastIndexOf('/')
+    return slash === -1 ? repo.full_name : repo.full_name.slice(slash + 1)
+  }
 
   const branchChoices = $derived(
     branches.map(branch => ({

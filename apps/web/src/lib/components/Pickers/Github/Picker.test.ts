@@ -194,6 +194,11 @@ describe('Github Picker', () => {
     if (!(repoSelect instanceof HTMLSelectElement)) {
       throw new Error('missing repo select')
     }
+    expect([...repoSelect.options].map(option => option.textContent?.trim())).toEqual([
+      'old',
+      'new'
+    ])
+    expect(repoSelect.options[0]?.getAttribute('title')).toBe('acme/old')
     repoSelect.value = '1'
     repoSelect.dispatchEvent(new Event('change', { bubbles: true }))
     flushSync()

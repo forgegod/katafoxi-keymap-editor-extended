@@ -214,8 +214,9 @@ export class EditorState {
    */
   hostLayoutRevision = $state(0)
   /**
-   * Session toggle. On paints punctuation that moved and AltGr cells the
-   * combined Windows file cannot keep. Not stored with the legend view.
+   * Session toggle. On underlines a symbol that sits on a different key and
+   * outlines AltGr cells the combined Windows file cannot keep. Not stored
+   * with the legend view.
    */
   symbolAlignOn = $state(true)
   /**
@@ -303,6 +304,15 @@ export class EditorState {
     if (!this.symbolAlignOn) return null
     const pair = this.#alignInputs()
     return pair ? symbolAlign(pair.base, pair.extra, { levels: pair.levels }) : null
+  })
+
+  /** Encoded binding before the unpublished edit, keyed by `keyIndex:layer`. */
+  unpublishedBefore = $derived.by(() => {
+    const map = new Map<string, string>()
+    for (const change of this.#changes) {
+      if (change.type === 'binding') map.set(`${change.index}:${change.layer}`, change.before)
+    }
+    return map
   })
 
   get isDirty(): boolean {
@@ -410,8 +420,7 @@ export class EditorState {
         ? 'Up to date with repo'
         : 'Up to date with disk'
     }
-    const summary = this.dirtySummary
-    return summary ? `Draft · ${summary}` : 'Draft'
+    return 'Draft'
   }
 
   get canUndo(): boolean {

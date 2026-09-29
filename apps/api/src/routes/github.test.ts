@@ -5,6 +5,7 @@ import { config } from '../config.js'
 import * as auth from '../services/github/auth.js'
 import * as files from '../services/github/files.js'
 import { MissingRepoFile } from '../services/github/files.js'
+import * as builds from '../services/github/builds.js'
 import * as installations from '../services/github/installations.js'
 import {
   consumeOauthState,
@@ -288,5 +289,41 @@ describe('session and errors', () => {
       errors: ['bad keymap']
     })
     expect(commit).toHaveBeenCalledWith('1', 'acme/lark', 'feature/x', layout, keymap)
+  })
+
+  it('GET /github/builds requires a session and a branch', async () => {
+    const anon = await app.request('/github/builds/1/acme%2Fkeymap?branch=main')
+    expect(anon.status).toBe(401)
+
+    const missingBranch = await authedRequest('/github/builds/1/acme%2Fkeymap')
+    expect(missingBranch.res.status).toBe(400)
+  })
+
+  it('GET /github/builds returns the firmware build for the branch', async () => {
+    const fetchBuild = vi.spyOn(builds, 'fetchFirmwareBuild').mockResolvedValue({
+      status: 'success',
+      sha: 'abcdef1234567890',
+      shortSha: 'abcdef1',
+      at: '2026-09-29T11:40:00.000Z',
+      htmlUrl: 'https://github.com/acme/keymap/actions/runs/7',
+      artifactId: 2,
+      artifactName: 'firmware',
+      detail: null
+    })
+    const { res } = await authedRequest('/github/builds/1/acme%2Fkeymap?branch=main')
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ status: 'success', artifactId: 2 })
+    expect(fetchBuild).toHaveBeenCalledWith('1', 'acme/keymap', 'main')
+  })
+
+  it('GET /github/builds artifact downloads a zip', async () => {
+    vi.spyOn(builds, 'downloadFirmwareArtifact').mockResolvedValue(new Uint8Array([1, 2, 3]))
+    const { res } = await authedRequest(
+      '/github/builds/1/acme%2Fkeymap/artifact/22?name=firmware'
+    )
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('application/zip')
+    expect(res.headers.get('content-disposition')).toBe('attachment; filename="firmware.zip"')
+    expect(new Uint8Array(await res.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]))
   })
 })

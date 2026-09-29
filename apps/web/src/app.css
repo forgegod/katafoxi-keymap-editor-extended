@@ -65,14 +65,20 @@ code {
 
 #actions button {
   cursor: pointer;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
   background-color: var(--hover-selection);
   color: white;
   font-family: Quicksand, avenir, sans-serif;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
+  line-height: 1;
   border: none;
   border-radius: 5px;
-  padding: 3px 8px;
+  padding: 0 8px;
   margin: 0;
 }
 

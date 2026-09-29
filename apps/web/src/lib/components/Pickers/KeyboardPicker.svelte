@@ -64,7 +64,7 @@
   })
 </script>
 
-<div>
+<div class="source-fields">
   <Selector
     id="source"
     label="Source"
@@ -79,3 +79,12 @@
     <GithubPicker onSelect={handleKeyboardSelected} />
   {/if}
 </div>
+
+<style>
+  .source-fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 8px 12px;
+  }
+</style>

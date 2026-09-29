@@ -9,20 +9,21 @@ export interface ApiRequestOptions {
   params?: Record<string, string>
 }
 
-export async function request(options: ApiRequestOptions | string) {
-  let opts: ApiRequestOptions =
+function prepare(options: ApiRequestOptions | string): { url: string; init: RequestInit } {
+  const opts: ApiRequestOptions =
     typeof options === 'string' ? { url: options } : { ...options }
 
-  if (opts.url.startsWith('/')) {
-    opts.url = `${baseUrl}${opts.url}`
+  let url = opts.url
+  if (url.startsWith('/')) {
+    url = `${baseUrl}${url}`
   }
 
   if (opts.params) {
-    const url = new URL(opts.url)
+    const parsed = new URL(url)
     for (const [k, v] of Object.entries(opts.params)) {
-      url.searchParams.set(k, v)
+      parsed.searchParams.set(k, v)
     }
-    opts.url = url.toString()
+    url = parsed.toString()
   }
 
   const headers: Record<string, string> = {
@@ -44,24 +45,34 @@ export async function request(options: ApiRequestOptions | string) {
     init.body = typeof opts.data === 'string' ? opts.data : JSON.stringify(opts.data)
   }
 
-  const response = await fetch(opts.url, init)
+  return { url, init }
+}
+
+function noteRateLimit(response: Response) {
   const limitRemaining = response.headers.get('x-ratelimit-remaining')
   if (limitRemaining) {
     console.log('GitHub API ratelimit remaining requests:', limitRemaining)
   }
+}
 
-  if (!response.ok) {
-    let data: unknown
-    try {
-      data = await response.json()
-    } catch {
-      data = await response.text()
-    }
-    const err = Object.assign(new Error(`GitHub API ${response.status}`), {
-      response: { status: response.status, data }
-    })
-    throw err
+async function throwIfNotOk(response: Response): Promise<void> {
+  if (response.ok) return
+  let data: unknown
+  try {
+    data = await response.json()
+  } catch {
+    data = await response.text()
   }
+  throw Object.assign(new Error(`GitHub API ${response.status}`), {
+    response: { status: response.status, data }
+  })
+}
+
+export async function request(options: ApiRequestOptions | string) {
+  const { url, init } = prepare(options)
+  const response = await fetch(url, init)
+  noteRateLimit(response)
+  await throwIfNotOk(response)
 
   const contentType = response.headers.get('content-type') || ''
   let data: unknown
@@ -76,4 +87,13 @@ export async function request(options: ApiRequestOptions | string) {
     headers: Object.fromEntries(response.headers.entries()),
     status: response.status
   }
+}
+
+/** Follows GitHub's artifact redirect and returns the zip bytes. */
+export async function requestBuffer(options: ApiRequestOptions | string): Promise<Uint8Array> {
+  const { url, init } = prepare(options)
+  const response = await fetch(url, init)
+  noteRateLimit(response)
+  await throwIfNotOk(response)
+  return new Uint8Array(await response.arrayBuffer())
 }

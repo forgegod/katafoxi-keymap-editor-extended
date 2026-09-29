@@ -109,6 +109,31 @@ describe('API', () => {
     )
   })
 
+  it('fetchFirmwareBuild GETs the branch build and firmwareDownloadUrl stays same-origin', async () => {
+    const api = new API()
+    api.repoInstallationMap = { 'acme/keymap': '42' }
+    const body = {
+      status: 'success',
+      sha: 'abcdef1234567890',
+      shortSha: 'abcdef1',
+      at: '2026-09-29T11:40:00.000Z',
+      htmlUrl: 'https://github.com/acme/keymap/actions/runs/7',
+      artifactId: 2,
+      artifactName: 'firmware',
+      detail: null
+    }
+    fetchMock.mockResolvedValue(jsonResponse(200, body))
+
+    await expect(api.fetchFirmwareBuild('acme/keymap', 'main')).resolves.toEqual(body)
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://api.test/github/builds/42/acme%2Fkeymap?branch=main',
+      expect.objectContaining({ credentials: 'include' })
+    )
+    expect(api.firmwareDownloadUrl('acme/keymap', 2, 'firmware')).toBe(
+      'http://api.test/github/builds/42/acme%2Fkeymap/artifact/2?name=firmware'
+    )
+  })
+
   it('logout still clears session state when POST fails without emitting', async () => {
     const api = new API()
     const onAuthFailed = vi.fn()

@@ -11,11 +11,12 @@
   import Keyboard from './lib/components/Keyboard/Keyboard.svelte'
   import GitHubLink from './lib/components/GitHubLink.svelte'
   import HostLegendPicker from './lib/components/HostLegendPicker.svelte'
+  import HostLegendView from './lib/components/HostLegendView.svelte'
   import HostSymbolCatalog from './lib/components/HostSymbolCatalog.svelte'
   import HostPipeline from './lib/components/HostPipeline.svelte'
   import Loader from './lib/components/Common/Loader.svelte'
   import github from './lib/github/api.svelte.js'
-  import { formatKeymapChange } from '@keymap-editor/keymap-core'
+  import FirmwareBuild from './lib/components/FirmwareBuild.svelte'
 
   // Proxy so context consumers stay reactive to editor.definitions ($state).
   setDefinitionsContext({
@@ -27,7 +28,7 @@
     }
   })
 
-  let changesOpen = $state(false)
+  let buildRefresh = $state(0)
 
   onMount(() => {
     const onKeyDown = (event: KeyboardEvent) =>
@@ -62,7 +63,6 @@
       },
       reload: reloadLocalKeyboard
     })
-    if (ok) changesOpen = false
   }
 
   async function handleCommitToGitHub() {
@@ -80,7 +80,7 @@
       },
       reload: () => github.fetchLayoutAndKeymap(gh.repository, gh.branch)
     })
-    if (ok) changesOpen = false
+    if (ok) buildRefresh += 1
   }
 </script>
 
@@ -92,7 +92,6 @@
         <KeyboardPicker
           onSelect={event => {
             void editor.selectKeyboard(event as KeyboardSelection)
-            changesOpen = false
           }}
         />
       </div>
@@ -131,19 +130,8 @@
       <div class="chrome-group actions-publish">
         {#if editor.draftKeymap}
           <div class="change-status">
+            <span class="publish-status" class:dirty={editor.isDirty}>{editor.statusText}</span>
             {#if editor.isDirty}
-              <button
-                type="button"
-                class="publish-status dirty change-toggle"
-                aria-expanded={changesOpen}
-                onclick={() => (changesOpen = !changesOpen)}
-              >
-                {editor.statusText}
-                <span class="change-count">
-                  {editor.changes.length}
-                  {editor.changes.length === 1 ? 'change' : 'changes'}
-                </span>
-              </button>
               <button
                 type="button"
                 class="discard-draft"
@@ -154,21 +142,11 @@
                     'Discard all unpublished edits and restore the last loaded keymap?\n\nThis cannot be undone with Undo.'
                   )
                   if (!ok) return
-                  changesOpen = false
                   void editor.discardDraft()
                 }}
               >
                 Discard draft
               </button>
-              {#if changesOpen}
-                <ul class="change-list" role="list">
-                  {#each editor.changes as change}
-                    <li>{formatKeymapChange(change)}</li>
-                  {/each}
-                </ul>
-              {/if}
-            {:else}
-              <span class="publish-status">{editor.statusText}</span>
             {/if}
           </div>
         {/if}
@@ -190,6 +168,13 @@
             {editor.saving ? 'Saving' : 'Commit to GitHub'}
             {#if editor.saving}<Spinner />{/if}
           </button>
+          {#if editor.githubMeta}
+            <FirmwareBuild
+              repository={editor.githubMeta.repository}
+              branch={editor.githubMeta.branch}
+              refreshKey={buildRefresh}
+            />
+          {/if}
         {/if}
       </div>
     </div>
@@ -216,7 +201,10 @@
   <div class="board-stack">
     {#if editor.draftKeymap}
       <div class="host-legend-wrap">
-        <HostLegendPicker />
+        <div class="legend-with-view">
+          <HostLegendView />
+          <HostLegendPicker />
+        </div>
         <HostSymbolCatalog />
       </div>
     {/if}
@@ -242,33 +230,30 @@
     z-index: 5;
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: 6px 10px;
+    align-items: flex-end;
+    gap: 4px 12px;
     padding: 2px 10px 4px;
+    font-size: 13px;
   }
 
   .chrome-lane {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    align-items: flex-end;
     gap: 6px 8px;
     min-width: 0;
   }
 
-  .chrome-zmk {
-    flex: 1 1 280px;
-  }
-
-  .chrome-host {
-    flex: 0 1 auto;
-  }
-
   .lane-label {
     flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
     margin: 0 2px 0 0;
-    padding: 2px 0;
+    padding: 0;
     color: #555;
-    font-size: 100%;
+    font-size: 13px;
     font-weight: 600;
     letter-spacing: 0.02em;
     white-space: nowrap;
@@ -279,6 +264,10 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 6px;
+  }
+
+  .chrome-source {
+    align-items: flex-end;
   }
 
   .actions-history {
@@ -348,18 +337,28 @@
     min-width: max-content;
   }
 
-  .change-status {
-    position: relative;
+  .legend-with-view {
     display: flex;
-    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .change-status {
+    display: flex;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 4px 8px;
-    max-width: min(420px, 70vw);
+    gap: 8px;
   }
 
   .publish-status {
-    align-self: center;
-    font-size: 90%;
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    height: 26px;
+    min-width: 11em;
+    font-size: 13px;
+    white-space: nowrap;
     color: var(--muted, #555);
     margin-right: 0;
   }
@@ -368,39 +367,18 @@
     color: #664d03;
   }
 
-  /* Override #actions button chrome for the expandable dirty status. */
-  #actions button.publish-status.change-toggle {
-    cursor: pointer;
-    background: transparent;
-    color: #664d03;
-    border: none;
-    border-radius: 5px;
-    padding: 4px 8px;
-    margin: 0;
-    font: inherit;
-    font-weight: 400;
-    text-align: left;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 8px;
-    align-items: baseline;
-    box-shadow: none;
-  }
-
-  #actions button.publish-status.change-toggle:hover {
-    background: rgba(0, 0, 0, 0.06);
-  }
-
   #actions button.discard-draft {
     cursor: pointer;
     background: transparent;
     color: #842029;
     border: 1px solid #e2b6bb;
     border-radius: 5px;
-    padding: 4px 10px;
+    box-sizing: border-box;
+    height: 26px;
+    padding: 0 8px;
     margin: 0;
     font: inherit;
-    font-size: 90%;
+    font-size: 13px;
     font-weight: 500;
     box-shadow: none;
   }
@@ -414,39 +392,6 @@
     color: #ccc;
     border-color: #ddd;
     cursor: not-allowed;
-  }
-
-  .change-count {
-    font-weight: 600;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-
-  .change-list {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    z-index: 6;
-    margin: 0;
-    padding: 8px 10px;
-    list-style: none;
-    max-height: min(240px, 40vh);
-    overflow: auto;
-    min-width: 220px;
-    max-width: min(420px, 90vw);
-    background: #fffef8;
-    color: #664d03;
-    border: 1px solid #e6d9a8;
-    border-radius: 6px;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
-    font-size: 85%;
-    line-height: 1.35;
-  }
-
-  .change-list li + li {
-    margin-top: 4px;
-    padding-top: 4px;
-    border-top: 1px solid #efe6c4;
   }
 
   .save-notice {

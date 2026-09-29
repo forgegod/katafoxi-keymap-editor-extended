@@ -21,6 +21,8 @@
     tooltipId: string
     /** Alt+click host-edit session for this card. */
     hostSession?: boolean
+    /** Encoded binding before an unpublished edit. Empty string means the key was blank. */
+    previous?: string
     onArmCell?: (language: HostLanguageId, level: number) => void
     onEndSession?: () => void
   }
@@ -30,6 +32,7 @@
     anchor,
     tooltipId,
     hostSession = false,
+    previous,
     onArmCell,
     onEndSession
   }: Props = $props()
@@ -186,6 +189,9 @@
   class:has-table={displayCard.current.length > 0}
   style="position:fixed;left:{anchor.left}px;top:{anchor.top}px;z-index:40"
 >
+  {#if previous !== undefined}
+    <div class="was">{previous ? `Was ${previous}` : 'Was empty'}</div>
+  {/if}
   <div class="ids">
     {#if showBinding}<span class="bind">{displayCard.binding}</span>{/if}
     {#if displayCard.keycode}
@@ -380,10 +386,18 @@
     max-width: min(40em, calc(100vw - 16px));
   }
 
-  .legend-decode.has-table :is(.ids, .mode-hint, .session-bar) {
+  .legend-decode.has-table :is(.was, .ids, .mode-hint, .session-bar) {
     width: 0;
     min-width: 100%;
     white-space: normal;
+  }
+
+  .was {
+    margin-bottom: 4px;
+    color: #664d03;
+    font-size: 13px;
+    font-family: Quicksand, avenir, sans-serif;
+    line-height: 1.3;
   }
 
   .ids {

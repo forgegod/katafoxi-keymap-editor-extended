@@ -293,6 +293,18 @@
     const conflict = align.conflictByZmk.has(tap)
     return { moved, conflict, title: moved || conflict ? symbolAlignCaption(tap, align) : '' }
   }
+
+  function isUnpublished(layer: number): boolean {
+    return editor.unpublishedBefore.has(`${keyIndex}:${layer}`)
+  }
+
+  function rowHint(layer: number, alignTitle: string): string | undefined {
+    const before = editor.unpublishedBefore.get(`${keyIndex}:${layer}`)
+    const parts: string[] = []
+    if (before !== undefined) parts.push(before ? `Was ${before}` : 'Was empty')
+    if (alignTitle) parts.push(alignTitle)
+    return parts.length ? parts.join('. ') : undefined
+  }
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -322,6 +334,7 @@
       <button
         type="button"
         class="layer-slot multilang-face"
+        class:unpublished={isUnpublished(0)}
         class:symbol-moved={marks.moved}
         class:altgr-conflict={marks.conflict}
         data-layer="0"
@@ -332,7 +345,7 @@
           binding: multilangFace.binding
         })}
         aria-describedby={decode?.layer === 0 && !inHostSession ? decodeTooltipId : undefined}
-        title={marks.title || undefined}
+        title={rowHint(0, marks.title)}
         onclick={event => handleRowClick(event, 0)}
         onmouseenter={event => openDecode(0, event.currentTarget)}
         onmouseleave={handleRowLeave}
@@ -354,6 +367,7 @@
       <button
         type="button"
         class="layer-slot"
+        class:unpublished={isUnpublished(row.layer)}
         class:symbol-moved={marks.moved}
         class:altgr-conflict={marks.conflict}
         data-layer={row.layer}
@@ -361,7 +375,7 @@
         aria-describedby={
           decode?.layer === row.layer && !inHostSession ? decodeTooltipId : undefined
         }
-        title={marks.title || undefined}
+        title={rowHint(row.layer, marks.title)}
         onclick={event => handleRowClick(event, row.layer)}
         onmouseenter={event => openDecode(row.layer, event.currentTarget)}
         onmouseleave={handleRowLeave}
@@ -385,6 +399,7 @@
       card={decodeCard}
       anchor={decode.rect}
       tooltipId={decodeTooltipId ?? ''}
+      previous={editor.unpublishedBefore.get(`${keyIndex}:${decode.layer}`)}
       hostSession={inHostSession}
       onArmCell={armHostCell}
       onEndSession={endHostEditSession}

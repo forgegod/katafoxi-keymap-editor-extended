@@ -19,8 +19,6 @@ if (!(happyComment instanceof Comment)) {
   })
 }
 
-const CHANGE_LINE = 'L0 key 0: &kp A → &kp M'
-
 const oneKeyLayout = [{ x: 0, y: 0, row: 0, col: 0 }]
 
 function km(code: string, keyboard = 'lark'): ParsedKeymap {
@@ -143,27 +141,22 @@ describe('App chrome', () => {
     flushSync()
   }
 
-  it('shows a dirty change list and hides discard when clean', async () => {
+  it('keeps a short Draft status and hides discard when clean', async () => {
     await renderApp()
     await loadKeyboard(localSelection())
 
-    expect(target.textContent).toMatch(/Up to date/)
+    const status = () => target.querySelector('.publish-status')
+    expect(status()?.textContent).toMatch(/Up to date/)
     expect(target.querySelector('.discard-draft')).toBeNull()
+    expect(target.querySelector('.change-list')).toBeNull()
 
     editor.updateKeymap(km('M'))
     flushSync()
 
-    const status = target.querySelector('.change-toggle')
-    expect(status).toBeInstanceOf(HTMLButtonElement)
-    expect(status?.textContent?.replace(/\s+/g, ' ')).toMatch(/1 change/)
-    expect(target.querySelector('.change-list')).toBeNull()
-
-    ;(status as HTMLButtonElement).click()
-    flushSync()
-
-    const list = target.querySelector('.change-list')
-    expect(list).toBeInstanceOf(HTMLUListElement)
-    expect(list?.textContent).toContain(CHANGE_LINE)
+    expect(status()?.textContent?.trim()).toBe('Draft')
+    expect(status()?.classList.contains('dirty')).toBe(true)
+    expect(target.querySelector('.discard-draft')).toBeInstanceOf(HTMLButtonElement)
+    expect(target.querySelector('.layer-slot.unpublished')?.getAttribute('title')).toBe('Was &kp A')
   })
 
   it('keeps or discards the draft from the confirm dialog', async () => {
@@ -172,10 +165,6 @@ describe('App chrome', () => {
     editor.updateKeymap(km('M'))
     flushSync()
 
-    ;(target.querySelector('.change-toggle') as HTMLButtonElement).click()
-    flushSync()
-    expect(target.querySelector('.change-list')).not.toBeNull()
-
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
     ;(target.querySelector('.discard-draft') as HTMLButtonElement).click()
     flushSync()
@@ -183,10 +172,8 @@ describe('App chrome', () => {
     flushSync()
 
     expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('M')
-    expect(target.querySelector('.change-list')).not.toBeNull()
-    expect(target.querySelector('.change-list')?.textContent).toContain(
-      CHANGE_LINE
-    )
+    expect(target.querySelector('.publish-status')?.textContent?.trim()).toBe('Draft')
+    expect(target.querySelector('.layer-slot.unpublished')).toBeInstanceOf(HTMLElement)
 
     confirm.mockReturnValue(true)
     ;(target.querySelector('.discard-draft') as HTMLButtonElement).click()
@@ -196,7 +183,9 @@ describe('App chrome', () => {
 
     expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('A')
     expect(editor.isDirty).toBe(false)
-    expect(target.querySelector('.change-list')).toBeNull()
+    expect(target.querySelector('.publish-status')?.textContent).toMatch(/Up to date/)
+    expect(target.querySelector('.discard-draft')).toBeNull()
+    expect(target.querySelector('.layer-slot.unpublished')).toBeNull()
   })
 
   it('disables Write, Commit, and Discard while saving', async () => {
@@ -268,17 +257,15 @@ describe('App chrome', () => {
     expect(undo).not.toHaveBeenCalled()
   })
 
-  it('closes an open change list when selectKeyboard runs again', async () => {
+  it('clears the unpublished row when another keyboard is loaded', async () => {
     await renderApp()
     await loadKeyboard(localSelection())
     editor.updateKeymap(km('M'))
     flushSync()
-
-    ;(target.querySelector('.change-toggle') as HTMLButtonElement).click()
-    flushSync()
-    expect(target.querySelector('.change-list')).not.toBeNull()
+    expect(target.querySelector('.layer-slot.unpublished')).toBeInstanceOf(HTMLElement)
 
     await loadKeyboard(localSelection('A', 'other'))
-    expect(target.querySelector('.change-list')).toBeNull()
+    expect(target.querySelector('.layer-slot.unpublished')).toBeNull()
+    expect(target.querySelector('.publish-status')?.textContent).toMatch(/Up to date/)
   })
 })

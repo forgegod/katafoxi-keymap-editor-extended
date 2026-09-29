@@ -17,6 +17,7 @@ import {
 } from '../services/github/sessions.js'
 import * as installations from '../services/github/installations.js'
 import * as files from '../services/github/files.js'
+import * as builds from '../services/github/builds.js'
 
 type Variables = {
   user: { sub: string; oauth_access_token: string }
@@ -130,6 +131,37 @@ githubRoutes.get('/keyboard-files/:installationId/:repository', async c => {
       console.error(`Validation error in ${repository} (${branch}):`, err.name, err.errors)
       return c.json({ name: err.name, errors: err.errors }, 400)
     }
+    return handleGithubError(c, err)
+  }
+})
+
+githubRoutes.get('/builds/:installationId/:repository/artifact/:artifactId', async c => {
+  const { installationId, repository, artifactId } = c.req.param()
+  if (!/^\d+$/.test(artifactId)) return c.body(null, 400)
+  const archiveName = builds.firmwareArchiveName(c.req.query('name'))
+  try {
+    const bytes = await builds.downloadFirmwareArtifact(
+      installationId,
+      repository,
+      artifactId
+    )
+    return c.body(bytes, 200, {
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename="${archiveName}"`
+    })
+  } catch (err) {
+    return handleGithubError(c, err)
+  }
+})
+
+githubRoutes.get('/builds/:installationId/:repository', async c => {
+  const { installationId, repository } = c.req.param()
+  const branch = c.req.query('branch')
+  if (!branch) return c.body(null, 400)
+  try {
+    const build = await builds.fetchFirmwareBuild(installationId, repository, branch)
+    return c.json(build)
+  } catch (err) {
     return handleGithubError(c, err)
   }
 })
