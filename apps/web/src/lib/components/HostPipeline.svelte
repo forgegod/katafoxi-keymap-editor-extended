@@ -1,6 +1,6 @@
 <script lang="ts">
   import { editor } from '../editor.svelte.js'
-  import { formatAltGrCopyLine, hostLanguage } from '@keymap-editor/keymap-core'
+  import { formatAltGrCopyLine, hostLanguage, pairedKbdId } from '@keymap-editor/keymap-core'
   import logoLinux from '../assets/logo-linux.png'
   import logoWindows from '../assets/logo-windows.png'
   import Modal from './Common/Modal.svelte'
@@ -10,6 +10,8 @@
 
   let sheet = $state<InstallSheet>(null)
   let copyNote = $state('')
+  /** Last paired-layout version written for each caps language. The next download uses +1. */
+  let pairedVersion = $state<Record<string, number>>({})
 
   const MSKLC_URL =
     'https://www.microsoft.com/en-us/download/details.aspx?id=102134'
@@ -106,9 +108,39 @@
     }
   }
 
+  function pairedVersionKey(language: string): string {
+    return `klc-paired-version:${language}`
+  }
+
+  function readPairedVersion(language: string): number {
+    try {
+      const raw = Number(localStorage.getItem(pairedVersionKey(language)) || '0')
+      if (!Number.isInteger(raw) || raw < 1) return 0
+      return Math.min(raw, 99)
+    } catch {
+      return 0
+    }
+  }
+
+  function upcomingPairedVersion(language: string): number {
+    const prev = pairedVersion[language] ?? 0
+    return prev >= 99 ? 1 : prev + 1
+  }
+
+  function pairedLayoutName(baseName: string, capsName: string, language: string): string {
+    return pairedKbdId(baseName, capsName, upcomingPairedVersion(language))
+  }
+
   function openSheet(next: 'linux' | 'windows') {
     if (!dirty) return
     copyNote = ''
+    if (next === 'windows') {
+      const versions: Record<string, number> = {}
+      for (const item of editor.listCapsAlphabetKlcExports()) {
+        versions[item.capsLanguage] = readPairedVersion(item.capsLanguage)
+      }
+      pairedVersion = versions
+    }
     sheet = next
   }
 
@@ -141,9 +173,16 @@
   }
 
   function downloadCapsKlc(item: (typeof capsExports)[number]) {
-    const file = editor.exportCapsAlphabetKlc(item.capsLanguage)
+    const version = upcomingPairedVersion(item.capsLanguage)
+    try {
+      localStorage.setItem(pairedVersionKey(item.capsLanguage), String(version))
+    } catch {
+      /* private mode: the file still carries this version */
+    }
+    pairedVersion = { ...pairedVersion, [item.capsLanguage]: version }
+    const file = editor.exportCapsAlphabetKlc(item.capsLanguage, version)
     if (!file) return
-    downloadBytes(file.bytes, safeFileName(item.fileStem, 'klc'))
+    downloadBytes(file.bytes, safeFileName(file.kbdId, 'klc'))
   }
 
   function downloadAllLinux() {
@@ -348,8 +387,15 @@
           if you do not have it.
         </li>
         <li>Download a <code>.klc</code> file below.</li>
-        <li>In MSKLC, use File → Load Source File, then Project → Build DLL and Setup Package.</li>
-        <li>Run the installer, then sign out or reboot so Windows loads the new layout.</li>
+        <li>
+          In MSKLC, use File → Load Source File, then Project → Build DLL and Setup Package. If a
+          custom layout from an earlier build is still installed, remove it from that language’s
+          keyboard list first. The layout name is at most 8 letters and digits. Windows keeps the
+          old DLL when that name stays the same, so leave the new name that is already in the file.
+        </li>
+        <li>
+          Run the installer, then sign out. If the previous characters are still there, reboot.
+        </li>
       </ol>
 
       {#if capsExports.length > 0}
@@ -385,8 +431,14 @@
             remains where the other language’s AltGr level is empty.
           </p>
           <p>Each combined download pairs English with one other language on the board.</p>
+          <p>
+            The file’s layout name looks like EngRus01: three letters from each language and a
+            two-digit version. The next download of the same pair uses the next number. Remove the
+            previous custom layout from the English keyboard list before you install this one.
+          </p>
           {#each capsExports as item (item.capsLanguage)}
             <p class="paired-source">
+              Layout name {pairedLayoutName(item.baseLanguageName, item.capsLanguageName, item.capsLanguage)}.
               English column “{item.baseLayoutName}”, {item.capsLanguageName} column “{item.capsLayoutName}”.
             </p>
             <div class="row-actions">

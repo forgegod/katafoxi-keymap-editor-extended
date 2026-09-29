@@ -17,8 +17,13 @@ import type { WindowsLocale } from './klc-locale.js'
 import { keysymToGlyph } from './xkb-keysyms.js'
 
 export interface HostLayoutKlcOptions {
-  /** Profile name. Becomes the KBD description and the eight-character id. */
+  /** Profile name. Becomes the KBD description. Also the DLL id when `kbdId` is omitted. */
   name: string
+  /**
+   * DLL name: one to eight letters and digits, starting with a letter.
+   * Windows keeps the previous layout when this id stays the same.
+   */
+  kbdId?: string
   locale: WindowsLocale
   /**
    * Levels 0 and 1 of this layout become Caps Lock and Caps Lock+Shift.
@@ -132,6 +137,17 @@ export function klcIdentifier(name: string): string {
   if (!cleaned) return 'Layout'
   const id = (/^[A-Za-z]/.test(cleaned) ? cleaned : `L${cleaned}`).slice(0, 8)
   return /^[A-Za-z]/.test(id) ? id : 'Layout'
+}
+
+/**
+ * Paired-layout DLL name: three letters from each language plus a two-digit
+ * version (`English` + `Russian` + 1 → `EngRus01`). Underscores are not
+ * allowed, and the whole id is at most eight characters.
+ */
+export function pairedKbdId(baseName: string, capsName: string, version: number): string {
+  const stem = (name: string) => name.replace(/[^A-Za-z]/g, '').slice(0, 3)
+  const n = Math.min(99, Math.max(1, Math.trunc(version) || 1))
+  return klcIdentifier(`${stem(baseName)}${stem(capsName)}${String(n).padStart(2, '0')}`)
 }
 
 function hex4(codepoint: number): string {
@@ -427,8 +443,9 @@ export function hostLayoutToKlc(layout: HostLayout, options: HostLayoutKlcOption
   const ordered = [...rows.filter(row => row.scan !== 0x53), ...decimal]
 
   const description = (options.name.trim() || locale.languageName).replace(/[\t\r\n]/g, ' ')
+  const kbdId = klcIdentifier(options.kbdId?.trim() || description)
   const lines = [
-    `KBD\t${klcIdentifier(description)}\t${quote(description)}`,
+    `KBD\t${kbdId}\t${quote(description)}`,
     `COPYRIGHT\t${quote('(c) 2026 keymap-editor')}`,
     `COMPANY\t${quote('keymap-editor')}`,
     `LOCALENAME\t${quote(locale.localeName)}`,

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { builtinHostLayoutSpecs } from './host-layout-catalog.js'
 import { hostLayoutFromSymbols, withHostKey, type HostLayout } from './host-layout.js'
 import { windowsLocale, type WindowsLocale } from './klc-locale.js'
-import { encodeKlc, hostLayoutsToCapsKlc, hostLayoutToKlc, klcIdentifier } from './klc-write.js'
+import { encodeKlc, hostLayoutsToCapsKlc, hostLayoutToKlc, klcIdentifier, pairedKbdId } from './klc-write.js'
 
 function systemLayout(id: string): HostLayout {
   const spec = builtinHostLayoutSpecs.find(item => item.id === id)
@@ -33,6 +33,10 @@ describe('klc export', () => {
     expect(klcIdentifier('My layout')).toBe('Mylayout')
     expect(klcIdentifier('12345')).toBe('L12345')
     expect(klcIdentifier('йцукен')).toBe('Layout')
+    expect(pairedKbdId('English', 'Russian', 1)).toBe('EngRus01')
+    expect(pairedKbdId('English', 'German', 12)).toBe('EngGer12')
+    expect(pairedKbdId('English', 'Ukrainian', 99)).toBe('EngUkr99')
+    expect(pairedKbdId('English', 'Russian', 0)).toBe('EngRus01')
   })
 
   it('writes German virtual keys, dead keys, and the de-DE locale', () => {
@@ -115,6 +119,12 @@ describe('klc export', () => {
     })
     expect(text).toContain('LOCALEID\t"00000409"')
     expect(text).toContain('KBD\tEnglishR\t"English + Russian"')
+    const named = hostLayoutsToCapsKlc(systemLayout('system-us'), systemLayout('system-ru'), {
+      name: 'English + Russian',
+      kbdId: pairedKbdId('English', 'Russian', 1),
+      locale: windowsLocale('en')
+    })
+    expect(named).toContain('KBD\tEngRus01\t"English + Russian"')
     expect(text).not.toContain('00000419')
     const lines = text.split(/\r?\n/)
     const q = lines.findIndex(line => line.startsWith('10\t'))
