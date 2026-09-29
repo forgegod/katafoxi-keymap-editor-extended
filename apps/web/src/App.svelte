@@ -11,6 +11,7 @@
   import Keyboard from './lib/components/Keyboard/Keyboard.svelte'
   import GitHubLink from './lib/components/GitHubLink.svelte'
   import HostLegendPicker from './lib/components/HostLegendPicker.svelte'
+  import HostLegendView from './lib/components/HostLegendView.svelte'
   import HostSymbolCatalog from './lib/components/HostSymbolCatalog.svelte'
   import HostPipeline from './lib/components/HostPipeline.svelte'
   import Loader from './lib/components/Common/Loader.svelte'
@@ -228,7 +229,10 @@
   <div class="board-stack">
     {#if editor.draftKeymap}
       <div class="host-legend-wrap">
-        <HostLegendPicker />
+        <div class="legend-with-view">
+          <HostLegendView />
+          <HostLegendPicker />
+        </div>
         <HostSymbolCatalog />
       </div>
     {/if}
@@ -359,6 +363,13 @@
     gap: 8px;
     padding: 0 8px 4px 12px;
     min-width: max-content;
+  }
+
+  .legend-with-view {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 0;
   }
 
   .change-status {

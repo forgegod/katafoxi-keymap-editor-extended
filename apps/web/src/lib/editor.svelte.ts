@@ -214,8 +214,9 @@ export class EditorState {
    */
   hostLayoutRevision = $state(0)
   /**
-   * Session toggle. On paints punctuation that moved and AltGr cells the
-   * combined Windows file cannot keep. Not stored with the legend view.
+   * Session toggle. On underlines a symbol that sits on a different key and
+   * outlines AltGr cells the combined Windows file cannot keep. Not stored
+   * with the legend view.
    */
   symbolAlignOn = $state(true)
   /**
