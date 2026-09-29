@@ -593,4 +593,60 @@ describe('HostLegendPicker', () => {
     })
     expect(englishPair()).toBe('αΑ')
   })
+
+  it('remembers a column set and switches back to it', async () => {
+    const keymap = keymapOf(['Base'])
+    await open(keymap)
+    const remember = () => {
+      const button = target.querySelector('.legend-panel .remember')
+      if (!(button instanceof HTMLButtonElement)) throw new Error('missing remember')
+      return button
+    }
+    const chipLabels = () =>
+      [...target.querySelectorAll('.legend-panel .chip .show')].map(el => el.textContent?.trim())
+
+    remember().click()
+    await vi.waitFor(() => {
+      expect(chipLabels()).toEqual(['System'])
+    })
+    expect(remember().disabled).toBe(true)
+
+    await editor.commitHostMap(addHostLanguage(editor.hostLegend, 'ru'))
+    flushSync()
+    expect(target.querySelector('.legend-panel .chip.on')).toBeNull()
+    expect(remember().disabled).toBe(false)
+
+    remember().click()
+    await vi.waitFor(() => {
+      expect(chipLabels()).toEqual(['System', 'English System + Russian System'])
+    })
+
+    const first = target.querySelector('.legend-panel .chip .show')
+    if (!(first instanceof HTMLButtonElement)) throw new Error('missing assembly')
+    first.click()
+    await vi.waitFor(() => {
+      expect(editor.hostLegend.columns.map(column => column.language)).toEqual(['en'])
+    })
+    flushSync()
+    expect(target.querySelector('.legend-panel .chip.on .show')?.textContent?.trim()).toBe('System')
+
+    const forget = target.querySelector(
+      '.legend-panel [aria-label="Forget English System + Russian System"]'
+    )
+    if (!(forget instanceof HTMLButtonElement)) throw new Error('missing forget')
+    forget.click()
+    await vi.waitFor(() => {
+      expect(chipLabels()).toEqual(['System'])
+    })
+
+    await editor.selectKeyboard({
+      source: 'local',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap
+    })
+    flushSync()
+    await vi.waitFor(() => {
+      expect(chipLabels()).toEqual(['System'])
+    })
+  })
 })

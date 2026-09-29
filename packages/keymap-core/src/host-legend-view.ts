@@ -215,3 +215,26 @@ export function assignHostLanguageLayout(
   columnOf(next, language)!.layoutId = layoutId
   return next
 }
+
+/** Column choices and the languages drawn on the key. Layout tables are not compared. */
+export function sameHostLegendView(left: HostLegendView, right: HostLegendView): boolean {
+  if (left.open !== right.open) return false
+  if (left.columns.length !== right.columns.length) return false
+  for (let index = 0; index < left.columns.length; index++) {
+    const a = left.columns[index]
+    const b = right.columns[index]
+    if (
+      a.language !== b.language ||
+      a.layoutId !== b.layoutId ||
+      a.visible !== b.visible ||
+      a.altGr !== b.altGr ||
+      a.altGrShift !== b.altGrShift
+    ) {
+      return false
+    }
+  }
+  const leftCap = shownKeycap(left)
+  const rightCap = shownKeycap(right)
+  if (leftCap.length !== rightCap.length) return false
+  return leftCap.every((language, index) => language === rightCap[index])
+}

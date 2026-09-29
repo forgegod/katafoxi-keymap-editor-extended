@@ -5,6 +5,7 @@
     type HostLanguageId
   } from '@keymap-editor/keymap-core'
   import { editor, hostLegendAnchorIndex } from '../editor.svelte.js'
+  import HostAssemblyBar from './HostAssemblyBar.svelte'
   import HostLegendLanguageHead from './HostLegendLanguageHead.svelte'
   import HostLegendLayerRow, {
     type HostLegendLayerRowModel
@@ -130,6 +131,7 @@
 </script>
 
 {#snippet legendTable(rows: HostLegendLayerRowModel[], interactive: boolean)}
+  <HostAssemblyBar />
   <table>
     <thead>
       <tr>
