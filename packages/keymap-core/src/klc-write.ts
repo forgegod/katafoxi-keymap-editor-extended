@@ -17,8 +17,13 @@ import type { WindowsLocale } from './klc-locale.js'
 import { keysymToGlyph } from './xkb-keysyms.js'
 
 export interface HostLayoutKlcOptions {
-  /** Profile name. Becomes the KBD description and the eight-character id. */
+  /** Profile name. Becomes the KBD description. Also the DLL id when `kbdId` is omitted. */
   name: string
+  /**
+   * DLL name: one to eight letters and digits, starting with a letter.
+   * Windows keeps the previous layout when this id stays the same.
+   */
+  kbdId?: string
   locale: WindowsLocale
   /**
    * Levels 0 and 1 of this layout become Caps Lock and Caps Lock+Shift.
@@ -126,12 +131,37 @@ function quote(value: string): string {
   return `"${value.replace(/[\r\n"]/g, ' ').replace(/\s+/g, ' ').trim()}"`
 }
 
+/**
+ * Drop CR, then split. `KEYNAME` is a template in this file. A shared
+ * Windows/Linux tree may save the file with CRLF; a leftover CR plus the
+ * document's CRLF is `\r\r\n`, and MSKLC glues those key names into one line.
+ */
+export function klcBlockLines(block: string): string[] {
+  return block.replace(/\r/g, '').split('\n')
+}
+
+/** One .klc document: every line is CRLF, even when a source line still holds CR. */
+export function klcDocument(lines: readonly string[]): string {
+  return lines.flatMap(line => klcBlockLines(line)).join('\r\n')
+}
+
 /** MSKLC uses the KBD id as a DLL name: one to eight letters and digits, starting with a letter. */
 export function klcIdentifier(name: string): string {
   const cleaned = name.replace(/[^A-Za-z0-9]/g, '')
   if (!cleaned) return 'Layout'
   const id = (/^[A-Za-z]/.test(cleaned) ? cleaned : `L${cleaned}`).slice(0, 8)
   return /^[A-Za-z]/.test(id) ? id : 'Layout'
+}
+
+/**
+ * Paired-layout DLL name: three letters from each language plus a two-digit
+ * version (`English` + `Russian` + 1 → `EngRus01`). Underscores are not
+ * allowed, and the whole id is at most eight characters.
+ */
+export function pairedKbdId(baseName: string, capsName: string, version: number): string {
+  const stem = (name: string) => name.replace(/[^A-Za-z]/g, '').slice(0, 3)
+  const n = Math.min(99, Math.max(1, Math.trunc(version) || 1))
+  return klcIdentifier(`${stem(baseName)}${stem(capsName)}${String(n).padStart(2, '0')}`)
 }
 
 function hex4(codepoint: number): string {
@@ -427,8 +457,9 @@ export function hostLayoutToKlc(layout: HostLayout, options: HostLayoutKlcOption
   const ordered = [...rows.filter(row => row.scan !== 0x53), ...decimal]
 
   const description = (options.name.trim() || locale.languageName).replace(/[\t\r\n]/g, ' ')
+  const kbdId = klcIdentifier(options.kbdId?.trim() || description)
   const lines = [
-    `KBD\t${klcIdentifier(description)}\t${quote(description)}`,
+    `KBD\t${kbdId}\t${quote(description)}`,
     `COPYRIGHT\t${quote('(c) 2026 keymap-editor')}`,
     `COMPANY\t${quote('keymap-editor')}`,
     `LOCALENAME\t${quote(locale.localeName)}`,
@@ -448,7 +479,9 @@ export function hostLayoutToKlc(layout: HostLayout, options: HostLayoutKlcOption
   ]
   const dead = deadSections(layout, locale, capsLayout)
   for (const item of dead) lines.push(...deadKeyLines(item), '')
-  lines.push('KEYNAME', '', KEYNAME, '', 'KEYNAME_EXT', '', KEYNAME_EXT, '')
+  // MSKLC splits a section on CRLF only. A LF-only block is one key name, and the
+  // quotes inside "Right Shift" then break the generated C file.
+  lines.push('KEYNAME', '', ...klcBlockLines(KEYNAME), '', 'KEYNAME_EXT', '', ...klcBlockLines(KEYNAME_EXT), '')
   if (dead.length) {
     lines.push('KEYNAME_DEAD', '')
     for (const item of dead) {
@@ -467,7 +500,7 @@ export function hostLayoutToKlc(layout: HostLayout, options: HostLayoutKlcOption
     'ENDKBD',
     ''
   )
-  return lines.join('\r\n')
+  return klcDocument(lines)
 }
 
 /** UTF-16 LE with BOM, the encoding MSKLC opens. */

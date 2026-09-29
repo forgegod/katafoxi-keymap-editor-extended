@@ -18,6 +18,7 @@ import {
   hostLayoutToXkbSection,
   hostLayoutToKlc,
   hostLayoutsToCapsKlc,
+  pairedKbdId,
   encodeKlc,
   windowsLocale,
   listXkbSections,
@@ -872,7 +873,10 @@ export class EditorState {
    * One UTF-16 .klc: English locale and letters, `capsLanguage` on Caps Lock.
    * Returns null when either column is missing.
    */
-  exportCapsAlphabetKlc(capsLanguage: HostLanguageId): { bytes: Uint8Array; name: string } | null {
+  exportCapsAlphabetKlc(
+    capsLanguage: HostLanguageId,
+    version = 1
+  ): { bytes: Uint8Array; name: string; kbdId: string } | null {
     const columns = hostLegendColumns(this.hostLegend)
     const base = columns.find(column => column.language === 'en')
     const caps = columns.find(column => column.language === capsLanguage)
@@ -880,12 +884,16 @@ export class EditorState {
     const baseLayout = hostLayout(base.layoutId)
     const capsLayout = hostLayout(caps.layoutId)
     if (!baseLayout || !capsLayout) return null
-    const name = `${hostLanguage('en').name} + ${hostLanguage(capsLanguage).name}`
+    const baseName = hostLanguage('en').name
+    const capsName = hostLanguage(capsLanguage).name
+    const name = `${baseName} + ${capsName}`
+    const kbdId = pairedKbdId(baseName, capsName, version)
     const text = hostLayoutsToCapsKlc(baseLayout, capsLayout, {
       name,
+      kbdId,
       locale: windowsLocale('en')
     })
-    return { bytes: encodeKlc(text), name }
+    return { bytes: encodeKlc(text), name, kbdId }
   }
 
   #layoutColumnName(layoutId: string, language: HostLanguageId): string {

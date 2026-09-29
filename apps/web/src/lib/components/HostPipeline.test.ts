@@ -183,14 +183,19 @@ describe('HostPipeline', () => {
     await editor.setHostKeyLevel('en', 'A', 0, 'b')
     flushSync()
 
+    localStorage.removeItem('klc-paired-version:ru')
     const windows = target.querySelector(
       'button.download[aria-label="Install host layout on Windows"]'
     ) as HTMLButtonElement
     windows.click()
     flushSync()
-
     const dialog = document.querySelector('[aria-labelledby="windows-install-title"]')
     expect(dialog?.textContent).toMatch(/Two alphabets in one layout/)
+    expect(dialog?.textContent).toMatch(/at most 8 letters and digits/)
+    expect(dialog?.textContent).toMatch(/language.s\s+keyboard list/)
+    expect(dialog?.textContent).toMatch(/English keyboard list/)
+    expect(dialog?.textContent).toMatch(/If the previous characters are still there, reboot/)
+    expect(dialog?.textContent).toMatch(/Layout name EngRus01/)
     expect(dialog?.textContent).toMatch(/GIMP/)
     expect(dialog?.textContent).toMatch(/Caps Lock switches alphabet/)
     expect(dialog?.textContent).toMatch(/AltGr and AltGr\+Shift come from the other language/)
@@ -215,7 +220,9 @@ describe('HostPipeline', () => {
     expect(bytes[1]).toBe(0xfe)
     const text = new TextDecoder('utf-16le').decode(bytes.subarray(2))
     expect(text).toContain('LOCALEID\t"00000409"')
+    expect(text).toContain('KBD\tEngRus01\t"English + Russian"')
     expect(text).toContain('SGCap')
+    expect(localStorage.getItem('klc-paired-version:ru')).toBe('1')
     expect(text).toContain('0439')
   })
 
