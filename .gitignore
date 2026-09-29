@@ -20,6 +20,7 @@ coverage
 # Env and secrets
 .env
 .env.test
+apps/web/.env.development
 private-key.pem
 
 # Local firmware checkouts (not this repo)
