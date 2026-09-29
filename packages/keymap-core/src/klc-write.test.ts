@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { builtinHostLayoutSpecs } from './host-layout-catalog.js'
 import { hostLayoutFromSymbols, withHostKey, type HostLayout } from './host-layout.js'
 import { windowsLocale, type WindowsLocale } from './klc-locale.js'
-import { encodeKlc, hostLayoutsToCapsKlc, hostLayoutToKlc, klcIdentifier, pairedKbdId } from './klc-write.js'
+import {
+  encodeKlc,
+  hostLayoutsToCapsKlc,
+  hostLayoutToKlc,
+  klcBlockLines,
+  klcDocument,
+  klcIdentifier,
+  pairedKbdId
+} from './klc-write.js'
 
 function systemLayout(id: string): HostLayout {
   const spec = builtinHostLayoutSpecs.find(item => item.id === id)
@@ -174,8 +182,13 @@ describe('klc export', () => {
       locale: windowsLocale('en')
     })
     expect(text.replace(/\r\n/g, '')).not.toContain('\n')
+    expect(text).not.toContain('\r\r')
     expect(text).toContain('\r\n36\t"Right Shift"\r\n')
     expect(text).toContain('\r\n4d\tRight\r\n')
+    const fromCrlfSource = klcDocument(['36\t"Right Shift"\r', '4d\tRight\r'])
+    expect(fromCrlfSource).toBe('36\t"Right Shift"\r\n4d\tRight')
+    expect(fromCrlfSource).not.toContain('\r\r')
+    expect(klcBlockLines('36\t"Right Shift"\r\n4d\tRight')).toEqual(['36\t"Right Shift"', '4d\tRight'])
   })
 
   it('encodes the file as UTF-16 LE with a BOM', () => {
