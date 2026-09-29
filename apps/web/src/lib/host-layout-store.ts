@@ -40,6 +40,7 @@ const LEGACY_ACTIVE_SETTING_ID = 'active'
 export type UserHostLayoutOrigin =
   | { from: 'copy'; layoutId: string }
   | { from: 'xkb'; fileName: string; section: string }
+  | { from: 'klc'; fileName: string; role: 'single' | 'base' | 'caps' }
 
 export interface UserHostLayout {
   id: string
@@ -387,6 +388,7 @@ export async function loadUserHostLayouts(): Promise<UserHostLayoutRecord[]> {
 
 function plainOrigin(origin: UserHostLayoutOrigin): UserHostLayoutOrigin {
   if (origin.from === 'copy') return { from: 'copy', layoutId: origin.layoutId }
+  if (origin.from === 'klc') return { from: 'klc', fileName: origin.fileName, role: origin.role }
   return { from: 'xkb', fileName: origin.fileName, section: origin.section }
 }
 

@@ -1,5 +1,6 @@
 import {
   addHostLanguage,
+  encodeKlc,
   type HostLegendView,
   type KeyBindingNode,
   type ParsedKeymap
@@ -483,6 +484,57 @@ describe('HostLegendPicker', () => {
       section: 'basic'
     })
     expect(englishPair()).toBe('αΑ')
+  })
+
+  it('imports a klc file into the column', async () => {
+    await clearHostLayoutStore()
+    await open(keymapOf(['default']))
+    expect(englishPair()).toBe('eE')
+
+    const english = [...target.querySelectorAll('.legend-panel .profile-trigger')].find(
+      el => el.getAttribute('aria-label')?.startsWith('Profile English')
+    )
+    if (!(english instanceof HTMLButtonElement)) throw new Error('missing English profile')
+    english.click()
+    flushSync()
+    const importItem = [...target.querySelectorAll('.profile-action')].find(
+      el => el.textContent?.includes('Import klc')
+    )
+    if (!(importItem instanceof HTMLButtonElement)) throw new Error('missing klc import')
+    importItem.click()
+    flushSync()
+    const input = target.querySelector('input[type="file"][aria-label="klc file"]')
+    if (!(input instanceof HTMLInputElement)) throw new Error('missing klc file input')
+    const bytes = encodeKlc(
+      [
+        'KBD\tTest\t"Imported KLC"',
+        'LOCALEID\t"00000409"',
+        'SHIFTSTATE',
+        '',
+        '0',
+        '1',
+        '2',
+        '',
+        'LAYOUT',
+        '',
+        '12\tE\t1\t03b2\t0392\t-1'
+      ].join('\r\n')
+    )
+    const file = new File([bytes], 'imported.klc')
+    const transfer = new DataTransfer()
+    transfer.items.add(file)
+    input.files = transfer.files
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+    await vi.waitFor(async () => {
+      expect(editor.activeProfileId('en')).toMatch(/^user:/)
+      expect(englishPair()).toBe('βΒ')
+    })
+    expect(editor.userLayouts[0]?.origin).toEqual({
+      from: 'klc',
+      fileName: 'imported.klc',
+      role: 'single'
+    })
+    expect(editor.userLayouts[0]?.name).toBe('Imported KLC')
   })
 
   it('lets the user pick a section when the file has several', async () => {

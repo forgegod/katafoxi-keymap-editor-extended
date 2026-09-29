@@ -2,9 +2,13 @@ import {
   addHostLanguage,
   composeKey,
   composeLegendDecode,
+  encodeKlc,
   hostLayout,
+  hostLayoutsToCapsKlc,
+  hostLayoutToKlc,
   hostLayoutFromSymbols,
   hostLayoutFromXkb,
+  windowsLocale,
   parseKeyBinding,
   setHostColumnAlt,
   SYSTEM_RU_LAYOUT_ID,
@@ -383,6 +387,59 @@ describe('host layout store', () => {
       '@',
       '#'
     ])
+  })
+
+  it('imports a one-language klc into the column that asked', async () => {
+    const text = hostLayoutToKlc(hostLayout(SYSTEM_RU_LAYOUT_ID)!, {
+      name: 'My Russian',
+      locale: windowsLocale('ru')
+    })
+    expect(await editor.importHostLayoutFromKlc('en', text, 'ru.klc')).toBeNull()
+    expect(editor.userLayouts[0]?.origin).toEqual({
+      from: 'klc',
+      fileName: 'ru.klc',
+      role: 'single'
+    })
+    expect(editor.userLayouts[0]?.language).toBe('en')
+    expect(editor.userLayouts[0]?.name).toBe('My Russian')
+    expect(hostLayout(editor.activeProfileId('en'))?.byZmk.get('Q')?.glyphs).toEqual(
+      hostLayout(SYSTEM_RU_LAYOUT_ID)?.byZmk.get('Q')?.glyphs
+    )
+  })
+
+  it('imports a paired klc into the base language and the Caps Lock language', async () => {
+    const text = hostLayoutsToCapsKlc(
+      hostLayout(SYSTEM_US_LAYOUT_ID)!,
+      hostLayout(SYSTEM_RU_LAYOUT_ID)!,
+      { name: 'English + Russian', locale: windowsLocale('en') }
+    )
+    expect(await editor.importHostLayoutFromKlc('en', encodeKlc(text), 'paired.klc')).toBeNull()
+    expect(editor.userLayouts.map(layout => layout.language)).toEqual(['en', 'ru'])
+    expect(editor.userLayouts.map(layout => layout.name)).toEqual(['English', 'Russian'])
+    expect(editor.userLayouts.map(layout => layout.origin)).toEqual([
+      { from: 'klc', fileName: 'paired.klc', role: 'base' },
+      { from: 'klc', fileName: 'paired.klc', role: 'caps' }
+    ])
+    expect(editor.hostLegend.open).toBe('ru')
+    expect(hostLayout(editor.activeProfileId('en'))?.byZmk.get('Q')?.glyphs.slice(0, 2)).toEqual([
+      'q',
+      'Q'
+    ])
+    expect(hostLayout(editor.activeProfileId('ru'))?.byZmk.get('Q')?.glyphs[0]).toBe(
+      hostLayout(SYSTEM_RU_LAYOUT_ID)?.byZmk.get('Q')?.glyphs[0]
+    )
+    expect(editor.hostProfileNote).toBe(
+      'Imported English and Russian from a paired layout. AltGr is on Russian.'
+    )
+
+    const next = new EditorState()
+    await next.restoreHostProfiles()
+    await openBoard(next)
+    expect(next.activeProfileId('en')).toBe(editor.activeProfileId('en'))
+    expect(next.activeProfileId('ru')).toBe(editor.activeProfileId('ru'))
+    expect(hostLayout(next.activeProfileId('ru'))?.byZmk.get('Q')?.glyphs[0]).toBe(
+      hostLayout(SYSTEM_RU_LAYOUT_ID)?.byZmk.get('Q')?.glyphs[0]
+    )
   })
 
   it('names an unresolved include when importing xkb', async () => {
