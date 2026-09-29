@@ -17,7 +17,6 @@
   import Loader from './lib/components/Common/Loader.svelte'
   import github from './lib/github/api.svelte.js'
   import FirmwareBuild from './lib/components/FirmwareBuild.svelte'
-  import { formatKeymapChange } from '@keymap-editor/keymap-core'
 
   // Proxy so context consumers stay reactive to editor.definitions ($state).
   setDefinitionsContext({
@@ -29,7 +28,6 @@
     }
   })
 
-  let changesOpen = $state(false)
   let buildRefresh = $state(0)
 
   onMount(() => {
@@ -65,7 +63,6 @@
       },
       reload: reloadLocalKeyboard
     })
-    if (ok) changesOpen = false
   }
 
   async function handleCommitToGitHub() {
@@ -83,10 +80,7 @@
       },
       reload: () => github.fetchLayoutAndKeymap(gh.repository, gh.branch)
     })
-    if (ok) {
-      changesOpen = false
-      buildRefresh += 1
-    }
+    if (ok) buildRefresh += 1
   }
 </script>
 
@@ -98,7 +92,6 @@
         <KeyboardPicker
           onSelect={event => {
             void editor.selectKeyboard(event as KeyboardSelection)
-            changesOpen = false
           }}
         />
       </div>
@@ -137,19 +130,8 @@
       <div class="chrome-group actions-publish">
         {#if editor.draftKeymap}
           <div class="change-status">
+            <span class="publish-status" class:dirty={editor.isDirty}>{editor.statusText}</span>
             {#if editor.isDirty}
-              <button
-                type="button"
-                class="publish-status dirty change-toggle"
-                aria-expanded={changesOpen}
-                onclick={() => (changesOpen = !changesOpen)}
-              >
-                {editor.statusText}
-                <span class="change-count">
-                  {editor.changes.length}
-                  {editor.changes.length === 1 ? 'change' : 'changes'}
-                </span>
-              </button>
               <button
                 type="button"
                 class="discard-draft"
@@ -160,21 +142,11 @@
                     'Discard all unpublished edits and restore the last loaded keymap?\n\nThis cannot be undone with Undo.'
                   )
                   if (!ok) return
-                  changesOpen = false
                   void editor.discardDraft()
                 }}
               >
                 Discard draft
               </button>
-              {#if changesOpen}
-                <ul class="change-list" role="list">
-                  {#each editor.changes as change}
-                    <li>{formatKeymapChange(change)}</li>
-                  {/each}
-                </ul>
-              {/if}
-            {:else}
-              <span class="publish-status">{editor.statusText}</span>
             {/if}
           </div>
         {/if}
@@ -373,52 +345,26 @@
   }
 
   .change-status {
-    position: relative;
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 4px 8px;
-    max-width: min(420px, 70vw);
+    gap: 8px;
   }
 
   .publish-status {
     display: inline-flex;
     align-items: center;
+    box-sizing: border-box;
     height: 26px;
+    min-width: 11em;
     font-size: 13px;
+    white-space: nowrap;
     color: var(--muted, #555);
     margin-right: 0;
   }
 
   .publish-status.dirty {
     color: #664d03;
-  }
-
-  /* Override #actions button chrome for the expandable dirty status. */
-  #actions button.publish-status.change-toggle {
-    cursor: pointer;
-    background: transparent;
-    color: #664d03;
-    border: none;
-    border-radius: 5px;
-    box-sizing: border-box;
-    height: auto;
-    min-height: 26px;
-    padding: 2px 8px;
-    margin: 0;
-    font: inherit;
-    font-size: 13px;
-    font-weight: 400;
-    text-align: left;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 8px;
-    align-items: baseline;
-    box-shadow: none;
-  }
-
-  #actions button.publish-status.change-toggle:hover {
-    background: rgba(0, 0, 0, 0.06);
   }
 
   #actions button.discard-draft {
@@ -446,39 +392,6 @@
     color: #ccc;
     border-color: #ddd;
     cursor: not-allowed;
-  }
-
-  .change-count {
-    font-weight: 600;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-
-  .change-list {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    z-index: 6;
-    margin: 0;
-    padding: 8px 10px;
-    list-style: none;
-    max-height: min(240px, 40vh);
-    overflow: auto;
-    min-width: 220px;
-    max-width: min(420px, 90vw);
-    background: #fffef8;
-    color: #664d03;
-    border: 1px solid #e6d9a8;
-    border-radius: 6px;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
-    font-size: 85%;
-    line-height: 1.35;
-  }
-
-  .change-list li + li {
-    margin-top: 4px;
-    padding-top: 4px;
-    border-top: 1px solid #efe6c4;
   }
 
   .save-notice {

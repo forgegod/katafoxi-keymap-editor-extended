@@ -124,6 +124,22 @@ describe('Key click editor', () => {
     return onUpdate
   }
 
+  it('washes an unpublished layer row and names the previous binding', () => {
+    open()
+    const binding = (code: string): KeyBindingNode => ({
+      value: '&kp',
+      params: [{ value: code, params: [] }]
+    })
+    editor.baselineKeymap = { layer_names: ['default'], layers: [[binding('A')]] }
+    editor.draftKeymap = { layer_names: ['default'], layers: [[binding('M')]] }
+    flushSync()
+
+    const slot = document.querySelector('.key .layer-slot')
+    expect(slot).toBeInstanceOf(HTMLElement)
+    expect(slot?.classList.contains('unpublished')).toBe(true)
+    expect(slot?.getAttribute('title')).toBe('Was &kp A')
+  })
+
   it('opens the editor on the Key slot with the code grid visible', () => {
     open()
     clickKey()

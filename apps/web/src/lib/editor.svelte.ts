@@ -306,6 +306,15 @@ export class EditorState {
     return pair ? symbolAlign(pair.base, pair.extra, { levels: pair.levels }) : null
   })
 
+  /** Encoded binding before the unpublished edit, keyed by `keyIndex:layer`. */
+  unpublishedBefore = $derived.by(() => {
+    const map = new Map<string, string>()
+    for (const change of this.#changes) {
+      if (change.type === 'binding') map.set(`${change.index}:${change.layer}`, change.before)
+    }
+    return map
+  })
+
   get isDirty(): boolean {
     return this.#changes.length > 0
   }
@@ -411,8 +420,7 @@ export class EditorState {
         ? 'Up to date with repo'
         : 'Up to date with disk'
     }
-    const summary = this.dirtySummary
-    return summary ? `Draft · ${summary}` : 'Draft'
+    return 'Draft'
   }
 
   get canUndo(): boolean {
