@@ -169,14 +169,14 @@
     align-items: center;
     gap: 6px;
     box-sizing: border-box;
-    height: 38px;
+    height: 26px;
     padding: 0 6px;
     border-radius: 5px;
     background: #4169e1;
     color: #fff;
-    font-family: sans-serif;
-    font-size: 11px;
-    line-height: 1.15;
+    font-family: Quicksand, avenir, sans-serif;
+    font-size: 12px;
+    line-height: 1.05;
     text-decoration: none;
     white-space: nowrap;
   }
@@ -195,11 +195,11 @@
 
   code {
     font-family: ui-monospace, monospace;
-    font-size: 9px;
+    font-size: 11px;
   }
 
   .when {
-    font-size: 11px;
+    font-size: 10px;
     opacity: 0.95;
   }
 

@@ -521,24 +521,31 @@
 <style>
   .host-pipeline {
     display: inline-flex;
-    flex-wrap: wrap;
-    align-items: center;
+    flex-wrap: nowrap;
+    align-items: flex-end;
     gap: 6px 8px;
-    margin: 5px;
+    margin: 0;
     color: #555;
-    font-size: 100%;
+    font-size: 13px;
   }
 
   .label {
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
     white-space: nowrap;
+    font-size: 13px;
     font-weight: 600;
     letter-spacing: 0.02em;
   }
 
   .status {
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
     min-width: 4.2em;
     color: #777;
-    font-size: 90%;
+    font-size: 13px;
   }
 
   .host-pipeline.dirty .status {
@@ -550,7 +557,8 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    height: 28px;
+    box-sizing: border-box;
+    height: 26px;
     margin: 0;
     padding: 0 8px 0 6px;
     border: 1px solid #ccc;
@@ -558,7 +566,7 @@
     background: #f3f3f3;
     color: #333;
     font: inherit;
-    font-size: 90%;
+    font-size: 13px;
     cursor: pointer;
   }
 
@@ -576,7 +584,8 @@
   .tool {
     display: inline-flex;
     align-items: center;
-    height: 28px;
+    box-sizing: border-box;
+    height: 26px;
     margin: 0;
     padding: 0 8px;
     border: 1px solid #ccc;
@@ -584,7 +593,7 @@
     background: #f3f3f3;
     color: #333;
     font: inherit;
-    font-size: 90%;
+    font-size: 13px;
     cursor: pointer;
     white-space: nowrap;
   }
@@ -607,15 +616,15 @@
   }
 
   .tool.icon {
-    width: 28px;
+    width: 26px;
     justify-content: center;
     padding: 0;
   }
 
   .tool.icon img {
     display: block;
-    width: 22px;
-    height: 22px;
+    width: 18px;
+    height: 18px;
   }
 
   /* #actions paints every button as a green action. Toggles follow the legend

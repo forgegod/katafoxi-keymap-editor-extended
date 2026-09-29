@@ -254,33 +254,30 @@
     z-index: 5;
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: 6px 10px;
+    align-items: flex-end;
+    gap: 4px 12px;
     padding: 2px 10px 4px;
+    font-size: 13px;
   }
 
   .chrome-lane {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    align-items: flex-end;
     gap: 6px 8px;
     min-width: 0;
   }
 
-  .chrome-zmk {
-    flex: 1 1 280px;
-  }
-
-  .chrome-host {
-    flex: 0 1 auto;
-  }
-
   .lane-label {
     flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
     margin: 0 2px 0 0;
-    padding: 2px 0;
+    padding: 0;
     color: #555;
-    font-size: 100%;
+    font-size: 13px;
     font-weight: 600;
     letter-spacing: 0.02em;
     white-space: nowrap;
@@ -291,6 +288,10 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 6px;
+  }
+
+  .chrome-source {
+    align-items: flex-end;
   }
 
   .actions-history {
@@ -370,8 +371,10 @@
   }
 
   .publish-status {
-    align-self: center;
-    font-size: 90%;
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
+    font-size: 13px;
     color: var(--muted, #555);
     margin-right: 0;
   }
@@ -387,9 +390,13 @@
     color: #664d03;
     border: none;
     border-radius: 5px;
-    padding: 4px 8px;
+    box-sizing: border-box;
+    height: auto;
+    min-height: 26px;
+    padding: 2px 8px;
     margin: 0;
     font: inherit;
+    font-size: 13px;
     font-weight: 400;
     text-align: left;
     display: flex;
@@ -409,10 +416,12 @@
     color: #842029;
     border: 1px solid #e2b6bb;
     border-radius: 5px;
-    padding: 4px 10px;
+    box-sizing: border-box;
+    height: 26px;
+    padding: 0 8px;
     margin: 0;
     font: inherit;
-    font-size: 90%;
+    font-size: 13px;
     font-weight: 500;
     box-shadow: none;
   }
