@@ -267,6 +267,7 @@
     min-height: 0;
     padding: 4px 12px 40px;
     overflow: hidden;
+    background: var(--stage-bg, #e4e7eb);
   }
 
   .empty-row-toggle {
