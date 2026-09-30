@@ -205,7 +205,6 @@
           <span class="lang-flag" title={extra ? languageName : 'Firmware key codes (US)'}>
             {#if language}<LangFlag {language} alt={extra ? languageName : 'English, firmware key codes'} />{/if}
           </span>
-          {#if !extra}<span class="base-caption">Firmware</span>{/if}
         {/if}
         <div class="lang-tools" hidden={!column.wide && !choosing}>
           {#if choosing}
@@ -242,7 +241,6 @@
         <span class="lang-flag" title={extra ? languageName : 'Firmware key codes (US)'}>
           {#if language}<LangFlag {language} alt={extra ? languageName : 'English, firmware key codes'} />{/if}
         </span>
-        {#if !extra}<span class="base-caption">Firmware</span>{/if}
         {#if column.wide}
           <span class="profile-name">{activeProfileLabel()}</span>
         {/if}
@@ -368,16 +366,11 @@
     gap: 6px;
   }
 
-  .prompt-label,
-  .base-caption {
+  .prompt-label {
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.02em;
     line-height: 1.2;
-    color: #8a847c;
-  }
-
-  .prompt-label {
     color: #1d6f8a;
   }
 
