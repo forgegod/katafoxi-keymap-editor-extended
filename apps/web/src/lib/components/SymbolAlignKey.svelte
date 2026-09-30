@@ -6,7 +6,9 @@
 
 {#if marksOn}
   <div class="align-key" aria-label="Symbol difference marks">
-    <span class="moved" title="A symbol that sits on a different key.">position</span>
+    <span class="moved" title="No shared key for this symbol, or it is missing from one language."
+      >position</span
+    >
     <span class="win" title="Windows keeps AltGr or AltGr+Shift from the other language and drops this one."
       >Win AltGr</span
     >

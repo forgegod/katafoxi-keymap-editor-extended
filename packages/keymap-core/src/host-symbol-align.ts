@@ -7,8 +7,10 @@ export interface GlyphPlace {
 }
 
 /**
- * A non-letter glyph that both layouts produce, but not on the same keys and levels.
+ * A non-letter glyph with no key and level shared by both layouts.
+ * `base` or `extra` is empty when only one language produces the glyph.
  * Letters are omitted: a second alphabet is supposed to disagree.
+ * Extra copies stay out once any one place is shared.
  */
 export interface MovedSymbol {
   glyph: string
@@ -66,10 +68,19 @@ function placeKey(place: GlyphPlace): string {
   return `${place.zmk}:${place.level}`
 }
 
-function samePlaces(left: GlyphPlace[], right: GlyphPlace[]): boolean {
-  if (left.length !== right.length) return false
+function sharesPlace(left: GlyphPlace[], right: GlyphPlace[]): boolean {
+  if (left.length === 0 || right.length === 0) return false
   const keys = new Set(left.map(placeKey))
-  return right.every(place => keys.has(placeKey(place)))
+  return right.some(place => keys.has(placeKey(place)))
+}
+
+function recordMoved(byZmk: Map<string, MovedSymbol[]>, moved: MovedSymbol): void {
+  for (const place of [...moved.base, ...moved.extra]) {
+    const list = byZmk.get(place.zmk)
+    if (list) {
+      if (!list.includes(moved)) list.push(moved)
+    } else byZmk.set(place.zmk, [moved])
+  }
 }
 
 function placesFor(
@@ -105,8 +116,10 @@ function disagrees(
 }
 
 /**
- * Shared punctuation and symbols that moved, plus AltGr cells a combined
+ * Non-letter glyphs with no shared key and level, plus AltGr cells a combined
  * Windows layout cannot keep for both languages.
+ * A glyph both languages produce on the same key and level stays quiet, even
+ * when the other copies differ. A glyph missing from one language is marked.
  */
 export function symbolAlign(
   base: HostLayout,
@@ -119,14 +132,16 @@ export function symbolAlign(
   const byZmk = new Map<string, MovedSymbol[]>()
   for (const [glyph, baseAt] of basePlaces) {
     const extraAt = extraPlaces.get(glyph)
-    if (!extraAt || samePlaces(baseAt, extraAt)) continue
-    const moved: MovedSymbol = { glyph, base: baseAt, extra: extraAt }
-    for (const place of [...baseAt, ...extraAt]) {
-      const list = byZmk.get(place.zmk)
-      if (list) {
-        if (!list.includes(moved)) list.push(moved)
-      } else byZmk.set(place.zmk, [moved])
+    if (!extraAt) {
+      recordMoved(byZmk, { glyph, base: baseAt, extra: [] })
+      continue
     }
+    if (sharesPlace(baseAt, extraAt)) continue
+    recordMoved(byZmk, { glyph, base: baseAt, extra: extraAt })
+  }
+  for (const [glyph, extraAt] of extraPlaces) {
+    if (basePlaces.has(glyph)) continue
+    recordMoved(byZmk, { glyph, base: [], extra: extraAt })
   }
 
   const conflictByZmk = new Map<string, AltGrConflict[]>()
@@ -156,8 +171,14 @@ export function symbolAlignCaption(zmk: string, align: SymbolAlign): string {
   const parts: string[] = []
   const moved = align.byZmk.get(zmk)
   if (moved?.length) {
-    const glyphs = [...new Set(moved.map(item => item.glyph))]
-    parts.push(`Different position: ${glyphs.join(' ')}`)
+    const split: string[] = []
+    const only: string[] = []
+    for (const item of moved) {
+      const list = item.base.length > 0 && item.extra.length > 0 ? split : only
+      if (!list.includes(item.glyph)) list.push(item.glyph)
+    }
+    if (split.length) parts.push(`Different position: ${split.join(' ')}`)
+    if (only.length) parts.push(`Only in one language: ${only.join(' ')}`)
   }
   for (const conflict of align.conflictByZmk.get(zmk) ?? []) {
     const which = conflict.level === 2 ? 'AltGr' : 'AltGr+Shift'
@@ -165,5 +186,5 @@ export function symbolAlignCaption(zmk: string, align: SymbolAlign): string {
     const dropped = conflict.baseGlyph || conflict.baseKeysym
     parts.push(`Windows ${which} keeps ${kept}, drops ${dropped}`)
   }
-  return parts.join('. ')
+  return parts.join(' · ')
 }

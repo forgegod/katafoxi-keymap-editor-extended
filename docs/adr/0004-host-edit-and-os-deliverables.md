@@ -36,7 +36,7 @@ ZMK already has a visible chrome pipeline (Source → draft → Write files / Gi
 
 When a second language is open, **Highlight symbol differences** paints two marks. Neither is stored in the legend view.
 
-1. **Position** (amber underline): a punctuation mark or other non-letter glyph that both languages produce, but not on the same key and level. Letters are not marked. A glyph that exists in only one language is not marked.
+1. **Position** (amber underline): a punctuation mark or other non-letter glyph with no key and level shared by both languages. That is a glyph both languages produce only on different keys (`Different position`), or a glyph only one language produces (`Only in one language`). Extra copies stay quiet once any one key and level produces the glyph in both languages. Letters are not marked.
 2. **Win AltGr** (red outline): AltGr or AltGr+Shift is non-empty in both languages and the glyphs differ. That is the combined Windows file (`mergedAltGr` / `hostLayoutsToCapsKlc`): the open language wins, and an English symbol is written only where that language’s AltGr cell is empty. Two separate Windows layouts, switched with Win+Space, each keep their own AltGr; the outline is about the combined file. There is no command that copies AltGr from one layout onto the other.
 
 ### `.klc` writer

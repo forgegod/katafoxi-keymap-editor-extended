@@ -42,7 +42,7 @@ describe('SymbolAlignKey', () => {
     mountKey()
 
     expect(target.querySelector('.moved')?.getAttribute('title')).toBe(
-      'A symbol that sits on a different key.'
+      'No shared key for this symbol, or it is missing from one language.'
     )
     expect(target.querySelector('.win')?.getAttribute('title')).toBe(
       'Windows keeps AltGr or AltGr+Shift from the other language and drops this one.'
