@@ -49,11 +49,13 @@
       })
     )
   )
-  const collapsedRows = $derived(
-    allRows.filter(row => row.marked && (!multilang || row.index === 0))
-  )
+  /** Resting strip: the sample layer. Marked and hidden layers open over the board. */
+  const restingRows = $derived.by(() => {
+    const sample = allRows.filter(row => row.index === 0)
+    return sample.length > 0 ? sample : allRows.slice(0, 1)
+  })
   const visibleRows = $derived(
-    (open ? allRows : collapsedRows).filter(row => !multilang || row.index === 0)
+    (open ? allRows : restingRows).filter(row => !multilang || row.index === 0)
   )
 
   const columnCount = $derived(
@@ -222,7 +224,7 @@
   onkeydown={handleKeydown}
 >
   <div class="legend-sizer" aria-hidden="true" inert>
-    {@render legendTable(collapsedRows, false)}
+    {@render legendTable(restingRows, false)}
   </div>
   <div class="legend-panel" style="position: absolute">
     {@render legendTable(visibleRows, true)}
