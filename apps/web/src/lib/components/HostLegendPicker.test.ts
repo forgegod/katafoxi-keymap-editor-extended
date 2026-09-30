@@ -75,12 +75,12 @@ describe('HostLegendPicker', () => {
     )
   }
 
-  function expand() {
-    const button = target.querySelector('.legend-panel .layer-disclosure')
-    if (!(button instanceof HTMLButtonElement)) throw new Error('missing disclosure')
-    button.click()
+  function hoverStrip() {
+    const strip = target.querySelector('.host-legend-strip')
+    if (!(strip instanceof HTMLElement)) throw new Error('missing strip')
+    strip.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
     flushSync()
-    return button
+    return strip
   }
 
   it('hides firmware layers and shows every language while languages are stacked', async () => {
@@ -89,8 +89,6 @@ describe('HostLegendPicker', () => {
     editor.multilangView = true
     flushSync()
     expect(panelRows().map(row => row.querySelector('th')?.textContent?.trim())).toEqual(['default'])
-    const disclosure = target.querySelector('.legend-panel .layer-disclosure')
-    expect(disclosure).toHaveProperty('disabled', true)
     const russian = target.querySelector('.legend-panel [aria-label="Russian stays on the key while languages are stacked"]')
     expect(russian).toHaveProperty('disabled', true)
     const text = (panelRows()[0]?.textContent ?? '').replace(/\s+/g, '')
@@ -105,7 +103,7 @@ describe('HostLegendPicker', () => {
     if (!(sizer instanceof HTMLElement)) throw new Error('missing sizer')
     expect(sizer.querySelectorAll('tbody tr')).toHaveLength(1)
 
-    expand()
+    hoverStrip()
     expect(panelRows().map(row => row.querySelector('th')?.textContent?.trim())).toEqual([
       'default',
       'raise'
@@ -126,8 +124,7 @@ describe('HostLegendPicker', () => {
     expect(sizer.hasAttribute('inert')).toBe(true)
     expect(sizer.querySelectorAll('tbody tr')).toHaveLength(1)
 
-    const button = expand()
-    expect(button.getAttribute('aria-expanded')).toBe('true')
+    hoverStrip()
     expect(sizer.querySelectorAll('tbody tr')).toHaveLength(1)
     expect(panelRows()).toHaveLength(9)
     expect(panelRows().map(row => row.querySelector('th')?.textContent?.trim())).toEqual(
@@ -147,7 +144,7 @@ describe('HostLegendPicker', () => {
     expect(basePair).not.toMatch(/^A$/i)
   })
 
-  it('collapses as soon as the pointer leaves unless the list is pinned', async () => {
+  it('collapses as soon as the pointer leaves', async () => {
     await open(keymapOf(Array.from({ length: 9 }, (_, i) => `L${i}`)))
     const strip = target.querySelector('.host-legend-strip')
     if (!(strip instanceof HTMLElement)) throw new Error('missing strip')
@@ -170,22 +167,15 @@ describe('HostLegendPicker', () => {
     strip.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }))
     flushSync()
     expect(panelRows().map(row => row.querySelector('th')?.textContent?.trim())).toEqual(['L0'])
-
-    const button = expand()
-    strip.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }))
-    flushSync()
-    expect(button.getAttribute('aria-expanded')).toBe('true')
-    expect(panelRows()).toHaveLength(9)
   })
 
   it('expands on focus so extra layers are reachable without a mouse', async () => {
     await open(keymapOf(Array.from({ length: 9 }, (_, i) => `L${i}`)))
     expect(panelRows()).toHaveLength(1)
-    const button = target.querySelector('.legend-panel .layer-disclosure')
-    if (!(button instanceof HTMLButtonElement)) throw new Error('missing disclosure')
-    button.focus()
+    const eye = target.querySelector('.legend-panel [aria-label="Show host legend L0"]')
+    if (!(eye instanceof HTMLButtonElement)) throw new Error('missing layer eye')
+    eye.focus()
     flushSync()
-    expect(button.getAttribute('aria-expanded')).toBe('true')
     expect(panelRows()).toHaveLength(9)
   })
 

@@ -27,7 +27,6 @@
   const anchorIndex = $derived(hostLegendAnchorIndex(editor.draftKeymap))
 
   let hovered = $state(false)
-  let pinned = $state(false)
   let focused = $state(false)
   let openProfile = $state<HostLanguageId | null>(null)
   let pickingNew = $state(false)
@@ -37,7 +36,7 @@
   let pendingDelete = $state<{ index: number; name: string } | null>(null)
   let stripEl: HTMLDivElement | undefined = $state()
   const busy = $derived(renamingIndex != null || pendingDelete != null)
-  const open = $derived(hovered || pinned || focused || busy)
+  const open = $derived(hovered || focused || busy)
 
   const allRows = $derived(
     layerNames.map(
@@ -73,7 +72,7 @@
 
   function handleMouseLeave() {
     hovered = false
-    if (pinned || busy) return
+    if (busy) return
     focused = false
     const active = document.activeElement
     if (active instanceof HTMLElement && stripEl?.contains(active)) active.blur()
@@ -113,7 +112,6 @@
       event.stopPropagation()
       return
     }
-    pinned = false
     hovered = false
   }
 
@@ -127,10 +125,6 @@
     return () => document.removeEventListener('click', handleClickOutside)
   })
 
-  function togglePinned(event: MouseEvent) {
-    event.stopPropagation()
-    pinned = !pinned
-  }
 </script>
 
 {#snippet legendTable(rows: HostLegendLayerRowModel[], interactive: boolean)}
@@ -139,24 +133,7 @@
   <table>
     <thead>
       <tr>
-        <th>
-          {#if interactive}
-            <button
-              type="button"
-              class="layer-disclosure"
-              class:on={open}
-              aria-expanded={open}
-              aria-pressed={pinned}
-              aria-controls="host-legend-layers"
-              aria-label={multilang ? 'Firmware layers hidden' : 'Show all layers'}
-              title={multilang ? 'Firmware layers stay hidden while languages are stacked' : undefined}
-              disabled={multilang}
-              onclick={togglePinned}
-            >
-              {open ? '▾' : '▸'}
-            </button>
-          {/if}
-        </th>
+        <th></th>
         {#each columns as column (column.language)}
           <HostLegendLanguageHead
             {column}
@@ -214,7 +191,6 @@
   bind:this={stripEl}
   class="host-legend-strip"
   class:expanded={open}
-  class:pinned
   role="region"
   aria-label="Host legend"
   onmouseenter={() => (hovered = true)}
@@ -299,29 +275,6 @@
   thead th {
     font-size: 12px;
     color: #666;
-  }
-
-  .layer-disclosure {
-    margin: 0;
-    padding: 1px 6px;
-    border: 1px solid #ccc;
-    border-radius: 10px;
-    background: #f3f3f3;
-    color: #777;
-    font: inherit;
-    font-size: 12px;
-    cursor: pointer;
-  }
-
-  .layer-disclosure.on {
-    background: #fff;
-    border-color: #1d6f8a;
-    color: #333;
-  }
-
-  .layer-disclosure:disabled {
-    opacity: 0.45;
-    cursor: default;
   }
 
   .add-layer {
