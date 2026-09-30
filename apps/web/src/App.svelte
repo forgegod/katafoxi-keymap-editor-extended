@@ -135,6 +135,7 @@
           onSelect={event => {
             void editor.selectKeyboard(event as KeyboardSelection)
           }}
+          onLogout={() => editor.clearLoadedKeymap()}
         />
       </div>
 

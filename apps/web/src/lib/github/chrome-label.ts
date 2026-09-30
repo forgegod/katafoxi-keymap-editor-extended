@@ -41,6 +41,14 @@ export function githubChipLabel(
  * Login / install replaces the menu only when GitHub is the only source.
  * With Local beside it, those actions stay inside the menu so the source can still change.
  */
+/** GitHub page where the signed-in user chooses which repos the app can read. */
+export function manageReposUrl(appName: string): string {
+  if (appName) {
+    return `https://github.com/apps/${encodeURIComponent(appName)}/installations/new`
+  }
+  return 'https://github.com/settings/installations'
+}
+
 export function githubGateAction(input: {
   onlySource: boolean
   ready: boolean

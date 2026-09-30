@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   githubChipLabel,
   githubGateAction,
+  manageReposUrl,
   repoChoiceLabel,
   shortRepoName
 } from './chrome-label.js'
@@ -37,6 +38,15 @@ describe('short repo labels', () => {
     ).toBe('lark · main')
     expect(githubChipLabel(null, [], null)).toBe('GitHub')
     expect(githubChipLabel('acme/lark', ['acme/lark'], null)).toBe('lark')
+  })
+})
+
+describe('manageReposUrl', () => {
+  it('opens the app install page when the app name is known', () => {
+    expect(manageReposUrl('keymap-editor')).toBe(
+      'https://github.com/apps/keymap-editor/installations/new'
+    )
+    expect(manageReposUrl('')).toBe('https://github.com/settings/installations')
   })
 })
 

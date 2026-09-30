@@ -1521,6 +1521,22 @@ export class EditorState {
     this.saveNotice = { kind: 'error', messages: extractErrorMessages(data) }
   }
 
+  /** Drop the loaded keymap after GitHub logout. Host layouts stay in the browser. */
+  clearLoadedKeymap() {
+    this.#cancelPersistTimer()
+    this.#persistGeneration += 1
+    this.#selectGeneration += 1
+    this.#publishGeneration += 1
+    this.source = null
+    this.githubMeta = null
+    this.layout = null
+    this.baselineKeymap = null
+    this.draftKeymap = null
+    this.clearHistory()
+    this.saving = false
+    this.saveNotice = null
+  }
+
   /** Reset singleton between vitest cases. */
   resetForTests() {
     this.#cancelPersistTimer()

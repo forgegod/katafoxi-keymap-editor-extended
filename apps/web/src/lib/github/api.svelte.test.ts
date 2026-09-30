@@ -109,6 +109,24 @@ describe('API', () => {
     )
   })
 
+  it('createBranch POSTs the name and the branch it copies', async () => {
+    const api = new API()
+    api.repoInstallationMap = { 'acme/lark': '42' }
+    fetchMock.mockResolvedValue(jsonResponse(201, { name: 'topic' }))
+
+    await expect(api.createBranch('acme/lark', 'topic', 'main')).resolves.toEqual({
+      name: 'topic'
+    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://api.test/github/installation/42/acme%2Flark/branches',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        body: JSON.stringify({ name: 'topic', from: 'main' })
+      })
+    )
+  })
+
   it('fetchFirmwareBuild GETs the branch build and firmwareDownloadUrl stays same-origin', async () => {
     const api = new API()
     api.repoInstallationMap = { 'acme/keymap': '42' }
@@ -139,6 +157,7 @@ describe('API', () => {
     const onAuthFailed = vi.fn()
     api.on('authentication-failed', onAuthFailed)
     api.authorized = true
+    api.login = 'octocat'
     api.installations = [{ id: 1 }]
     api.repositories = [{ id: 1, full_name: 'acme/lark' }]
     api.repoInstallationMap = { 'acme/lark': '42' }
@@ -147,6 +166,7 @@ describe('API', () => {
     await api.logout()
 
     expect(api.authorized).toBe(false)
+    expect(api.login).toBeNull()
     expect(api.installations).toBeNull()
     expect(api.repositories).toBeNull()
     expect(api.repoInstallationMap).toBeNull()

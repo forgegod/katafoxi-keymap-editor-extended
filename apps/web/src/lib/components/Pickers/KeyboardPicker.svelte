@@ -19,9 +19,10 @@
 
   interface Props {
     onSelect: (event: KeymapEvent) => void
+    onLogout?: () => void
   }
 
-  let { onSelect }: Props = $props()
+  let { onSelect, onLogout }: Props = $props()
 
   const sourceChoices = compact([
     config.enableLocal ? { id: 'local', name: 'Local' } : null,
@@ -130,6 +131,7 @@
           embedded
           onSelect={handleKeyboardSelected}
           onStatus={status => (gh = status)}
+          {onLogout}
         />
       {/if}
     </SourceMenu>

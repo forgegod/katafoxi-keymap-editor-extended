@@ -37,6 +37,66 @@ export async function fetchInstallationRepos(userToken: string) {
   return { installations, repositories, repoInstallationMap }
 }
 
+export class BranchNameError extends Error {
+  readonly errors: string[]
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'BranchNameError'
+    this.errors = [message]
+  }
+}
+
+/** Git ref name, trimmed. Throws when Git would reject the branch. */
+export function assertBranchName(name: string): string {
+  const branch = name.trim()
+  if (!branch) throw new BranchNameError('Enter a branch name')
+  if (branch.length > 200) throw new BranchNameError('Branch name is too long')
+  if (
+    /[\s~^:?*\[\\]/.test(branch) ||
+    branch.includes('..') ||
+    branch.includes('@{') ||
+    branch.includes('//') ||
+    branch.startsWith('/') ||
+    branch.startsWith('.') ||
+    branch.startsWith('-') ||
+    branch.endsWith('/') ||
+    branch.endsWith('.') ||
+    branch.endsWith('.lock')
+  ) {
+    throw new BranchNameError('Branch name contains characters Git does not allow')
+  }
+  return branch
+}
+
+export async function createBranch(
+  installationToken: string,
+  repo: string,
+  name: string,
+  from: string
+): Promise<{ name: string }> {
+  const branch = assertBranchName(name)
+  const source = from.trim()
+  if (!source) throw new BranchNameError('Choose a branch to copy')
+
+  const { data } = await api.request({
+    url: `/repos/${repo}/commits/${source}`,
+    token: installationToken
+  })
+  const sha = (data as { sha?: unknown }).sha
+  if (typeof sha !== 'string' || !sha) {
+    throw new BranchNameError('Could not read the source branch')
+  }
+
+  await api.request({
+    url: `/repos/${repo}/git/refs`,
+    method: 'POST',
+    token: installationToken,
+    data: { ref: `refs/heads/${branch}`, sha }
+  })
+  return { name: branch }
+}
+
 export async function fetchRepoBranches(installationToken: string, repo: string) {
   const branches: unknown[] = []
   let url: string | undefined = `/repos/${repo}/branches`

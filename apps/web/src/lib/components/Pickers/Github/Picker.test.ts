@@ -67,16 +67,26 @@ describe('Github Picker', () => {
     localStorage.clear()
     vi.restoreAllMocks()
     github.authorized = false
+    github.login = null
     github.initialized = false
     github.repositories = null
     github.repoInstallationMap = null
     github.installations = null
   })
 
-  function open(onSelect = vi.fn()) {
-    view = mount(Picker, { target, props: { onSelect } })
+  function open(onSelect = vi.fn(), onLogout?: () => void) {
+    view = mount(Picker, { target, props: { onSelect, onLogout } })
     flushSync()
     return onSelect
+  }
+
+  function clickButton(text: string) {
+    const button = [...target.querySelectorAll('button')].find(
+      item => item.textContent?.trim() === text
+    )
+    if (!(button instanceof HTMLButtonElement)) throw new Error(`missing ${text}`)
+    button.click()
+    flushSync()
   }
 
   it('selects the only branch even when storage has a different persisted branch', async () => {
@@ -280,5 +290,89 @@ describe('Github Picker', () => {
         layout: [{ x: 0, y: 0 }, { x: 1, y: 0 }]
       })
     )
+  })
+
+  it('creates a branch from the current one and selects it', async () => {
+    github.login = 'octocat'
+    vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([
+      { name: 'main' },
+      { name: 'dev' }
+    ])
+    vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
+      layout: [{ row: 0, col: 0 }],
+      keymap: { layers: [] }
+    })
+    const create = vi.spyOn(github, 'createBranch').mockResolvedValue({ name: 'topic' })
+
+    const onSelect = open()
+    await vi.waitFor(() => {
+      expect(selectedOptionText(target.querySelector('#branch'))).toBe('main')
+    })
+
+    clickButton('Create new branch')
+    const input = target.querySelector('#new-branch')
+    if (!(input instanceof HTMLInputElement)) throw new Error('missing branch input')
+    input.value = 'topic'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+    clickButton('Create')
+
+    await vi.waitFor(() => {
+      expect(selectedOptionText(target.querySelector('#branch'))).toBe('topic')
+    })
+    expect(create).toHaveBeenCalledWith('acme/lark', 'topic', 'main')
+    await vi.waitFor(() => {
+      expect(onSelect).toHaveBeenCalledWith(
+        expect.objectContaining({
+          github: { repository: 'acme/lark', branch: 'topic' }
+        })
+      )
+    })
+    const link = target.querySelector('a.menu-action')
+    expect(link?.textContent?.trim()).toBe('Manage repos for octocat')
+    expect(link?.getAttribute('target')).toBe('_blank')
+    expect(link?.getAttribute('href')).toMatch(/^https:\/\/github\.com\//)
+  })
+
+  it('shows a create-branch error and logs out without keeping the keymap', async () => {
+    vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }, { name: 'dev' }])
+    vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
+      layout: [{ row: 0, col: 0 }],
+      keymap: { layers: [] }
+    })
+    vi.spyOn(github, 'createBranch').mockRejectedValue(
+      Object.assign(new Error('conflict'), {
+        response: {
+          data: { errors: ['A branch with that name already exists'] }
+        }
+      })
+    )
+    const logout = vi.spyOn(github, 'logout').mockResolvedValue(undefined)
+    const onLogout = vi.fn()
+
+    open(vi.fn(), onLogout)
+    await vi.waitFor(() => {
+      expect(target.querySelector('#branch')).toBeInstanceOf(HTMLSelectElement)
+    })
+
+    clickButton('Create new branch')
+    const input = target.querySelector('#new-branch')
+    if (!(input instanceof HTMLInputElement)) throw new Error('missing branch input')
+    input.value = 'main'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+    clickButton('Create')
+
+    await vi.waitFor(() => {
+      expect(target.querySelector('[role="alert"]')?.textContent).toContain(
+        'A branch with that name already exists'
+      )
+    })
+
+    clickButton('Log out')
+    await vi.waitFor(() => {
+      expect(logout).toHaveBeenCalled()
+      expect(onLogout).toHaveBeenCalled()
+    })
   })
 })

@@ -1,7 +1,8 @@
 <script lang="ts">
   import { untrack } from 'svelte'
+  import * as config from '../../../config'
   import github from '../../../github/api.svelte.js'
-  import { githubChipLabel, githubGateAction } from '../../../github/chrome-label.js'
+  import { githubChipLabel, githubGateAction, manageReposUrl } from '../../../github/chrome-label.js'
   import * as storage from '../../../github/storage'
   import { findBy, mapProp } from '../../../utils'
   import ValidationErrors from './ValidationErrors.svelte'
@@ -28,9 +29,15 @@
     /** Parent draws the chip; this picker only fills the menu and keeps loading. */
     embedded?: boolean
     onStatus?: (status: GithubChromeStatus) => void
+    onLogout?: () => void
   }
 
-  let { onSelect, embedded = false, onStatus }: Props = $props()
+  let { onSelect, embedded = false, onStatus, onLogout }: Props = $props()
+
+  let branchForm = $state(false)
+  let branchDraft = $state('')
+  let branchError = $state('')
+  let creatingBranch = $state(false)
 
   let selectedRepoId: number | null = $state(null)
   let selectedBranchName: string | null = $state(null)
@@ -254,6 +261,44 @@
     else if (gate === 'install') github.beginInstallAppFlow()
   }
 
+  function beginBranchForm() {
+    branchForm = true
+    branchDraft = ''
+    branchError = ''
+  }
+
+  async function submitBranch() {
+    const repository = selectedRepo?.full_name
+    const from = selectedBranchName
+    if (!repository || !from || creatingBranch) return
+    creatingBranch = true
+    branchError = ''
+    try {
+      const created = await github.createBranch(repository, branchDraft, from)
+      if (!branches.some(branch => branch.name === created.name)) {
+        branches = [...branches, { name: created.name }]
+      }
+      selectedBranchName = created.name
+      branchForm = false
+      branchDraft = ''
+    } catch (err) {
+      const data = (err as { response?: { data?: { errors?: unknown } } }).response?.data
+      const message = Array.isArray(data?.errors) ? data.errors.find(item => typeof item === 'string') : null
+      branchError = typeof message === 'string' ? message : 'Could not create the branch'
+    } finally {
+      creatingBranch = false
+    }
+  }
+
+  async function logOut() {
+    await github.logout()
+    onLogout?.()
+    selectedRepoId = null
+    selectedBranchName = null
+    branches = []
+    branchForm = false
+  }
+
   $effect(() => {
     const status: GithubChromeStatus = {
       ready,
@@ -337,6 +382,60 @@
     {#if selectedBranchName && !loadingKeyboard}
       <button type="button" class="menu-action" onclick={reloadKeyboard}>Reload</button>
     {/if}
+
+    <div class="menu-sep" aria-hidden="true"></div>
+    {#if branchForm && selectedBranchName}
+      <div class="branch-form">
+        <label class="identity-k" for="new-branch">New branch</label>
+        <input
+          id="new-branch"
+          name="branch"
+          autocomplete="off"
+          bind:value={branchDraft}
+          placeholder="Branch name"
+          onkeydown={event => {
+            if (event.key !== 'Enter') return
+            event.preventDefault()
+            void submitBranch()
+          }}
+        />
+        <p class="branch-hint">
+          Copies {selectedBranchName} as it is on GitHub. Unpublished edits stay on the current branch.
+        </p>
+        {#if branchError}
+          <p class="branch-error" role="alert">{branchError}</p>
+        {/if}
+        <div class="branch-actions">
+          <button
+            type="button"
+            disabled={creatingBranch || !branchDraft.trim()}
+            onclick={() => void submitBranch()}
+          >
+            {creatingBranch ? 'Creating' : 'Create'}
+          </button>
+          <button
+            type="button"
+            onclick={() => {
+              branchForm = false
+              branchError = ''
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    {:else if selectedBranchName}
+      <button type="button" class="menu-action" onclick={beginBranchForm}>Create new branch</button>
+    {/if}
+    <a
+      class="menu-action"
+      href={manageReposUrl(config.githubAppName)}
+      target="_blank"
+      rel="noreferrer"
+    >
+      {github.login ? `Manage repos for ${github.login}` : 'Manage repos'}
+    </a>
+    <button type="button" class="menu-action" onclick={() => void logOut()}>Log out</button>
   {/if}
 {/snippet}
 
@@ -375,7 +474,10 @@
     white-space: nowrap;
   }
 
-  :global(#actions .source-popover) button.menu-action {
+  :global(#actions .source-popover) :is(button, a).menu-action {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
     width: 100%;
     height: auto;
     min-height: 26px;
@@ -384,11 +486,55 @@
     border: 0;
     border-radius: 4px;
     background: transparent;
+    color: inherit;
+    font: inherit;
+    text-decoration: none;
+    cursor: pointer;
   }
 
-  :global(#actions .source-popover) button.menu-action:hover:not(:disabled) {
+  :global(#actions .source-popover) :is(button, a).menu-action:hover {
     background: rgba(29, 111, 138, 0.08);
     border-color: transparent;
     color: inherit;
+  }
+
+  .menu-sep {
+    height: 1px;
+    margin: 2px 0;
+    background: #e4e4e4;
+  }
+
+  .branch-form {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .branch-form input {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 26px;
+    padding: 2px 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font: inherit;
+    font-size: 13px;
+  }
+
+  .branch-hint {
+    margin: 0;
+    color: #555;
+    font-size: 11px;
+  }
+
+  .branch-error {
+    margin: 0;
+    color: #842029;
+    font-size: 12px;
+  }
+
+  .branch-actions {
+    display: flex;
+    gap: 6px;
   }
 </style>
