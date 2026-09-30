@@ -25,6 +25,8 @@
   interface Props {
     column?: HostLegendColumn
     interactive: boolean
+    /** First column of a language after the base — stronger left edge between languages. */
+    groupStart?: boolean
     /** Multilang face shows every column; the eye waits until that face is off. */
     languagesStacked?: boolean
     pickingFor?: HostLanguageId | null
@@ -35,6 +37,7 @@
   let {
     column,
     interactive,
+    groupStart = false,
     languagesStacked = false,
     pickingFor = $bindable(null),
     pickingNew = $bindable(false),
@@ -130,7 +133,7 @@
 </script>
 
 {#if !column}
-  <th class="add-language-cell" class:prompt={needsHostLanguage}>
+  <th class="add-language-cell lang-start" class:prompt={needsHostLanguage}>
     {#if pickingNew}
       <div class="lang-head">
         <select
@@ -174,7 +177,7 @@
     {/if}
   </th>
 {:else}
-  <th class:off={!column.shown} class:narrow={!column.wide}>
+  <th class:off={!column.shown} class:narrow={!column.wide} class:lang-start={groupStart}>
     <div class="lang-head" class:narrow={!column.wide && !choosing}>
       {#if interactive}
         <EyeToggle
@@ -309,6 +312,10 @@
   th.narrow {
     min-width: 0;
     width: 1%;
+  }
+
+  th.lang-start {
+    border-left: 2px solid rgba(60, 60, 60, 0.28);
   }
 
   .lang-head {

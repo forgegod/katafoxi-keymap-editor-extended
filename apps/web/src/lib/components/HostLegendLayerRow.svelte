@@ -152,8 +152,13 @@
       {/if}
     </div>
   </th>
-  {#each columns as column (column.language)}
-    <td class:second={column.language !== 'en'} class:off={!column.shown} class:narrow={!column.wide}>
+  {#each columns as column, index (column.language)}
+    <td
+      class:second={column.language !== 'en'}
+      class:off={!column.shown}
+      class:narrow={!column.wide}
+      class:lang-start={index > 0}
+    >
       {cells.find(item => item.language === column.language)?.pair ?? ''}
     </td>
     {#if column.wide}
@@ -164,7 +169,7 @@
     {/if}
   {/each}
   {#if showAddColumn}
-    <td></td>
+    <td class="lang-start"></td>
   {/if}
 </tr>
 
@@ -194,6 +199,10 @@
 
   .second {
     color: #1d6f8a;
+  }
+
+  td.lang-start {
+    border-left: 2px solid rgba(60, 60, 60, 0.28);
   }
 
   .alt {

@@ -138,10 +138,11 @@
           <thead>
             <tr>
               <th class="layer-col" scope="col">Layer</th>
-              {#each columns as column (column.language)}
+              {#each columns as column, index (column.language)}
                 <HostLegendLanguageHead
                   {column}
                   {interactive}
+                  groupStart={index > 0}
                   languagesStacked={multilang}
                   bind:pickingFor
                   bind:pickingNew
