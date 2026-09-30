@@ -462,14 +462,14 @@
   }
 
   .identity-k {
-    font-size: 12px;
+    font-size: var(--font-sm);
     line-height: 1.15;
     color: var(--text-muted);
   }
 
   .identity-v {
     overflow: hidden;
-    font-size: 13px;
+    font-size: var(--font-md);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -518,19 +518,19 @@
     border: 1px solid var(--border);
     border-radius: 4px;
     font: inherit;
-    font-size: 13px;
+    font-size: var(--font-md);
   }
 
   .branch-hint {
     margin: 0;
     color: var(--text-muted);
-    font-size: 11px;
+    font-size: var(--font-xs);
   }
 
   .branch-error {
     margin: 0;
     color: var(--danger-ink);
-    font-size: 12px;
+    font-size: var(--font-sm);
   }
 
   .branch-actions {

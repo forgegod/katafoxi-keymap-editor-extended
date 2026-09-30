@@ -53,14 +53,14 @@
     margin-left: auto;
     padding: 2px 2px 0 8px;
     color: var(--warn-ink);
-    font-size: 12px;
+    font-size: var(--font-sm);
     line-height: 1.35;
   }
 
   .host-gaps-title {
     margin: 0 0 2px;
     color: var(--text-subtle);
-    font-size: 11px;
+    font-size: var(--font-xs);
     font-weight: 600;
     letter-spacing: 0.02em;
   }

@@ -70,7 +70,7 @@
     gap: 6px;
     margin: 0 0 4px;
     min-height: 22px;
-    font-size: 12px;
+    font-size: var(--font-sm);
   }
 
   .chip {

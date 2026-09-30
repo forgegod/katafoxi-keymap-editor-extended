@@ -469,7 +469,7 @@
     gap: 6px 8px;
     margin: 0;
     color: var(--text-muted);
-    font-size: 13px;
+    font-size: var(--font-md);
   }
 
   .download {
@@ -485,7 +485,7 @@
     background: var(--surface-sunken);
     color: var(--text);
     font: inherit;
-    font-size: 13px;
+    font-size: var(--font-md);
     cursor: pointer;
   }
 
@@ -542,13 +542,13 @@
 
   .install-dialog h2 {
     margin: 0 0 4px;
-    font-size: 18px;
+    font-size: var(--font-xl);
     font-weight: 700;
   }
 
   .lede {
     margin: 0;
-    font-size: 13px;
+    font-size: var(--font-md);
     line-height: 1.4;
     color: var(--text-muted);
   }
@@ -562,7 +562,7 @@
   .steps {
     margin: 0 0 14px;
     padding-left: 1.25em;
-    font-size: 13px;
+    font-size: var(--font-md);
     line-height: 1.4;
   }
 
@@ -581,7 +581,7 @@
   .paired h3,
   .files-heading {
     margin: 0 0 8px;
-    font-size: 15px;
+    font-size: var(--font-lg);
     font-weight: 700;
   }
 
@@ -592,7 +592,7 @@
   .paired p,
   .paired li {
     margin: 0 0 8px;
-    font-size: 13px;
+    font-size: var(--font-md);
     line-height: 1.45;
     color: var(--text);
   }
@@ -628,7 +628,7 @@
     align-items: center;
     gap: 6px 8px;
     margin: 0 0 8px;
-    font-size: 14px;
+    font-size: var(--font-lg);
     font-weight: 700;
   }
 
@@ -645,7 +645,7 @@
 
   .card-tip {
     margin: 0 0 8px;
-    font-size: 12px;
+    font-size: var(--font-sm);
     line-height: 1.4;
     color: var(--text-muted);
   }
@@ -665,7 +665,7 @@
   .path-label {
     display: block;
     margin: 0 0 3px;
-    font-size: 11px;
+    font-size: var(--font-xs);
     color: var(--paper-ink-subtle);
   }
 
@@ -685,7 +685,7 @@
     border-radius: 6px;
     background: var(--surface);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px;
+    font-size: var(--font-sm);
     color: var(--text);
   }
 
@@ -699,7 +699,7 @@
     background: var(--code-bg);
     color: var(--code-ink);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 11px;
+    font-size: var(--font-xs);
     line-height: 1.35;
     white-space: pre;
   }
@@ -725,7 +725,7 @@
     padding: 0 12px;
     border-radius: 8px;
     font: inherit;
-    font-size: 13px;
+    font-size: var(--font-md);
     cursor: pointer;
     text-decoration: none;
   }
@@ -754,7 +754,7 @@
 
   .copy-note {
     margin: 8px 0 0;
-    font-size: 12px;
+    font-size: var(--font-sm);
     color: var(--accent);
   }
 

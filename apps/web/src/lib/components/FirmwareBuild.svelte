@@ -170,7 +170,7 @@
     background: var(--surface);
     color: var(--text);
     font-family: Quicksand, avenir, sans-serif;
-    font-size: 12px;
+    font-size: var(--font-sm);
     line-height: 1.05;
     text-decoration: none;
     white-space: nowrap;
@@ -189,7 +189,7 @@
   }
 
   .when {
-    font-size: 10px;
+    font-size: var(--font-xs);
     opacity: 0.95;
   }
 

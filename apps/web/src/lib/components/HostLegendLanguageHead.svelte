@@ -301,7 +301,7 @@
     font-weight: 500;
     white-space: nowrap;
     border: 1px solid rgba(60, 60, 60, 0.08);
-    font-size: 12px;
+    font-size: var(--font-sm);
     color: var(--text-subtle);
   }
 
@@ -344,7 +344,7 @@
     min-height: 24px;
     padding: 1px 4px;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--font-sm);
   }
 
   .add-language-cell {
@@ -360,7 +360,7 @@
     background: var(--surface);
     color: var(--accent);
     font: inherit;
-    font-size: 16px;
+    font-size: var(--font-icon);
     line-height: 1;
     cursor: pointer;
   }
@@ -374,7 +374,7 @@
   }
 
   .prompt-label {
-    font-size: 11px;
+    font-size: var(--font-xs);
     font-weight: 600;
     letter-spacing: 0.02em;
     line-height: 1.2;
@@ -423,7 +423,7 @@
   }
 
   .profile-name {
-    font-size: 12px;
+    font-size: var(--font-sm);
     color: var(--text-subtle);
   }
 
@@ -443,7 +443,7 @@
     color: var(--text-faint);
     font: inherit;
     font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
-    font-size: 12px;
+    font-size: var(--font-sm);
     cursor: pointer;
   }
 

@@ -276,7 +276,7 @@
     align-items: flex-end;
     gap: 12px 20px;
     padding: 6px 12px 8px;
-    font-size: 13px;
+    font-size: var(--font-md);
     background: var(--surface);
     border-bottom: 1px solid var(--border-soft);
     container-type: inline-size;
@@ -430,7 +430,7 @@
     padding: 0 8px;
     margin: 0;
     font: inherit;
-    font-size: 13px;
+    font-size: var(--font-md);
     font-weight: 500;
     box-shadow: none;
   }
@@ -450,7 +450,7 @@
     flex: 1 1 100%;
     margin: 0;
     padding: 8px 12px;
-    font-size: 90%;
+    font-size: var(--font-sm);
     line-height: 1.4;
     border-radius: 5px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);

@@ -110,7 +110,7 @@
 
   .catalog-glyph {
     font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
-    font-size: 16px;
+    font-size: var(--font-icon);
     line-height: 1;
   }
 </style>

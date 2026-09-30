@@ -149,6 +149,6 @@
     align-items: center;
     height: 26px;
     color: var(--text);
-    font-size: 13px;
+    font-size: var(--font-md);
   }
 </style>

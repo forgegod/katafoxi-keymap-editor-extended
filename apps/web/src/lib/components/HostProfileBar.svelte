@@ -126,7 +126,7 @@
     border: 1px solid var(--border-soft);
     border-radius: 6px;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
-    font-size: 13px;
+    font-size: var(--font-md);
     line-height: 1.35;
   }
 
@@ -141,13 +141,13 @@
 
   .profile-dialog h2 {
     margin: 0 0 8px;
-    font-size: 16px;
+    font-size: var(--font-xl);
     font-weight: 600;
   }
 
   .profile-dialog p {
     margin: 0 0 12px;
-    font-size: 14px;
+    font-size: var(--font-md);
     line-height: 1.4;
   }
 

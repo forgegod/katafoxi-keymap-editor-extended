@@ -485,7 +485,7 @@
       no-repeat right 6px center;
     color: inherit;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--font-sm);
     text-align: left;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -526,7 +526,7 @@
     background: transparent;
     color: inherit;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--font-sm);
     text-align: left;
     cursor: pointer;
   }
@@ -591,7 +591,7 @@
     background: transparent;
     color: inherit;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--font-sm);
     text-align: left;
     cursor: pointer;
   }
@@ -622,7 +622,7 @@
     box-sizing: border-box;
     width: 100%;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--font-sm);
   }
 
   .profile-import textarea {
@@ -633,13 +633,13 @@
   .profile-import-hint {
     margin: 0;
     color: var(--text-muted);
-    font-size: 11px;
+    font-size: var(--font-xs);
   }
 
   .profile-import-error {
     margin: 0;
     color: var(--danger-ink);
-    font-size: 12px;
+    font-size: var(--font-sm);
   }
 
   .profile-import-actions {
@@ -653,7 +653,7 @@
     border-radius: 5px;
     padding: 4px 10px;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--font-sm);
   }
 
   .profile-import-actions button:first-child {

@@ -60,7 +60,7 @@
   }
 
   label {
-    font-size: 12px;
+    font-size: var(--font-sm);
     line-height: 1.15;
     color: var(--text-muted);
     white-space: nowrap;
@@ -83,7 +83,7 @@
     padding: 0 1.5rem 0 6px;
     border: 1px solid transparent;
     font-family: Quicksand, avenir, sans-serif;
-    font-size: 13px;
+    font-size: var(--font-md);
     font-weight: 500;
     line-height: 24px;
   }
@@ -95,7 +95,7 @@
     height: 100%;
     min-width: 0;
     max-width: none;
-    font-size: 13px;
+    font-size: var(--font-md);
     line-height: 24px;
     appearance: none;
     padding-right: 1.5rem;

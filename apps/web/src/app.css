@@ -99,6 +99,16 @@
   --layer-tone-1: #5a9a38;
   --layer-tone-2: #7460a0;
   --layer-tone-3: #9a6e42;
+
+  /* Type scale for chrome, dialogs, and menus. Add a step before adding a size.
+     Keycap, loupe, and decode-card glyphs are content and keep their own sizes. */
+  --font-xs: 11px;   /* lane labels, table heads, captions, badges */
+  --font-sm: 12px;   /* menus, hints, secondary lines */
+  --font-md: 13px;   /* body: buttons, inputs, header text */
+  --font-lg: 15px;   /* panel and section headings */
+  --font-xl: 18px;   /* dialog titles */
+  --font-icon: 16px; /* single-glyph buttons (Ω, +, ✓, ×, ↺) */
+
   /* Letters: Inter (Latin, Cyrillic, Greek), then Noto Sans for a script Inter lacks.
      Marks: Noto Sans Symbols 2. Emoji: the system emoji font.
      Keep the full families — a frozen character list drops the next language. */
@@ -169,7 +179,7 @@ code {
   background: var(--surface);
   color: var(--text);
   font-family: Quicksand, avenir, sans-serif;
-  font-size: 13px;
+  font-size: var(--font-md);
   font-weight: 500;
   line-height: 1;
   border: 1px solid var(--border);
@@ -217,7 +227,7 @@ code {
   margin: 0 2px 0 0;
   padding: 0;
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -230,7 +240,7 @@ code {
   gap: 6px;
   box-sizing: border-box;
   height: 26px;
-  font-size: 13px;
+  font-size: var(--font-md);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -257,7 +267,7 @@ code {
   background-color: var(--hover-selection);
   color: var(--on-accent);
   font-family: Quicksand, avenir, sans-serif;
-  font-size: 16px;
+  font-size: var(--font-lg);
   border: none;
   border-radius: 5px;
   padding: 6px 16px;

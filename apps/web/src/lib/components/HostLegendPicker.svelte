@@ -238,7 +238,7 @@
     gap: 16px 24px;
     width: max-content;
     padding: 0;
-    font-size: 13px;
+    font-size: var(--font-md);
     color: var(--text-soft);
   }
 
@@ -297,7 +297,7 @@
   }
 
   thead th {
-    font-size: 11px;
+    font-size: var(--font-xs);
     font-weight: 600;
     letter-spacing: 0.02em;
     color: var(--text-subtle);
@@ -309,7 +309,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    font-size: 10px;
+    font-size: var(--font-xs);
   }
 
   .add-layer {
@@ -319,7 +319,7 @@
     background: transparent;
     color: var(--accent);
     font: inherit;
-    font-size: 12px;
+    font-size: var(--font-sm);
     cursor: pointer;
   }
 
@@ -347,7 +347,7 @@
 
   .delete-confirm p {
     margin: 0 0 8px;
-    font-size: 90%;
+    font-size: var(--font-sm);
   }
 
   .delete-confirm-actions {
@@ -362,7 +362,7 @@
     border-radius: 13px;
     cursor: pointer;
     font: inherit;
-    font-size: 85%;
+    font-size: var(--font-xs);
   }
 
   .confirm-delete {

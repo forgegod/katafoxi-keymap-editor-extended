@@ -549,7 +549,7 @@
       0 12px 28px color-mix(in srgb, var(--paper-shade) 22%, transparent);
     color: var(--text);
     font-family: Quicksand, avenir, sans-serif;
-    font-size: 12px;
+    font-size: var(--font-sm);
     line-height: 1.2;
   }
 
@@ -576,7 +576,7 @@
   }
 
   .picker-title {
-    font-size: 11px;
+    font-size: var(--font-xs);
     font-weight: 700;
     letter-spacing: 0.04em;
     color: var(--paper-ink);
@@ -584,7 +584,7 @@
 
   .picker-hint {
     color: var(--paper-ink-faint);
-    font-size: 12px;
+    font-size: var(--font-sm);
     line-height: 1;
   }
 
@@ -597,7 +597,7 @@
 
   .hint {
     margin: 0 0 8px;
-    font-size: 11px;
+    font-size: var(--font-xs);
     color: var(--paper-ink-muted);
   }
 
@@ -611,7 +611,7 @@
 
   .shelf-title {
     margin: 0 0 4px;
-    font-size: 11px;
+    font-size: var(--font-xs);
     font-weight: 700;
     letter-spacing: 0.03em;
     color: var(--paper-ink-muted);
@@ -705,7 +705,7 @@
 
   .loupe-name {
     max-width: 12em;
-    font-size: 11px;
+    font-size: var(--font-xs);
     line-height: 1.2;
     color: var(--paper-ink-muted);
     text-align: center;

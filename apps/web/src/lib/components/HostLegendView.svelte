@@ -211,7 +211,7 @@
   }
 
   .view-label {
-    font-size: 11px;
+    font-size: var(--font-xs);
     font-weight: 600;
     line-height: 1;
     white-space: nowrap;
@@ -229,7 +229,7 @@
     background: transparent;
     color: var(--text-faint);
     font: inherit;
-    font-size: 11px;
+    font-size: var(--font-xs);
     font-weight: 600;
     line-height: 1.15;
     text-align: center;

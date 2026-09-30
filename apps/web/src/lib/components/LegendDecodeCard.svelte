@@ -395,7 +395,7 @@
   .was {
     margin-bottom: 4px;
     color: var(--warn-ink);
-    font-size: 13px;
+    font-size: var(--font-md);
     font-family: Quicksand, avenir, sans-serif;
     line-height: 1.3;
   }
@@ -406,7 +406,7 @@
     gap: 0.85em;
     margin-bottom: 6px;
     color: var(--paper-ink-muted);
-    font-size: 13px;
+    font-size: var(--font-md);
     font-family: Quicksand, avenir, sans-serif;
   }
 
@@ -417,7 +417,7 @@
   }
 
   .ids .mark {
-    font-size: 11px;
+    font-size: var(--font-xs);
     font-weight: 700;
     letter-spacing: 0.04em;
     color: var(--paper-ink-faint);
@@ -473,7 +473,7 @@
 
   .level-label {
     font-family: Quicksand, avenir, sans-serif;
-    font-size: 12px;
+    font-size: var(--font-sm);
     font-weight: 600;
     letter-spacing: 0.02em;
     color: var(--paper-ink-faint);
@@ -549,7 +549,7 @@
     width: 0;
     min-width: 100%;
     white-space: normal;
-    font-size: 12px;
+    font-size: var(--font-sm);
     line-height: 1.25;
     font-family: Quicksand, avenir, sans-serif;
     color: var(--warn);
@@ -564,7 +564,7 @@
     color: var(--paper-ink-subtle);
     font: inherit;
     font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
-    font-size: 14px;
+    font-size: var(--font-icon);
     line-height: 1;
     cursor: pointer;
   }
@@ -580,7 +580,7 @@
     border-top: 1px solid color-mix(in srgb, var(--paper-shade) 10%, transparent);
     white-space: normal;
     font-family: Quicksand, avenir, sans-serif;
-    font-size: 12px;
+    font-size: var(--font-sm);
     line-height: 1.3;
     color: var(--paper-ink-subtle);
   }
@@ -601,7 +601,7 @@
     border: 0;
     border-radius: 13px;
     font-family: Quicksand, avenir, sans-serif;
-    font-size: 13px;
+    font-size: var(--font-md);
     cursor: pointer;
   }
 
@@ -611,7 +611,7 @@
     border-radius: 3px;
     background: rgba(255, 255, 255, 0.22);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px;
+    font-size: var(--font-sm);
     font-weight: 600;
   }
 

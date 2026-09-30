@@ -193,7 +193,7 @@
 
   th {
     color: var(--text-subtle);
-    font-size: 11px;
+    font-size: var(--font-xs);
     font-weight: 400;
   }
 
