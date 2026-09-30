@@ -90,8 +90,24 @@ describe('Github Picker', () => {
     const onSelect = open()
 
     await vi.waitFor(() => {
-      expect(selectedOptionText(target.querySelector('#branch'))).toBe('only')
+      expect(target.querySelector('.source-trigger-label')?.textContent?.trim()).toBe(
+        'lark · only'
+      )
     })
+    expect(target.querySelector('.source-trigger')?.getAttribute('title')).toBe(
+      'acme/lark · only'
+    )
+    expect(target.querySelector('.branch-value')?.textContent?.trim()).toBe('only')
+    expect(target.querySelector('#branch')).toBeNull()
+    expect(target.querySelector('#repo')).toBeNull()
+    const popover = target.querySelector('.source-popover')
+    expect(popover).toBeInstanceOf(HTMLElement)
+    expect((popover as HTMLElement).hidden).toBe(true)
+    target.querySelector('.source-trigger')?.dispatchEvent(
+      new MouseEvent('click', { bubbles: true })
+    )
+    flushSync()
+    expect((popover as HTMLElement).hidden).toBe(false)
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({
         github: { repository: repo.full_name, branch: 'only' }
@@ -188,15 +204,16 @@ describe('Github Picker', () => {
         'main'
       )
     })
-    expect(target.querySelector('#branch')).toBeInstanceOf(HTMLSelectElement)
+    expect(target.querySelector('.branch-value')?.textContent?.trim()).toBe('main')
+    expect(target.querySelector('#branch')).toBeNull()
 
     const repoSelect = target.querySelector('#repo')
     if (!(repoSelect instanceof HTMLSelectElement)) {
       throw new Error('missing repo select')
     }
     expect([...repoSelect.options].map(option => option.textContent?.trim())).toEqual([
-      'old',
-      'new'
+      'acme/old',
+      'acme/new'
     ])
     expect(repoSelect.options[0]?.getAttribute('title')).toBe('acme/old')
     repoSelect.value = '1'
@@ -216,9 +233,10 @@ describe('Github Picker', () => {
 
     expect(onSelect).not.toHaveBeenCalled()
     expect(target.querySelector('#branch')).toBeNull()
+    expect(target.querySelector('.branch-value')).toBeNull()
   })
 
-  it('shows a validation error from the singleton and keeps repo/branch selects', async () => {
+  it('shows a validation error from the singleton and keeps the repo and branch', async () => {
     vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }])
     vi.spyOn(github, 'fetchLayoutAndKeymap').mockRejectedValue(
       new Error('load failed')
@@ -227,7 +245,7 @@ describe('Github Picker', () => {
     open()
 
     await vi.waitFor(() => {
-      expect(target.querySelector('#branch')).toBeInstanceOf(HTMLSelectElement)
+      expect(target.querySelector('.branch-value')?.textContent?.trim()).toBe('main')
     })
 
     github.emit('repo-validation-error', {
@@ -237,8 +255,8 @@ describe('Github Picker', () => {
     flushSync()
 
     expect(document.body.textContent).toContain('missing config/info.json')
-    expect(target.querySelector('#repo')).toBeInstanceOf(HTMLSelectElement)
-    expect(target.querySelector('#branch')).toBeInstanceOf(HTMLSelectElement)
+    expect(target.querySelector('.repo-value')?.textContent?.trim()).toBe('acme/lark')
+    expect(target.querySelector('.branch-value')?.textContent?.trim()).toBe('main')
   })
 
   it('warns when the layout has no row/col and still calls onSelect', async () => {

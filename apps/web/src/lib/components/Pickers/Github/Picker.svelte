@@ -1,11 +1,23 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import github from '../../../github/api.svelte.js'
+  import { githubChipLabel, githubGateAction } from '../../../github/chrome-label.js'
   import * as storage from '../../../github/storage'
   import { findBy, mapProp } from '../../../utils'
   import ValidationErrors from './ValidationErrors.svelte'
   import IconButton from '../../Common/IconButton.svelte'
   import Selector from '../../Common/Selector.svelte'
-  import Spinner from '../../Common/Spinner.svelte'
+  import SourceMenu from '../SourceMenu.svelte'
+
+  export interface GithubChromeStatus {
+    ready: boolean
+    authorized: boolean
+    appInstalled: boolean
+    loading: boolean
+    repoFullName: string | null
+    repoFullNames: string[]
+    branch: string | null
+  }
 
   interface Props {
     onSelect: (event: {
@@ -13,9 +25,12 @@
       layout: unknown
       keymap: unknown
     }) => void
+    /** Parent draws the chip; this picker only fills the menu and keeps loading. */
+    embedded?: boolean
+    onStatus?: (status: GithubChromeStatus) => void
   }
 
-  let { onSelect }: Props = $props()
+  let { onSelect, embedded = false, onStatus }: Props = $props()
 
   let selectedRepoId: number | null = $state(null)
   let selectedBranchName: string | null = $state(null)
@@ -184,19 +199,19 @@
     }
   })
 
+  const selectedRepo = $derived(
+    findBy(github.repositories ?? [], { id: selectedRepoId }) ?? null
+  )
+
+  const repoFullNames = $derived((github.repositories ?? []).map(repo => repo.full_name))
+
   const repositoryChoices = $derived(
     (github.repositories || []).map(repo => ({
       id: repo.id,
-      name: repoLabel(repo),
+      name: repo.full_name,
       title: repo.full_name
     }))
   )
-
-  function repoLabel(repo: { full_name: string; name?: unknown }): string {
-    if (typeof repo.name === 'string' && repo.name) return repo.name
-    const slash = repo.full_name.lastIndexOf('/')
-    return slash === -1 ? repo.full_name : repo.full_name.slice(slash + 1)
-  }
 
   const branchChoices = $derived(
     branches.map(branch => ({
@@ -208,35 +223,90 @@
   const authorized = $derived(github.isGitHubAuthorized())
   const appInstalled = $derived(github.isAppInstalled())
   const ready = $derived(github.initialized)
+
+  const gate = $derived(
+    githubGateAction({
+      onlySource: true,
+      ready,
+      authorized,
+      appInstalled
+    })
+  )
+
+  const triggerLabel = $derived.by(() => {
+    if (gate === 'login') return 'Login with GitHub'
+    if (gate === 'install') return 'Add Repository'
+    if (!ready || !authorized || !appInstalled) return 'GitHub'
+    return githubChipLabel(selectedRepo?.full_name ?? null, repoFullNames, selectedBranchName)
+  })
+
+  const triggerTitle = $derived.by(() => {
+    if (!ready || !authorized) return 'Login with GitHub'
+    if (!appInstalled) return 'Add a GitHub repository'
+    const full = selectedRepo?.full_name
+    if (full && selectedBranchName) return `${full} · ${selectedBranchName}`
+    if (full) return full
+    return 'GitHub'
+  })
+
+  function runGate() {
+    if (gate === 'login') github.beginLoginFlow()
+    else if (gate === 'install') github.beginInstallAppFlow()
+  }
+
+  $effect(() => {
+    const status: GithubChromeStatus = {
+      ready,
+      authorized,
+      appInstalled,
+      loading: !ready || loadingBranches || loadingKeyboard,
+      repoFullName: selectedRepo?.full_name ?? null,
+      repoFullNames,
+      branch: selectedBranchName
+    }
+    untrack(() => onStatus?.(status))
+  })
 </script>
 
-{#if ready}
-  {#if !authorized}
+{#snippet fields()}
+  {#if ready && !authorized}
     <IconButton
       collection="brands"
       icon="github"
       text="Login with GitHub"
       onclick={() => github.beginLoginFlow()}
     />
-  {:else if !appInstalled}
+  {:else if ready && !appInstalled}
     <IconButton
       collection="brands"
       icon="github"
       text="Add Repository"
       onclick={() => github.beginInstallAppFlow()}
     />
-  {:else}
-    <Selector
-      id="repo"
-      label="Repository"
-      value={selectedRepoId}
-      choices={repositoryChoices}
-      onUpdate={id => (selectedRepoId = id as number)}
-    />
+  {:else if ready}
+    {#if repositoryChoices.length === 1}
+      <div class="identity-line">
+        <span class="identity-k">Repository</span>
+        <span class="identity-v repo-value" title={repositoryChoices[0].title}>
+          {repositoryChoices[0].title}
+        </span>
+      </div>
+    {:else if repositoryChoices.length > 1}
+      <Selector
+        id="repo"
+        label="Repository"
+        value={selectedRepoId}
+        choices={repositoryChoices}
+        onUpdate={id => (selectedRepoId = id as number)}
+      />
+    {/if}
 
-    {#if loadingBranches}
-      <Spinner />
-    {:else if branches.length}
+    {#if !loadingBranches && branchChoices.length === 1}
+      <div class="identity-line">
+        <span class="identity-k">Branch</span>
+        <span class="identity-v branch-value">{branchChoices[0].name}</span>
+      </div>
+    {:else if !loadingBranches && branchChoices.length > 1}
       <Selector
         id="branch"
         label="Branch"
@@ -244,10 +314,6 @@
         choices={branchChoices}
         onUpdate={name => (selectedBranchName = String(name))}
       />
-    {/if}
-
-    {#if loadingKeyboard}
-      <Spinner />
     {/if}
 
     {#if loadError}
@@ -269,7 +335,60 @@
     {/if}
 
     {#if selectedBranchName && !loadingKeyboard}
-      <IconButton icon="sync" onclick={reloadKeyboard} />
+      <button type="button" class="menu-action" onclick={reloadKeyboard}>Reload</button>
     {/if}
   {/if}
+{/snippet}
+
+{#if embedded}
+  {@render fields()}
+{:else}
+  <SourceMenu
+    label={triggerLabel}
+    title={triggerTitle}
+    busy={!ready || loadingBranches || loadingKeyboard}
+    popup={gate === null}
+    onActivate={runGate}
+  >
+    {@render fields()}
+  </SourceMenu>
 {/if}
+
+<style>
+  .identity-line {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .identity-k {
+    font-size: 12px;
+    line-height: 1.15;
+    color: #555;
+  }
+
+  .identity-v {
+    overflow: hidden;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  :global(#actions .source-popover) button.menu-action {
+    width: 100%;
+    height: auto;
+    min-height: 26px;
+    justify-content: flex-start;
+    padding: 4px 8px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+  }
+
+  :global(#actions .source-popover) button.menu-action:hover:not(:disabled) {
+    background: rgba(29, 111, 138, 0.08);
+    border-color: transparent;
+    color: inherit;
+  }
+</style>
