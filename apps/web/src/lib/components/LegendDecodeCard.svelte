@@ -354,11 +354,11 @@
     min-width: 18em;
     padding: 7px 9px 8px;
     border-radius: 8px;
-    background: #f7f4ee;
+    background: var(--paper);
     box-shadow:
-      0 0 0 1px rgba(40, 36, 30, 0.12),
-      0 8px 22px rgba(40, 36, 30, 0.18);
-    color: #333;
+      0 0 0 1px color-mix(in srgb, var(--paper-shade) 12%, transparent),
+      0 8px 22px color-mix(in srgb, var(--paper-shade) 18%, transparent);
+    color: var(--text);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 16px;
     line-height: 1.2;
@@ -373,8 +373,8 @@
   .legend-decode.session {
     pointer-events: auto;
     box-shadow:
-      0 0 0 1px rgba(40, 36, 30, 0.18),
-      0 10px 28px rgba(40, 36, 30, 0.24);
+      0 0 0 1px color-mix(in srgb, var(--paper-shade) 18%, transparent),
+      0 10px 28px color-mix(in srgb, var(--paper-shade) 24%, transparent);
   }
 
   /* Size to the level grid. Identifier and hint lines wrap to that width
@@ -394,7 +394,7 @@
 
   .was {
     margin-bottom: 4px;
-    color: #664d03;
+    color: var(--warn-ink);
     font-size: 13px;
     font-family: Quicksand, avenir, sans-serif;
     line-height: 1.3;
@@ -405,7 +405,7 @@
     flex-wrap: nowrap;
     gap: 0.85em;
     margin-bottom: 6px;
-    color: #6b6560;
+    color: var(--paper-ink-muted);
     font-size: 13px;
     font-family: Quicksand, avenir, sans-serif;
   }
@@ -420,18 +420,18 @@
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.04em;
-    color: #8a847c;
+    color: var(--paper-ink-faint);
   }
 
   .ids .bind {
-    color: #4a4540;
+    color: var(--paper-ink-strong);
   }
 
   .ids .hold {
     padding: 0 4px;
     border-radius: 3px;
     background: rgba(0, 0, 0, 0.08);
-    color: #444;
+    color: var(--text-soft);
     font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
   }
 
@@ -476,7 +476,7 @@
     font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.02em;
-    color: #8a847c;
+    color: var(--paper-ink-faint);
     line-height: 1;
   }
 
@@ -493,7 +493,7 @@
   }
 
   .cell.editing .slot {
-    outline: 1px solid #1d6f8a;
+    outline: 1px solid var(--accent);
     outline-offset: 1px;
   }
 
@@ -528,19 +528,19 @@
   }
 
   .slot.empty {
-    color: #aaa;
+    color: var(--text-disabled);
   }
 
   .slot.diff {
-    color: #5a3d00;
-    background: #e4c56a;
+    color: var(--warn-ink);
+    background: var(--highlight);
     border-radius: 3px;
   }
 
   .lang[data-language='ru'] .slot.diff,
   .lang[data-language='uk'] .slot.diff,
   .lang[data-language='de'] .slot.diff {
-    color: #0f4a5c;
+    color: var(--accent-strong);
   }
 
   .warn {
@@ -552,7 +552,7 @@
     font-size: 12px;
     line-height: 1.25;
     font-family: Quicksand, avenir, sans-serif;
-    color: #8a5a00;
+    color: var(--warn);
   }
 
   .revert {
@@ -561,7 +561,7 @@
     border: 0;
     border-radius: 3px;
     background: transparent;
-    color: #7a746c;
+    color: var(--paper-ink-subtle);
     font: inherit;
     font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
     font-size: 14px;
@@ -570,19 +570,19 @@
   }
 
   .revert:hover:not(:disabled) {
-    background: rgba(40, 36, 30, 0.08);
-    color: #333;
+    background: color-mix(in srgb, var(--paper-shade) 8%, transparent);
+    color: var(--text);
   }
 
   .mode-hint {
     margin: 7px 0 0;
     padding-top: 5px;
-    border-top: 1px solid rgba(40, 36, 30, 0.1);
+    border-top: 1px solid color-mix(in srgb, var(--paper-shade) 10%, transparent);
     white-space: normal;
     font-family: Quicksand, avenir, sans-serif;
     font-size: 12px;
     line-height: 1.3;
-    color: #7a746c;
+    color: var(--paper-ink-subtle);
   }
 
   .session-bar {
@@ -590,7 +590,7 @@
     gap: 6px;
     margin-top: 8px;
     padding-top: 6px;
-    border-top: 1px solid rgba(40, 36, 30, 0.12);
+    border-top: 1px solid color-mix(in srgb, var(--paper-shade) 12%, transparent);
   }
 
   .session-bar button {
@@ -620,12 +620,12 @@
   }
 
   .session-accept {
-    background: #1d6f8a;
-    color: #fff;
+    background: var(--accent);
+    color: var(--on-accent);
   }
 
   .session-cancel {
-    background: #ddd;
-    color: #333;
+    background: var(--fill);
+    color: var(--text);
   }
 </style>

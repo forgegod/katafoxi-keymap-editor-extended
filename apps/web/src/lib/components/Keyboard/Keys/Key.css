@@ -6,8 +6,8 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  color: #999;
-  background-color: var(--key-face, whitesmoke);
+  color: var(--text-disabled);
+  background-color: var(--key-face);
   font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
   font-size: 110%;
   border-radius: 5px;
@@ -25,7 +25,7 @@
 }
 .key:not([data-stacked='true']):hover .code,
 .key:not([data-stacked='true']):hover .behaviour-binding {
-  color: white;
+  color: var(--on-accent);
 }
 .key > .code {
   padding: 5px;
@@ -87,7 +87,7 @@
 }
 
 .code {
-  color: #666;
+  color: var(--text-subtle);
   padding: 0px 4px;
   margin-left: -2px;
   margin-right: -2px;
@@ -173,24 +173,24 @@
   background-color: rgba(180, 130, 20, 0.16);
 }
 .key .layer-slot.symbol-moved {
-  box-shadow: inset 0 -1px 0 #c47b00;
+  box-shadow: inset 0 -1px 0 var(--mark-diff);
 }
 .key .layer-slot.altgr-conflict {
-  box-shadow: inset 0 0 0 1px #b42318;
+  box-shadow: inset 0 0 0 1px var(--mark-altgr);
 }
 .key .layer-slot.symbol-moved.altgr-conflict {
   box-shadow:
-    inset 0 0 0 1px #b42318,
-    inset 0 -1px 0 #c47b00;
+    inset 0 0 0 1px var(--mark-altgr),
+    inset 0 -1px 0 var(--mark-diff);
 }
 .key[data-stacked='true'] .layer-slot:hover,
 .key[data-stacked='true'] .layer-slot:focus-visible {
   background-color: var(--hover-selection);
-  color: white;
+  color: var(--on-accent);
 }
 .key[data-stacked='true'] .layer-slot:hover :is(.zmk-row, .col, .hold, .code, .layer-empty),
 .key[data-stacked='true'] .layer-slot:focus-visible :is(.zmk-row, .col, .hold, .code, .layer-empty) {
-  color: white;
+  color: var(--on-accent);
 }
 
 .key .zmk-row {
@@ -202,13 +202,13 @@
   height: 100%;
   font-size: inherit;
   line-height: 1;
-  color: #666;
+  color: var(--text-subtle);
   white-space: nowrap;
   overflow: hidden;
 }
 
 .key .zmk-row.zmk-raw {
-  color: #9a9a9a;
+  color: var(--text-disabled);
   opacity: 0.72;
 }
 
@@ -223,8 +223,8 @@
   font-size: 0.72em;
   font-weight: 400;
   line-height: 1;
-  /* Quieter than the key's #999 so a field of &trans marks reads as background. */
-  color: #c2c2c2;
+  /* Quieter than the key's --text-disabled so a field of &trans marks reads as background. */
+  color: var(--text-ghost);
 }
 
 .key .layer-stack .keycap.stacked {
@@ -270,15 +270,15 @@
 }
 
 .key .lang-line[data-lang-index='1'] .keycap {
-  color: #1d6f8a;
+  color: var(--accent);
 }
 
 .key .lang-line[data-lang-index='2'] .keycap {
-  color: #5c4d8a;
+  color: var(--lang-ink-2);
 }
 
 .key .lang-line[data-lang-index='3'] .keycap {
-  color: #8a5a2b;
+  color: var(--lang-ink-3);
 }
 
 .key .zmk-row .zmk-beh {
@@ -308,7 +308,7 @@
 
 .key .zmk-row.legend-hit,
 .key span.legend-hit {
-  background: #e4c56a;
+  background: var(--highlight);
   border-radius: 3px;
   padding: 0 2px;
   color: inherit;

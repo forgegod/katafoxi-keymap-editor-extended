@@ -121,9 +121,9 @@
     width: min(280px, 70vw);
     margin: 0;
     padding: 8px 10px;
-    background: #fff;
-    color: #333;
-    border: 1px solid #ddd;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border-soft);
     border-radius: 6px;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
     font-size: 13px;
@@ -133,8 +133,8 @@
   .profile-dialog {
     width: min(360px, 86vw);
     padding: 16px 18px 14px;
-    background: #fff;
-    color: #333;
+    background: var(--surface);
+    color: var(--text);
     border-radius: 8px;
     box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
   }
@@ -156,13 +156,13 @@
     width: 100%;
     margin: 0 0 8px;
     padding: 6px 8px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 4px;
     font: inherit;
   }
 
   .profile-error {
-    color: #842029;
+    color: var(--danger-ink);
   }
 
   .profile-actions {
@@ -181,16 +181,16 @@
 
   .profile-actions button[type='submit'] {
     background: var(--hover-selection);
-    color: white;
+    color: var(--on-accent);
   }
 
   .profile-actions button[type='button'] {
-    background: #eee;
-    color: #333;
+    background: var(--fill-subtle);
+    color: var(--text);
   }
 
   .profile-actions button.danger {
-    background: #f8d7da;
-    color: #842029;
+    background: var(--danger-wash);
+    color: var(--danger-ink);
   }
 </style>

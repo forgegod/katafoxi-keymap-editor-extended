@@ -90,22 +90,22 @@
     height: 28px;
     margin: 2px 0 0;
     padding: 0;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 8px;
-    background: #f3f3f3;
-    color: #444;
+    background: var(--surface-sunken);
+    color: var(--text-soft);
     font: inherit;
     cursor: pointer;
   }
 
   .catalog-toggle.on {
-    background: #fff;
-    border-color: #1d6f8a;
-    color: #1d6f8a;
+    background: var(--surface);
+    border-color: var(--accent);
+    color: var(--accent);
   }
 
   .catalog-toggle:hover {
-    background: #fff;
+    background: var(--surface);
   }
 
   .catalog-glyph {

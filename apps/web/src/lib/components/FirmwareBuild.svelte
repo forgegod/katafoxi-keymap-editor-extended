@@ -165,10 +165,10 @@
     box-sizing: border-box;
     height: 26px;
     padding: 0 6px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 5px;
-    background: #fff;
-    color: #333;
+    background: var(--surface);
+    color: var(--text);
     font-family: Quicksand, avenir, sans-serif;
     font-size: 12px;
     line-height: 1.05;
@@ -213,31 +213,31 @@
   }
 
   .downloadable {
-    background: #4169e1;
-    color: #fff;
+    background: var(--info);
+    color: var(--on-accent);
     border-color: transparent;
   }
 
   a.downloadable:hover {
-    background: #3558c4;
+    background: var(--info-strong);
   }
 
   .failure,
   .cancelled {
-    background: #fff;
-    color: #a33b45;
-    border-color: #e2b6bb;
+    background: var(--surface);
+    color: var(--danger-ink);
+    border-color: var(--danger-border);
   }
 
   a.failure:hover,
   a.cancelled:hover {
-    background: #f8d7da;
+    background: var(--danger-wash);
   }
 
   .unavailable {
-    background: #fff;
-    color: #8a6d1d;
-    border-color: #e6d7a2;
+    background: var(--surface);
+    color: var(--warn);
+    border-color: var(--warn-border);
   }
 
   .firmware-build :global(.spinner) {

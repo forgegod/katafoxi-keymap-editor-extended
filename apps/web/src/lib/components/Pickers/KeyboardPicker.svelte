@@ -148,7 +148,7 @@
     display: inline-flex;
     align-items: center;
     height: 26px;
-    color: #333;
+    color: var(--text);
     font-size: 13px;
   }
 </style>

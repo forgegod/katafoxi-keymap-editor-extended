@@ -77,15 +77,15 @@
     display: inline-flex;
     align-items: center;
     max-width: 18rem;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 10px;
-    background: #f3f3f3;
-    color: #333;
+    background: var(--surface-sunken);
+    color: var(--text);
   }
 
   .chip.on {
-    background: #fff;
-    border-color: #1d6f8a;
+    background: var(--surface);
+    border-color: var(--accent);
   }
 
   .show,
@@ -127,22 +127,22 @@
   }
 
   .plus {
-    color: #888;
+    color: var(--text-faint);
   }
 
   .forget {
     padding: 1px 7px 1px 2px;
-    color: #777;
+    color: var(--text-faint);
     line-height: 1;
   }
 
   .forget:hover {
-    color: #222;
+    color: var(--text-strong);
   }
 
   .remember {
     padding: 1px 2px;
-    color: #1d6f8a;
+    color: var(--accent);
   }
 
   .remember:hover:not(:disabled) {
@@ -150,7 +150,7 @@
   }
 
   .remember:disabled {
-    color: #999;
+    color: var(--text-disabled);
     cursor: default;
   }
 </style>

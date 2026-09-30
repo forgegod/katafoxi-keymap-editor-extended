@@ -539,11 +539,11 @@
     resize: both;
     padding: 0;
     border-radius: 8px;
-    background: #f7f4ee;
+    background: var(--paper);
     box-shadow:
-      0 0 0 1px rgba(40, 36, 30, 0.14),
-      0 12px 28px rgba(40, 36, 30, 0.22);
-    color: #333;
+      0 0 0 1px color-mix(in srgb, var(--paper-shade) 14%, transparent),
+      0 12px 28px color-mix(in srgb, var(--paper-shade) 22%, transparent);
+    color: var(--text);
     font-family: Quicksand, avenir, sans-serif;
     font-size: 12px;
     line-height: 1.2;
@@ -561,8 +561,8 @@
     justify-content: space-between;
     gap: 8px;
     padding: 6px 10px;
-    border-bottom: 1px solid rgba(40, 36, 30, 0.1);
-    background: rgba(40, 36, 30, 0.04);
+    border-bottom: 1px solid color-mix(in srgb, var(--paper-shade) 10%, transparent);
+    background: color-mix(in srgb, var(--paper-shade) 4%, transparent);
     cursor: grab;
     touch-action: none;
   }
@@ -575,11 +575,11 @@
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.04em;
-    color: #5a554e;
+    color: var(--paper-ink);
   }
 
   .picker-hint {
-    color: #9a948c;
+    color: var(--paper-ink-faint);
     font-size: 12px;
     line-height: 1;
   }
@@ -594,7 +594,7 @@
   .hint {
     margin: 0 0 8px;
     font-size: 11px;
-    color: #6b6560;
+    color: var(--paper-ink-muted);
   }
 
   .shelf {
@@ -610,7 +610,7 @@
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.03em;
-    color: #6b6560;
+    color: var(--paper-ink-muted);
   }
 
   .shelf-toggle {
@@ -620,8 +620,8 @@
     padding: 3px 6px;
     border: 0;
     border-radius: 4px;
-    background: rgba(40, 36, 30, 0.06);
-    color: #4a4540;
+    background: color-mix(in srgb, var(--paper-shade) 6%, transparent);
+    color: var(--paper-ink-strong);
     font: inherit;
     font-weight: 600;
     text-align: left;
@@ -629,7 +629,7 @@
   }
 
   .shelf-toggle:hover {
-    background: rgba(40, 36, 30, 0.1);
+    background: color-mix(in srgb, var(--paper-shade) 10%, transparent);
   }
 
   .glyph-grid {
@@ -645,8 +645,8 @@
     padding: 2px 4px;
     border: 0;
     border-radius: 3px;
-    background: #fff;
-    color: #222;
+    background: var(--surface);
+    color: var(--text-strong);
     font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
     font-size: 13px;
     line-height: 1.2;
@@ -654,20 +654,20 @@
   }
 
   .glyph:hover {
-    background: #e8e2d6;
+    background: var(--paper-deep);
   }
 
   .glyph.idle {
-    color: #6b6560;
+    color: var(--paper-ink-muted);
   }
 
   .glyph.idle:hover {
-    background: #fff;
+    background: var(--surface);
   }
 
   .glyph.modifier {
     font-size: 10px;
-    color: #5a554e;
+    color: var(--paper-ink);
   }
 
   .loupe {
@@ -681,10 +681,10 @@
     min-width: 4.5em;
     padding: 8px 12px 6px;
     border-radius: 8px;
-    background: #fff;
+    background: var(--surface);
     box-shadow:
-      0 0 0 1px rgba(40, 36, 30, 0.14),
-      0 8px 20px rgba(40, 36, 30, 0.2);
+      0 0 0 1px color-mix(in srgb, var(--paper-shade) 14%, transparent),
+      0 8px 20px color-mix(in srgb, var(--paper-shade) 20%, transparent);
     pointer-events: none;
   }
 
@@ -696,14 +696,14 @@
     font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
     font-size: 42px;
     line-height: 1;
-    color: #222;
+    color: var(--text-strong);
   }
 
   .loupe-name {
     max-width: 12em;
     font-size: 11px;
     line-height: 1.2;
-    color: #6b6560;
+    color: var(--paper-ink-muted);
     text-align: center;
   }
 </style>

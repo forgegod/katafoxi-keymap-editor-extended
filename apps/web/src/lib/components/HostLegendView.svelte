@@ -109,8 +109,8 @@
     width: 7.5rem;
     margin: 0;
     padding: 4px 5px 4px 4px;
-    border-right: 1px solid color-mix(in srgb, #000 10%, transparent);
-    background: color-mix(in srgb, #fff 35%, transparent);
+    border-right: 1px solid color-mix(in srgb, var(--shade) 10%, transparent);
+    background: color-mix(in srgb, var(--surface) 35%, transparent);
     border-radius: 5px 0 0 5px;
   }
 
@@ -159,10 +159,10 @@
     margin: 0;
     padding: 0 6px;
     white-space: nowrap;
-    border: 1px solid #c4c4c4;
+    border: 1px solid var(--border);
     border-radius: 5px;
-    background: #f3f3f3;
-    color: #444;
+    background: var(--surface-sunken);
+    color: var(--text-soft);
     font: inherit;
     cursor: pointer;
   }
@@ -173,14 +173,14 @@
   }
 
   .view-toggle:hover:not(:disabled):not(.on) {
-    background: #fff;
-    border-color: #1d6f8a;
+    background: var(--surface);
+    border-color: var(--accent);
   }
 
   .view-toggle.on {
-    background: #fff;
-    border: 2px solid #1d6f8a;
-    color: #1d6f8a;
+    background: var(--surface);
+    border: 2px solid var(--accent);
+    color: var(--accent);
     padding: 0 5px;
   }
 
@@ -190,9 +190,9 @@
 
   .view-toggle.pale,
   .view-toggle:disabled {
-    background: #f3f3f3;
-    border-color: #e4e4e4;
-    color: #888;
+    background: var(--surface-sunken);
+    border-color: var(--border-subtle);
+    color: var(--text-faint);
     opacity: 0.45;
     cursor: default;
   }
@@ -224,10 +224,10 @@
     margin: 0;
     padding: 0 4px;
     white-space: nowrap;
-    border: 1px dashed #c4c4c4;
+    border: 1px dashed var(--border);
     border-radius: 5px;
     background: transparent;
-    color: #777;
+    color: var(--text-faint);
     font: inherit;
     font-size: 11px;
     font-weight: 600;
@@ -237,8 +237,8 @@
   }
 
   .empty-row:hover {
-    border-color: #1d6f8a;
-    color: #333;
-    background: #fff;
+    border-color: var(--accent);
+    color: var(--text);
+    background: var(--surface);
   }
 </style>

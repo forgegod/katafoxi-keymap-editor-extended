@@ -239,7 +239,7 @@
     width: max-content;
     padding: 0;
     font-size: 13px;
-    color: #444;
+    color: var(--text-soft);
   }
 
   .legend-sizer {
@@ -257,7 +257,7 @@
 
   .host-legend-strip.expanded .legend-panel {
     padding: 0 0 4px;
-    background: color-mix(in srgb, #fff 88%, var(--stage-bg, #e4e7eb));
+    background: color-mix(in srgb, var(--surface) 88%, var(--stage-bg));
     border-radius: 6px;
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
   }
@@ -285,7 +285,7 @@
     border-collapse: collapse;
     width: max-content;
     border: 1px solid rgba(60, 60, 60, 0.14);
-    background: color-mix(in srgb, #fff 55%, transparent);
+    background: color-mix(in srgb, var(--surface) 55%, transparent);
   }
 
   th {
@@ -300,12 +300,12 @@
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.02em;
-    color: #666;
-    background: color-mix(in srgb, #fff 40%, transparent);
+    color: var(--text-subtle);
+    background: color-mix(in srgb, var(--surface) 40%, transparent);
   }
 
   thead th.layer-col {
-    color: #888;
+    color: var(--text-faint);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -317,7 +317,7 @@
     padding: 1px 0;
     border: 0;
     background: transparent;
-    color: #1d6f8a;
+    color: var(--accent);
     font: inherit;
     font-size: 12px;
     cursor: pointer;
@@ -339,8 +339,8 @@
     margin: 0;
     padding: 10px 12px;
     width: 180px;
-    background: #fff;
-    color: #222;
+    background: var(--surface);
+    color: var(--text-strong);
     border-radius: 8px;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
   }
@@ -366,12 +366,12 @@
   }
 
   .confirm-delete {
-    background: #c0392b;
-    color: #fff;
+    background: var(--danger);
+    color: var(--on-accent);
   }
 
   .cancel-delete {
-    background: #ddd;
-    color: #333;
+    background: var(--fill);
+    color: var(--text);
   }
 </style>

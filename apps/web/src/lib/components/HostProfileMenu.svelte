@@ -479,9 +479,9 @@
     max-width: 5.5rem;
     min-height: 24px;
     padding: 1px 18px 1px 6px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 4px;
-    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%23555' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E")
+    background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%23555' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E")
       no-repeat right 6px center;
     color: inherit;
     font: inherit;
@@ -504,8 +504,8 @@
     padding: 4px 0;
     overflow: auto;
     list-style: none;
-    background: #fff;
-    border: 1px solid #ccc;
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 6px;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
   }
@@ -537,13 +537,13 @@
 
   .profile-item:hover,
   .profile-icon:hover {
-    background: rgba(29, 111, 138, 0.08);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
 
   .profile-sep {
     height: 1px;
     margin: 4px 8px;
-    background: #e4e4e4;
+    background: var(--fill);
   }
 
   .profile-icon {
@@ -555,21 +555,21 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 4px;
-    background: #fff;
-    color: #333;
+    background: var(--surface);
+    color: var(--text);
     cursor: pointer;
   }
 
   .profile-icon.stub {
     background: transparent;
-    color: #555;
+    color: var(--text-muted);
   }
 
   .profile-icon.danger {
-    color: #842029;
-    border-color: #e2b6bb;
+    color: var(--danger-ink);
+    border-color: var(--danger-border);
   }
 
   .profile-icon svg {
@@ -597,7 +597,7 @@
   }
 
   .profile-action:hover {
-    background: rgba(29, 111, 138, 0.08);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
 
   .profile-import {
@@ -610,8 +610,8 @@
     gap: 6px;
     min-width: 16rem;
     padding: 8px;
-    background: #fff;
-    border: 1px solid #ccc;
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 6px;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
   }
@@ -632,13 +632,13 @@
 
   .profile-import-hint {
     margin: 0;
-    color: #555;
+    color: var(--text-muted);
     font-size: 11px;
   }
 
   .profile-import-error {
     margin: 0;
-    color: #842029;
+    color: var(--danger-ink);
     font-size: 12px;
   }
 
@@ -658,11 +658,11 @@
 
   .profile-import-actions button:first-child {
     background: var(--hover-selection);
-    color: #fff;
+    color: var(--on-accent);
   }
 
   .profile-import-actions button:last-child {
-    background: #eee;
-    color: #333;
+    background: var(--fill-subtle);
+    color: var(--text);
   }
 </style>

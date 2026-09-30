@@ -29,7 +29,7 @@
     height: 30px;
     padding: 0;
     border-radius: 15px;
-    background-color: white;
+    background-color: var(--surface);
     color: royalblue;
     text-decoration: none;
     font-size: 110%;
@@ -37,11 +37,11 @@
 
   .github-link:hover,
   .github-link:focus-visible {
-    color: #1a4fc4;
+    color: var(--link);
   }
 
   .github-link:focus-visible {
-    outline: 2px solid #1d6f8a;
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
 

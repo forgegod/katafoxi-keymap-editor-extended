@@ -464,7 +464,7 @@
   .identity-k {
     font-size: 12px;
     line-height: 1.15;
-    color: #555;
+    color: var(--text-muted);
   }
 
   .identity-v {
@@ -493,7 +493,7 @@
   }
 
   :global(#actions .source-popover) :is(button, a).menu-action:hover {
-    background: rgba(29, 111, 138, 0.08);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
     border-color: transparent;
     color: inherit;
   }
@@ -501,7 +501,7 @@
   .menu-sep {
     height: 1px;
     margin: 2px 0;
-    background: #e4e4e4;
+    background: var(--fill);
   }
 
   .branch-form {
@@ -515,7 +515,7 @@
     width: 100%;
     min-height: 26px;
     padding: 2px 6px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 4px;
     font: inherit;
     font-size: 13px;
@@ -523,13 +523,13 @@
 
   .branch-hint {
     margin: 0;
-    color: #555;
+    color: var(--text-muted);
     font-size: 11px;
   }
 
   .branch-error {
     margin: 0;
-    color: #842029;
+    color: var(--danger-ink);
     font-size: 12px;
   }
 

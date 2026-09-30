@@ -468,7 +468,7 @@
     align-items: flex-end;
     gap: 6px 8px;
     margin: 0;
-    color: #555;
+    color: var(--text-muted);
     font-size: 13px;
   }
 
@@ -480,19 +480,19 @@
     height: 26px;
     margin: 0;
     padding: 0 8px 0 6px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 6px;
-    background: #f3f3f3;
-    color: #333;
+    background: var(--surface-sunken);
+    color: var(--text);
     font: inherit;
     font-size: 13px;
     cursor: pointer;
   }
 
   .download:hover:not(:disabled) {
-    background: #fff;
-    border-color: #1d6f8a;
-    color: #1d6f8a;
+    background: var(--surface);
+    border-color: var(--accent);
+    color: var(--accent);
   }
 
   .download:disabled {
@@ -520,12 +520,12 @@
     overflow-y: auto;
     padding: 16px 18px 14px;
     border-radius: 10px;
-    background: #f7f4ee;
-    color: #333;
+    background: var(--paper);
+    color: var(--text);
     font-family: Quicksand, avenir, sans-serif;
     box-shadow:
-      0 0 0 1px rgba(40, 36, 30, 0.12),
-      0 12px 32px rgba(40, 36, 30, 0.22);
+      0 0 0 1px color-mix(in srgb, var(--paper-shade) 12%, transparent),
+      0 12px 32px color-mix(in srgb, var(--paper-shade) 22%, transparent);
   }
 
   .dialog-head {
@@ -550,7 +550,7 @@
     margin: 0;
     font-size: 13px;
     line-height: 1.4;
-    color: #555;
+    color: var(--text-muted);
   }
 
   .lede code,
@@ -574,8 +574,8 @@
     margin: 0 0 14px;
     padding: 12px 12px 10px;
     border-radius: 8px;
-    background: #fff;
-    border: 1px solid rgba(29, 111, 138, 0.45);
+    background: var(--surface);
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
   }
 
   .paired h3,
@@ -594,7 +594,7 @@
     margin: 0 0 8px;
     font-size: 13px;
     line-height: 1.45;
-    color: #333;
+    color: var(--text);
   }
 
   .paired ul {
@@ -607,7 +607,7 @@
   }
 
   .paired-source {
-    color: #555;
+    color: var(--text-muted);
   }
 
   .paired .row-actions {
@@ -619,7 +619,7 @@
     padding: 10px 10px 8px;
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.55);
-    border: 1px solid rgba(40, 36, 30, 0.1);
+    border: 1px solid color-mix(in srgb, var(--paper-shade) 10%, transparent);
   }
 
   .layout-card h3 {
@@ -640,23 +640,23 @@
 
   .profile-name {
     font-weight: 500;
-    color: #555;
+    color: var(--text-muted);
   }
 
   .card-tip {
     margin: 0 0 8px;
     font-size: 12px;
     line-height: 1.4;
-    color: #555;
+    color: var(--text-muted);
   }
 
   .card-tip.tip-ru {
-    color: #4a4540;
+    color: var(--paper-ink-strong);
   }
 
   .module {
     margin-left: auto;
-    color: #7a746c;
+    color: var(--paper-ink-subtle);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 0.92em;
     font-weight: 500;
@@ -666,7 +666,7 @@
     display: block;
     margin: 0 0 3px;
     font-size: 11px;
-    color: #7a746c;
+    color: var(--paper-ink-subtle);
   }
 
   .path-row {
@@ -681,12 +681,12 @@
     height: 28px;
     margin: 0;
     padding: 0 8px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 6px;
-    background: #fff;
+    background: var(--surface);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 12px;
-    color: #333;
+    color: var(--text);
   }
 
   .section-preview {
@@ -696,8 +696,8 @@
     padding: 8px;
     overflow: auto;
     border-radius: 6px;
-    background: #1e1e1e;
-    color: #d6d6d6;
+    background: var(--code-bg);
+    color: var(--code-ink);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 11px;
     line-height: 1.35;
@@ -732,14 +732,14 @@
 
   .primary {
     border: 0;
-    background: #1d6f8a;
-    color: #fff;
+    background: var(--accent);
+    color: var(--on-accent);
   }
 
   .secondary {
-    border: 1px solid #ccc;
-    background: #f3f3f3;
-    color: #333;
+    border: 1px solid var(--border);
+    background: var(--surface-sunken);
+    color: var(--text);
   }
 
   .secondary:hover:not(:disabled),
@@ -755,7 +755,7 @@
   .copy-note {
     margin: 8px 0 0;
     font-size: 12px;
-    color: #1d6f8a;
+    color: var(--accent);
   }
 
   .dialog-foot {
@@ -763,6 +763,6 @@
     justify-content: flex-end;
     margin-top: 14px;
     padding-top: 10px;
-    border-top: 1px solid rgba(40, 36, 30, 0.1);
+    border-top: 1px solid color-mix(in srgb, var(--paper-shade) 10%, transparent);
   }
 </style>

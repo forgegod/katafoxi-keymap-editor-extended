@@ -27,21 +27,21 @@
     gap: 5px;
     margin: 0;
     padding: 0 1px;
-    color: #666;
+    color: var(--text-subtle);
     font-size: 10px;
     font-weight: 500;
     line-height: 1.2;
   }
 
   .moved {
-    border-bottom: 1.5px solid #a67c2a;
-    color: #555;
+    border-bottom: 1.5px solid var(--mark-diff);
+    color: var(--text-muted);
   }
 
   .win {
     padding: 0 2px;
     border-radius: 2px;
-    box-shadow: inset 0 0 0 1px #b07060;
-    color: #666;
+    box-shadow: inset 0 0 0 1px var(--mark-altgr);
+    color: var(--text-subtle);
   }
 </style>

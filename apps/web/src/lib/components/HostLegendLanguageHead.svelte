@@ -302,7 +302,7 @@
     white-space: nowrap;
     border: 1px solid rgba(60, 60, 60, 0.08);
     font-size: 12px;
-    color: #666;
+    color: var(--text-subtle);
   }
 
   .off {
@@ -355,10 +355,10 @@
     width: 22px;
     height: 22px;
     padding: 0;
-    border: 1px dashed #1d6f8a;
+    border: 1px dashed var(--accent);
     border-radius: 4px;
-    background: #fff;
-    color: #1d6f8a;
+    background: var(--surface);
+    color: var(--accent);
     font: inherit;
     font-size: 16px;
     line-height: 1;
@@ -366,7 +366,7 @@
   }
 
   .add-language:hover {
-    background: rgba(29, 111, 138, 0.08);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
 
   .host-prompt {
@@ -378,7 +378,7 @@
     font-weight: 600;
     letter-spacing: 0.02em;
     line-height: 1.2;
-    color: #1d6f8a;
+    color: var(--accent);
   }
 
   .lang-flag {
@@ -391,22 +391,22 @@
     gap: 3px;
     margin: 0;
     padding: 2px 4px 2px 3px;
-    border: 1px solid #b7b1a8;
+    border: 1px solid var(--paper-border);
     border-radius: 4px;
-    background: #fff;
-    color: #5c564e;
+    background: var(--surface);
+    color: var(--paper-ink);
     cursor: pointer;
   }
 
   button.lang-flag:hover,
   button.lang-flag[aria-expanded='true'] {
-    border-color: #1d6f8a;
-    background: rgba(29, 111, 138, 0.08);
-    color: #1d6f8a;
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    color: var(--accent);
   }
 
   button.lang-flag:focus-visible {
-    outline: 2px solid #1d6f8a;
+    outline: 2px solid var(--accent);
     outline-offset: 1px;
   }
 
@@ -424,7 +424,7 @@
 
   .profile-name {
     font-size: 12px;
-    color: #666;
+    color: var(--text-subtle);
   }
 
   .eye-spacer {
@@ -437,10 +437,10 @@
   .col-toggle {
     margin: 0;
     padding: 1px 6px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 10px;
-    background: #f3f3f3;
-    color: #777;
+    background: var(--surface-sunken);
+    color: var(--text-faint);
     font: inherit;
     font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
     font-size: 12px;
@@ -448,8 +448,8 @@
   }
 
   .col-toggle.on {
-    background: #fff;
-    border-color: #1d6f8a;
-    color: #333;
+    background: var(--surface);
+    border-color: var(--accent);
+    color: var(--text);
   }
 </style>

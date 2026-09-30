@@ -64,7 +64,7 @@
   </Modal>
 {:else if delayed}
   <Modal>
-    <Spinner style="color: white;">
+    <Spinner style="color: var(--on-accent);">
       <p>Loading editor…</p>
     </Spinner>
   </Modal>
@@ -72,8 +72,8 @@
 
 <style>
   .error {
-    background: white;
-    color: #333;
+    background: var(--surface);
+    color: var(--text);
     padding: 24px 32px;
     max-width: 420px;
     border-radius: 8px;

@@ -49,7 +49,7 @@
     font-size: 13px;
     font-weight: 500;
     line-height: 1;
-    color: #555;
+    color: var(--text-muted);
     overflow: hidden;
   }
 
@@ -74,7 +74,7 @@
   }
 
   .col .second {
-    color: #1d6f8a;
+    color: var(--accent);
   }
 
   .col.alt {
@@ -83,14 +83,14 @@
 
   .col.alt.os-conflict {
     opacity: 1;
-    color: #9a3412;
+    color: var(--conflict-ink);
   }
 
   .line.legend-hit,
   .hold.legend-hit {
-    background: #e4c56a;
+    background: var(--highlight);
     border-radius: 3px;
-    color: #444;
+    color: var(--text-soft);
     opacity: 1;
   }
 
@@ -110,6 +110,6 @@
     padding: 1px 3px;
     border-radius: 3px;
     background: rgba(0, 0, 0, 0.12);
-    color: #444;
+    color: var(--text-soft);
   }
 </style>

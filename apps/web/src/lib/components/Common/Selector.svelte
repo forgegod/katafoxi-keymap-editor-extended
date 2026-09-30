@@ -62,7 +62,7 @@
   label {
     font-size: 12px;
     line-height: 1.15;
-    color: #555;
+    color: var(--text-muted);
     white-space: nowrap;
   }
 
@@ -99,7 +99,7 @@
     line-height: 24px;
     appearance: none;
     padding-right: 1.5rem;
-    background-color: white;
+    background-color: var(--surface);
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='%23555' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M1 1.5 6 6.5 11 1.5'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 6px center;

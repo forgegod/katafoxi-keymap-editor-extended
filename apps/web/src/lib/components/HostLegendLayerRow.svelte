@@ -192,13 +192,13 @@
   }
 
   th {
-    color: #666;
+    color: var(--text-subtle);
     font-size: 11px;
     font-weight: 400;
   }
 
   .second {
-    color: #1d6f8a;
+    color: var(--accent);
   }
 
   td.lang-start {
@@ -248,10 +248,10 @@
   input.layer-name {
     width: 8em;
     padding: 0 2px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 3px;
-    background: #fff;
-    color: #222;
+    background: var(--surface);
+    color: var(--text-strong);
     cursor: text;
   }
 
@@ -259,11 +259,11 @@
     flex: none;
     width: 14px;
     height: 14px;
-    color: #999;
+    color: var(--text-disabled);
     cursor: pointer;
   }
 
   .row-head :global(.delete:hover) {
-    color: #c0392b;
+    color: var(--danger);
   }
 </style>

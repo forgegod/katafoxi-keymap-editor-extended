@@ -103,7 +103,7 @@
   .source-menu :global(.source-busy) {
     width: 16px;
     height: 16px;
-    color: #555;
+    color: var(--text-muted);
   }
 
   .source-menu :global(.source-busy svg) {
@@ -124,8 +124,8 @@
     max-width: 22rem;
     margin: 0;
     padding: 8px;
-    background: #fff;
-    border: 1px solid #ccc;
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 6px;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
   }

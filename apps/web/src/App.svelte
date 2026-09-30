@@ -277,8 +277,8 @@
     gap: 12px 20px;
     padding: 6px 12px 8px;
     font-size: 13px;
-    background: #fff;
-    border-bottom: 1px solid #d0d0d0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border-soft);
     container-type: inline-size;
   }
 
@@ -290,7 +290,7 @@
   .chrome-host::before {
     content: '';
     position: absolute;
-    background: #d0d0d0;
+    background: var(--border-soft);
     width: 1px;
     height: 26px;
     left: -10px;
@@ -343,14 +343,14 @@
     align-items: center;
     justify-content: center;
     background: transparent;
-    color: #333;
+    color: var(--text);
     border-color: transparent;
   }
 
   #actions button.history:hover:not(:disabled) {
-    background: #f2f2f2;
-    color: #222;
-    border-color: #e0e0e0;
+    background: var(--surface-sunken);
+    color: var(--text-strong);
+    border-color: var(--border-subtle);
   }
 
   #actions button.history svg {
@@ -365,24 +365,24 @@
 
   #actions button.history:disabled {
     background: transparent;
-    color: #c5c5c5;
+    color: var(--text-ghost);
     border-color: transparent;
   }
 
   #actions button.primary.ready {
     background: var(--selection);
-    color: #fff;
+    color: var(--on-accent);
     border-color: transparent;
   }
 
   #actions button.primary.ready:hover:not(:disabled) {
-    background: #2a9a5f;
-    color: #fff;
+    background: var(--ok-fill-strong);
+    color: var(--on-accent);
   }
 
   #actions button.primary.ready:disabled {
     background: var(--hover-selection);
-    color: #fff;
+    color: var(--on-accent);
     border-color: transparent;
     opacity: 0.7;
   }
@@ -394,7 +394,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
-    background: var(--stage-bg, #e4e7eb);
+    background: var(--stage-bg);
   }
 
   .board-stack :global(.keyboard-stage) {
@@ -422,8 +422,8 @@
   #actions button.discard-draft {
     cursor: pointer;
     background: transparent;
-    color: #842029;
-    border: 1px solid #e2b6bb;
+    color: var(--danger-ink);
+    border: 1px solid var(--danger-border);
     border-radius: 5px;
     box-sizing: border-box;
     height: 26px;
@@ -436,13 +436,13 @@
   }
 
   #actions button.discard-draft:hover:not(:disabled) {
-    background: #f8d7da;
+    background: var(--danger-wash);
   }
 
   #actions button.discard-draft:disabled {
     background: transparent;
-    color: #ccc;
-    border-color: #ddd;
+    color: var(--text-ghost);
+    border-color: var(--border-soft);
     cursor: not-allowed;
   }
 
@@ -465,12 +465,12 @@
   }
 
   .save-notice.warning {
-    background: #fff3cd;
-    color: #664d03;
+    background: var(--warn-wash);
+    color: var(--warn-ink);
   }
 
   .save-notice.error {
-    background: #f8d7da;
-    color: #842029;
+    background: var(--danger-wash);
+    color: var(--danger-ink);
   }
 </style>

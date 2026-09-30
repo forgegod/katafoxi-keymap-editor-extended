@@ -1,15 +1,97 @@
 /* Page chrome: full-height column so the keyboard can scale into the leftover viewport. */
 :root {
   color-scheme: light;
-  --dark-red: #910e0e;
-  --dark-blue: #6d99c6;
-  --selection: rgb(60, 179, 113);
-  --hover-selection: rgba(60, 179, 113, 0.85);
+
+  /* Components use these roles, not raw hex. Add a role before adding a colour. */
+
+  /* Text, strongest to faintest */
+  --text-strong: #222;
+  --text: #333;
+  --text-soft: #444;
+  --text-muted: #555;
+  --text-subtle: #666;
+  --text-faint: #777;
+  --text-disabled: #999;
+  --text-ghost: #c4c4c4;
+  --on-accent: #fff;
+  --shade: #000;
+
+  /* Surfaces, fills, borders */
+  --surface: #fff;
+  --page-bg: var(--surface);
+  --surface-sunken: #f3f3f3;
+  --fill-subtle: #eee;
+  --fill: #e2e2e2;
+  --border-subtle: #e2e2e2;
+  --border-soft: #d6d6d6;
+  --border: #ccc;
+  --border-strong: #8a8a8a;
   --key-face: whitesmoke;
-  --page-bg: #fff;
   /* Darker than --key-face (#f5f5f5) so caps read as objects without a stroke. */
   --stage-bg: #e4e7eb;
-  --muted: #555;
+
+  /* Interactive accent (hover, focus, active toggles) */
+  --accent: #1d6f8a;
+  --accent-strong: #0f4a5c;
+  --link: #1a4fc4;
+  --info: #4169e1;
+  --info-strong: #3558c4;
+  --info-soft: #6a86a8;
+
+  /* Success / publish. Solid green belongs to the selected key and ZMK publish. */
+  --selection: rgb(60, 179, 113);
+  --hover-selection: rgba(60, 179, 113, 0.85);
+  --ok-fill-strong: #2a9a5f;
+  --ok: #1f7a45;
+  --ok-strong: #146b38;
+  --ok-wash: #e7f6ee;
+
+  /* Draft, warnings, legend hits */
+  --warn: #8a5a00;
+  --warn-ink: #664d03;
+  --warn-wash: #fff3cd;
+  --warn-border: #e6d7a2;
+  --highlight: #e4c56a;
+
+  /* Hold-tap chips in the key editor */
+  --amber: #f0b429;
+  --amber-strong: #e09a10;
+  --amber-soft: #f6d58a;
+  --amber-ink: #2b2108;
+
+  /* Destructive and errors */
+  --danger: #c0392b;
+  --danger-ink: #842029;
+  --danger-wash: #f8d7da;
+  --danger-border: #e2b6bb;
+
+  /* Symbol-difference marks on keys; the stage samples reuse them. */
+  --mark-diff: #c47b00;
+  --mark-altgr: #b42318;
+  --conflict-ink: #9a3412;
+
+  /* Warm paper: decode card, symbol picker, install dialogs */
+  --paper: #f7f4ee;
+  --paper-deep: #e8e2d6;
+  --paper-border: #b7b1a8;
+  --paper-shade: #28241e;
+  --paper-ink-strong: #4a4540;
+  --paper-ink: #5a554e;
+  --paper-ink-muted: #6b6560;
+  --paper-ink-subtle: #7a746c;
+  --paper-ink-faint: #8a847c;
+
+  /* Dark panels */
+  --dark-surface: #1e2433;
+  --dark-ink: #f4f5f7;
+  --dark-ink-soft: #e8eaee;
+  --code-bg: #1e1e1e;
+  --code-ink: #d6d6d6;
+
+  /* Extra host-language lines on a keycap (index 1 uses --accent) */
+  --lang-ink-2: #5c4d8a;
+  --lang-ink-3: #8a5a2b;
+
   /* Stacked key rows + legend table: wash hues for a faint row tint.
      L0 blue vs L1 yellow-green so the first two rows stay distinct at low opacity.
      Stay clear of draft amber, selection green, and AltGr conflict red. */
@@ -36,7 +118,7 @@ body {
   padding: 0;
   margin: 0;
   background: var(--page-bg);
-  color: #333;
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -58,9 +140,9 @@ code {
   font-family: Quicksand, avenir, sans-serif;
   font-size: 100%;
   font-weight: 500;
-  color: #333;
-  background: white;
-  border: 1px solid #ccc;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 4px;
   padding: 2px 6px;
   min-height: 26px;
@@ -84,47 +166,47 @@ code {
   align-items: center;
   justify-content: center;
   height: 26px;
-  background: #fff;
-  color: #333;
+  background: var(--surface);
+  color: var(--text);
   font-family: Quicksand, avenir, sans-serif;
   font-size: 13px;
   font-weight: 500;
   line-height: 1;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 0 8px;
   margin: 0;
 }
 
 #actions button:hover:not(:disabled) {
-  background: #fff;
-  border-color: #1d6f8a;
-  color: #1d6f8a;
+  background: var(--surface);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 #actions button:disabled {
-  background: #f7f7f7;
-  color: #aaa;
-  border-color: #e4e4e4;
+  background: var(--surface-sunken);
+  color: var(--text-disabled);
+  border-color: var(--border-subtle);
   cursor: not-allowed;
 }
 
 #actions :is(button, a):focus-visible {
-  outline: 2px solid #1d6f8a;
+  outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
 /* Host install: light accent while a user layout is waiting. Solid green stays on ZMK publish. */
 #actions button.download.ready:not(:disabled) {
-  background: #e7f6ee;
-  border-color: #1f7a45;
-  color: #1f7a45;
+  background: var(--ok-wash);
+  border-color: var(--ok);
+  color: var(--ok);
 }
 
 #actions button.download.ready:hover:not(:disabled) {
-  background: #fff;
-  border-color: #146b38;
-  color: #146b38;
+  background: var(--surface);
+  border-color: var(--ok-strong);
+  color: var(--ok-strong);
 }
 
 .lane-label {
@@ -134,7 +216,7 @@ code {
   height: 26px;
   margin: 0 2px 0 0;
   padding: 0;
-  color: #8a8a8a;
+  color: var(--text-faint);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -162,18 +244,18 @@ code {
 }
 
 .chrome-status.dirty {
-  color: #8a5a00;
+  color: var(--warn);
 }
 
 .chrome-status.clean {
-  color: #1f7a45;
+  color: var(--ok);
 }
 
 /* Dialog dismiss button (original DialogBox had unstyled browser button) */
 .dialog > button {
   cursor: pointer;
   background-color: var(--hover-selection);
-  color: white;
+  color: var(--on-accent);
   font-family: Quicksand, avenir, sans-serif;
   font-size: 16px;
   border: none;
