@@ -10,6 +10,10 @@
   /* Darker than --key-face (#f5f5f5) so caps read as objects without a stroke. */
   --stage-bg: #e4e7eb;
   --muted: #555;
+  /* Letters: Inter (Latin, Cyrillic, Greek), then Noto Sans for a script Inter lacks.
+     Marks: Noto Sans Symbols 2. Emoji: the system emoji font.
+     Keep the full families — a frozen character list drops the next language. */
+  --glyph-font: Inter, "Noto Sans", "Noto Sans Symbols 2", "Segoe UI Emoji", sans-serif;
 }
 
 html {

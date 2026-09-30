@@ -176,6 +176,10 @@
     border: 1px solid rgba(60, 60, 60, 0.08);
   }
 
+  td {
+    font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
+  }
+
   th {
     color: #888;
     font-size: 11px;

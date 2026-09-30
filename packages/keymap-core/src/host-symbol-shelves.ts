@@ -162,6 +162,11 @@ function isSingleGlyph(glyph: string): boolean {
   return [...glyph].length === 1
 }
 
+/** Spaces and format controls (soft hyphen, bidi marks, zero-width) draw no ink. */
+export function isUninkedHostGlyph(glyph: string): boolean {
+  return /^[\p{Z}\p{C}]$/u.test(glyph)
+}
+
 function entryForCodepoint(codepoint: number): HostSymbolShelfEntry | undefined {
   const symbol = hostSymbolByCodepoint(codepoint)
   if (!symbol) return undefined
@@ -254,8 +259,9 @@ function buildShelves(language: HostLanguageId): HostSymbolShelf[] {
     }
 
     // Open Signs: universal non-letter symbols (after language claims letters).
+    // Spaces and format controls have no ink, so they stay off this shelf.
     if (inRanges(cp, SIGN_RANGES) && !isLetter(glyph)) {
-      signsBucket.entries.push(entry)
+      if (!isUninkedHostGlyph(glyph)) signsBucket.entries.push(entry)
       continue
     }
 

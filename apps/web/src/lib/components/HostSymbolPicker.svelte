@@ -156,6 +156,7 @@
 <script lang="ts">
   import {
     hostSymbolShelves,
+    isUninkedHostGlyph,
     type HostLanguageId,
     type HostSymbolShelf,
     type HostSymbolShelfEntry
@@ -387,6 +388,34 @@
     return entry.glyph ? `${entry.glyph} ${entry.keysym}` : entry.keysym
   }
 
+  let loupe = $state<{
+    glyph: string
+    keysym: string
+    x: number
+    y: number
+    above: boolean
+  } | null>(null)
+
+  function showLoupe(event: PointerEvent, entry: HostSymbolShelfEntry) {
+    if (!entry.glyph || isUninkedHostGlyph(entry.glyph)) {
+      loupe = null
+      return
+    }
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+    const above = rect.top > 96
+    loupe = {
+      glyph: entry.glyph,
+      keysym: entry.keysym,
+      x: rect.left + rect.width / 2,
+      y: above ? rect.top - 6 : rect.bottom + 6,
+      above
+    }
+  }
+
+  function hideLoupe() {
+    loupe = null
+  }
+
   function entryValue(entry: HostSymbolShelfEntry): string {
     return entry.glyph || entry.keysym
   }
@@ -429,7 +458,7 @@
     <span class="picker-title">Symbols</span>
     <span class="picker-hint" aria-hidden="true">⠿</span>
   </div>
-  <div class="picker-body" bind:this={bodyEl}>
+  <div class="picker-body" bind:this={bodyEl} onscroll={hideLoupe}>
     {#if disabled}
       <p class="hint" role="status">Select a level cell on the decode card</p>
     {/if}
@@ -443,8 +472,11 @@
                 type="button"
                 class="glyph"
                 class:modifier={!entry.glyph}
+                class:idle={disabled}
+                aria-disabled={disabled}
                 aria-label={entryLabel(entry)}
-                disabled={disabled}
+                onmouseover={event => showLoupe(event, entry)}
+                onmouseout={hideLoupe}
                 onclick={() => pick(entry)}
               >
                 {entry.glyph || entry.keysym}
@@ -467,8 +499,11 @@
                   type="button"
                   class="glyph"
                   class:modifier={!entry.glyph}
+                  class:idle={disabled}
+                  aria-disabled={disabled}
                   aria-label={entryLabel(entry)}
-                  disabled={disabled}
+                  onmouseover={event => showLoupe(event, entry)}
+                  onmouseout={hideLoupe}
                   onclick={() => pick(entry)}
                 >
                   {entry.glyph || entry.keysym}
@@ -480,6 +515,17 @@
       </section>
     {/each}
   </div>
+  {#if loupe}
+    <div
+      class="loupe"
+      class:below={!loupe.above}
+      style="left:{loupe.x}px;top:{loupe.y}px"
+      aria-hidden="true"
+    >
+      <span class="loupe-glyph">{loupe.glyph}</span>
+      <span class="loupe-name">{loupe.keysym}</span>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -601,23 +647,63 @@
     border-radius: 3px;
     background: #fff;
     color: #222;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
     font-size: 13px;
     line-height: 1.2;
     cursor: pointer;
   }
 
-  .glyph:hover:not(:disabled) {
+  .glyph:hover {
     background: #e8e2d6;
   }
 
-  .glyph:disabled {
-    opacity: 0.45;
-    cursor: default;
+  .glyph.idle {
+    color: #6b6560;
+  }
+
+  .glyph.idle:hover {
+    background: #fff;
   }
 
   .glyph.modifier {
     font-size: 10px;
     color: #5a554e;
+  }
+
+  .loupe {
+    position: fixed;
+    z-index: 60;
+    transform: translate(-50%, -100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 4.5em;
+    padding: 8px 12px 6px;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow:
+      0 0 0 1px rgba(40, 36, 30, 0.14),
+      0 8px 20px rgba(40, 36, 30, 0.2);
+    pointer-events: none;
+  }
+
+  .loupe.below {
+    transform: translate(-50%, 0);
+  }
+
+  .loupe-glyph {
+    font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
+    font-size: 42px;
+    line-height: 1;
+    color: #222;
+  }
+
+  .loupe-name {
+    max-width: 12em;
+    font-size: 11px;
+    line-height: 1.2;
+    color: #6b6560;
+    text-align: center;
   }
 </style>

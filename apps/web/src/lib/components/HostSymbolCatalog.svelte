@@ -109,7 +109,7 @@
   }
 
   .catalog-glyph {
-    font-family: Georgia, 'Times New Roman', serif;
+    font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
     font-size: 16px;
     line-height: 1;
   }

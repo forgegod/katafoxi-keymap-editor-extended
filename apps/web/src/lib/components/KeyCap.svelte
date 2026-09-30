@@ -45,7 +45,7 @@
     height: 100%;
     padding: 2px;
     box-sizing: border-box;
-    font-family: Quicksand, avenir, sans-serif;
+    font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
     font-size: 13px;
     font-weight: 500;
     line-height: 1;

@@ -115,6 +115,17 @@ describe('hostSymbolShelves', () => {
     }
   })
 
+  it('keeps spaces and format controls off the open Signs shelf', () => {
+    const glyphs = glyphsOf(shelfById(hostSymbolShelves('en'), 'signs'))
+    expect(glyphs.has(' ')).toBe(false)
+    expect(glyphs.has('\u00a0')).toBe(false)
+    expect(glyphs.has('\u00ad')).toBe(false)
+    expect(glyphs.has('\u200b')).toBe(false)
+    expect(glyphs.has('\u200e')).toBe(false)
+    expect(glyphs.has('\u201f')).toBe(true)
+    expect(glyphs.has('.')).toBe(true)
+  })
+
   it('collapses Greek and does not put combining marks on open letter shelves', () => {
     const shelves = hostSymbolShelves('en')
     const greek = shelfById(shelves, 'greek')

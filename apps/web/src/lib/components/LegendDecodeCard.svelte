@@ -432,6 +432,7 @@
     border-radius: 3px;
     background: rgba(0, 0, 0, 0.08);
     color: #444;
+    font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
   }
 
   .legend-decode.has-table .ids {
@@ -515,6 +516,7 @@
     background: transparent;
     color: inherit;
     font: inherit;
+    font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
   }
 
   button.slot {
@@ -561,6 +563,7 @@
     background: transparent;
     color: #7a746c;
     font: inherit;
+    font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
     font-size: 14px;
     line-height: 1;
     cursor: pointer;

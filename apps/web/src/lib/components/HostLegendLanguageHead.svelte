@@ -442,6 +442,7 @@
     background: #f3f3f3;
     color: #777;
     font: inherit;
+    font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
     font-size: 12px;
     cursor: pointer;
   }

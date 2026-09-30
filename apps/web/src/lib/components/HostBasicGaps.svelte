@@ -74,6 +74,7 @@
   }
 
   .gap-glyphs {
+    font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
     font-weight: 600;
   }
 </style>
