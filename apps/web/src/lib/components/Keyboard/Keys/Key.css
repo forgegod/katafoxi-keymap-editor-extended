@@ -158,7 +158,8 @@
   overflow: hidden;
   appearance: none;
   border: 0;
-  background: transparent;
+  /* Soft wash from --layer-tone (set on the slot). Draft / hover replace it. */
+  background-color: color-mix(in srgb, var(--layer-tone, transparent) 18%, transparent);
   padding: 0 1px;
   margin: 0;
   font: inherit;

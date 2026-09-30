@@ -34,6 +34,7 @@
   } from '../../../legend-decode-active'
   import KeyCap from '../../KeyCap.svelte'
   import LegendDecodeCard from '../../LegendDecodeCard.svelte'
+  import { layerToneStyle } from '../../../layer-tone'
   import './Key.css'
   import Modal from '../../Common/Modal.svelte'
   import KeyEditor from '../../KeyEditor/KeyEditor.svelte'
@@ -338,7 +339,11 @@
         class:symbol-moved={marks.moved}
         class:altgr-conflict={marks.conflict}
         data-layer="0"
-        style="grid-row: 1 / -1"
+        style={
+          editor.layerTonesOn
+            ? `grid-row: 1 / -1; ${layerToneStyle(0)}`
+            : 'grid-row: 1 / -1'
+        }
         aria-label={rowAriaLabel({
           layer: 0,
           title: encodeKeyBinding(multilangFace.binding),
@@ -371,6 +376,7 @@
         class:symbol-moved={marks.moved}
         class:altgr-conflict={marks.conflict}
         data-layer={row.layer}
+        style={editor.layerTonesOn ? layerToneStyle(row.layer) : undefined}
         aria-label={rowAriaLabel(row)}
         aria-describedby={
           decode?.layer === row.layer && !inHostSession ? decodeTooltipId : undefined

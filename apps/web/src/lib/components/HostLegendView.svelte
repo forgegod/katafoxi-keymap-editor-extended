@@ -57,6 +57,24 @@
     <span class="view-label">Symbol differences</span>
   </button>
 
+  <button
+    type="button"
+    class="view-toggle"
+    class:on={editor.layerTonesOn}
+    aria-pressed={editor.layerTonesOn}
+    aria-label="Layer colors"
+    title="Tint each firmware layer on the key with a soft wash."
+    onclick={() => (editor.layerTonesOn = !editor.layerTonesOn)}
+  >
+    <svg class="layer-tones-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+      <rect x="0" y="1" width="16" height="3" rx="0.5" opacity="0.4" />
+      <rect x="0" y="5" width="16" height="3" rx="0.5" opacity="0.58" />
+      <rect x="0" y="9" width="16" height="3" rx="0.5" opacity="0.76" />
+      <rect x="0" y="13" width="16" height="3" rx="0.5" opacity="0.94" />
+    </svg>
+    <span class="view-label">Layer colors</span>
+  </button>
+
   {#if topRowEmpty}
     <button
       type="button"
@@ -124,6 +142,12 @@
     display: block;
     width: 16px;
     height: 16px;
+  }
+
+  .view-toggle .layer-tones-icon {
+    display: block;
+    flex: none;
+    fill: currentColor;
   }
 
   .view-label {

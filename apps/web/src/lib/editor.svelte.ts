@@ -262,6 +262,11 @@ export class EditorState {
    */
   multilangView = $state(false)
   /**
+   * Session toggle. Soft wash tint per firmware layer on the keycap and in the
+   * legend table. Off by default; not stored with the legend view.
+   */
+  layerTonesOn = $state(false)
+  /**
    * Session toggle. When the physical top row is blank on every layer, the
    * board hides it until this is on. Not stored with the keymap.
    */
@@ -1519,6 +1524,7 @@ export class EditorState {
     this.hostLayoutRevision = 0
     this.symbolAlignOn = true
     this.multilangView = false
+    this.layerTonesOn = false
     this.revealEmptyRow = false
     this.layerView = standardLayerView()
     this.userLayouts = []

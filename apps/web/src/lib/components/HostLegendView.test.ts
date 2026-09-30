@@ -78,6 +78,22 @@ describe('HostLegendView', () => {
     expect(stack.getAttribute('aria-pressed')).toBe('true')
   })
 
+  it('toggles layer color wash off by default and on when pressed', () => {
+    mountView()
+
+    const tones = button('Layer colors')
+    expect(editor.layerTonesOn).toBe(false)
+    expect(tones.getAttribute('aria-pressed')).toBe('false')
+    expect(tones.classList.contains('on')).toBe(false)
+    expect(tones.title).toMatch(/soft wash/)
+
+    tones.click()
+    flushSync()
+    expect(editor.layerTonesOn).toBe(true)
+    expect(tones.getAttribute('aria-pressed')).toBe('true')
+    expect(tones.classList.contains('on')).toBe(true)
+  })
+
   it('shows a quiet empty-row control beside symbol differences when the top row is blank', () => {
     editor.layout = [
       { x: 0, y: 0, row: 0 },
@@ -98,7 +114,12 @@ describe('HostLegendView', () => {
     const modes = [...target.querySelectorAll('.view-toggle')]
     const empty = target.querySelector('.empty-row')
     if (!(empty instanceof HTMLButtonElement)) throw new Error('missing empty row')
-    expect(modes[1]?.nextElementSibling).toBe(empty)
+    expect(modes.map(el => el.getAttribute('aria-label'))).toEqual([
+      'Stack languages',
+      'Highlight symbol differences',
+      'Layer colors'
+    ])
+    expect(modes[2]?.nextElementSibling).toBe(empty)
     expect(empty.getAttribute('aria-label')).toBe('Show empty row')
     expect(empty.textContent).toBe('Show empty row')
     expect(empty.getAttribute('aria-expanded')).toBe('false')

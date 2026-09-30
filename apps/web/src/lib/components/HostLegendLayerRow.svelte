@@ -6,6 +6,7 @@
     type KeyBindingNode
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
+  import { layerToneStyle } from '../layer-tone'
   import EyeToggle from './EyeToggle.svelte'
   import Icon from './Common/Icon.svelte'
 
@@ -104,6 +105,7 @@
   data-layer={row.index}
   class:off={!row.marked}
   class:raw={row.index === 0 && layer0Raw}
+  style={editor.layerTonesOn ? layerToneStyle(row.index) : undefined}
   onmouseenter={interactive ? hoverLayer : undefined}
   onmouseleave={interactive ? clearHover : undefined}
 >
@@ -180,8 +182,12 @@
     font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
   }
 
+  tr {
+    background-color: color-mix(in srgb, var(--layer-tone, transparent) 14%, transparent);
+  }
+
   th {
-    color: #888;
+    color: #666;
     font-size: 11px;
     font-weight: 400;
   }

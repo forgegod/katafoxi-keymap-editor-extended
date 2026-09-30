@@ -10,6 +10,13 @@
   /* Darker than --key-face (#f5f5f5) so caps read as objects without a stroke. */
   --stage-bg: #e4e7eb;
   --muted: #555;
+  /* Stacked key rows + legend table: wash hues for a faint row tint.
+     L0 blue vs L1 yellow-green so the first two rows stay distinct at low opacity.
+     Stay clear of draft amber, selection green, and AltGr conflict red. */
+  --layer-tone-0: #3d6fa8;
+  --layer-tone-1: #5a9a38;
+  --layer-tone-2: #7460a0;
+  --layer-tone-3: #9a6e42;
   /* Letters: Inter (Latin, Cyrillic, Greek), then Noto Sans for a script Inter lacks.
      Marks: Noto Sans Symbols 2. Emoji: the system emoji font.
      Keep the full families — a frozen character list drops the next language. */
