@@ -207,7 +207,7 @@
     disabled={!dirty}
     onclick={() => openSheet('linux')}
   >
-    <img class="os-icon" src={logoLinux} alt="" width="16" height="16" />
+    <img class="os-icon" src={logoLinux} alt="" width="20" height="20" />
     <span class="dl-label">Linux</span>
   </button>
 
@@ -220,7 +220,7 @@
     disabled={!dirty}
     onclick={() => openSheet('windows')}
   >
-    <img class="os-icon" src={logoWindows} alt="" width="16" height="16" />
+    <img class="os-icon" src={logoWindows} alt="" width="20" height="20" />
     <span class="dl-label">Windows</span>
   </button>
 </div>
@@ -501,12 +501,11 @@
   }
 
   .os-icon {
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
     flex-shrink: 0;
     border-radius: 2px;
     object-fit: contain;
-    image-rendering: pixelated;
   }
 
   .dl-label {
@@ -539,7 +538,6 @@
   .dialog-logo {
     flex-shrink: 0;
     border-radius: 4px;
-    image-rendering: pixelated;
   }
 
   .install-dialog h2 {
