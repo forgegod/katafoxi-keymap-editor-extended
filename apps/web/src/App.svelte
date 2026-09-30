@@ -10,6 +10,7 @@
   import Spinner from './lib/components/Common/Spinner.svelte'
   import Keyboard from './lib/components/Keyboard/Keyboard.svelte'
   import GitHubLink from './lib/components/GitHubLink.svelte'
+  import HostBasicGaps from './lib/components/HostBasicGaps.svelte'
   import HostLegendPicker from './lib/components/HostLegendPicker.svelte'
   import HostLegendView from './lib/components/HostLegendView.svelte'
   import HostPipeline from './lib/components/HostPipeline.svelte'
@@ -250,6 +251,7 @@
           <HostLegendView />
           <HostLegendPicker />
         </div>
+        <HostBasicGaps />
       </div>
     {/if}
     {#if editor.definitions && editor.layout && editor.draftKeymap}
