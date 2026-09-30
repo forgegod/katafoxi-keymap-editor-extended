@@ -655,6 +655,14 @@ export class EditorState {
     return hostLanguageName(language)
   }
 
+  /** Flag plus short layout name for each column. The accessible name stays `hostAssemblyLabel`. */
+  hostAssemblyParts(view: HostLegendView): { language: HostLanguageId; layoutName: string }[] {
+    return view.columns.map(column => ({
+      language: column.language,
+      layoutName: this.#layoutShortName(column.layoutId, column.language)
+    }))
+  }
+
   hostAssemblyLabel(view: HostLegendView): string {
     return hostAssemblyName(
       view.columns.map(column => ({

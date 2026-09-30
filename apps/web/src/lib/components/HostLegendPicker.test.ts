@@ -611,7 +611,9 @@ describe('HostLegendPicker', () => {
       return button
     }
     const chipLabels = () =>
-      [...target.querySelectorAll('.legend-panel .chip .show')].map(el => el.textContent?.trim())
+      [...target.querySelectorAll('.legend-panel .chip .show')].map(el =>
+        [...el.querySelectorAll('.name')].map(name => name.textContent?.trim()).join(' + ')
+      )
 
     remember().click()
     await vi.waitFor(() => {
@@ -626,8 +628,13 @@ describe('HostLegendPicker', () => {
 
     remember().click()
     await vi.waitFor(() => {
-      expect(chipLabels()).toEqual(['System', 'English System + Russian System'])
+      expect(chipLabels()).toEqual(['System', 'System + System'])
     })
+    const second = target.querySelectorAll('.legend-panel .chip .show')[1]
+    expect(
+      [...(second?.querySelectorAll('img') ?? [])].map(img => img.getAttribute('src'))
+    ).toEqual(['/flags/us.svg', '/flags/ru.svg'])
+    expect(second?.getAttribute('aria-label')).toBe('English System + Russian System')
 
     const first = target.querySelector('.legend-panel .chip .show')
     if (!(first instanceof HTMLButtonElement)) throw new Error('missing assembly')
