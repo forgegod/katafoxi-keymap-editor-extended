@@ -198,8 +198,11 @@
   data-host-dirty={dirty ? 'true' : 'false'}
   title="Host layout: install results on the OS"
 >
-  <span class="label">Host</span>
-  <span class="status" aria-live="polite">{status}</span>
+  <span class="lane-label" title="Host layout: install results on the OS">Host</span>
+  <span class="chrome-status" class:dirty class:clean={!dirty} aria-live="polite">
+    <span class="status-dot" aria-hidden="true"></span>
+    {status}
+  </span>
 
   <button
     type="button"
@@ -546,28 +549,8 @@
     font-size: 13px;
   }
 
-  .label {
-    display: inline-flex;
-    align-items: center;
-    height: 26px;
-    white-space: nowrap;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-  }
-
-  .status {
-    display: inline-flex;
-    align-items: center;
-    height: 26px;
-    min-width: 4.2em;
-    color: #777;
-    font-size: 13px;
-  }
-
-  .host-pipeline.dirty .status {
-    color: #664d03;
-    font-weight: 600;
+  .chrome-status {
+    min-width: 5.6em;
   }
 
   .download {

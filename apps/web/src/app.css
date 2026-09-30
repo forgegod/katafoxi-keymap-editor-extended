@@ -65,6 +65,7 @@ code {
   box-sizing: border-box;
 }
 
+/* Header actions are outline by default. Filled green is only .primary. */
 #actions button {
   cursor: pointer;
   box-sizing: border-box;
@@ -72,21 +73,71 @@ code {
   align-items: center;
   justify-content: center;
   height: 26px;
-  background-color: var(--hover-selection);
-  color: white;
+  background: #fff;
+  color: #333;
   font-family: Quicksand, avenir, sans-serif;
   font-size: 13px;
   font-weight: 500;
   line-height: 1;
-  border: none;
-  border-radius: 5px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
   padding: 0 8px;
   margin: 0;
 }
 
+#actions button:hover:not(:disabled) {
+  background: #fff;
+  border-color: #1d6f8a;
+  color: #1d6f8a;
+}
+
 #actions button:disabled {
-  background-color: #ccc;
+  background: #f7f7f7;
+  color: #aaa;
+  border-color: #e4e4e4;
   cursor: not-allowed;
+}
+
+.lane-label {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  margin: 0 2px 0 0;
+  padding: 0;
+  color: #8a8a8a;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.chrome-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: 26px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chrome-status .status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.chrome-status.dirty {
+  color: #8a5a00;
+}
+
+.chrome-status.clean {
+  color: #1f7a45;
 }
 
 /* Dialog dismiss button (original DialogBox had unstyled browser button) */

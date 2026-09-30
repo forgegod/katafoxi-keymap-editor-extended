@@ -29,6 +29,30 @@
   })
 
   let buildRefresh = $state(0)
+  let chromeEl: HTMLDivElement | undefined = $state()
+  /** Host sits on the next row when the two lanes no longer fit side by side. */
+  let lanesStacked = $state(false)
+
+  $effect(() => {
+    const root = chromeEl
+    if (!root) return
+    const zmk = root.querySelector<HTMLElement>('.chrome-zmk')
+    const host = root.querySelector<HTMLElement>('.chrome-host')
+    if (!zmk || !host) return
+
+    const measure = () => {
+      const zmkBottom = zmk.offsetTop + zmk.offsetHeight
+      lanesStacked = host.offsetTop >= zmkBottom - 4
+    }
+    measure()
+
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(root)
+    observer.observe(zmk)
+    observer.observe(host)
+    return () => observer.disconnect()
+  })
 
   onMount(() => {
     const onKeyDown = (event: KeyboardEvent) =>
@@ -85,7 +109,12 @@
 </script>
 
 <Loader load={initialize}>
-  <div class="app-chrome" id="actions">
+  <div
+    class="app-chrome"
+    class:lanes-stacked={lanesStacked}
+    id="actions"
+    bind:this={chromeEl}
+  >
     <div class="chrome-lane chrome-zmk" aria-label="ZMK keymap">
       <span class="lane-label" title="ZMK keymap: source, edit history, and publish">ZMK</span>
       <div class="chrome-group chrome-source">
@@ -130,7 +159,15 @@
       <div class="chrome-group actions-publish">
         {#if editor.draftKeymap}
           <div class="change-status">
-            <span class="publish-status" class:dirty={editor.isDirty}>{editor.statusText}</span>
+            <span
+              class="publish-status chrome-status"
+              class:dirty={editor.isDirty}
+              class:clean={!editor.isDirty}
+              title={editor.statusText}
+            >
+              <span class="status-dot" aria-hidden="true"></span>
+              {editor.isDirty ? 'Draft' : 'Up to date'}
+            </span>
             {#if editor.isDirty}
               <button
                 type="button"
@@ -152,6 +189,8 @@
         {/if}
         {#if editor.source === 'local'}
           <button
+            class="primary"
+            class:ready={editor.isDirty}
             disabled={!editor.isDirty || editor.saving}
             onclick={handleWriteFiles}
           >
@@ -161,6 +200,8 @@
         {/if}
         {#if editor.source === 'github'}
           <button
+            class="primary"
+            class:ready={editor.isDirty}
             title="Commit keymap changes to GitHub repository"
             disabled={!editor.isDirty || editor.saving}
             onclick={handleCommitToGitHub}
@@ -178,8 +219,6 @@
         {/if}
       </div>
     </div>
-
-    <span class="chrome-sep" aria-hidden="true"></span>
 
     <div class="chrome-lane chrome-host" aria-label="Host layout">
       <HostPipeline />
@@ -231,9 +270,35 @@
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
-    gap: 4px 12px;
-    padding: 2px 10px 4px;
+    gap: 12px 20px;
+    padding: 6px 12px 8px;
     font-size: 13px;
+    background: #fff;
+    border-bottom: 1px solid #d0d0d0;
+    container-type: inline-size;
+  }
+
+  /* The rule follows the boundary: a short vertical stroke on one row, a horizontal stroke when Host wraps. */
+  .chrome-host {
+    position: relative;
+  }
+
+  .chrome-host::before {
+    content: '';
+    position: absolute;
+    background: #d0d0d0;
+    width: 1px;
+    height: 26px;
+    left: -10px;
+    bottom: 0;
+  }
+
+  .app-chrome.lanes-stacked .chrome-host::before {
+    width: 100cqi;
+    height: 1px;
+    left: 0;
+    bottom: auto;
+    top: -6px;
   }
 
   .chrome-lane {
@@ -243,20 +308,6 @@
     align-items: flex-end;
     gap: 6px 8px;
     min-width: 0;
-  }
-
-  .lane-label {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    height: 26px;
-    margin: 0 2px 0 0;
-    padding: 0;
-    color: #555;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    white-space: nowrap;
   }
 
   .chrome-group {
@@ -282,6 +333,15 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    background: transparent;
+    color: #333;
+    border-color: transparent;
+  }
+
+  #actions button.history:hover:not(:disabled) {
+    background: #f2f2f2;
+    color: #222;
+    border-color: #e0e0e0;
   }
 
   #actions button.history svg {
@@ -295,17 +355,27 @@
   }
 
   #actions button.history:disabled {
-    color: #555;
+    background: transparent;
+    color: #c5c5c5;
+    border-color: transparent;
   }
 
-  .chrome-sep {
-    display: inline-block;
-    align-self: stretch;
-    width: 1px;
-    min-height: 22px;
-    margin: 2px 0;
-    background: #ccc;
-    flex-shrink: 0;
+  #actions button.primary.ready {
+    background: var(--selection);
+    color: #fff;
+    border-color: transparent;
+  }
+
+  #actions button.primary.ready:hover:not(:disabled) {
+    background: #2a9a5f;
+    color: #fff;
+  }
+
+  #actions button.primary.ready:disabled {
+    background: var(--hover-selection);
+    color: #fff;
+    border-color: transparent;
+    opacity: 0.7;
   }
 
   .board-stack {
@@ -352,19 +422,7 @@
   }
 
   .publish-status {
-    display: inline-flex;
-    align-items: center;
-    box-sizing: border-box;
-    height: 26px;
-    min-width: 11em;
-    font-size: 13px;
-    white-space: nowrap;
-    color: var(--muted, #555);
-    margin-right: 0;
-  }
-
-  .publish-status.dirty {
-    color: #664d03;
+    min-width: 7.2em;
   }
 
   #actions button.discard-draft {
