@@ -12,7 +12,6 @@
   import GitHubLink from './lib/components/GitHubLink.svelte'
   import HostBasicGaps from './lib/components/HostBasicGaps.svelte'
   import HostLegendPicker from './lib/components/HostLegendPicker.svelte'
-  import HostLegendView from './lib/components/HostLegendView.svelte'
   import HostPipeline from './lib/components/HostPipeline.svelte'
   import Loader from './lib/components/Common/Loader.svelte'
   import github from './lib/github/api.svelte.js'
@@ -247,10 +246,7 @@
   <div class="board-stack">
     {#if editor.draftKeymap}
       <div class="host-legend-wrap">
-        <div class="legend-with-view">
-          <HostLegendView />
-          <HostLegendPicker />
-        </div>
+        <HostLegendPicker />
         <HostBasicGaps />
       </div>
     {/if}
@@ -418,13 +414,6 @@
     gap: 8px;
     padding: 0 8px 4px 12px;
     min-width: max-content;
-  }
-
-  .legend-with-view {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    min-width: 0;
   }
 
   #actions button.discard-draft {

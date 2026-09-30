@@ -46,8 +46,8 @@ describe('HostLegendView', () => {
       'Highlight symbol differences. Open a second host language first.'
     )
     expect(target.querySelector('.moved')).toBeNull()
-    expect(stack.querySelector('.view-label')?.textContent).toBe('Stacklanguages')
-    expect(highlight.querySelector('.view-label')?.textContent).toBe('Symboldifferences')
+    expect(stack.querySelector('.view-label')?.textContent).toBe('Stack languages')
+    expect(highlight.querySelector('.view-label')?.textContent).toBe('Symbol differences')
   })
 
   it('labels both modes and leaves the difference key off this column', () => {
@@ -58,7 +58,7 @@ describe('HostLegendView', () => {
     const highlight = button('Highlight symbol differences')
     expect(highlight.disabled).toBe(false)
     expect(highlight.title).toBe('Highlight symbol differences')
-    expect(highlight.querySelector('.view-label')?.textContent).toBe('Symboldifferences')
+    expect(highlight.querySelector('.view-label')?.textContent).toBe('Symbol differences')
     expect(target.querySelector('.moved')).toBeNull()
     expect(target.querySelector('.win')).toBeNull()
     expect(button('Stack languages').disabled).toBe(true)
@@ -78,7 +78,7 @@ describe('HostLegendView', () => {
     expect(stack.getAttribute('aria-pressed')).toBe('true')
   })
 
-  it('shows a quiet empty-row control under symbol differences when the top row is blank', () => {
+  it('shows a quiet empty-row control beside symbol differences when the top row is blank', () => {
     editor.layout = [
       { x: 0, y: 0, row: 0 },
       { x: 1, y: 0, row: 0 },
@@ -100,8 +100,7 @@ describe('HostLegendView', () => {
     if (!(empty instanceof HTMLButtonElement)) throw new Error('missing empty row')
     expect(modes[1]?.nextElementSibling).toBe(empty)
     expect(empty.getAttribute('aria-label')).toBe('Show empty row')
-    expect(empty.querySelector('br')).toBeTruthy()
-    expect(empty.textContent).toBe('Showempty row')
+    expect(empty.textContent).toBe('Show empty row')
     expect(empty.getAttribute('aria-expanded')).toBe('false')
     expect(empty.classList.contains('view-toggle')).toBe(false)
 
@@ -109,7 +108,7 @@ describe('HostLegendView', () => {
     flushSync()
     expect(editor.revealEmptyRow).toBe(true)
     expect(empty.getAttribute('aria-label')).toBe('Hide empty row')
-    expect(empty.textContent).toBe('Hideempty row')
+    expect(empty.textContent).toBe('Hide empty row')
     expect(empty.getAttribute('aria-expanded')).toBe('true')
   })
 

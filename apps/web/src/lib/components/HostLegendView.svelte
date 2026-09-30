@@ -39,8 +39,8 @@
     disabled={!canStack}
     onclick={() => (editor.multilangView = !editor.multilangView)}
   >
-    <img src={stackLanguagesIcon} alt="" width="18" height="18" />
-    <span class="view-label">Stack<br />languages</span>
+    <img src={stackLanguagesIcon} alt="" width="16" height="16" />
+    <span class="view-label">Stack languages</span>
   </button>
 
   <button
@@ -53,8 +53,8 @@
     disabled={!canAlign}
     onclick={() => (editor.symbolAlignOn = !editor.symbolAlignOn)}
   >
-    <img src={symbolDifferencesIcon} alt="" width="18" height="18" />
-    <span class="view-label">Symbol<br />differences</span>
+    <img src={symbolDifferencesIcon} alt="" width="16" height="16" />
+    <span class="view-label">Symbol differences</span>
   </button>
 
   {#if topRowEmpty}
@@ -66,11 +66,7 @@
       title={emptyRowLabel}
       onclick={() => (editor.revealEmptyRow = !editor.revealEmptyRow)}
     >
-      {#if editor.revealEmptyRow}
-        Hide<br />empty row
-      {:else}
-        Show<br />empty row
-      {/if}
+      {emptyRowLabel}
     </button>
   {/if}
 </div>
@@ -78,22 +74,24 @@
 <style>
   .legend-view {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    padding-top: 6px;
+    flex: none;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    margin-right: 8px;
   }
 
   .view-toggle {
     box-sizing: border-box;
     display: inline-flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    justify-content: flex-start;
-    gap: 3px;
-    width: 4.7rem;
+    justify-content: center;
+    gap: 4px;
+    height: 26px;
     margin: 0;
-    padding: 4px 2px 5px;
+    padding: 0 8px;
+    white-space: nowrap;
     border: 1px solid #c4c4c4;
     border-radius: 6px;
     background: #f3f3f3;
@@ -124,28 +122,29 @@
 
   .view-toggle img {
     display: block;
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
   }
 
   .view-label {
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 600;
-    line-height: 1.15;
-    text-align: center;
+    line-height: 1;
+    white-space: nowrap;
   }
 
   .empty-row {
     box-sizing: border-box;
-    width: 4.7rem;
+    height: 26px;
     margin: 0;
-    padding: 2px 3px 3px;
+    padding: 0 8px;
+    white-space: nowrap;
     border: 1px dashed #c4c4c4;
     border-radius: 6px;
     background: transparent;
     color: #777;
     font: inherit;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 600;
     line-height: 1.15;
     text-align: center;
