@@ -396,7 +396,7 @@
     above: boolean
   } | null>(null)
 
-  function showLoupe(event: PointerEvent, entry: HostSymbolShelfEntry) {
+  function showLoupe(event: Event, entry: HostSymbolShelfEntry) {
     if (!entry.glyph || isUninkedHostGlyph(entry.glyph)) {
       loupe = null
       return
@@ -477,6 +477,8 @@
                 aria-label={entryLabel(entry)}
                 onmouseover={event => showLoupe(event, entry)}
                 onmouseout={hideLoupe}
+                onfocus={event => showLoupe(event, entry)}
+                onblur={hideLoupe}
                 onclick={() => pick(entry)}
               >
                 {entry.glyph || entry.keysym}
@@ -504,6 +506,8 @@
                   aria-label={entryLabel(entry)}
                   onmouseover={event => showLoupe(event, entry)}
                   onmouseout={hideLoupe}
+                  onfocus={event => showLoupe(event, entry)}
+                  onblur={hideLoupe}
                   onclick={() => pick(entry)}
                 >
                   {entry.glyph || entry.keysym}
