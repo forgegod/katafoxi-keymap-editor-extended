@@ -1,5 +1,4 @@
-import { HOST_KEY_IDS } from './host-key-id.js'
-import { withHostKey, type HostKeyLevels, type HostLayout } from './host-layout.js'
+import type { HostKeyLevels, HostLayout } from './host-layout.js'
 
 /** One glyph on one physical key and shift level. */
 export interface GlyphPlace {
@@ -42,18 +41,6 @@ export interface SymbolAlignOptions {
    * conflicts. Omitted levels are ignored, so a hidden AltGr column stays quiet.
    */
   levels?: readonly (0 | 1 | 2 | 3)[]
-}
-
-/** One AltGr / AltGr+Shift cell copied from the extra layout onto the base. */
-export interface AltGrCopyEdit {
-  zmk: string
-  level: 2 | 3
-  baseGlyph: string
-  extraGlyph: string
-  baseKeysym: string
-  extraKeysym: string
-  /** Base already had a different symbol. False means the base cell was empty. */
-  overwrites: boolean
 }
 
 const ALL_LEVELS = [0, 1, 2, 3] as const
@@ -179,53 +166,4 @@ export function symbolAlignCaption(zmk: string, align: SymbolAlign): string {
     parts.push(`Windows ${which} keeps ${kept}, drops ${dropped}`)
   }
   return parts.join('. ')
-}
-
-/**
- * AltGr and AltGr+Shift cells to copy from `extra` onto `base`.
- * An empty extra cell does not clear base. A cell that already shows the same
- * glyph is left alone. Levels 0 and 1 are never copied.
- */
-export function planAltGrCopy(base: HostLayout, extra: HostLayout): AltGrCopyEdit[] {
-  const edits: AltGrCopyEdit[] = []
-  for (const key of HOST_KEY_IDS) {
-    const baseRow = base.byZmk.get(key.zmk)
-    const extraRow = extra.byZmk.get(key.zmk)
-    for (const level of [2, 3] as const) {
-      const extraKeysym = levelKeysym(extraRow, level)
-      if (isEmptyKeysym(extraKeysym)) continue
-      const baseKeysym = levelKeysym(baseRow, level)
-      if (baseKeysym === extraKeysym) continue
-      const baseGlyph = levelGlyph(baseRow, level)
-      const extraGlyph = levelGlyph(extraRow, level)
-      if (baseGlyph && extraGlyph && baseGlyph === extraGlyph) continue
-      edits.push({
-        zmk: key.zmk,
-        level,
-        baseGlyph,
-        extraGlyph,
-        baseKeysym,
-        extraKeysym,
-        overwrites: !isEmptyKeysym(baseKeysym)
-      })
-    }
-  }
-  return edits
-}
-
-/** New layout with `planAltGrCopy` applied. The source tables are not mutated. */
-export function applyAltGrCopy(base: HostLayout, extra: HostLayout): HostLayout {
-  let next = base
-  for (const edit of planAltGrCopy(base, extra)) {
-    const updated = withHostKey(next, edit.zmk, edit.level, edit.extraKeysym)
-    if (updated) next = updated
-  }
-  return next
-}
-
-export function formatAltGrCopyLine(edit: AltGrCopyEdit): string {
-  const level = edit.level === 2 ? 'AltGr' : 'AltGr+Shift'
-  const from = edit.overwrites ? edit.baseGlyph || edit.baseKeysym : 'empty'
-  const to = edit.extraGlyph || edit.extraKeysym
-  return `${edit.zmk} ${level}: ${from} → ${to}`
 }
