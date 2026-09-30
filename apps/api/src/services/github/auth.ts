@@ -46,11 +46,29 @@ export function clearOauthStateCookie(c: Context) {
   deleteCookie(c, OAUTH_STATE_COOKIE, cookieOptions())
 }
 
+/**
+ * GitHub rejects an app JWT whose `exp` is more than 10 minutes ahead of its
+ * clock. `expiresIn: '10m'` sits on that line, so a local clock a few seconds
+ * ahead fails with "exp is too far in the future". Issue the token a minute
+ * early and keep it for 8 minutes: that still covers about two minutes of skew.
+ */
+const APP_TOKEN_ISSUED_EARLY_SEC = 60
+const APP_TOKEN_TTL_SEC = 8 * 60
+
+export function appTokenTimestamps(nowSeconds: number): { iat: number; exp: number } {
+  return {
+    iat: nowSeconds - APP_TOKEN_ISSUED_EARLY_SEC,
+    exp: nowSeconds + APP_TOKEN_TTL_SEC
+  }
+}
+
 export function createAppToken(): string {
-  return jwt.sign({ iss: config.GITHUB_APP_ID }, getPrivateKey(), {
-    algorithm: 'RS256',
-    expiresIn: '10m'
-  })
+  const now = Math.floor(Date.now() / 1000)
+  return jwt.sign(
+    { iss: config.GITHUB_APP_ID, ...appTokenTimestamps(now) },
+    getPrivateKey(),
+    { algorithm: 'RS256' }
+  )
 }
 
 export function createInstallationToken(installationId: string) {
