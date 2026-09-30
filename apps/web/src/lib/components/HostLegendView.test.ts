@@ -46,11 +46,11 @@ describe('HostLegendView', () => {
       'Highlight symbol differences. Open a second host language first.'
     )
     expect(target.querySelector('.moved')).toBeNull()
-    expect(stack.querySelector('.view-label')?.textContent).toBe('Stack languages')
-    expect(highlight.querySelector('.view-label')?.textContent).toBe('Symbol differences')
+    expect(stack.querySelector('.view-label')?.textContent).toBe('Stack')
+    expect(highlight.querySelector('.view-label')?.textContent).toBe('Differences')
   })
 
-  it('labels both modes and leaves the difference key off this column', () => {
+  it('labels both modes and shows difference samples under the toggle', () => {
     editor.hostLegend = addHostLanguage(editor.hostLegend, 'ru')
     editor.symbolAlignOn = true
     mountView()
@@ -58,9 +58,13 @@ describe('HostLegendView', () => {
     const highlight = button('Highlight symbol differences')
     expect(highlight.disabled).toBe(false)
     expect(highlight.title).toBe('Highlight symbol differences')
-    expect(highlight.querySelector('.view-label')?.textContent).toBe('Symbol differences')
-    expect(target.querySelector('.moved')).toBeNull()
-    expect(target.querySelector('.win')).toBeNull()
+    expect(highlight.querySelector('.view-label')?.textContent).toBe('Differences')
+    const slot = highlight.nextElementSibling
+    expect(slot).toBeInstanceOf(HTMLElement)
+    expect(slot?.classList.contains('align-slot')).toBe(true)
+    expect(slot?.classList.contains('on')).toBe(true)
+    expect(target.querySelector('.moved')?.textContent).toBe('position')
+    expect(target.querySelector('.win')?.textContent).toBe('Win AltGr')
     expect(button('Stack languages').disabled).toBe(true)
   })
 
@@ -94,7 +98,7 @@ describe('HostLegendView', () => {
     expect(tones.classList.contains('on')).toBe(true)
   })
 
-  it('shows a quiet empty-row control beside symbol differences when the top row is blank', () => {
+  it('shows a quiet empty-row control beside layer colors when the top row is blank', () => {
     editor.layout = [
       { x: 0, y: 0, row: 0 },
       { x: 1, y: 0, row: 0 },
@@ -113,15 +117,19 @@ describe('HostLegendView', () => {
 
     const modes = [...target.querySelectorAll('.view-toggle')]
     const empty = target.querySelector('.empty-row')
+    const board = target.querySelector('.board-row')
     if (!(empty instanceof HTMLButtonElement)) throw new Error('missing empty row')
+    if (!(board instanceof HTMLElement)) throw new Error('missing board row')
     expect(modes.map(el => el.getAttribute('aria-label'))).toEqual([
       'Stack languages',
       'Highlight symbol differences',
       'Layer colors'
     ])
-    expect(modes[2]?.nextElementSibling).toBe(empty)
+    expect(board.contains(modes[2]!)).toBe(true)
+    expect(board.contains(empty)).toBe(true)
+    expect(modes[2]?.nextElementSibling?.classList.contains('empty-slot')).toBe(true)
     expect(empty.getAttribute('aria-label')).toBe('Show empty row')
-    expect(empty.textContent).toBe('Show empty row')
+    expect(empty.textContent).toBe('Empty')
     expect(empty.getAttribute('aria-expanded')).toBe('false')
     expect(empty.classList.contains('view-toggle')).toBe(false)
 
@@ -129,11 +137,11 @@ describe('HostLegendView', () => {
     flushSync()
     expect(editor.revealEmptyRow).toBe(true)
     expect(empty.getAttribute('aria-label')).toBe('Hide empty row')
-    expect(empty.textContent).toBe('Hide empty row')
+    expect(empty.textContent).toBe('Hide')
     expect(empty.getAttribute('aria-expanded')).toBe('true')
   })
 
-  it('hides the empty-row control when the top row has a binding', () => {
+  it('keeps the empty-row slot when the top row has a binding', () => {
     editor.layout = [
       { x: 0, y: 0, row: 0 },
       { x: 0, y: 1, row: 1 }
@@ -148,5 +156,7 @@ describe('HostLegendView', () => {
     }
     mountView()
     expect(target.querySelector('.empty-row')).toBeNull()
+    expect(target.querySelector('.board-row .empty-slot')).toBeInstanceOf(HTMLElement)
+    expect(button('Layer colors').classList.contains('half')).toBe(true)
   })
 })

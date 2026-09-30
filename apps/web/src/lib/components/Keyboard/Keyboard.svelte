@@ -18,7 +18,6 @@
   } from '../../context'
   import { buildSearchContext } from '../../search-context'
   import { getKeyBoundingBox } from '../../key-units'
-  import SymbolAlignKey from '../SymbolAlignKey.svelte'
   import KeyboardLayout from './KeyboardLayout.svelte'
 
   interface Props {
@@ -115,10 +114,8 @@
   })
 
   let stageEl: HTMLDivElement | undefined = $state()
-  let marksEl: HTMLDivElement | undefined = $state()
   let stageW = $state(0)
   let stageH = $state(0)
-  let marksH = $state(0)
 
   $effect(() => {
     const el = stageEl
@@ -133,27 +130,10 @@
     return () => observer.disconnect()
   })
 
-  $effect(() => {
-    const el = marksEl
-    if (!el || typeof ResizeObserver === 'undefined') {
-      marksH = 0
-      return
-    }
-    const measure = () => {
-      const margin = parseFloat(getComputedStyle(el).marginBottom) || 0
-      marksH = el.offsetHeight + margin
-    }
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(el)
-    return () => observer.disconnect()
-  })
-
   const scale = $derived.by(() => {
     if (bounds.width <= 0 || bounds.height <= 0) return 1
-    const availH = stageH - marksH
-    if (stageW < 8 || availH < 8) return 1
-    return Math.min(stageW / bounds.width, availH / bounds.height)
+    if (stageW < 8 || stageH < 8) return 1
+    return Math.min(stageW / bounds.width, stageH / bounds.height)
   })
 
   const fitStyle = $derived(
@@ -194,9 +174,6 @@
 
 <div class="keyboard-root">
   <div class="keyboard-stage" bind:this={stageEl}>
-    <div class="align-key-slot" bind:this={marksEl}>
-      <SymbolAlignKey />
-    </div>
     <div class="keyboard-fit" style={fitStyle}>
       <div class="keyboard-canvas" style={canvasStyle}>
         {#if isReady}
@@ -229,17 +206,13 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     box-sizing: border-box;
     min-width: 0;
     min-height: 0;
-    padding: 4px 12px 40px;
+    padding: 8px 12px 24px;
     overflow: hidden;
-    background: var(--stage-bg, #e4e7eb);
-  }
-
-  .align-key-slot {
-    flex: none;
-    align-self: flex-start;
+    background: transparent;
   }
 
   .keyboard-fit {

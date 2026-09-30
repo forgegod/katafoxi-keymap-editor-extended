@@ -51,7 +51,7 @@
     align-self: flex-start;
     max-width: 18rem;
     margin-left: auto;
-    padding: 6px 2px 0 12px;
+    padding: 2px 2px 0 8px;
     color: #6b4a12;
     font-size: 12px;
     line-height: 1.35;

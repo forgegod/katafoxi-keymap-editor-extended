@@ -11,6 +11,7 @@
   import HostLegendLayerRow, {
     type HostLegendLayerRowModel
   } from './HostLegendLayerRow.svelte'
+  import HostLegendView from './HostLegendView.svelte'
   import HostProfileBar from './HostProfileBar.svelte'
 
   const view = $derived(editor.hostLegend)
@@ -128,61 +129,66 @@
 </script>
 
 {#snippet legendTable(rows: HostLegendLayerRowModel[], interactive: boolean)}
-  <HostAssemblyBar />
-  <div class="legend-table-row">
-  <table>
-    <thead>
-      <tr>
-        <th></th>
-        {#each columns as column (column.language)}
-          <HostLegendLanguageHead
-            {column}
-            {interactive}
-            languagesStacked={multilang}
-            bind:pickingFor
-            bind:pickingNew
-            bind:openProfile
-          />
-        {/each}
-        {#if interactive && (pickingNew || addable.length > 0)}
-          <HostLegendLanguageHead
-            {interactive}
-            bind:pickingFor
-            bind:pickingNew
-            bind:openProfile
-          />
+  <div class="legend-body">
+    <HostLegendView />
+    <div class="legend-main">
+      <HostAssemblyBar />
+      <div class="legend-table-row">
+        <table>
+          <thead>
+            <tr>
+              <th class="layer-col" scope="col">Layer</th>
+              {#each columns as column (column.language)}
+                <HostLegendLanguageHead
+                  {column}
+                  {interactive}
+                  languagesStacked={multilang}
+                  bind:pickingFor
+                  bind:pickingNew
+                  bind:openProfile
+                />
+              {/each}
+              {#if interactive && (pickingNew || addable.length > 0)}
+                <HostLegendLanguageHead
+                  {interactive}
+                  bind:pickingFor
+                  bind:pickingNew
+                  bind:openProfile
+                />
+              {/if}
+            </tr>
+          </thead>
+          <tbody id={interactive ? 'host-legend-layers' : undefined}>
+            {#each rows as row (row.index)}
+              <HostLegendLayerRow
+                {row}
+                {columns}
+                {interactive}
+                canDelete={layerNames.length > 1}
+                showAddColumn={interactive && (pickingNew || addable.length > 0)}
+                bind:renamingIndex
+                bind:editing
+                bind:pendingDelete
+              />
+            {/each}
+          </tbody>
+          {#if interactive && open}
+            <tfoot>
+              <tr>
+                <th colspan={columnCount}>
+                  <button type="button" class="add-layer" onclick={() => editor.addLayer()}>
+                    Add Layer
+                  </button>
+                </th>
+              </tr>
+            </tfoot>
+          {/if}
+        </table>
+        {#if interactive}
+          <HostSymbolCatalog />
         {/if}
-      </tr>
-    </thead>
-    <tbody id={interactive ? 'host-legend-layers' : undefined}>
-      {#each rows as row (row.index)}
-        <HostLegendLayerRow
-          {row}
-          {columns}
-          {interactive}
-          canDelete={layerNames.length > 1}
-          showAddColumn={interactive && (pickingNew || addable.length > 0)}
-          bind:renamingIndex
-          bind:editing
-          bind:pendingDelete
-        />
-      {/each}
-    </tbody>
-    {#if interactive && open}
-      <tfoot>
-        <tr>
-          <th colspan={columnCount}>
-            <button type="button" class="add-layer" onclick={() => editor.addLayer()}>
-              Add Layer
-            </button>
-          </th>
-        </tr>
-      </tfoot>
-    {/if}
-  </table>
-  {#if interactive}
-    <HostSymbolCatalog />
-  {/if}
+      </div>
+    </div>
   </div>
 {/snippet}
 
@@ -230,7 +236,7 @@
     align-items: flex-start;
     gap: 16px 24px;
     width: max-content;
-    padding: 6px 4px 2px;
+    padding: 0;
     font-size: 13px;
     color: #444;
   }
@@ -242,14 +248,17 @@
 
   .legend-panel {
     position: absolute;
-    top: 6px;
-    left: 4px;
+    top: 0;
+    left: 0;
     z-index: 4;
-    background: var(--page-bg, #fff);
+    background: transparent;
   }
 
   .host-legend-strip.expanded .legend-panel {
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    padding: 0 0 4px;
+    background: color-mix(in srgb, #fff 88%, var(--stage-bg, #e4e7eb));
+    border-radius: 6px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
   }
 
   .legend-table-row {
@@ -258,10 +267,24 @@
     gap: 6px;
   }
 
+  .legend-body {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .legend-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding-left: 2px;
+  }
+
   table {
     border-collapse: collapse;
     width: max-content;
-    border: 1px solid rgba(60, 60, 60, 0.16);
+    border: 1px solid rgba(60, 60, 60, 0.14);
+    background: color-mix(in srgb, #fff 55%, transparent);
   }
 
   th {
@@ -273,8 +296,19 @@
   }
 
   thead th {
-    font-size: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
     color: #666;
+    background: color-mix(in srgb, #fff 40%, transparent);
+  }
+
+  thead th.layer-col {
+    color: #888;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 10px;
   }
 
   .add-layer {

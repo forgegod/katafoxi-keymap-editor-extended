@@ -394,6 +394,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
+    background: var(--stage-bg, #e4e7eb);
   }
 
   .board-stack :global(.keyboard-stage) {
@@ -411,9 +412,11 @@
     flex-wrap: wrap;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 8px;
-    padding: 0 8px 4px 12px;
+    gap: 8px 12px;
+    margin: 6px 8px 0;
+    padding: 0 4px 2px 2px;
     min-width: max-content;
+    box-sizing: border-box;
   }
 
   #actions button.discard-draft {

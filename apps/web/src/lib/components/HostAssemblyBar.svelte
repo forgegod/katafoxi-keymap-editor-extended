@@ -1,6 +1,5 @@
 <script lang="ts">
   import { editor } from '../editor.svelte.js'
-  import HostLegendView from './HostLegendView.svelte'
   import LangFlag from './LangFlag.svelte'
 
   const chips = $derived(
@@ -23,7 +22,6 @@
 </script>
 
 <div class="assemblies" role="group" aria-label="Layout assemblies">
-  <HostLegendView />
   {#each chips as chip (chip.id)}
     <span class="chip" class:on={chip.active}>
       <button
@@ -70,7 +68,8 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 6px;
-    margin: 0 0 6px;
+    margin: 0 0 4px;
+    min-height: 22px;
     font-size: 12px;
   }
 
