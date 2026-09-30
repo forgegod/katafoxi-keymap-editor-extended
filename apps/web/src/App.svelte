@@ -35,7 +35,11 @@
 
   $effect(() => {
     const root = chromeEl
-    if (!root) return
+    const hostShown = editor.draftKeymap != null
+    if (!root || !hostShown) {
+      lanesStacked = false
+      return
+    }
     const zmk = root.querySelector<HTMLElement>('.chrome-zmk')
     const host = root.querySelector<HTMLElement>('.chrome-host')
     if (!zmk || !host) return
@@ -117,19 +121,6 @@
   >
     <div class="chrome-lane chrome-zmk" aria-label="ZMK keymap">
       <span class="lane-label" title="ZMK keymap: source, edit history, and publish">ZMK</span>
-      {#if editor.draftKeymap}
-        <span
-          class="publish-status chrome-status"
-          class:dirty={editor.isDirty}
-          class:clean={!editor.isDirty}
-          aria-live="polite"
-          aria-label={editor.statusText}
-          title={editor.statusText}
-        >
-          <span class="status-dot" aria-hidden="true"></span>
-          {#if editor.isDirty}Draft{/if}
-        </span>
-      {/if}
       <div class="chrome-group chrome-source">
         <KeyboardPicker
           onSelect={event => {
@@ -140,6 +131,36 @@
       </div>
 
       {#if editor.draftKeymap}
+        <div class="chrome-group chrome-draft">
+          <span
+            class="publish-status chrome-status"
+            class:dirty={editor.isDirty}
+            class:clean={!editor.isDirty}
+            aria-live="polite"
+            aria-label={editor.statusText}
+            title={editor.statusText}
+          >
+            <span class="status-dot" aria-hidden="true"></span>
+            {#if editor.isDirty}Draft{/if}
+          </span>
+          {#if editor.isDirty}
+            <button
+              type="button"
+              class="discard-draft"
+              title="Revert all unpublished edits to the last loaded keymap"
+              disabled={editor.saving}
+              onclick={() => {
+                const ok = window.confirm(
+                  'Discard all unpublished edits and restore the last loaded keymap?\n\nThis cannot be undone with Undo.'
+                )
+                if (!ok) return
+                void editor.discardDraft()
+              }}
+            >
+              Discard draft
+            </button>
+          {/if}
+        </div>
         <div class="chrome-group actions-history">
           <button
             type="button"
@@ -171,23 +192,6 @@
       {/if}
 
       <div class="chrome-group actions-publish">
-        {#if editor.isDirty}
-          <button
-            type="button"
-            class="discard-draft"
-            title="Revert all unpublished edits to the last loaded keymap"
-            disabled={editor.saving}
-            onclick={() => {
-              const ok = window.confirm(
-                'Discard all unpublished edits and restore the last loaded keymap?\n\nThis cannot be undone with Undo.'
-              )
-              if (!ok) return
-              void editor.discardDraft()
-            }}
-          >
-            Discard draft
-          </button>
-        {/if}
         {#if editor.source === 'local'}
           <button
             class="primary"
@@ -221,9 +225,11 @@
       </div>
     </div>
 
-    <div class="chrome-lane chrome-host" aria-label="Host layout">
-      <HostPipeline />
-    </div>
+    {#if editor.draftKeymap}
+      <div class="chrome-lane chrome-host" aria-label="Host layout">
+        <HostPipeline />
+      </div>
+    {/if}
 
     {#if editor.saveNotice}
       <div
@@ -309,6 +315,11 @@
     align-items: flex-end;
     gap: 6px 8px;
     min-width: 0;
+  }
+
+  /* Grows so the spare width sits after Commit/Latest, before the Host divider. */
+  .chrome-zmk {
+    flex: 1 1 auto;
   }
 
   .chrome-group {

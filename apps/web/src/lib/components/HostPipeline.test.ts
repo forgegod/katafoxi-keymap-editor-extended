@@ -41,10 +41,13 @@ describe('HostPipeline', () => {
     expect(root?.getAttribute('data-host-dirty')).toBe('false')
     const hostStatus = root?.querySelector('.chrome-status')
     expect(hostStatus?.textContent?.trim()).toBe('')
-    expect(hostStatus?.getAttribute('title')).toBe('Clean')
+    expect(hostStatus?.getAttribute('title')).toBe('No user layout to install')
+    expect(hostStatus?.getAttribute('aria-label')).toBe('No user layout to install')
     const buttons = [...target.querySelectorAll('button.download')] as HTMLButtonElement[]
     expect(buttons).toHaveLength(2)
     expect(buttons.every(button => button.disabled)).toBe(true)
+    expect(buttons.every(button => button.title === 'No host changes to install')).toBe(true)
+    expect(buttons.every(button => button.classList.contains('ready'))).toBe(false)
     expect(document.querySelector('.info')).toBeNull()
   })
 
@@ -56,8 +59,16 @@ describe('HostPipeline', () => {
     const root = target.querySelector('.host-pipeline')
     expect(root?.getAttribute('data-host-dirty')).toBe('true')
     expect(root?.querySelector('.chrome-status')?.textContent?.trim()).toBe('Changed')
+    expect(root?.querySelector('.chrome-status')?.getAttribute('title')).toBe(
+      'User layout ready to install'
+    )
     const buttons = [...target.querySelectorAll('button.download')] as HTMLButtonElement[]
     expect(buttons.every(button => !button.disabled)).toBe(true)
+    expect(buttons.every(button => button.classList.contains('ready'))).toBe(true)
+    expect(buttons.map(button => button.title)).toEqual([
+      'Open Linux install guide',
+      'Open Windows install guide'
+    ])
     expect(editor.activeProfileId('en')).not.toBe(SYSTEM_US_LAYOUT_ID)
   })
 

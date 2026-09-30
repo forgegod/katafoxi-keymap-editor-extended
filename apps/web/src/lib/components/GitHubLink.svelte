@@ -16,7 +16,6 @@
   <span class="icon-slot">
     <Icon collection="brands" name="github" />
   </span>
-  <span class="name">{label}</span>
 </a>
 
 <style>
@@ -34,12 +33,16 @@
     color: royalblue;
     text-decoration: none;
     font-size: 110%;
-    font-style: italic;
   }
 
   .github-link:hover,
   .github-link:focus-visible {
     color: #1a4fc4;
+  }
+
+  .github-link:focus-visible {
+    outline: 2px solid #1d6f8a;
+    outline-offset: 2px;
   }
 
   .icon-slot {
@@ -56,18 +59,4 @@
     height: 0.95em;
   }
 
-  .name {
-    overflow: hidden;
-    width: 0;
-    height: 30px;
-    line-height: 30px;
-    white-space: nowrap;
-  }
-
-  .github-link:hover .name,
-  .github-link:focus-visible .name {
-    width: 210px;
-    padding-right: 12px;
-    transition: 0.15s ease-in;
-  }
 </style>

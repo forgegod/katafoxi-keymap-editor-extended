@@ -44,7 +44,9 @@
   }
 
   const dirty = $derived(editor.isHostDirty)
-  const status = $derived(dirty ? 'Changed' : 'Clean')
+  const statusTitle = $derived(
+    dirty ? 'User layout ready to install' : 'No user layout to install'
+  )
   const exports = $derived.by(() => {
     void editor.hostLayoutRevision
     void editor.hostLegend
@@ -189,8 +191,8 @@
     class:dirty
     class:clean={!dirty}
     aria-live="polite"
-    aria-label={status}
-    title={status}
+    aria-label={statusTitle}
+    title={statusTitle}
   >
     <span class="status-dot" aria-hidden="true"></span>
     {#if dirty}Changed{/if}
@@ -199,8 +201,9 @@
   <button
     type="button"
     class="download"
-    aria-label="Install host layout on Linux"
-    title="Open Linux install guide"
+    class:ready={dirty}
+    aria-label={dirty ? 'Install host layout on Linux' : 'No host changes to install'}
+    title={dirty ? 'Open Linux install guide' : 'No host changes to install'}
     disabled={!dirty}
     onclick={() => openSheet('linux')}
   >
@@ -211,8 +214,9 @@
   <button
     type="button"
     class="download"
-    aria-label="Install host layout on Windows"
-    title="Open Windows install guide"
+    class:ready={dirty}
+    aria-label={dirty ? 'Install host layout on Windows' : 'No host changes to install'}
+    title={dirty ? 'Open Windows install guide' : 'No host changes to install'}
     disabled={!dirty}
     onclick={() => openSheet('windows')}
   >

@@ -40,9 +40,7 @@
       build?.status === 'queued' ||
       build?.status === 'in_progress'
   )
-  const visible = $derived(
-    !!build && build.status !== 'none' && (build.shortSha || build.status === 'unavailable')
-  )
+  const visible = $derived(!!build && build.status !== 'none')
 
   const secondary = $derived.by(() => {
     if (!build) return ''
@@ -58,7 +56,7 @@
   const label = $derived.by(() => {
     if (!build) return ''
     if (build.status === 'unavailable') return 'Build status'
-    return build.shortSha ? `Latest (${build.shortSha})` : 'Latest'
+    return 'Latest'
   })
 
   const title = $derived.by(() => {
@@ -113,7 +111,7 @@
 </script>
 
 {#if visible && build}
-  {@const chipClass = `firmware-build ${build.status}`}
+  {@const chipClass = `firmware-build ${build.status}${downloadUrl ? ' downloadable' : ''}`}
   {#if downloadUrl}
     <a class={chipClass} href={downloadUrl} {title}>
       {@render chip()}
@@ -143,11 +141,7 @@
 {#snippet chip()}
   <span class="copy">
     <span class="line">
-      {#if build?.shortSha}
-        Latest (<code>{build.shortSha}</code>)
-      {:else}
-        {label}
-      {/if}
+      {label}
       {#if build?.status === 'success'}
         <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M5 12.5 9.2 17 19 7" />
@@ -171,9 +165,10 @@
     box-sizing: border-box;
     height: 26px;
     padding: 0 6px;
+    border: 1px solid #ccc;
     border-radius: 5px;
-    background: #4169e1;
-    color: #fff;
+    background: #fff;
+    color: #333;
     font-family: Quicksand, avenir, sans-serif;
     font-size: 12px;
     line-height: 1.05;
@@ -191,11 +186,6 @@
     display: inline-flex;
     align-items: center;
     gap: 3px;
-  }
-
-  code {
-    font-family: ui-monospace, monospace;
-    font-size: 11px;
   }
 
   .when {
@@ -222,22 +212,32 @@
     height: 14px;
   }
 
-  a.firmware-build:hover {
+  .downloadable {
+    background: #4169e1;
+    color: #fff;
+    border-color: transparent;
+  }
+
+  a.downloadable:hover {
     background: #3558c4;
   }
 
   .failure,
   .cancelled {
-    background: #a33b45;
+    background: #fff;
+    color: #a33b45;
+    border-color: #e2b6bb;
   }
 
   a.failure:hover,
   a.cancelled:hover {
-    background: #8c3039;
+    background: #f8d7da;
   }
 
   .unavailable {
-    background: #8a6d1d;
+    background: #fff;
+    color: #8a6d1d;
+    border-color: #e6d7a2;
   }
 
   .firmware-build :global(.spinner) {

@@ -98,6 +98,24 @@ code {
   cursor: not-allowed;
 }
 
+#actions :is(button, a):focus-visible {
+  outline: 2px solid #1d6f8a;
+  outline-offset: 1px;
+}
+
+/* Host install: light accent while a user layout is waiting. Solid green stays on ZMK publish. */
+#actions button.download.ready:not(:disabled) {
+  background: #e7f6ee;
+  border-color: #1f7a45;
+  color: #1f7a45;
+}
+
+#actions button.download.ready:hover:not(:disabled) {
+  background: #fff;
+  border-color: #146b38;
+  color: #146b38;
+}
+
 .lane-label {
   flex-shrink: 0;
   display: inline-flex;

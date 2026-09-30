@@ -143,7 +143,18 @@ describe('App chrome', () => {
 
   it('keeps a short Draft status and hides discard when clean', async () => {
     await renderApp()
+    expect(target.querySelector('.chrome-host')).toBeNull()
     await loadKeyboard(localSelection())
+    expect(target.querySelector('.chrome-host')).not.toBeNull()
+    const source = target.querySelector('.chrome-source')
+    const statusEl = target.querySelector('.publish-status')
+    expect(source).not.toBeNull()
+    expect(statusEl).not.toBeNull()
+    expect(
+      (source as HTMLElement).compareDocumentPosition(statusEl as HTMLElement) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+    expect(target.querySelector('.actions-publish .discard-draft')).toBeNull()
 
     const status = () => target.querySelector('.publish-status')
     expect(status()?.textContent?.trim()).toBe('')
@@ -156,7 +167,8 @@ describe('App chrome', () => {
 
     expect(status()?.textContent?.trim()).toBe('Draft')
     expect(status()?.classList.contains('dirty')).toBe(true)
-    expect(target.querySelector('.discard-draft')).toBeInstanceOf(HTMLButtonElement)
+    expect(target.querySelector('.chrome-draft .discard-draft')).toBeInstanceOf(HTMLButtonElement)
+    expect(target.querySelector('.actions-publish .discard-draft')).toBeNull()
     expect(target.querySelector('.layer-slot.unpublished')?.getAttribute('title')).toBe('Was &kp A')
   })
 
