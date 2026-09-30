@@ -117,6 +117,19 @@
   >
     <div class="chrome-lane chrome-zmk" aria-label="ZMK keymap">
       <span class="lane-label" title="ZMK keymap: source, edit history, and publish">ZMK</span>
+      {#if editor.draftKeymap}
+        <span
+          class="publish-status chrome-status"
+          class:dirty={editor.isDirty}
+          class:clean={!editor.isDirty}
+          aria-live="polite"
+          aria-label={editor.statusText}
+          title={editor.statusText}
+        >
+          <span class="status-dot" aria-hidden="true"></span>
+          {#if editor.isDirty}Draft{/if}
+        </span>
+      {/if}
       <div class="chrome-group chrome-source">
         <KeyboardPicker
           onSelect={event => {
@@ -157,35 +170,22 @@
       {/if}
 
       <div class="chrome-group actions-publish">
-        {#if editor.draftKeymap}
-          <div class="change-status">
-            <span
-              class="publish-status chrome-status"
-              class:dirty={editor.isDirty}
-              class:clean={!editor.isDirty}
-              title={editor.statusText}
-            >
-              <span class="status-dot" aria-hidden="true"></span>
-              {editor.isDirty ? 'Draft' : 'Up to date'}
-            </span>
-            {#if editor.isDirty}
-              <button
-                type="button"
-                class="discard-draft"
-                title="Revert all unpublished edits to the last loaded keymap"
-                disabled={editor.saving}
-                onclick={() => {
-                  const ok = window.confirm(
-                    'Discard all unpublished edits and restore the last loaded keymap?\n\nThis cannot be undone with Undo.'
-                  )
-                  if (!ok) return
-                  void editor.discardDraft()
-                }}
-              >
-                Discard draft
-              </button>
-            {/if}
-          </div>
+        {#if editor.isDirty}
+          <button
+            type="button"
+            class="discard-draft"
+            title="Revert all unpublished edits to the last loaded keymap"
+            disabled={editor.saving}
+            onclick={() => {
+              const ok = window.confirm(
+                'Discard all unpublished edits and restore the last loaded keymap?\n\nThis cannot be undone with Undo.'
+              )
+              if (!ok) return
+              void editor.discardDraft()
+            }}
+          >
+            Discard draft
+          </button>
         {/if}
         {#if editor.source === 'local'}
           <button
@@ -412,17 +412,6 @@
     align-items: flex-start;
     gap: 8px;
     min-width: 0;
-  }
-
-  .change-status {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .publish-status {
-    min-width: 7.2em;
   }
 
   #actions button.discard-draft {

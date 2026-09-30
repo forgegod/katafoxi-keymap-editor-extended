@@ -39,7 +39,9 @@ describe('HostPipeline', () => {
     mountPipeline()
     const root = target.querySelector('.host-pipeline')
     expect(root?.getAttribute('data-host-dirty')).toBe('false')
-    expect(root?.textContent).toMatch(/Clean/)
+    const hostStatus = root?.querySelector('.chrome-status')
+    expect(hostStatus?.textContent?.trim()).toBe('')
+    expect(hostStatus?.getAttribute('title')).toBe('Clean')
     const buttons = [...target.querySelectorAll('button.download')] as HTMLButtonElement[]
     expect(buttons).toHaveLength(2)
     expect(buttons.every(button => button.disabled)).toBe(true)
@@ -53,7 +55,7 @@ describe('HostPipeline', () => {
 
     const root = target.querySelector('.host-pipeline')
     expect(root?.getAttribute('data-host-dirty')).toBe('true')
-    expect(root?.textContent).toMatch(/Changed/)
+    expect(root?.querySelector('.chrome-status')?.textContent?.trim()).toBe('Changed')
     const buttons = [...target.querySelectorAll('button.download')] as HTMLButtonElement[]
     expect(buttons.every(button => !button.disabled)).toBe(true)
     expect(editor.activeProfileId('en')).not.toBe(SYSTEM_US_LAYOUT_ID)

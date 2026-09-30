@@ -146,7 +146,8 @@ describe('App chrome', () => {
     await loadKeyboard(localSelection())
 
     const status = () => target.querySelector('.publish-status')
-    expect(status()?.textContent).toMatch(/Up to date/)
+    expect(status()?.textContent?.trim()).toBe('')
+    expect(status()?.getAttribute('title')).toMatch(/Up to date/)
     expect(target.querySelector('.discard-draft')).toBeNull()
     expect(target.querySelector('.change-list')).toBeNull()
 
@@ -183,7 +184,8 @@ describe('App chrome', () => {
 
     expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('A')
     expect(editor.isDirty).toBe(false)
-    expect(target.querySelector('.publish-status')?.textContent).toMatch(/Up to date/)
+    expect(target.querySelector('.publish-status')?.textContent?.trim()).toBe('')
+    expect(target.querySelector('.publish-status')?.getAttribute('title')).toMatch(/Up to date/)
     expect(target.querySelector('.discard-draft')).toBeNull()
     expect(target.querySelector('.layer-slot.unpublished')).toBeNull()
   })
@@ -266,6 +268,6 @@ describe('App chrome', () => {
 
     await loadKeyboard(localSelection('A', 'other'))
     expect(target.querySelector('.layer-slot.unpublished')).toBeNull()
-    expect(target.querySelector('.publish-status')?.textContent).toMatch(/Up to date/)
+    expect(target.querySelector('.publish-status')?.getAttribute('title')).toMatch(/Up to date/)
   })
 })

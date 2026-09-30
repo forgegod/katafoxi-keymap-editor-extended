@@ -199,9 +199,16 @@
   title="Host layout: install results on the OS"
 >
   <span class="lane-label" title="Host layout: install results on the OS">Host</span>
-  <span class="chrome-status" class:dirty class:clean={!dirty} aria-live="polite">
+  <span
+    class="chrome-status"
+    class:dirty
+    class:clean={!dirty}
+    aria-live="polite"
+    aria-label={status}
+    title={status}
+  >
     <span class="status-dot" aria-hidden="true"></span>
-    {status}
+    {#if dirty}Changed{/if}
   </span>
 
   <button
@@ -547,10 +554,6 @@
     margin: 0;
     color: #555;
     font-size: 13px;
-  }
-
-  .chrome-status {
-    min-width: 5.6em;
   }
 
   .download {
