@@ -77,4 +77,56 @@ describe('HostLegendView', () => {
     expect(editor.multilangView).toBe(true)
     expect(stack.getAttribute('aria-pressed')).toBe('true')
   })
+
+  it('shows a quiet empty-row control under symbol differences when the top row is blank', () => {
+    editor.layout = [
+      { x: 0, y: 0, row: 0 },
+      { x: 1, y: 0, row: 0 },
+      { x: 0, y: 1, row: 1 }
+    ]
+    editor.draftKeymap = {
+      layers: [
+        [
+          { value: '&none', params: [] },
+          { value: '&none', params: [] },
+          { value: '&kp', params: [{ value: 'A', params: [] }] }
+        ]
+      ]
+    }
+    mountView()
+
+    const modes = [...target.querySelectorAll('.view-toggle')]
+    const empty = target.querySelector('.empty-row')
+    if (!(empty instanceof HTMLButtonElement)) throw new Error('missing empty row')
+    expect(modes[1]?.nextElementSibling).toBe(empty)
+    expect(empty.getAttribute('aria-label')).toBe('Show empty row')
+    expect(empty.querySelector('br')).toBeTruthy()
+    expect(empty.textContent).toBe('Showempty row')
+    expect(empty.getAttribute('aria-expanded')).toBe('false')
+    expect(empty.classList.contains('view-toggle')).toBe(false)
+
+    empty.click()
+    flushSync()
+    expect(editor.revealEmptyRow).toBe(true)
+    expect(empty.getAttribute('aria-label')).toBe('Hide empty row')
+    expect(empty.textContent).toBe('Hideempty row')
+    expect(empty.getAttribute('aria-expanded')).toBe('true')
+  })
+
+  it('hides the empty-row control when the top row has a binding', () => {
+    editor.layout = [
+      { x: 0, y: 0, row: 0 },
+      { x: 0, y: 1, row: 1 }
+    ]
+    editor.draftKeymap = {
+      layers: [
+        [
+          { value: '&kp', params: [{ value: 'ESC', params: [] }] },
+          { value: '&none', params: [] }
+        ]
+      ]
+    }
+    mountView()
+    expect(target.querySelector('.empty-row')).toBeNull()
+  })
 })

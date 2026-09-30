@@ -261,6 +261,11 @@ export class EditorState {
    * Not stored with the legend view or the layer view.
    */
   multilangView = $state(false)
+  /**
+   * Session toggle. When the physical top row is blank on every layer, the
+   * board hides it until this is on. Not stored with the keymap.
+   */
+  revealEmptyRow = $state(false)
   /** Which firmware layers are drawn on the keycap. */
   layerView = $state<LayerView>(standardLayerView())
   userLayouts = $state<UserHostLayout[]>([])
@@ -1287,6 +1292,7 @@ export class EditorState {
     this.source = event.source ?? null
     this.githubMeta = event.github ?? null
     this.layout = event.layout ?? null
+    this.revealEmptyRow = false
     const km = event.keymap ?? null
     if (!km) {
       this.baselineKeymap = null
@@ -1480,6 +1486,7 @@ export class EditorState {
     this.draftKeymap = null
     this.clearHistory()
     this.saving = false
+    this.revealEmptyRow = false
     this.saveNotice = null
   }
 
@@ -1504,6 +1511,7 @@ export class EditorState {
     this.hostLayoutRevision = 0
     this.symbolAlignOn = true
     this.multilangView = false
+    this.revealEmptyRow = false
     this.layerView = standardLayerView()
     this.userLayouts = []
     this.hostProfilePrompt = null

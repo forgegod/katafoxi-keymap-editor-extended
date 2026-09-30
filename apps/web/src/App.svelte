@@ -262,6 +262,7 @@
         hostView={editor.hostLegend}
         layerView={editor.layerView}
         legendHover={editor.legendHover}
+        revealEmptyRow={editor.revealEmptyRow}
       />
     {/if}
   </div>

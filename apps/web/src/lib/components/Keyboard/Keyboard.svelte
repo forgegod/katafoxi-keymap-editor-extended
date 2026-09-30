@@ -1,7 +1,6 @@
 <script lang="ts">
   import {
     collectUsedKeycodes,
-    isBlankLayerBinding,
     layerLegendSymbol,
     usedKeycodesRevision,
     type HostLegendView,
@@ -11,6 +10,7 @@
     type LayoutKey,
     type ParsedKeymap
   } from '@keymap-editor/keymap-core'
+  import { blankTopRowIndexes } from '../../blank-top-row'
   import {
     getDefinitionsContext,
     setSearchContext,
@@ -28,6 +28,8 @@
     hostView?: HostLegendView
     layerView?: LayerView
     legendHover?: LegendHover | null
+    /** When the top row is blank, false hides it. The legend column owns the toggle. */
+    revealEmptyRow?: boolean
   }
 
   let {
@@ -36,7 +38,8 @@
     onUpdate,
     hostView,
     layerView,
-    legendHover = null
+    legendHover = null,
+    revealEmptyRow = false
   }: Props = $props()
 
   const definitionsBox = getDefinitionsContext()
@@ -75,23 +78,9 @@
       (keymap?.layers?.length ?? 0) > 0
   )
 
-  const topRowIndexes = $derived(topRowKeyIndexes(layout))
-
-  const topRowEmpty = $derived.by(() => {
-    if (topRowIndexes.length === 0) return false
-    const layers = keymap.layers ?? []
-    if (layers.length === 0) return false
-    return topRowIndexes.every(index =>
-      layers.every(layer =>
-        isBlankLayerBinding(layer[index] ?? { value: '&none', params: [] })
-      )
-    )
-  })
-
-  let revealEmptyRow = $state(false)
-  const collapsedTopRow = $derived(topRowEmpty && !revealEmptyRow)
+  const blankTopRow = $derived(blankTopRowIndexes(layout, keymap.layers ?? []))
   const hiddenKeys = $derived(
-    collapsedTopRow ? new Set(topRowIndexes) : new Set<number>()
+    !revealEmptyRow && blankTopRow.length > 0 ? new Set(blankTopRow) : new Set<number>()
   )
 
   const bounds = $derived.by(() => {
@@ -126,11 +115,9 @@
   })
 
   let stageEl: HTMLDivElement | undefined = $state()
-  let toggleEl: HTMLButtonElement | undefined = $state()
   let marksEl: HTMLDivElement | undefined = $state()
   let stageW = $state(0)
   let stageH = $state(0)
-  let toggleH = $state(0)
   let marksH = $state(0)
 
   $effect(() => {
@@ -142,22 +129,6 @@
       stageW = box.width
       stageH = box.height
     })
-    observer.observe(el)
-    return () => observer.disconnect()
-  })
-
-  $effect(() => {
-    const el = toggleEl
-    if (!el || typeof ResizeObserver === 'undefined') {
-      toggleH = 0
-      return
-    }
-    const measure = () => {
-      const margin = parseFloat(getComputedStyle(el).marginBottom) || 0
-      toggleH = el.offsetHeight + margin
-    }
-    measure()
-    const observer = new ResizeObserver(measure)
     observer.observe(el)
     return () => observer.disconnect()
   })
@@ -180,7 +151,7 @@
 
   const scale = $derived.by(() => {
     if (bounds.width <= 0 || bounds.height <= 0) return 1
-    const availH = stageH - toggleH - marksH
+    const availH = stageH - marksH
     if (stageW < 8 || availH < 8) return 1
     return Math.min(stageW / bounds.width, availH / bounds.height)
   })
@@ -191,21 +162,6 @@
   const canvasStyle = $derived(
     `width:${bounds.width}px;height:${bounds.height}px;transform-origin:0 0;transform:scale(${scale}) translate(${-bounds.minX}px,${-bounds.minY}px)`
   )
-
-  function topRowKeyIndexes(keys: LayoutKey[]): number[] {
-    if (keys.length < 2) return []
-    const rows = keys.map(key => key.row)
-    let indexes: number[]
-    if (rows.every(row => typeof row === 'number')) {
-      const top = Math.min(...(rows as number[]))
-      indexes = keys.flatMap((key, index) => (key.row === top ? [index] : []))
-    } else {
-      const minY = Math.min(...keys.map(key => key.y))
-      indexes = keys.flatMap((key, index) => (Math.abs(key.y - minY) < 0.05 ? [index] : []))
-    }
-    if (indexes.length === 0 || indexes.length === keys.length) return []
-    return indexes
-  }
 
   function handleUpdateLayer(
     layerIndex: number,
@@ -238,17 +194,6 @@
 
 <div class="keyboard-root">
   <div class="keyboard-stage" bind:this={stageEl}>
-    {#if topRowEmpty}
-      <button
-        type="button"
-        class="empty-row-toggle"
-        bind:this={toggleEl}
-        aria-expanded={revealEmptyRow}
-        onclick={() => (revealEmptyRow = !revealEmptyRow)}
-      >
-        {revealEmptyRow ? 'Hide empty row' : 'Show empty row'}
-      </button>
-    {/if}
     <div class="align-key-slot" bind:this={marksEl}>
       <SymbolAlignKey />
     </div>
@@ -292,27 +237,6 @@
     background: var(--stage-bg, #e4e7eb);
   }
 
-  .empty-row-toggle {
-    flex: none;
-    align-self: stretch;
-    height: 24px;
-    margin: 0 0 4px;
-    padding: 0 12px;
-    border: 1px dashed #c8c8c8;
-    border-radius: 6px;
-    background: transparent;
-    color: #777;
-    font: inherit;
-    font-size: 13px;
-    cursor: pointer;
-  }
-
-  .empty-row-toggle:hover {
-    border-color: var(--selection);
-    color: #333;
-    background: rgba(60, 179, 113, 0.08);
-  }
-
   .align-key-slot {
     flex: none;
     align-self: flex-start;
@@ -321,7 +245,7 @@
   .keyboard-fit {
     position: relative;
     flex: none;
-    /* The canvas is translated up to the first key; clip so that shift cannot cover the toggle. */
+    /* The canvas is translated up to the first key; clip so that shift stays inside the stage. */
     overflow: hidden;
   }
 

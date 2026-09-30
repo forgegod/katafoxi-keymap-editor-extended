@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { blankTopRowIndexes } from '../blank-top-row'
   import { editor } from '../editor.svelte.js'
   import stackLanguagesIcon from '../assets/stack-languages.png'
   import symbolDifferencesIcon from '../assets/symbol-differences.png'
@@ -7,6 +8,12 @@
   const stacked = $derived(editor.multilangViewOn)
   const canAlign = $derived(editor.canAlignHostSymbols)
   const marksOn = $derived(canAlign && editor.symbolAlignOn)
+  const topRowEmpty = $derived(
+    blankTopRowIndexes(editor.layout ?? [], editor.draftKeymap?.layers ?? []).length > 0
+  )
+  const emptyRowLabel = $derived(
+    editor.revealEmptyRow ? 'Hide empty row' : 'Show empty row'
+  )
 
   const stackTitle = $derived(
     canStack
@@ -49,6 +56,23 @@
     <img src={symbolDifferencesIcon} alt="" width="18" height="18" />
     <span class="view-label">Symbol<br />differences</span>
   </button>
+
+  {#if topRowEmpty}
+    <button
+      type="button"
+      class="empty-row"
+      aria-expanded={editor.revealEmptyRow}
+      aria-label={emptyRowLabel}
+      title={emptyRowLabel}
+      onclick={() => (editor.revealEmptyRow = !editor.revealEmptyRow)}
+    >
+      {#if editor.revealEmptyRow}
+        Hide<br />empty row
+      {:else}
+        Show<br />empty row
+      {/if}
+    </button>
+  {/if}
 </div>
 
 <style>
@@ -109,5 +133,28 @@
     font-weight: 600;
     line-height: 1.15;
     text-align: center;
+  }
+
+  .empty-row {
+    box-sizing: border-box;
+    width: 4.7rem;
+    margin: 0;
+    padding: 2px 3px 3px;
+    border: 1px dashed #c4c4c4;
+    border-radius: 6px;
+    background: transparent;
+    color: #777;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.15;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  .empty-row:hover {
+    border-color: #1d6f8a;
+    color: #333;
+    background: #fff;
   }
 </style>
