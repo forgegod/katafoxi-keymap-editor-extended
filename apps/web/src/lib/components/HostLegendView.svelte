@@ -123,13 +123,13 @@
   }
 
   .moved {
-    border-bottom: 2px solid #c47b00;
+    border-bottom: 1px solid #c47b00;
   }
 
   .win {
     padding: 0 3px;
     border-radius: 3px;
-    box-shadow: inset 0 0 0 1.5px #b42318;
+    box-shadow: inset 0 0 0 1px #b42318;
     color: #9a3412;
   }
 </style>
