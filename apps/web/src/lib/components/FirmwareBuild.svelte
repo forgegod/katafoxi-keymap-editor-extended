@@ -163,7 +163,7 @@
     align-items: center;
     gap: 6px;
     box-sizing: border-box;
-    height: 26px;
+    height: var(--chrome-h);
     padding: 0 6px;
     border: 1px solid var(--border);
     border-radius: 5px;
@@ -190,7 +190,7 @@
 
   .when {
     font-size: var(--font-xs);
-    opacity: 0.95;
+    color: var(--text-muted);
   }
 
   .mark,
@@ -212,14 +212,22 @@
     height: 14px;
   }
 
+  /* Quiet wash while an archive is ready — solid green stays on Commit. */
   .downloadable {
-    background: var(--info);
-    color: var(--on-accent);
-    border-color: transparent;
+    background: color-mix(in srgb, var(--info) 12%, var(--surface));
+    color: var(--info-strong);
+    border-color: var(--info);
+  }
+
+  .downloadable .when {
+    color: inherit;
+    opacity: 0.85;
   }
 
   a.downloadable:hover {
-    background: var(--info-strong);
+    background: var(--surface);
+    border-color: var(--info-strong);
+    color: var(--info-strong);
   }
 
   .failure,

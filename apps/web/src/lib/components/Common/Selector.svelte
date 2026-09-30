@@ -78,14 +78,14 @@
     display: block;
     white-space: nowrap;
     box-sizing: border-box;
-    height: 26px;
-    min-height: 26px;
+    height: var(--chrome-h);
+    min-height: var(--chrome-h);
     padding: 0 1.5rem 0 6px;
     border: 1px solid transparent;
     font-family: Quicksand, avenir, sans-serif;
     font-size: var(--font-md);
     font-weight: 500;
-    line-height: 24px;
+    line-height: calc(var(--chrome-h) - 2px);
   }
 
   :global(#app-root) .control select {
@@ -96,7 +96,7 @@
     min-width: 0;
     max-width: none;
     font-size: var(--font-md);
-    line-height: 24px;
+    line-height: calc(var(--chrome-h) - 2px);
     appearance: none;
     padding-right: 1.5rem;
     background-color: var(--surface);

@@ -147,7 +147,7 @@
   .local-source {
     display: inline-flex;
     align-items: center;
-    height: 26px;
+    height: var(--chrome-h);
     color: var(--text);
     font-size: var(--font-md);
   }

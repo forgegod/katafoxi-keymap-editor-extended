@@ -292,7 +292,7 @@
     position: absolute;
     background: var(--border-soft);
     width: 1px;
-    height: 26px;
+    height: var(--chrome-h);
     left: -10px;
     bottom: 0;
   }
@@ -335,22 +335,22 @@
   }
 
   #actions button.history {
-    width: 26px;
-    height: 26px;
+    width: var(--chrome-h);
+    height: var(--chrome-h);
     padding: 0;
     margin: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: transparent;
+    background: var(--surface);
     color: var(--text);
-    border-color: transparent;
+    border-color: var(--border);
   }
 
   #actions button.history:hover:not(:disabled) {
     background: var(--surface-sunken);
-    color: var(--text-strong);
-    border-color: var(--border-subtle);
+    color: var(--accent);
+    border-color: var(--accent);
   }
 
   #actions button.history svg {
@@ -364,9 +364,9 @@
   }
 
   #actions button.history:disabled {
-    background: transparent;
+    background: var(--surface-sunken);
     color: var(--text-ghost);
-    border-color: transparent;
+    border-color: var(--border-subtle);
   }
 
   #actions button.primary.ready {
@@ -426,7 +426,7 @@
     border: 1px solid var(--danger-border);
     border-radius: 5px;
     box-sizing: border-box;
-    height: 26px;
+    height: var(--chrome-h);
     padding: 0 8px;
     margin: 0;
     font: inherit;

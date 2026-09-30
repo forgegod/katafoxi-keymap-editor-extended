@@ -477,7 +477,7 @@
     align-items: center;
     gap: 5px;
     box-sizing: border-box;
-    height: 26px;
+    height: var(--chrome-h);
     margin: 0;
     padding: 0 8px 0 6px;
     border: 1px solid var(--border);
