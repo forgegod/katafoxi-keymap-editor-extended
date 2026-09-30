@@ -12,7 +12,6 @@
   import GitHubLink from './lib/components/GitHubLink.svelte'
   import HostLegendPicker from './lib/components/HostLegendPicker.svelte'
   import HostLegendView from './lib/components/HostLegendView.svelte'
-  import HostSymbolCatalog from './lib/components/HostSymbolCatalog.svelte'
   import HostPipeline from './lib/components/HostPipeline.svelte'
   import Loader from './lib/components/Common/Loader.svelte'
   import github from './lib/github/api.svelte.js'
@@ -251,7 +250,6 @@
           <HostLegendView />
           <HostLegendPicker />
         </div>
-        <HostSymbolCatalog />
       </div>
     {/if}
     {#if editor.definitions && editor.layout && editor.draftKeymap}

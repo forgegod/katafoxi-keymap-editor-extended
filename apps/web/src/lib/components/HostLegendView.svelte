@@ -33,28 +33,22 @@
     onclick={() => (editor.multilangView = !editor.multilangView)}
   >
     <img src={stackLanguagesIcon} alt="" width="18" height="18" />
+    <span class="view-label">Stack<br />languages</span>
   </button>
 
-  <div class="marks-block">
-    <button
-      type="button"
-      class="view-toggle"
-      class:on={marksOn}
-      aria-pressed={marksOn}
-      aria-label="Highlight symbol differences"
-      title={alignTitle}
-      disabled={!canAlign}
-      onclick={() => (editor.symbolAlignOn = !editor.symbolAlignOn)}
-    >
-      <img src={symbolDifferencesIcon} alt="" width="18" height="18" />
-    </button>
-    {#if marksOn}
-      <span class="marks">
-        <span class="moved" title="A symbol that sits on a different key.">position</span>
-        <span class="win" title="Windows keeps AltGr or AltGr+Shift from the other language and drops this one.">Win AltGr</span>
-      </span>
-    {/if}
-  </div>
+  <button
+    type="button"
+    class="view-toggle"
+    class:on={marksOn}
+    aria-pressed={marksOn}
+    aria-label="Highlight symbol differences"
+    title={alignTitle}
+    disabled={!canAlign}
+    onclick={() => (editor.symbolAlignOn = !editor.symbolAlignOn)}
+  >
+    <img src={symbolDifferencesIcon} alt="" width="18" height="18" />
+    <span class="view-label">Symbol<br />differences</span>
+  </button>
 </div>
 
 <style>
@@ -62,29 +56,25 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 6px;
+    gap: 8px;
     padding-top: 6px;
-  }
-
-  .marks-block {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 3px;
   }
 
   .view-toggle {
     box-sizing: border-box;
     display: inline-flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
+    justify-content: flex-start;
+    gap: 3px;
+    width: 4.7rem;
     margin: 0;
-    padding: 0;
+    padding: 4px 2px 5px;
     border: 1px solid #c4c4c4;
     border-radius: 6px;
     background: #f3f3f3;
+    color: #444;
+    font: inherit;
     cursor: pointer;
   }
 
@@ -96,12 +86,14 @@
   .view-toggle.on {
     background: #fff;
     border: 2px solid #1d6f8a;
+    color: #1d6f8a;
   }
 
   .view-toggle.pale,
   .view-toggle:disabled {
     background: #f3f3f3;
     border-color: #e4e4e4;
+    color: #888;
     opacity: 0.45;
     cursor: default;
   }
@@ -112,24 +104,10 @@
     height: 18px;
   }
 
-  .marks {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-    color: #555;
-    font-size: 11px;
-    line-height: 1.2;
-  }
-
-  .moved {
-    border-bottom: 1px solid #c47b00;
-  }
-
-  .win {
-    padding: 0 3px;
-    border-radius: 3px;
-    box-shadow: inset 0 0 0 1px #b42318;
-    color: #9a3412;
+  .view-label {
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.15;
+    text-align: center;
   }
 </style>

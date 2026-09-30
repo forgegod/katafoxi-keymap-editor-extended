@@ -68,7 +68,7 @@
 {/if}
 
 <style>
-  /* One flex item in host-legend-wrap so opening the picker does not shift Ω. */
+  /* Opening the picker must not shift Ω along the language row. */
   .catalog-chrome {
     position: relative;
     flex-shrink: 0;
@@ -88,7 +88,7 @@
     justify-content: center;
     width: 28px;
     height: 28px;
-    margin: 4px 8px 0 0;
+    margin: 2px 0 0;
     padding: 0;
     border: 1px solid #ccc;
     border-radius: 8px;

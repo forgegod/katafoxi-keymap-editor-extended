@@ -18,6 +18,7 @@
   } from '../../context'
   import { buildSearchContext } from '../../search-context'
   import { getKeyBoundingBox } from '../../key-units'
+  import SymbolAlignKey from '../SymbolAlignKey.svelte'
   import KeyboardLayout from './KeyboardLayout.svelte'
 
   interface Props {
@@ -126,9 +127,11 @@
 
   let stageEl: HTMLDivElement | undefined = $state()
   let toggleEl: HTMLButtonElement | undefined = $state()
+  let marksEl: HTMLDivElement | undefined = $state()
   let stageW = $state(0)
   let stageH = $state(0)
   let toggleH = $state(0)
+  let marksH = $state(0)
 
   $effect(() => {
     const el = stageEl
@@ -159,9 +162,25 @@
     return () => observer.disconnect()
   })
 
+  $effect(() => {
+    const el = marksEl
+    if (!el || typeof ResizeObserver === 'undefined') {
+      marksH = 0
+      return
+    }
+    const measure = () => {
+      const margin = parseFloat(getComputedStyle(el).marginBottom) || 0
+      marksH = el.offsetHeight + margin
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  })
+
   const scale = $derived.by(() => {
     if (bounds.width <= 0 || bounds.height <= 0) return 1
-    const availH = stageH - toggleH
+    const availH = stageH - toggleH - marksH
     if (stageW < 8 || availH < 8) return 1
     return Math.min(stageW / bounds.width, availH / bounds.height)
   })
@@ -230,6 +249,9 @@
         {revealEmptyRow ? 'Hide empty row' : 'Show empty row'}
       </button>
     {/if}
+    <div class="align-key-slot" bind:this={marksEl}>
+      <SymbolAlignKey />
+    </div>
     <div class="keyboard-fit" style={fitStyle}>
       <div class="keyboard-canvas" style={canvasStyle}>
         {#if isReady}
@@ -289,6 +311,11 @@
     border-color: var(--selection);
     color: #333;
     background: rgba(60, 179, 113, 0.08);
+  }
+
+  .align-key-slot {
+    flex: none;
+    align-self: flex-start;
   }
 
   .keyboard-fit {

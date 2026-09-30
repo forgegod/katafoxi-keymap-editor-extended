@@ -46,9 +46,11 @@ describe('HostLegendView', () => {
       'Highlight symbol differences. Open a second host language first.'
     )
     expect(target.querySelector('.moved')).toBeNull()
+    expect(stack.querySelector('.view-label')?.textContent).toBe('Stacklanguages')
+    expect(highlight.querySelector('.view-label')?.textContent).toBe('Symboldifferences')
   })
 
-  it('shows mark hints under the differences button once a second language is open', () => {
+  it('labels both modes and leaves the difference key off this column', () => {
     editor.hostLegend = addHostLanguage(editor.hostLegend, 'ru')
     editor.symbolAlignOn = true
     mountView()
@@ -56,12 +58,9 @@ describe('HostLegendView', () => {
     const highlight = button('Highlight symbol differences')
     expect(highlight.disabled).toBe(false)
     expect(highlight.title).toBe('Highlight symbol differences')
-    expect(target.querySelector('.moved')?.getAttribute('title')).toBe(
-      'A symbol that sits on a different key.'
-    )
-    expect(target.querySelector('.win')?.getAttribute('title')).toBe(
-      'Windows keeps AltGr or AltGr+Shift from the other language and drops this one.'
-    )
+    expect(highlight.querySelector('.view-label')?.textContent).toBe('Symboldifferences')
+    expect(target.querySelector('.moved')).toBeNull()
+    expect(target.querySelector('.win')).toBeNull()
     expect(button('Stack languages').disabled).toBe(true)
   })
 

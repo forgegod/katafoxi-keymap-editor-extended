@@ -7,6 +7,7 @@
   import { editor, hostLegendAnchorIndex } from '../editor.svelte.js'
   import HostAssemblyBar from './HostAssemblyBar.svelte'
   import HostLegendLanguageHead from './HostLegendLanguageHead.svelte'
+  import HostSymbolCatalog from './HostSymbolCatalog.svelte'
   import HostLegendLayerRow, {
     type HostLegendLayerRowModel
   } from './HostLegendLayerRow.svelte'
@@ -132,6 +133,7 @@
 
 {#snippet legendTable(rows: HostLegendLayerRowModel[], interactive: boolean)}
   <HostAssemblyBar />
+  <div class="legend-table-row">
   <table>
     <thead>
       <tr>
@@ -199,6 +201,10 @@
       </tfoot>
     {/if}
   </table>
+  {#if interactive}
+    <HostSymbolCatalog />
+  {/if}
+  </div>
 {/snippet}
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -266,6 +272,12 @@
 
   .host-legend-strip.expanded .legend-panel {
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+  }
+
+  .legend-table-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
   }
 
   table {
