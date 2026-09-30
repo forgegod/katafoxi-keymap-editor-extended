@@ -73,7 +73,7 @@ describe('HostPipeline', () => {
   })
 
   it('opens a Linux install dialog with copy/download actions', async () => {
-    const createObjectURL = vi.fn(() => 'blob:host-test')
+    const createObjectURL = vi.fn((_blob: Blob) => 'blob:host-test')
     const revokeObjectURL = vi.fn()
     vi.stubGlobal('URL', {
       ...URL,
@@ -174,7 +174,7 @@ describe('HostPipeline', () => {
   })
 
   it('explains a Caps Lock alphabet and downloads that .klc when another language is shown', async () => {
-    const createObjectURL = vi.fn(() => 'blob:caps-klc')
+    const createObjectURL = vi.fn((_blob: Blob) => 'blob:caps-klc')
     const revokeObjectURL = vi.fn()
     vi.stubGlobal('URL', {
       ...URL,
