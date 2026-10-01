@@ -3,8 +3,27 @@ import {
   buildChoiceLabeler,
   catalogChoiceTooltip,
   displayChoiceLabel,
+  keycodeGlyphLabel,
   representativeLabel
 } from './keycode-labels.js'
+
+describe('keycodeGlyphLabel', () => {
+  it('maps US shift aliases and HID punctuation to one glyph', () => {
+    expect(keycodeGlyphLabel('PRCNT')).toBe('%')
+    expect(keycodeGlyphLabel('HASH')).toBe('#')
+    expect(keycodeGlyphLabel('DLLR')).toBe('$')
+    expect(keycodeGlyphLabel('CARET')).toBe('^')
+    expect(keycodeGlyphLabel('AMPS')).toBe('&')
+    expect(keycodeGlyphLabel('STAR')).toBe('*')
+    expect(keycodeGlyphLabel('MINUS')).toBe('-')
+    expect(keycodeGlyphLabel('KC_EQUAL')).toBe('=')
+  })
+
+  it('leaves number-row bases and unknown codes alone', () => {
+    expect(keycodeGlyphLabel('N5')).toBeNull()
+    expect(keycodeGlyphLabel('A')).toBeNull()
+  })
+})
 
 describe('representativeLabel', () => {
   it('prefers a symbol over the raw code', () => {

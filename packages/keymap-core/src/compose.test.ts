@@ -698,6 +698,26 @@ describe('keycapLegend', () => {
     expect(keycapLegend('KP_MULTIPLY', '*')).toBe('*')
   })
 
+  it('uses single glyphs for US shift aliases and HID punctuation', () => {
+    expect(keycapLegend('HASH')).toBe('#')
+    expect(keycapLegend('DLLR')).toBe('$')
+    expect(keycapLegend('PRCNT')).toBe('%')
+    expect(keycapLegend('CARET')).toBe('^')
+    expect(keycapLegend('AMPS')).toBe('&')
+    expect(keycapLegend('ASTRK')).toBe('*')
+    expect(keycapLegend('STAR')).toBe('*')
+    expect(keycapLegend('EXCL')).toBe('!')
+    expect(keycapLegend('AT')).toBe('@')
+    expect(keycapLegend('LPAR')).toBe('(')
+    expect(keycapLegend('RPAR')).toBe(')')
+    expect(keycapLegend('UNDER')).toBe('_')
+    expect(keycapLegend('PLUS')).toBe('+')
+    expect(keycapLegend('MINUS')).toBe('-')
+    expect(keycapLegend('EQUAL')).toBe('=')
+    // Number-row bases stay digits when the catalog supplies them.
+    expect(keycapLegend('N5', '5')).toBe('5')
+  })
+
   it('uses edit_key compact glyphs when the catalog symbol is the code name', () => {
     // normalizeZmkKeycodes fills missing JSON symbols with the shortest alias.
     expect(keycapLegend('KP_COMMA', 'KP_COMMA')).toBe(',')
