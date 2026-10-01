@@ -380,17 +380,19 @@ export function bandCatalogChoices(choices: CatalogChoice[]): ValueBand[] {
   }
   const bands = BAND_ORDER.filter(kind => buckets[kind].length > 0).map(kind => {
     const items = sortBand(kind, buckets[kind])
-    if (kind !== 'nav') return { kind, items }
-    return splitNavRows(items)
+    if (kind === 'nav') return splitNavRows(items)
+    if (kind === 'function') return splitFunctionRows(items)
+    if (kind === 'media') return splitMediaRows(items)
+    return { kind, items }
   })
   if (choices.length === 0 || !choices.every(isKeypadGroupChoice)) return bands
 
-  const items = bands.flatMap(band => [
+  const flat = bands.flatMap(band => [
     ...band.items,
     ...(band.extraRows ?? []).flat()
   ])
-  if (items.length === 0) return bands
-  return [{ kind: 'punct', items: sortKeypadOpsRow(items) }]
+  if (flat.length === 0) return bands
+  return [{ kind: 'punct', items: sortKeypadOpsRow(flat) }]
 }
 
 function splitNavRows(sorted: CatalogChoice[]): ValueBand {
@@ -403,6 +405,43 @@ function splitNavRows(sorted: CatalogChoice[]): ValueBand {
   if (row2.length === 0) return { kind: 'nav', items: row1 }
   if (row1.length === 0) return { kind: 'nav', items: row2 }
   return { kind: 'nav', items: row1, extraRows: [row2] }
+}
+
+/** F1–F12 on the main row; F13–F24 wait behind a disclosure in the UI. */
+function splitFunctionRows(sorted: CatalogChoice[]): ValueBand {
+  const main: CatalogChoice[] = []
+  const more: CatalogChoice[] = []
+  for (const item of sorted) {
+    if (functionKeyNumber(item) > 12) more.push(item)
+    else main.push(item)
+  }
+  if (more.length === 0) return { kind: 'function', items: main }
+  if (main.length === 0) return { kind: 'function', items: more }
+  return { kind: 'function', items: main, extraRows: [more] }
+}
+
+/** Linux/Android mute/volume *2 duplicates sit on a secondary media row. */
+const MEDIA_SECONDARY_CODES = new Set([
+  'K_MUTE2',
+  'K_VOL_DN2',
+  'K_VOLUME_DOWN2',
+  'K_VOL_UP2',
+  'K_VOLUME_UP2'
+])
+
+function splitMediaRows(sorted: CatalogChoice[]): ValueBand {
+  const primary: CatalogChoice[] = []
+  const secondary: CatalogChoice[] = []
+  for (const item of sorted) {
+    if (MEDIA_SECONDARY_CODES.has(String(item.code ?? '').toUpperCase())) {
+      secondary.push(item)
+    } else {
+      primary.push(item)
+    }
+  }
+  if (secondary.length === 0) return { kind: 'media', items: primary }
+  if (primary.length === 0) return { kind: 'media', items: secondary }
+  return { kind: 'media', items: primary, extraRows: [secondary] }
 }
 
 function isKeypadGroupChoice(choice: CatalogChoice): boolean {

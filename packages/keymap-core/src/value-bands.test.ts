@@ -66,9 +66,11 @@ describe('bandCatalogChoices', () => {
       'codes'
     ])
     expect(bands.find(b => b.kind === 'function')?.items.map(i => i.code)).toEqual([
-      'F1',
-      'F24'
+      'F1'
     ])
+    expect(
+      bands.find(b => b.kind === 'function')?.extraRows?.map(row => row.map(i => i.code))
+    ).toEqual([['F24']])
     expect(bands.find(b => b.kind === 'shifted')?.items.map(i => i.code)).toEqual([
       'AMPS'
     ])
@@ -214,9 +216,11 @@ describe('bandCatalogChoices', () => {
     ])
     expect(bands.map(b => b.kind)).toEqual(['media', 'extras', 'codes'])
     expect(bands.find(b => b.kind === 'media')?.items.map(i => i.code)).toEqual([
-      'K_MUTE',
-      'K_MUTE2'
+      'K_MUTE'
     ])
+    expect(
+      bands.find(b => b.kind === 'media')?.extraRows?.map(row => row.map(i => i.code))
+    ).toEqual([['K_MUTE2']])
     expect(bands.find(b => b.kind === 'extras')?.items.map(i => i.code)).toEqual([
       'K_CALC'
     ])
@@ -272,6 +276,39 @@ describe('bandCatalogChoices', () => {
     expect(bands.find(b => b.kind === 'extras')?.items.map(i => i.code)).toEqual([
       'K_APP',
       'K_WWW'
+    ])
+  })
+
+  it('splits F13–F24 onto a secondary function row', () => {
+    const bands = bandCatalogChoices([
+      { code: 'F1' },
+      { code: 'F12' },
+      { code: 'F13' },
+      { code: 'F24' }
+    ])
+    expect(bands.map(b => b.kind)).toEqual(['function'])
+    expect(bands[0]?.items.map(i => i.code)).toEqual(['F1', 'F12'])
+    expect(bands[0]?.extraRows?.map(row => row.map(i => i.code))).toEqual([
+      ['F13', 'F24']
+    ])
+  })
+
+  it('puts Linux/Android mute-volume *2 on a secondary media row', () => {
+    const bands = bandCatalogChoices([
+      { code: 'K_MUTE2' },
+      { code: 'K_MUTE' },
+      { code: 'K_VOL_UP' },
+      { code: 'K_VOL_UP2' },
+      { code: 'K_PP' }
+    ])
+    expect(bands.map(b => b.kind)).toEqual(['media'])
+    expect(bands[0]?.items.map(i => i.code)).toEqual([
+      'K_MUTE',
+      'K_VOL_UP',
+      'K_PP'
+    ])
+    expect(bands[0]?.extraRows?.map(row => row.map(i => i.code))).toEqual([
+      ['K_MUTE2', 'K_VOL_UP2']
     ])
   })
 })
