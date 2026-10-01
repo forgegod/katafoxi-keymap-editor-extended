@@ -248,7 +248,7 @@
     }
     function onPointerDown(event: PointerEvent) {
       const target = event.target
-      if (target instanceof Element && target.closest('.host-symbol-picker, .catalog-toggle')) {
+      if (target instanceof Element && target.closest('.host-symbol-picker')) {
         return
       }
       if (target instanceof Node) {

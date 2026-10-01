@@ -206,11 +206,13 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    /* Sit under the legend tools; leftover height stays below the board. */
+    justify-content: flex-start;
     box-sizing: border-box;
     min-width: 0;
     min-height: 0;
-    padding: 8px 12px 24px;
+    /* Tight inset: no corner badge over the board, so no bottom clearance. */
+    padding: 4px 8px 8px;
     overflow: hidden;
     background: transparent;
   }

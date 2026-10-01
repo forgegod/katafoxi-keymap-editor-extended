@@ -2,7 +2,7 @@
   import type { HTMLButtonAttributes } from 'svelte/elements'
   import type { Snippet } from 'svelte'
 
-  /** Accent press-toggle: legend rail, catalog bar, AltGr column pills. */
+  /** Accent press-toggle: legend rail, AltGr column pills. */
   export type PressToggleDensity = 'rail' | 'bar' | 'pill'
 
   type Props = {
@@ -10,7 +10,7 @@
     pale?: boolean
     density?: PressToggleDensity
     class?: string
-    /** Bound HTML button when a parent needs an anchor (e.g. catalog popover). */
+    /** Bound HTML button when a parent needs the element (e.g. measure). */
     buttonEl?: HTMLButtonElement | undefined
     children?: Snippet
   } & Omit<HTMLButtonAttributes, 'class' | 'children' | 'aria-pressed'>

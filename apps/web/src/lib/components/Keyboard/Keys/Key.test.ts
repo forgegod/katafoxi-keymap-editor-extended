@@ -80,8 +80,7 @@ describe('Key click editor', () => {
     // Keep the portal inside the Svelte mount so delegated clicks reach the dialog.
     target.appendChild(modalRoot)
     catalogView = mount(HostSymbolCatalog, {
-      target,
-      props: { showToggle: false }
+      target
     })
   })
 

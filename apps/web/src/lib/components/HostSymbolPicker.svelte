@@ -165,7 +165,7 @@
 
   interface Props {
     language: HostLanguageId
-    /** Soft initial anchor (toggle button); ignored once geometry is saved. */
+    /** Soft initial anchor; ignored once geometry is saved. */
     anchorEl?: HTMLElement | null
     /** Test override; product path uses `editor.pickHostSymbol`. */
     onPick?: (text: string) => void

@@ -268,6 +268,8 @@
         </div>
       </div>
     {/if}
+
+    <GitHubLink />
   </div>
 
   <div class="board-stack">
@@ -284,13 +286,13 @@
     {/if}
   </div>
 </Loader>
-<GitHubLink />
 <!-- Inside the Svelte mount so portaled dialogs still receive delegated clicks. -->
 <div id="modal-root"></div>
 
 <style>
   /* Pipelines (white) + legend tools (stage) share one top band; not one chrome block. */
   .app-top {
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
@@ -363,7 +365,8 @@
     flex: 1 1 auto;
     min-width: 0;
     margin: 6px 8px 0 0;
-    padding: 0 4px 2px 12px;
+    /* Keep the trailing edge clear of the absolute repo link. */
+    padding: 0 calc(var(--chrome-h) + 12px) 2px 12px;
     box-sizing: border-box;
   }
 

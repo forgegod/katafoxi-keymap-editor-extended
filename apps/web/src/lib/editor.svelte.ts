@@ -313,10 +313,6 @@ export class EditorState {
     this.hostSymbolCatalogOpen = false
   }
 
-  toggleHostSymbolCatalog() {
-    this.hostSymbolCatalogOpen = !this.hostSymbolCatalogOpen
-  }
-
   closeHostSymbolCatalog() {
     this.hostSymbolCatalogOpen = false
   }

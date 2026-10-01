@@ -177,8 +177,7 @@ describe('LegendDecodeCard host symbol catalog', () => {
     modalRoot.id = 'modal-root'
     target.appendChild(modalRoot)
     catalogView = mount(HostSymbolCatalog, {
-      target,
-      props: { showToggle: false }
+      target
     })
   })
 

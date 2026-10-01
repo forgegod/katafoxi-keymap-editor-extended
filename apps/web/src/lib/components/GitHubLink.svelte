@@ -19,25 +19,29 @@
 </a>
 
 <style>
+  /* Lives in the top chrome band — never floats over the keyboard stage. */
   .github-link {
     position: absolute;
-    z-index: 4;
-    bottom: 5px;
-    left: 5px;
+    z-index: 6;
+    top: 6px;
+    right: 8px;
     display: inline-flex;
     align-items: center;
-    height: 30px;
+    height: var(--chrome-h);
     padding: 0;
-    border-radius: 15px;
+    border-radius: calc(var(--chrome-h) / 2);
     background-color: var(--surface);
     color: var(--accent);
     text-decoration: none;
     font-size: 110%;
+    border: 1px solid var(--border-soft);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--shade) 6%, transparent);
   }
 
   .github-link:hover,
   .github-link:focus-visible {
-    color: var(--accent);
+    color: var(--accent-strong);
+    border-color: var(--accent);
   }
 
   .github-link:focus-visible {
@@ -49,8 +53,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    width: var(--chrome-h);
+    height: var(--chrome-h);
     flex-shrink: 0;
   }
 
@@ -58,5 +62,4 @@
     width: 0.95em;
     height: 0.95em;
   }
-
 </style>
