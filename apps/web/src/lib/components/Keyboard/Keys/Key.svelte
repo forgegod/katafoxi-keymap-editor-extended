@@ -194,9 +194,12 @@
     // Alt+click: only entry into host-layout edit (locked card + catalog).
     if (event.altKey) {
       event.preventDefault()
-      if (!bindingHasHostEdit(session.bindingForLayer(fromLayer))) return
+      const binding = session.bindingForLayer(fromLayer)
+      if (!bindingHasHostEdit(binding)) return
       openDecode(fromLayer, event.currentTarget)
-      editor.beginHostEditSession(keyIndex, fromLayer)
+      const tap = resolveBinding(binding).tap
+      const zmk = tap ? hostKeyByZmk(tap)?.zmk : undefined
+      editor.beginHostEditSession(keyIndex, fromLayer, zmk)
       claimLegendDecode(keyIndex, fromLayer, hideDecode)
       lockLegendDecode(keyIndex)
       const id = `legend-decode-${keyIndex}-${fromLayer}`

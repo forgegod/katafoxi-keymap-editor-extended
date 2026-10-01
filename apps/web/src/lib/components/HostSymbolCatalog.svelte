@@ -15,6 +15,12 @@
   $effect(() => {
     if (!open) return
     const onKeydown = (event: KeyboardEvent) => {
+      if (event.key === 'Tab' && editor.hostSymbolEditTarget) {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        editor.stepHostSymbolEdit(event.shiftKey ? -1 : 1)
+        return
+      }
       if (event.key !== 'Escape') return
       event.preventDefault()
       event.stopImmediatePropagation()

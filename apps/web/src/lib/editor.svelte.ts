@@ -89,6 +89,7 @@ import {
   type UserHostLayoutOrigin,
   type UserHostLayoutRecord
 } from './host-layout-store'
+import { defaultHostEditTarget, stepHostEditTarget } from './host-edit-cycle'
 
 export type HostProfilePrompt =
   | { kind: 'save-as'; language: HostLanguageId }
@@ -301,9 +302,19 @@ export class EditorState {
     this.hostSymbolEditTarget = null
   }
 
-  beginHostEditSession(keyIndex: number, layer: number) {
+  /**
+   * Start an Alt+click host-edit session. When `zmk` is known, arm the first
+   * AltGr cycle cell (extras before base) so the catalog is ready to write.
+   */
+  beginHostEditSession(keyIndex: number, layer: number, zmk?: string) {
     this.hostEditSession = { keyIndex, layer }
     this.hostSymbolCatalogOpen = true
+    if (zmk) {
+      const target = defaultHostEditTarget(zmk, this.hostLegend)
+      this.hostSymbolEditTarget = target
+    } else {
+      this.hostSymbolEditTarget = null
+    }
   }
 
   /** Close catalog + clear armed cell; caller unpins the decode card. */
@@ -317,12 +328,26 @@ export class EditorState {
     this.hostSymbolCatalogOpen = false
   }
 
+  /** Move the armed cell along the AltGr cycle without writing. */
+  stepHostSymbolEdit(delta: number) {
+    const target = this.hostSymbolEditTarget
+    if (!target || delta === 0) return
+    this.hostSymbolEditTarget = stepHostEditTarget(target, this.hostLegend, delta)
+  }
+
   async pickHostSymbol(text: string): Promise<HostKeyLevelEditResult> {
     const target = this.hostSymbolEditTarget
     if (!target) {
       return { ok: false, reason: 'no-target' }
     }
-    return this.setHostKeyLevel(target.language, target.zmk, target.level, text)
+    const result = await this.setHostKeyLevel(
+      target.language,
+      target.zmk,
+      target.level,
+      text
+    )
+    if (result.ok) this.stepHostSymbolEdit(1)
+    return result
   }
 
   /** Bumps on select / new publish so stale reloads are ignored. */

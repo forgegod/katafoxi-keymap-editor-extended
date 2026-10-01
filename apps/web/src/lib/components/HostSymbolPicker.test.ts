@@ -1,4 +1,5 @@
 import {
+  addHostLanguage,
   hostSymbolShelves,
   SYSTEM_US_LAYOUT_ID,
   hostLayout,
@@ -215,6 +216,77 @@ describe('LegendDecodeCard host symbol catalog', () => {
     expect(document.querySelector('.cell-input')).toBeNull()
     expect(document.querySelector('[role="dialog"].legend-decode')).toBeInstanceOf(HTMLElement)
     expect(editor.hostSymbolEditTarget).toEqual({ language: 'en', zmk: 'A', level: 0 })
+  })
+
+  it('arms AltGr by default when the host-edit session opens', async () => {
+    openKey('A')
+    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    flushSync()
+    const row = stackRows()[0]
+    row.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true })
+    )
+    flushSync()
+    expect(editor.hostSymbolEditTarget).toEqual({ language: 'en', zmk: 'A', level: 2 })
+    expect(catalog()?.querySelector('button.clear-slot')).toBeInstanceOf(HTMLButtonElement)
+    expect(catalog()?.querySelector('.nav-hint')?.textContent).toMatch(/Tab/)
+    expect(catalog()?.querySelector('[data-shelf]')?.getAttribute('data-shelf')).toBe('signs')
+  })
+
+  it('advances across languages after a pick and after Clear', async () => {
+    openKey('G')
+    editor.hostLegend = addHostLanguage(editor.hostLegend, 'ru')
+    flushSync()
+    const row = stackRows()[0]
+    row.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true })
+    )
+    flushSync()
+    expect(editor.hostSymbolEditTarget).toEqual({ language: 'ru', zmk: 'G', level: 2 })
+
+    await editor.pickHostSymbol('α')
+    flushSync()
+    expect(editor.hostSymbolEditTarget).toEqual({ language: 'en', zmk: 'G', level: 2 })
+
+    catalog()?.querySelector('button.clear-slot')?.click()
+    flushSync()
+    await vi.waitFor(() => {
+      expect(editor.hostSymbolEditTarget).toEqual({ language: 'ru', zmk: 'G', level: 3 })
+    })
+    expect(hostLayout(editor.activeProfileId('en'))?.byZmk.get('G')?.keysyms[2]).toBe(
+      'NoSymbol'
+    )
+  })
+
+  it('moves the armed cell with Tab without writing', async () => {
+    openKey('A')
+    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    flushSync()
+    const row = stackRows()[0]
+    row.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true })
+    )
+    flushSync()
+    expect(editor.hostSymbolEditTarget).toEqual({ language: 'en', zmk: 'A', level: 2 })
+    const before = hostLayout(editor.activeProfileId('en'))?.byZmk.get('A')?.keysyms.slice()
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    )
+    flushSync()
+    expect(editor.hostSymbolEditTarget).toEqual({ language: 'en', zmk: 'A', level: 3 })
+    expect(hostLayout(editor.activeProfileId('en'))?.byZmk.get('A')?.keysyms).toEqual(before)
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Tab',
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true
+      })
+    )
+    flushSync()
+    expect(editor.hostSymbolEditTarget).toEqual({ language: 'en', zmk: 'A', level: 2 })
   })
 
   it('applies an open-shelf glyph through setHostKeyLevel and keeps the catalog open', async () => {

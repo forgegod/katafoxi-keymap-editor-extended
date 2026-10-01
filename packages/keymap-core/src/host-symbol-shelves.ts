@@ -2,8 +2,9 @@
  * Ordered symbol shelves for the host-layout glyph picker.
  *
  * Membership comes from `host-symbols.json` via codepoint ranges (and a fixed
- * modifier keysym list). Open shelves are language-adjacent letters, universal
- * Signs, and Modifiers. Everything else is collapsed by script family.
+ * modifier keysym list). Open shelves start with universal Signs, then
+ * language-adjacent letters, then Modifiers. Everything else is collapsed by
+ * script family.
  *
  * Priority when a character could match more than one open shelf: language
  * letter shelves claim letters in their ranges first; Signs takes the rest of
@@ -294,8 +295,8 @@ function buildShelves(language: HostLanguageId): HostSymbolShelf[] {
   }
 
   const shelves: HostSymbolShelf[] = [
-    { ...languageBucket, entries: sortEntries(languageBucket.entries) },
     { ...signsBucket, entries: sortEntries(signsBucket.entries) },
+    { ...languageBucket, entries: sortEntries(languageBucket.entries) },
     modifiersBucket
   ]
 

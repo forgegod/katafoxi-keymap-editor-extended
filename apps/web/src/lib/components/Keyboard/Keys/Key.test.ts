@@ -511,8 +511,15 @@ describe('Key click editor', () => {
     )
     flushSync()
     expect(document.querySelector('[role="dialog"].legend-decode')).toBeInstanceOf(HTMLElement)
+    expect(editor.hostSymbolEditTarget).toEqual({
+      language: 'en',
+      zmk: 'MINUS',
+      level: 2
+    })
 
-    const slot = document.querySelector('.legend-decode .row.current button.slot')
+    const slot = document.querySelector(
+      '.legend-decode .row.current button.slot[data-level="0"]'
+    )
     expect(slot).toBeInstanceOf(HTMLButtonElement)
     ;(slot as HTMLButtonElement).click()
     flushSync()

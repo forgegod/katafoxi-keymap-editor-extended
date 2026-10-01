@@ -429,6 +429,15 @@
     }
     void editor.pickHostSymbol(value)
   }
+
+  function clearSlot() {
+    if (disabled) return
+    if (onPick) {
+      onPick('NoSymbol')
+      return
+    }
+    void editor.pickHostSymbol('NoSymbol')
+  }
 </script>
 
 <div
@@ -461,6 +470,21 @@
   <div class="picker-body" bind:this={bodyEl} onscroll={hideLoupe}>
     {#if disabled}
       <p class="hint" role="status">Select a level cell on the decode card</p>
+    {:else}
+      <div class="clear-row">
+        <button
+          type="button"
+          class="clear-slot"
+          aria-label="Clear level"
+          title="Clear this level"
+          onclick={clearSlot}
+        >
+          Clear
+        </button>
+        <p class="nav-hint" role="note">
+          <kbd>Tab</kbd> next level · <kbd>Shift</kbd>+<kbd>Tab</kbd> previous
+        </p>
+      </div>
     {/if}
     {#each shelves as shelf (shelf.id)}
       <section class="shelf" data-shelf={shelf.id} data-open={isExpanded(shelf) ? 'true' : 'false'}>
@@ -599,6 +623,47 @@
     margin: 0 0 8px;
     font-size: var(--font-xs);
     color: var(--paper-ink-muted);
+  }
+
+  .clear-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin: 0 0 8px;
+  }
+
+  .clear-slot {
+    margin: 0;
+    padding: 3px 8px;
+    border: 0;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--paper-shade) 8%, transparent);
+    color: var(--paper-ink-strong);
+    font: inherit;
+    font-size: var(--font-xs);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .clear-slot:hover {
+    background: color-mix(in srgb, var(--paper-shade) 14%, transparent);
+  }
+
+  .nav-hint {
+    margin: 0;
+    font-size: var(--font-xs);
+    line-height: 1.3;
+    color: var(--paper-ink-muted);
+  }
+
+  .nav-hint kbd {
+    padding: 0 3px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--paper-shade) 10%, transparent);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.95em;
+    font-weight: 600;
   }
 
   .shelf {

@@ -41,6 +41,14 @@ describe('hostSymbolShelves', () => {
     expect(glyphs.has('а')).toBe(false)
   })
 
+  it('puts Signs first among open shelves', () => {
+    for (const language of ['en', 'ru', 'uk', 'de'] as const) {
+      const shelves = hostSymbolShelves(language)
+      expect(shelves[0]?.id).toBe('signs')
+      expect(shelves[0]?.open).toBe(true)
+    }
+  })
+
   it('puts currency, arrows, and math on the universal Signs shelf', () => {
     for (const language of ['en', 'ru', 'uk', 'de'] as const) {
       const signs = shelfById(hostSymbolShelves(language), 'signs')
