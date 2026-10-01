@@ -346,6 +346,11 @@
     border-color: var(--hover-selection);
   }
 
+  /* HID dump is mostly limited — keep a quiet dash so the grid does not glow amber. */
+  .key-editor-grid.codes .key-editor-choice.os-limited {
+    border-color: color-mix(in srgb, var(--amber-strong) 40%, var(--border-subtle));
+  }
+
   .key-editor-band-label {
     flex: 0 0 auto;
     display: inline-flex;

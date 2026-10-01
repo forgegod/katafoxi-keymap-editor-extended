@@ -145,7 +145,13 @@
             band.kind === 'punct' && nextBand?.kind === 'shifted' ? nextBand : null}
           {@const skipShifted =
             band.kind === 'shifted' && prevBand?.kind === 'punct'}
-          {#if !skipShifted}
+          {@const codesOnExtras =
+            band.kind === 'extras' && nextBand?.kind === 'codes' ? nextBand : null}
+          {@const skipCodesCollapsed =
+            band.kind === 'codes' &&
+            prevBand?.kind === 'extras' &&
+            !showCodesBand(band)}
+          {#if !skipShifted && !skipCodesCollapsed}
           <div
             class="key-editor-band"
             class:codes-band={band.kind === 'codes' || band.kind === 'shifted'}
@@ -182,24 +188,24 @@
             {#if band.kind === 'codes' && !showCodesBand(band)}
               <button
                 type="button"
-                class="key-editor-codes-toggle"
+                class="key-editor-codes-toggle key-editor-inline-toggle"
                 onclick={() => {
                   codesExpanded = true
                 }}
               >
-                More codes ({band.items.length})
+                Codes ({band.items.length})
               </button>
             {:else if band.kind === 'codes'}
               <div class="key-editor-band-body">
                 {#if !searching && !bandHasActive(band)}
                   <button
                     type="button"
-                    class="key-editor-codes-toggle"
+                    class="key-editor-codes-toggle key-editor-inline-toggle"
                     onclick={() => {
                       codesExpanded = false
                     }}
                   >
-                    Hide codes
+                    Hide
                   </button>
                 {/if}
                 <div
@@ -412,6 +418,18 @@
                       {choiceLabel(item)}
                     </button>
                   {/each}
+                  {#if codesOnExtras && !showCodesBand(codesOnExtras)}
+                    <button
+                      type="button"
+                      class="key-editor-codes-toggle key-editor-inline-toggle"
+                      title="Show rare HID codes"
+                      onclick={() => {
+                        codesExpanded = true
+                      }}
+                    >
+                      Codes ({codesOnExtras.items.length})
+                    </button>
+                  {/if}
                 </div>
 
                 {#each band.extraRows ?? [] as row, rowIndex}
