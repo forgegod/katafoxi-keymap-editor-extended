@@ -32,10 +32,10 @@ describe('short repo labels', () => {
     expect(repoChoiceLabel(names[1], names)).toBe('other')
   })
 
-  it('joins the short repo and branch for the closed chip', () => {
+  it('uses the branch alone for the closed chip', () => {
     expect(
       githubChipLabel('katafoxi/zmk-keyboard-lark', ['katafoxi/zmk-keyboard-lark'], 'main')
-    ).toBe('lark · main')
+    ).toBe('main')
     expect(githubChipLabel(null, [], null)).toBe('GitHub')
     expect(githubChipLabel('acme/lark', ['acme/lark'], null)).toBe('lark')
   })

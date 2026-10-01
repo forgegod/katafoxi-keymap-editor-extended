@@ -50,7 +50,8 @@
     if (build.status === 'cancelled') return 'Cancelled'
     if (build.status === 'unavailable') return 'Needs Actions access'
     if (build.status === 'success' && !build.artifactId) return 'Log'
-    return age
+    // Success with artifact: age stays in the title, not on the chip.
+    return ''
   })
 
   const label = $derived.by(() => {
@@ -66,7 +67,11 @@
     }
     if (build.status === 'failure') return 'Firmware build failed. Open the Actions log.'
     if (build.status === 'cancelled') return 'Firmware build was cancelled. Open the Actions log.'
-    if (build.status === 'success' && build.artifactId) return 'Download the firmware archive.'
+    if (build.status === 'success' && build.artifactId) {
+      return age
+        ? `Download the firmware archive (${age}).`
+        : 'Download the firmware archive.'
+    }
     if (build.status === 'success') return 'Build succeeded. Open the Actions log.'
     if (build.status === 'in_progress') return 'Firmware build is running.'
     return 'Waiting for GitHub Actions to start.'

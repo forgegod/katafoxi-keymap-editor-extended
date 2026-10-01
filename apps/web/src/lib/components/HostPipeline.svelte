@@ -35,18 +35,24 @@
     URL.revokeObjectURL(url)
   }
 
-  async function copyText(text: string, okMessage: string) {
+  async function copyText(text: string, okMessage: string, markDelivered = false) {
     try {
       await navigator.clipboard.writeText(text)
       copyNote = okMessage
+      if (markDelivered) editor.markHostDelivered()
     } catch {
       copyNote = 'Could not copy — select the text manually'
     }
   }
 
   const dirty = $derived(editor.isHostDirty)
+  const statusLabel = $derived(dirty ? 'Changed' : 'Saved')
   const statusTitle = $derived(
-    dirty ? 'User layout ready to install' : 'No user layout to install'
+    dirty
+      ? 'User layout ready to install'
+      : editor.hostDeliverableLayoutIds.length > 0
+        ? 'Already exported — edit again to re-enable install'
+        : 'No user layout to install'
   )
   const exports = $derived.by(() => {
     void editor.hostLayoutRevision
@@ -120,7 +126,6 @@
   }
 
   function openSheet(next: 'linux' | 'windows') {
-    if (!dirty) return
     copyNote = ''
     if (next === 'windows') {
       const versions: Record<string, number> = {}
@@ -139,6 +144,7 @@
 
   function downloadSection(text: string, name: string) {
     downloadText(text, safeFileName(name, 'symbols.txt'))
+    editor.markHostDelivered()
   }
 
   function downloadBytes(bytes: Uint8Array, fileName: string) {
@@ -158,6 +164,7 @@
     const file = editor.exportUserHostLayoutKlc(layoutId)
     if (!file) return
     downloadBytes(file.bytes, safeFileName(name, 'klc'))
+    editor.markHostDelivered()
   }
 
   function downloadCapsKlc(item: (typeof capsExports)[number]) {
@@ -171,12 +178,14 @@
     const file = editor.exportCapsAlphabetKlc(item.capsLanguage, version)
     if (!file) return
     downloadBytes(file.bytes, safeFileName(file.kbdId, 'klc'))
+    editor.markHostDelivered()
   }
 
   function downloadAllLinux() {
     const all = editor.exportActiveHostLayoutsXkb()
     if (!all) return
     downloadText(all.text, safeFileName(all.name, 'symbols.txt'))
+    editor.markHostDelivered()
   }
 </script>
 
@@ -187,15 +196,14 @@
   title="Host layout: install results on the OS"
 >
   <span class="lane-label" title="Host layout: install results on the OS">Host</span>
-  <ChromeStatus dirty={dirty} label="Changed" title={statusTitle} />
+  <ChromeStatus dirty={dirty} label={statusLabel} title={statusTitle} />
 
   <button
     type="button"
     class="download"
     class:ready={dirty}
-    aria-label={dirty ? 'Install host layout on Linux' : 'No host changes to install'}
-    title={dirty ? 'Open Linux install guide' : 'No host changes to install'}
-    disabled={!dirty}
+    aria-label="Install host layout on Linux"
+    title="Open Linux install guide"
     onclick={() => openSheet('linux')}
   >
     <img class="os-icon" src={logoLinux} alt="" width="20" height="20" />
@@ -206,9 +214,8 @@
     type="button"
     class="download"
     class:ready={dirty}
-    aria-label={dirty ? 'Install host layout on Windows' : 'No host changes to install'}
-    title={dirty ? 'Open Windows install guide' : 'No host changes to install'}
-    disabled={!dirty}
+    aria-label="Install host layout on Windows"
+    title="Open Windows install guide"
     onclick={() => openSheet('windows')}
   >
     <img class="os-icon" src={logoWindows} alt="" width="20" height="20" />
@@ -249,6 +256,13 @@
           Enable the variant in desktop keyboard settings, then re-login if it does not appear.
         </li>
       </ol>
+
+      {#if exports.length === 0}
+        <p class="empty-exports" role="status">
+          No custom host layout yet. Alt+click a key to edit symbols, then copy or download a section
+          here.
+        </p>
+      {/if}
 
       {#each exports as item (item.layoutId)}
         {@const target = installTarget(item)}
@@ -306,7 +320,7 @@
             <button
               type="button"
               class="primary"
-              onclick={() => copyText(item.text, `Section “${item.name}” copied`)}
+              onclick={() => copyText(item.text, `Section “${item.name}” copied`, true)}
             >
               Copy section
             </button>
@@ -376,6 +390,13 @@
           Run the installer, then sign out. If the previous characters are still there, reboot.
         </li>
       </ol>
+
+      {#if exports.length === 0 && capsExports.length === 0}
+        <p class="empty-exports" role="status">
+          No custom host layout yet. Alt+click a key to edit symbols, then download a
+          <code>.klc</code> file here.
+        </p>
+      {/if}
 
       {#if capsExports.length > 0}
         <section class="paired" aria-labelledby="windows-paired-title">
@@ -454,7 +475,7 @@
 
 <style>
   .host-pipeline {
-    display: inline-flex;
+    display: flex;
     flex-wrap: nowrap;
     align-items: flex-end;
     gap: 6px 8px;
@@ -559,6 +580,16 @@
 
   .steps li + li {
     margin-top: 6px;
+  }
+
+  .empty-exports {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--paper-deep) 55%, var(--paper));
+    color: var(--paper-ink);
+    font-size: var(--font-md);
+    line-height: 1.4;
   }
 
   .paired {

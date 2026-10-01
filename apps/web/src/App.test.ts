@@ -141,7 +141,7 @@ describe('App chrome', () => {
     flushSync()
   }
 
-  it('keeps a short Draft status and hides discard when clean', async () => {
+  it('keeps short pipeline statuses and a stable Discard control', async () => {
     await renderApp()
     expect(target.querySelector('.chrome-host')).toBeNull()
     await loadKeyboard(localSelection())
@@ -150,24 +150,31 @@ describe('App chrome', () => {
     const statusEl = target.querySelector('.publish-status')
     expect(source).not.toBeNull()
     expect(statusEl).not.toBeNull()
+    // Status sits before source so ZMK / Host status dots share a column.
     expect(
-      (source as HTMLElement).compareDocumentPosition(statusEl as HTMLElement) &
+      (statusEl as HTMLElement).compareDocumentPosition(source as HTMLElement) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
+    expect(target.querySelector('.chrome-tools')).not.toBeNull()
+    expect(target.querySelector('#actions .host-legend-wrap')).toBeNull()
+    expect(target.querySelector('.board-stack .host-legend-wrap')).toBeNull()
     expect(target.querySelector('.actions-publish .discard-draft')).toBeNull()
 
     const status = () => target.querySelector('.publish-status')
-    expect(status()?.textContent?.trim()).toBe('')
+    const discard = () => target.querySelector('.discard-draft') as HTMLButtonElement | null
+    expect(status()?.textContent?.trim()).toBe('Saved')
     expect(status()?.getAttribute('title')).toMatch(/Up to date/)
-    expect(target.querySelector('.discard-draft')).toBeNull()
+    expect(discard()).toBeInstanceOf(HTMLButtonElement)
+    expect(discard()?.disabled).toBe(true)
     expect(target.querySelector('.change-list')).toBeNull()
 
     editor.updateKeymap(km('M'))
     flushSync()
 
-    expect(status()?.textContent?.trim()).toBe('Draft')
+    expect(status()?.textContent?.trim()).toBe('Changed')
     expect(status()?.classList.contains('dirty')).toBe(true)
     expect(target.querySelector('.chrome-draft .discard-draft')).toBeInstanceOf(HTMLButtonElement)
+    expect(discard()?.disabled).toBe(false)
     expect(target.querySelector('.actions-publish .discard-draft')).toBeNull()
     expect(target.querySelector('.layer-slot.unpublished')?.getAttribute('title')).toBe('Was &kp A')
   })
@@ -185,7 +192,7 @@ describe('App chrome', () => {
     flushSync()
 
     expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('M')
-    expect(target.querySelector('.publish-status')?.textContent?.trim()).toBe('Draft')
+    expect(target.querySelector('.publish-status')?.textContent?.trim()).toBe('Changed')
     expect(target.querySelector('.layer-slot.unpublished')).toBeInstanceOf(HTMLElement)
 
     confirm.mockReturnValue(true)
@@ -196,9 +203,10 @@ describe('App chrome', () => {
 
     expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('A')
     expect(editor.isDirty).toBe(false)
-    expect(target.querySelector('.publish-status')?.textContent?.trim()).toBe('')
+    expect(target.querySelector('.publish-status')?.textContent?.trim()).toBe('Saved')
     expect(target.querySelector('.publish-status')?.getAttribute('title')).toMatch(/Up to date/)
-    expect(target.querySelector('.discard-draft')).toBeNull()
+    expect(target.querySelector('.discard-draft')).toBeInstanceOf(HTMLButtonElement)
+    expect((target.querySelector('.discard-draft') as HTMLButtonElement).disabled).toBe(true)
     expect(target.querySelector('.layer-slot.unpublished')).toBeNull()
   })
 
@@ -226,10 +234,11 @@ describe('App chrome', () => {
     editor.updateKeymap(km('M'))
     flushSync()
 
-    const commit = buttonMatching(target, /Commit to GitHub/)
+    const commit = buttonMatching(target, /^\s*Commit\s*$/)
     const githubDiscard = target.querySelector('.discard-draft')
     expect(commit).toBeInstanceOf(HTMLButtonElement)
-    expect(commit?.textContent).toMatch(/Commit to GitHub/)
+    expect(commit?.textContent?.trim()).toBe('Commit')
+    expect(commit?.getAttribute('title')).toMatch(/GitHub/)
     expect(githubDiscard).toBeInstanceOf(HTMLButtonElement)
 
     editor.saving = true

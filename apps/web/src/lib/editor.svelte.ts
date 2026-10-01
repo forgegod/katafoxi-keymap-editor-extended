@@ -250,6 +250,11 @@ export class EditorState {
    */
   hostLayoutRevision = $state(0)
   /**
+   * `hostLayoutRevision` at the last Linux/Windows export. Host is dirty while
+   * deliverable user layouts exist and the revision has moved past this mark.
+   */
+  hostDeliveredRevision = $state(0)
+  /**
    * Session toggle. On underlines a symbol that sits on a different key and
    * outlines AltGr cells the combined Windows file cannot keep. Not stored
    * with the legend view.
@@ -389,7 +394,15 @@ export class EditorState {
   }
 
   get isHostDirty(): boolean {
-    return this.hostDeliverableLayoutIds.length > 0
+    return (
+      this.hostDeliverableLayoutIds.length > 0 &&
+      this.hostLayoutRevision !== this.hostDeliveredRevision
+    )
+  }
+
+  /** Mark the current host layouts as exported (Linux/Windows install dialog). */
+  markHostDelivered() {
+    this.hostDeliveredRevision = this.hostLayoutRevision
   }
 
   /**
@@ -504,6 +517,8 @@ export class EditorState {
       const records = await loadUserHostLayouts()
       for (const record of records) this.#registerUserLayout(record)
       this.userLayouts = records.map(({ layout: _layout, ...rest }) => rest)
+      // Restored layouts are already on disk in the browser; wait for a new edit.
+      this.hostDeliveredRevision = this.hostLayoutRevision
     } catch {
       resetHostLayoutRegistry()
       this.userLayouts = []
@@ -511,6 +526,7 @@ export class EditorState {
       this.hostAssemblies = []
       this.layerView = standardLayerView()
       this.hostProfileNote = null
+      this.hostDeliveredRevision = this.hostLayoutRevision
     }
   }
 
@@ -1522,6 +1538,7 @@ export class EditorState {
     this.hostLegend = standardHostLegendView()
     this.hostAssemblies = []
     this.hostLayoutRevision = 0
+    this.hostDeliveredRevision = 0
     this.symbolAlignOn = true
     this.multilangView = false
     this.layerTonesOn = false

@@ -35,23 +35,32 @@ describe('HostPipeline', () => {
     flushSync()
   }
 
-  it('disables OS buttons when only system layouts are active', () => {
+  it('keeps OS install buttons available with only system layouts', () => {
     mountPipeline()
     const root = target.querySelector('.host-pipeline')
     expect(root?.getAttribute('data-host-dirty')).toBe('false')
     const hostStatus = root?.querySelector('.chrome-status')
-    expect(hostStatus?.textContent?.trim()).toBe('')
+    expect(hostStatus?.textContent?.trim()).toBe('Saved')
     expect(hostStatus?.getAttribute('title')).toBe('No user layout to install')
     expect(hostStatus?.getAttribute('aria-label')).toBe('No user layout to install')
     const buttons = [...target.querySelectorAll('button.download')] as HTMLButtonElement[]
     expect(buttons).toHaveLength(2)
-    expect(buttons.every(button => button.disabled)).toBe(true)
-    expect(buttons.every(button => button.title === 'No host changes to install')).toBe(true)
+    expect(buttons.every(button => !button.disabled)).toBe(true)
+    expect(buttons.map(button => button.title)).toEqual([
+      'Open Linux install guide',
+      'Open Windows install guide'
+    ])
     expect(buttons.every(button => button.classList.contains('ready'))).toBe(false)
-    expect(document.querySelector('.info')).toBeNull()
+
+    buttons[0].click()
+    flushSync()
+    const dialog = document.querySelector('[aria-labelledby="linux-install-title"]')
+    expect(dialog).toBeInstanceOf(HTMLElement)
+    expect(dialog?.textContent).toMatch(/No custom host layout yet/)
+    expect(dialog?.querySelectorAll('section.layout-card')).toHaveLength(0)
   })
 
-  it('enables OS buttons after a host key edit forks a user layout', async () => {
+  it('highlights OS buttons after a host key edit forks a user layout', async () => {
     mountPipeline()
     await editor.setHostKeyLevel('en', 'A', 0, 'b')
     flushSync()
@@ -121,7 +130,13 @@ describe('HostPipeline', () => {
     expect(click).toHaveBeenCalled()
     const blob = createObjectURL.mock.calls[0]?.[0] as Blob
     expect(await blob.text()).toContain('xkb_symbols')
+    expect(editor.isHostDirty).toBe(false)
+    expect(rootStatus()).toBe('Saved')
   })
+
+  function rootStatus() {
+    return target.querySelector('.host-pipeline .chrome-status')?.textContent?.trim()
+  }
 
   it('shows a Russian layout card only when Russian host work is dirty', async () => {
     mountPipeline()

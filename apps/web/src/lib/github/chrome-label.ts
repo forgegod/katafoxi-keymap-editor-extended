@@ -27,14 +27,18 @@ export function shortRepoName(name: string): string {
   return name
 }
 
+/**
+ * Closed-chrome label: branch when a repo is loaded (repo lives in the menu / title).
+ * Falls back to the short repo name, then `GitHub`.
+ */
 export function githubChipLabel(
   fullName: string | null,
   fullNames: string[],
   branch: string | null
 ): string {
   if (!fullName) return 'GitHub'
-  const label = repoChoiceLabel(fullName, fullNames)
-  return branch ? `${label} · ${branch}` : label
+  if (branch) return branch
+  return repoChoiceLabel(fullName, fullNames)
 }
 
 /**

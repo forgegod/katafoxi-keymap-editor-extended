@@ -1,5 +1,5 @@
 <script lang="ts">
-  /** Shared ZMK / Host lane status: green dot when clean, warn-colored dot + word when pending. */
+  /** Shared ZMK / Host lane status: short label always visible; warn wash when dirty. */
   let {
     dirty,
     label,
@@ -7,7 +7,7 @@
     class: className = ''
   }: {
     dirty: boolean
-    /** Shown only while dirty (e.g. Draft, Changed). */
+    /** Short chip text in both states (Changed / Saved). */
     label: string
     title: string
     class?: string
@@ -23,5 +23,5 @@
   {title}
 >
   <span class="status-dot" aria-hidden="true"></span>
-  {#if dirty}{label}{/if}
+  {label}
 </span>

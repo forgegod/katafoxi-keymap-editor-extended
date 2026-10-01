@@ -50,8 +50,8 @@
   .host-gaps {
     align-self: flex-start;
     max-width: 18rem;
-    margin-left: auto;
-    padding: 2px 2px 0 8px;
+    margin-left: 0;
+    padding: 2px 2px 0 0;
     color: var(--warn-ink);
     font-size: var(--font-sm);
     line-height: 1.35;

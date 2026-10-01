@@ -271,7 +271,8 @@ code {
 
 .chrome-status.clean {
   color: var(--ok);
-  padding-inline: 0;
+  /* Keep the same padding as .dirty so the status dot does not shift. */
+  background: var(--ok-wash);
 }
 
 /* Dialog dismiss button (original DialogBox had unstyled browser button) */

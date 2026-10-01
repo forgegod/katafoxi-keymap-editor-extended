@@ -100,9 +100,7 @@ describe('Github Picker', () => {
     const onSelect = open()
 
     await vi.waitFor(() => {
-      expect(target.querySelector('.source-trigger-label')?.textContent?.trim()).toBe(
-        'lark · only'
-      )
+      expect(target.querySelector('.source-trigger-label')?.textContent?.trim()).toBe('only')
     })
     expect(target.querySelector('.source-trigger')?.getAttribute('title')).toBe(
       'acme/lark · only'
