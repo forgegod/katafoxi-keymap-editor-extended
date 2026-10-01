@@ -332,8 +332,8 @@ describe('KeyEditor value catalog', () => {
     flushSync()
 
     const shown = choiceTexts(target)
-    expect(shown).toContain('KP_N0')
-    expect(shown).toContain('KP_N1')
+    expect(shown).toContain('0')
+    expect(shown).toContain('1')
     expect(
       [...target.querySelectorAll('.key-editor-taxonomy .key-editor-chip')].map(el =>
         (el.textContent ?? '').trim()
@@ -350,7 +350,7 @@ describe('KeyEditor value catalog', () => {
     filter.value = 'KP_N'
     filter.dispatchEvent(new Event('input', { bubbles: true }))
     flushSync()
-    expect(choiceTexts(target)).toContain('KP_N0')
+    expect(choiceTexts(target)).toContain('0')
     expect(choiceTexts(target)).not.toContain('A')
 
     filter.value = ''
@@ -358,7 +358,7 @@ describe('KeyEditor value catalog', () => {
     flushSync()
 
     expect(choiceTexts(target)).toContain('A')
-    expect(choiceTexts(target)).toContain('KP_N0')
+    expect(choiceTexts(target)).toContain('0')
   })
 
   it('confirms a complete binding when Enter is pressed in the filter field', () => {

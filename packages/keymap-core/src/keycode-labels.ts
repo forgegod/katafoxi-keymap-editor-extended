@@ -10,6 +10,57 @@ import {
   modifierSide
 } from './modifiers.js'
 
+/** Keypad chips use the legend glyph; the `.keypad` box disambiguates from Keyboard. */
+const KEYPAD_GLYPH_LABELS = new Map<string, string>([
+  ['KP_N0', '0'],
+  ['KP_NUMBER_0', '0'],
+  ['KP_N1', '1'],
+  ['KP_NUMBER_1', '1'],
+  ['KP_N2', '2'],
+  ['KP_NUMBER_2', '2'],
+  ['KP_N3', '3'],
+  ['KP_NUMBER_3', '3'],
+  ['KP_N4', '4'],
+  ['KP_NUMBER_4', '4'],
+  ['KP_N5', '5'],
+  ['KP_NUMBER_5', '5'],
+  ['KP_N6', '6'],
+  ['KP_NUMBER_6', '6'],
+  ['KP_N7', '7'],
+  ['KP_NUMBER_7', '7'],
+  ['KP_N8', '8'],
+  ['KP_NUMBER_8', '8'],
+  ['KP_N9', '9'],
+  ['KP_NUMBER_9', '9'],
+  ['KP_MINUS', '-'],
+  ['KP_SUBTRACT', '-'],
+  ['KP_DOT', '.'],
+  ['KP_PLUS', '+'],
+  ['KP_EQUAL', '='],
+  ['KP_SLASH', '/'],
+  ['KP_DIVIDE', '/'],
+  ['KP_ASTERISK', '*'],
+  ['KP_MULTIPLY', '*'],
+  ['KP_ENTER', '⮐'],
+  ['KP_COMMA', ','],
+  ['KP_LPAR', '('],
+  ['KP_LEFT_PARENTHESIS', '('],
+  ['KP_RPAR', ')'],
+  ['KP_RIGHT_PARENTHESIS', ')'],
+  ['KP_NUM', 'NUM'],
+  ['KP_NUMLOCK', 'NUM'],
+  ['KP_NLCK', 'NUM']
+])
+
+export function keypadCompactPunctLabel(choice: CatalogChoice): string | null {
+  const code = String(choice.code ?? '').toUpperCase()
+  return KEYPAD_GLYPH_LABELS.get(code) ?? null
+}
+
+export function isKeypadCompactPunct(choice: CatalogChoice): boolean {
+  return keypadCompactPunctLabel(choice) != null
+}
+
 /**
  * Short chip text for keyboard media / scroll codes.
  * Full ZMK names stay in tooltips (`K_MUTE2 — Mute`).
@@ -26,7 +77,9 @@ const KEYBOARD_CHIP_SHORT = new Map<string, string>([
   ['K_VOL_UP2', 'VOL_UP2'],
   ['K_VOLUME_UP2', 'VOL_UP2'],
   ['K_VOL_DN2', 'VOL_DN2'],
-  ['K_VOLUME_DOWN2', 'VOL_DN2']
+  ['K_VOLUME_DOWN2', 'VOL_DN2'],
+  // Rare keypad dump — keep readable without sitting next to KP_EQUAL.
+  ['KP_EQUAL_AS400', 'AS400=']
 ])
 
 export function keyboardChipShortLabel(choice: CatalogChoice): string | null {
@@ -48,6 +101,8 @@ function labelChoice(choice: CatalogChoice, collisionCount: number): string {
   if (shift) return `⇧${shift.symbol}`
   const hid = punctHidMark(choice)
   if (hid) return hid.symbol
+  const compact = keypadCompactPunctLabel(choice)
+  if (compact) return compact
   const short = keyboardChipShortLabel(choice)
   if (short) return short
   const code = String(choice.code ?? '')

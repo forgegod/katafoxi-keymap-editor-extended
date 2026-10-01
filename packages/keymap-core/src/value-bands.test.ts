@@ -12,16 +12,19 @@ describe('valueBandKind', () => {
     expect(valueBandKind({ code: 'SLCK' })).toBe('nav')
     expect(valueBandKind({ code: 'SCROLLLOCK' })).toBe('nav')
     expect(valueBandKind({ code: 'PAUSE_BREAK', symbol: '⏸' })).toBe('nav')
+    expect(valueBandKind({ code: 'KP_NUM' })).toBe('nav')
     expect(valueBandKind({ code: 'LSLCK' })).toBe('codes')
     expect(valueBandKind({ code: 'SYSREQ' })).toBe('codes')
-    expect(valueBandKind({ code: 'MINUS' })).toBe('punct')
-    expect(valueBandKind({ code: 'SEMI', symbol: ';' })).toBe('punct')
-    expect(valueBandKind({ code: 'COLON' })).toBe('shifted')
-    expect(valueBandKind({ code: 'HASH' })).toBe('shifted')
     expect(valueBandKind({ code: 'K_MUTE' })).toBe('media')
     expect(valueBandKind({ code: 'K_MUTE2', symbol: '🔇' })).toBe('media')
     expect(valueBandKind({ code: 'K_VOL_DN2' })).toBe('media')
     expect(valueBandKind({ code: 'K_APP' })).toBe('extras')
+    expect(valueBandKind({ code: 'KP_EQUAL_AS400' })).toBe('codes')
+    expect(valueBandKind({ code: 'KP_MINUS', symbol: '-' })).toBe('punct')
+    expect(valueBandKind({ code: 'MINUS' })).toBe('punct')
+    expect(valueBandKind({ code: 'SEMI', symbol: ';' })).toBe('punct')
+    expect(valueBandKind({ code: 'COLON' })).toBe('shifted')
+    expect(valueBandKind({ code: 'HASH' })).toBe('shifted')
     expect(valueBandKind({ code: 'PIPE2' })).toBe('codes')
     expect(valueBandKind({ code: 'ALT_ERASE' })).toBe('codes')
     expect(valueBandKind({ code: 'LCMD', symbol: '⌘', isModifier: true })).toBe(
@@ -174,7 +177,8 @@ describe('bandCatalogChoices', () => {
       { code: 'K_MUTE2', symbol: '🔇' },
       { code: 'K_CALC' },
       { code: 'K_STOP2' },
-      { code: 'ALT_ERASE' }
+      { code: 'ALT_ERASE' },
+      { code: 'KP_EQUAL_AS400' }
     ])
     expect(bands.map(b => b.kind)).toEqual(['media', 'extras', 'codes'])
     expect(bands.find(b => b.kind === 'media')?.items.map(i => i.code)).toEqual([
@@ -186,7 +190,28 @@ describe('bandCatalogChoices', () => {
     ])
     expect(bands.find(b => b.kind === 'codes')?.items.map(i => i.code)).toEqual([
       'ALT_ERASE',
-      'K_STOP2'
+      'K_STOP2',
+      'KP_EQUAL_AS400'
+    ])
+  })
+
+  it('merges the whole Keypad group into one glyph row', () => {
+    const bands = bandCatalogChoices([
+      { code: 'KP_N7', symbol: '7', context: 'Keypad' },
+      { code: 'KP_MINUS', symbol: '-', context: 'Keypad' },
+      { code: 'KP_ENTER', symbol: '⮐', context: 'Keypad' },
+      { code: 'KP_NUM', context: 'Keypad' },
+      { code: 'CLEAR2', context: 'Keypad' },
+      { code: 'KP_EQUAL_AS400', context: 'Keypad' }
+    ])
+    expect(bands.map(b => b.kind)).toEqual(['punct'])
+    expect(bands[0]?.items.map(i => i.code)).toEqual([
+      'KP_N7',
+      'KP_MINUS',
+      'KP_ENTER',
+      'KP_NUM',
+      'CLEAR2',
+      'KP_EQUAL_AS400'
     ])
   })
 })

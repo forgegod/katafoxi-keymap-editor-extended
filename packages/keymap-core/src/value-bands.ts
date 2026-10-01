@@ -5,6 +5,7 @@ import {
 } from './catalog-choices.js'
 import {
   compareLabels,
+  isKeypadCompactPunct,
   punctHidMark,
   representativeLabel,
   usShiftAlias
@@ -120,7 +121,11 @@ const NAV_NAMED_CODES = new Set([
   'PRINTSCREEN',
   'SLCK',
   'SCROLLLOCK',
-  'PAUSE_BREAK'
+  'PAUSE_BREAK',
+  // Num Lock lives with Caps Lock, not in the keycode dump.
+  'KP_NUM',
+  'KP_NUMLOCK',
+  'KP_NLCK'
 ])
 
 const NAV_ORDER = [
@@ -152,9 +157,11 @@ const NAV_ORDER = [
   'PRINTSCREEN',
   'SLCK',
   'SCROLLLOCK',
-  'PAUSE_BREAK'
+  'PAUSE_BREAK',
+  'KP_NUM',
+  'KP_NUMLOCK',
+  'KP_NLCK'
 ]
-
 
 /** Transport / volume cluster lifted out of the long K_* extras row.
  * `*2` are distinct Linux/Android keyboard-page usages, not aliases of K_MUTE / K_VOL_*. */
@@ -250,6 +257,7 @@ export function valueBandKind(choice: CatalogChoice): ValueBandKind {
   if (NAV_NAMED_CODES.has(upper) || ARROW_GLYPHS.has(label)) return 'nav'
   if (usShiftAlias(choice)) return 'shifted'
   if (punctHidMark(choice)) return 'punct'
+  if (isKeypadCompactPunct(choice)) return 'punct'
   if (MEDIA_NAMED_CODES.has(upper)) return 'media'
   if (/^K_/.test(upper) && !/2$/.test(upper)) return 'extras'
   if (upper.startsWith('NON_US') || upper === 'PIPE2' || upper === 'TILDE2') {
@@ -295,6 +303,8 @@ function sortBand(kind: ValueBandKind, items: CatalogChoice[]): CatalogChoice[] 
 /**
  * Split a group's chips into keyboard-like bands: F-keys, digits, letters,
  * punctuation, US-shift LS() aliases, navigation, media, extras (K_*), then long codes.
+ *
+ * A Keypad-only group is one row: digits, operators, Num Lock, then rare HID.
  */
 export function bandCatalogChoices(choices: CatalogChoice[]): ValueBand[] {
   const buckets: Record<ValueBandKind, CatalogChoice[]> = {
@@ -313,8 +323,80 @@ export function bandCatalogChoices(choices: CatalogChoice[]): ValueBand[] {
   for (const choice of choices) {
     buckets[valueBandKind(choice)].push(choice)
   }
-  return BAND_ORDER.filter(kind => buckets[kind].length > 0).map(kind => ({
+  const bands = BAND_ORDER.filter(kind => buckets[kind].length > 0).map(kind => ({
     kind,
     items: sortBand(kind, buckets[kind])
   }))
+  if (choices.length === 0 || !choices.every(isKeypadGroupChoice)) return bands
+
+  const items = bands.flatMap(band => band.items)
+  if (items.length === 0) return bands
+  return [{ kind: 'punct', items: sortKeypadOpsRow(items) }]
+}
+
+function isKeypadGroupChoice(choice: CatalogChoice): boolean {
+  if (String(choice.context ?? '').trim().toLowerCase() === 'keypad') return true
+  const upper = String(choice.code ?? '')
+    .trim()
+    .toUpperCase()
+  return upper.startsWith('KP_') || upper === 'CLEAR2'
+}
+
+/** Digits → operators → Num Lock → rare clear/AS400. */
+const KEYPAD_OPS_ORDER = [
+  'KP_N0',
+  'KP_NUMBER_0',
+  'KP_N1',
+  'KP_NUMBER_1',
+  'KP_N2',
+  'KP_NUMBER_2',
+  'KP_N3',
+  'KP_NUMBER_3',
+  'KP_N4',
+  'KP_NUMBER_4',
+  'KP_N5',
+  'KP_NUMBER_5',
+  'KP_N6',
+  'KP_NUMBER_6',
+  'KP_N7',
+  'KP_NUMBER_7',
+  'KP_N8',
+  'KP_NUMBER_8',
+  'KP_N9',
+  'KP_NUMBER_9',
+  'KP_MINUS',
+  'KP_SUBTRACT',
+  'KP_DOT',
+  'KP_ASTERISK',
+  'KP_MULTIPLY',
+  'KP_SLASH',
+  'KP_DIVIDE',
+  'KP_PLUS',
+  'KP_EQUAL',
+  'KP_ENTER',
+  'KP_COMMA',
+  'KP_LPAR',
+  'KP_LEFT_PARENTHESIS',
+  'KP_RPAR',
+  'KP_RIGHT_PARENTHESIS',
+  'KP_NUM',
+  'KP_NUMLOCK',
+  'KP_NLCK',
+  'CLEAR2',
+  'KP_CLEAR',
+  'KP_EQUAL_AS400'
+]
+
+function keypadOpsRank(choice: CatalogChoice): number {
+  const code = String(choice.code ?? '').toUpperCase()
+  const index = KEYPAD_OPS_ORDER.indexOf(code)
+  return index >= 0 ? index : 80
+}
+
+function sortKeypadOpsRow(items: CatalogChoice[]): CatalogChoice[] {
+  return [...items].sort((a, b) => {
+    const byRank = keypadOpsRank(a) - keypadOpsRank(b)
+    if (byRank !== 0) return byRank
+    return compareLabels(String(a.code ?? ''), String(b.code ?? ''))
+  })
 }
