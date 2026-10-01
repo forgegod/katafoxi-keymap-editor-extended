@@ -298,6 +298,43 @@
     color: var(--accent);
   }
 
+  /* Chip-sized disclosure at the end of the F1–F12 row. */
+  .key-editor-inline-toggle {
+    align-self: stretch;
+    min-width: 2em;
+    padding: 4px 6px;
+    line-height: 1.2;
+    font-weight: 500;
+  }
+
+  .key-editor-hold-hint {
+    margin: 0;
+    flex: 1 1 auto;
+    min-width: 12em;
+    color: var(--text-faint);
+    font-size: var(--font-xs);
+    line-height: 1.3;
+  }
+
+  .key-editor-choice.media-alt {
+    opacity: 0.72;
+    border-style: dashed;
+    color: var(--text-muted);
+  }
+
+  .key-editor-choice.media-alt.used {
+    opacity: 0.38;
+  }
+
+  .key-editor-choice.media-alt.active {
+    opacity: 1;
+    color: var(--text);
+  }
+
+  .key-editor-grid.media-alt {
+    opacity: 0.95;
+  }
+
   .key-editor-band-label {
     flex: 0 0 auto;
     display: inline-flex;
@@ -345,7 +382,8 @@
     flex: 1 1 auto;
   }
 
-  .key-editor-band[data-band='shifted'] .key-editor-choice {
+  .key-editor-band[data-band='shifted'] .key-editor-choice,
+  .key-editor-choice.shifted-alias {
     border-style: dashed;
   }
 

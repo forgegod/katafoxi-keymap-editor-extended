@@ -47,8 +47,9 @@
 
   let valuesEl: HTMLDivElement | undefined = $state()
   let valuesWidth = $state(1045)
-  /** User opened the HID dump; search / active code also reveal it. */
   let codesExpanded = $state(false)
+  let shiftedExpanded = $state(false)
+  let moreFKeysExpanded = $state(false)
 
   function choiceLabel(choice: Choice): string {
     if (isModifierKey(choice)) return String(choice.code ?? '')
@@ -78,13 +79,36 @@
     return formatUsedChoiceTooltip(base, layers, usedLayerLabels)
   }
 
+  function choicesHaveActive(items: readonly CatalogChoice[]): boolean {
+    return items.some(choice => isActiveChoice(choice as Choice))
+  }
+
   function bandHasActive(band: ValueBand): boolean {
-    return band.items.some(choice => isActiveChoice(choice as Choice))
+    return (
+      choicesHaveActive(band.items) ||
+      (band.extraRows ?? []).some(row => choicesHaveActive(row))
+    )
   }
 
   function showCodesBand(band: ValueBand): boolean {
     return searching || codesExpanded || bandHasActive(band)
   }
+
+  function showShiftedBand(band: ValueBand): boolean {
+    return searching || shiftedExpanded || bandHasActive(band)
+  }
+
+  function showMoreFKeys(band: ValueBand): boolean {
+    const more = band.extraRows?.[0] ?? []
+    return (
+      more.length === 0 ||
+      searching ||
+      moreFKeysExpanded ||
+      choicesHaveActive(more)
+    )
+  }
+
+  const shiftedCaption = valueBandCaption('shifted')
 
   $effect(() => {
     if (!valuesEl) return
@@ -107,18 +131,26 @@
     <p class="key-editor-empty">No matching values.</p>
   {:else}
     {#each groups as group}
+      {@const bands = bandCatalogChoices(group.items)}
       <div class="key-editor-group">
         {#if showGroupTitles || searching}
           <h3>{group.context}</h3>
         {/if}
-        {#each bandCatalogChoices(group.items) as band}
+        {#each bands as band, bandIndex}
           {@const caption = valueBandCaption(band.kind)}
+          {@const prevBand = bandIndex > 0 ? bands[bandIndex - 1] : undefined}
+          {@const nextBand = bands[bandIndex + 1]}
+          {@const shiftedOnPunct =
+            band.kind === 'punct' && nextBand?.kind === 'shifted' ? nextBand : null}
+          {@const skipShifted =
+            band.kind === 'shifted' && prevBand?.kind === 'punct'}
+          {#if !skipShifted}
           <div
             class="key-editor-band"
-            class:codes-band={band.kind === 'codes'}
+            class:codes-band={band.kind === 'codes' || band.kind === 'shifted'}
             data-band={band.kind}
           >
-            {#if caption}
+            {#if caption && (band.kind !== 'shifted' || showShiftedBand(band))}
               <p class="key-editor-band-label" title={caption.hint}>
                 <span>{caption.label}</span>
                 <svg
@@ -145,6 +177,7 @@
                 </svg>
               </p>
             {/if}
+
             {#if band.kind === 'codes' && !showCodesBand(band)}
               <button
                 type="button"
@@ -192,6 +225,165 @@
                   {/each}
                 </div>
               </div>
+            {:else if band.kind === 'shifted' && !showShiftedBand(band)}
+              <button
+                type="button"
+                class="key-editor-codes-toggle"
+                title={caption?.hint}
+                onclick={() => {
+                  shiftedExpanded = true
+                }}
+              >
+                LS · US aliases ({band.items.length})
+              </button>
+            {:else if band.kind === 'shifted'}
+              <div class="key-editor-band-body">
+                {#if !searching && !bandHasActive(band)}
+                  <button
+                    type="button"
+                    class="key-editor-codes-toggle"
+                    onclick={() => {
+                      shiftedExpanded = false
+                    }}
+                  >
+                    Hide LS · US
+                  </button>
+                {/if}
+                <div class="key-editor-grid" data-band="shifted">
+                  {#each band.items as choice}
+                    {@const item = choice as Choice}
+                    <button
+                      type="button"
+                      class="key-editor-choice"
+                      class:active={isActiveChoice(item)}
+                      class:used={isUsedChoice(item) && !isActiveChoice(item)}
+                      title={valueTooltip(item)}
+                      onclick={() => onChoose(item)}
+                    >
+                      {choiceLabel(item)}
+                    </button>
+                  {/each}
+                </div>
+              </div>
+            {:else if band.kind === 'function'}
+              {@const moreFKeys = band.extraRows?.[0] ?? []}
+              {@const fKeysOpen = showMoreFKeys(band)}
+              <div class="key-editor-grid" data-band="function">
+                {#each band.items as choice}
+                  {@const item = choice as Choice}
+                  <button
+                    type="button"
+                    class="key-editor-choice"
+                    class:active={isActiveChoice(item)}
+                    class:used={isUsedChoice(item) && !isActiveChoice(item)}
+                    title={valueTooltip(item)}
+                    onclick={() => onChoose(item)}
+                  >
+                    {choiceLabel(item)}
+                  </button>
+                {/each}
+                {#if fKeysOpen}
+                  {#each moreFKeys as choice}
+                    {@const item = choice as Choice}
+                    <button
+                      type="button"
+                      class="key-editor-choice"
+                      class:active={isActiveChoice(item)}
+                      class:used={isUsedChoice(item) && !isActiveChoice(item)}
+                      title={valueTooltip(item)}
+                      onclick={() => onChoose(item)}
+                    >
+                      {choiceLabel(item)}
+                    </button>
+                  {/each}
+                  {#if moreFKeys.length > 0 && !searching && !choicesHaveActive(moreFKeys)}
+                    <button
+                      type="button"
+                      class="key-editor-codes-toggle key-editor-inline-toggle"
+                      title="Hide F13–F24"
+                      onclick={() => {
+                        moreFKeysExpanded = false
+                      }}
+                    >
+                      Hide
+                    </button>
+                  {/if}
+                {:else if moreFKeys.length > 0}
+                  <button
+                    type="button"
+                    class="key-editor-codes-toggle key-editor-inline-toggle"
+                    title="Show F13–F24"
+                    onclick={() => {
+                      moreFKeysExpanded = true
+                    }}
+                  >
+                    F13–24
+                  </button>
+                {/if}
+              </div>
+            {:else if band.kind === 'punct'}
+              {@const shiftedOpen = shiftedOnPunct
+                ? showShiftedBand(shiftedOnPunct)
+                : false}
+              <div class="key-editor-grid" data-band="punct">
+                {#each band.items as choice}
+                  {@const item = choice as Choice}
+                  <button
+                    type="button"
+                    class="key-editor-choice"
+                    class:active={isActiveChoice(item)}
+                    class:used={isUsedChoice(item) && !isActiveChoice(item)}
+                    class:keypad={isKeypadChoice(item)}
+                    title={valueTooltip(item)}
+                    onclick={() => onChoose(item)}
+                  >
+                    {#if item.faIcon}
+                      <Icon name={String(item.faIcon)} />
+                    {/if}
+                    {choiceLabel(item)}
+                  </button>
+                {/each}
+                {#if shiftedOnPunct}
+                  {#if shiftedOpen}
+                    {#each shiftedOnPunct.items as choice}
+                      {@const item = choice as Choice}
+                      <button
+                        type="button"
+                        class="key-editor-choice shifted-alias"
+                        class:active={isActiveChoice(item)}
+                        class:used={isUsedChoice(item) && !isActiveChoice(item)}
+                        title={valueTooltip(item)}
+                        onclick={() => onChoose(item)}
+                      >
+                        {choiceLabel(item)}
+                      </button>
+                    {/each}
+                    {#if !searching && !bandHasActive(shiftedOnPunct)}
+                      <button
+                        type="button"
+                        class="key-editor-codes-toggle key-editor-inline-toggle"
+                        title={shiftedCaption?.hint ?? 'Hide LS · US aliases'}
+                        onclick={() => {
+                          shiftedExpanded = false
+                        }}
+                      >
+                        Hide
+                      </button>
+                    {/if}
+                  {:else}
+                    <button
+                      type="button"
+                      class="key-editor-codes-toggle key-editor-inline-toggle"
+                      title={shiftedCaption?.hint ?? 'Show LS · US aliases'}
+                      onclick={() => {
+                        shiftedExpanded = true
+                      }}
+                    >
+                      LS·US
+                    </button>
+                  {/if}
+                {/if}
+              </div>
             {:else}
               <div class="key-editor-band-stacks">
                 <div class="key-editor-grid" data-band={band.kind}>
@@ -213,8 +405,13 @@
                     </button>
                   {/each}
                 </div>
-                {#each band.extraRows ?? [] as row}
-                  <div class="key-editor-grid" data-band={band.kind}>
+
+                {#each band.extraRows ?? [] as row, rowIndex}
+                  <div
+                    class="key-editor-grid"
+                    class:media-alt={band.kind === 'media' && rowIndex === 0}
+                    data-band={band.kind}
+                  >
                     {#each row as choice}
                       {@const item = choice as Choice}
                       <button
@@ -223,6 +420,7 @@
                         class:active={isActiveChoice(item)}
                         class:used={isUsedChoice(item) && !isActiveChoice(item)}
                         class:keypad={isKeypadChoice(item)}
+                        class:media-alt={band.kind === 'media'}
                         title={valueTooltip(item)}
                         onclick={() => onChoose(item)}
                       >
@@ -237,6 +435,7 @@
               </div>
             {/if}
           </div>
+          {/if}
         {/each}
       </div>
     {/each}
