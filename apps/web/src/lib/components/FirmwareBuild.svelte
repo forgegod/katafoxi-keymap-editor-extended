@@ -219,9 +219,9 @@
 
   /* Quiet wash while an archive is ready — solid green stays on Commit. */
   .downloadable {
-    background: color-mix(in srgb, var(--info) 12%, var(--surface));
-    color: var(--info-strong);
-    border-color: var(--info);
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+    color: var(--accent-strong);
+    border-color: var(--accent);
   }
 
   .downloadable .when {
@@ -231,8 +231,8 @@
 
   a.downloadable:hover {
     background: var(--surface);
-    border-color: var(--info-strong);
-    color: var(--info-strong);
+    border-color: var(--accent-strong);
+    color: var(--accent-strong);
   }
 
   .failure,

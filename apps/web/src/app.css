@@ -4,15 +4,11 @@
 
   /* Components use these roles, not raw hex. Add a role before adding a colour. */
 
-  /* Text, strongest to faintest */
-  --text-strong: #222;
+  /* Text: four roles. Primary → secondary → inactive → background marks. */
   --text: #333;
-  --text-soft: #444;
-  --text-muted: #555;
-  --text-subtle: #666;
-  --text-faint: #777;
-  --text-disabled: #999;
-  --text-ghost: #c4c4c4;
+  --text-muted: #666; /* captions, lane labels; ≈5.7:1 on white */
+  --text-disabled: #8a8a8a; /* inactive controls */
+  --text-ghost: #a8a8a8; /* &trans and other background marks only */
   --on-accent: #fff;
   --shade: #000;
 
@@ -30,13 +26,9 @@
   /* Darker than --key-face (#f5f5f5) so caps read as objects without a stroke. */
   --stage-bg: #e4e7eb;
 
-  /* Interactive accent (hover, focus, active toggles) */
+  /* One interactive accent for hover, focus, links, and status washes. */
   --accent: #1d6f8a;
   --accent-strong: #0f4a5c;
-  --link: #1a4fc4;
-  --info: #4169e1;
-  --info-strong: #3558c4;
-  --info-soft: #6a86a8;
 
   /* Success / publish. Solid green belongs to the selected key and ZMK publish. */
   --selection: rgb(60, 179, 113);
@@ -233,8 +225,7 @@ code {
   height: var(--chrome-h);
   margin: 0 2px 0 0;
   padding: 0;
-  /* #666 on white ≈ 5.7:1 — AA for 11px labels; --text-faint was too light. */
-  color: var(--text-subtle);
+  color: var(--text-muted);
   font-size: var(--font-xs);
   font-weight: 700;
   letter-spacing: 0.08em;

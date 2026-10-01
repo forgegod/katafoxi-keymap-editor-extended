@@ -31,7 +31,7 @@
     gap: 6px;
     margin: 0;
     padding: 0 1px;
-    color: var(--text-subtle);
+    color: var(--text-muted);
     font-size: 10px;
     font-weight: 500;
     line-height: 1.2;

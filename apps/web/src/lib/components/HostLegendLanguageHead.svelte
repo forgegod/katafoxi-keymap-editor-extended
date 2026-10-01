@@ -172,7 +172,8 @@
         title="Add language"
         onclick={startAddLanguage}
       >
-        +
+        <span class="add-mark" aria-hidden="true">+</span>
+        <span class="add-label">Language</span>
       </button>
     {/if}
   </th>
@@ -302,7 +303,7 @@
     white-space: nowrap;
     border: 1px solid rgba(60, 60, 60, 0.08);
     font-size: var(--font-sm);
-    color: var(--text-subtle);
+    color: var(--text-muted);
   }
 
   .off {
@@ -352,21 +353,33 @@
   }
 
   .add-language {
-    width: 22px;
-    height: 22px;
-    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 24px;
+    padding: 0 7px 0 5px;
     border: 1px dashed var(--accent);
-    border-radius: 4px;
+    border-radius: 6px;
     background: var(--surface);
     color: var(--accent);
     font: inherit;
-    font-size: var(--font-icon);
+    font-size: var(--font-xs);
+    font-weight: 600;
     line-height: 1;
     cursor: pointer;
   }
 
   .add-language:hover {
     background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+
+  .add-mark {
+    font-size: var(--font-icon);
+    line-height: 1;
+  }
+
+  .add-label {
+    letter-spacing: 0.02em;
   }
 
   .host-prompt {
@@ -424,7 +437,7 @@
 
   .profile-name {
     font-size: var(--font-sm);
-    color: var(--text-subtle);
+    color: var(--text-muted);
   }
 
   .eye-spacer {
@@ -440,7 +453,7 @@
     border: 1px solid var(--border);
     border-radius: 10px;
     background: var(--surface-sunken);
-    color: var(--text-faint);
+    color: var(--text-muted);
     font: inherit;
     font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
     font-size: var(--font-sm);

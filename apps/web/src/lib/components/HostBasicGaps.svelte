@@ -59,7 +59,7 @@
 
   .host-gaps-title {
     margin: 0 0 2px;
-    color: var(--text-subtle);
+    color: var(--text-muted);
     font-size: var(--font-xs);
     font-weight: 600;
     letter-spacing: 0.02em;

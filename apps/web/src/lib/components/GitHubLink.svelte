@@ -30,14 +30,14 @@
     padding: 0;
     border-radius: 15px;
     background-color: var(--surface);
-    color: royalblue;
+    color: var(--accent);
     text-decoration: none;
     font-size: 110%;
   }
 
   .github-link:hover,
   .github-link:focus-visible {
-    color: var(--link);
+    color: var(--accent);
   }
 
   .github-link:focus-visible {

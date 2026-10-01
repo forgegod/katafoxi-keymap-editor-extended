@@ -179,7 +179,7 @@
     border: 1px solid var(--border);
     border-radius: 5px;
     background: var(--surface-sunken);
-    color: var(--text-soft);
+    color: var(--text-muted);
     font: inherit;
     cursor: pointer;
   }
@@ -205,7 +205,7 @@
   .view-toggle:disabled {
     background: var(--surface-sunken);
     border-color: var(--border-subtle);
-    color: var(--text-faint);
+    color: var(--text-muted);
     opacity: 0.45;
     cursor: default;
   }

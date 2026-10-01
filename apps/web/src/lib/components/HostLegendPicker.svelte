@@ -239,7 +239,7 @@
     width: max-content;
     padding: 0;
     font-size: var(--font-md);
-    color: var(--text-soft);
+    color: var(--text-muted);
   }
 
   .legend-sizer {
@@ -300,12 +300,12 @@
     font-size: var(--font-xs);
     font-weight: 600;
     letter-spacing: 0.02em;
-    color: var(--text-subtle);
+    color: var(--text-muted);
     background: color-mix(in srgb, var(--surface) 40%, transparent);
   }
 
   thead th.layer-col {
-    color: var(--text-faint);
+    color: var(--text-muted);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -340,7 +340,7 @@
     padding: 10px 12px;
     width: 180px;
     background: var(--surface);
-    color: var(--text-strong);
+    color: var(--text);
     border-radius: 8px;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
   }

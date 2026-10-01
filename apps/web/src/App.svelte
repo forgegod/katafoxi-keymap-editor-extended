@@ -437,7 +437,7 @@
 
   #actions button.history:disabled {
     background: var(--surface-sunken);
-    color: var(--text-ghost);
+    color: var(--text-disabled);
     border-color: var(--border-subtle);
   }
 
@@ -508,7 +508,7 @@
 
   #actions button.discard-draft:disabled {
     background: transparent;
-    color: var(--text-ghost);
+    color: var(--text-disabled);
     border-color: var(--border-soft);
     cursor: not-allowed;
   }

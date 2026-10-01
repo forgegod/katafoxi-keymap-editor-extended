@@ -650,7 +650,7 @@
     border: 0;
     border-radius: 3px;
     background: var(--surface);
-    color: var(--text-strong);
+    color: var(--text);
     font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
     font-size: 13px;
     line-height: 1.2;
@@ -700,7 +700,7 @@
     font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
     font-size: 42px;
     line-height: 1;
-    color: var(--text-strong);
+    color: var(--text);
   }
 
   .loupe-name {

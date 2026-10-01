@@ -114,7 +114,7 @@
   .hold.legend-hit {
     background: var(--highlight);
     border-radius: 3px;
-    color: var(--text-soft);
+    color: var(--text-muted);
     opacity: 1;
   }
 
@@ -140,6 +140,6 @@
     padding: 1px 3px;
     border-radius: 3px;
     background: rgba(0, 0, 0, 0.12);
-    color: var(--text-soft);
+    color: var(--text-muted);
   }
 </style>

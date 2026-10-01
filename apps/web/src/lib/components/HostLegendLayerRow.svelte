@@ -192,7 +192,7 @@
   }
 
   th {
-    color: var(--text-subtle);
+    color: var(--text-muted);
     font-size: var(--font-xs);
     font-weight: 400;
   }
@@ -251,7 +251,7 @@
     border: 1px solid var(--border);
     border-radius: 3px;
     background: var(--surface);
-    color: var(--text-strong);
+    color: var(--text);
     cursor: text;
   }
 

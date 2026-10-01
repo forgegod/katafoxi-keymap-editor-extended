@@ -431,7 +431,7 @@
     padding: 0 4px;
     border-radius: 3px;
     background: rgba(0, 0, 0, 0.08);
-    color: var(--text-soft);
+    color: var(--text-muted);
     font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
   }
 

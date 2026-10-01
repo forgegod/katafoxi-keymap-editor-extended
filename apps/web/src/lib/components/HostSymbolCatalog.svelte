@@ -54,6 +54,7 @@
       onclick={() => editor.toggleHostSymbolCatalog()}
     >
       <span class="catalog-glyph" aria-hidden="true">Ω</span>
+      <span class="catalog-label">Symbols</span>
     </button>
     {#if open}
       <div id="host-symbol-catalog" class="catalog-float">
@@ -86,15 +87,17 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
+    gap: 4px;
     height: 28px;
     margin: 2px 0 0;
-    padding: 0;
+    padding: 0 8px 0 7px;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--surface-sunken);
-    color: var(--text-soft);
+    color: var(--text-muted);
     font: inherit;
+    font-size: var(--font-xs);
+    font-weight: 600;
     cursor: pointer;
   }
 
@@ -111,6 +114,11 @@
   .catalog-glyph {
     font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
     font-size: var(--font-icon);
+    font-weight: 500;
     line-height: 1;
+  }
+
+  .catalog-label {
+    letter-spacing: 0.02em;
   }
 </style>
