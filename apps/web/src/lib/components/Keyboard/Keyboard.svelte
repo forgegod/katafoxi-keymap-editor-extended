@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    absentLayoutIndexes,
     collectUsedKeycodes,
     layerLegendSymbol,
     usedKeycodesRevision,
@@ -78,9 +79,13 @@
   )
 
   const blankTopRow = $derived(blankTopRowIndexes(layout, keymap.layers ?? []))
-  const hiddenKeys = $derived(
-    !revealEmptyRow && blankTopRow.length > 0 ? new Set(blankTopRow) : new Set<number>()
-  )
+  const hiddenKeys = $derived.by(() => {
+    const hidden = new Set(absentLayoutIndexes(layout))
+    if (!revealEmptyRow) {
+      for (const index of blankTopRow) hidden.add(index)
+    }
+    return hidden
+  })
 
   const bounds = $derived.by(() => {
     let minX = Infinity

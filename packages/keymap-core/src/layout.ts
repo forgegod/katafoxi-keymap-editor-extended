@@ -81,6 +81,16 @@ function isNumber(val: unknown): val is number {
   return typeof val === 'number' && !Number.isNaN(val)
 }
 
+/** True when the layout slot exists only to hold a matrix/keymap index. */
+export function isAbsentLayoutKey(key: LayoutKey): boolean {
+  return key.absent === true
+}
+
+/** Indexes of matrix slots that must not be drawn. */
+export function absentLayoutIndexes(layout: LayoutKey[]): number[] {
+  return layout.flatMap((key, index) => (isAbsentLayoutKey(key) ? [index] : []))
+}
+
 export function validateInfoJson(info: unknown): void {
   const errors: string[] = []
 
@@ -127,6 +137,9 @@ export function validateInfoJson(info: unknown): void {
                   if (prop in key && !isNumber(key[prop])) {
                     errors.push(`Key definition at ${keyPath} optional "${prop}" must be number`)
                   }
+                }
+                if ('absent' in key && typeof key.absent !== 'boolean') {
+                  errors.push(`Key definition at ${keyPath} optional "absent" must be boolean`)
                 }
                 for (const prop of ['row', 'col'] as const) {
                   if (anyKeyHasPosition && !(prop in key)) {

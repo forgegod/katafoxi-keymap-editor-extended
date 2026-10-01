@@ -34,6 +34,13 @@ describe('demo catalog', () => {
     }
   })
 
+  it('keeps Lark phantom matrix slots in the keymap but marks them absent', () => {
+    const { layout } = loadDemo('lark')
+    const absent = layout.filter(key => key.absent)
+    expect(absent.map(key => key.label)).toEqual(['0,0', '0,6', '5,6', '6,0', '6,6'])
+    expect(layout).toHaveLength(84)
+  })
+
   it('remembers the selected demo id', () => {
     localStorage.clear()
     expect(readStoredDemoId()).toBe('lark')
