@@ -38,15 +38,15 @@ describe('isKeycodeParam', () => {
 
 describe('codeGridMetrics', () => {
   it('sizes columns from width and fills them top to bottom', () => {
-    expect(codeGridMetrics(96, 1045)).toEqual({ cols: 14, rows: 7 })
+    expect(codeGridMetrics(96, 1045)).toEqual({ cols: 16, rows: 6 })
   })
 
-  it('drops unused columns so leftover HID cells can grow', () => {
-    expect(codeGridMetrics(44, 1045)).toEqual({ cols: 11, rows: 4 })
+  it('drops unused columns so leftover HID cells stay dense', () => {
+    expect(codeGridMetrics(44, 1045)).toEqual({ cols: 15, rows: 3 })
   })
 
-  it('keeps short HID names on the dense 72px track', () => {
-    expect(codeColumnMinPx(['ALT_ERASE', 'AMPS', 'K_APP', 'INT1'])).toBe(72)
+  it('keeps short HID names on the dense 64px track', () => {
+    expect(codeColumnMinPx(['ALT_ERASE', 'AMPS', 'K_APP', 'INT1'])).toBe(64)
   })
 
   it('uses fewer wider columns for long Consumer-style names', () => {

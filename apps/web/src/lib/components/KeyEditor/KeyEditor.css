@@ -1,6 +1,7 @@
   .key-editor {
     box-sizing: border-box;
-    width: min(1180px, 94vw);
+    /* Fit the densest Keyboard row (nav → FORWARD), not a fixed wide dump. */
+    width: min(1000px, 94vw);
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -354,10 +355,12 @@
   .key-editor-grid.codes {
     display: grid;
     grid-auto-flow: column;
+    justify-content: start;
     grid-template-rows: repeat(var(--code-rows, 1), auto);
+    /* Fixed tracks — do not stretch empty space across the modal. */
     grid-template-columns: repeat(
       var(--code-cols, 10),
-      minmax(var(--code-col-min, 72px), 1fr)
+      var(--code-col-min, 64px)
     );
   }
 
