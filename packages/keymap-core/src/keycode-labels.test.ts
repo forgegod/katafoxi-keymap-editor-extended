@@ -34,11 +34,13 @@ describe('displayChoiceLabel', () => {
     expect(displayChoiceLabel(peers[2], peers)).toBe('LG(…)')
   })
 
-  it('hides the K_ prefix on extras chips, not leftover K_*2 codes', () => {
+  it('uses short media and scroll chips', () => {
     expect(displayChoiceLabel({ code: 'K_MUTE' })).toBe('MUTE')
-    expect(displayChoiceLabel({ code: 'K_SCROLL_DOWN' })).toBe('SCROLL_DOWN')
-    expect(displayChoiceLabel({ code: 'K_MUTE2' })).toBe('K_MUTE2')
-    expect(displayChoiceLabel({ code: 'K_MUTE', symbol: '🔇' })).toBe('🔇')
+    expect(displayChoiceLabel({ code: 'K_MUTE', symbol: '🔇' })).toBe('MUTE')
+    expect(displayChoiceLabel({ code: 'K_MUTE2', symbol: '🔇' })).toBe('MUTE2')
+    expect(displayChoiceLabel({ code: 'K_VOL_DN2' })).toBe('VOL_DN2')
+    expect(displayChoiceLabel({ code: 'K_SCROLL_DOWN' })).toBe('SCROLL_DN')
+    expect(displayChoiceLabel({ code: 'K_SCROLL_UP' })).toBe('SCROLL_UP')
   })
 
   it('marks US shift aliases as LS of the HID key', () => {

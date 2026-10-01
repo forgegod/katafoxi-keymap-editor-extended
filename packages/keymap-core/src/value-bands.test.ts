@@ -18,8 +18,10 @@ describe('valueBandKind', () => {
     expect(valueBandKind({ code: 'SEMI', symbol: ';' })).toBe('punct')
     expect(valueBandKind({ code: 'COLON' })).toBe('shifted')
     expect(valueBandKind({ code: 'HASH' })).toBe('shifted')
-    expect(valueBandKind({ code: 'K_MUTE' })).toBe('extras')
-    expect(valueBandKind({ code: 'K_MUTE2' })).toBe('codes')
+    expect(valueBandKind({ code: 'K_MUTE' })).toBe('media')
+    expect(valueBandKind({ code: 'K_MUTE2', symbol: '🔇' })).toBe('media')
+    expect(valueBandKind({ code: 'K_VOL_DN2' })).toBe('media')
+    expect(valueBandKind({ code: 'K_APP' })).toBe('extras')
     expect(valueBandKind({ code: 'PIPE2' })).toBe('codes')
     expect(valueBandKind({ code: 'ALT_ERASE' })).toBe('codes')
     expect(valueBandKind({ code: 'LCMD', symbol: '⌘', isModifier: true })).toBe(
@@ -166,21 +168,25 @@ describe('bandCatalogChoices', () => {
     ])
   })
 
-  it('lifts keyboard K_* extras out of the HID dump', () => {
+  it('lifts keyboard media and K_* extras out of the HID dump', () => {
     const bands = bandCatalogChoices([
       { code: 'K_MUTE' },
+      { code: 'K_MUTE2', symbol: '🔇' },
       { code: 'K_CALC' },
-      { code: 'K_MUTE2' },
+      { code: 'K_STOP2' },
       { code: 'ALT_ERASE' }
     ])
-    expect(bands.map(b => b.kind)).toEqual(['extras', 'codes'])
+    expect(bands.map(b => b.kind)).toEqual(['media', 'extras', 'codes'])
+    expect(bands.find(b => b.kind === 'media')?.items.map(i => i.code)).toEqual([
+      'K_MUTE',
+      'K_MUTE2'
+    ])
     expect(bands.find(b => b.kind === 'extras')?.items.map(i => i.code)).toEqual([
-      'K_CALC',
-      'K_MUTE'
+      'K_CALC'
     ])
     expect(bands.find(b => b.kind === 'codes')?.items.map(i => i.code)).toEqual([
       'ALT_ERASE',
-      'K_MUTE2'
+      'K_STOP2'
     ])
   })
 })

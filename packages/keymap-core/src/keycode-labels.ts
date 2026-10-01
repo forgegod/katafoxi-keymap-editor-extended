@@ -10,6 +10,30 @@ import {
   modifierSide
 } from './modifiers.js'
 
+/**
+ * Short chip text for keyboard media / scroll codes.
+ * Full ZMK names stay in tooltips (`K_MUTE2 — Mute`).
+ */
+const KEYBOARD_CHIP_SHORT = new Map<string, string>([
+  ['K_SCROLL_UP', 'SCROLL_UP'],
+  ['K_SCROLL_DOWN', 'SCROLL_DN'],
+  ['K_MUTE', 'MUTE'],
+  ['K_MUTE2', 'MUTE2'],
+  ['K_VOL_UP', 'VOL_UP'],
+  ['K_VOLUME_UP', 'VOL_UP'],
+  ['K_VOL_DN', 'VOL_DN'],
+  ['K_VOLUME_DOWN', 'VOL_DN'],
+  ['K_VOL_UP2', 'VOL_UP2'],
+  ['K_VOLUME_UP2', 'VOL_UP2'],
+  ['K_VOL_DN2', 'VOL_DN2'],
+  ['K_VOLUME_DOWN2', 'VOL_DN2']
+])
+
+export function keyboardChipShortLabel(choice: CatalogChoice): string | null {
+  const code = String(choice.code ?? '').toUpperCase()
+  return KEYBOARD_CHIP_SHORT.get(code) ?? null
+}
+
 /** Glyph or shortest code used to sort and label a choice. */
 export function representativeLabel(choice: CatalogChoice): string {
   if (choiceHasParams(choice)) return String(choice.code ?? '')
@@ -24,6 +48,8 @@ function labelChoice(choice: CatalogChoice, collisionCount: number): string {
   if (shift) return `⇧${shift.symbol}`
   const hid = punctHidMark(choice)
   if (hid) return hid.symbol
+  const short = keyboardChipShortLabel(choice)
+  if (short) return short
   const code = String(choice.code ?? '')
   if (isModifierKey(choice)) {
     const hold = modifierHoldForKey(code)

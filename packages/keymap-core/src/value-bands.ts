@@ -20,6 +20,7 @@ export type ValueBandKind =
   | 'punct'
   | 'shifted'
   | 'nav'
+  | 'media'
   | 'extras'
   | 'codes'
 
@@ -35,6 +36,7 @@ const BAND_ORDER: ValueBandKind[] = [
   'punct',
   'shifted',
   'nav',
+  'media',
   'extras',
   'modkeys',
   'modwraps',
@@ -153,11 +155,68 @@ const NAV_ORDER = [
   'PAUSE_BREAK'
 ]
 
+
+/** Transport / volume cluster lifted out of the long K_* extras row.
+ * `*2` are distinct Linux/Android keyboard-page usages, not aliases of K_MUTE / K_VOL_*. */
+const MEDIA_NAMED_CODES = new Set([
+  'K_MUTE',
+  'K_MUTE2',
+  'K_VOL_DN',
+  'K_VOLUME_DOWN',
+  'K_VOL_DN2',
+  'K_VOLUME_DOWN2',
+  'K_VOL_UP',
+  'K_VOLUME_UP',
+  'K_VOL_UP2',
+  'K_VOLUME_UP2',
+  'K_PP',
+  'K_PLAY_PAUSE',
+  'K_NEXT',
+  'K_PREV',
+  'K_PREVIOUS',
+  'K_STOP',
+  'K_STOP3',
+  'K_EJECT',
+  'K_PWR',
+  'K_POWER',
+  'K_SLEEP'
+])
+
+const MEDIA_ORDER = [
+  'K_MUTE',
+  'K_MUTE2',
+  'K_VOL_DN',
+  'K_VOLUME_DOWN',
+  'K_VOL_DN2',
+  'K_VOLUME_DOWN2',
+  'K_VOL_UP',
+  'K_VOLUME_UP',
+  'K_VOL_UP2',
+  'K_VOLUME_UP2',
+  'K_PP',
+  'K_PLAY_PAUSE',
+  'K_PREV',
+  'K_PREVIOUS',
+  'K_NEXT',
+  'K_STOP',
+  'K_STOP3',
+  'K_EJECT',
+  'K_PWR',
+  'K_POWER',
+  'K_SLEEP'
+]
+
 const ARROW_GLYPHS = new Set(['⏴', '⏵', '⏶', '⏷', '←', '→', '↑', '↓', '◀', '▶', '▲', '▼'])
 
 function navRank(choice: CatalogChoice): number {
   const code = String(choice.code ?? '').toUpperCase()
   const index = NAV_ORDER.indexOf(code)
+  return index >= 0 ? index : 80
+}
+
+function mediaRank(choice: CatalogChoice): number {
+  const code = String(choice.code ?? '').toUpperCase()
+  const index = MEDIA_ORDER.indexOf(code)
   return index >= 0 ? index : 80
 }
 
@@ -191,6 +250,7 @@ export function valueBandKind(choice: CatalogChoice): ValueBandKind {
   if (NAV_NAMED_CODES.has(upper) || ARROW_GLYPHS.has(label)) return 'nav'
   if (usShiftAlias(choice)) return 'shifted'
   if (punctHidMark(choice)) return 'punct'
+  if (MEDIA_NAMED_CODES.has(upper)) return 'media'
   if (/^K_/.test(upper) && !/2$/.test(upper)) return 'extras'
   if (upper.startsWith('NON_US') || upper === 'PIPE2' || upper === 'TILDE2') {
     return 'codes'
@@ -213,11 +273,13 @@ function sortBand(kind: ValueBandKind, items: CatalogChoice[]): CatalogChoice[] 
           ? Number(representativeLabel(item).replace(/\D/g, ''))
           : kind === 'nav'
             ? navRank(item)
-            : kind === 'punct'
-              ? (punctHidMark(item)?.rank ?? 80)
-              : kind === 'shifted'
-                ? (usShiftAlias(item)?.rank ?? 80)
-                : 0,
+            : kind === 'media'
+              ? mediaRank(item)
+              : kind === 'punct'
+                ? (punctHidMark(item)?.rank ?? 80)
+                : kind === 'shifted'
+                  ? (usShiftAlias(item)?.rank ?? 80)
+                  : 0,
     label: kind === 'codes' ? String(item.code ?? '') : representativeLabel(item),
     code: String(item.code ?? '')
   }))
@@ -232,7 +294,7 @@ function sortBand(kind: ValueBandKind, items: CatalogChoice[]): CatalogChoice[] 
 
 /**
  * Split a group's chips into keyboard-like bands: F-keys, digits, letters,
- * punctuation, US-shift LS() aliases, navigation, extras (K_*), then long codes.
+ * punctuation, US-shift LS() aliases, navigation, media, extras (K_*), then long codes.
  */
 export function bandCatalogChoices(choices: CatalogChoice[]): ValueBand[] {
   const buckets: Record<ValueBandKind, CatalogChoice[]> = {
@@ -244,6 +306,7 @@ export function bandCatalogChoices(choices: CatalogChoice[]): ValueBand[] {
     punct: [],
     shifted: [],
     nav: [],
+    media: [],
     extras: [],
     codes: []
   }
