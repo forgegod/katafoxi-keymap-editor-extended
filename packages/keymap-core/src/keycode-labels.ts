@@ -56,9 +56,17 @@ const KEYPAD_GLYPH_LABELS = new Map<string, string>([
   ['KP_NLCK', 'NUM']
 ])
 
+/** Compact keypad legend shared by edit_key chips and keycap text. */
+export function keypadGlyphLabel(code?: string | number | null): string | null {
+  const upper = String(code ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/^KC_/, '')
+  return KEYPAD_GLYPH_LABELS.get(upper) ?? null
+}
+
 export function keypadCompactPunctLabel(choice: CatalogChoice): string | null {
-  const code = String(choice.code ?? '').toUpperCase()
-  return KEYPAD_GLYPH_LABELS.get(code) ?? null
+  return keypadGlyphLabel(choice.code)
 }
 
 export function isKeypadCompactPunct(choice: CatalogChoice): boolean {

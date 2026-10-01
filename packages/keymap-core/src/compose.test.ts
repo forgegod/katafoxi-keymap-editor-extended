@@ -698,6 +698,20 @@ describe('keycapLegend', () => {
     expect(keycapLegend('KP_MULTIPLY', '*')).toBe('*')
   })
 
+  it('uses edit_key compact glyphs when the catalog symbol is the code name', () => {
+    // normalizeZmkKeycodes fills missing JSON symbols with the shortest alias.
+    expect(keycapLegend('KP_COMMA', 'KP_COMMA')).toBe(',')
+    expect(keycapLegend('KP_DOT', 'KP_DOT')).toBe('.')
+    expect(keycapLegend('KP_LPAR', 'KP_LPAR')).toBe('(')
+    expect(keycapLegend('KP_LEFT_PARENTHESIS', 'KP_LEFT_PARENTHESIS')).toBe('(')
+    expect(keycapLegend('KP_RPAR', 'KP_RPAR')).toBe(')')
+    expect(keycapLegend('KP_RIGHT_PARENTHESIS', 'KP_RIGHT_PARENTHESIS')).toBe(')')
+    expect(keycapLegend('KP_EQUAL', 'KP_EQUAL')).toBe('=')
+    expect(keycapLegend('KP_ENTER', 'KP_ENTER')).toBe('⮐')
+    expect(keycapLegend('KC_KP_COMMA', 'KC_KP_COMMA')).toBe(',')
+    expect(keycapLegend('KP_NUM', 'KP_NUM')).toBe('NUM')
+  })
+
   it('marks HID keypad codes without changing the digit glyph', () => {
     expect(isKeypadCode('KP_N7')).toBe(true)
     expect(isKeypadCode('KP_ENTER')).toBe(true)
