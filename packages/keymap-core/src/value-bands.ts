@@ -395,6 +395,14 @@ export function bandCatalogChoices(choices: CatalogChoice[]): ValueBand[] {
   return [{ kind: 'punct', items: sortKeypadOpsRow(flat) }]
 }
 
+/**
+ * Collapse the HID dump only on the Keyboard taxonomy tab. Other contexts
+ * (Consumer*, Keypad-only, …) are already small slices — keep codes open.
+ */
+export function codesBandNeedsDisclosure(context: string): boolean {
+  return context.trim() === 'Keyboard'
+}
+
 function splitNavRows(sorted: CatalogChoice[]): ValueBand {
   const row1: CatalogChoice[] = []
   const row2: CatalogChoice[] = []

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bandCatalogChoices, valueBandCaption, valueBandKind } from './value-bands.js'
+import { bandCatalogChoices, codesBandNeedsDisclosure, valueBandCaption, valueBandKind } from './value-bands.js'
 
 describe('valueBandKind', () => {
   it('keeps letters, digits, and F-keys out of the long-code grid', () => {
@@ -310,5 +310,12 @@ describe('bandCatalogChoices', () => {
     expect(bands[0]?.extraRows?.map(row => row.map(i => i.code))).toEqual([
       ['K_MUTE2', 'K_VOL_UP2']
     ])
+  })
+
+  it('needs a codes disclosure only on the Keyboard taxonomy tab', () => {
+    expect(codesBandNeedsDisclosure('Keyboard')).toBe(true)
+    expect(codesBandNeedsDisclosure('Keypad')).toBe(false)
+    expect(codesBandNeedsDisclosure('Consumer Media')).toBe(false)
+    expect(codesBandNeedsDisclosure('Consumer')).toBe(false)
   })
 })

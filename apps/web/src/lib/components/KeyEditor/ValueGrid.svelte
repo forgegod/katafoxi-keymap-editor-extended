@@ -4,6 +4,7 @@
     catalogChoiceTooltip,
     choiceMatchesCode,
     choiceOsSupportLimited,
+    codesBandNeedsDisclosure,
     formatUsedChoiceTooltip,
     isKeypadChoice,
     isModifierKey,
@@ -91,8 +92,17 @@
     )
   }
 
-  function showCodesBand(band: ValueBand): boolean {
+  function showCodesBand(band: ValueBand, context: string): boolean {
+    if (!codesBandNeedsDisclosure(context)) return true
     return searching || codesExpanded || bandHasActive(band)
+  }
+
+  function canCollapseCodes(band: ValueBand, context: string): boolean {
+    return (
+      codesBandNeedsDisclosure(context) &&
+      !searching &&
+      !bandHasActive(band)
+    )
   }
 
   function showShiftedBand(band: ValueBand): boolean {
@@ -147,10 +157,12 @@
             band.kind === 'shifted' && prevBand?.kind === 'punct'}
           {@const codesOnExtras =
             band.kind === 'extras' && nextBand?.kind === 'codes' ? nextBand : null}
+          {@const codesOpen = (codesBand: ValueBand) =>
+            showCodesBand(codesBand, group.context)}
           {@const skipCodesCollapsed =
             band.kind === 'codes' &&
             prevBand?.kind === 'extras' &&
-            !showCodesBand(band)}
+            !codesOpen(band)}
           {#if !skipShifted && !skipCodesCollapsed}
           <div
             class="key-editor-band"
@@ -185,7 +197,7 @@
               </p>
             {/if}
 
-            {#if band.kind === 'codes' && !showCodesBand(band)}
+            {#if band.kind === 'codes' && !codesOpen(band)}
               <button
                 type="button"
                 class="key-editor-codes-toggle key-editor-inline-toggle"
@@ -197,7 +209,7 @@
               </button>
             {:else if band.kind === 'codes'}
               <div class="key-editor-band-body">
-                {#if !searching && !bandHasActive(band)}
+                {#if canCollapseCodes(band, group.context)}
                   <button
                     type="button"
                     class="key-editor-codes-toggle key-editor-inline-toggle"
@@ -418,7 +430,7 @@
                       {choiceLabel(item)}
                     </button>
                   {/each}
-                  {#if codesOnExtras && !showCodesBand(codesOnExtras)}
+                  {#if codesOnExtras && !codesOpen(codesOnExtras)}
                     <button
                       type="button"
                       class="key-editor-codes-toggle key-editor-inline-toggle"
