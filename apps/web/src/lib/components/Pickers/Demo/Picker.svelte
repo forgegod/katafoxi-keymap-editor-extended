@@ -153,10 +153,12 @@
   }
 
   .demo-card {
-    display: flex;
+    display: grid;
+    grid-template-columns: 132px minmax(0, 1fr);
     align-items: center;
     gap: 10px;
     width: 100%;
+    min-height: 72px;
     margin: 0;
     padding: 8px;
     color: inherit;
@@ -180,19 +182,26 @@
   .demo-meta {
     display: flex;
     min-width: 0;
-    flex: 1 1 auto;
+    min-height: 56px;
     flex-direction: column;
+    justify-content: center;
     gap: 2px;
   }
 
   .demo-name {
     font-weight: 600;
     font-size: var(--font-md);
+    line-height: 1.2;
   }
 
   .demo-blurb {
+    display: -webkit-box;
+    overflow: hidden;
     color: var(--text-muted);
     font-size: var(--font-sm, 0.85rem);
+    line-height: 1.3;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
   .demo-repo {

@@ -1,6 +1,10 @@
 <script lang="ts">
   import type { LayoutKey } from '@keymap-editor/keymap-core'
 
+  /** Shared slot so every demo card’s preview is the same size. */
+  const FRAME_W = 132
+  const FRAME_H = 56
+
   interface Props {
     layout: LayoutKey[]
     /** Accessible name for the schematic. */
@@ -11,7 +15,7 @@
 
   const geometry = $derived.by(() => {
     if (!layout.length) {
-      return { width: 1, height: 1, keys: [] as LayoutKey[], unit: 8 }
+      return { width: FRAME_W, height: FRAME_H, keys: [] as LayoutKey[], unit: 8, ox: 0, oy: 0 }
     }
     let minX = Infinity
     let minY = Infinity
@@ -27,11 +31,15 @@
     }
     const width = Math.max(maxX - minX, 1)
     const height = Math.max(maxY - minY, 1)
-    const unit = Math.min(10, 132 / width, 56 / height)
+    const unit = Math.min(FRAME_W / width, FRAME_H / height)
+    const drawnW = width * unit
+    const drawnH = height * unit
     return {
-      width: width * unit,
-      height: height * unit,
+      width: FRAME_W,
+      height: FRAME_H,
       unit,
+      ox: (FRAME_W - drawnW) / 2,
+      oy: (FRAME_H - drawnH) / 2,
       keys: layout.map(key => ({
         ...key,
         x: (key.x - minX) * unit,
@@ -53,8 +61,8 @@
   {#each geometry.keys as key}
     <span
       class="key"
-      style:left="{key.x}px"
-      style:top="{key.y}px"
+      style:left="{geometry.ox + key.x}px"
+      style:top="{geometry.oy + key.y}px"
       style:width="{(key.w ?? geometry.unit) - 1}px"
       style:height="{(key.h ?? geometry.unit) - 1}px"
       style:transform={key.r ? `rotate(${key.r}deg)` : undefined}
