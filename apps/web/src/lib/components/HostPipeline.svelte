@@ -4,6 +4,7 @@
   import logoLinux from '../assets/logo-linux.png'
   import logoWindows from '../assets/logo-windows.png'
   import Modal from './Common/Modal.svelte'
+  import ChromeStatus from './Common/ChromeStatus.svelte'
   import LangFlag from './LangFlag.svelte'
 
   type InstallSheet = 'linux' | 'windows' | null
@@ -186,17 +187,7 @@
   title="Host layout: install results on the OS"
 >
   <span class="lane-label" title="Host layout: install results on the OS">Host</span>
-  <span
-    class="chrome-status"
-    class:dirty
-    class:clean={!dirty}
-    aria-live="polite"
-    aria-label={statusTitle}
-    title={statusTitle}
-  >
-    <span class="status-dot" aria-hidden="true"></span>
-    {#if dirty}Changed{/if}
-  </span>
+  <ChromeStatus dirty={dirty} label="Changed" title={statusTitle} />
 
   <button
     type="button"

@@ -16,6 +16,7 @@
   import Loader from './lib/components/Common/Loader.svelte'
   import github from './lib/github/api.svelte.js'
   import FirmwareBuild from './lib/components/FirmwareBuild.svelte'
+  import ChromeStatus from './lib/components/Common/ChromeStatus.svelte'
 
   // Proxy so context consumers stay reactive to editor.definitions ($state).
   setDefinitionsContext({
@@ -131,17 +132,12 @@
 
       {#if editor.draftKeymap}
         <div class="chrome-group chrome-draft">
-          <span
-            class="publish-status chrome-status"
-            class:dirty={editor.isDirty}
-            class:clean={!editor.isDirty}
-            aria-live="polite"
-            aria-label={editor.statusText}
+          <ChromeStatus
+            class="publish-status"
+            dirty={editor.isDirty}
+            label="Draft"
             title={editor.statusText}
-          >
-            <span class="status-dot" aria-hidden="true"></span>
-            {#if editor.isDirty}Draft{/if}
-          </span>
+          />
           {#if editor.isDirty}
             <button
               type="button"

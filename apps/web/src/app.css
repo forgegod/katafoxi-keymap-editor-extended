@@ -244,6 +244,8 @@ code {
   gap: 6px;
   box-sizing: border-box;
   height: var(--chrome-h);
+  padding: 0 8px 0 6px;
+  border-radius: 5px;
   font-size: var(--font-md);
   font-weight: 600;
   white-space: nowrap;
@@ -257,12 +259,15 @@ code {
   flex-shrink: 0;
 }
 
+/* One pending colour for ZMK Draft and Host Changed. */
 .chrome-status.dirty {
   color: var(--warn);
+  background: var(--warn-wash);
 }
 
 .chrome-status.clean {
   color: var(--ok);
+  padding-inline: 0;
 }
 
 /* Dialog dismiss button (original DialogBox had unstyled browser button) */
