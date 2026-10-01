@@ -87,7 +87,7 @@ function compareModifiers(a: CatalogChoice, b: CatalogChoice): number {
   return compareLabels(String(a.code ?? ''), String(b.code ?? ''))
 }
 
-/** Editing / navigation cluster — not punctuation. */
+/** Editing / navigation / system cluster — not punctuation or HID dump. */
 const NAV_NAMED_CODES = new Set([
   'ESC',
   'TAB',
@@ -112,7 +112,13 @@ const NAV_NAMED_CODES = new Set([
   'LEFT_ARROW',
   'RIGHT_ARROW',
   'UP_ARROW',
-  'DOWN_ARROW'
+  'DOWN_ARROW',
+  // Standard top-right system keys (not locking LSLCK / LCAPS / LNLCK).
+  'PSCRN',
+  'PRINTSCREEN',
+  'SLCK',
+  'SCROLLLOCK',
+  'PAUSE_BREAK'
 ])
 
 const NAV_ORDER = [
@@ -139,7 +145,12 @@ const NAV_ORDER = [
   'UP',
   'UP_ARROW',
   'DOWN',
-  'DOWN_ARROW'
+  'DOWN_ARROW',
+  'PSCRN',
+  'PRINTSCREEN',
+  'SLCK',
+  'SCROLLLOCK',
+  'PAUSE_BREAK'
 ]
 
 const ARROW_GLYPHS = new Set(['⏴', '⏵', '⏶', '⏷', '←', '→', '↑', '↓', '◀', '▶', '▲', '▼'])

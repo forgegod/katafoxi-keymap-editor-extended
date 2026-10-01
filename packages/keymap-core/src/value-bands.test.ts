@@ -7,6 +7,13 @@ describe('valueBandKind', () => {
     expect(valueBandKind({ code: 'N1', symbol: '1' })).toBe('digits')
     expect(valueBandKind({ code: 'F12' })).toBe('function')
     expect(valueBandKind({ code: 'ESC' })).toBe('nav')
+    expect(valueBandKind({ code: 'PSCRN' })).toBe('nav')
+    expect(valueBandKind({ code: 'PRINTSCREEN' })).toBe('nav')
+    expect(valueBandKind({ code: 'SLCK' })).toBe('nav')
+    expect(valueBandKind({ code: 'SCROLLLOCK' })).toBe('nav')
+    expect(valueBandKind({ code: 'PAUSE_BREAK', symbol: '⏸' })).toBe('nav')
+    expect(valueBandKind({ code: 'LSLCK' })).toBe('codes')
+    expect(valueBandKind({ code: 'SYSREQ' })).toBe('codes')
     expect(valueBandKind({ code: 'MINUS' })).toBe('punct')
     expect(valueBandKind({ code: 'SEMI', symbol: ';' })).toBe('punct')
     expect(valueBandKind({ code: 'COLON' })).toBe('shifted')
@@ -116,6 +123,28 @@ describe('bandCatalogChoices', () => {
     ])
     expect(bands.find(b => b.kind === 'codes')?.items.map(i => i.code)).toEqual([
       'PIPE2'
+    ])
+  })
+
+  it('lifts Print Screen / Scroll Lock / Pause into nav ahead of HID dump', () => {
+    const bands = bandCatalogChoices([
+      { code: 'ALT_ERASE' },
+      { code: 'PSCRN' },
+      { code: 'SLCK' },
+      { code: 'PAUSE_BREAK', symbol: '⏸' },
+      { code: 'PG_DN' },
+      { code: 'LSLCK' }
+    ])
+    expect(bands.map(b => b.kind)).toEqual(['nav', 'codes'])
+    expect(bands.find(b => b.kind === 'nav')?.items.map(i => i.code)).toEqual([
+      'PG_DN',
+      'PSCRN',
+      'SLCK',
+      'PAUSE_BREAK'
+    ])
+    expect(bands.find(b => b.kind === 'codes')?.items.map(i => i.code)).toEqual([
+      'ALT_ERASE',
+      'LSLCK'
     ])
   })
 
