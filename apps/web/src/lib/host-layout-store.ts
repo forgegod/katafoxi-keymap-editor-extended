@@ -76,7 +76,7 @@ type StoredUserLayout = UserHostLayout & {
 }
 
 type StoredView = {
-  id: typeof VIEW_SETTING_ID
+  id: string
   columns: HostLegendView['columns']
   open: HostLegendView['open']
   keycap?: HostLegendView['keycap']

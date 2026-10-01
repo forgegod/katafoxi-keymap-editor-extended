@@ -5,10 +5,107 @@ import {
   type CatalogChoice
 } from './catalog-choices.js'
 import {
+  choiceKeycodeOs,
+  formatKeycodeOsTooltip
+} from './keycode-os.js'
+import {
   modifierHoldForKey,
   modifierHoldLegend,
   modifierSide
 } from './modifiers.js'
+
+/** Keypad chips use the legend glyph; the `.keypad` wash disambiguates from Keyboard. */
+const KEYPAD_GLYPH_LABELS = new Map<string, string>([
+  ['KP_N0', '0'],
+  ['KP_NUMBER_0', '0'],
+  ['KP_N1', '1'],
+  ['KP_NUMBER_1', '1'],
+  ['KP_N2', '2'],
+  ['KP_NUMBER_2', '2'],
+  ['KP_N3', '3'],
+  ['KP_NUMBER_3', '3'],
+  ['KP_N4', '4'],
+  ['KP_NUMBER_4', '4'],
+  ['KP_N5', '5'],
+  ['KP_NUMBER_5', '5'],
+  ['KP_N6', '6'],
+  ['KP_NUMBER_6', '6'],
+  ['KP_N7', '7'],
+  ['KP_NUMBER_7', '7'],
+  ['KP_N8', '8'],
+  ['KP_NUMBER_8', '8'],
+  ['KP_N9', '9'],
+  ['KP_NUMBER_9', '9'],
+  ['KP_MINUS', '-'],
+  ['KP_SUBTRACT', '-'],
+  ['KP_DOT', '.'],
+  ['KP_PLUS', '+'],
+  ['KP_EQUAL', '='],
+  ['KP_SLASH', '/'],
+  ['KP_DIVIDE', '/'],
+  ['KP_ASTERISK', '*'],
+  ['KP_MULTIPLY', '*'],
+  ['KP_ENTER', '⮐'],
+  ['KP_COMMA', ','],
+  ['KP_LPAR', '('],
+  ['KP_LEFT_PARENTHESIS', '('],
+  ['KP_RPAR', ')'],
+  ['KP_RIGHT_PARENTHESIS', ')'],
+  ['KP_NUM', 'NUM'],
+  ['KP_NUMLOCK', 'NUM'],
+  ['KP_NLCK', 'NUM']
+])
+
+/** Compact keypad legend shared by edit_key chips and keycap text. */
+export function keypadGlyphLabel(code?: string | number | null): string | null {
+  const upper = String(code ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/^KC_/, '')
+  return KEYPAD_GLYPH_LABELS.get(upper) ?? null
+}
+
+export function keypadCompactPunctLabel(choice: CatalogChoice): string | null {
+  return keypadGlyphLabel(choice.code)
+}
+
+export function isKeypadCompactPunct(choice: CatalogChoice): boolean {
+  return keypadCompactPunctLabel(choice) != null
+}
+
+/**
+ * Short chip text for keyboard media / scroll / edit-action codes.
+ * Full ZMK names stay in tooltips (`K_MUTE2 — Mute`, `K_COPY — Copy`).
+ */
+const KEYBOARD_CHIP_SHORT = new Map<string, string>([
+  ['K_SCROLL_UP', 'SCROLL_UP'],
+  ['K_SCROLL_DOWN', 'SCROLL_DN'],
+  ['K_MUTE', 'MUTE'],
+  ['K_MUTE2', 'MUTE2'],
+  ['K_VOL_UP', 'VOL_UP'],
+  ['K_VOLUME_UP', 'VOL_UP'],
+  ['K_VOL_DN', 'VOL_DN'],
+  ['K_VOLUME_DOWN', 'VOL_DN'],
+  ['K_VOL_UP2', 'VOL_UP2'],
+  ['K_VOLUME_UP2', 'VOL_UP2'],
+  ['K_VOL_DN2', 'VOL_DN2'],
+  ['K_VOLUME_DOWN2', 'VOL_DN2'],
+  // Toolbar-familiar edit actions (chip only — not keycap legend symbols).
+  ['K_CUT', '✂'],
+  ['K_COPY', '⧉'],
+  ['K_PASTE', '📋'],
+  ['K_UNDO', '↶'],
+  ['K_REDO', '↷'],
+  ['K_AGAIN', '↷'],
+  ['K_FIND', '🔍'],
+  // Rare keypad dump — keep readable without sitting next to KP_EQUAL.
+  ['KP_EQUAL_AS400', 'AS400=']
+])
+
+export function keyboardChipShortLabel(choice: CatalogChoice): string | null {
+  const code = String(choice.code ?? '').toUpperCase()
+  return KEYBOARD_CHIP_SHORT.get(code) ?? null
+}
 
 /** Glyph or shortest code used to sort and label a choice. */
 export function representativeLabel(choice: CatalogChoice): string {
@@ -24,6 +121,10 @@ function labelChoice(choice: CatalogChoice, collisionCount: number): string {
   if (shift) return `⇧${shift.symbol}`
   const hid = punctHidMark(choice)
   if (hid) return hid.symbol
+  const compact = keypadCompactPunctLabel(choice)
+  if (compact) return compact
+  const short = keyboardChipShortLabel(choice)
+  if (short) return short
   const code = String(choice.code ?? '')
   if (isModifierKey(choice)) {
     const hold = modifierHoldForKey(code)
@@ -69,10 +170,18 @@ export function catalogChoiceTooltip(choice: CatalogChoice): string {
   const code = String(choice.code ?? '').trim()
   const shown = choiceHasParams(choice) ? `${code}(${choice.params!.join(',')})` : code
   const shift = usShiftAlias(choice)
-  if (shift) return `${shown} — LS(${shift.base})`
-  const detail = String(choice.description ?? choice.name ?? '').trim()
-  if (shown && detail && detail !== code && detail !== shown) return `${shown} — ${detail}`
-  return detail || shown
+  const head = shift
+    ? `${shown} — LS(${shift.base})`
+    : (() => {
+        const detail = String(choice.description ?? choice.name ?? '').trim()
+        if (shown && detail && detail !== code && detail !== shown) {
+          return `${shown} — ${detail}`
+        }
+        return detail || shown
+      })()
+  const os = choiceKeycodeOs(choice)
+  const osLine = os ? formatKeycodeOsTooltip(os) : null
+  return osLine ? `${head}\n${osLine}` : head
 }
 
 /** Extras band is all `K_*`; hide that prefix on the chip, not in tooltips. */

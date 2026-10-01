@@ -156,6 +156,7 @@
 <script lang="ts">
   import {
     hostSymbolShelves,
+    isUninkedHostGlyph,
     type HostLanguageId,
     type HostSymbolShelf,
     type HostSymbolShelfEntry
@@ -164,7 +165,7 @@
 
   interface Props {
     language: HostLanguageId
-    /** Soft initial anchor (toggle button); ignored once geometry is saved. */
+    /** Soft initial anchor; ignored once geometry is saved. */
     anchorEl?: HTMLElement | null
     /** Test override; product path uses `editor.pickHostSymbol`. */
     onPick?: (text: string) => void
@@ -387,6 +388,34 @@
     return entry.glyph ? `${entry.glyph} ${entry.keysym}` : entry.keysym
   }
 
+  let loupe = $state<{
+    glyph: string
+    keysym: string
+    x: number
+    y: number
+    above: boolean
+  } | null>(null)
+
+  function showLoupe(event: Event, entry: HostSymbolShelfEntry) {
+    if (!entry.glyph || isUninkedHostGlyph(entry.glyph)) {
+      loupe = null
+      return
+    }
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+    const above = rect.top > 96
+    loupe = {
+      glyph: entry.glyph,
+      keysym: entry.keysym,
+      x: rect.left + rect.width / 2,
+      y: above ? rect.top - 6 : rect.bottom + 6,
+      above
+    }
+  }
+
+  function hideLoupe() {
+    loupe = null
+  }
+
   function entryValue(entry: HostSymbolShelfEntry): string {
     return entry.glyph || entry.keysym
   }
@@ -399,6 +428,15 @@
       return
     }
     void editor.pickHostSymbol(value)
+  }
+
+  function clearSlot() {
+    if (disabled) return
+    if (onPick) {
+      onPick('NoSymbol')
+      return
+    }
+    void editor.pickHostSymbol('NoSymbol')
   }
 </script>
 
@@ -429,9 +467,24 @@
     <span class="picker-title">Symbols</span>
     <span class="picker-hint" aria-hidden="true">⠿</span>
   </div>
-  <div class="picker-body" bind:this={bodyEl}>
+  <div class="picker-body" bind:this={bodyEl} onscroll={hideLoupe}>
     {#if disabled}
       <p class="hint" role="status">Select a level cell on the decode card</p>
+    {:else}
+      <div class="clear-row">
+        <button
+          type="button"
+          class="clear-slot"
+          aria-label="Clear level"
+          title="Clear this level"
+          onclick={clearSlot}
+        >
+          Clear
+        </button>
+        <p class="nav-hint" role="note">
+          <kbd>Tab</kbd> next level · <kbd>Shift</kbd>+<kbd>Tab</kbd> previous
+        </p>
+      </div>
     {/if}
     {#each shelves as shelf (shelf.id)}
       <section class="shelf" data-shelf={shelf.id} data-open={isExpanded(shelf) ? 'true' : 'false'}>
@@ -443,8 +496,13 @@
                 type="button"
                 class="glyph"
                 class:modifier={!entry.glyph}
+                class:idle={disabled}
+                aria-disabled={disabled}
                 aria-label={entryLabel(entry)}
-                disabled={disabled}
+                onmouseover={event => showLoupe(event, entry)}
+                onmouseout={hideLoupe}
+                onfocus={event => showLoupe(event, entry)}
+                onblur={hideLoupe}
                 onclick={() => pick(entry)}
               >
                 {entry.glyph || entry.keysym}
@@ -467,8 +525,13 @@
                   type="button"
                   class="glyph"
                   class:modifier={!entry.glyph}
+                  class:idle={disabled}
+                  aria-disabled={disabled}
                   aria-label={entryLabel(entry)}
-                  disabled={disabled}
+                  onmouseover={event => showLoupe(event, entry)}
+                  onmouseout={hideLoupe}
+                  onfocus={event => showLoupe(event, entry)}
+                  onblur={hideLoupe}
                   onclick={() => pick(entry)}
                 >
                   {entry.glyph || entry.keysym}
@@ -480,6 +543,17 @@
       </section>
     {/each}
   </div>
+  {#if loupe}
+    <div
+      class="loupe"
+      class:below={!loupe.above}
+      style="left:{loupe.x}px;top:{loupe.y}px"
+      aria-hidden="true"
+    >
+      <span class="loupe-glyph">{loupe.glyph}</span>
+      <span class="loupe-name">{loupe.keysym}</span>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -493,13 +567,13 @@
     resize: both;
     padding: 0;
     border-radius: 8px;
-    background: #f7f4ee;
+    background: var(--paper);
     box-shadow:
-      0 0 0 1px rgba(40, 36, 30, 0.14),
-      0 12px 28px rgba(40, 36, 30, 0.22);
-    color: #333;
+      0 0 0 1px color-mix(in srgb, var(--paper-shade) 14%, transparent),
+      0 12px 28px color-mix(in srgb, var(--paper-shade) 22%, transparent);
+    color: var(--text);
     font-family: Quicksand, avenir, sans-serif;
-    font-size: 12px;
+    font-size: var(--font-sm);
     line-height: 1.2;
   }
 
@@ -515,8 +589,8 @@
     justify-content: space-between;
     gap: 8px;
     padding: 6px 10px;
-    border-bottom: 1px solid rgba(40, 36, 30, 0.1);
-    background: rgba(40, 36, 30, 0.04);
+    border-bottom: 1px solid color-mix(in srgb, var(--paper-shade) 10%, transparent);
+    background: color-mix(in srgb, var(--paper-shade) 4%, transparent);
     cursor: grab;
     touch-action: none;
   }
@@ -526,15 +600,15 @@
   }
 
   .picker-title {
-    font-size: 11px;
+    font-size: var(--font-xs);
     font-weight: 700;
     letter-spacing: 0.04em;
-    color: #5a554e;
+    color: var(--paper-ink);
   }
 
   .picker-hint {
-    color: #9a948c;
-    font-size: 12px;
+    color: var(--paper-ink-faint);
+    font-size: var(--font-sm);
     line-height: 1;
   }
 
@@ -547,8 +621,49 @@
 
   .hint {
     margin: 0 0 8px;
-    font-size: 11px;
-    color: #6b6560;
+    font-size: var(--font-xs);
+    color: var(--paper-ink-muted);
+  }
+
+  .clear-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin: 0 0 8px;
+  }
+
+  .clear-slot {
+    margin: 0;
+    padding: 3px 8px;
+    border: 0;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--paper-shade) 8%, transparent);
+    color: var(--paper-ink-strong);
+    font: inherit;
+    font-size: var(--font-xs);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .clear-slot:hover {
+    background: color-mix(in srgb, var(--paper-shade) 14%, transparent);
+  }
+
+  .nav-hint {
+    margin: 0;
+    font-size: var(--font-xs);
+    line-height: 1.3;
+    color: var(--paper-ink-muted);
+  }
+
+  .nav-hint kbd {
+    padding: 0 3px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--paper-shade) 10%, transparent);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.95em;
+    font-weight: 600;
   }
 
   .shelf {
@@ -561,10 +676,10 @@
 
   .shelf-title {
     margin: 0 0 4px;
-    font-size: 11px;
+    font-size: var(--font-xs);
     font-weight: 700;
     letter-spacing: 0.03em;
-    color: #6b6560;
+    color: var(--paper-ink-muted);
   }
 
   .shelf-toggle {
@@ -574,8 +689,8 @@
     padding: 3px 6px;
     border: 0;
     border-radius: 4px;
-    background: rgba(40, 36, 30, 0.06);
-    color: #4a4540;
+    background: color-mix(in srgb, var(--paper-shade) 6%, transparent);
+    color: var(--paper-ink-strong);
     font: inherit;
     font-weight: 600;
     text-align: left;
@@ -583,7 +698,7 @@
   }
 
   .shelf-toggle:hover {
-    background: rgba(40, 36, 30, 0.1);
+    background: color-mix(in srgb, var(--paper-shade) 10%, transparent);
   }
 
   .glyph-grid {
@@ -599,25 +714,65 @@
     padding: 2px 4px;
     border: 0;
     border-radius: 3px;
-    background: #fff;
-    color: #222;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    background: var(--surface);
+    color: var(--text);
+    font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
     font-size: 13px;
     line-height: 1.2;
     cursor: pointer;
   }
 
-  .glyph:hover:not(:disabled) {
-    background: #e8e2d6;
+  .glyph:hover {
+    background: var(--paper-deep);
   }
 
-  .glyph:disabled {
-    opacity: 0.45;
-    cursor: default;
+  .glyph.idle {
+    color: var(--paper-ink-muted);
+  }
+
+  .glyph.idle:hover {
+    background: var(--surface);
   }
 
   .glyph.modifier {
     font-size: 10px;
-    color: #5a554e;
+    color: var(--paper-ink);
+  }
+
+  .loupe {
+    position: fixed;
+    z-index: 60;
+    transform: translate(-50%, -100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 4.5em;
+    padding: 8px 12px 6px;
+    border-radius: 8px;
+    background: var(--surface);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--paper-shade) 14%, transparent),
+      0 8px 20px color-mix(in srgb, var(--paper-shade) 20%, transparent);
+    pointer-events: none;
+  }
+
+  .loupe.below {
+    transform: translate(-50%, 0);
+  }
+
+  .loupe-glyph {
+    font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
+    font-size: 42px;
+    line-height: 1;
+    color: var(--text);
+  }
+
+  .loupe-name {
+    max-width: 12em;
+    font-size: var(--font-xs);
+    line-height: 1.2;
+    color: var(--paper-ink-muted);
+    text-align: center;
   }
 </style>

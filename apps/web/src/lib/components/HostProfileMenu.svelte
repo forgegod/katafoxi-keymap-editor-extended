@@ -9,6 +9,7 @@
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
   import { isUserHostLayoutId } from '../host-layout-store.js'
+  import Button from './Common/Button.svelte'
 
   interface Props {
     language: HostLanguageId
@@ -292,8 +293,8 @@
         <p class="profile-import-error" role="alert">{importError}</p>
       {/if}
       <div class="profile-import-actions">
-        <button type="button" onclick={() => void submitImport()}>Import</button>
-        <button type="button" onclick={() => (importKind = null)}>Back</button>
+        <Button variant="accent" onclick={() => void submitImport()}>Import</Button>
+        <Button variant="outline" onclick={() => (importKind = null)}>Back</Button>
       </div>
     </div>
   {:else if open && importKind === 'klc'}
@@ -317,8 +318,8 @@
         <p class="profile-import-error" role="alert">{importError}</p>
       {/if}
       <div class="profile-import-actions">
-        <button type="button" onclick={() => void submitKlcImport()}>Import</button>
-        <button type="button" onclick={() => (importKind = null)}>Back</button>
+        <Button variant="accent" onclick={() => void submitKlcImport()}>Import</Button>
+        <Button variant="outline" onclick={() => (importKind = null)}>Back</Button>
       </div>
     </div>
   {:else if open}
@@ -479,18 +480,22 @@
     max-width: 5.5rem;
     min-height: 24px;
     padding: 1px 18px 1px 6px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 4px;
-    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%23555' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E")
+    background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%23666' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E")
       no-repeat right 6px center;
     color: inherit;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--font-sm);
     text-align: left;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     cursor: pointer;
+  }
+
+  :global(:root[data-color-scheme='dark']) .profile-trigger {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%23a8adb8' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
   }
 
   .profile-list {
@@ -504,8 +509,8 @@
     padding: 4px 0;
     overflow: auto;
     list-style: none;
-    background: #fff;
-    border: 1px solid #ccc;
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 6px;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
   }
@@ -526,7 +531,7 @@
     background: transparent;
     color: inherit;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--font-sm);
     text-align: left;
     cursor: pointer;
   }
@@ -537,13 +542,13 @@
 
   .profile-item:hover,
   .profile-icon:hover {
-    background: rgba(29, 111, 138, 0.08);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
 
   .profile-sep {
     height: 1px;
     margin: 4px 8px;
-    background: #e4e4e4;
+    background: var(--fill);
   }
 
   .profile-icon {
@@ -555,21 +560,21 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 4px;
-    background: #fff;
-    color: #333;
+    background: var(--surface);
+    color: var(--text);
     cursor: pointer;
   }
 
   .profile-icon.stub {
     background: transparent;
-    color: #555;
+    color: var(--text-muted);
   }
 
   .profile-icon.danger {
-    color: #842029;
-    border-color: #e2b6bb;
+    color: var(--danger-ink);
+    border-color: var(--danger-border);
   }
 
   .profile-icon svg {
@@ -591,13 +596,13 @@
     background: transparent;
     color: inherit;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--font-sm);
     text-align: left;
     cursor: pointer;
   }
 
   .profile-action:hover {
-    background: rgba(29, 111, 138, 0.08);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
 
   .profile-import {
@@ -610,8 +615,8 @@
     gap: 6px;
     min-width: 16rem;
     padding: 8px;
-    background: #fff;
-    border: 1px solid #ccc;
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 6px;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
   }
@@ -622,7 +627,7 @@
     box-sizing: border-box;
     width: 100%;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--font-sm);
   }
 
   .profile-import textarea {
@@ -632,37 +637,18 @@
 
   .profile-import-hint {
     margin: 0;
-    color: #555;
-    font-size: 11px;
+    color: var(--text-muted);
+    font-size: var(--font-xs);
   }
 
   .profile-import-error {
     margin: 0;
-    color: #842029;
-    font-size: 12px;
+    color: var(--danger-ink);
+    font-size: var(--font-sm);
   }
 
   .profile-import-actions {
     display: flex;
     gap: 6px;
-  }
-
-  .profile-import-actions button {
-    cursor: pointer;
-    border: none;
-    border-radius: 5px;
-    padding: 4px 10px;
-    font: inherit;
-    font-size: 12px;
-  }
-
-  .profile-import-actions button:first-child {
-    background: var(--hover-selection);
-    color: #fff;
-  }
-
-  .profile-import-actions button:last-child {
-    background: #eee;
-    color: #333;
   }
 </style>

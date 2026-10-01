@@ -6,6 +6,7 @@
     type KeyBindingNode
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
+  import { layerToneStyle } from '../layer-tone'
   import EyeToggle from './EyeToggle.svelte'
   import Icon from './Common/Icon.svelte'
 
@@ -104,6 +105,7 @@
   data-layer={row.index}
   class:off={!row.marked}
   class:raw={row.index === 0 && layer0Raw}
+  style={editor.layerTonesOn ? layerToneStyle(row.index) : undefined}
   onmouseenter={interactive ? hoverLayer : undefined}
   onmouseleave={interactive ? clearHover : undefined}
 >
@@ -150,8 +152,13 @@
       {/if}
     </div>
   </th>
-  {#each columns as column (column.language)}
-    <td class:second={column.language !== 'en'} class:off={!column.shown} class:narrow={!column.wide}>
+  {#each columns as column, index (column.language)}
+    <td
+      class:second={column.language !== 'en'}
+      class:off={!column.shown}
+      class:narrow={!column.wide}
+      class:lang-start={index > 0}
+    >
       {cells.find(item => item.language === column.language)?.pair ?? ''}
     </td>
     {#if column.wide}
@@ -162,7 +169,7 @@
     {/if}
   {/each}
   {#if showAddColumn}
-    <td></td>
+    <td class="lang-start"></td>
   {/if}
 </tr>
 
@@ -173,17 +180,29 @@
     text-align: left;
     font-weight: 500;
     white-space: nowrap;
-    border: 1px solid rgba(60, 60, 60, 0.08);
+    border: 1px solid color-mix(in srgb, var(--shade) 8%, transparent);
+  }
+
+  td {
+    font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
+  }
+
+  tr {
+    background-color: color-mix(in srgb, var(--layer-tone, transparent) 14%, transparent);
   }
 
   th {
-    color: #888;
-    font-size: 11px;
+    color: var(--text-muted);
+    font-size: var(--font-xs);
     font-weight: 400;
   }
 
   .second {
-    color: #1d6f8a;
+    color: var(--accent);
+  }
+
+  td.lang-start {
+    border-left: 2px solid color-mix(in srgb, var(--shade) 28%, transparent);
   }
 
   .alt {
@@ -229,10 +248,10 @@
   input.layer-name {
     width: 8em;
     padding: 0 2px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 3px;
-    background: #fff;
-    color: #222;
+    background: var(--surface);
+    color: var(--text);
     cursor: text;
   }
 
@@ -240,11 +259,11 @@
     flex: none;
     width: 14px;
     height: 14px;
-    color: #999;
+    color: var(--text-disabled);
     cursor: pointer;
   }
 
   .row-head :global(.delete:hover) {
-    color: #c0392b;
+    color: var(--danger);
   }
 </style>

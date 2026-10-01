@@ -40,9 +40,7 @@
       build?.status === 'queued' ||
       build?.status === 'in_progress'
   )
-  const visible = $derived(
-    !!build && build.status !== 'none' && (build.shortSha || build.status === 'unavailable')
-  )
+  const visible = $derived(!!build && build.status !== 'none')
 
   const secondary = $derived.by(() => {
     if (!build) return ''
@@ -52,13 +50,14 @@
     if (build.status === 'cancelled') return 'Cancelled'
     if (build.status === 'unavailable') return 'Needs Actions access'
     if (build.status === 'success' && !build.artifactId) return 'Log'
-    return age
+    // Success with artifact: age stays in the title, not on the chip.
+    return ''
   })
 
   const label = $derived.by(() => {
     if (!build) return ''
     if (build.status === 'unavailable') return 'Build status'
-    return build.shortSha ? `Latest (${build.shortSha})` : 'Latest'
+    return 'Latest'
   })
 
   const title = $derived.by(() => {
@@ -68,7 +67,11 @@
     }
     if (build.status === 'failure') return 'Firmware build failed. Open the Actions log.'
     if (build.status === 'cancelled') return 'Firmware build was cancelled. Open the Actions log.'
-    if (build.status === 'success' && build.artifactId) return 'Download the firmware archive.'
+    if (build.status === 'success' && build.artifactId) {
+      return age
+        ? `Download the firmware archive (${age}).`
+        : 'Download the firmware archive.'
+    }
     if (build.status === 'success') return 'Build succeeded. Open the Actions log.'
     if (build.status === 'in_progress') return 'Firmware build is running.'
     return 'Waiting for GitHub Actions to start.'
@@ -113,7 +116,7 @@
 </script>
 
 {#if visible && build}
-  {@const chipClass = `firmware-build ${build.status}`}
+  {@const chipClass = `firmware-build ${build.status}${downloadUrl ? ' downloadable' : ''}`}
   {#if downloadUrl}
     <a class={chipClass} href={downloadUrl} {title}>
       {@render chip()}
@@ -143,11 +146,7 @@
 {#snippet chip()}
   <span class="copy">
     <span class="line">
-      {#if build?.shortSha}
-        Latest (<code>{build.shortSha}</code>)
-      {:else}
-        {label}
-      {/if}
+      {label}
       {#if build?.status === 'success'}
         <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M5 12.5 9.2 17 19 7" />
@@ -169,13 +168,14 @@
     align-items: center;
     gap: 6px;
     box-sizing: border-box;
-    height: 26px;
+    height: var(--chrome-h);
     padding: 0 6px;
+    border: 1px solid var(--border);
     border-radius: 5px;
-    background: #4169e1;
-    color: #fff;
+    background: var(--surface);
+    color: var(--text);
     font-family: Quicksand, avenir, sans-serif;
-    font-size: 12px;
+    font-size: var(--font-sm);
     line-height: 1.05;
     text-decoration: none;
     white-space: nowrap;
@@ -193,14 +193,9 @@
     gap: 3px;
   }
 
-  code {
-    font-family: ui-monospace, monospace;
-    font-size: 11px;
-  }
-
   .when {
-    font-size: 10px;
-    opacity: 0.95;
+    font-size: var(--font-xs);
+    color: var(--text-muted);
   }
 
   .mark,
@@ -222,22 +217,40 @@
     height: 14px;
   }
 
-  a.firmware-build:hover {
-    background: #3558c4;
+  /* Quiet wash while an archive is ready — solid green stays on Commit. */
+  .downloadable {
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+    color: var(--accent-strong);
+    border-color: var(--accent);
+  }
+
+  .downloadable .when {
+    color: inherit;
+    opacity: 0.85;
+  }
+
+  a.downloadable:hover {
+    background: var(--surface);
+    border-color: var(--accent-strong);
+    color: var(--accent-strong);
   }
 
   .failure,
   .cancelled {
-    background: #a33b45;
+    background: var(--surface);
+    color: var(--danger-ink);
+    border-color: var(--danger-border);
   }
 
   a.failure:hover,
   a.cancelled:hover {
-    background: #8c3039;
+    background: var(--danger-wash);
   }
 
   .unavailable {
-    background: #8a6d1d;
+    background: var(--surface);
+    color: var(--warn);
+    border-color: var(--warn-border);
   }
 
   .firmware-build :global(.spinner) {

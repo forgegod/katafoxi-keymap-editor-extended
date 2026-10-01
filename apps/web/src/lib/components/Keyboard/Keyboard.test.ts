@@ -377,6 +377,7 @@ describe('Keyboard layers', () => {
   it('removes the last layer and keeps an active remaining layer', () => {
     const harness = open()
 
+    hoverLegend(target)
     const del = layerItem(target, 1).querySelector('.delete')
     expect(del).toBeInstanceOf(SVGElement)
     clickNode(del as SVGElement)
@@ -410,6 +411,7 @@ describe('Keyboard layers', () => {
     )
     flushSync()
 
+    hoverLegend(target)
     clickNode(layerItem(target, 1).querySelector('.delete') as SVGElement)
     clickNode(target.querySelector('.confirm-delete') as HTMLButtonElement)
 

@@ -7,9 +7,10 @@ export interface HostAssemblyColumnLabel {
 }
 
 /**
- * Chip label for a remembered legend view.
+ * Accessible name for a remembered legend view.
+ * The chip draws a flag and the short layout name; this string qualifies a
+ * repeated name with the language (`English System + Russian System`).
  * Unique layout names stay as they are (`System + typewriter`).
- * A repeated name is qualified with the language (`English System + Russian System`).
  */
 export function hostAssemblyName(columns: readonly HostAssemblyColumnLabel[]): string {
   const labels = columns.map(column => column.layoutName.trim() || column.languageName.trim())

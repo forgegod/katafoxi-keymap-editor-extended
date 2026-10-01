@@ -1,26 +1,28 @@
 <script lang="ts">
-  import type { ChoiceGroup } from '@keymap-editor/keymap-core'
+  import {
+    taxonomyChipIsActive,
+    type TaxonomyChip
+  } from '@keymap-editor/keymap-core'
+  import SelectChip from '../Common/SelectChip.svelte'
 
   interface Props {
-    chips: ChoiceGroup[]
+    chips: TaxonomyChip[]
     activeContexts: string[]
-    onChoose: (context: string) => void
+    onChoose: (chipId: string) => void
   }
 
   let { chips, activeContexts, onChoose }: Props = $props()
 </script>
 
 <div class="key-editor-taxonomy" role="tablist" aria-label="Value group">
-  {#each chips as group}
-    <button
-      type="button"
-      class="key-editor-chip"
-      class:active={activeContexts.includes(group.context)}
+  {#each chips as chip (chip.id)}
+    <SelectChip
+      active={taxonomyChipIsActive(chip, activeContexts)}
       role="tab"
-      aria-selected={activeContexts.includes(group.context)}
-      onclick={() => onChoose(group.context)}
+      aria-selected={taxonomyChipIsActive(chip, activeContexts)}
+      onclick={() => onChoose(chip.id)}
     >
-      {group.context}
-    </button>
+      {chip.label}
+    </SelectChip>
   {/each}
 </div>

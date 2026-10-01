@@ -1,4 +1,4 @@
-const CODE_COL_MIN_PX = 72
+const CODE_COL_MIN_PX = 64
 const CODE_COL_WIDE_MIN_PX = 148
 const CODE_COL_MAX_PX = 280
 const CODE_CHAR_PX = 8

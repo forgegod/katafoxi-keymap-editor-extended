@@ -16,58 +16,46 @@
   <span class="icon-slot">
     <Icon collection="brands" name="github" />
   </span>
-  <span class="name">{label}</span>
 </a>
 
 <style>
+  /* Sibling of ThemeToggle inside .chrome-corner — positioning is on the parent. */
   .github-link {
-    position: absolute;
-    z-index: 4;
-    bottom: 5px;
-    left: 5px;
     display: inline-flex;
     align-items: center;
-    height: 30px;
+    height: var(--chrome-h);
     padding: 0;
-    border-radius: 15px;
-    background-color: white;
-    color: royalblue;
+    border-radius: calc(var(--chrome-h) / 2);
+    background-color: var(--surface);
+    color: var(--accent);
     text-decoration: none;
     font-size: 110%;
-    font-style: italic;
+    border: 1px solid var(--border-soft);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--shade) 6%, transparent);
   }
 
   .github-link:hover,
   .github-link:focus-visible {
-    color: #1a4fc4;
+    color: var(--accent-strong);
+    border-color: var(--accent);
+  }
+
+  .github-link:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 
   .icon-slot {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    width: var(--chrome-h);
+    height: var(--chrome-h);
     flex-shrink: 0;
   }
 
   .icon-slot :global(.icon) {
     width: 0.95em;
     height: 0.95em;
-  }
-
-  .name {
-    overflow: hidden;
-    width: 0;
-    height: 30px;
-    line-height: 30px;
-    white-space: nowrap;
-  }
-
-  .github-link:hover .name,
-  .github-link:focus-visible .name {
-    width: 210px;
-    padding-right: 12px;
-    transition: 0.15s ease-in;
   }
 </style>

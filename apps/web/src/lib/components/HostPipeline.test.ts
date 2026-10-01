@@ -1,6 +1,6 @@
 import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { addHostLanguage, hostLevels, SYSTEM_US_LAYOUT_ID } from '@keymap-editor/keymap-core'
+import { addHostLanguage, SYSTEM_US_LAYOUT_ID } from '@keymap-editor/keymap-core'
 import { editor } from '../editor.svelte.js'
 import { clearHostLayoutStore } from '../host-layout-store'
 import HostPipeline from './HostPipeline.svelte'
@@ -35,32 +35,54 @@ describe('HostPipeline', () => {
     flushSync()
   }
 
-  it('disables OS buttons when only system layouts are active', () => {
+  it('keeps OS install buttons available with only system layouts', () => {
     mountPipeline()
     const root = target.querySelector('.host-pipeline')
     expect(root?.getAttribute('data-host-dirty')).toBe('false')
-    expect(root?.textContent).toMatch(/Clean/)
+    const hostStatus = root?.querySelector('.chrome-status')
+    expect(hostStatus?.textContent?.trim()).toBe('Saved')
+    expect(hostStatus?.getAttribute('title')).toBe('No user layout to install')
+    expect(hostStatus?.getAttribute('aria-label')).toBe('No user layout to install')
     const buttons = [...target.querySelectorAll('button.download')] as HTMLButtonElement[]
     expect(buttons).toHaveLength(2)
-    expect(buttons.every(button => button.disabled)).toBe(true)
-    expect(document.querySelector('.info')).toBeNull()
+    expect(buttons.every(button => !button.disabled)).toBe(true)
+    expect(buttons.map(button => button.title)).toEqual([
+      'Open Linux install guide',
+      'Open Windows install guide'
+    ])
+    expect(buttons.every(button => button.classList.contains('ready'))).toBe(false)
+
+    buttons[0].click()
+    flushSync()
+    const dialog = document.querySelector('[aria-labelledby="linux-install-title"]')
+    expect(dialog).toBeInstanceOf(HTMLElement)
+    expect(dialog?.textContent).toMatch(/No custom host layout yet/)
+    expect(dialog?.querySelectorAll('section.layout-card')).toHaveLength(0)
   })
 
-  it('enables OS buttons after a host key edit forks a user layout', async () => {
+  it('highlights OS buttons after a host key edit forks a user layout', async () => {
     mountPipeline()
     await editor.setHostKeyLevel('en', 'A', 0, 'b')
     flushSync()
 
     const root = target.querySelector('.host-pipeline')
     expect(root?.getAttribute('data-host-dirty')).toBe('true')
-    expect(root?.textContent).toMatch(/Changed/)
+    expect(root?.querySelector('.chrome-status')?.textContent?.trim()).toBe('Changed')
+    expect(root?.querySelector('.chrome-status')?.getAttribute('title')).toBe(
+      'User layout ready to install'
+    )
     const buttons = [...target.querySelectorAll('button.download')] as HTMLButtonElement[]
     expect(buttons.every(button => !button.disabled)).toBe(true)
+    expect(buttons.every(button => button.classList.contains('ready'))).toBe(true)
+    expect(buttons.map(button => button.title)).toEqual([
+      'Open Linux install guide',
+      'Open Windows install guide'
+    ])
     expect(editor.activeProfileId('en')).not.toBe(SYSTEM_US_LAYOUT_ID)
   })
 
   it('opens a Linux install dialog with copy/download actions', async () => {
-    const createObjectURL = vi.fn(() => 'blob:host-test')
+    const createObjectURL = vi.fn((_blob: Blob) => 'blob:host-test')
     const revokeObjectURL = vi.fn()
     vi.stubGlobal('URL', {
       ...URL,
@@ -108,7 +130,13 @@ describe('HostPipeline', () => {
     expect(click).toHaveBeenCalled()
     const blob = createObjectURL.mock.calls[0]?.[0] as Blob
     expect(await blob.text()).toContain('xkb_symbols')
+    expect(editor.isHostDirty).toBe(false)
+    expect(rootStatus()).toBe('Saved')
   })
+
+  function rootStatus() {
+    return target.querySelector('.host-pipeline .chrome-status')?.textContent?.trim()
+  }
 
   it('shows a Russian layout card only when Russian host work is dirty', async () => {
     mountPipeline()
@@ -135,7 +163,8 @@ describe('HostPipeline', () => {
 
     const cards = document.querySelectorAll('section.layout-card')
     expect(cards.length).toBe(2)
-    expect(document.querySelector('.tip-ru')?.textContent).toMatch(/legacy/)
+    const tips = [...cards].map(card => card.querySelector('.card-tip')?.textContent ?? '')
+    expect(tips.some(tip => /legacy/.test(tip))).toBe(true)
   })
 
   it('opens a Windows install dialog with an MSKLC link and a .klc download', async () => {
@@ -161,7 +190,7 @@ describe('HostPipeline', () => {
   })
 
   it('explains a Caps Lock alphabet and downloads that .klc when another language is shown', async () => {
-    const createObjectURL = vi.fn(() => 'blob:caps-klc')
+    const createObjectURL = vi.fn((_blob: Blob) => 'blob:caps-klc')
     const revokeObjectURL = vi.fn()
     vi.stubGlobal('URL', {
       ...URL,
@@ -224,30 +253,5 @@ describe('HostPipeline', () => {
     expect(text).toContain('SGCap')
     expect(localStorage.getItem('klc-paired-version:ru')).toBe('1')
     expect(text).toContain('0439')
-  })
-
-  it('confirms copying AltGr from the open language onto English', async () => {
-    editor.hostLegend = addHostLanguage(editor.hostLegend, 'ru')
-    mountPipeline()
-    const copy = target.querySelector(
-      'button[aria-label="Copy AltGr from the other language onto English"]'
-    ) as HTMLButtonElement
-    expect(copy.disabled).toBe(false)
-    copy.click()
-    flushSync()
-
-    const dialog = document.querySelector('[aria-labelledby="altgr-copy-title"]')
-    expect(dialog?.textContent).toMatch(/Russian/)
-    expect(dialog?.textContent).toMatch(/Replaced|Filled/)
-    await editor.confirmAltGrCopy()
-    flushSync()
-
-    expect(editor.altGrCopyPlan).toBeNull()
-    expect(editor.activeProfileId('en')).toMatch(/^user:/)
-    expect(editor.hostProfileNote).toMatch(/copied AltGr from Russian/)
-    expect(hostLevels(SYSTEM_US_LAYOUT_ID, 'N8')?.keysyms[2]).toBe('NoSymbol')
-    const copied = hostLevels(editor.activeProfileId('en'), 'N8')
-    expect(copied?.keysyms[2]).not.toBe('NoSymbol')
-    expect(document.querySelector('[aria-labelledby="altgr-copy-title"]')).toBeNull()
   })
 })

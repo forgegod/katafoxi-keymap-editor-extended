@@ -53,8 +53,17 @@
 </script>
 
 <section class="key-editor-row">
-  <p class="key-editor-section-label">Hold</p>
-  <div class="key-editor-holds" role="group" aria-label="Hold modifiers">
+  <p
+    class="key-editor-section-label"
+    title="Hold wraps the binding (LS(A)). The LSHFT / LCTRL chips in the list below assign the modifier as the key itself (&kp LSHFT)."
+  >
+    Hold
+  </p>
+  <div
+    class="key-editor-holds"
+    role="group"
+    aria-label="Hold modifiers — wrap the key; pick LSHFT in the list to bind the modifier as the key"
+  >
     {#each MODIFIER_HOLDS as hold}
       <button
         type="button"
@@ -62,6 +71,7 @@
         class:active={activeHolds.has(hold.wrap)}
         class:blocked={holdBlocked(hold)}
         disabled={holdBlocked(hold)}
+        aria-label={`${hold.wrap} hold — ${hold.key}`}
         title={holdTooltip(hold)}
         onclick={event => handleHoldClick(event, hold)}
       >
@@ -69,4 +79,7 @@
       </button>
     {/each}
   </div>
+  <p class="key-editor-hold-hint">
+    Dashed = wrap the key (LS(A)). Solid when on. Ctrl/⌘-click picks the modifier as the key.
+  </p>
 </section>

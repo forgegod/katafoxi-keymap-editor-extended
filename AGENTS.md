@@ -52,7 +52,7 @@ Before committing, the subject should complete “This commit will ___”, say w
 - Work around empty Vite CSS HMR (`__vite__css = ""`) by inlining a sidecar `.css` into the Svelte component. Restart/clear the Vite cache and keep the file split. See [`.cursor/rules/vite-css.mdc`](.cursor/rules/vite-css.mdc).
 - Add non-English UI strings; the SPA chrome is English-only for now (see invariant 8).
 - Reintroduce hover-to-edit / pin-without-Alt on the decode card, or treat Export xkb as the only host install path (see ADR 0004).
-- Put **Stack languages** or **Highlight symbol differences** back in the Host lane. They sit in the column left of the legend table.
+- Put **Stack languages** or **Highlight symbol differences** back in the Host lane. They sit on the assembly line, left of the remembered chips.
 
 ## Docs map
 

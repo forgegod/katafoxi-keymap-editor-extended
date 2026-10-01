@@ -75,6 +75,7 @@ interface RequestExtras {
 
 export class API extends EventEmitter {
   authorized = $state(false)
+  login = $state<string | null>(null)
   initialized = $state(false)
   installations = $state<unknown[] | null>(null)
   repositories = $state<GitHubRepo[] | null>(null)
@@ -143,6 +144,7 @@ export class API extends EventEmitter {
         suppressAuthEmit: true
       })) as {
         data: {
+          login?: string
           installation?: unknown
           installations: unknown[]
           repositories: GitHubRepo[]
@@ -151,6 +153,7 @@ export class API extends EventEmitter {
       }
 
       this.authorized = true
+      this.login = typeof data.login === 'string' ? data.login : null
       this.emit('authenticated')
 
       this.installations = data.installations
@@ -198,6 +201,7 @@ export class API extends EventEmitter {
     }
 
     this.authorized = false
+    this.login = null
     this.installations = null
     this.repositories = null
     this.repoInstallationMap = null
@@ -212,6 +216,21 @@ export class API extends EventEmitter {
       `/github/installation/${installation}/${repository}/branches`
     )
     return data as GitHubBranch[]
+  }
+
+  async createBranch(repo: string, name: string, from: string): Promise<{ name: string }> {
+    const installation = encodeURIComponent(this.repoInstallationMap![repo])
+    const repository = encodeURIComponent(repo)
+    const { data } = await this._request({
+      url: `/github/installation/${installation}/${repository}/branches`,
+      method: 'POST',
+      data: { name, from }
+    })
+    const created = data as { name?: unknown }
+    if (!created || typeof created.name !== 'string' || !created.name) {
+      throw new Error('Create branch response was not JSON')
+    }
+    return { name: created.name }
   }
 
   async fetchLayoutAndKeymap(repo: string, branch?: string | null) {

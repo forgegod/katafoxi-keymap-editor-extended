@@ -26,6 +26,6 @@
     height: 15px;
     object-fit: cover;
     border-radius: 1px;
-    box-shadow: 0 0 0 1px rgba(40, 36, 30, 0.28);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--paper-shade) 28%, transparent);
   }
 </style>

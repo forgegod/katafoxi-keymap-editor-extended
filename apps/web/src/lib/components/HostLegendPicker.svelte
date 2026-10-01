@@ -7,9 +7,11 @@
   import { editor, hostLegendAnchorIndex } from '../editor.svelte.js'
   import HostAssemblyBar from './HostAssemblyBar.svelte'
   import HostLegendLanguageHead from './HostLegendLanguageHead.svelte'
+  import HostSymbolCatalog from './HostSymbolCatalog.svelte'
   import HostLegendLayerRow, {
     type HostLegendLayerRowModel
   } from './HostLegendLayerRow.svelte'
+  import HostLegendView from './HostLegendView.svelte'
   import HostProfileBar from './HostProfileBar.svelte'
 
   const view = $derived(editor.hostLegend)
@@ -26,7 +28,6 @@
   const anchorIndex = $derived(hostLegendAnchorIndex(editor.draftKeymap))
 
   let hovered = $state(false)
-  let pinned = $state(false)
   let focused = $state(false)
   let openProfile = $state<HostLanguageId | null>(null)
   let pickingNew = $state(false)
@@ -36,7 +37,7 @@
   let pendingDelete = $state<{ index: number; name: string } | null>(null)
   let stripEl: HTMLDivElement | undefined = $state()
   const busy = $derived(renamingIndex != null || pendingDelete != null)
-  const open = $derived(hovered || pinned || focused || busy)
+  const open = $derived(hovered || focused || busy)
 
   const allRows = $derived(
     layerNames.map(
@@ -48,11 +49,13 @@
       })
     )
   )
-  const collapsedRows = $derived(
-    allRows.filter(row => row.marked && (!multilang || row.index === 0))
-  )
+  /** Resting strip: the sample layer. Marked and hidden layers open over the board. */
+  const restingRows = $derived.by(() => {
+    const sample = allRows.filter(row => row.index === 0)
+    return sample.length > 0 ? sample : allRows.slice(0, 1)
+  })
   const visibleRows = $derived(
-    (open ? allRows : collapsedRows).filter(row => !multilang || row.index === 0)
+    (open ? allRows : restingRows).filter(row => !multilang || row.index === 0)
   )
 
   const columnCount = $derived(
@@ -70,7 +73,7 @@
 
   function handleMouseLeave() {
     hovered = false
-    if (pinned || busy) return
+    if (busy) return
     focused = false
     const active = document.activeElement
     if (active instanceof HTMLElement && stripEl?.contains(active)) active.blur()
@@ -110,7 +113,6 @@
       event.stopPropagation()
       return
     }
-    pinned = false
     hovered = false
   }
 
@@ -124,81 +126,71 @@
     return () => document.removeEventListener('click', handleClickOutside)
   })
 
-  function togglePinned(event: MouseEvent) {
-    event.stopPropagation()
-    pinned = !pinned
-  }
 </script>
 
 {#snippet legendTable(rows: HostLegendLayerRowModel[], interactive: boolean)}
-  <HostAssemblyBar />
-  <table>
-    <thead>
-      <tr>
-        <th>
-          {#if interactive}
-            <button
-              type="button"
-              class="layer-disclosure"
-              class:on={open}
-              aria-expanded={open}
-              aria-pressed={pinned}
-              aria-controls="host-legend-layers"
-              aria-label={multilang ? 'Firmware layers hidden' : 'Show all layers'}
-              title={multilang ? 'Firmware layers stay hidden while languages are stacked' : undefined}
-              disabled={multilang}
-              onclick={togglePinned}
-            >
-              {open ? '▾' : '▸'}
-            </button>
+  <div class="legend-body">
+    <HostLegendView />
+    <div class="legend-main">
+      <HostAssemblyBar />
+      <div class="legend-table-row">
+        <table>
+          <thead>
+            <tr>
+              <th class="layer-col" scope="col">Layer</th>
+              {#each columns as column, index (column.language)}
+                <HostLegendLanguageHead
+                  {column}
+                  {interactive}
+                  groupStart={index > 0}
+                  languagesStacked={multilang}
+                  bind:pickingFor
+                  bind:pickingNew
+                  bind:openProfile
+                />
+              {/each}
+              {#if interactive && (pickingNew || addable.length > 0)}
+                <HostLegendLanguageHead
+                  {interactive}
+                  bind:pickingFor
+                  bind:pickingNew
+                  bind:openProfile
+                />
+              {/if}
+            </tr>
+          </thead>
+          <tbody id={interactive ? 'host-legend-layers' : undefined}>
+            {#each rows as row (row.index)}
+              <HostLegendLayerRow
+                {row}
+                {columns}
+                {interactive}
+                canDelete={layerNames.length > 1}
+                showAddColumn={interactive && (pickingNew || addable.length > 0)}
+                bind:renamingIndex
+                bind:editing
+                bind:pendingDelete
+              />
+            {/each}
+          </tbody>
+          {#if interactive && open}
+            <tfoot>
+              <tr>
+                <th colspan={columnCount}>
+                  <button type="button" class="add-layer" onclick={() => editor.addLayer()}>
+                    Add Layer
+                  </button>
+                </th>
+              </tr>
+            </tfoot>
           {/if}
-        </th>
-        {#each columns as column (column.language)}
-          <HostLegendLanguageHead
-            {column}
-            {interactive}
-            languagesStacked={multilang}
-            bind:pickingFor
-            bind:pickingNew
-            bind:openProfile
-          />
-        {/each}
-        {#if interactive && (pickingNew || addable.length > 0)}
-          <HostLegendLanguageHead
-            {interactive}
-            bind:pickingFor
-            bind:pickingNew
-            bind:openProfile
-          />
+        </table>
+        {#if interactive}
+          <HostSymbolCatalog />
         {/if}
-      </tr>
-    </thead>
-    <tbody id={interactive ? 'host-legend-layers' : undefined}>
-      {#each rows as row (row.index)}
-        <HostLegendLayerRow
-          {row}
-          {columns}
-          {interactive}
-          canDelete={layerNames.length > 1}
-          showAddColumn={interactive && (pickingNew || addable.length > 0)}
-          bind:renamingIndex
-          bind:editing
-          bind:pendingDelete
-        />
-      {/each}
-    </tbody>
-    {#if interactive && open}
-      <tfoot>
-        <tr>
-          <th colspan={columnCount}>
-            <button type="button" class="add-layer" onclick={() => editor.addLayer()}>
-              Add Layer
-            </button>
-          </th>
-        </tr>
-      </tfoot>
-    {/if}
-  </table>
+      </div>
+    </div>
+  </div>
 {/snippet}
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -206,7 +198,6 @@
   bind:this={stripEl}
   class="host-legend-strip"
   class:expanded={open}
-  class:pinned
   role="region"
   aria-label="Host legend"
   onmouseenter={() => (hovered = true)}
@@ -216,7 +207,7 @@
   onkeydown={handleKeydown}
 >
   <div class="legend-sizer" aria-hidden="true" inert>
-    {@render legendTable(collapsedRows, false)}
+    {@render legendTable(restingRows, false)}
   </div>
   <div class="legend-panel" style="position: absolute">
     {@render legendTable(visibleRows, true)}
@@ -246,9 +237,9 @@
     align-items: flex-start;
     gap: 16px 24px;
     width: max-content;
-    padding: 6px 4px 2px;
-    font-size: 13px;
-    color: #444;
+    padding: 0;
+    font-size: var(--font-md);
+    color: var(--text-muted);
   }
 
   .legend-sizer {
@@ -258,20 +249,43 @@
 
   .legend-panel {
     position: absolute;
-    top: 6px;
-    left: 4px;
+    top: 0;
+    left: 0;
     z-index: 4;
-    background: var(--page-bg, #fff);
+    background: transparent;
   }
 
   .host-legend-strip.expanded .legend-panel {
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    padding: 0 0 4px;
+    background: color-mix(in srgb, var(--surface) 88%, var(--stage-bg));
+    border-radius: 6px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
+  }
+
+  .legend-table-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .legend-body {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .legend-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding-left: 2px;
   }
 
   table {
     border-collapse: collapse;
     width: max-content;
-    border: 1px solid rgba(60, 60, 60, 0.16);
+    border: 1px solid color-mix(in srgb, var(--shade) 14%, transparent);
+    background: color-mix(in srgb, var(--surface) 55%, transparent);
   }
 
   th {
@@ -279,35 +293,23 @@
     text-align: left;
     font-weight: 500;
     white-space: nowrap;
-    border: 1px solid rgba(60, 60, 60, 0.08);
+    border: 1px solid color-mix(in srgb, var(--shade) 8%, transparent);
   }
 
   thead th {
-    font-size: 12px;
-    color: #666;
+    font-size: var(--font-xs);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--text-muted);
+    background: color-mix(in srgb, var(--surface) 40%, transparent);
   }
 
-  .layer-disclosure {
-    margin: 0;
-    padding: 1px 6px;
-    border: 1px solid #ccc;
-    border-radius: 10px;
-    background: #f3f3f3;
-    color: #777;
-    font: inherit;
-    font-size: 12px;
-    cursor: pointer;
-  }
-
-  .layer-disclosure.on {
-    background: #fff;
-    border-color: #1d6f8a;
-    color: #333;
-  }
-
-  .layer-disclosure:disabled {
-    opacity: 0.45;
-    cursor: default;
+  thead th.layer-col {
+    color: var(--text-muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: var(--font-xs);
   }
 
   .add-layer {
@@ -315,9 +317,9 @@
     padding: 1px 0;
     border: 0;
     background: transparent;
-    color: #1d6f8a;
+    color: var(--accent);
     font: inherit;
-    font-size: 12px;
+    font-size: var(--font-sm);
     cursor: pointer;
   }
 
@@ -337,15 +339,15 @@
     margin: 0;
     padding: 10px 12px;
     width: 180px;
-    background: #fff;
-    color: #222;
+    background: var(--surface);
+    color: var(--text);
     border-radius: 8px;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
   }
 
   .delete-confirm p {
     margin: 0 0 8px;
-    font-size: 90%;
+    font-size: var(--font-sm);
   }
 
   .delete-confirm-actions {
@@ -360,16 +362,16 @@
     border-radius: 13px;
     cursor: pointer;
     font: inherit;
-    font-size: 85%;
+    font-size: var(--font-xs);
   }
 
   .confirm-delete {
-    background: #c0392b;
-    color: #fff;
+    background: var(--danger);
+    color: var(--on-accent);
   }
 
   .cancel-delete {
-    background: #ddd;
-    color: #333;
+    background: var(--fill);
+    color: var(--text);
   }
 </style>

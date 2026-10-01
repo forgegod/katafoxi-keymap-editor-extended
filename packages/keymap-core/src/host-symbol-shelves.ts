@@ -2,8 +2,9 @@
  * Ordered symbol shelves for the host-layout glyph picker.
  *
  * Membership comes from `host-symbols.json` via codepoint ranges (and a fixed
- * modifier keysym list). Open shelves are language-adjacent letters, universal
- * Signs, and Modifiers. Everything else is collapsed by script family.
+ * modifier keysym list). Open shelves start with universal Signs, then
+ * language-adjacent letters, then Modifiers. Everything else is collapsed by
+ * script family.
  *
  * Priority when a character could match more than one open shelf: language
  * letter shelves claim letters in their ranges first; Signs takes the rest of
@@ -162,6 +163,11 @@ function isSingleGlyph(glyph: string): boolean {
   return [...glyph].length === 1
 }
 
+/** Spaces and format controls (soft hyphen, bidi marks, zero-width) draw no ink. */
+export function isUninkedHostGlyph(glyph: string): boolean {
+  return /^[\p{Z}\p{C}]$/u.test(glyph)
+}
+
 function entryForCodepoint(codepoint: number): HostSymbolShelfEntry | undefined {
   const symbol = hostSymbolByCodepoint(codepoint)
   if (!symbol) return undefined
@@ -254,8 +260,9 @@ function buildShelves(language: HostLanguageId): HostSymbolShelf[] {
     }
 
     // Open Signs: universal non-letter symbols (after language claims letters).
+    // Spaces and format controls have no ink, so they stay off this shelf.
     if (inRanges(cp, SIGN_RANGES) && !isLetter(glyph)) {
-      signsBucket.entries.push(entry)
+      if (!isUninkedHostGlyph(glyph)) signsBucket.entries.push(entry)
       continue
     }
 
@@ -288,8 +295,8 @@ function buildShelves(language: HostLanguageId): HostSymbolShelf[] {
   }
 
   const shelves: HostSymbolShelf[] = [
-    { ...languageBucket, entries: sortEntries(languageBucket.entries) },
     { ...signsBucket, entries: sortEntries(signsBucket.entries) },
+    { ...languageBucket, entries: sortEntries(languageBucket.entries) },
     modifiersBucket
   ]
 

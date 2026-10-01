@@ -67,16 +67,26 @@ describe('Github Picker', () => {
     localStorage.clear()
     vi.restoreAllMocks()
     github.authorized = false
+    github.login = null
     github.initialized = false
     github.repositories = null
     github.repoInstallationMap = null
     github.installations = null
   })
 
-  function open(onSelect = vi.fn()) {
-    view = mount(Picker, { target, props: { onSelect } })
+  function open(onSelect = vi.fn(), onLogout?: () => void) {
+    view = mount(Picker, { target, props: { onSelect, onLogout } })
     flushSync()
     return onSelect
+  }
+
+  function clickButton(text: string) {
+    const button = [...target.querySelectorAll('button')].find(
+      item => item.textContent?.trim() === text
+    )
+    if (!(button instanceof HTMLButtonElement)) throw new Error(`missing ${text}`)
+    button.click()
+    flushSync()
   }
 
   it('selects the only branch even when storage has a different persisted branch', async () => {
@@ -90,8 +100,22 @@ describe('Github Picker', () => {
     const onSelect = open()
 
     await vi.waitFor(() => {
-      expect(selectedOptionText(target.querySelector('#branch'))).toBe('only')
+      expect(target.querySelector('.source-trigger-label')?.textContent?.trim()).toBe('only')
     })
+    expect(target.querySelector('.source-trigger')?.getAttribute('title')).toBe(
+      'acme/lark · only'
+    )
+    expect(target.querySelector('.branch-value')?.textContent?.trim()).toBe('only')
+    expect(target.querySelector('#branch')).toBeNull()
+    expect(target.querySelector('#repo')).toBeNull()
+    const popover = target.querySelector('.source-popover')
+    expect(popover).toBeInstanceOf(HTMLElement)
+    expect((popover as HTMLElement).hidden).toBe(true)
+    target.querySelector('.source-trigger')?.dispatchEvent(
+      new MouseEvent('click', { bubbles: true })
+    )
+    flushSync()
+    expect((popover as HTMLElement).hidden).toBe(false)
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({
         github: { repository: repo.full_name, branch: 'only' }
@@ -188,15 +212,16 @@ describe('Github Picker', () => {
         'main'
       )
     })
-    expect(target.querySelector('#branch')).toBeInstanceOf(HTMLSelectElement)
+    expect(target.querySelector('.branch-value')?.textContent?.trim()).toBe('main')
+    expect(target.querySelector('#branch')).toBeNull()
 
     const repoSelect = target.querySelector('#repo')
     if (!(repoSelect instanceof HTMLSelectElement)) {
       throw new Error('missing repo select')
     }
     expect([...repoSelect.options].map(option => option.textContent?.trim())).toEqual([
-      'old',
-      'new'
+      'acme/old',
+      'acme/new'
     ])
     expect(repoSelect.options[0]?.getAttribute('title')).toBe('acme/old')
     repoSelect.value = '1'
@@ -216,9 +241,10 @@ describe('Github Picker', () => {
 
     expect(onSelect).not.toHaveBeenCalled()
     expect(target.querySelector('#branch')).toBeNull()
+    expect(target.querySelector('.branch-value')).toBeNull()
   })
 
-  it('shows a validation error from the singleton and keeps repo/branch selects', async () => {
+  it('shows a validation error from the singleton and keeps the repo and branch', async () => {
     vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }])
     vi.spyOn(github, 'fetchLayoutAndKeymap').mockRejectedValue(
       new Error('load failed')
@@ -227,7 +253,7 @@ describe('Github Picker', () => {
     open()
 
     await vi.waitFor(() => {
-      expect(target.querySelector('#branch')).toBeInstanceOf(HTMLSelectElement)
+      expect(target.querySelector('.branch-value')?.textContent?.trim()).toBe('main')
     })
 
     github.emit('repo-validation-error', {
@@ -237,8 +263,8 @@ describe('Github Picker', () => {
     flushSync()
 
     expect(document.body.textContent).toContain('missing config/info.json')
-    expect(target.querySelector('#repo')).toBeInstanceOf(HTMLSelectElement)
-    expect(target.querySelector('#branch')).toBeInstanceOf(HTMLSelectElement)
+    expect(target.querySelector('.repo-value')?.textContent?.trim()).toBe('acme/lark')
+    expect(target.querySelector('.branch-value')?.textContent?.trim()).toBe('main')
   })
 
   it('warns when the layout has no row/col and still calls onSelect', async () => {
@@ -262,5 +288,89 @@ describe('Github Picker', () => {
         layout: [{ x: 0, y: 0 }, { x: 1, y: 0 }]
       })
     )
+  })
+
+  it('creates a branch from the current one and selects it', async () => {
+    github.login = 'octocat'
+    vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([
+      { name: 'main' },
+      { name: 'dev' }
+    ])
+    vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
+      layout: [{ row: 0, col: 0 }],
+      keymap: { layers: [] }
+    })
+    const create = vi.spyOn(github, 'createBranch').mockResolvedValue({ name: 'topic' })
+
+    const onSelect = open()
+    await vi.waitFor(() => {
+      expect(selectedOptionText(target.querySelector('#branch'))).toBe('main')
+    })
+
+    clickButton('Create new branch')
+    const input = target.querySelector('#new-branch')
+    if (!(input instanceof HTMLInputElement)) throw new Error('missing branch input')
+    input.value = 'topic'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+    clickButton('Create')
+
+    await vi.waitFor(() => {
+      expect(selectedOptionText(target.querySelector('#branch'))).toBe('topic')
+    })
+    expect(create).toHaveBeenCalledWith('acme/lark', 'topic', 'main')
+    await vi.waitFor(() => {
+      expect(onSelect).toHaveBeenCalledWith(
+        expect.objectContaining({
+          github: { repository: 'acme/lark', branch: 'topic' }
+        })
+      )
+    })
+    const link = target.querySelector('a.menu-action')
+    expect(link?.textContent?.trim()).toBe('Manage repos for octocat')
+    expect(link?.getAttribute('target')).toBe('_blank')
+    expect(link?.getAttribute('href')).toMatch(/^https:\/\/github\.com\//)
+  })
+
+  it('shows a create-branch error and logs out without keeping the keymap', async () => {
+    vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }, { name: 'dev' }])
+    vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
+      layout: [{ row: 0, col: 0 }],
+      keymap: { layers: [] }
+    })
+    vi.spyOn(github, 'createBranch').mockRejectedValue(
+      Object.assign(new Error('conflict'), {
+        response: {
+          data: { errors: ['A branch with that name already exists'] }
+        }
+      })
+    )
+    const logout = vi.spyOn(github, 'logout').mockResolvedValue(undefined)
+    const onLogout = vi.fn()
+
+    open(vi.fn(), onLogout)
+    await vi.waitFor(() => {
+      expect(target.querySelector('#branch')).toBeInstanceOf(HTMLSelectElement)
+    })
+
+    clickButton('Create new branch')
+    const input = target.querySelector('#new-branch')
+    if (!(input instanceof HTMLInputElement)) throw new Error('missing branch input')
+    input.value = 'main'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+    clickButton('Create')
+
+    await vi.waitFor(() => {
+      expect(target.querySelector('[role="alert"]')?.textContent).toContain(
+        'A branch with that name already exists'
+      )
+    })
+
+    clickButton('Log out')
+    await vi.waitFor(() => {
+      expect(logout).toHaveBeenCalled()
+      expect(onLogout).toHaveBeenCalled()
+    })
   })
 })

@@ -2,6 +2,7 @@
   import { hostLayoutChoice, hostLayoutChoiceLabel } from '@keymap-editor/keymap-core'
   import { onDestroy } from 'svelte'
   import { editor } from '../editor.svelte.js'
+  import Button from './Common/Button.svelte'
   import Modal from './Common/Modal.svelte'
 
   function layoutLabel(id: string): string {
@@ -98,15 +99,15 @@
       {/if}
       <div class="profile-actions">
         {#if editor.hostProfilePrompt.kind === 'delete'}
-          <button type="button" class="danger" onclick={() => editor.deleteActiveHostProfile()}>
+          <Button variant="danger" onclick={() => editor.deleteActiveHostProfile()}>
             Delete
-          </button>
+          </Button>
         {:else if editor.hostProfilePrompt.kind === 'copy'}
-          <button type="submit">Copy</button>
+          <Button variant="accent" type="submit">Copy</Button>
         {:else}
-          <button type="submit">Save</button>
+          <Button variant="accent" type="submit">Save</Button>
         {/if}
-        <button type="button" onclick={() => editor.cancelHostProfilePrompt()}>Cancel</button>
+        <Button variant="outline" onclick={() => editor.cancelHostProfilePrompt()}>Cancel</Button>
       </div>
     </form>
   </Modal>
@@ -121,33 +122,33 @@
     width: min(280px, 70vw);
     margin: 0;
     padding: 8px 10px;
-    background: #fff;
-    color: #333;
-    border: 1px solid #ddd;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border-soft);
     border-radius: 6px;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
-    font-size: 13px;
+    font-size: var(--font-md);
     line-height: 1.35;
   }
 
   .profile-dialog {
     width: min(360px, 86vw);
     padding: 16px 18px 14px;
-    background: #fff;
-    color: #333;
+    background: var(--surface);
+    color: var(--text);
     border-radius: 8px;
     box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
   }
 
   .profile-dialog h2 {
     margin: 0 0 8px;
-    font-size: 16px;
+    font-size: var(--font-xl);
     font-weight: 600;
   }
 
   .profile-dialog p {
     margin: 0 0 12px;
-    font-size: 14px;
+    font-size: var(--font-md);
     line-height: 1.4;
   }
 
@@ -156,41 +157,18 @@
     width: 100%;
     margin: 0 0 8px;
     padding: 6px 8px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 4px;
     font: inherit;
   }
 
   .profile-error {
-    color: #842029;
+    color: var(--danger-ink);
   }
 
   .profile-actions {
     display: flex;
     gap: 8px;
     margin-top: 8px;
-  }
-
-  .profile-actions button {
-    cursor: pointer;
-    border: none;
-    border-radius: 5px;
-    padding: 6px 12px;
-    font: inherit;
-  }
-
-  .profile-actions button[type='submit'] {
-    background: var(--hover-selection);
-    color: white;
-  }
-
-  .profile-actions button[type='button'] {
-    background: #eee;
-    color: #333;
-  }
-
-  .profile-actions button.danger {
-    background: #f8d7da;
-    color: #842029;
   }
 </style>

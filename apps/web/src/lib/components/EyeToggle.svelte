@@ -39,7 +39,7 @@
   }
 
   .eye:hover:not(:disabled) {
-    background: rgba(0, 0, 0, 0.06);
+    background: var(--shade-wash-soft);
   }
 
   .eye:disabled {

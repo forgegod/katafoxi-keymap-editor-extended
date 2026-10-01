@@ -34,11 +34,47 @@ describe('displayChoiceLabel', () => {
     expect(displayChoiceLabel(peers[2], peers)).toBe('LG(…)')
   })
 
-  it('hides the K_ prefix on extras chips, not leftover K_*2 codes', () => {
+  it('uses short media/scroll chips and keypad glyphs', () => {
     expect(displayChoiceLabel({ code: 'K_MUTE' })).toBe('MUTE')
-    expect(displayChoiceLabel({ code: 'K_SCROLL_DOWN' })).toBe('SCROLL_DOWN')
-    expect(displayChoiceLabel({ code: 'K_MUTE2' })).toBe('K_MUTE2')
-    expect(displayChoiceLabel({ code: 'K_MUTE', symbol: '🔇' })).toBe('🔇')
+    expect(displayChoiceLabel({ code: 'K_MUTE', symbol: '🔇' })).toBe('MUTE')
+    expect(displayChoiceLabel({ code: 'K_MUTE2', symbol: '🔇' })).toBe('MUTE2')
+    expect(displayChoiceLabel({ code: 'K_VOL_DN2' })).toBe('VOL_DN2')
+    expect(displayChoiceLabel({ code: 'K_SCROLL_DOWN' })).toBe('SCROLL_DN')
+    expect(displayChoiceLabel({ code: 'K_SCROLL_UP' })).toBe('SCROLL_UP')
+    expect(displayChoiceLabel({ code: 'KP_LPAR' })).toBe('(')
+    expect(displayChoiceLabel({ code: 'KP_RPAR' })).toBe(')')
+    expect(displayChoiceLabel({ code: 'KP_COMMA' })).toBe(',')
+    expect(displayChoiceLabel({ code: 'KP_DOT' })).toBe('.')
+    expect(displayChoiceLabel({ code: 'KP_N7', symbol: '7' })).toBe('7')
+    expect(displayChoiceLabel({ code: 'KP_ENTER', symbol: '⮐' })).toBe('⮐')
+    expect(displayChoiceLabel({ code: 'KP_NUM' })).toBe('NUM')
+    expect(displayChoiceLabel({ code: 'KP_MINUS', symbol: '-' })).toBe('-')
+    expect(displayChoiceLabel({ code: 'KP_EQUAL', symbol: '=' })).toBe('=')
+    expect(displayChoiceLabel({ code: 'KP_EQUAL_AS400' })).toBe('AS400=')
+    expect(displayChoiceLabel({ code: 'K_CUT' })).toBe('✂')
+    expect(displayChoiceLabel({ code: 'K_COPY' })).toBe('⧉')
+    expect(displayChoiceLabel({ code: 'K_PASTE' })).toBe('📋')
+    expect(displayChoiceLabel({ code: 'K_UNDO' })).toBe('↶')
+    expect(displayChoiceLabel({ code: 'K_REDO' })).toBe('↷')
+    expect(displayChoiceLabel({ code: 'K_AGAIN' })).toBe('↷')
+    expect(displayChoiceLabel({ code: 'K_FIND' })).toBe('🔍')
+  })
+
+  it('keeps keypad glyphs when a Keyboard peer shares the mark', () => {
+    const peers = [
+      { code: 'MINUS', symbol: '-' },
+      { code: 'KP_MINUS', symbol: '-', context: 'Keypad' },
+      { code: 'EQUAL', symbol: '=' },
+      { code: 'KP_EQUAL', symbol: '=', context: 'Keypad' },
+      { code: 'N7', symbol: '7' },
+      { code: 'KP_N7', symbol: '7', context: 'Keypad' },
+      { code: 'RET', symbol: '⮐' },
+      { code: 'KP_ENTER', symbol: '⮐', context: 'Keypad' }
+    ]
+    expect(displayChoiceLabel(peers[1], peers)).toBe('-')
+    expect(displayChoiceLabel(peers[3], peers)).toBe('=')
+    expect(displayChoiceLabel(peers[5], peers)).toBe('7')
+    expect(displayChoiceLabel(peers[7], peers)).toBe('⮐')
   })
 
   it('marks US shift aliases as LS of the HID key', () => {

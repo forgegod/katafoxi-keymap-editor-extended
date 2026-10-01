@@ -1,9 +1,11 @@
 <script lang="ts">
   import { editor } from '../editor.svelte.js'
-  import { formatAltGrCopyLine, hostLanguage, pairedKbdId } from '@keymap-editor/keymap-core'
+  import { pairedKbdId } from '@keymap-editor/keymap-core'
   import logoLinux from '../assets/logo-linux.png'
   import logoWindows from '../assets/logo-windows.png'
   import Modal from './Common/Modal.svelte'
+  import ChromeStatus from './Common/ChromeStatus.svelte'
+  import Button from './Common/Button.svelte'
   import LangFlag from './LangFlag.svelte'
 
   type InstallSheet = 'linux' | 'windows' | null
@@ -34,17 +36,25 @@
     URL.revokeObjectURL(url)
   }
 
-  async function copyText(text: string, okMessage: string) {
+  async function copyText(text: string, okMessage: string, markDelivered = false) {
     try {
       await navigator.clipboard.writeText(text)
       copyNote = okMessage
+      if (markDelivered) editor.markHostDelivered()
     } catch {
       copyNote = 'Could not copy — select the text manually'
     }
   }
 
   const dirty = $derived(editor.isHostDirty)
-  const status = $derived(dirty ? 'Changed' : 'Clean')
+  const statusLabel = $derived(dirty ? 'Changed' : 'Saved')
+  const statusTitle = $derived(
+    dirty
+      ? 'User layout ready to install'
+      : editor.hostDeliverableLayoutIds.length > 0
+        ? 'Already exported — edit again to re-enable install'
+        : 'No user layout to install'
+  )
   const exports = $derived.by(() => {
     void editor.hostLayoutRevision
     void editor.hostLegend
@@ -55,26 +65,11 @@
     void editor.hostLegend
     return editor.listCapsAlphabetKlcExports()
   })
-  const canAlign = $derived(editor.canAlignHostSymbols)
-
   $effect(() => {
     if (editor.hostLegend.columns.length < 3 && editor.multilangView) {
       editor.multilangView = false
     }
   })
-  const alignExtraName = $derived.by(() => {
-    const open = editor.hostLegend.open
-    return open ? hostLanguage(open).name : 'the other language'
-  })
-  const alignBaseName = $derived.by(() => {
-    const language = editor.hostLegend.columns[0]?.language
-    return language ? hostLanguage(language).name : 'English'
-  })
-  const altGrReplacements = $derived(
-    (editor.altGrCopyPlan ?? []).filter(edit => edit.overwrites)
-  )
-  const altGrFills = $derived((editor.altGrCopyPlan ?? []).filter(edit => !edit.overwrites))
-
   /** Prefer small / easy-to-pick XKB modules over the huge defaults (us, winkeys, …). */
   function installTarget(item: (typeof exports)[number]) {
     if (item.language === 'en') {
@@ -83,8 +78,7 @@
         systemPath: '/usr/share/X11/xkb/symbols/au',
         userPath: '~/.xkb/symbols/au',
         variant: 'Australia (au)',
-        tip: 'Prefer symbols/au (Australia), not us: the file is short and near the top of the symbols list, there is less layout-picker clutter across distros, and the Australian flag makes it obvious you are on your custom layout.',
-        tipRu: null as string | null
+        tip: 'Prefer symbols/au (Australia), not us: the file is short and near the top of the symbols list, there is less layout-picker clutter across distros, and the Australian flag makes it obvious you are on your custom layout.'
       }
     }
     if (item.language === 'ru') {
@@ -93,9 +87,7 @@
         systemPath: '/usr/share/X11/xkb/symbols/ru',
         userPath: '~/.xkb/symbols/ru',
         variant: 'legacy',
-        tip: 'Prefer the legacy section at the top of symbols/ru — it is nearly empty and easy to select in the layout list.',
-        tipRu:
-          'Для русского удобнее секция legacy в начале файла symbols/ru: она почти пустая и её проще выбрать в списке раскладок.'
+        tip: 'Prefer the legacy section at the top of symbols/ru — it is nearly empty and easy to select in the layout list.'
       }
     }
     return {
@@ -103,8 +95,7 @@
       systemPath: item.exampleSystemPath,
       userPath: item.exampleUserPath,
       variant: null as string | null,
-      tip: null as string | null,
-      tipRu: null as string | null
+      tip: null as string | null
     }
   }
 
@@ -132,7 +123,6 @@
   }
 
   function openSheet(next: 'linux' | 'windows') {
-    if (!dirty) return
     copyNote = ''
     if (next === 'windows') {
       const versions: Record<string, number> = {}
@@ -151,6 +141,7 @@
 
   function downloadSection(text: string, name: string) {
     downloadText(text, safeFileName(name, 'symbols.txt'))
+    editor.markHostDelivered()
   }
 
   function downloadBytes(bytes: Uint8Array, fileName: string) {
@@ -170,6 +161,7 @@
     const file = editor.exportUserHostLayoutKlc(layoutId)
     if (!file) return
     downloadBytes(file.bytes, safeFileName(name, 'klc'))
+    editor.markHostDelivered()
   }
 
   function downloadCapsKlc(item: (typeof capsExports)[number]) {
@@ -183,12 +175,14 @@
     const file = editor.exportCapsAlphabetKlc(item.capsLanguage, version)
     if (!file) return
     downloadBytes(file.bytes, safeFileName(file.kbdId, 'klc'))
+    editor.markHostDelivered()
   }
 
   function downloadAllLinux() {
     const all = editor.exportActiveHostLayoutsXkb()
     if (!all) return
     downloadText(all.text, safeFileName(all.name, 'symbols.txt'))
+    editor.markHostDelivered()
   }
 </script>
 
@@ -198,43 +192,32 @@
   data-host-dirty={dirty ? 'true' : 'false'}
   title="Host layout: install results on the OS"
 >
-  <span class="label">Host</span>
-  <span class="status" aria-live="polite">{status}</span>
+  <span class="lane-label" title="Host layout: install results on the OS">Host</span>
+  <ChromeStatus dirty={dirty} label={statusLabel} title={statusTitle} />
 
-  <button
-    type="button"
-    class="tool"
-    aria-label="Copy AltGr from the other language onto English"
-    title="Copy AltGr and AltGr+Shift from {alignExtraName} onto {alignBaseName}. Empty cells stay as they are."
-    disabled={!canAlign || editor.altGrCopyBusy}
-    onclick={() => editor.beginAltGrCopy()}
-  >
-    Copy AltGr
-  </button>
-
-  <button
-    type="button"
+  <Button
+    variant="softReady"
     class="download"
+    ready={dirty}
     aria-label="Install host layout on Linux"
     title="Open Linux install guide"
-    disabled={!dirty}
     onclick={() => openSheet('linux')}
   >
-    <img class="os-icon" src={logoLinux} alt="" width="16" height="16" />
+    <img class="os-icon" src={logoLinux} alt="" width="20" height="20" />
     <span class="dl-label">Linux</span>
-  </button>
+  </Button>
 
-  <button
-    type="button"
+  <Button
+    variant="softReady"
     class="download"
+    ready={dirty}
     aria-label="Install host layout on Windows"
     title="Open Windows install guide"
-    disabled={!dirty}
     onclick={() => openSheet('windows')}
   >
-    <img class="os-icon" src={logoWindows} alt="" width="16" height="16" />
+    <img class="os-icon" src={logoWindows} alt="" width="20" height="20" />
     <span class="dl-label">Windows</span>
-  </button>
+  </Button>
 </div>
 
 {#if sheet === 'linux'}
@@ -271,6 +254,13 @@
         </li>
       </ol>
 
+      {#if exports.length === 0}
+        <p class="empty-exports" role="status">
+          No custom host layout yet. Alt+click a key to edit symbols, then copy or download a section
+          here.
+        </p>
+      {/if}
+
       {#each exports as item (item.layoutId)}
         {@const target = installTarget(item)}
         <section class="layout-card">
@@ -284,9 +274,6 @@
           {#if target.tip}
             <p class="card-tip">{target.tip}</p>
           {/if}
-          {#if target.tipRu}
-            <p class="card-tip tip-ru" lang="ru">{target.tipRu}</p>
-          {/if}
 
           <label class="path-label" for={`sys-path-${item.layoutId}`}>Example system path</label>
           <div class="path-row">
@@ -296,13 +283,12 @@
               readonly
               value={target.systemPath}
             />
-            <button
-              type="button"
-              class="secondary"
+            <Button
+              variant="outline"
               onclick={() => copyText(target.systemPath, 'System path copied')}
             >
               Copy path
-            </button>
+            </Button>
           </div>
 
           <label class="path-label" for={`user-path-${item.layoutId}`}>Example user path</label>
@@ -313,40 +299,34 @@
               readonly
               value={target.userPath}
             />
-            <button
-              type="button"
-              class="secondary"
+            <Button
+              variant="outline"
               onclick={() => copyText(target.userPath, 'User path copied')}
             >
               Copy path
-            </button>
+            </Button>
           </div>
 
           <pre class="section-preview">{item.text}</pre>
           <div class="row-actions">
-            <button
-              type="button"
-              class="primary"
-              onclick={() => copyText(item.text, `Section “${item.name}” copied`)}
+            <Button
+              variant="accent"
+              onclick={() => copyText(item.text, `Section “${item.name}” copied`, true)}
             >
               Copy section
-            </button>
-            <button
-              type="button"
-              class="secondary"
-              onclick={() => downloadSection(item.text, item.name)}
-            >
+            </Button>
+            <Button variant="outline" onclick={() => downloadSection(item.text, item.name)}>
               Download file
-            </button>
+            </Button>
           </div>
         </section>
       {/each}
 
       {#if exports.length > 1}
         <div class="row-actions bulk">
-          <button type="button" class="secondary" onclick={downloadAllLinux}>
+          <Button variant="outline" onclick={downloadAllLinux}>
             Download all sections
-          </button>
+          </Button>
         </div>
       {/if}
 
@@ -355,7 +335,7 @@
       {/if}
 
       <div class="dialog-foot">
-        <button type="button" class="secondary" onclick={closeSheet}>Close</button>
+        <Button variant="outline" onclick={closeSheet}>Close</Button>
       </div>
     </div>
   </Modal>
@@ -397,6 +377,13 @@
           Run the installer, then sign out. If the previous characters are still there, reboot.
         </li>
       </ol>
+
+      {#if exports.length === 0 && capsExports.length === 0}
+        <p class="empty-exports" role="status">
+          No custom host layout yet. Alt+click a key to edit symbols, then download a
+          <code>.klc</code> file here.
+        </p>
+      {/if}
 
       {#if capsExports.length > 0}
         <section class="paired" aria-labelledby="windows-paired-title">
@@ -442,9 +429,9 @@
               English column “{item.baseLayoutName}”, {item.capsLanguageName} column “{item.capsLayoutName}”.
             </p>
             <div class="row-actions">
-              <button type="button" class="primary" onclick={() => downloadCapsKlc(item)}>
+              <Button variant="accent" onclick={() => downloadCapsKlc(item)}>
                 Download {item.baseLanguageName} + {item.capsLanguageName} .klc
-              </button>
+              </Button>
             </div>
           {/each}
         </section>
@@ -459,77 +446,15 @@
             <span class="profile-name">“{item.name}”</span>
           </h3>
           <div class="row-actions">
-            <button type="button" class="primary" onclick={() => downloadKlc(item.layoutId, item.name)}>
+            <Button variant="accent" onclick={() => downloadKlc(item.layoutId, item.name)}>
               Download .klc
-            </button>
+            </Button>
           </div>
         </section>
       {/each}
 
       <div class="dialog-foot">
-        <button type="button" class="secondary" onclick={closeSheet}>Close</button>
-      </div>
-    </div>
-  </Modal>
-{/if}
-
-{#if editor.altGrCopyPlan}
-  <Modal onBackdrop={() => editor.cancelAltGrCopy()}>
-    <div
-      class="install-dialog align-dialog"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="altgr-copy-title"
-    >
-      <header class="dialog-head">
-        <div>
-          <h2 id="altgr-copy-title">Copy AltGr from {alignExtraName}</h2>
-          <p class="lede">
-            AltGr and AltGr+Shift are copied onto {alignBaseName} where {alignExtraName} has a
-            symbol. Empty {alignExtraName} cells stay as they are. Letters on the main shift levels
-            are not copied. {alignBaseName} is saved as your layout, so the Linux
-            <code>symbols/au</code> section matches the AltGr the combined Windows file keeps.
-          </p>
-        </div>
-      </header>
-      {#if editor.altGrCopyPlan.length === 0}
-        <p>AltGr already matches.</p>
-      {:else}
-        {#if altGrReplacements.length}
-          <h3 class="files-heading">Replaced on {alignBaseName}</h3>
-          <ul class="align-list">
-            {#each altGrReplacements.slice(0, 40) as edit (`${edit.zmk}:${edit.level}`)}
-              <li>{formatAltGrCopyLine(edit)}</li>
-            {/each}
-            {#if altGrReplacements.length > 40}
-              <li>and {altGrReplacements.length - 40} more</li>
-            {/if}
-          </ul>
-        {/if}
-        {#if altGrFills.length}
-          <h3 class="files-heading">Filled where {alignBaseName} was empty</h3>
-          <ul class="align-list">
-            {#each altGrFills.slice(0, 40) as edit (`${edit.zmk}:${edit.level}`)}
-              <li>{formatAltGrCopyLine(edit)}</li>
-            {/each}
-            {#if altGrFills.length > 40}
-              <li>and {altGrFills.length - 40} more</li>
-            {/if}
-          </ul>
-        {/if}
-      {/if}
-      <div class="dialog-foot">
-        <button type="button" class="secondary" onclick={() => editor.cancelAltGrCopy()}>
-          Cancel
-        </button>
-        <button
-          type="button"
-          class="primary"
-          disabled={editor.altGrCopyPlan.length === 0 || editor.altGrCopyBusy}
-          onclick={() => editor.confirmAltGrCopy()}
-        >
-          Copy
-        </button>
+        <Button variant="outline" onclick={closeSheet}>Close</Button>
       </div>
     </div>
   </Modal>
@@ -537,110 +462,26 @@
 
 <style>
   .host-pipeline {
-    display: inline-flex;
+    display: flex;
     flex-wrap: nowrap;
     align-items: flex-end;
     gap: 6px 8px;
     margin: 0;
-    color: #555;
-    font-size: 13px;
+    color: var(--text-muted);
+    font-size: var(--font-md);
   }
 
-  .label {
-    display: inline-flex;
-    align-items: center;
-    height: 26px;
-    white-space: nowrap;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-  }
-
-  .status {
-    display: inline-flex;
-    align-items: center;
-    height: 26px;
-    min-width: 4.2em;
-    color: #777;
-    font-size: 13px;
-  }
-
-  .host-pipeline.dirty .status {
-    color: #664d03;
-    font-weight: 600;
-  }
-
-  .download {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    box-sizing: border-box;
-    height: 26px;
-    margin: 0;
+  .host-pipeline :global(.download) {
+    /* Layout extras for softReady OS buttons; colors come from Button. */
     padding: 0 8px 0 6px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    background: #f3f3f3;
-    color: #333;
-    font: inherit;
-    font-size: 13px;
-    cursor: pointer;
-  }
-
-  .download:hover:not(:disabled) {
-    background: #fff;
-    border-color: #1d6f8a;
-    color: #1d6f8a;
-  }
-
-  .download:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-
-  .tool {
-    display: inline-flex;
-    align-items: center;
-    box-sizing: border-box;
-    height: 26px;
-    margin: 0;
-    padding: 0 8px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    background: #f3f3f3;
-    color: #333;
-    font: inherit;
-    font-size: 13px;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-
-  .tool:hover:not(:disabled) {
-    background: #fff;
-    border-color: #1d6f8a;
-    color: #1d6f8a;
-  }
-
-  .tool:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-
-  .align-list {
-    max-height: 180px;
-    margin: 0 0 10px;
-    padding-left: 1.2em;
-    overflow: auto;
-    font-size: 13px;
   }
 
   .os-icon {
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
     flex-shrink: 0;
     border-radius: 2px;
     object-fit: contain;
-    image-rendering: pixelated;
   }
 
   .dl-label {
@@ -655,12 +496,12 @@
     overflow-y: auto;
     padding: 16px 18px 14px;
     border-radius: 10px;
-    background: #f7f4ee;
-    color: #333;
+    background: var(--paper);
+    color: var(--text);
     font-family: Quicksand, avenir, sans-serif;
     box-shadow:
-      0 0 0 1px rgba(40, 36, 30, 0.12),
-      0 12px 32px rgba(40, 36, 30, 0.22);
+      0 0 0 1px color-mix(in srgb, var(--paper-shade) 12%, transparent),
+      0 12px 32px color-mix(in srgb, var(--paper-shade) 22%, transparent);
   }
 
   .dialog-head {
@@ -673,20 +514,19 @@
   .dialog-logo {
     flex-shrink: 0;
     border-radius: 4px;
-    image-rendering: pixelated;
   }
 
   .install-dialog h2 {
     margin: 0 0 4px;
-    font-size: 18px;
+    font-size: var(--font-xl);
     font-weight: 700;
   }
 
   .lede {
     margin: 0;
-    font-size: 13px;
+    font-size: var(--font-md);
     line-height: 1.4;
-    color: #555;
+    color: var(--text-muted);
   }
 
   .lede code,
@@ -698,7 +538,7 @@
   .steps {
     margin: 0 0 14px;
     padding-left: 1.25em;
-    font-size: 13px;
+    font-size: var(--font-md);
     line-height: 1.4;
   }
 
@@ -706,18 +546,28 @@
     margin-top: 6px;
   }
 
+  .empty-exports {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--paper-deep) 55%, var(--paper));
+    color: var(--paper-ink);
+    font-size: var(--font-md);
+    line-height: 1.4;
+  }
+
   .paired {
     margin: 0 0 14px;
     padding: 12px 12px 10px;
     border-radius: 8px;
-    background: #fff;
-    border: 1px solid rgba(29, 111, 138, 0.45);
+    background: var(--surface);
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
   }
 
   .paired h3,
   .files-heading {
     margin: 0 0 8px;
-    font-size: 15px;
+    font-size: var(--font-lg);
     font-weight: 700;
   }
 
@@ -728,9 +578,9 @@
   .paired p,
   .paired li {
     margin: 0 0 8px;
-    font-size: 13px;
+    font-size: var(--font-md);
     line-height: 1.45;
-    color: #333;
+    color: var(--text);
   }
 
   .paired ul {
@@ -743,7 +593,7 @@
   }
 
   .paired-source {
-    color: #555;
+    color: var(--text-muted);
   }
 
   .paired .row-actions {
@@ -754,8 +604,8 @@
     margin: 0 0 12px;
     padding: 10px 10px 8px;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.55);
-    border: 1px solid rgba(40, 36, 30, 0.1);
+    background: color-mix(in srgb, var(--surface) 55%, transparent);
+    border: 1px solid color-mix(in srgb, var(--paper-shade) 10%, transparent);
   }
 
   .layout-card h3 {
@@ -764,7 +614,7 @@
     align-items: center;
     gap: 6px 8px;
     margin: 0 0 8px;
-    font-size: 14px;
+    font-size: var(--font-lg);
     font-weight: 700;
   }
 
@@ -776,23 +626,19 @@
 
   .profile-name {
     font-weight: 500;
-    color: #555;
+    color: var(--text-muted);
   }
 
   .card-tip {
     margin: 0 0 8px;
-    font-size: 12px;
+    font-size: var(--font-sm);
     line-height: 1.4;
-    color: #555;
-  }
-
-  .card-tip.tip-ru {
-    color: #4a4540;
+    color: var(--text-muted);
   }
 
   .module {
     margin-left: auto;
-    color: #7a746c;
+    color: var(--paper-ink-subtle);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 0.92em;
     font-weight: 500;
@@ -801,8 +647,8 @@
   .path-label {
     display: block;
     margin: 0 0 3px;
-    font-size: 11px;
-    color: #7a746c;
+    font-size: var(--font-xs);
+    color: var(--paper-ink-subtle);
   }
 
   .path-row {
@@ -817,12 +663,12 @@
     height: 28px;
     margin: 0;
     padding: 0 8px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border);
     border-radius: 6px;
-    background: #fff;
+    background: var(--surface);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px;
-    color: #333;
+    font-size: var(--font-sm);
+    color: var(--text);
   }
 
   .section-preview {
@@ -832,10 +678,10 @@
     padding: 8px;
     overflow: auto;
     border-radius: 6px;
-    background: #1e1e1e;
-    color: #d6d6d6;
+    background: var(--code-bg);
+    color: var(--code-ink);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 11px;
+    font-size: var(--font-xs);
     line-height: 1.35;
     white-space: pre;
   }
@@ -851,47 +697,10 @@
     margin-bottom: 8px;
   }
 
-  .primary,
-  .secondary {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 30px;
-    margin: 0;
-    padding: 0 12px;
-    border-radius: 8px;
-    font: inherit;
-    font-size: 13px;
-    cursor: pointer;
-    text-decoration: none;
-  }
-
-  .primary {
-    border: 0;
-    background: #1d6f8a;
-    color: #fff;
-  }
-
-  .secondary {
-    border: 1px solid #ccc;
-    background: #f3f3f3;
-    color: #333;
-  }
-
-  .secondary:hover:not(:disabled),
-  .primary:hover:not(:disabled) {
-    filter: brightness(1.05);
-  }
-
-  .secondary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
   .copy-note {
     margin: 8px 0 0;
-    font-size: 12px;
-    color: #1d6f8a;
+    font-size: var(--font-sm);
+    color: var(--accent);
   }
 
   .dialog-foot {
@@ -899,6 +708,6 @@
     justify-content: flex-end;
     margin-top: 14px;
     padding-top: 10px;
-    border-top: 1px solid rgba(40, 36, 30, 0.1);
+    border-top: 1px solid color-mix(in srgb, var(--paper-shade) 10%, transparent);
   }
 </style>

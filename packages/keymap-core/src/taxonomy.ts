@@ -6,10 +6,24 @@ export interface ChoiceGroup {
   items: CatalogChoice[]
 }
 
+/** One taxonomy tab; home merges Keyboard + Keypad into a single chip. */
+export interface TaxonomyChip {
+  id: string
+  label: string
+  contexts: readonly string[]
+}
+
 const CONTEXT_PRIORITY = ['Keyboard', 'Keypad']
 
-/** Home view for keycode taxonomy chips. */
+/** Catalog contexts that make up the home board view. */
 export const DEFAULT_TAXONOMY_CONTEXTS = ['Keyboard', 'Keypad'] as const
+
+export const HOME_TAXONOMY_CHIP_ID = 'Keyboard+Keypad'
+
+function availableHomeContexts(groups: ChoiceGroup[]): string[] {
+  const available = new Set(groups.map(group => group.context))
+  return DEFAULT_TAXONOMY_CONTEXTS.filter(context => available.has(context))
+}
 
 /**
  * Keyboard+Keypad unless the current value lives in another HID group.
@@ -18,10 +32,7 @@ export function initialTaxonomyContexts(
   groups: ChoiceGroup[],
   currentCode?: string | number
 ): string[] {
-  const available = new Set(groups.map(group => group.context))
-  const defaults = DEFAULT_TAXONOMY_CONTEXTS.filter(context =>
-    available.has(context)
-  )
+  const defaults = availableHomeContexts(groups)
   if (currentCode == null || String(currentCode) === '') {
     return defaults.length > 0 ? defaults : groups.map(group => group.context)
   }
@@ -30,26 +41,60 @@ export function initialTaxonomyContexts(
   const home = groups.find(group =>
     group.items.some(item => String(item.code) === current)
   )
-  if (!home || defaults.includes(home.context as (typeof DEFAULT_TAXONOMY_CONTEXTS)[number])) {
+  if (
+    !home ||
+    (DEFAULT_TAXONOMY_CONTEXTS as readonly string[]).includes(home.context)
+  ) {
     return defaults.length > 0 ? defaults : groups.map(group => group.context)
   }
   return [home.context]
 }
 
-/** Keyboard/Keypad restore the home pair; other chips replace the view. */
+/** Home chip restores Keyboard+Keypad; other chips replace the view. */
 export function nextTaxonomyContexts(
   groups: ChoiceGroup[],
   clicked: string
 ): string[] {
+  const chip = buildTaxonomyChips(groups).find(entry => entry.id === clicked)
+  if (chip) return [...chip.contexts]
   const available = new Set(groups.map(group => group.context))
-  if (
-    (DEFAULT_TAXONOMY_CONTEXTS as readonly string[]).includes(clicked) &&
-    available.has(clicked)
-  ) {
-    const home = DEFAULT_TAXONOMY_CONTEXTS.filter(context => available.has(context))
-    return home.length > 0 ? [...home] : [clicked]
-  }
   return available.has(clicked) ? [clicked] : initialTaxonomyContexts(groups)
+}
+
+/** Tabs for the Value row: one home chip, then each remaining HID context. */
+export function buildTaxonomyChips(groups: ChoiceGroup[]): TaxonomyChip[] {
+  const visible = groups.filter(
+    group => group.context !== 'Other' || groups.length === 1
+  )
+  const homeContexts = availableHomeContexts(visible)
+  const chips: TaxonomyChip[] = []
+  if (homeContexts.length > 0) {
+    chips.push({
+      id: HOME_TAXONOMY_CHIP_ID,
+      label:
+        homeContexts.length > 1 ? HOME_TAXONOMY_CHIP_ID : homeContexts[0]!,
+      contexts: homeContexts
+    })
+  }
+  for (const group of visible) {
+    if ((DEFAULT_TAXONOMY_CONTEXTS as readonly string[]).includes(group.context)) {
+      continue
+    }
+    chips.push({
+      id: group.context,
+      label: group.context,
+      contexts: [group.context]
+    })
+  }
+  return chips
+}
+
+export function taxonomyChipIsActive(
+  chip: TaxonomyChip,
+  activeContexts: readonly string[]
+): boolean {
+  if (chip.contexts.length !== activeContexts.length) return false
+  return chip.contexts.every(context => activeContexts.includes(context))
 }
 
 /**

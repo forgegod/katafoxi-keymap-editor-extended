@@ -32,7 +32,7 @@
       <p>Errors in the file <code>{file}</code>.</p>
     {/if}
     <ul
-      style="max-height:300px;overflow:auto;padding:10px;font-family:monospace;font-size:80%;background-color:#efefef;"
+      style="max-height:300px;overflow:auto;padding:10px;font-family:monospace;font-size:80%;background-color:var(--fill-subtle);"
     >
       {#each errors as error, i}
         <li style="margin:10px;">{error}</li>

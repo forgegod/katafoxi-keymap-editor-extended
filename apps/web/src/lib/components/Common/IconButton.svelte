@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
+  import Button from './Button.svelte'
   import Icon from './Icon.svelte'
 
   interface Props {
@@ -9,6 +10,9 @@
     children?: Snippet
     onclick?: (event: MouseEvent) => void
     onClick?: (event: MouseEvent) => void
+    title?: string
+    class?: string
+    disabled?: boolean
   }
 
   let {
@@ -17,16 +21,25 @@
     text,
     children,
     onclick,
-    onClick
+    onClick,
+    title,
+    class: className = '',
+    disabled = false
   }: Props = $props()
 
   const handleClick = $derived(onclick || onClick)
 </script>
 
-<button onclick={handleClick}>
+<Button
+  variant="outline"
+  class={className}
+  {title}
+  {disabled}
+  onclick={handleClick}
+>
   <Icon {collection} name={icon} />
   {text || ''}
   {#if children}
     {@render children()}
   {/if}
-</button>
+</Button>

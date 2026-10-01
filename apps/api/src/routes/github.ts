@@ -91,8 +91,47 @@ githubRoutes.get('/installation', async c => {
     if ((installationRepos.installations as unknown[]).length === 0) {
       console.log(`User ${user.sub} does not have an active app installation.`)
     }
-    return c.json(installationRepos)
+    return c.json({ login: user.sub, ...installationRepos })
   } catch (err) {
+    return handleGithubError(c, err)
+  }
+})
+
+githubRoutes.post('/installation/:installationId/:repository/branches', async c => {
+  const { installationId, repository } = c.req.param()
+  let body: { name?: unknown; from?: unknown } = {}
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ name: 'BranchNameError', errors: ['Enter a branch name'] }, 400)
+  }
+  const name = typeof body.name === 'string' ? body.name : ''
+  const from = typeof body.from === 'string' ? body.from : ''
+  try {
+    installations.assertBranchName(name)
+    if (!from.trim()) throw new installations.BranchNameError('Choose a branch to copy')
+    const { data } = await auth.createInstallationToken(installationId)
+    const created = await installations.createBranch(
+      (data as { token: string }).token,
+      repository,
+      name,
+      from
+    )
+    return c.json(created, 201)
+  } catch (err) {
+    if (err instanceof installations.BranchNameError) {
+      return c.json({ name: err.name, errors: err.errors }, 400)
+    }
+    const status = (err as { response?: { status?: number } }).response?.status
+    if (status === 422) {
+      return c.json(
+        { name: 'BranchExists', errors: ['A branch with that name already exists'] },
+        409
+      )
+    }
+    if (status === 404) {
+      return c.json({ name: 'BranchNotFound', errors: ['The source branch was not found'] }, 400)
+    }
     return handleGithubError(c, err)
   }
 })

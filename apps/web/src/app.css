@@ -1,13 +1,204 @@
 /* Page chrome: full-height column so the keyboard can scale into the leftover viewport. */
 :root {
   color-scheme: light;
-  --dark-red: #910e0e;
-  --dark-blue: #6d99c6;
+
+  /* Components use these roles, not raw hex. Add a role before adding a colour. */
+
+  /* Text: four roles. Primary → secondary → inactive → background marks. */
+  --text: #333;
+  --text-muted: #666; /* captions, lane labels; ≈5.7:1 on white */
+  --text-disabled: #8a8a8a; /* inactive controls */
+  --text-ghost: #a8a8a8; /* &trans and other background marks only */
+  --on-accent: #fff;
+  --shade: #000;
+
+  /* Surfaces, fills, borders */
+  --surface: #fff;
+  --page-bg: var(--surface);
+  --surface-sunken: #f3f3f3;
+  --fill-subtle: #eee;
+  --fill: #e2e2e2;
+  --border-subtle: #e2e2e2;
+  --border-soft: #d6d6d6;
+  --border: #ccc;
+  --border-strong: #8a8a8a;
+  --key-face: whitesmoke;
+  /* Darker than --key-face (#f5f5f5) so caps read as objects without a stroke. */
+  --stage-bg: #e4e7eb;
+
+  /* One interactive accent for hover, focus, links, and status washes. */
+  --accent: #1d6f8a;
+  --accent-strong: #0f4a5c;
+
+  /* Success / publish. Solid green belongs to the selected key and ZMK publish. */
   --selection: rgb(60, 179, 113);
   --hover-selection: rgba(60, 179, 113, 0.85);
-  --key-face: whitesmoke;
-  --page-bg: #fff;
-  --muted: #555;
+  --ok-fill-strong: #2a9a5f;
+  --ok: #1f7a45;
+  --ok-strong: #146b38;
+  --ok-wash: #e7f6ee;
+
+  /* Draft, warnings, legend hits */
+  --warn: #8a5a00;
+  --warn-ink: #664d03;
+  --warn-wash: #fff3cd;
+  --warn-border: #e6d7a2;
+  --highlight: #e4c56a;
+
+  /* Hold-tap chips in the key editor */
+  --amber: #f0b429;
+  --amber-strong: #e09a10;
+  --amber-soft: #f6d58a;
+  --amber-ink: #2b2108;
+
+  /* Destructive and errors */
+  --danger: #c0392b;
+  --danger-ink: #842029;
+  --danger-wash: #f8d7da;
+  --danger-border: #e2b6bb;
+
+  /* Symbol-difference marks on keys; the stage samples reuse them. */
+  --mark-diff: #c47b00;
+  --mark-altgr: #b42318;
+  --conflict-ink: #9a3412;
+
+  /* Warm paper: decode card, symbol picker, install dialogs */
+  --paper: #f7f4ee;
+  --paper-deep: #e8e2d6;
+  --paper-border: #b7b1a8;
+  --paper-shade: #28241e;
+  --paper-ink-strong: #4a4540;
+  --paper-ink: #5a554e;
+  --paper-ink-muted: #6b6560;
+  --paper-ink-subtle: #7a746c;
+  --paper-ink-faint: #8a847c;
+
+  /* Dark panels */
+  --dark-surface: #1e2433;
+  --dark-ink: #f4f5f7;
+  --dark-ink-soft: #e8eaee;
+  --code-bg: #1e1e1e;
+  --code-ink: #d6d6d6;
+
+  /* Extra host-language lines on a keycap (index 1 uses --accent) */
+  --lang-ink-2: #5c4d8a;
+  --lang-ink-3: #8a5a2b;
+
+  /* Stacked key rows + legend table: wash hues for a faint row tint.
+     L0 blue vs L1 yellow-green so the first two rows stay distinct at low opacity.
+     Stay clear of draft amber, selection green, and AltGr conflict red. */
+  --layer-tone-0: #3d6fa8;
+  --layer-tone-1: #5a9a38;
+  --layer-tone-2: #7460a0;
+  --layer-tone-3: #9a6e42;
+
+  /* Type scale for chrome, dialogs, and menus. Add a step before adding a size.
+     Keycap, loupe, and decode-card glyphs are content and keep their own sizes. */
+  --font-xs: 11px;   /* lane labels, table heads, captions, badges */
+  --font-sm: 12px;   /* menus, hints, secondary lines */
+  --font-md: 13px;   /* body: buttons, inputs, header text */
+  --font-lg: 15px;   /* panel and section headings */
+  --font-xl: 18px;   /* dialog titles */
+  --font-icon: 16px; /* single-glyph buttons (Ω, +, ✓, ×, ↺) */
+
+  /* Header control height (buttons, selects, status). Keep chrome siblings in sync. */
+  --chrome-h: 30px;
+
+  /* Letters: Inter (Latin, Cyrillic, Greek), then Noto Sans for a script Inter lacks.
+     Marks: Noto Sans Symbols 2. Emoji: the system emoji font.
+     Keep the full families — a frozen character list drops the next language. */
+  --glyph-font: Inter, "Noto Sans", "Noto Sans Symbols 2", "Segoe UI Emoji", sans-serif;
+
+  /* HID keypad mark: soft wash only (keycap, ZMK param, and key-editor chip). */
+  --keypad-wash: color-mix(in srgb, var(--shade) 8%, transparent);
+  --keypad-wash-on-accent: color-mix(in srgb, var(--on-accent) 22%, transparent);
+
+  /* Generic shade washes — follow --shade so they invert with the theme. */
+  --shade-wash-soft: color-mix(in srgb, var(--shade) 6%, transparent);
+  --shade-wash: color-mix(in srgb, var(--shade) 8%, transparent);
+  --shade-wash-mid: color-mix(in srgb, var(--shade) 12%, transparent);
+  --on-accent-wash: color-mix(in srgb, var(--on-accent) 22%, transparent);
+}
+
+/* Dark theme: JS sets data-color-scheme from preference (system/light/dark). */
+:root[data-color-scheme="dark"] {
+  color-scheme: dark;
+
+  --text: #e4e6ea;
+  --text-muted: #a8adb8;
+  --text-disabled: #7a8090;
+  --text-ghost: #5c6270;
+  --on-accent: #fff;
+  --shade: #fff;
+
+  --surface: #1a1d24;
+  --page-bg: var(--surface);
+  --surface-sunken: #12151b;
+  --fill-subtle: #2a2f3a;
+  --fill: #343a48;
+  --border-subtle: #2a2f3a;
+  --border-soft: #3a4050;
+  --border: #4a5160;
+  --border-strong: #8a90a0;
+  --key-face: #252a35;
+  /* Darker stage so key faces read as raised objects. */
+  --stage-bg: #0e1116;
+
+  --accent: #4db0c9;
+  --accent-strong: #7ec8da;
+
+  --selection: rgb(60, 179, 113);
+  --hover-selection: rgba(60, 179, 113, 0.85);
+  --ok-fill-strong: #2a9a5f;
+  --ok: #5dca8a;
+  --ok-strong: #7dd9a0;
+  --ok-wash: #1a3d2a;
+
+  --warn: #e0a84a;
+  --warn-ink: #f0c878;
+  --warn-wash: #3a3018;
+  --warn-border: #6a5a30;
+  --highlight: #e4c56a;
+
+  --amber: #f0b429;
+  --amber-strong: #f6c85a;
+  --amber-soft: #5a4818;
+  --amber-ink: #f5e6c0;
+
+  --danger: #e06055;
+  --danger-ink: #f0a8a0;
+  --danger-wash: #3a1e20;
+  --danger-border: #6a3a40;
+
+  --mark-diff: #e0a040;
+  --mark-altgr: #e05555;
+  --conflict-ink: #f0a080;
+
+  /* Warm paper cards stay warm, but as elevated dark surfaces. */
+  --paper: #242018;
+  --paper-deep: #1a1712;
+  --paper-border: #5a5348;
+  --paper-shade: #f0ebe3;
+  --paper-ink-strong: #e8e2d6;
+  --paper-ink: #d0c8b8;
+  --paper-ink-muted: #b0a898;
+  --paper-ink-subtle: #989080;
+  --paper-ink-faint: #807870;
+
+  /* Preview sticker: a touch lighter than --surface so it still pops. */
+  --dark-surface: #2a3144;
+  --dark-ink: #f4f5f7;
+  --dark-ink-soft: #e8eaee;
+  --code-bg: #0e1014;
+  --code-ink: #d6d6d6;
+
+  --lang-ink-2: #a898d0;
+  --lang-ink-3: #d0a070;
+
+  --layer-tone-0: #5a8ec4;
+  --layer-tone-1: #6fb048;
+  --layer-tone-2: #9080b8;
+  --layer-tone-3: #b88858;
 }
 
 html {
@@ -23,7 +214,7 @@ body {
   padding: 0;
   margin: 0;
   background: var(--page-bg);
-  color: #333;
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -45,12 +236,12 @@ code {
   font-family: Quicksand, avenir, sans-serif;
   font-size: 100%;
   font-weight: 500;
-  color: #333;
-  background: white;
-  border: 1px solid #ccc;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 4px;
   padding: 2px 6px;
-  min-height: 26px;
+  min-height: var(--chrome-h);
 }
 
 #app-root select:focus {
@@ -63,39 +254,55 @@ code {
   box-sizing: border-box;
 }
 
-#actions button {
-  cursor: pointer;
-  box-sizing: border-box;
+#actions :is(button, a):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.lane-label {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  height: 26px;
-  background-color: var(--hover-selection);
-  color: white;
-  font-family: Quicksand, avenir, sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1;
-  border: none;
-  border-radius: 5px;
-  padding: 0 8px;
-  margin: 0;
+  height: var(--chrome-h);
+  margin: 0 2px 0 0;
+  padding: 0;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
-#actions button:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
+.chrome-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: var(--chrome-h);
+  padding: 0 8px 0 6px;
+  border-radius: 5px;
+  font-size: var(--font-md);
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-/* Dialog dismiss button (original DialogBox had unstyled browser button) */
-.dialog > button {
-  cursor: pointer;
-  background-color: var(--hover-selection);
-  color: white;
-  font-family: Quicksand, avenir, sans-serif;
-  font-size: 16px;
-  border: none;
-  border-radius: 5px;
-  padding: 6px 16px;
-  margin-top: 12px;
+.chrome-status .status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* One pending colour for ZMK Draft and Host Changed. */
+.chrome-status.dirty {
+  color: var(--warn);
+  background: var(--warn-wash);
+}
+
+.chrome-status.clean {
+  color: var(--ok);
+  /* Keep the same padding as .dirty so the status dot does not shift. */
+  background: var(--ok-wash);
 }

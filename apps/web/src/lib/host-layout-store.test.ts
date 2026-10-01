@@ -650,7 +650,7 @@ describe('host layout store', () => {
     expect(editor.exportUserHostLayoutXkb(SYSTEM_US_LAYOUT_ID)).toBeNull()
   })
 
-  it('treats active user layouts as host-dirty deliverables for chrome download', async () => {
+  it('treats undelivered user-layout edits as host-dirty until export', async () => {
     expect(editor.isHostDirty).toBe(false)
     expect(editor.hostDeliverableLayoutIds).toEqual([])
     expect(editor.exportActiveHostLayoutsXkb()).toBeNull()
@@ -664,6 +664,14 @@ describe('host layout store', () => {
     const exported = editor.exportActiveHostLayoutsXkb()
     expect(exported?.name).toBeTruthy()
     expect(exported?.text).toContain('xkb_symbols')
+
+    editor.markHostDelivered()
+    expect(editor.isHostDirty).toBe(false)
+    expect(editor.hostDeliverableLayoutIds).toEqual([edited.layoutId])
+
+    const again = await editor.setHostKeyLevel('en', 'A', 0, 'c')
+    expect(again.ok).toBe(true)
+    expect(editor.isHostDirty).toBe(true)
 
     await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
     expect(editor.isHostDirty).toBe(false)

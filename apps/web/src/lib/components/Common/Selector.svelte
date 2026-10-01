@@ -60,9 +60,9 @@
   }
 
   label {
-    font-size: 12px;
+    font-size: var(--font-sm);
     line-height: 1.15;
-    color: #555;
+    color: var(--text-muted);
     white-space: nowrap;
   }
 
@@ -78,14 +78,14 @@
     display: block;
     white-space: nowrap;
     box-sizing: border-box;
-    height: 26px;
-    min-height: 26px;
+    height: var(--chrome-h);
+    min-height: var(--chrome-h);
     padding: 0 1.5rem 0 6px;
     border: 1px solid transparent;
     font-family: Quicksand, avenir, sans-serif;
-    font-size: 13px;
+    font-size: var(--font-md);
     font-weight: 500;
-    line-height: 24px;
+    line-height: calc(var(--chrome-h) - 2px);
   }
 
   :global(#app-root) .control select {
@@ -95,11 +95,11 @@
     height: 100%;
     min-width: 0;
     max-width: none;
-    font-size: 13px;
-    line-height: 24px;
+    font-size: var(--font-md);
+    line-height: calc(var(--chrome-h) - 2px);
     appearance: none;
     padding-right: 1.5rem;
-    background-color: white;
+    background-color: var(--surface);
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='%23555' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M1 1.5 6 6.5 11 1.5'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 6px center;

@@ -46,9 +46,11 @@ describe('HostLegendView', () => {
       'Highlight symbol differences. Open a second host language first.'
     )
     expect(target.querySelector('.moved')).toBeNull()
+    expect(stack.querySelector('.view-label')?.textContent).toBe('Stack')
+    expect(highlight.querySelector('.view-label')?.textContent).toBe('Differences')
   })
 
-  it('shows mark hints under the differences button once a second language is open', () => {
+  it('labels both modes and shows difference samples under the toggle', () => {
     editor.hostLegend = addHostLanguage(editor.hostLegend, 'ru')
     editor.symbolAlignOn = true
     mountView()
@@ -56,12 +58,17 @@ describe('HostLegendView', () => {
     const highlight = button('Highlight symbol differences')
     expect(highlight.disabled).toBe(false)
     expect(highlight.title).toBe('Highlight symbol differences')
-    expect(target.querySelector('.moved')?.getAttribute('title')).toBe(
-      'A symbol that sits on a different key.'
-    )
-    expect(target.querySelector('.win')?.getAttribute('title')).toBe(
-      'Windows keeps AltGr or AltGr+Shift from the other language and drops this one.'
-    )
+    expect(highlight.querySelector('.view-label')?.textContent).toBe('Differences')
+    const slot = highlight.nextElementSibling
+    expect(slot).toBeInstanceOf(HTMLElement)
+    expect(slot?.classList.contains('align-slot')).toBe(true)
+    expect(slot?.classList.contains('on')).toBe(true)
+    expect(
+      target.querySelector('.sample .moved')?.closest('.sample')?.textContent?.replace(/\s+/g, ' ').trim()
+    ).toBe('position')
+    expect(
+      target.querySelector('.sample .win')?.closest('.sample')?.textContent?.replace(/\s+/g, ' ').trim()
+    ).toBe('Win AltGr')
     expect(button('Stack languages').disabled).toBe(true)
   })
 
@@ -77,5 +84,85 @@ describe('HostLegendView', () => {
     flushSync()
     expect(editor.multilangView).toBe(true)
     expect(stack.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('toggles layer color wash off by default and on when pressed', () => {
+    mountView()
+
+    const tones = button('Layer colors')
+    expect(editor.layerTonesOn).toBe(false)
+    expect(tones.getAttribute('aria-pressed')).toBe('false')
+    expect(tones.classList.contains('on')).toBe(false)
+    expect(tones.title).toMatch(/soft wash/)
+
+    tones.click()
+    flushSync()
+    expect(editor.layerTonesOn).toBe(true)
+    expect(tones.getAttribute('aria-pressed')).toBe('true')
+    expect(tones.classList.contains('on')).toBe(true)
+  })
+
+  it('shows an empty-row toggle beside layer colors when the top row is blank', () => {
+    editor.layout = [
+      { x: 0, y: 0, row: 0 },
+      { x: 1, y: 0, row: 0 },
+      { x: 0, y: 1, row: 1 }
+    ]
+    editor.draftKeymap = {
+      layers: [
+        [
+          { value: '&none', params: [] },
+          { value: '&none', params: [] },
+          { value: '&kp', params: [{ value: 'A', params: [] }] }
+        ]
+      ]
+    }
+    mountView()
+
+    const modes = [...target.querySelectorAll('.view-toggle')]
+    const empty = button('Show empty row')
+    const board = target.querySelector('.board-row')
+    if (!(board instanceof HTMLElement)) throw new Error('missing board row')
+    expect(modes.map(el => el.getAttribute('aria-label'))).toEqual([
+      'Stack languages',
+      'Highlight symbol differences',
+      'Layer colors',
+      'Show empty row'
+    ])
+    expect(board.contains(modes[2]!)).toBe(true)
+    expect(board.contains(empty)).toBe(true)
+    expect(modes[2]?.nextElementSibling?.classList.contains('empty-slot')).toBe(true)
+    expect(empty.classList.contains('view-toggle')).toBe(true)
+    expect(empty.classList.contains('half')).toBe(true)
+    expect(empty.classList.contains('on')).toBe(false)
+    expect(empty.getAttribute('aria-pressed')).toBe('false')
+    expect(empty.querySelector('.view-label')?.textContent).toBe('Empty')
+
+    empty.click()
+    flushSync()
+    expect(editor.revealEmptyRow).toBe(true)
+    expect(empty.getAttribute('aria-label')).toBe('Hide empty row')
+    expect(empty.getAttribute('aria-pressed')).toBe('true')
+    expect(empty.classList.contains('on')).toBe(true)
+    expect(empty.querySelector('.view-label')?.textContent).toBe('Empty')
+  })
+
+  it('keeps the empty-row slot when the top row has a binding', () => {
+    editor.layout = [
+      { x: 0, y: 0, row: 0 },
+      { x: 0, y: 1, row: 1 }
+    ]
+    editor.draftKeymap = {
+      layers: [
+        [
+          { value: '&kp', params: [{ value: 'ESC', params: [] }] },
+          { value: '&none', params: [] }
+        ]
+      ]
+    }
+    mountView()
+    expect(target.querySelector('.empty-row')).toBeNull()
+    expect(target.querySelector('.board-row .empty-slot')).toBeInstanceOf(HTMLElement)
+    expect(button('Layer colors').classList.contains('half')).toBe(true)
   })
 })

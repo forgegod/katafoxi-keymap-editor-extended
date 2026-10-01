@@ -41,6 +41,14 @@ describe('hostSymbolShelves', () => {
     expect(glyphs.has('а')).toBe(false)
   })
 
+  it('puts Signs first among open shelves', () => {
+    for (const language of ['en', 'ru', 'uk', 'de'] as const) {
+      const shelves = hostSymbolShelves(language)
+      expect(shelves[0]?.id).toBe('signs')
+      expect(shelves[0]?.open).toBe(true)
+    }
+  })
+
   it('puts currency, arrows, and math on the universal Signs shelf', () => {
     for (const language of ['en', 'ru', 'uk', 'de'] as const) {
       const signs = shelfById(hostSymbolShelves(language), 'signs')
@@ -113,6 +121,17 @@ describe('hostSymbolShelves', () => {
     for (const glyph of ['є', 'і', 'ї', 'ґ']) {
       expect(glyphs.has(glyph), glyph).toBe(true)
     }
+  })
+
+  it('keeps spaces and format controls off the open Signs shelf', () => {
+    const glyphs = glyphsOf(shelfById(hostSymbolShelves('en'), 'signs'))
+    expect(glyphs.has(' ')).toBe(false)
+    expect(glyphs.has('\u00a0')).toBe(false)
+    expect(glyphs.has('\u00ad')).toBe(false)
+    expect(glyphs.has('\u200b')).toBe(false)
+    expect(glyphs.has('\u200e')).toBe(false)
+    expect(glyphs.has('\u201f')).toBe(true)
+    expect(glyphs.has('.')).toBe(true)
   })
 
   it('collapses Greek and does not put combining marks on open letter shelves', () => {

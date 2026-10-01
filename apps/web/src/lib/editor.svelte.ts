@@ -44,10 +44,7 @@ import {
   unregisterHostLayout,
   summarizeKeymapDiff,
   withHostKey,
-  applyAltGrCopy,
-  planAltGrCopy,
   symbolAlign,
-  type AltGrCopyEdit,
   type HostLayout,
   type SymbolAlign,
   type HostLegendView,
@@ -92,6 +89,7 @@ import {
   type UserHostLayoutOrigin,
   type UserHostLayoutRecord
 } from './host-layout-store'
+import { defaultHostEditTarget, stepHostEditTarget } from './host-edit-cycle'
 
 export type HostProfilePrompt =
   | { kind: 'save-as'; language: HostLanguageId }
@@ -253,6 +251,11 @@ export class EditorState {
    */
   hostLayoutRevision = $state(0)
   /**
+   * `hostLayoutRevision` at the last Linux/Windows export. Host is dirty while
+   * deliverable user layouts exist and the revision has moved past this mark.
+   */
+  hostDeliveredRevision = $state(0)
+  /**
    * Session toggle. On underlines a symbol that sits on a different key and
    * outlines AltGr cells the combined Windows file cannot keep. Not stored
    * with the legend view.
@@ -264,8 +267,16 @@ export class EditorState {
    * Not stored with the legend view or the layer view.
    */
   multilangView = $state(false)
-  altGrCopyPlan = $state<AltGrCopyEdit[] | null>(null)
-  altGrCopyBusy = $state(false)
+  /**
+   * Session toggle. Soft wash tint per firmware layer on the keycap and in the
+   * legend table. Off by default; not stored with the legend view.
+   */
+  layerTonesOn = $state(false)
+  /**
+   * Session toggle. When the physical top row is blank on every layer, the
+   * board hides it until this is on. Not stored with the keymap.
+   */
+  revealEmptyRow = $state(false)
   /** Which firmware layers are drawn on the keycap. */
   layerView = $state<LayerView>(standardLayerView())
   userLayouts = $state<UserHostLayout[]>([])
@@ -291,9 +302,19 @@ export class EditorState {
     this.hostSymbolEditTarget = null
   }
 
-  beginHostEditSession(keyIndex: number, layer: number) {
+  /**
+   * Start an Alt+click host-edit session. When `zmk` is known, arm the first
+   * AltGr cycle cell (extras before base) so the catalog is ready to write.
+   */
+  beginHostEditSession(keyIndex: number, layer: number, zmk?: string) {
     this.hostEditSession = { keyIndex, layer }
     this.hostSymbolCatalogOpen = true
+    if (zmk) {
+      const target = defaultHostEditTarget(zmk, this.hostLegend)
+      this.hostSymbolEditTarget = target
+    } else {
+      this.hostSymbolEditTarget = null
+    }
   }
 
   /** Close catalog + clear armed cell; caller unpins the decode card. */
@@ -303,12 +324,15 @@ export class EditorState {
     this.hostSymbolCatalogOpen = false
   }
 
-  toggleHostSymbolCatalog() {
-    this.hostSymbolCatalogOpen = !this.hostSymbolCatalogOpen
-  }
-
   closeHostSymbolCatalog() {
     this.hostSymbolCatalogOpen = false
+  }
+
+  /** Move the armed cell along the AltGr cycle without writing. */
+  stepHostSymbolEdit(delta: number) {
+    const target = this.hostSymbolEditTarget
+    if (!target || delta === 0) return
+    this.hostSymbolEditTarget = stepHostEditTarget(target, this.hostLegend, delta)
   }
 
   async pickHostSymbol(text: string): Promise<HostKeyLevelEditResult> {
@@ -316,7 +340,14 @@ export class EditorState {
     if (!target) {
       return { ok: false, reason: 'no-target' }
     }
-    return this.setHostKeyLevel(target.language, target.zmk, target.level, text)
+    const result = await this.setHostKeyLevel(
+      target.language,
+      target.zmk,
+      target.level,
+      text
+    )
+    if (result.ok) this.stepHostSymbolEdit(1)
+    return result
   }
 
   /** Bumps on select / new publish so stale reloads are ignored. */
@@ -384,7 +415,15 @@ export class EditorState {
   }
 
   get isHostDirty(): boolean {
-    return this.hostDeliverableLayoutIds.length > 0
+    return (
+      this.hostDeliverableLayoutIds.length > 0 &&
+      this.hostLayoutRevision !== this.hostDeliveredRevision
+    )
+  }
+
+  /** Mark the current host layouts as exported (Linux/Windows install dialog). */
+  markHostDelivered() {
+    this.hostDeliveredRevision = this.hostLayoutRevision
   }
 
   /**
@@ -499,6 +538,8 @@ export class EditorState {
       const records = await loadUserHostLayouts()
       for (const record of records) this.#registerUserLayout(record)
       this.userLayouts = records.map(({ layout: _layout, ...rest }) => rest)
+      // Restored layouts are already on disk in the browser; wait for a new edit.
+      this.hostDeliveredRevision = this.hostLayoutRevision
     } catch {
       resetHostLayoutRegistry()
       this.userLayouts = []
@@ -506,6 +547,7 @@ export class EditorState {
       this.hostAssemblies = []
       this.layerView = standardLayerView()
       this.hostProfileNote = null
+      this.hostDeliveredRevision = this.hostLayoutRevision
     }
   }
 
@@ -655,6 +697,14 @@ export class EditorState {
     return hostLanguageName(language)
   }
 
+  /** Flag plus short layout name for each column. The accessible name stays `hostAssemblyLabel`. */
+  hostAssemblyParts(view: HostLegendView): { language: HostLanguageId; layoutName: string }[] {
+    return view.columns.map(column => ({
+      language: column.language,
+      layoutName: this.#layoutShortName(column.layoutId, column.language)
+    }))
+  }
+
   hostAssemblyLabel(view: HostLegendView): string {
     return hostAssemblyName(
       view.columns.map(column => ({
@@ -733,7 +783,7 @@ export class EditorState {
     return { base, extra, levels, extraLanguage: extraCol.language }
   }
 
-  /** True when a second language is open, so Differences and Copy AltGr apply. */
+  /** True when a second language is open, so Highlight symbol differences applies. */
   get canAlignHostSymbols(): boolean {
     return this.#alignInputs() != null
   }
@@ -807,55 +857,6 @@ export class EditorState {
     this.userLayouts = this.userLayouts.map(item => (item.id === updated.id ? updated : item))
     await saveUserHostLayout({ ...updated, layout })
     return true
-  }
-
-  /** Open the confirm list. An empty plan means AltGr already matches. */
-  beginAltGrCopy() {
-    const pair = this.#alignInputs()
-    if (!pair || this.altGrCopyBusy) return
-    this.altGrCopyPlan = planAltGrCopy(pair.base, pair.extra)
-  }
-
-  cancelAltGrCopy() {
-    if (this.altGrCopyBusy) return
-    this.altGrCopyPlan = null
-  }
-
-  /**
-   * Copy non-empty AltGr and AltGr+Shift from the open language onto the base
-   * layout. Forks a user copy when the base column is still a system layout.
-   */
-  async confirmAltGrCopy(): Promise<void> {
-    if (this.altGrCopyBusy) return
-    const pair = this.#alignInputs()
-    const shown = this.altGrCopyPlan
-    if (!pair || !shown?.length) {
-      this.altGrCopyPlan = null
-      return
-    }
-    const language = this.hostLegend.columns[0]?.language
-    if (!language) {
-      this.altGrCopyPlan = null
-      return
-    }
-    this.altGrCopyBusy = true
-    try {
-      const before = this.activeProfileId(language)
-      const layoutId = await this.ensureEditableUserHostLayout(language)
-      const current = hostLayout(layoutId)
-      if (!current) return
-      const next = applyAltGrCopy(current, pair.extra)
-      if (!(await this.#commitUserHostLayout(layoutId, next))) return
-      const name = this.userLayouts.find(item => item.id === layoutId)?.name ?? 'English'
-      const from = hostLanguage(pair.extraLanguage).name
-      this.hostProfileNote =
-        before === layoutId
-          ? `Copied AltGr from ${from} onto “${name}”.`
-          : `Created copy “${name}” and copied AltGr from ${from}. The system layout is unchanged.`
-    } finally {
-      this.altGrCopyBusy = false
-      this.altGrCopyPlan = null
-    }
   }
 
   /**
@@ -1341,6 +1342,7 @@ export class EditorState {
     this.source = event.source ?? null
     this.githubMeta = event.github ?? null
     this.layout = event.layout ?? null
+    this.revealEmptyRow = false
     const km = event.keymap ?? null
     if (!km) {
       this.baselineKeymap = null
@@ -1521,6 +1523,23 @@ export class EditorState {
     this.saveNotice = { kind: 'error', messages: extractErrorMessages(data) }
   }
 
+  /** Drop the loaded keymap after GitHub logout. Host layouts stay in the browser. */
+  clearLoadedKeymap() {
+    this.#cancelPersistTimer()
+    this.#persistGeneration += 1
+    this.#selectGeneration += 1
+    this.#publishGeneration += 1
+    this.source = null
+    this.githubMeta = null
+    this.layout = null
+    this.baselineKeymap = null
+    this.draftKeymap = null
+    this.clearHistory()
+    this.saving = false
+    this.revealEmptyRow = false
+    this.saveNotice = null
+  }
+
   /** Reset singleton between vitest cases. */
   resetForTests() {
     this.#cancelPersistTimer()
@@ -1540,10 +1559,11 @@ export class EditorState {
     this.hostLegend = standardHostLegendView()
     this.hostAssemblies = []
     this.hostLayoutRevision = 0
+    this.hostDeliveredRevision = 0
     this.symbolAlignOn = true
     this.multilangView = false
-    this.altGrCopyPlan = null
-    this.altGrCopyBusy = false
+    this.layerTonesOn = false
+    this.revealEmptyRow = false
     this.layerView = standardLayerView()
     this.userLayouts = []
     this.hostProfilePrompt = null

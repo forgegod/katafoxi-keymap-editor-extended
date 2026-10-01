@@ -3,15 +3,6 @@
   import { editor } from '../editor.svelte.js'
   import HostSymbolPicker from './HostSymbolPicker.svelte'
 
-  interface Props {
-    /** Show the collapse/expand toggle (product chrome). Off in isolated key tests. */
-    showToggle?: boolean
-  }
-
-  let { showToggle = true }: Props = $props()
-
-  let toggleEl: HTMLButtonElement | undefined = $state()
-
   const open = $derived(editor.hostSymbolCatalogOpen)
   const target = $derived(editor.hostSymbolEditTarget)
   const language = $derived.by((): HostLanguageId => {
@@ -24,6 +15,12 @@
   $effect(() => {
     if (!open) return
     const onKeydown = (event: KeyboardEvent) => {
+      if (event.key === 'Tab' && editor.hostSymbolEditTarget) {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        editor.stepHostSymbolEdit(event.shiftKey ? -1 : 1)
+        return
+      }
       if (event.key !== 'Escape') return
       event.preventDefault()
       event.stopImmediatePropagation()
@@ -39,78 +36,17 @@
   })
 </script>
 
-{#if showToggle}
-  <div class="catalog-chrome">
-    <button
-      bind:this={toggleEl}
-      type="button"
-      class="catalog-toggle"
-      class:on={open}
-      aria-pressed={open}
-      aria-expanded={open}
-      aria-controls={open ? 'host-symbol-catalog' : undefined}
-      aria-label="Host symbol catalog"
-      title="Insert a host-layout symbol"
-      onclick={() => editor.toggleHostSymbolCatalog()}
-    >
-      <span class="catalog-glyph" aria-hidden="true">Ω</span>
-    </button>
-    {#if open}
-      <div id="host-symbol-catalog" class="catalog-float">
-        <HostSymbolPicker language={language} anchorEl={toggleEl ?? null} disabled={disabled} />
-      </div>
-    {/if}
-  </div>
-{:else if open}
+{#if open}
   <div id="host-symbol-catalog" class="catalog-float">
-    <HostSymbolPicker language={language} anchorEl={toggleEl ?? null} disabled={disabled} />
+    <HostSymbolPicker {language} disabled={disabled} />
   </div>
 {/if}
 
 <style>
-  /* One flex item in host-legend-wrap so opening the picker does not shift Ω. */
-  .catalog-chrome {
-    position: relative;
-    flex-shrink: 0;
-  }
-
   .catalog-float {
     position: absolute;
     width: 0;
     height: 0;
     overflow: visible;
-  }
-
-  .catalog-toggle {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    margin: 4px 8px 0 0;
-    padding: 0;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    background: #f3f3f3;
-    color: #444;
-    font: inherit;
-    cursor: pointer;
-  }
-
-  .catalog-toggle.on {
-    background: #fff;
-    border-color: #1d6f8a;
-    color: #1d6f8a;
-  }
-
-  .catalog-toggle:hover {
-    background: #fff;
-  }
-
-  .catalog-glyph {
-    font-family: Georgia, 'Times New Roman', serif;
-    font-size: 16px;
-    line-height: 1;
   }
 </style>

@@ -1,5 +1,4 @@
-import { HOST_KEY_IDS } from './host-key-id.js'
-import { withHostKey, type HostKeyLevels, type HostLayout } from './host-layout.js'
+import type { HostKeyLevels, HostLayout } from './host-layout.js'
 
 /** One glyph on one physical key and shift level. */
 export interface GlyphPlace {
@@ -8,8 +7,10 @@ export interface GlyphPlace {
 }
 
 /**
- * A non-letter glyph that both layouts produce, but not on the same keys and levels.
+ * A non-letter glyph with no key and level shared by both layouts.
+ * `base` or `extra` is empty when only one language produces the glyph.
  * Letters are omitted: a second alphabet is supposed to disagree.
+ * Extra copies stay out once any one place is shared.
  */
 export interface MovedSymbol {
   glyph: string
@@ -44,18 +45,6 @@ export interface SymbolAlignOptions {
   levels?: readonly (0 | 1 | 2 | 3)[]
 }
 
-/** One AltGr / AltGr+Shift cell copied from the extra layout onto the base. */
-export interface AltGrCopyEdit {
-  zmk: string
-  level: 2 | 3
-  baseGlyph: string
-  extraGlyph: string
-  baseKeysym: string
-  extraKeysym: string
-  /** Base already had a different symbol. False means the base cell was empty. */
-  overwrites: boolean
-}
-
 const ALL_LEVELS = [0, 1, 2, 3] as const
 
 function isEmptyKeysym(name: string | undefined): boolean {
@@ -79,10 +68,19 @@ function placeKey(place: GlyphPlace): string {
   return `${place.zmk}:${place.level}`
 }
 
-function samePlaces(left: GlyphPlace[], right: GlyphPlace[]): boolean {
-  if (left.length !== right.length) return false
+function sharesPlace(left: GlyphPlace[], right: GlyphPlace[]): boolean {
+  if (left.length === 0 || right.length === 0) return false
   const keys = new Set(left.map(placeKey))
-  return right.every(place => keys.has(placeKey(place)))
+  return right.some(place => keys.has(placeKey(place)))
+}
+
+function recordMoved(byZmk: Map<string, MovedSymbol[]>, moved: MovedSymbol): void {
+  for (const place of [...moved.base, ...moved.extra]) {
+    const list = byZmk.get(place.zmk)
+    if (list) {
+      if (!list.includes(moved)) list.push(moved)
+    } else byZmk.set(place.zmk, [moved])
+  }
 }
 
 function placesFor(
@@ -118,8 +116,10 @@ function disagrees(
 }
 
 /**
- * Shared punctuation and symbols that moved, plus AltGr cells a combined
+ * Non-letter glyphs with no shared key and level, plus AltGr cells a combined
  * Windows layout cannot keep for both languages.
+ * A glyph both languages produce on the same key and level stays quiet, even
+ * when the other copies differ. A glyph missing from one language is marked.
  */
 export function symbolAlign(
   base: HostLayout,
@@ -132,14 +132,16 @@ export function symbolAlign(
   const byZmk = new Map<string, MovedSymbol[]>()
   for (const [glyph, baseAt] of basePlaces) {
     const extraAt = extraPlaces.get(glyph)
-    if (!extraAt || samePlaces(baseAt, extraAt)) continue
-    const moved: MovedSymbol = { glyph, base: baseAt, extra: extraAt }
-    for (const place of [...baseAt, ...extraAt]) {
-      const list = byZmk.get(place.zmk)
-      if (list) {
-        if (!list.includes(moved)) list.push(moved)
-      } else byZmk.set(place.zmk, [moved])
+    if (!extraAt) {
+      recordMoved(byZmk, { glyph, base: baseAt, extra: [] })
+      continue
     }
+    if (sharesPlace(baseAt, extraAt)) continue
+    recordMoved(byZmk, { glyph, base: baseAt, extra: extraAt })
+  }
+  for (const [glyph, extraAt] of extraPlaces) {
+    if (basePlaces.has(glyph)) continue
+    recordMoved(byZmk, { glyph, base: [], extra: extraAt })
   }
 
   const conflictByZmk = new Map<string, AltGrConflict[]>()
@@ -169,8 +171,14 @@ export function symbolAlignCaption(zmk: string, align: SymbolAlign): string {
   const parts: string[] = []
   const moved = align.byZmk.get(zmk)
   if (moved?.length) {
-    const glyphs = [...new Set(moved.map(item => item.glyph))]
-    parts.push(`Different position: ${glyphs.join(' ')}`)
+    const split: string[] = []
+    const only: string[] = []
+    for (const item of moved) {
+      const list = item.base.length > 0 && item.extra.length > 0 ? split : only
+      if (!list.includes(item.glyph)) list.push(item.glyph)
+    }
+    if (split.length) parts.push(`Different position: ${split.join(' ')}`)
+    if (only.length) parts.push(`Only in one language: ${only.join(' ')}`)
   }
   for (const conflict of align.conflictByZmk.get(zmk) ?? []) {
     const which = conflict.level === 2 ? 'AltGr' : 'AltGr+Shift'
@@ -178,54 +186,5 @@ export function symbolAlignCaption(zmk: string, align: SymbolAlign): string {
     const dropped = conflict.baseGlyph || conflict.baseKeysym
     parts.push(`Windows ${which} keeps ${kept}, drops ${dropped}`)
   }
-  return parts.join('. ')
-}
-
-/**
- * AltGr and AltGr+Shift cells to copy from `extra` onto `base`.
- * An empty extra cell does not clear base. A cell that already shows the same
- * glyph is left alone. Levels 0 and 1 are never copied.
- */
-export function planAltGrCopy(base: HostLayout, extra: HostLayout): AltGrCopyEdit[] {
-  const edits: AltGrCopyEdit[] = []
-  for (const key of HOST_KEY_IDS) {
-    const baseRow = base.byZmk.get(key.zmk)
-    const extraRow = extra.byZmk.get(key.zmk)
-    for (const level of [2, 3] as const) {
-      const extraKeysym = levelKeysym(extraRow, level)
-      if (isEmptyKeysym(extraKeysym)) continue
-      const baseKeysym = levelKeysym(baseRow, level)
-      if (baseKeysym === extraKeysym) continue
-      const baseGlyph = levelGlyph(baseRow, level)
-      const extraGlyph = levelGlyph(extraRow, level)
-      if (baseGlyph && extraGlyph && baseGlyph === extraGlyph) continue
-      edits.push({
-        zmk: key.zmk,
-        level,
-        baseGlyph,
-        extraGlyph,
-        baseKeysym,
-        extraKeysym,
-        overwrites: !isEmptyKeysym(baseKeysym)
-      })
-    }
-  }
-  return edits
-}
-
-/** New layout with `planAltGrCopy` applied. The source tables are not mutated. */
-export function applyAltGrCopy(base: HostLayout, extra: HostLayout): HostLayout {
-  let next = base
-  for (const edit of planAltGrCopy(base, extra)) {
-    const updated = withHostKey(next, edit.zmk, edit.level, edit.extraKeysym)
-    if (updated) next = updated
-  }
-  return next
-}
-
-export function formatAltGrCopyLine(edit: AltGrCopyEdit): string {
-  const level = edit.level === 2 ? 'AltGr' : 'AltGr+Shift'
-  const from = edit.overwrites ? edit.baseGlyph || edit.baseKeysym : 'empty'
-  const to = edit.extraGlyph || edit.extraKeysym
-  return `${edit.zmk} ${level}: ${from} → ${to}`
+  return parts.join(' · ')
 }

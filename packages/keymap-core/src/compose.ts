@@ -6,6 +6,7 @@ import {
   modifierSide,
   MODIFIER_ROLE_GLYPH
 } from './modifiers.js'
+import { keypadGlyphLabel } from './keycode-labels.js'
 import { encodeKeyBinding } from './keymap.js'
 import { hostKeyByZmk } from './host-key-id.js'
 import { ALT_LEVEL_EMPTY, hostComposeGlyphs, type HostLevels } from './host-layout.js'
@@ -184,7 +185,10 @@ export function keycapLegend(
 ): string {
   const rawCode = code == null ? '' : String(code)
   const glyph = symbol == null ? '' : String(symbol).trim()
-  const base = glyph || prefixedCommandLegend(rawCode) || rawCode
+  // Same compact keypad marks as edit_key chips — catalog often stores the
+  // code name as `symbol` when JSON has no glyph (`KP_COMMA` → `,`).
+  const keypad = keypadGlyphLabel(rawCode) ?? ''
+  const base = keypad || glyph || prefixedCommandLegend(rawCode) || rawCode
   if (modifierSide(rawCode) === 'R' && ROLE_GLYPHS.has(glyph)) {
     return `R${glyph}`
   }

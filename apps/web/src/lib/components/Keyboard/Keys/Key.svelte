@@ -34,6 +34,7 @@
   } from '../../../legend-decode-active'
   import KeyCap from '../../KeyCap.svelte'
   import LegendDecodeCard from '../../LegendDecodeCard.svelte'
+  import { layerToneStyle } from '../../../layer-tone'
   import './Key.css'
   import Modal from '../../Common/Modal.svelte'
   import KeyEditor from '../../KeyEditor/KeyEditor.svelte'
@@ -193,9 +194,12 @@
     // Alt+click: only entry into host-layout edit (locked card + catalog).
     if (event.altKey) {
       event.preventDefault()
-      if (!bindingHasHostEdit(session.bindingForLayer(fromLayer))) return
+      const binding = session.bindingForLayer(fromLayer)
+      if (!bindingHasHostEdit(binding)) return
       openDecode(fromLayer, event.currentTarget)
-      editor.beginHostEditSession(keyIndex, fromLayer)
+      const tap = resolveBinding(binding).tap
+      const zmk = tap ? hostKeyByZmk(tap)?.zmk : undefined
+      editor.beginHostEditSession(keyIndex, fromLayer, zmk)
       claimLegendDecode(keyIndex, fromLayer, hideDecode)
       lockLegendDecode(keyIndex)
       const id = `legend-decode-${keyIndex}-${fromLayer}`
@@ -247,7 +251,7 @@
     }
     function onPointerDown(event: PointerEvent) {
       const target = event.target
-      if (target instanceof Element && target.closest('.host-symbol-picker, .catalog-toggle')) {
+      if (target instanceof Element && target.closest('.host-symbol-picker')) {
         return
       }
       if (target instanceof Node) {
@@ -338,7 +342,11 @@
         class:symbol-moved={marks.moved}
         class:altgr-conflict={marks.conflict}
         data-layer="0"
-        style="grid-row: 1 / -1"
+        style={
+          editor.layerTonesOn
+            ? `grid-row: 1 / -1; ${layerToneStyle(0)}`
+            : 'grid-row: 1 / -1'
+        }
         aria-label={rowAriaLabel({
           layer: 0,
           title: encodeKeyBinding(multilangFace.binding),
@@ -371,6 +379,7 @@
         class:symbol-moved={marks.moved}
         class:altgr-conflict={marks.conflict}
         data-layer={row.layer}
+        style={editor.layerTonesOn ? layerToneStyle(row.layer) : undefined}
         aria-label={rowAriaLabel(row)}
         aria-describedby={
           decode?.layer === row.layer && !inHostSession ? decodeTooltipId : undefined

@@ -17,6 +17,7 @@
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
   import EyeToggle from './EyeToggle.svelte'
+  import PressToggle from './Common/PressToggle.svelte'
   import HostProfileMenu from './HostProfileMenu.svelte'
   import LangFlag from './LangFlag.svelte'
 
@@ -25,6 +26,8 @@
   interface Props {
     column?: HostLegendColumn
     interactive: boolean
+    /** First column of a language after the base — stronger left edge between languages. */
+    groupStart?: boolean
     /** Multilang face shows every column; the eye waits until that face is off. */
     languagesStacked?: boolean
     pickingFor?: HostLanguageId | null
@@ -35,6 +38,7 @@
   let {
     column,
     interactive,
+    groupStart = false,
     languagesStacked = false,
     pickingFor = $bindable(null),
     pickingNew = $bindable(false),
@@ -130,7 +134,7 @@
 </script>
 
 {#if !column}
-  <th class="add-language-cell" class:prompt={needsHostLanguage}>
+  <th class="add-language-cell lang-start" class:prompt={needsHostLanguage}>
     {#if pickingNew}
       <div class="lang-head">
         <select
@@ -169,12 +173,13 @@
         title="Add language"
         onclick={startAddLanguage}
       >
-        +
+        <span class="add-mark" aria-hidden="true">+</span>
+        <span class="add-label">Language</span>
       </button>
     {/if}
   </th>
 {:else}
-  <th class:off={!column.shown} class:narrow={!column.wide}>
+  <th class:off={!column.shown} class:narrow={!column.wide} class:lang-start={groupStart}>
     <div class="lang-head" class:narrow={!column.wide && !choosing}>
       {#if interactive}
         <EyeToggle
@@ -205,7 +210,6 @@
           <span class="lang-flag" title={extra ? languageName : 'Firmware key codes (US)'}>
             {#if language}<LangFlag {language} alt={extra ? languageName : 'English, firmware key codes'} />{/if}
           </span>
-          {#if !extra}<span class="base-caption">Firmware</span>{/if}
         {/if}
         <div class="lang-tools" hidden={!column.wide && !choosing}>
           {#if choosing}
@@ -242,7 +246,6 @@
         <span class="lang-flag" title={extra ? languageName : 'Firmware key codes (US)'}>
           {#if language}<LangFlag {language} alt={extra ? languageName : 'English, firmware key codes'} />{/if}
         </span>
-        {#if !extra}<span class="base-caption">Firmware</span>{/if}
         {#if column.wide}
           <span class="profile-name">{activeProfileLabel()}</span>
         {/if}
@@ -256,16 +259,16 @@
       onmouseleave={interactive ? clearHover : undefined}
     >
       {#if interactive}
-        <button
-          type="button"
+        <PressToggle
           class="col-toggle"
-          class:on={column.altGr}
+          density="pill"
+          pressed={column.altGr}
           aria-label="AltGr"
           title="AltGr"
           onclick={() => toggleAlt('altGr', column.altGr)}
         >
           {ALT_GR_COLUMN_LABEL}
-        </button>
+        </PressToggle>
       {:else}
         {ALT_GR_COLUMN_LABEL}
       {/if}
@@ -276,16 +279,16 @@
       onmouseleave={interactive ? clearHover : undefined}
     >
       {#if interactive}
-        <button
-          type="button"
+        <PressToggle
           class="col-toggle"
-          class:on={column.altGrShift}
+          density="pill"
+          pressed={column.altGrShift}
           aria-label="AltGr+Shift"
           title="AltGr+Shift"
           onclick={() => toggleAlt('altGrShift', column.altGrShift)}
         >
           {ALT_GR_SHIFT_COLUMN_LABEL}
-        </button>
+        </PressToggle>
       {:else}
         {ALT_GR_SHIFT_COLUMN_LABEL}
       {/if}
@@ -299,9 +302,9 @@
     text-align: left;
     font-weight: 500;
     white-space: nowrap;
-    border: 1px solid rgba(60, 60, 60, 0.08);
-    font-size: 12px;
-    color: #666;
+    border: 1px solid color-mix(in srgb, var(--shade) 8%, transparent);
+    font-size: var(--font-sm);
+    color: var(--text-muted);
   }
 
   .off {
@@ -311,6 +314,10 @@
   th.narrow {
     min-width: 0;
     width: 1%;
+  }
+
+  th.lang-start {
+    border-left: 2px solid color-mix(in srgb, var(--shade) 28%, transparent);
   }
 
   .lang-head {
@@ -339,7 +346,7 @@
     min-height: 24px;
     padding: 1px 4px;
     font: inherit;
-    font-size: 12px;
+    font-size: var(--font-sm);
   }
 
   .add-language-cell {
@@ -347,38 +354,45 @@
   }
 
   .add-language {
-    width: 22px;
-    height: 22px;
-    padding: 0;
-    border: 1px dashed #1d6f8a;
-    border-radius: 4px;
-    background: #fff;
-    color: #1d6f8a;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 24px;
+    padding: 0 7px 0 5px;
+    border: 1px dashed var(--accent);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--accent);
     font: inherit;
-    font-size: 16px;
+    font-size: var(--font-xs);
+    font-weight: 600;
     line-height: 1;
     cursor: pointer;
   }
 
   .add-language:hover {
-    background: rgba(29, 111, 138, 0.08);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+
+  .add-mark {
+    font-size: var(--font-icon);
+    line-height: 1;
+  }
+
+  .add-label {
+    letter-spacing: 0.02em;
   }
 
   .host-prompt {
     gap: 6px;
   }
 
-  .prompt-label,
-  .base-caption {
-    font-size: 11px;
+  .prompt-label {
+    font-size: var(--font-xs);
     font-weight: 600;
     letter-spacing: 0.02em;
     line-height: 1.2;
-    color: #8a847c;
-  }
-
-  .prompt-label {
-    color: #1d6f8a;
+    color: var(--accent);
   }
 
   .lang-flag {
@@ -391,22 +405,22 @@
     gap: 3px;
     margin: 0;
     padding: 2px 4px 2px 3px;
-    border: 1px solid #b7b1a8;
+    border: 1px solid var(--paper-border);
     border-radius: 4px;
-    background: #fff;
-    color: #5c564e;
+    background: var(--surface);
+    color: var(--paper-ink);
     cursor: pointer;
   }
 
   button.lang-flag:hover,
   button.lang-flag[aria-expanded='true'] {
-    border-color: #1d6f8a;
-    background: rgba(29, 111, 138, 0.08);
-    color: #1d6f8a;
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    color: var(--accent);
   }
 
   button.lang-flag:focus-visible {
-    outline: 2px solid #1d6f8a;
+    outline: 2px solid var(--accent);
     outline-offset: 1px;
   }
 
@@ -423,8 +437,8 @@
   }
 
   .profile-name {
-    font-size: 12px;
-    color: #666;
+    font-size: var(--font-sm);
+    color: var(--text-muted);
   }
 
   .eye-spacer {
@@ -432,23 +446,5 @@
     width: 16px;
     height: 16px;
     padding: 1px;
-  }
-
-  .col-toggle {
-    margin: 0;
-    padding: 1px 6px;
-    border: 1px solid #ccc;
-    border-radius: 10px;
-    background: #f3f3f3;
-    color: #777;
-    font: inherit;
-    font-size: 12px;
-    cursor: pointer;
-  }
-
-  .col-toggle.on {
-    background: #fff;
-    border-color: #1d6f8a;
-    color: #333;
   }
 </style>

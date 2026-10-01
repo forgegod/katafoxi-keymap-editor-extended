@@ -7,6 +7,7 @@
     behaviorValueCatalog,
     catalogKeyChoices,
     buildChoiceLabeler,
+    buildTaxonomyChips,
     groupChoicesByContext,
     initialTaxonomyContexts,
     nextTaxonomyContexts,
@@ -33,6 +34,7 @@
   import HoldRow from './HoldRow.svelte'
   import TaxonomyChips from './TaxonomyChips.svelte'
   import ValueGrid from './ValueGrid.svelte'
+  import SelectChip from '../Common/SelectChip.svelte'
   import './KeyEditor.css'
 
   interface Choice extends CatalogChoice {
@@ -139,9 +141,7 @@
 
   const allGroups = $derived(groupChoicesByContext(displayChoices))
   const filteredGroups = $derived(groupChoicesByContext(filtered))
-  const taxonomyChips = $derived(
-    allGroups.filter(group => group.context !== 'Other' || allGroups.length === 1)
-  )
+  const taxonomyChips = $derived(buildTaxonomyChips(allGroups))
   const showTaxonomy = $derived(taxonomyChips.length > 1)
 
   const keycodeTaxonomy = $derived(keycodePicker)
@@ -196,9 +196,9 @@
     pulseMissing(missing.codeIndex)
   }
 
-  function selectTaxonomy(context: string) {
+  function selectTaxonomy(chipId: string) {
     pinnedForKey = catalogKey
-    pinnedContexts = nextTaxonomyContexts(allGroups, context)
+    pinnedContexts = nextTaxonomyContexts(allGroups, chipId)
   }
 
   function handleKeyDown(event: KeyboardEvent) {
@@ -237,10 +237,12 @@
   class="key-editor"
   role="dialog"
   aria-label="Edit key"
+  aria-labelledby="key-editor-binding"
   tabindex="-1"
 >
+  <!-- Result sticker above the panel — not a window title. -->
   <div class="key-editor-preview">
-    <code class="binding">{previewLabel}</code>
+    <code id="key-editor-binding" class="binding">{previewLabel}</code>
     <div class="key-editor-preview-actions">
       <button
         type="button"
@@ -266,10 +268,6 @@
   </div>
 
   <div class="key-editor-body">
-    <aside class="key-editor-rail">
-      <h2>Edit key</h2>
-    </aside>
-
     <div class="key-editor-main">
       <BehaviourRow
         behaviours={orderedBehaviours}
@@ -287,17 +285,15 @@
           <div class="key-editor-chips">
             {#if paramSlots.length > 1}
               {#each paramSlots as slot}
-                <button
-                  type="button"
-                  class="key-editor-chip"
-                  class:active={slot.codeIndex === activeSlot?.codeIndex}
-                  class:attention={pulseOn && pulseIndex === slot.codeIndex}
+                <SelectChip
+                  active={slot.codeIndex === activeSlot?.codeIndex}
+                  attention={pulseOn && pulseIndex === slot.codeIndex}
                   onclick={() => onActivateSlot(slot.codeIndex)}
                 >
                   {slot.label}{slot.value != null && slot.value !== ''
                     ? ` · ${slot.value}`
                     : ''}
-                </button>
+                </SelectChip>
               {/each}
             {/if}
             {#if showTaxonomy}
@@ -329,6 +325,27 @@
           />
         {/if}
 
+        <ul class="key-editor-legend" aria-label="Value chip styles">
+          <li>
+            <span class="key-editor-legend-swatch selected" aria-hidden="true"></span>
+            Selected
+          </li>
+          {#if dimUsed}
+            <li>
+              <span class="key-editor-legend-swatch used" aria-hidden="true"></span>
+              Already used elsewhere
+            </li>
+          {/if}
+          <li>
+            <span class="key-editor-legend-swatch limited" aria-hidden="true"></span>
+            Limited OS support
+          </li>
+          <li>
+            <span class="key-editor-legend-swatch alias" aria-hidden="true"></span>
+            Alias / alternate name
+          </li>
+        </ul>
+
         {#key usedRevision}
           <ValueGrid
             groups={visibleGroups}
@@ -349,17 +366,15 @@
           {#if paramSlots.length > 1}
             <div class="key-editor-chips">
               {#each paramSlots as slot}
-                <button
-                  type="button"
-                  class="key-editor-chip"
-                  class:active={slot.codeIndex === activeSlot?.codeIndex}
-                  class:attention={pulseOn && pulseIndex === slot.codeIndex}
+                <SelectChip
+                  active={slot.codeIndex === activeSlot?.codeIndex}
+                  attention={pulseOn && pulseIndex === slot.codeIndex}
                   onclick={() => onActivateSlot(slot.codeIndex)}
                 >
                   {slot.label}{slot.value != null && slot.value !== ''
                     ? ` · ${slot.value}`
                     : ''}
-                </button>
+                </SelectChip>
               {/each}
             </div>
           {/if}

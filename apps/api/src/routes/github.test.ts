@@ -174,6 +174,7 @@ describe('GET /github/authorize', () => {
       headers: { Cookie: sessionCookie(sid) }
     })
     expect(install.status).toBe(200)
+    expect(await install.json()).toMatchObject({ login: 'octocat' })
     expect(installations.fetchInstallationRepos).toHaveBeenCalledWith('oauth-token')
   })
 })
@@ -289,6 +290,39 @@ describe('session and errors', () => {
       errors: ['bad keymap']
     })
     expect(commit).toHaveBeenCalledWith('1', 'acme/lark', 'feature/x', layout, keymap)
+  })
+
+  it('POST /github/installation branches requires a session and a valid name', async () => {
+    const anon = await app.request('/github/installation/1/acme%2Flark/branches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'topic', from: 'main' })
+    })
+    expect(anon.status).toBe(401)
+
+    const invalid = await authedRequest('/github/installation/1/acme%2Flark/branches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'has space', from: 'main' })
+    })
+    expect(invalid.res.status).toBe(400)
+    expect(await invalid.res.json()).toMatchObject({ name: 'BranchNameError' })
+  })
+
+  it('POST /github/installation branches creates a branch from the source commit', async () => {
+    vi.spyOn(auth, 'createInstallationToken').mockResolvedValue({
+      data: { token: 'install-token' }
+    } as Awaited<ReturnType<typeof auth.createInstallationToken>>)
+    const create = vi.spyOn(installations, 'createBranch').mockResolvedValue({ name: 'topic' })
+
+    const { res } = await authedRequest('/github/installation/1/acme%2Flark/branches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'topic', from: 'main' })
+    })
+    expect(res.status).toBe(201)
+    expect(await res.json()).toEqual({ name: 'topic' })
+    expect(create).toHaveBeenCalledWith('install-token', 'acme/lark', 'topic', 'main')
   })
 
   it('GET /github/builds requires a session and a branch', async () => {

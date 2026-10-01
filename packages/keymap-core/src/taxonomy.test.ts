@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildTaxonomyChips,
   groupChoicesByContext,
+  HOME_TAXONOMY_CHIP_ID,
   initialTaxonomyContexts,
-  nextTaxonomyContexts
+  nextTaxonomyContexts,
+  taxonomyChipIsActive
 } from './taxonomy.js'
 
 describe('groupChoicesByContext', () => {
@@ -43,8 +46,8 @@ describe('taxonomy contexts', () => {
     ])
   })
 
-  it('restores the home pair from Keyboard or Keypad', () => {
-    expect(nextTaxonomyContexts(groups, 'Keyboard')).toEqual([
+  it('restores the home pair from the merged chip', () => {
+    expect(nextTaxonomyContexts(groups, HOME_TAXONOMY_CHIP_ID)).toEqual([
       'Keyboard',
       'Keypad'
     ])
@@ -65,5 +68,17 @@ describe('taxonomy contexts', () => {
     expect(commands.map(group => group.context)).toEqual(['Other'])
     expect(initialTaxonomyContexts(commands)).toEqual(['Other'])
     expect(initialTaxonomyContexts(commands, 'LCLK')).toEqual(['Other'])
+  })
+
+  it('merges Keyboard and Keypad into one taxonomy chip', () => {
+    const chips = buildTaxonomyChips(groups)
+    expect(chips.map(chip => chip.label)).toEqual([
+      'Keyboard+Keypad',
+      'Consumer Media'
+    ])
+    expect(chips[0]?.contexts).toEqual(['Keyboard', 'Keypad'])
+    expect(taxonomyChipIsActive(chips[0]!, ['Keyboard', 'Keypad'])).toBe(true)
+    expect(taxonomyChipIsActive(chips[0]!, ['Consumer Media'])).toBe(false)
+    expect(taxonomyChipIsActive(chips[1]!, ['Consumer Media'])).toBe(true)
   })
 })

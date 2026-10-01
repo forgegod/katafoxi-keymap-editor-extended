@@ -39,7 +39,8 @@ const filterChoices: CatalogChoice[] = [
   })),
   { code: 'KP_N0', context: 'Keypad', description: 'keypad 0' },
   { code: 'KP_N1', context: 'Keypad', description: 'keypad 1' },
-  { code: 'KP_N2', context: 'Keypad', description: 'keypad 2' }
+  { code: 'KP_N2', context: 'Keypad', description: 'keypad 2' },
+  { code: 'C_MUTE', context: 'Consumer', description: 'Mute' }
 ]
 
 const filterSearch: SearchBox = {
@@ -94,6 +95,86 @@ describe('KeyEditor value catalog', () => {
     flushSync()
     return view as ReturnType<typeof mount> & { show: (next: EditorScene) => void }
   }
+
+  it('shows the binding as a result sticker above the panel and explains chip styles', () => {
+    open({
+      bindingLabel: '&kp A',
+      behaviours,
+      editorSlots: [
+        slot(0, 'behaviour', '&kp', 'Behaviour'),
+        slot(1, 'code', 'A', 'Key')
+      ],
+      activeCodeIndex: 1,
+      choices: codeChoices,
+      onSelectBehaviour: () => {},
+      onSelectValue: () => {},
+      onActivateSlot: () => {},
+      onConfirm: () => {},
+      onCancel: () => {}
+    })
+
+    const editor = target.querySelector('.key-editor')
+    const preview = editor?.querySelector('.key-editor-preview')
+    const body = editor?.querySelector('.key-editor-body')
+    expect(preview).toBeTruthy()
+    expect(body?.contains(preview as Node)).toBe(false)
+    expect(preview?.querySelector('.binding')?.textContent).toBe('&kp A')
+    expect(preview?.querySelector('.key-editor-preview-label')).toBeNull()
+    expect(preview?.compareDocumentPosition(body as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    const legend = target.querySelector('.key-editor-legend')
+    expect(legend?.getAttribute('aria-label')).toBe('Value chip styles')
+    expect(legend?.textContent).toContain('Selected')
+    expect(legend?.textContent).toContain('Already used elsewhere')
+    expect(legend?.textContent).toContain('Limited OS support')
+    expect(legend?.textContent).toContain('Alias / alternate name')
+
+    const instant = target.querySelector('[data-behaviour-group="instant"]')
+    expect(instant?.querySelector('.key-editor-chip-note')?.textContent?.trim()).toBe(
+      'Instant'
+    )
+    expect(target.querySelector('.key-editor-hold-hint')?.textContent).toContain(
+      'Dashed = wrap the key'
+    )
+  })
+
+  it('puts parameterless behaviours on a second chip row', () => {
+    open({
+      bindingLabel: '&kp A',
+      behaviours,
+      editorSlots: [
+        slot(0, 'behaviour', '&kp', 'Behaviour'),
+        slot(1, 'code', 'A', 'Key')
+      ],
+      activeCodeIndex: 1,
+      choices: codeChoices,
+      onSelectBehaviour: () => {},
+      onSelectValue: () => {},
+      onActivateSlot: () => {},
+      onConfirm: () => {},
+      onCancel: () => {}
+    })
+
+    const withParams = target.querySelector('[data-behaviour-group="params"]')
+    const instant = target.querySelector('[data-behaviour-group="instant"]')
+    expect(withParams).toBeTruthy()
+    expect(instant).toBeTruthy()
+
+    const paramCodes = [...(withParams?.querySelectorAll('.key-editor-chip') ?? [])].map(el =>
+      (el.textContent ?? '').trim()
+    )
+    const instantCodes = [...(instant?.querySelectorAll('.key-editor-chip') ?? [])].map(el =>
+      (el.textContent ?? '').trim()
+    )
+
+    expect(paramCodes).toContain('&kp')
+    expect(paramCodes).toContain('&mo')
+    expect(paramCodes).not.toContain('&trans')
+    expect(instantCodes).toEqual(
+      expect.arrayContaining(['&trans', '&none', '&caps_word', '&key_repeat', '&reset', '&bootloader'])
+    )
+    expect(instantCodes).not.toContain('&kp')
+  })
 
   it('shows pointing commands instead of Keyboard+Keypad', () => {
     const handlers = {
@@ -269,14 +350,14 @@ describe('KeyEditor value catalog', () => {
     onCancel: () => {}
   }
 
-  it('shows the filter field while the Keyboard chip is active', () => {
+  it('shows the filter field while the Keyboard+Keypad chip is active', () => {
     open(filterScene, filterSearch)
 
     expect(target.querySelector('.key-editor-filter')).toBeInstanceOf(HTMLInputElement)
-    const keyboardChip = [...target.querySelectorAll('.key-editor-taxonomy .key-editor-chip')].find(
-      el => (el.textContent ?? '').trim() === 'Keyboard'
+    const homeChip = [...target.querySelectorAll('.key-editor-taxonomy .key-editor-chip')].find(
+      el => (el.textContent ?? '').trim() === 'Keyboard+Keypad'
     )
-    expect(keyboardChip?.classList.contains('active')).toBe(true)
+    expect(homeChip?.classList.contains('active')).toBe(true)
   })
 
   it.todo(
@@ -294,13 +375,13 @@ describe('KeyEditor value catalog', () => {
     flushSync()
 
     const shown = choiceTexts(target)
-    expect(shown).toContain('KP_N0')
-    expect(shown).toContain('KP_N1')
+    expect(shown).toContain('0')
+    expect(shown).toContain('1')
     expect(
       [...target.querySelectorAll('.key-editor-taxonomy .key-editor-chip')].map(el =>
         (el.textContent ?? '').trim()
       )
-    ).toEqual(['Keyboard', 'Keypad'])
+    ).toEqual(['Keyboard+Keypad', 'Consumer'])
   })
 
   it('restores the selected-chip group after the filter is cleared', () => {
@@ -312,7 +393,7 @@ describe('KeyEditor value catalog', () => {
     filter.value = 'KP_N'
     filter.dispatchEvent(new Event('input', { bubbles: true }))
     flushSync()
-    expect(choiceTexts(target)).toContain('KP_N0')
+    expect(choiceTexts(target)).toContain('0')
     expect(choiceTexts(target)).not.toContain('A')
 
     filter.value = ''
@@ -320,7 +401,7 @@ describe('KeyEditor value catalog', () => {
     flushSync()
 
     expect(choiceTexts(target)).toContain('A')
-    expect(choiceTexts(target)).toContain('KP_N0')
+    expect(choiceTexts(target)).toContain('0')
   })
 
   it('confirms a complete binding when Enter is pressed in the filter field', () => {
