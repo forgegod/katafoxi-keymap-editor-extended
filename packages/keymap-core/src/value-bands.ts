@@ -21,6 +21,7 @@ export type ValueBandKind =
   | 'punct'
   | 'shifted'
   | 'nav'
+  | 'edit'
   | 'media'
   | 'extras'
   | 'codes'
@@ -28,6 +29,8 @@ export type ValueBandKind =
 export interface ValueBand {
   kind: ValueBandKind
   items: CatalogChoice[]
+  /** Extra flex rows after `items` (nav: six-pack / system / browser). */
+  extraRows?: CatalogChoice[][]
 }
 
 const BAND_ORDER: ValueBandKind[] = [
@@ -37,10 +40,11 @@ const BAND_ORDER: ValueBandKind[] = [
   'punct',
   'shifted',
   'nav',
-  'media',
-  'extras',
   'modkeys',
   'modwraps',
+  'edit',
+  'media',
+  'extras',
   'codes'
 ]
 
@@ -163,6 +167,21 @@ const NAV_ORDER = [
   'KP_NLCK'
 ]
 
+/** Main-board edge keys — first nav row. Everything else in nav is row 2. */
+const NAV_ROW1_CODES = new Set([
+  'ESC',
+  'TAB',
+  'CAPS',
+  'SPACE',
+  'SPC',
+  'RET',
+  'RTRN',
+  'ENTER',
+  'BSPC',
+  'BKSP',
+  'DEL'
+])
+
 /** Transport / volume cluster lifted out of the long K_* extras row.
  * `*2` are distinct Linux/Android keyboard-page usages, not aliases of K_MUTE / K_VOL_*. */
 const MEDIA_NAMED_CODES = new Set([
@@ -213,6 +232,27 @@ const MEDIA_ORDER = [
   'K_SLEEP'
 ]
 
+/** Clipboard / find toolbar — own band between nav and modifiers. */
+const EDIT_NAMED_CODES = new Set([
+  'K_CUT',
+  'K_COPY',
+  'K_PASTE',
+  'K_UNDO',
+  'K_REDO',
+  'K_AGAIN',
+  'K_FIND'
+])
+
+const EDIT_ORDER = [
+  'K_CUT',
+  'K_COPY',
+  'K_PASTE',
+  'K_UNDO',
+  'K_REDO',
+  'K_AGAIN',
+  'K_FIND'
+]
+
 const ARROW_GLYPHS = new Set(['⏴', '⏵', '⏶', '⏷', '←', '→', '↑', '↓', '◀', '▶', '▲', '▼'])
 
 function navRank(choice: CatalogChoice): number {
@@ -225,6 +265,16 @@ function mediaRank(choice: CatalogChoice): number {
   const code = String(choice.code ?? '').toUpperCase()
   const index = MEDIA_ORDER.indexOf(code)
   return index >= 0 ? index : 80
+}
+
+function editRank(choice: CatalogChoice): number {
+  const code = String(choice.code ?? '').toUpperCase()
+  const index = EDIT_ORDER.indexOf(code)
+  return index >= 0 ? index : 80
+}
+
+function isNavRow1(choice: CatalogChoice): boolean {
+  return NAV_ROW1_CODES.has(String(choice.code ?? '').toUpperCase())
 }
 
 const LETTER_RE = /^[A-Z]$/i
@@ -259,6 +309,7 @@ export function valueBandKind(choice: CatalogChoice): ValueBandKind {
   if (punctHidMark(choice)) return 'punct'
   if (isKeypadCompactPunct(choice)) return 'punct'
   if (MEDIA_NAMED_CODES.has(upper)) return 'media'
+  if (EDIT_NAMED_CODES.has(upper)) return 'edit'
   if (/^K_/.test(upper) && !/2$/.test(upper)) return 'extras'
   if (upper.startsWith('NON_US') || upper === 'PIPE2' || upper === 'TILDE2') {
     return 'codes'
@@ -283,11 +334,13 @@ function sortBand(kind: ValueBandKind, items: CatalogChoice[]): CatalogChoice[] 
             ? navRank(item)
             : kind === 'media'
               ? mediaRank(item)
-              : kind === 'punct'
-                ? (punctHidMark(item)?.rank ?? 80)
-                : kind === 'shifted'
-                  ? (usShiftAlias(item)?.rank ?? 80)
-                  : 0,
+              : kind === 'edit'
+                ? editRank(item)
+                : kind === 'punct'
+                  ? (punctHidMark(item)?.rank ?? 80)
+                  : kind === 'shifted'
+                    ? (usShiftAlias(item)?.rank ?? 80)
+                    : 0,
     label: kind === 'codes' ? String(item.code ?? '') : representativeLabel(item),
     code: String(item.code ?? '')
   }))
@@ -302,7 +355,8 @@ function sortBand(kind: ValueBandKind, items: CatalogChoice[]): CatalogChoice[] 
 
 /**
  * Split a group's chips into keyboard-like bands: F-keys, digits, letters,
- * punctuation, US-shift LS() aliases, navigation, media, extras (K_*), then long codes.
+ * punctuation, US-shift LS() aliases, navigation (two rows), modifiers, edit toolbar,
+ * media, extras (K_*), then long codes.
  *
  * A Keypad-only group is one row: digits, operators, Num Lock, then rare HID.
  */
@@ -316,6 +370,7 @@ export function bandCatalogChoices(choices: CatalogChoice[]): ValueBand[] {
     punct: [],
     shifted: [],
     nav: [],
+    edit: [],
     media: [],
     extras: [],
     codes: []
@@ -323,15 +378,31 @@ export function bandCatalogChoices(choices: CatalogChoice[]): ValueBand[] {
   for (const choice of choices) {
     buckets[valueBandKind(choice)].push(choice)
   }
-  const bands = BAND_ORDER.filter(kind => buckets[kind].length > 0).map(kind => ({
-    kind,
-    items: sortBand(kind, buckets[kind])
-  }))
+  const bands = BAND_ORDER.filter(kind => buckets[kind].length > 0).map(kind => {
+    const items = sortBand(kind, buckets[kind])
+    if (kind !== 'nav') return { kind, items }
+    return splitNavRows(items)
+  })
   if (choices.length === 0 || !choices.every(isKeypadGroupChoice)) return bands
 
-  const items = bands.flatMap(band => band.items)
+  const items = bands.flatMap(band => [
+    ...band.items,
+    ...(band.extraRows ?? []).flat()
+  ])
   if (items.length === 0) return bands
   return [{ kind: 'punct', items: sortKeypadOpsRow(items) }]
+}
+
+function splitNavRows(sorted: CatalogChoice[]): ValueBand {
+  const row1: CatalogChoice[] = []
+  const row2: CatalogChoice[] = []
+  for (const item of sorted) {
+    if (isNavRow1(item)) row1.push(item)
+    else row2.push(item)
+  }
+  if (row2.length === 0) return { kind: 'nav', items: row1 }
+  if (row1.length === 0) return { kind: 'nav', items: row2 }
+  return { kind: 'nav', items: row1, extraRows: [row2] }
 }
 
 function isKeypadGroupChoice(choice: CatalogChoice): boolean {

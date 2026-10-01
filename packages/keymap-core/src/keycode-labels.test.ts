@@ -48,6 +48,13 @@ describe('displayChoiceLabel', () => {
     expect(displayChoiceLabel({ code: 'KP_MINUS', symbol: '-' })).toBe('-')
     expect(displayChoiceLabel({ code: 'KP_EQUAL', symbol: '=' })).toBe('=')
     expect(displayChoiceLabel({ code: 'KP_EQUAL_AS400' })).toBe('AS400=')
+    expect(displayChoiceLabel({ code: 'K_CUT' })).toBe('✂')
+    expect(displayChoiceLabel({ code: 'K_COPY' })).toBe('⧉')
+    expect(displayChoiceLabel({ code: 'K_PASTE' })).toBe('📋')
+    expect(displayChoiceLabel({ code: 'K_UNDO' })).toBe('↶')
+    expect(displayChoiceLabel({ code: 'K_REDO' })).toBe('↷')
+    expect(displayChoiceLabel({ code: 'K_AGAIN' })).toBe('↷')
+    expect(displayChoiceLabel({ code: 'K_FIND' })).toBe('🔍')
   })
 
   it('keeps keypad glyphs when a Keyboard peer shares the mark', () => {

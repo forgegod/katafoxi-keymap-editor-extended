@@ -9,7 +9,8 @@
     usedLayersForChoice,
     valueBandCaption,
     type CatalogChoice,
-    type ChoiceGroup
+    type ChoiceGroup,
+    type ValueBand
   } from '@keymap-editor/keymap-core'
   import { codeColumnMinPx, codeGridMetrics } from '../../code-grid'
   import Icon from '../Common/Icon.svelte'
@@ -46,6 +47,8 @@
 
   let valuesEl: HTMLDivElement | undefined = $state()
   let valuesWidth = $state(1045)
+  /** User opened the HID dump; search / active code also reveal it. */
+  let codesExpanded = $state(false)
 
   function choiceLabel(choice: Choice): string {
     if (isModifierKey(choice)) return String(choice.code ?? '')
@@ -75,6 +78,14 @@
     return formatUsedChoiceTooltip(base, layers, usedLayerLabels)
   }
 
+  function bandHasActive(band: ValueBand): boolean {
+    return band.items.some(choice => isActiveChoice(choice as Choice))
+  }
+
+  function showCodesBand(band: ValueBand): boolean {
+    return searching || codesExpanded || bandHasActive(band)
+  }
+
   $effect(() => {
     if (!valuesEl) return
     const node = valuesEl
@@ -102,7 +113,11 @@
         {/if}
         {#each bandCatalogChoices(group.items) as band}
           {@const caption = valueBandCaption(band.kind)}
-          <div class="key-editor-band" data-band={band.kind}>
+          <div
+            class="key-editor-band"
+            class:codes-band={band.kind === 'codes'}
+            data-band={band.kind}
+          >
             {#if caption}
               <p class="key-editor-band-label" title={caption.hint}>
                 <span>{caption.label}</span>
@@ -130,32 +145,97 @@
                 </svg>
               </p>
             {/if}
-            <div
-              class="key-editor-grid"
-              class:codes={band.kind === 'codes'}
-              data-band={band.kind}
-              style={band.kind === 'codes'
-                ? codeGridStyle(band.items as Choice[], group.context)
-                : undefined}
-            >
-              {#each band.items as choice}
-                {@const item = choice as Choice}
-                <button
-                  type="button"
-                  class="key-editor-choice"
-                  class:active={isActiveChoice(item)}
-                  class:used={isUsedChoice(item) && !isActiveChoice(item)}
-                  class:keypad={isKeypadChoice(item)}
-                  title={valueTooltip(item)}
-                  onclick={() => onChoose(item)}
+            {#if band.kind === 'codes' && !showCodesBand(band)}
+              <button
+                type="button"
+                class="key-editor-codes-toggle"
+                onclick={() => {
+                  codesExpanded = true
+                }}
+              >
+                More codes ({band.items.length})
+              </button>
+            {:else if band.kind === 'codes'}
+              <div class="key-editor-band-body">
+                {#if !searching && !bandHasActive(band)}
+                  <button
+                    type="button"
+                    class="key-editor-codes-toggle"
+                    onclick={() => {
+                      codesExpanded = false
+                    }}
+                  >
+                    Hide codes
+                  </button>
+                {/if}
+                <div
+                  class="key-editor-grid codes"
+                  data-band="codes"
+                  style={codeGridStyle(band.items as Choice[], group.context)}
                 >
-                  {#if item.faIcon}
-                    <Icon name={String(item.faIcon)} />
-                  {/if}
-                  {choiceLabel(item)}
-                </button>
-              {/each}
-            </div>
+                  {#each band.items as choice}
+                    {@const item = choice as Choice}
+                    <button
+                      type="button"
+                      class="key-editor-choice"
+                      class:active={isActiveChoice(item)}
+                      class:used={isUsedChoice(item) && !isActiveChoice(item)}
+                      class:keypad={isKeypadChoice(item)}
+                      title={valueTooltip(item)}
+                      onclick={() => onChoose(item)}
+                    >
+                      {#if item.faIcon}
+                        <Icon name={String(item.faIcon)} />
+                      {/if}
+                      {choiceLabel(item)}
+                    </button>
+                  {/each}
+                </div>
+              </div>
+            {:else}
+              <div class="key-editor-band-stacks">
+                <div class="key-editor-grid" data-band={band.kind}>
+                  {#each band.items as choice}
+                    {@const item = choice as Choice}
+                    <button
+                      type="button"
+                      class="key-editor-choice"
+                      class:active={isActiveChoice(item)}
+                      class:used={isUsedChoice(item) && !isActiveChoice(item)}
+                      class:keypad={isKeypadChoice(item)}
+                      title={valueTooltip(item)}
+                      onclick={() => onChoose(item)}
+                    >
+                      {#if item.faIcon}
+                        <Icon name={String(item.faIcon)} />
+                      {/if}
+                      {choiceLabel(item)}
+                    </button>
+                  {/each}
+                </div>
+                {#each band.extraRows ?? [] as row}
+                  <div class="key-editor-grid" data-band={band.kind}>
+                    {#each row as choice}
+                      {@const item = choice as Choice}
+                      <button
+                        type="button"
+                        class="key-editor-choice"
+                        class:active={isActiveChoice(item)}
+                        class:used={isUsedChoice(item) && !isActiveChoice(item)}
+                        class:keypad={isKeypadChoice(item)}
+                        title={valueTooltip(item)}
+                        onclick={() => onChoose(item)}
+                      >
+                        {#if item.faIcon}
+                          <Icon name={String(item.faIcon)} />
+                        {/if}
+                        {choiceLabel(item)}
+                      </button>
+                    {/each}
+                  </div>
+                {/each}
+              </div>
+            {/if}
           </div>
         {/each}
       </div>

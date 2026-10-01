@@ -18,6 +18,8 @@ describe('valueBandKind', () => {
     expect(valueBandKind({ code: 'K_MUTE' })).toBe('media')
     expect(valueBandKind({ code: 'K_MUTE2', symbol: '🔇' })).toBe('media')
     expect(valueBandKind({ code: 'K_VOL_DN2' })).toBe('media')
+    expect(valueBandKind({ code: 'K_CUT' })).toBe('edit')
+    expect(valueBandKind({ code: 'K_FIND' })).toBe('edit')
     expect(valueBandKind({ code: 'K_APP' })).toBe('extras')
     expect(valueBandKind({ code: 'KP_EQUAL_AS400' })).toBe('codes')
     expect(valueBandKind({ code: 'KP_MINUS', symbol: '-' })).toBe('punct')
@@ -105,6 +107,16 @@ describe('bandCatalogChoices', () => {
     ])
   })
 
+  it('keeps modifiers with the core keyboard rows, ahead of media', () => {
+    const bands = bandCatalogChoices([
+      { code: 'K_MUTE' },
+      { code: 'LCTRL', isModifier: true },
+      { code: 'ESC' },
+      { code: 'K_APP' }
+    ])
+    expect(bands.map(b => b.kind)).toEqual(['nav', 'modkeys', 'media', 'extras'])
+  })
+
   it('puts typed marks in punct and editing keys in nav', () => {
     const bands = bandCatalogChoices([
       { code: 'MINUS' },
@@ -123,9 +135,11 @@ describe('bandCatalogChoices', () => {
       'HASH'
     ])
     expect(bands.find(b => b.kind === 'nav')?.items.map(i => i.code)).toEqual([
-      'ESC',
-      'LEFT'
+      'ESC'
     ])
+    expect(
+      bands.find(b => b.kind === 'nav')?.extraRows?.map(row => row.map(i => i.code))
+    ).toEqual([['LEFT']])
     expect(bands.find(b => b.kind === 'codes')?.items.map(i => i.code)).toEqual([
       'PIPE2'
     ])
@@ -147,9 +161,27 @@ describe('bandCatalogChoices', () => {
       'SLCK',
       'PAUSE_BREAK'
     ])
+    expect(bands.find(b => b.kind === 'nav')?.extraRows).toBeUndefined()
     expect(bands.find(b => b.kind === 'codes')?.items.map(i => i.code)).toEqual([
       'ALT_ERASE',
       'LSLCK'
+    ])
+  })
+
+  it('splits nav into main-board keys and the jump/system row', () => {
+    const bands = bandCatalogChoices([
+      { code: 'ESC' },
+      { code: 'DEL' },
+      { code: 'INS' },
+      { code: 'HOME' },
+      { code: 'LEFT', symbol: '⏴' },
+      { code: 'PSCRN' },
+      { code: 'K_BACK', symbol: '←' }
+    ])
+    const nav = bands.find(b => b.kind === 'nav')
+    expect(nav?.items.map(i => i.code)).toEqual(['ESC', 'DEL'])
+    expect(nav?.extraRows?.map(row => row.map(i => i.code))).toEqual([
+      ['INS', 'HOME', 'LEFT', 'PSCRN', 'K_BACK']
     ])
   })
 
@@ -212,6 +244,34 @@ describe('bandCatalogChoices', () => {
       'KP_NUM',
       'CLEAR2',
       'KP_EQUAL_AS400'
+    ])
+  })
+
+  it('keeps cut/copy/paste/undo/redo/find in an edit band after modifiers', () => {
+    const bands = bandCatalogChoices([
+      { code: 'K_WWW' },
+      { code: 'K_FIND' },
+      { code: 'K_PASTE' },
+      { code: 'K_APP' },
+      { code: 'K_CUT' },
+      { code: 'ESC' },
+      { code: 'LCTRL', isModifier: true },
+      { code: 'K_COPY' },
+      { code: 'K_UNDO' },
+      { code: 'K_REDO' }
+    ])
+    expect(bands.map(b => b.kind)).toEqual(['nav', 'modkeys', 'edit', 'extras'])
+    expect(bands.find(b => b.kind === 'edit')?.items.map(i => i.code)).toEqual([
+      'K_CUT',
+      'K_COPY',
+      'K_PASTE',
+      'K_UNDO',
+      'K_REDO',
+      'K_FIND'
+    ])
+    expect(bands.find(b => b.kind === 'extras')?.items.map(i => i.code)).toEqual([
+      'K_APP',
+      'K_WWW'
     ])
   })
 })

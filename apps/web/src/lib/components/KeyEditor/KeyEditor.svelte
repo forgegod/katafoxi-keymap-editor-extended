@@ -266,10 +266,6 @@
   </div>
 
   <div class="key-editor-body">
-    <aside class="key-editor-rail">
-      <h2>Edit key</h2>
-    </aside>
-
     <div class="key-editor-main">
       <BehaviourRow
         behaviours={orderedBehaviours}

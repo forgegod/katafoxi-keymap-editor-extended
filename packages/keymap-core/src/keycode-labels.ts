@@ -62,8 +62,8 @@ export function isKeypadCompactPunct(choice: CatalogChoice): boolean {
 }
 
 /**
- * Short chip text for keyboard media / scroll codes.
- * Full ZMK names stay in tooltips (`K_MUTE2 — Mute`).
+ * Short chip text for keyboard media / scroll / edit-action codes.
+ * Full ZMK names stay in tooltips (`K_MUTE2 — Mute`, `K_COPY — Copy`).
  */
 const KEYBOARD_CHIP_SHORT = new Map<string, string>([
   ['K_SCROLL_UP', 'SCROLL_UP'],
@@ -78,6 +78,14 @@ const KEYBOARD_CHIP_SHORT = new Map<string, string>([
   ['K_VOLUME_UP2', 'VOL_UP2'],
   ['K_VOL_DN2', 'VOL_DN2'],
   ['K_VOLUME_DOWN2', 'VOL_DN2'],
+  // Toolbar-familiar edit actions (chip only — not keycap legend symbols).
+  ['K_CUT', '✂'],
+  ['K_COPY', '⧉'],
+  ['K_PASTE', '📋'],
+  ['K_UNDO', '↶'],
+  ['K_REDO', '↷'],
+  ['K_AGAIN', '↷'],
+  ['K_FIND', '🔍'],
   // Rare keypad dump — keep readable without sitting next to KP_EQUAL.
   ['KP_EQUAL_AS400', 'AS400=']
 ])
