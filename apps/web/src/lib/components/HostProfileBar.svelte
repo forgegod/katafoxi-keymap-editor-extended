@@ -2,6 +2,7 @@
   import { hostLayoutChoice, hostLayoutChoiceLabel } from '@keymap-editor/keymap-core'
   import { onDestroy } from 'svelte'
   import { editor } from '../editor.svelte.js'
+  import Button from './Common/Button.svelte'
   import Modal from './Common/Modal.svelte'
 
   function layoutLabel(id: string): string {
@@ -98,15 +99,15 @@
       {/if}
       <div class="profile-actions">
         {#if editor.hostProfilePrompt.kind === 'delete'}
-          <button type="button" class="danger" onclick={() => editor.deleteActiveHostProfile()}>
+          <Button variant="danger" onclick={() => editor.deleteActiveHostProfile()}>
             Delete
-          </button>
+          </Button>
         {:else if editor.hostProfilePrompt.kind === 'copy'}
-          <button type="submit">Copy</button>
+          <Button variant="accent" type="submit">Copy</Button>
         {:else}
-          <button type="submit">Save</button>
+          <Button variant="accent" type="submit">Save</Button>
         {/if}
-        <button type="button" onclick={() => editor.cancelHostProfilePrompt()}>Cancel</button>
+        <Button variant="outline" onclick={() => editor.cancelHostProfilePrompt()}>Cancel</Button>
       </div>
     </form>
   </Modal>
@@ -169,28 +170,5 @@
     display: flex;
     gap: 8px;
     margin-top: 8px;
-  }
-
-  .profile-actions button {
-    cursor: pointer;
-    border: none;
-    border-radius: 5px;
-    padding: 6px 12px;
-    font: inherit;
-  }
-
-  .profile-actions button[type='submit'] {
-    background: var(--hover-selection);
-    color: var(--on-accent);
-  }
-
-  .profile-actions button[type='button'] {
-    background: var(--fill-subtle);
-    color: var(--text);
-  }
-
-  .profile-actions button.danger {
-    background: var(--danger-wash);
-    color: var(--danger-ink);
   }
 </style>

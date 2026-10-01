@@ -219,16 +219,3 @@ code {
   /* Keep the same padding as .dirty so the status dot does not shift. */
   background: var(--ok-wash);
 }
-
-/* Dialog dismiss button (original DialogBox had unstyled browser button) */
-.dialog > button {
-  cursor: pointer;
-  background-color: var(--hover-selection);
-  color: var(--on-accent);
-  font-family: Quicksand, avenir, sans-serif;
-  font-size: var(--font-lg);
-  border: none;
-  border-radius: 5px;
-  padding: 6px 16px;
-  margin-top: 12px;
-}

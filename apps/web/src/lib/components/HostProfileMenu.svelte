@@ -9,6 +9,7 @@
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
   import { isUserHostLayoutId } from '../host-layout-store.js'
+  import Button from './Common/Button.svelte'
 
   interface Props {
     language: HostLanguageId
@@ -292,8 +293,8 @@
         <p class="profile-import-error" role="alert">{importError}</p>
       {/if}
       <div class="profile-import-actions">
-        <button type="button" onclick={() => void submitImport()}>Import</button>
-        <button type="button" onclick={() => (importKind = null)}>Back</button>
+        <Button variant="accent" onclick={() => void submitImport()}>Import</Button>
+        <Button variant="outline" onclick={() => (importKind = null)}>Back</Button>
       </div>
     </div>
   {:else if open && importKind === 'klc'}
@@ -317,8 +318,8 @@
         <p class="profile-import-error" role="alert">{importError}</p>
       {/if}
       <div class="profile-import-actions">
-        <button type="button" onclick={() => void submitKlcImport()}>Import</button>
-        <button type="button" onclick={() => (importKind = null)}>Back</button>
+        <Button variant="accent" onclick={() => void submitKlcImport()}>Import</Button>
+        <Button variant="outline" onclick={() => (importKind = null)}>Back</Button>
       </div>
     </div>
   {:else if open}
@@ -645,24 +646,5 @@
   .profile-import-actions {
     display: flex;
     gap: 6px;
-  }
-
-  .profile-import-actions button {
-    cursor: pointer;
-    border: none;
-    border-radius: 5px;
-    padding: 4px 10px;
-    font: inherit;
-    font-size: var(--font-sm);
-  }
-
-  .profile-import-actions button:first-child {
-    background: var(--hover-selection);
-    color: var(--on-accent);
-  }
-
-  .profile-import-actions button:last-child {
-    background: var(--fill-subtle);
-    color: var(--text);
   }
 </style>
