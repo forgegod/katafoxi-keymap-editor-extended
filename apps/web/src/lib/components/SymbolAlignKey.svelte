@@ -7,15 +7,19 @@
 {#if marksOn}
   <div class="align-key" aria-label="Symbol difference marks">
     <span
-      class="moved"
+      class="sample"
       title="No shared key for this symbol, or it is missing from one language."
-      >position</span
     >
+      <span class="swatch moved" aria-hidden="true"></span>
+      position
+    </span>
     <span
-      class="win"
+      class="sample"
       title="Windows keeps AltGr or AltGr+Shift from the other language and drops this one."
-      >Win AltGr</span
     >
+      <span class="swatch win" aria-hidden="true"></span>
+      Win AltGr
+    </span>
   </div>
 {/if}
 
@@ -24,7 +28,7 @@
     display: inline-flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
     margin: 0;
     padding: 0 1px;
     color: var(--text-subtle);
@@ -33,15 +37,27 @@
     line-height: 1.2;
   }
 
-  .moved {
-    border-bottom: 1.5px solid var(--mark-diff);
+  .sample {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
     color: var(--text-muted);
   }
 
-  .win {
-    padding: 0 2px;
-    border-radius: 2px;
-    box-shadow: inset 0 0 0 1px var(--mark-altgr);
-    color: var(--text-subtle);
+  .swatch {
+    flex: none;
+    box-sizing: border-box;
+    width: 8px;
+    height: 8px;
+  }
+
+  .swatch.moved {
+    border-radius: 0;
+    border-bottom: 2px solid var(--mark-diff);
+  }
+
+  .swatch.win {
+    border-radius: 1px;
+    box-shadow: inset 0 0 0 1.25px var(--mark-altgr);
   }
 </style>

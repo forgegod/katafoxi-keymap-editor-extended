@@ -85,13 +85,28 @@
       {#if topRowEmpty}
         <button
           type="button"
-          class="empty-row"
-          aria-expanded={editor.revealEmptyRow}
+          class="view-toggle half"
+          class:on={editor.revealEmptyRow}
+          aria-pressed={editor.revealEmptyRow}
           aria-label={emptyRowLabel}
           title={emptyRowLabel}
           onclick={() => (editor.revealEmptyRow = !editor.revealEmptyRow)}
         >
-          {editor.revealEmptyRow ? 'Hide' : 'Empty'}
+          <svg class="empty-row-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+            <rect
+              x="1.25"
+              y="1.5"
+              width="13.5"
+              height="5"
+              rx="1"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.25"
+            />
+            <rect x="1.25" y="8.5" width="6" height="5.5" rx="1" opacity="0.78" />
+            <rect x="8.75" y="8.5" width="6" height="5.5" rx="1" opacity="0.78" />
+          </svg>
+          <span class="view-label">Empty</span>
         </button>
       {/if}
     </div>
@@ -106,7 +121,7 @@
     align-items: stretch;
     gap: 3px;
     box-sizing: border-box;
-    width: 7.5rem;
+    width: 8rem;
     margin: 0;
     padding: 4px 5px 4px 4px;
     border-right: 1px solid color-mix(in srgb, var(--shade) 10%, transparent);
@@ -147,6 +162,8 @@
     min-height: 22px;
   }
 
+  /* One control for Stack / Differences / Colors / Empty:
+     off (sunken), on (same as assembly chips / catalog), disabled (pale). */
   .view-toggle {
     box-sizing: border-box;
     display: inline-flex;
@@ -175,17 +192,13 @@
   .view-toggle:hover:not(:disabled):not(.on) {
     background: var(--surface);
     border-color: var(--accent);
+    color: var(--accent);
   }
 
   .view-toggle.on {
     background: var(--surface);
-    border: 2px solid var(--accent);
+    border-color: var(--accent);
     color: var(--accent);
-    padding: 0 5px;
-  }
-
-  .view-toggle.half.on {
-    padding: 0 3px;
   }
 
   .view-toggle.pale,
@@ -197,7 +210,9 @@
     cursor: default;
   }
 
-  .view-toggle img {
+  .view-toggle img,
+  .view-toggle .layer-tones-icon,
+  .view-toggle .empty-row-icon {
     display: block;
     width: 14px;
     height: 14px;
@@ -205,9 +220,16 @@
   }
 
   .view-toggle .layer-tones-icon {
-    display: block;
-    flex: none;
     fill: currentColor;
+  }
+
+  .view-toggle .empty-row-icon {
+    fill: currentColor;
+  }
+
+  .view-toggle .empty-row-icon rect[fill='none'] {
+    fill: none;
+    stroke: currentColor;
   }
 
   .view-label {
@@ -215,30 +237,5 @@
     font-weight: 600;
     line-height: 1;
     white-space: nowrap;
-  }
-
-  .empty-row {
-    box-sizing: border-box;
-    width: 100%;
-    height: 22px;
-    margin: 0;
-    padding: 0 4px;
-    white-space: nowrap;
-    border: 1px dashed var(--border);
-    border-radius: 5px;
-    background: transparent;
-    color: var(--text-faint);
-    font: inherit;
-    font-size: var(--font-xs);
-    font-weight: 600;
-    line-height: 1.15;
-    text-align: center;
-    cursor: pointer;
-  }
-
-  .empty-row:hover {
-    border-color: var(--accent);
-    color: var(--text);
-    background: var(--surface);
   }
 </style>

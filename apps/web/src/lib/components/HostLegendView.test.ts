@@ -63,8 +63,12 @@ describe('HostLegendView', () => {
     expect(slot).toBeInstanceOf(HTMLElement)
     expect(slot?.classList.contains('align-slot')).toBe(true)
     expect(slot?.classList.contains('on')).toBe(true)
-    expect(target.querySelector('.moved')?.textContent).toBe('position')
-    expect(target.querySelector('.win')?.textContent).toBe('Win AltGr')
+    expect(
+      target.querySelector('.sample .moved')?.closest('.sample')?.textContent?.replace(/\s+/g, ' ').trim()
+    ).toBe('position')
+    expect(
+      target.querySelector('.sample .win')?.closest('.sample')?.textContent?.replace(/\s+/g, ' ').trim()
+    ).toBe('Win AltGr')
     expect(button('Stack languages').disabled).toBe(true)
   })
 
@@ -98,7 +102,7 @@ describe('HostLegendView', () => {
     expect(tones.classList.contains('on')).toBe(true)
   })
 
-  it('shows a quiet empty-row control beside layer colors when the top row is blank', () => {
+  it('shows an empty-row toggle beside layer colors when the top row is blank', () => {
     editor.layout = [
       { x: 0, y: 0, row: 0 },
       { x: 1, y: 0, row: 0 },
@@ -116,29 +120,31 @@ describe('HostLegendView', () => {
     mountView()
 
     const modes = [...target.querySelectorAll('.view-toggle')]
-    const empty = target.querySelector('.empty-row')
+    const empty = button('Show empty row')
     const board = target.querySelector('.board-row')
-    if (!(empty instanceof HTMLButtonElement)) throw new Error('missing empty row')
     if (!(board instanceof HTMLElement)) throw new Error('missing board row')
     expect(modes.map(el => el.getAttribute('aria-label'))).toEqual([
       'Stack languages',
       'Highlight symbol differences',
-      'Layer colors'
+      'Layer colors',
+      'Show empty row'
     ])
     expect(board.contains(modes[2]!)).toBe(true)
     expect(board.contains(empty)).toBe(true)
     expect(modes[2]?.nextElementSibling?.classList.contains('empty-slot')).toBe(true)
-    expect(empty.getAttribute('aria-label')).toBe('Show empty row')
-    expect(empty.textContent).toBe('Empty')
-    expect(empty.getAttribute('aria-expanded')).toBe('false')
-    expect(empty.classList.contains('view-toggle')).toBe(false)
+    expect(empty.classList.contains('view-toggle')).toBe(true)
+    expect(empty.classList.contains('half')).toBe(true)
+    expect(empty.classList.contains('on')).toBe(false)
+    expect(empty.getAttribute('aria-pressed')).toBe('false')
+    expect(empty.querySelector('.view-label')?.textContent).toBe('Empty')
 
     empty.click()
     flushSync()
     expect(editor.revealEmptyRow).toBe(true)
     expect(empty.getAttribute('aria-label')).toBe('Hide empty row')
-    expect(empty.textContent).toBe('Hide')
-    expect(empty.getAttribute('aria-expanded')).toBe('true')
+    expect(empty.getAttribute('aria-pressed')).toBe('true')
+    expect(empty.classList.contains('on')).toBe(true)
+    expect(empty.querySelector('.view-label')?.textContent).toBe('Empty')
   })
 
   it('keeps the empty-row slot when the top row has a binding', () => {

@@ -36,16 +36,22 @@ describe('SymbolAlignKey', () => {
     expect(target.querySelector('.align-key')).toBeNull()
   })
 
-  it('shows position and Win AltGr once highlighting is on', () => {
+  it('shows position and Win AltGr samples once highlighting is on', () => {
     editor.hostLegend = addHostLanguage(editor.hostLegend, 'ru')
     editor.symbolAlignOn = true
     mountKey()
 
-    expect(target.querySelector('.moved')?.getAttribute('title')).toBe(
+    const samples = [...target.querySelectorAll('.sample')]
+    expect(samples).toHaveLength(2)
+    expect(samples[0]?.getAttribute('title')).toBe(
       'No shared key for this symbol, or it is missing from one language.'
     )
-    expect(target.querySelector('.win')?.getAttribute('title')).toBe(
+    expect(samples[0]?.textContent?.replace(/\s+/g, ' ').trim()).toBe('position')
+    expect(samples[0]?.querySelector('.swatch.moved')).toBeTruthy()
+    expect(samples[1]?.getAttribute('title')).toBe(
       'Windows keeps AltGr or AltGr+Shift from the other language and drops this one.'
     )
+    expect(samples[1]?.textContent?.replace(/\s+/g, ' ').trim()).toBe('Win AltGr')
+    expect(samples[1]?.querySelector('.swatch.win')).toBeTruthy()
   })
 })
