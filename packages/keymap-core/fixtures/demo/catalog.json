@@ -1,0 +1,33 @@
+{
+  "demos": [
+    {
+      "id": "lark",
+      "name": "Lark",
+      "blurb": "60-key split · two 5-way sticks",
+      "repoUrl": "https://github.com/katafoxi/zmk-keyboard-lark",
+      "layoutSourceUrl": "https://github.com/katafoxi/keymap-editor-extended/tree/main/packages/keymap-core/fixtures/lark",
+      "default": true
+    },
+    {
+      "id": "corne",
+      "name": "Corne",
+      "blurb": "42-key split · 3×6 + thumbs",
+      "repoUrl": "https://github.com/foostan/crkbd",
+      "layoutSourceUrl": "https://github.com/nickcoutsos/keymap-editor-contrib/blob/main/keyboard-data/corne.json"
+    },
+    {
+      "id": "lily58",
+      "name": "Lily58",
+      "blurb": "58-key split · more keys, same idea",
+      "repoUrl": "https://github.com/kata0510/Lily58",
+      "layoutSourceUrl": "https://github.com/nickcoutsos/keymap-editor-contrib/blob/main/keyboard-data/lily58.json"
+    },
+    {
+      "id": "cradio",
+      "name": "Sweep",
+      "blurb": "34-key split · Cradio / Ferris Sweep",
+      "repoUrl": "https://github.com/davidphilipbarr/Sweep",
+      "layoutSourceUrl": "https://github.com/nickcoutsos/keymap-editor-contrib/blob/main/keyboard-data/cradio.json"
+    }
+  ]
+}
