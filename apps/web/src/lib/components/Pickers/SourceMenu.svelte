@@ -7,6 +7,8 @@
     label: string
     title: string
     busy?: boolean
+    /** Soft one-shot cue on the trigger (first-visit intro). */
+    accent?: boolean
     /** When false, the trigger runs `onActivate` and does not open the menu. */
     popup?: boolean
     open?: boolean
@@ -18,6 +20,7 @@
     label,
     title,
     busy = false,
+    accent = false,
     popup = true,
     open = $bindable(false),
     onActivate,
@@ -40,7 +43,7 @@
 <div class="source-menu" bind:this={menuEl}>
   <Button
     variant="outline"
-    class="source-trigger"
+    class="source-trigger{accent ? ' source-trigger-accent' : ''}"
     {title}
     aria-label={title}
     aria-haspopup={popup ? 'dialog' : undefined}
@@ -99,6 +102,28 @@
     background-position: center;
     background-size: 10px 7px;
     pointer-events: none;
+  }
+
+  .source-menu :global(.source-trigger-accent) {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
+    animation: source-trigger-pulse 2.2s ease-in-out 2;
+  }
+
+  @keyframes source-trigger-pulse {
+    0%,
+    100% {
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+    }
+    50% {
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .source-menu :global(.source-trigger-accent) {
+      animation: none;
+    }
   }
 
   .source-menu :global(.source-busy) {

@@ -38,6 +38,8 @@
   const storedIsChoice = Boolean(
     selectedSource && sourceChoices.some(source => source.id === selectedSource)
   )
+  /** Cold start with no remembered source: land on Demo and open the picker once. */
+  const firstVisit = !selectedSource
   const defaultSource =
     onlySource ||
     (storedIsChoice
@@ -47,6 +49,8 @@
         : (sourceChoices.find(source => source.id === 'demo')?.id ?? null))
 
   let source = $state<string | null>(defaultSource)
+  let menuOpen = $state(firstVisit && defaultSource === 'demo')
+  let demoAccent = $state(firstVisit && defaultSource === 'demo')
   let gh = $state<GithubChromeStatus | null>(null)
   let demoName = $state<string | null>(
     DEMO_CATALOG.find(entry => entry.id === readStoredDemoId())?.name ?? null
@@ -126,6 +130,10 @@
       fetchLocalKeyboard()
     }
   })
+
+  $effect(() => {
+    if (!menuOpen && demoAccent) demoAccent = false
+  })
 </script>
 
 <div class="source-fields">
@@ -136,19 +144,23 @@
       label={triggerLabel}
       title={triggerTitle}
       busy={source === 'github' && !!gh?.loading}
+      accent={demoAccent}
       popup={gate === null}
+      bind:open={menuOpen}
       onActivate={runGate}
     >
       {#if sourceChoices.length > 1}
-        <Selector
-          id="source"
-          label="Source"
-          value={source}
-          choices={sourceChoices}
-          onUpdate={value => {
-            source = String(value)
-          }}
-        />
+        <div class="source-select" class:source-select-accent={demoAccent && source === 'demo'}>
+          <Selector
+            id="source"
+            label="Source"
+            value={source}
+            choices={sourceChoices}
+            onUpdate={value => {
+              source = String(value)
+            }}
+          />
+        </div>
       {/if}
       {#if source === 'demo'}
         <DemoPicker
@@ -181,5 +193,18 @@
     height: var(--chrome-h);
     color: var(--text);
     font-size: var(--font-md);
+  }
+
+  .source-select {
+    width: 100%;
+  }
+
+  .source-select-accent :global(.control select) {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+
+  .source-select-accent :global(label) {
+    color: var(--accent);
   }
 </style>
