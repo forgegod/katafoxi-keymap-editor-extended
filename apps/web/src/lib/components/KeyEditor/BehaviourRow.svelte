@@ -55,14 +55,30 @@
   <p class="key-editor-section-label">Behaviour</p>
   <div class="key-editor-behaviour-groups">
     {#if parameterized.length}
-      <div class="key-editor-chips" data-behaviour-group="params">
+      <div
+        class="key-editor-chips"
+        data-behaviour-group="params"
+        role="group"
+        aria-label="Behaviours that take a value"
+      >
         {#each parameterized as behaviour (String(behaviour.code))}
           {@render chip(behaviour)}
         {/each}
       </div>
     {/if}
     {#if instant.length}
-      <div class="key-editor-chips" data-behaviour-group="instant">
+      <div
+        class="key-editor-chips"
+        data-behaviour-group="instant"
+        role="group"
+        aria-label="Instant behaviours — dashed chips apply immediately"
+      >
+        <span
+          class="key-editor-chip-note"
+          title="Dashed chips apply as soon as you pick them — no value to choose."
+        >
+          Instant
+        </span>
         {#each instant as behaviour (String(behaviour.code))}
           {@render chip(behaviour)}
         {/each}

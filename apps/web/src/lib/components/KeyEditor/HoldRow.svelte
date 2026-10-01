@@ -71,6 +71,7 @@
         class:active={activeHolds.has(hold.wrap)}
         class:blocked={holdBlocked(hold)}
         disabled={holdBlocked(hold)}
+        aria-label={`${hold.wrap} hold — ${hold.key}`}
         title={holdTooltip(hold)}
         onclick={event => handleHoldClick(event, hold)}
       >
@@ -79,6 +80,6 @@
     {/each}
   </div>
   <p class="key-editor-hold-hint">
-    Wrap the key · Ctrl/⌘-click picks the modifier as the key
+    Dashed = wrap the key (LS(A)). Solid when on. Ctrl/⌘-click picks the modifier as the key.
   </p>
 </section>

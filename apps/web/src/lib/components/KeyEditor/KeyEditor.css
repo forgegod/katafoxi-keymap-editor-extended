@@ -15,15 +15,17 @@
   .key-editor-body {
     box-sizing: border-box;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: stretch;
     width: 100%;
     max-height: min(calc(100vh - 9rem), 920px);
     overflow: hidden;
     background: var(--surface);
+    border-radius: 10px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
   }
 
+  /* Result sticker above the panel — narrow, centered, not a window title. */
   .key-editor-preview {
     align-self: center;
     z-index: 2;
@@ -32,6 +34,8 @@
     justify-content: center;
     gap: 10px;
     flex-shrink: 0;
+    width: fit-content;
+    max-width: min(100%, 70vw);
     margin: 0 0 12px;
     padding: 8px 8px 8px 16px;
     background: var(--dark-surface);
@@ -149,6 +153,20 @@
     overflow: hidden;
   }
 
+  .key-editor-chip-note {
+    flex-shrink: 0;
+    margin: 0 2px 0 0;
+    padding: 0 4px 0 0;
+    border-right: 1px solid var(--border-subtle);
+    color: var(--text-faint);
+    font-size: var(--font-xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: help;
+  }
+
   .key-editor-taxonomy {
     display: contents;
   }
@@ -227,10 +245,62 @@
     font-size: var(--font-md);
   }
 
+  .key-editor-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--text-muted);
+    font-size: var(--font-xs);
+    line-height: 1.2;
+  }
+
+  .key-editor-legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  .key-editor-legend-swatch {
+    box-sizing: border-box;
+    width: 1.5em;
+    height: 1em;
+    border-radius: 3px;
+    background: var(--key-face);
+    border: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+  }
+
+  .key-editor-legend-swatch.selected {
+    outline: 2px solid var(--selection);
+    outline-offset: 1px;
+  }
+
+  .key-editor-legend-swatch.used {
+    opacity: 0.42;
+    background: var(--fill);
+  }
+
+  .key-editor-legend-swatch.limited {
+    border-style: dashed;
+    border-width: 1.5px;
+    border-color: var(--amber-strong);
+  }
+
+  .key-editor-legend-swatch.alias {
+    border-style: dashed;
+    border-width: 1.5px;
+    border-color: var(--border);
+  }
+
   .key-editor-values {
     flex: 1 1 auto;
     min-height: 0;
-    overflow: hidden;
+    overflow: auto;
   }
 
   .key-editor-group + .key-editor-group {
@@ -311,7 +381,7 @@
     margin: 0;
     flex: 1 1 auto;
     min-width: 12em;
-    color: var(--text-faint);
+    color: var(--text-subtle);
     font-size: var(--font-xs);
     line-height: 1.3;
   }

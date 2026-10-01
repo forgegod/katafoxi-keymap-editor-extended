@@ -96,6 +96,48 @@ describe('KeyEditor value catalog', () => {
     return view as ReturnType<typeof mount> & { show: (next: EditorScene) => void }
   }
 
+  it('shows the binding as a result sticker above the panel and explains chip styles', () => {
+    open({
+      bindingLabel: '&kp A',
+      behaviours,
+      editorSlots: [
+        slot(0, 'behaviour', '&kp', 'Behaviour'),
+        slot(1, 'code', 'A', 'Key')
+      ],
+      activeCodeIndex: 1,
+      choices: codeChoices,
+      onSelectBehaviour: () => {},
+      onSelectValue: () => {},
+      onActivateSlot: () => {},
+      onConfirm: () => {},
+      onCancel: () => {}
+    })
+
+    const editor = target.querySelector('.key-editor')
+    const preview = editor?.querySelector('.key-editor-preview')
+    const body = editor?.querySelector('.key-editor-body')
+    expect(preview).toBeTruthy()
+    expect(body?.contains(preview as Node)).toBe(false)
+    expect(preview?.querySelector('.binding')?.textContent).toBe('&kp A')
+    expect(preview?.querySelector('.key-editor-preview-label')).toBeNull()
+    expect(preview?.compareDocumentPosition(body as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    const legend = target.querySelector('.key-editor-legend')
+    expect(legend?.getAttribute('aria-label')).toBe('Value chip styles')
+    expect(legend?.textContent).toContain('Selected')
+    expect(legend?.textContent).toContain('Already used elsewhere')
+    expect(legend?.textContent).toContain('Limited OS support')
+    expect(legend?.textContent).toContain('Alias / alternate name')
+
+    const instant = target.querySelector('[data-behaviour-group="instant"]')
+    expect(instant?.querySelector('.key-editor-chip-note')?.textContent?.trim()).toBe(
+      'Instant'
+    )
+    expect(target.querySelector('.key-editor-hold-hint')?.textContent).toContain(
+      'Dashed = wrap the key'
+    )
+  })
+
   it('puts parameterless behaviours on a second chip row', () => {
     open({
       bindingLabel: '&kp A',

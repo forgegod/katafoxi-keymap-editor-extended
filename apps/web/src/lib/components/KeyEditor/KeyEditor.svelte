@@ -236,10 +236,12 @@
   class="key-editor"
   role="dialog"
   aria-label="Edit key"
+  aria-labelledby="key-editor-binding"
   tabindex="-1"
 >
+  <!-- Result sticker above the panel — not a window title. -->
   <div class="key-editor-preview">
-    <code class="binding">{previewLabel}</code>
+    <code id="key-editor-binding" class="binding">{previewLabel}</code>
     <div class="key-editor-preview-actions">
       <button
         type="button"
@@ -323,6 +325,27 @@
             bind:value={query}
           />
         {/if}
+
+        <ul class="key-editor-legend" aria-label="Value chip styles">
+          <li>
+            <span class="key-editor-legend-swatch selected" aria-hidden="true"></span>
+            Selected
+          </li>
+          {#if dimUsed}
+            <li>
+              <span class="key-editor-legend-swatch used" aria-hidden="true"></span>
+              Already used elsewhere
+            </li>
+          {/if}
+          <li>
+            <span class="key-editor-legend-swatch limited" aria-hidden="true"></span>
+            Limited OS support
+          </li>
+          <li>
+            <span class="key-editor-legend-swatch alias" aria-hidden="true"></span>
+            Alias / alternate name
+          </li>
+        </ul>
 
         {#key usedRevision}
           <ValueGrid
