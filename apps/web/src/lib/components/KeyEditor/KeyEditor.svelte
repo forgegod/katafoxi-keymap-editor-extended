@@ -7,6 +7,7 @@
     behaviorValueCatalog,
     catalogKeyChoices,
     buildChoiceLabeler,
+    buildTaxonomyChips,
     groupChoicesByContext,
     initialTaxonomyContexts,
     nextTaxonomyContexts,
@@ -139,9 +140,7 @@
 
   const allGroups = $derived(groupChoicesByContext(displayChoices))
   const filteredGroups = $derived(groupChoicesByContext(filtered))
-  const taxonomyChips = $derived(
-    allGroups.filter(group => group.context !== 'Other' || allGroups.length === 1)
-  )
+  const taxonomyChips = $derived(buildTaxonomyChips(allGroups))
   const showTaxonomy = $derived(taxonomyChips.length > 1)
 
   const keycodeTaxonomy = $derived(keycodePicker)
@@ -196,9 +195,9 @@
     pulseMissing(missing.codeIndex)
   }
 
-  function selectTaxonomy(context: string) {
+  function selectTaxonomy(chipId: string) {
     pinnedForKey = catalogKey
-    pinnedContexts = nextTaxonomyContexts(allGroups, context)
+    pinnedContexts = nextTaxonomyContexts(allGroups, chipId)
   }
 
   function handleKeyDown(event: KeyboardEvent) {

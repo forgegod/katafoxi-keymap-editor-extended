@@ -39,7 +39,8 @@ const filterChoices: CatalogChoice[] = [
   })),
   { code: 'KP_N0', context: 'Keypad', description: 'keypad 0' },
   { code: 'KP_N1', context: 'Keypad', description: 'keypad 1' },
-  { code: 'KP_N2', context: 'Keypad', description: 'keypad 2' }
+  { code: 'KP_N2', context: 'Keypad', description: 'keypad 2' },
+  { code: 'C_MUTE', context: 'Consumer', description: 'Mute' }
 ]
 
 const filterSearch: SearchBox = {
@@ -307,14 +308,14 @@ describe('KeyEditor value catalog', () => {
     onCancel: () => {}
   }
 
-  it('shows the filter field while the Keyboard chip is active', () => {
+  it('shows the filter field while the Keyboard+Keypad chip is active', () => {
     open(filterScene, filterSearch)
 
     expect(target.querySelector('.key-editor-filter')).toBeInstanceOf(HTMLInputElement)
-    const keyboardChip = [...target.querySelectorAll('.key-editor-taxonomy .key-editor-chip')].find(
-      el => (el.textContent ?? '').trim() === 'Keyboard'
+    const homeChip = [...target.querySelectorAll('.key-editor-taxonomy .key-editor-chip')].find(
+      el => (el.textContent ?? '').trim() === 'Keyboard+Keypad'
     )
-    expect(keyboardChip?.classList.contains('active')).toBe(true)
+    expect(homeChip?.classList.contains('active')).toBe(true)
   })
 
   it.todo(
@@ -338,7 +339,7 @@ describe('KeyEditor value catalog', () => {
       [...target.querySelectorAll('.key-editor-taxonomy .key-editor-chip')].map(el =>
         (el.textContent ?? '').trim()
       )
-    ).toEqual(['Keyboard', 'Keypad'])
+    ).toEqual(['Keyboard+Keypad', 'Consumer'])
   })
 
   it('restores the selected-chip group after the filter is cleared', () => {
