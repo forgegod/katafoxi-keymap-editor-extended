@@ -20,7 +20,6 @@ export type DemoCatalogEntry = {
   name: string
   blurb: string
   repoUrl: string
-  layoutSourceUrl: string
   default?: boolean
 }
 
@@ -48,7 +47,7 @@ export const DEMO_CATALOG: DemoCatalogEntry[] = (
   catalogJson as { demos: DemoCatalogEntry[] }
 ).demos
 
-export const DEMO_STORAGE_KEY = 'selectedDemo'
+const DEMO_STORAGE_KEY = 'selectedDemo'
 
 export function defaultDemoId(): string {
   return DEMO_CATALOG.find(entry => entry.default)?.id ?? DEMO_CATALOG[0]?.id ?? 'lark'

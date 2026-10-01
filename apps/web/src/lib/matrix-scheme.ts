@@ -21,7 +21,7 @@ export type SchemePolyline = {
   label: string
 }
 
-/** Distinct hues for layout row/col rails (prototype palette). */
+/** Distinct hues for layout row/col rails. */
 export function schemeRailColor(index: number, kind: 'row' | 'col'): string {
   const hue = (index * 47 + (kind === 'col' ? 210 : 12)) % 360
   const alpha = kind === 'row' ? 0.55 : 0.4

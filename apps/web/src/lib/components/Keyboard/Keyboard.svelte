@@ -1,6 +1,5 @@
 <script lang="ts">
   import {
-    absentLayoutIndexes,
     collectUsedKeycodes,
     isBlankLayerBinding,
     layerLegendSymbol,
@@ -12,7 +11,7 @@
     type LayoutKey,
     type ParsedKeymap
   } from '@keymap-editor/keymap-core'
-  import { blankTopRowIndexes } from '../../blank-top-row'
+  import { hiddenBoardIndexes } from '../../blank-top-row'
   import {
     getDefinitionsContext,
     setSearchContext,
@@ -84,12 +83,9 @@
       (keymap?.layers?.length ?? 0) > 0
   )
 
-  const blankTopRow = $derived(blankTopRowIndexes(layout, keymap.layers ?? []))
   const hiddenKeys = $derived.by(() => {
     if (schemeMode) return new Set<number>()
-    const hidden = new Set(absentLayoutIndexes(layout))
-    for (const index of blankTopRow) hidden.add(index)
-    return hidden
+    return new Set(hiddenBoardIndexes(layout, keymap.layers ?? []))
   })
 
   const bounds = $derived.by(() => {

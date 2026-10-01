@@ -167,8 +167,8 @@ describe('resolveBinding / composeKey', () => {
     expect(extraColumn(legend!)?.pair).toEqual(['ф', 'Ф'])
     expect(legend?.hold).toBeUndefined()
     expect(legend?.holdRef).toBeUndefined()
-    expect(compactKeycap(legend!)).toBe('aA фФ @α')
-    expect(altText(legend!)).toBe('@α')
+    expect(compactKeycap(legend!)).toBe('aA фФ @×')
+    expect(altText(legend!)).toBe('@×')
   })
 
   it('carries hold as a layer or modifier ref', () => {
@@ -190,20 +190,21 @@ describe('resolveBinding / composeKey', () => {
     const tee = composeKey({ binding: parseKeyBinding('&kp T'), hostView: larkView() })
     expect(baseColumn(tee!)?.pair).toEqual(['t', 'T'])
     expect(extraColumn(tee!)?.pair).toEqual(['е', 'Е'])
-    expect(baseColumn(tee!)?.altGr).toBe('Δ')
-    expect(baseColumn(tee!)?.altGrShift).toBe('τ')
-    expect(altText(tee!)).toBe('Δτ/ёЁ')
-    expect(compactKeycap(tee!)).toBe('tT еЕ Δτ/ёЁ')
+    expect(baseColumn(tee!)?.altGr).toBe('')
+    expect(baseColumn(tee!)?.altGrShift).toBe('')
+    expect(altText(tee!)).toBe('/ёЁ')
+    expect(compactKeycap(tee!)).toBe('tT еЕ /ёЁ')
 
     const em = composeKey({ binding: parseKeyBinding('&kp M'), hostView: larkView() })
     expect(baseColumn(em!)?.pair).toEqual(['m', 'M'])
     expect(extraColumn(em!)?.pair).toEqual(['ь', 'Ь'])
-    expect(altText(em!)).toBe('ˬμ/ъЪ')
-    expect(compactKeycap(em!)).toBe('mM ьЬ ˬμ/ъЪ')
+    expect(altText(em!)).toBe('/ъЪ')
+    expect(compactKeycap(em!)).toBe('mM ьЬ /ъЪ')
 
     const grave = composeKey({ binding: parseKeyBinding('&kp GRAVE'), hostView: larkView() })
     expect(baseColumn(grave!)?.pair).toEqual(['`', '~'])
-    expect(altText(grave!)).toBe('/ёЁ')
+    expect(extraColumn(grave!)?.pair).toEqual(['`', '~'])
+    expect(altText(grave!)).toBe('ˬˬ')
   })
 
   it('draws a second-language pair once when it matches the first', () => {
@@ -220,15 +221,14 @@ describe('resolveBinding / composeKey', () => {
     expect(keycapColumns(tee!).at(-1)).toEqual({
       kind: 'alt',
       pieces: [
-        { text: 'Δτ', tone: 'base' },
         { text: '/', tone: null },
         { text: 'ёЁ', tone: 'second' }
       ]
     })
-    const grave = composeKey({ binding: parseKeyBinding('&kp GRAVE'), hostView: larkView() })
-    expect(keycapColumns(grave!).at(-1)?.pieces).toEqual([
+    const em = composeKey({ binding: parseKeyBinding('&kp M'), hostView: larkView() })
+    expect(keycapColumns(em!).at(-1)?.pieces).toEqual([
       { text: '/', tone: null },
-      { text: 'ёЁ', tone: 'second' }
+      { text: 'ъЪ', tone: 'second' }
     ])
   })
 
@@ -236,9 +236,9 @@ describe('resolveBinding / composeKey', () => {
     const legend = composeKey({ binding: parseKeyBinding('&kp E'), hostView: larkView() })
     expect(baseColumn(legend!)?.pair).toEqual(['e', 'E'])
     expect(extraColumn(legend!)?.pair).toEqual(['у', 'У'])
-    expect(baseColumn(legend!)?.altGr).toBe('&')
-    expect(baseColumn(legend!)?.altGrShift).toBe('ε')
-    expect(compactKeycap(legend!)).toBe('eE уУ &ε')
+    expect(baseColumn(legend!)?.altGr).toBe('№')
+    expect(baseColumn(legend!)?.altGrShift).toBe('{')
+    expect(compactKeycap(legend!)).toBe('eE уУ №{')
   })
 
   it('puts hold badge only on &mt, not on bare &kp J', () => {
@@ -246,9 +246,9 @@ describe('resolveBinding / composeKey', () => {
     expect(kp?.hold).toBeUndefined()
     expect(baseColumn(kp!)?.pair).toEqual(['j', 'J'])
     expect(extraColumn(kp!)?.pair).toEqual(['о', 'О'])
-    expect(baseColumn(kp!)?.altGr).toBe('')
-    expect(baseColumn(kp!)?.altGrShift).toBe('ξ')
-    expect(compactKeycap(kp!)).toContain('ˬξ')
+    expect(baseColumn(kp!)?.altGr).toBe('[')
+    expect(baseColumn(kp!)?.altGrShift).toBe('{')
+    expect(compactKeycap(kp!)).toContain('[{')
 
     const mt = composeKey({ binding: parseKeyBinding('&mt LCTRL J'), hostView: larkView() })
     expect(baseColumn(mt!)?.pair).toEqual(['j', 'J'])
@@ -468,13 +468,13 @@ describe('resolveBinding / composeKey', () => {
   })
 
   it('keeps an AltGr pair of empty marks while either column is on', () => {
-    const both = composeKey({ binding: parseKeyBinding('&kp K'), hostView: larkView() })
+    const both = composeKey({ binding: parseKeyBinding('&kp GRAVE'), hostView: larkView() })
     expect(baseColumn(both!)?.altGr).toBe('')
     expect(baseColumn(both!)?.altGrShift).toBe('')
     expect(formatAltGrPair(baseColumn(both!)!)).toBe('ˬˬ')
 
     const shiftOnly = composeKey({
-      binding: parseKeyBinding('&kp K'),
+      binding: parseKeyBinding('&kp GRAVE'),
       hostView: setHostColumnAlt(
         setHostColumnAlt(larkView(), 'en', 'altGr', false),
         'ru',
@@ -499,6 +499,14 @@ describe('resolveBinding / composeKey', () => {
       )
     })
     expect(formatAltGrPair(baseColumn(hidden!)!)).toBeNull()
+  })
+
+  it('shares bracket AltGr on K', () => {
+    const both = composeKey({ binding: parseKeyBinding('&kp K'), hostView: larkView() })
+    expect(baseColumn(both!)?.altGr).toBe(']')
+    expect(baseColumn(both!)?.altGrShift).toBe('}')
+    expect(formatAltGrPair(baseColumn(both!)!)).toBe(']}')
+    expect(compactKeycap(both!)).toBe('kK лЛ ]}')
   })
 
   it('detects layer references on &mo / &lt / &to', () => {
@@ -790,15 +798,15 @@ describe('composeLegendDecode', () => {
     expect(card.evdevName).toBe('KEY_MINUS')
     expect(card.current.map(column => column.language)).toEqual(['en', 'ru'])
     expect(card.current.map(column => column.flag)).toEqual(['🇦🇺', '🇷🇺'])
-    expect(card.current.map(formatDecodeWord)).toEqual(['-_±ˬ', 'хХ±ˬ'])
+    expect(card.current.map(formatDecodeWord)).toEqual(['-_ˬˬ', 'бБˬˬ'])
     expect(card.system?.map(formatDecodeWord)).toEqual(['-_ˬˬ', '-_ˬˬ'])
-    expect(card.current[0].slots.map(slot => slot.differs)).toEqual([false, false, true, false])
-    expect(card.current[1].slots.map(slot => slot.differs)).toEqual([true, true, true, false])
+    expect(card.current[0].slots.map(slot => slot.differs)).toEqual([false, false, false, false])
+    expect(card.current[1].slots.map(slot => slot.differs)).toEqual([true, true, false, false])
   })
 
-  it('keeps an empty AltGr slot so μ stays on Shift-AltGr', () => {
+  it('keeps empty English AltGr on M while Russian has ъЪ', () => {
     const card = composeLegendDecode(parseKeyBinding('&kp M'), larkView())
-    expect(formatDecodeWord(card.current[0])).toBe('mMˬμ')
+    expect(formatDecodeWord(card.current[0])).toBe('mMˬˬ')
     expect(formatDecodeWord(card.current[1])).toBe('ьЬъЪ')
     expect(card.system?.map(formatDecodeWord)).toEqual(['mMˬˬ', 'ьЬˬˬ'])
   })

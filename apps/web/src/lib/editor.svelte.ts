@@ -280,7 +280,7 @@ export class EditorState {
    * legend table. Off by default; not stored with the legend view.
    */
   layerTonesOn = $state(false)
-  /** Prototype: full matrix + layout row/col rails on the board. Not stored. */
+  /** Full matrix + layout row/col rails on the board. Session-only; not stored. */
   schemeMode = $state(false)
 
   /**

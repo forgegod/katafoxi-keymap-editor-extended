@@ -3,7 +3,7 @@ import {
   type KeyBindingNode,
   type LayoutKey
 } from '@keymap-editor/keymap-core'
-import { blankTopRowIndexes } from '../../../blank-top-row'
+import { hiddenBoardIndexes } from '../../../blank-top-row'
 
 /**
  * Indexes drawn in the demo card thumb: omit absent matrix slots and a
@@ -13,9 +13,8 @@ export function layoutThumbVisibleIndexes(
   layout: LayoutKey[],
   layers?: KeyBindingNode[][]
 ): number[] {
-  const hidden = new Set(absentLayoutIndexes(layout))
-  if (layers?.length) {
-    for (const index of blankTopRowIndexes(layout, layers)) hidden.add(index)
-  }
+  const hidden = new Set(
+    layers?.length ? hiddenBoardIndexes(layout, layers) : absentLayoutIndexes(layout)
+  )
   return layout.flatMap((_, index) => (hidden.has(index) ? [] : [index]))
 }

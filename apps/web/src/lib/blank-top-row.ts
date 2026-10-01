@@ -1,4 +1,5 @@
 import {
+  absentLayoutIndexes,
   isAbsentLayoutKey,
   isBlankLayerBinding,
   type KeyBindingNode,
@@ -6,7 +7,7 @@ import {
 } from '@keymap-editor/keymap-core'
 
 /** Indexes of the physical top row, or none when the board is a single row. */
-export function topRowKeyIndexes(keys: LayoutKey[]): number[] {
+function topRowKeyIndexes(keys: LayoutKey[]): number[] {
   const present = keys
     .map((key, index) => ({ key, index }))
     .filter(({ key }) => !isAbsentLayoutKey(key))
@@ -42,4 +43,17 @@ export function blankTopRowIndexes(
     )
   )
   return blank ? indexes : []
+}
+
+/**
+ * Indexes omitted from the default board view: absent matrix slots plus a
+ * blank top row. Scheme mode should skip this and draw every slot.
+ */
+export function hiddenBoardIndexes(
+  layout: LayoutKey[],
+  layers: KeyBindingNode[][]
+): number[] {
+  const hidden = new Set(absentLayoutIndexes(layout))
+  for (const index of blankTopRowIndexes(layout, layers)) hidden.add(index)
+  return [...hidden]
 }
