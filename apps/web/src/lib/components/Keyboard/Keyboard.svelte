@@ -2,6 +2,7 @@
   import {
     absentLayoutIndexes,
     collectUsedKeycodes,
+    isBlankLayerBinding,
     layerLegendSymbol,
     usedKeycodesRevision,
     type HostLegendView,
@@ -17,6 +18,7 @@
     setSearchContext,
     type SearchContextValue
   } from '../../context'
+  import { editor } from '../../editor.svelte.js'
   import { buildSearchContext } from '../../search-context'
   import { getKeyBoundingBox } from '../../key-units'
   import KeyboardLayout from './KeyboardLayout.svelte'
@@ -171,6 +173,9 @@
     const layer = keymap.layers[layerIndex]
     if (!layer) return
     if (keyIndex < 0 || keyIndex >= layer.length) return
+    if (schemeMode && !isBlankLayerBinding(binding)) {
+      editor.promoteAbsentKey(keyIndex, binding)
+    }
     handleUpdateLayer(layerIndex, [
       ...layer.slice(0, keyIndex),
       binding,

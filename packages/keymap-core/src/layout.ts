@@ -91,6 +91,23 @@ export function absentLayoutIndexes(layout: LayoutKey[]): number[] {
   return layout.flatMap((key, index) => (isAbsentLayoutKey(key) ? [index] : []))
 }
 
+/**
+ * Clear `absent` so the matrix slot is drawn as a physical key.
+ * Returns the same array when the slot is already present.
+ */
+export function promoteAbsentLayoutKey(
+  layout: LayoutKey[],
+  keyIndex: number
+): LayoutKey[] {
+  const key = layout[keyIndex]
+  if (!key?.absent) return layout
+  return layout.map((entry, index) => {
+    if (index !== keyIndex) return entry
+    const { absent: _omit, ...rest } = entry
+    return rest
+  })
+}
+
 export function validateInfoJson(info: unknown): void {
   const errors: string[] = []
 

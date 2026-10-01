@@ -3,6 +3,7 @@ import {
   absentLayoutIndexes,
   buildKeymapCode,
   parseKeymap,
+  promoteAbsentLayoutKey,
   renderTable,
   validateInfoJson
 } from './index.js'
@@ -63,6 +64,23 @@ describe('absentLayoutIndexes', () => {
       { x: 2, y: 0, row: 0, col: 2, absent: true }
     ]
     expect(absentLayoutIndexes(layout)).toEqual([0, 2])
+  })
+})
+
+describe('promoteAbsentLayoutKey', () => {
+  it('clears absent on the edited slot and leaves others alone', () => {
+    const layout: LayoutKey[] = [
+      { x: 0, y: 0, row: 0, col: 0, absent: true, label: '0,0' },
+      { x: 1, y: 0, row: 0, col: 1, absent: true, label: '0,1' }
+    ]
+    const next = promoteAbsentLayoutKey(layout, 0)
+    expect(next[0]).toEqual({ x: 0, y: 0, row: 0, col: 0, label: '0,0' })
+    expect(next[1]?.absent).toBe(true)
+  })
+
+  it('returns the same array when the slot is already present', () => {
+    const layout: LayoutKey[] = [{ x: 0, y: 0, row: 0, col: 0 }]
+    expect(promoteAbsentLayoutKey(layout, 0)).toBe(layout)
   })
 })
 

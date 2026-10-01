@@ -45,6 +45,8 @@ import {
   summarizeKeymapDiff,
   withHostKey,
   symbolAlign,
+  promoteAbsentLayoutKey,
+  isBlankLayerBinding,
   type HostLayout,
   type SymbolAlign,
   type HostLegendView,
@@ -280,6 +282,17 @@ export class EditorState {
   layerTonesOn = $state(false)
   /** Prototype: full matrix + layout row/col rails on the board. Not stored. */
   schemeMode = $state(false)
+
+  /**
+   * In scheme mode, a real binding on an absent slot promotes it to a
+   * physical key for this session (clears `absent` on the live layout).
+   */
+  promoteAbsentKey(keyIndex: number, binding: KeyBindingNode) {
+    if (!this.schemeMode || !this.layout) return
+    if (isBlankLayerBinding(binding)) return
+    const next = promoteAbsentLayoutKey(this.layout, keyIndex)
+    if (next !== this.layout) this.layout = next
+  }
 
   /** Which firmware layers are drawn on the keycap. */
   layerView = $state<LayerView>(standardLayerView())
