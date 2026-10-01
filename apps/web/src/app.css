@@ -116,6 +116,10 @@
      Marks: Noto Sans Symbols 2. Emoji: the system emoji font.
      Keep the full families — a frozen character list drops the next language. */
   --glyph-font: Inter, "Noto Sans", "Noto Sans Symbols 2", "Segoe UI Emoji", sans-serif;
+
+  /* HID keypad mark: soft wash only (keycap, ZMK param, and key-editor chip). */
+  --keypad-wash: color-mix(in srgb, var(--shade) 8%, transparent);
+  --keypad-wash-on-accent: color-mix(in srgb, var(--on-accent) 22%, transparent);
 }
 
 html {

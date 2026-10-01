@@ -14,7 +14,7 @@ import {
   modifierSide
 } from './modifiers.js'
 
-/** Keypad chips use the legend glyph; the `.keypad` box disambiguates from Keyboard. */
+/** Keypad chips use the legend glyph; the `.keypad` wash disambiguates from Keyboard. */
 const KEYPAD_GLYPH_LABELS = new Map<string, string>([
   ['KP_N0', '0'],
   ['KP_NUMBER_0', '0'],

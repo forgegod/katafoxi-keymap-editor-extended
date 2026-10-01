@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    ALT_LEVEL_EMPTY,
     keycapColumns,
     type ComposedLegend,
     type LegendHoverHit
@@ -16,6 +17,25 @@
   let { legend, stacked = false, hit = 'none', conflict = false }: Props = $props()
 
   const columns = $derived(keycapColumns(legend))
+
+  /** Split ˬ placeholders from real glyphs so empty AltGr slots can hide until hover. */
+  function markParts(text: string): { empty: boolean; text: string }[] {
+    if (!text) return []
+    const parts: { empty: boolean; text: string }[] = []
+    let buf = ''
+    let empty = text[0] === ALT_LEVEL_EMPTY
+    for (const ch of text) {
+      const isEmpty = ch === ALT_LEVEL_EMPTY
+      if (buf && isEmpty !== empty) {
+        parts.push({ empty, text: buf })
+        buf = ''
+        empty = isEmpty
+      }
+      buf += ch
+    }
+    if (buf) parts.push({ empty, text: buf })
+    return parts
+  }
 </script>
 
 <div
@@ -26,8 +46,17 @@
   <span class="line" class:legend-hit={hit === 'combo'}>
     {#each columns as column, index (index)}
       <span class="col" class:alt={column.kind === 'alt'} class:os-conflict={conflict && column.kind === 'alt'}>
-        {#each column.pieces as piece, pieceIndex (pieceIndex)}<span
-            class:second={piece.tone === 'second'}>{piece.text}</span>{/each}
+        {#each column.pieces as piece, pieceIndex (pieceIndex)}
+          <span class:second={piece.tone === 'second'}>
+            {#each markParts(piece.text) as part, partIndex (partIndex)}
+              {#if part.empty}
+                <span class="empty-mark">{part.text}</span>
+              {:else}
+                {part.text}
+              {/if}
+            {/each}
+          </span>
+        {/each}
       </span>
     {/each}
     {#if legend.hold}
@@ -57,11 +86,6 @@
     height: 100%;
     font-size: 11px;
     padding: 0;
-  }
-
-  .keycap.stacked.keypad {
-    box-shadow: none;
-    background: transparent;
   }
 
   .line {
@@ -98,10 +122,16 @@
     padding: 0 2px;
   }
 
+  /* Same wash as `.code.keypad` / `.key-editor-choice.keypad` — no stroke. */
   .keycap.keypad {
-    box-shadow: inset 0 0 0 1.5px rgba(60, 60, 60, 0.4);
-    background: rgba(0, 0, 0, 0.04);
-    border-radius: 4px;
+    background: var(--keypad-wash);
+    border-radius: 3px;
+    padding-inline: 2px;
+  }
+
+  .keycap.stacked.keypad {
+    background: var(--keypad-wash);
+    padding-inline: 2px;
   }
 
   .hold {

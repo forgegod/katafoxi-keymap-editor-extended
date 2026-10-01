@@ -92,7 +92,7 @@ export interface ComposedLegend {
   holdRef?: HoldRef
   /** Firmware keycode that produced this (gray in the host sheet) */
   keycode?: string
-  /** Tap is HID keypad (`KP_*`); UI boxes the glyph, host text stays `7`. */
+  /** Tap is HID keypad (`KP_*`); UI washes the glyph, host text stays `7`. */
   keypad?: boolean
 }
 
