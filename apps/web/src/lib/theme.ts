@@ -1,62 +1,49 @@
 /**
- * Color scheme preference (user choice) vs resolved scheme (what CSS uses).
- * Preference persists in localStorage; resolved value is set on <html data-color-scheme>.
+ * Light / dark color scheme. Preference persists in localStorage;
+ * the resolved value is set on <html data-color-scheme>.
  */
 
-export type ThemePreference = 'system' | 'light' | 'dark'
 export type ColorScheme = 'light' | 'dark'
 
 export const THEME_STORAGE_KEY = 'color-scheme-preference'
+/** First visit / empty storage — dark reads better for the dense keymap UI. */
+export const DEFAULT_COLOR_SCHEME: ColorScheme = 'dark'
 
-const PREFERENCES: ThemePreference[] = ['system', 'light', 'dark']
-
-export function isThemePreference(value: unknown): value is ThemePreference {
-  return value === 'system' || value === 'light' || value === 'dark'
+export function isColorScheme(value: unknown): value is ColorScheme {
+  return value === 'light' || value === 'dark'
 }
 
-export function readThemePreference(
+export function readColorScheme(
   storage: Pick<Storage, 'getItem'> | null = typeof localStorage !== 'undefined'
     ? localStorage
     : null
-): ThemePreference {
-  if (!storage) return 'system'
+): ColorScheme {
+  if (!storage) return DEFAULT_COLOR_SCHEME
   try {
     const raw = storage.getItem(THEME_STORAGE_KEY)
-    return isThemePreference(raw) ? raw : 'system'
+    // Legacy "system" (and anything else) falls back to the default.
+    return isColorScheme(raw) ? raw : DEFAULT_COLOR_SCHEME
   } catch {
-    return 'system'
+    return DEFAULT_COLOR_SCHEME
   }
 }
 
-export function writeThemePreference(
-  preference: ThemePreference,
+export function writeColorScheme(
+  scheme: ColorScheme,
   storage: Pick<Storage, 'setItem'> | null = typeof localStorage !== 'undefined'
     ? localStorage
     : null
 ): void {
   if (!storage) return
   try {
-    storage.setItem(THEME_STORAGE_KEY, preference)
+    storage.setItem(THEME_STORAGE_KEY, scheme)
   } catch {
     /* private mode / quota — keep in-memory only */
   }
 }
 
-export function resolveColorScheme(
-  preference: ThemePreference,
-  prefersDark = typeof matchMedia !== 'undefined'
-    ? matchMedia('(prefers-color-scheme: dark)').matches
-    : false
-): ColorScheme {
-  if (preference === 'light' || preference === 'dark') return preference
-  return prefersDark ? 'dark' : 'light'
-}
-
-export function cycleThemePreference(
-  preference: ThemePreference
-): ThemePreference {
-  const index = PREFERENCES.indexOf(preference)
-  return PREFERENCES[(index + 1) % PREFERENCES.length]
+export function toggleColorScheme(scheme: ColorScheme): ColorScheme {
+  return scheme === 'dark' ? 'light' : 'dark'
 }
 
 export function applyColorScheme(
@@ -67,13 +54,12 @@ export function applyColorScheme(
   root.style.colorScheme = scheme
 }
 
-/** Read preference, resolve, write dataset. Returns the applied scheme. */
+/** Persist and apply. Returns the applied scheme. */
 export function applyThemePreference(
-  preference: ThemePreference,
+  scheme: ColorScheme,
   options: {
     storage?: Pick<Storage, 'getItem' | 'setItem'> | null
     root?: HTMLElement
-    prefersDark?: boolean
   } = {}
 ): ColorScheme {
   const storage =
@@ -82,21 +68,18 @@ export function applyThemePreference(
         ? localStorage
         : null
       : options.storage
-  writeThemePreference(preference, storage)
-  const scheme = resolveColorScheme(preference, options.prefersDark)
+  writeColorScheme(scheme, storage)
   if (options.root || typeof document !== 'undefined') {
     applyColorScheme(scheme, options.root ?? document.documentElement)
   }
   return scheme
 }
 
-export function themePreferenceLabel(preference: ThemePreference): string {
-  if (preference === 'light') return 'Light'
-  if (preference === 'dark') return 'Dark'
-  return 'System'
+export function colorSchemeLabel(scheme: ColorScheme): string {
+  return scheme === 'light' ? 'Light' : 'Dark'
 }
 
-export function themeToggleTitle(preference: ThemePreference): string {
-  const next = cycleThemePreference(preference)
-  return `Theme: ${themePreferenceLabel(preference)}. Click for ${themePreferenceLabel(next).toLowerCase()}.`
+export function themeToggleTitle(scheme: ColorScheme): string {
+  const next = toggleColorScheme(scheme)
+  return `Theme: ${colorSchemeLabel(scheme)}. Click for ${colorSchemeLabel(next).toLowerCase()}.`
 }

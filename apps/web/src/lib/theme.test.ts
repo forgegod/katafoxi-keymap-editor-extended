@@ -2,14 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   applyColorScheme,
   applyThemePreference,
-  cycleThemePreference,
-  isThemePreference,
-  readThemePreference,
-  resolveColorScheme,
-  themePreferenceLabel,
+  colorSchemeLabel,
+  isColorScheme,
+  readColorScheme,
   themeToggleTitle,
   THEME_STORAGE_KEY,
-  writeThemePreference
+  toggleColorScheme,
+  writeColorScheme
 } from './theme'
 
 function memoryStorage(seed: Record<string, string> = {}): Storage {
@@ -36,31 +35,26 @@ function memoryStorage(seed: Record<string, string> = {}): Storage {
   }
 }
 
-describe('theme preference', () => {
-  it('reads system when storage is empty or invalid', () => {
-    expect(readThemePreference(memoryStorage())).toBe('system')
-    expect(readThemePreference(memoryStorage({ [THEME_STORAGE_KEY]: 'nope' }))).toBe(
-      'system'
+describe('color scheme', () => {
+  it('defaults to dark when storage is empty, invalid, or legacy system', () => {
+    expect(readColorScheme(memoryStorage())).toBe('dark')
+    expect(readColorScheme(memoryStorage({ [THEME_STORAGE_KEY]: 'nope' }))).toBe(
+      'dark'
+    )
+    expect(readColorScheme(memoryStorage({ [THEME_STORAGE_KEY]: 'system' }))).toBe(
+      'dark'
     )
   })
 
-  it('round-trips a stored preference', () => {
+  it('round-trips a stored scheme', () => {
     const storage = memoryStorage()
-    writeThemePreference('dark', storage)
-    expect(readThemePreference(storage)).toBe('dark')
+    writeColorScheme('light', storage)
+    expect(readColorScheme(storage)).toBe('light')
   })
 
-  it('resolves system from prefers-color-scheme', () => {
-    expect(resolveColorScheme('system', true)).toBe('dark')
-    expect(resolveColorScheme('system', false)).toBe('light')
-    expect(resolveColorScheme('light', true)).toBe('light')
-    expect(resolveColorScheme('dark', false)).toBe('dark')
-  })
-
-  it('cycles system → light → dark → system', () => {
-    expect(cycleThemePreference('system')).toBe('light')
-    expect(cycleThemePreference('light')).toBe('dark')
-    expect(cycleThemePreference('dark')).toBe('system')
+  it('toggles dark ↔ light', () => {
+    expect(toggleColorScheme('dark')).toBe('light')
+    expect(toggleColorScheme('light')).toBe('dark')
   })
 
   it('writes data-color-scheme on the root', () => {
@@ -70,24 +64,20 @@ describe('theme preference', () => {
     expect(root.style.colorScheme).toBe('dark')
   })
 
-  it('applyThemePreference stores and resolves', () => {
+  it('applyThemePreference stores and applies', () => {
     const storage = memoryStorage()
     const root = document.createElement('html')
-    const scheme = applyThemePreference('dark', {
-      storage,
-      root,
-      prefersDark: false
-    })
+    const scheme = applyThemePreference('dark', { storage, root })
     expect(scheme).toBe('dark')
     expect(storage.getItem(THEME_STORAGE_KEY)).toBe('dark')
     expect(root.dataset.colorScheme).toBe('dark')
   })
 
   it('labels and toggle title stay in English', () => {
-    expect(themePreferenceLabel('system')).toBe('System')
+    expect(colorSchemeLabel('dark')).toBe('Dark')
     expect(themeToggleTitle('light')).toMatch(/Dark/i)
-    expect(isThemePreference('light')).toBe(true)
-    expect(isThemePreference('neon')).toBe(false)
+    expect(isColorScheme('light')).toBe(true)
+    expect(isColorScheme('system')).toBe(false)
   })
 
   it('survives storage throwing', () => {
@@ -99,7 +89,7 @@ describe('theme preference', () => {
         throw new Error('blocked')
       }
     }
-    expect(readThemePreference(broken)).toBe('system')
-    expect(() => writeThemePreference('light', broken)).not.toThrow()
+    expect(readColorScheme(broken)).toBe('dark')
+    expect(() => writeColorScheme('light', broken)).not.toThrow()
   })
 })

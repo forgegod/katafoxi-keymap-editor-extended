@@ -3,41 +3,31 @@
   import Icon from './Common/Icon.svelte'
   import {
     applyThemePreference,
-    cycleThemePreference,
-    readThemePreference,
-    resolveColorScheme,
-    themePreferenceLabel,
+    colorSchemeLabel,
+    readColorScheme,
     themeToggleTitle,
-    type ThemePreference
+    toggleColorScheme,
+    type ColorScheme
   } from '../theme'
 
-  let preference = $state<ThemePreference>(readThemePreference())
+  let scheme = $state<ColorScheme>(readColorScheme())
 
-  const iconName = $derived(
-    preference === 'light' ? 'sun' : preference === 'dark' ? 'moon' : 'desktop'
-  )
-  const label = $derived(themePreferenceLabel(preference))
-  const title = $derived(themeToggleTitle(preference))
+  const iconName = $derived(scheme === 'light' ? 'sun' : 'moon')
+  const label = $derived(colorSchemeLabel(scheme))
+  const title = $derived(themeToggleTitle(scheme))
 
-  function apply(next: ThemePreference) {
-    preference = next
+  function apply(next: ColorScheme) {
+    scheme = next
     applyThemePreference(next)
   }
 
   function onClick() {
-    apply(cycleThemePreference(preference))
+    apply(toggleColorScheme(scheme))
   }
 
   onMount(() => {
     // Sync dataset if the early <head> script and Svelte state ever diverge.
-    applyThemePreference(preference)
-    const media = window.matchMedia('(prefers-color-scheme: dark)')
-    const onChange = () => {
-      if (preference !== 'system') return
-      applyThemePreference('system')
-    }
-    media.addEventListener('change', onChange)
-    return () => media.removeEventListener('change', onChange)
+    applyThemePreference(scheme)
   })
 </script>
 
@@ -46,8 +36,7 @@
   class="theme-toggle"
   {title}
   aria-label="Color theme: {label}"
-  data-preference={preference}
-  data-scheme={resolveColorScheme(preference)}
+  data-scheme={scheme}
   onclick={onClick}
 >
   <span class="icon-slot">
