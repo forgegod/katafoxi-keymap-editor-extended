@@ -19,12 +19,8 @@
 </a>
 
 <style>
-  /* Lives in the top chrome band — never floats over the keyboard stage. */
+  /* Sibling of ThemeToggle inside .chrome-corner — positioning is on the parent. */
   .github-link {
-    position: absolute;
-    z-index: 6;
-    top: 6px;
-    right: 8px;
     display: inline-flex;
     align-items: center;
     height: var(--chrome-h);

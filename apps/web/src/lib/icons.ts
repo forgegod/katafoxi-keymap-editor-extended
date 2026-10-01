@@ -21,6 +21,19 @@ const SOLID: Record<string, string[]> = {
   ]
 }
 
+/** Compact chrome icons (viewBox 0 0 24 24). */
+const CHROME: Record<string, string[]> = {
+  sun: [
+    'M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12zm0-16a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1zm0 18a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1zM3 11a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2H3zm17 0a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2h-1zM5.64 4.22a1 1 0 0 1 1.41 0l.71.71a1 1 0 0 1-1.41 1.41l-.71-.71a1 1 0 0 1 0-1.41zm12.02 12.02a1 1 0 0 1 1.41 0l.71.71a1 1 0 0 1-1.41 1.41l-.71-.71a1 1 0 0 1 0-1.41zM4.22 18.36a1 1 0 0 1 1.41 0l.71-.71a1 1 0 1 1 1.41 1.41l-.71.71a1 1 0 0 1-1.41 0 1 1 0 0 1 0-1.41zm12.02-12.02a1 1 0 0 1 1.41 0l.71-.71a1 1 0 0 1 1.41 1.41l-.71.71a1 1 0 0 1-1.41 0 1 1 0 0 1 0-1.41z'
+  ],
+  moon: [
+    'M21 14.3A9 9 0 0 1 9.7 3a7.5 7.5 0 1 0 11.3 11.3z'
+  ],
+  desktop: [
+    'M3 4.75A1.75 1.75 0 0 1 4.75 3h14.5A1.75 1.75 0 0 1 21 4.75v10.5A1.75 1.75 0 0 1 19.25 17H4.75A1.75 1.75 0 0 1 3 15.25V4.75zM8 19.25a.75.75 0 0 1 .75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1-.75-.75z'
+  ]
+}
+
 /** Octicons-style GitHub mark (viewBox 0 0 24 24). */
 const GITHUB: IconDef = {
   viewBox: '0 0 24 24',
@@ -41,6 +54,8 @@ export function resolveIcon(name: string, collection?: string): IconDef | null {
     return GITHUB
   }
   const key = ALIASES[name] ?? name
+  const chrome = CHROME[key]
+  if (chrome) return { viewBox: '0 0 24 24', paths: chrome }
   const paths = SOLID[key]
   if (!paths) return null
   return { viewBox: '0 0 512 512', paths }

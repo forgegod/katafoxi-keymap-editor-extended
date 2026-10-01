@@ -180,7 +180,7 @@
     text-align: left;
     font-weight: 500;
     white-space: nowrap;
-    border: 1px solid rgba(60, 60, 60, 0.08);
+    border: 1px solid color-mix(in srgb, var(--shade) 8%, transparent);
   }
 
   td {
@@ -202,7 +202,7 @@
   }
 
   td.lang-start {
-    border-left: 2px solid rgba(60, 60, 60, 0.28);
+    border-left: 2px solid color-mix(in srgb, var(--shade) 28%, transparent);
   }
 
   .alt {

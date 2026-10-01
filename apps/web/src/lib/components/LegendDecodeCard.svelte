@@ -430,9 +430,7 @@
   .ids .hold {
     padding: 0 4px;
     border-radius: 3px;
-    background: rgba(0, 0, 0, 0.08);
-    color: var(--text-muted);
-    font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
+    background: var(--shade-wash);
   }
 
   .legend-decode.has-table .ids {
@@ -609,14 +607,14 @@
     margin-left: 4px;
     padding: 0 4px;
     border-radius: 3px;
-    background: rgba(255, 255, 255, 0.22);
+    background: var(--on-accent-wash);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: var(--font-sm);
     font-weight: 600;
   }
 
   .session-cancel kbd {
-    background: rgba(0, 0, 0, 0.08);
+    background: var(--shade-wash);
   }
 
   .session-accept {

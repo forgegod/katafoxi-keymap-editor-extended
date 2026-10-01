@@ -5,6 +5,21 @@
     <link rel="icon" href="/editor-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ZMK Keymap Editor</title>
+    <script>
+      /* Apply resolved scheme before CSS so the first paint matches preference. */
+      ;(function () {
+        try {
+          var pref = localStorage.getItem('color-scheme-preference') || 'system'
+          var dark =
+            pref === 'dark' ||
+            (pref !== 'light' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          var scheme = dark ? 'dark' : 'light'
+          document.documentElement.dataset.colorScheme = scheme
+          document.documentElement.style.colorScheme = scheme
+        } catch (e) {}
+      })()
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

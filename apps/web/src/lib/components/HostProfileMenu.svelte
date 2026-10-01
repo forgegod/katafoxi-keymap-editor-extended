@@ -482,7 +482,7 @@
     padding: 1px 18px 1px 6px;
     border: 1px solid var(--border);
     border-radius: 4px;
-    background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%23555' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E")
+    background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%23666' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E")
       no-repeat right 6px center;
     color: inherit;
     font: inherit;
@@ -492,6 +492,10 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     cursor: pointer;
+  }
+
+  :global(:root[data-color-scheme='dark']) .profile-trigger {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%23a8adb8' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
   }
 
   .profile-list {

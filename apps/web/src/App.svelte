@@ -10,6 +10,7 @@
   import Spinner from './lib/components/Common/Spinner.svelte'
   import Keyboard from './lib/components/Keyboard/Keyboard.svelte'
   import GitHubLink from './lib/components/GitHubLink.svelte'
+  import ThemeToggle from './lib/components/ThemeToggle.svelte'
   import HostBasicGaps from './lib/components/HostBasicGaps.svelte'
   import HostLegendPicker from './lib/components/HostLegendPicker.svelte'
   import HostPipeline from './lib/components/HostPipeline.svelte'
@@ -269,7 +270,10 @@
       </div>
     {/if}
 
-    <GitHubLink />
+    <div class="chrome-corner">
+      <ThemeToggle />
+      <GitHubLink />
+    </div>
   </div>
 
   <div class="board-stack">
@@ -298,6 +302,16 @@
     align-items: flex-start;
     gap: 6px 16px;
     background: var(--stage-bg);
+  }
+
+  .chrome-corner {
+    position: absolute;
+    z-index: 6;
+    top: 6px;
+    right: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
 
   .app-chrome {
@@ -365,8 +379,8 @@
     flex: 1 1 auto;
     min-width: 0;
     margin: 6px 8px 0 0;
-    /* Keep the trailing edge clear of the absolute repo link. */
-    padding: 0 calc(var(--chrome-h) + 12px) 2px 12px;
+    /* Keep the trailing edge clear of the absolute theme + repo controls. */
+    padding: 0 calc(2 * var(--chrome-h) + 20px) 2px 12px;
     box-sizing: border-box;
   }
 

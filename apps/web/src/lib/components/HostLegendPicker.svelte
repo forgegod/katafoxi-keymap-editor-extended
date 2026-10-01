@@ -284,7 +284,7 @@
   table {
     border-collapse: collapse;
     width: max-content;
-    border: 1px solid rgba(60, 60, 60, 0.14);
+    border: 1px solid color-mix(in srgb, var(--shade) 14%, transparent);
     background: color-mix(in srgb, var(--surface) 55%, transparent);
   }
 
@@ -293,7 +293,7 @@
     text-align: left;
     font-weight: 500;
     white-space: nowrap;
-    border: 1px solid rgba(60, 60, 60, 0.08);
+    border: 1px solid color-mix(in srgb, var(--shade) 8%, transparent);
   }
 
   thead th {

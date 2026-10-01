@@ -611,7 +611,7 @@
     margin: 0 0 12px;
     padding: 10px 10px 8px;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.55);
+    background: color-mix(in srgb, var(--surface) 55%, transparent);
     border: 1px solid color-mix(in srgb, var(--paper-shade) 10%, transparent);
   }
 

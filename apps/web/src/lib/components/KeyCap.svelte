@@ -139,7 +139,7 @@
     line-height: 1;
     padding: 1px 3px;
     border-radius: 3px;
-    background: rgba(0, 0, 0, 0.12);
+    background: var(--shade-wash-mid);
     color: var(--text-muted);
   }
 </style>
