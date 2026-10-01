@@ -1,4 +1,5 @@
 import type { HostLanguageId } from './host-languages.js'
+import type { KeycodeOsSupport } from './keycode-os.js'
 
 export interface KeyBindingNode {
   value: string | number
@@ -54,6 +55,8 @@ export interface NormalizedKeycode {
   faIcon?: string
   params: string[]
   isModifier: boolean
+  /** ZMK HID OS flags when present on the catalog row. */
+  os?: KeycodeOsSupport
 }
 
 /** One language column in a composed host legend. */

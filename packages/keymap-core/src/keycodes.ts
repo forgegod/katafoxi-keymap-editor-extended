@@ -1,3 +1,4 @@
+import { parseKeycodeOsSupport } from './keycode-os.js'
 import type { KeycodeDef, NormalizedKeycode } from './types.js'
 
 function shortestAlias(aliases: string[]): string {
@@ -10,6 +11,7 @@ export function normalizeZmkKeycodes(keycodes: KeycodeDef[]): NormalizedKeycode[
 
   return keycodes.reduce<NormalizedKeycode[]>((acc, keycode) => {
     const { description, context, symbol, faIcon } = keycode
+    const os = parseKeycodeOsSupport(keycode.os)
     const aliases = keycode.names.filter(name => !name.match(fnPattern))
     const fnCode = keycode.names.map(name => name.match(fnPattern)).find(v => !!v)
     const base = {
@@ -17,6 +19,7 @@ export function normalizeZmkKeycodes(keycodes: KeycodeDef[]): NormalizedKeycode[
       description,
       context,
       faIcon,
+      ...(os ? { os } : {}),
       symbol: symbol || shortestAlias(aliases),
       params: [] as string[]
     }

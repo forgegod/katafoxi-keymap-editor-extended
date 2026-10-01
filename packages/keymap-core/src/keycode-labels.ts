@@ -5,6 +5,10 @@ import {
   type CatalogChoice
 } from './catalog-choices.js'
 import {
+  choiceKeycodeOs,
+  formatKeycodeOsTooltip
+} from './keycode-os.js'
+import {
   modifierHoldForKey,
   modifierHoldLegend,
   modifierSide
@@ -158,10 +162,18 @@ export function catalogChoiceTooltip(choice: CatalogChoice): string {
   const code = String(choice.code ?? '').trim()
   const shown = choiceHasParams(choice) ? `${code}(${choice.params!.join(',')})` : code
   const shift = usShiftAlias(choice)
-  if (shift) return `${shown} — LS(${shift.base})`
-  const detail = String(choice.description ?? choice.name ?? '').trim()
-  if (shown && detail && detail !== code && detail !== shown) return `${shown} — ${detail}`
-  return detail || shown
+  const head = shift
+    ? `${shown} — LS(${shift.base})`
+    : (() => {
+        const detail = String(choice.description ?? choice.name ?? '').trim()
+        if (shown && detail && detail !== code && detail !== shown) {
+          return `${shown} — ${detail}`
+        }
+        return detail || shown
+      })()
+  const os = choiceKeycodeOs(choice)
+  const osLine = os ? formatKeycodeOsTooltip(os) : null
+  return osLine ? `${head}\n${osLine}` : head
 }
 
 /** Extras band is all `K_*`; hide that prefix on the chip, not in tooltips. */
