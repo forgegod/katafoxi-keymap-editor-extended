@@ -53,7 +53,8 @@
         source: 'demo',
         layout: bundle.layout,
         keymap: bundle.keymap,
-        demo: { id: bundle.entry.id, name: bundle.entry.name }
+        demo: { id: bundle.entry.id, name: bundle.entry.name },
+        demoHost: bundle.hostSeeds
       })
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load demo'

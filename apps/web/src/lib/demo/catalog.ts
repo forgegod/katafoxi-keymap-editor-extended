@@ -13,6 +13,7 @@ import lily58Info from '../../../../../packages/keymap-core/fixtures/demo/lily58
 import lily58KeymapSource from '../../../../../packages/keymap-core/fixtures/demo/lily58/lily58.keymap?raw'
 import cradioInfo from '../../../../../packages/keymap-core/fixtures/demo/cradio/info.json'
 import cradioKeymapSource from '../../../../../packages/keymap-core/fixtures/demo/cradio/cradio.keymap?raw'
+import { demoHostSeeds, type DemoHostLayoutSeed } from './host-seeds.js'
 
 export type DemoCatalogEntry = {
   id: string
@@ -27,6 +28,7 @@ export type DemoBundle = {
   entry: DemoCatalogEntry
   layout: LayoutKey[]
   keymap: ParsedKeymap
+  hostSeeds: DemoHostLayoutSeed[]
 }
 
 type InfoJson = {
@@ -90,5 +92,5 @@ export function loadDemo(id: string): DemoBundle {
     layout: layoutName
   })
   const keymap = parseKeymap(raw)
-  return { entry, layout, keymap }
+  return { entry, layout, keymap, hostSeeds: demoHostSeeds(id) }
 }

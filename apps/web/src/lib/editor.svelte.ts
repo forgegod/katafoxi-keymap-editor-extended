@@ -58,6 +58,10 @@ import {
 } from '@keymap-editor/keymap-core'
 import type { Definitions } from './context'
 import {
+  demoHostLayoutTable,
+  type DemoHostLayoutSeed
+} from './demo/host-seeds.js'
+import {
   baselineFingerprint,
   buildDraftIdentity,
   deleteStoredDraft,
@@ -225,6 +229,8 @@ export type KeyboardSelection = {
   layout?: LayoutKey[] | null
   keymap?: ParsedKeymap | null
   github?: GithubMeta
+  /** Demo-only host layouts to open when the legend is still English-only. */
+  demoHost?: DemoHostLayoutSeed[]
   [key: string]: unknown
 }
 
@@ -1361,7 +1367,59 @@ export class EditorState {
     if (!alreadyHandled) await this.#restoreHostLegend(selectToken)
     if (selectToken !== this.#selectGeneration) return
     if (alreadyHandled) return
+    if (event.demoHost?.length) {
+      await this.#seedDemoHostLayouts(event.demoHost, selectToken)
+      if (selectToken !== this.#selectGeneration) return
+    }
     await this.#maybeRestorePersistedDraft(selectToken)
+  }
+
+  /**
+   * Keep demo host layouts (`en2` / `ru2` for Lark) registered under stable ids.
+   * Assign them on the legend only while it is still the default English-only view.
+   */
+  async #seedDemoHostLayouts(
+    seeds: DemoHostLayoutSeed[],
+    selectToken: number
+  ): Promise<void> {
+    for (const seed of seeds) {
+      const table = demoHostLayoutTable(seed)
+      const record: UserHostLayoutRecord = {
+        id: seed.id,
+        name: seed.name,
+        language: seed.language,
+        origin: { from: 'xkb', fileName: seed.name, section: seed.section },
+        updatedAt: Date.now(),
+        layout: table
+      }
+      this.#registerUserLayout(record)
+      const listed = this.userLayouts.some(item => item.id === seed.id)
+      const listedItem = {
+        id: record.id,
+        name: record.name,
+        language: record.language,
+        origin: record.origin,
+        updatedAt: record.updatedAt
+      }
+      this.userLayouts = listed
+        ? this.userLayouts.map(item => (item.id === seed.id ? listedItem : item))
+        : [...this.userLayouts, listedItem]
+      await saveUserHostLayout(record)
+      if (selectToken !== this.#selectGeneration) return
+    }
+
+    if (!sameHostLegendView(this.hostLegend, standardHostLegendView())) return
+
+    let view = this.hostLegend
+    for (const seed of seeds) {
+      if (!view.columns.some(column => column.language === seed.language)) {
+        view = addHostLanguage(view, seed.language)
+      }
+      view = assignHostLanguageLayout(view, seed.language, seed.id)
+    }
+
+    this.hostLegend = view
+    await this.#persistHostLegend()
   }
 
   async #maybeRestorePersistedDraft(selectToken: number) {

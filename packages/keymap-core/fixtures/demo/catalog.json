@@ -3,7 +3,7 @@
     {
       "id": "lark",
       "name": "Lark",
-      "blurb": "60-key split · two 5-way sticks",
+      "blurb": "60-key split · two 5-way sticks · en2 + ru2",
       "repoUrl": "https://github.com/katafoxi/zmk-keyboard-lark",
       "layoutSourceUrl": "https://github.com/katafoxi/keymap-editor-extended/tree/main/packages/keymap-core/fixtures/lark",
       "default": true
