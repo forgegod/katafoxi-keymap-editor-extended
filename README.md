@@ -9,7 +9,8 @@ It is a fork of [nickcoutsos/keymap-editor](https://github.com/nickcoutsos/keyma
 The upstream hosted app is [keymap-editor][Keymap Editor] with
 [keymap-editor-demo-crkbd]. Upstream discussion:
 [Talk to me!](https://github.com/nickcoutsos/keymap-editor/discussions).
-The original README is kept as [old-readme.md](old-readme.md).
+For the original upstream feature list, see the
+[upstream README](https://github.com/nickcoutsos/keymap-editor/blob/master/README.md).
 
 ## This tree
 
@@ -17,8 +18,9 @@ The original README is kept as [old-readme.md](old-readme.md).
 - One key editor: behaviour, then the value list for that slot (keys, layers, modifiers, mouse commands). Enter applies a complete binding; Esc cancels.
 - Composed host legends on the keycap; compact ZMK tokens (`L1`, `⌃`, `⇧⇪`, hold-tap pills) live in `keymap-core`.
 - Undo/redo, a short **Draft** status, **Write files**, **Commit to GitHub**, and a **Latest** firmware chip on the GitHub source.
+- Light / dark **theme** toggle (persisted in the browser; default dark).
 
-Clipboard, browser File System Access, combo/macro editors, and dark mode are upstream or planned. They are not in this tree. Vision: [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md).
+Clipboard, browser File System Access, and combo/macro editors are upstream or planned. They are not in this tree. Vision: [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md).
 
 ## Docs
 

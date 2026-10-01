@@ -78,8 +78,7 @@
         systemPath: '/usr/share/X11/xkb/symbols/au',
         userPath: '~/.xkb/symbols/au',
         variant: 'Australia (au)',
-        tip: 'Prefer symbols/au (Australia), not us: the file is short and near the top of the symbols list, there is less layout-picker clutter across distros, and the Australian flag makes it obvious you are on your custom layout.',
-        tipRu: null as string | null
+        tip: 'Prefer symbols/au (Australia), not us: the file is short and near the top of the symbols list, there is less layout-picker clutter across distros, and the Australian flag makes it obvious you are on your custom layout.'
       }
     }
     if (item.language === 'ru') {
@@ -88,9 +87,7 @@
         systemPath: '/usr/share/X11/xkb/symbols/ru',
         userPath: '~/.xkb/symbols/ru',
         variant: 'legacy',
-        tip: 'Prefer the legacy section at the top of symbols/ru — it is nearly empty and easy to select in the layout list.',
-        tipRu:
-          'Для русского удобнее секция legacy в начале файла symbols/ru: она почти пустая и её проще выбрать в списке раскладок.'
+        tip: 'Prefer the legacy section at the top of symbols/ru — it is nearly empty and easy to select in the layout list.'
       }
     }
     return {
@@ -98,8 +95,7 @@
       systemPath: item.exampleSystemPath,
       userPath: item.exampleUserPath,
       variant: null as string | null,
-      tip: null as string | null,
-      tipRu: null as string | null
+      tip: null as string | null
     }
   }
 
@@ -277,9 +273,6 @@
 
           {#if target.tip}
             <p class="card-tip">{target.tip}</p>
-          {/if}
-          {#if target.tipRu}
-            <p class="card-tip tip-ru" lang="ru">{target.tipRu}</p>
           {/if}
 
           <label class="path-label" for={`sys-path-${item.layoutId}`}>Example system path</label>
@@ -641,10 +634,6 @@
     font-size: var(--font-sm);
     line-height: 1.4;
     color: var(--text-muted);
-  }
-
-  .card-tip.tip-ru {
-    color: var(--paper-ink-strong);
   }
 
   .module {

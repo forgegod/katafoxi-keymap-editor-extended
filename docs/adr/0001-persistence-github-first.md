@@ -10,7 +10,7 @@ This fork needs a clear split between:
 1. **Product persistence** — how end users load and save firmware (and later host) keymap data.
 2. **Development convenience** — editing against a local clone such as `zmk-keyboard-lark` while building features.
 
-Upstream keymap-editor intent (see `old-readme.md`) lists GitHub, Clipboard, and browser File System Access as keymap sources. The frozen tree also contains a Node “sibling `zmk-config`” path used by `running-locally.md`. Growing that Node path into a full local file server would fight the planned work (composed host×ZMK legends, host layout files) and duplicate what the browser or GitHub already can do.
+Upstream keymap-editor intent (see the [upstream README](https://github.com/nickcoutsos/keymap-editor/blob/master/README.md)) lists GitHub, Clipboard, and browser File System Access as keymap sources. The frozen tree also contains a Node “sibling `zmk-config`” path used by `running-locally.md`. Growing that Node path into a full local file server would fight the planned work (composed host×ZMK legends, host layout files) and duplicate what the browser or GitHub already can do.
 
 The only hard requirement for a backend today is **keeping GitHub App / OAuth secrets off the client** and performing authenticated GitHub API writes.
 
@@ -40,4 +40,4 @@ The only hard requirement for a backend today is **keeping GitHub App / OAuth se
 
 - [TARGET_SYSTEM.md](../TARGET_SYSTEM.md)
 - [running-locally.md](../../running-locally.md)
-- Upstream feature list in `old-readme.md`
+- [Upstream README](https://github.com/nickcoutsos/keymap-editor/blob/master/README.md) (original feature list)

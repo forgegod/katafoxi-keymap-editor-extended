@@ -163,7 +163,8 @@ describe('HostPipeline', () => {
 
     const cards = document.querySelectorAll('section.layout-card')
     expect(cards.length).toBe(2)
-    expect(document.querySelector('.tip-ru')?.textContent).toMatch(/legacy/)
+    const tips = [...cards].map(card => card.querySelector('.card-tip')?.textContent ?? '')
+    expect(tips.some(tip => /legacy/.test(tip))).toBe(true)
   })
 
   it('opens a Windows install dialog with an MSKLC link and a .klc download', async () => {
