@@ -335,6 +335,17 @@
     opacity: 0.95;
   }
 
+  /* ZMK OS table: caution border, not fade — fade is reserved for "already used". */
+  .key-editor-choice.os-limited {
+    border-style: dashed;
+    border-color: var(--amber-strong);
+    color: var(--text);
+  }
+
+  .key-editor-choice.os-limited:hover {
+    border-color: var(--hover-selection);
+  }
+
   .key-editor-band-label {
     flex: 0 0 auto;
     display: inline-flex;

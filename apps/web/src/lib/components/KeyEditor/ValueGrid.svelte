@@ -3,6 +3,7 @@
     bandCatalogChoices,
     catalogChoiceTooltip,
     choiceMatchesCode,
+    choiceOsSupportLimited,
     formatUsedChoiceTooltip,
     isKeypadChoice,
     isModifierKey,
@@ -213,6 +214,7 @@
                       class="key-editor-choice"
                       class:active={isActiveChoice(item)}
                       class:used={isUsedChoice(item) && !isActiveChoice(item)}
+                      class:os-limited={choiceOsSupportLimited(item)}
                       class:keypad={isKeypadChoice(item)}
                       title={valueTooltip(item)}
                       onclick={() => onChoose(item)}
@@ -257,6 +259,7 @@
                       class="key-editor-choice"
                       class:active={isActiveChoice(item)}
                       class:used={isUsedChoice(item) && !isActiveChoice(item)}
+                      class:os-limited={choiceOsSupportLimited(item)}
                       title={valueTooltip(item)}
                       onclick={() => onChoose(item)}
                     >
@@ -276,6 +279,7 @@
                     class="key-editor-choice"
                     class:active={isActiveChoice(item)}
                     class:used={isUsedChoice(item) && !isActiveChoice(item)}
+                    class:os-limited={choiceOsSupportLimited(item)}
                     title={valueTooltip(item)}
                     onclick={() => onChoose(item)}
                   >
@@ -290,6 +294,7 @@
                       class="key-editor-choice"
                       class:active={isActiveChoice(item)}
                       class:used={isUsedChoice(item) && !isActiveChoice(item)}
+                      class:os-limited={choiceOsSupportLimited(item)}
                       title={valueTooltip(item)}
                       onclick={() => onChoose(item)}
                     >
@@ -333,6 +338,7 @@
                     class="key-editor-choice"
                     class:active={isActiveChoice(item)}
                     class:used={isUsedChoice(item) && !isActiveChoice(item)}
+                    class:os-limited={choiceOsSupportLimited(item)}
                     class:keypad={isKeypadChoice(item)}
                     title={valueTooltip(item)}
                     onclick={() => onChoose(item)}
@@ -352,6 +358,7 @@
                         class="key-editor-choice shifted-alias"
                         class:active={isActiveChoice(item)}
                         class:used={isUsedChoice(item) && !isActiveChoice(item)}
+                        class:os-limited={choiceOsSupportLimited(item)}
                         title={valueTooltip(item)}
                         onclick={() => onChoose(item)}
                       >
@@ -394,6 +401,7 @@
                       class="key-editor-choice"
                       class:active={isActiveChoice(item)}
                       class:used={isUsedChoice(item) && !isActiveChoice(item)}
+                      class:os-limited={choiceOsSupportLimited(item)}
                       class:keypad={isKeypadChoice(item)}
                       title={valueTooltip(item)}
                       onclick={() => onChoose(item)}
@@ -419,6 +427,7 @@
                         class="key-editor-choice"
                         class:active={isActiveChoice(item)}
                         class:used={isUsedChoice(item) && !isActiveChoice(item)}
+                        class:os-limited={choiceOsSupportLimited(item)}
                         class:keypad={isKeypadChoice(item)}
                         class:media-alt={band.kind === 'media'}
                         title={valueTooltip(item)}
