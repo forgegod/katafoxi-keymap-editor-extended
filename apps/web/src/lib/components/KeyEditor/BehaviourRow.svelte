@@ -14,14 +14,17 @@
 
   let { behaviours, activeCode, onChoose }: Props = $props()
 
+  const parameterized = $derived(behaviours.filter(b => !isInstantBehavior(b)))
+  const instant = $derived(behaviours.filter(b => isInstantBehavior(b)))
+
   function behaviourTooltip(choice: CatalogChoice): string {
     const base = catalogChoiceTooltip({
       ...choice,
       description: choice.description || choice.name
     })
-    const instant = isInstantBehavior(choice) ? 'Applies immediately.' : ''
+    const instantNote = isInstantBehavior(choice) ? 'Applies immediately.' : ''
     const docs = zmkBehaviorDocsUrl(choice.code) ? 'Ctrl+click: docs' : ''
-    return [base, instant, docs].filter(Boolean).join('\n')
+    return [base, instantNote, docs].filter(Boolean).join('\n')
   }
 
   function handleBehaviourClick(event: MouseEvent, choice: CatalogChoice) {
@@ -35,20 +38,35 @@
   }
 </script>
 
+{#snippet chip(behaviour: CatalogChoice)}
+  <button
+    type="button"
+    class="key-editor-chip"
+    class:active={String(behaviour.code) === String(activeCode ?? '')}
+    class:instant={isInstantBehavior(behaviour)}
+    title={behaviourTooltip(behaviour)}
+    onclick={event => handleBehaviourClick(event, behaviour)}
+  >
+    {behaviour.code}
+  </button>
+{/snippet}
+
 <section class="key-editor-row">
   <p class="key-editor-section-label">Behaviour</p>
-  <div class="key-editor-chips">
-    {#each behaviours as behaviour (String(behaviour.code))}
-      <button
-        type="button"
-        class="key-editor-chip"
-        class:active={String(behaviour.code) === String(activeCode ?? '')}
-        class:instant={isInstantBehavior(behaviour)}
-        title={behaviourTooltip(behaviour)}
-        onclick={event => handleBehaviourClick(event, behaviour)}
-      >
-        {behaviour.code}
-      </button>
-    {/each}
+  <div class="key-editor-behaviour-groups">
+    {#if parameterized.length}
+      <div class="key-editor-chips" data-behaviour-group="params">
+        {#each parameterized as behaviour (String(behaviour.code))}
+          {@render chip(behaviour)}
+        {/each}
+      </div>
+    {/if}
+    {#if instant.length}
+      <div class="key-editor-chips" data-behaviour-group="instant">
+        {#each instant as behaviour (String(behaviour.code))}
+          {@render chip(behaviour)}
+        {/each}
+      </div>
+    {/if}
   </div>
 </section>

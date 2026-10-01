@@ -95,6 +95,44 @@ describe('KeyEditor value catalog', () => {
     return view as ReturnType<typeof mount> & { show: (next: EditorScene) => void }
   }
 
+  it('puts parameterless behaviours on a second chip row', () => {
+    open({
+      bindingLabel: '&kp A',
+      behaviours,
+      editorSlots: [
+        slot(0, 'behaviour', '&kp', 'Behaviour'),
+        slot(1, 'code', 'A', 'Key')
+      ],
+      activeCodeIndex: 1,
+      choices: codeChoices,
+      onSelectBehaviour: () => {},
+      onSelectValue: () => {},
+      onActivateSlot: () => {},
+      onConfirm: () => {},
+      onCancel: () => {}
+    })
+
+    const withParams = target.querySelector('[data-behaviour-group="params"]')
+    const instant = target.querySelector('[data-behaviour-group="instant"]')
+    expect(withParams).toBeTruthy()
+    expect(instant).toBeTruthy()
+
+    const paramCodes = [...(withParams?.querySelectorAll('.key-editor-chip') ?? [])].map(el =>
+      (el.textContent ?? '').trim()
+    )
+    const instantCodes = [...(instant?.querySelectorAll('.key-editor-chip') ?? [])].map(el =>
+      (el.textContent ?? '').trim()
+    )
+
+    expect(paramCodes).toContain('&kp')
+    expect(paramCodes).toContain('&mo')
+    expect(paramCodes).not.toContain('&trans')
+    expect(instantCodes).toEqual(
+      expect.arrayContaining(['&trans', '&none', '&caps_word', '&key_repeat', '&reset', '&bootloader'])
+    )
+    expect(instantCodes).not.toContain('&kp')
+  })
+
   it('shows pointing commands instead of Keyboard+Keypad', () => {
     const handlers = {
       onSelectValue: () => {},

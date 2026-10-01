@@ -149,6 +149,14 @@
     line-height: 1.2;
   }
 
+  /* Parametrized behaviours on row 1; parameterless (instant) on row 2. */
+  .key-editor-behaviour-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
   .key-editor-chips {
     display: flex;
     flex-wrap: wrap;
