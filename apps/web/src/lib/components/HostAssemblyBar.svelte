@@ -1,5 +1,6 @@
 <script lang="ts">
   import { editor } from '../editor.svelte.js'
+  import Button from './Common/Button.svelte'
   import LangFlag from './LangFlag.svelte'
 
   const chips = $derived(
@@ -51,15 +52,15 @@
       </button>
     </span>
   {/each}
-  <button
-    type="button"
+  <Button
+    variant="accentOutline"
     class="remember"
     disabled={saved || blocked}
     title={rememberTitle}
     onclick={() => void editor.rememberHostAssembly()}
   >
     Remember
-  </button>
+  </Button>
 </div>
 
 <style>
@@ -158,40 +159,5 @@
 
   .chip.on .forget:hover {
     color: var(--accent-strong);
-  }
-
-  .remember {
-    box-sizing: border-box;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 26px;
-    margin: 0;
-    padding: 0 10px;
-    border: 1px solid var(--accent);
-    border-radius: 8px;
-    background: var(--surface);
-    color: var(--accent);
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .remember:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--accent) 10%, var(--surface));
-    border-color: var(--accent-strong);
-    color: var(--accent-strong);
-  }
-
-  .remember:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
-  }
-
-  .remember:disabled {
-    background: var(--surface-sunken);
-    border-color: var(--border-subtle);
-    color: var(--text-disabled);
-    cursor: not-allowed;
   }
 </style>

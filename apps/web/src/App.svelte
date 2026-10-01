@@ -17,6 +17,7 @@
   import github from './lib/github/api.svelte.js'
   import FirmwareBuild from './lib/components/FirmwareBuild.svelte'
   import ChromeStatus from './lib/components/Common/ChromeStatus.svelte'
+  import Button from './lib/components/Common/Button.svelte'
 
   // Proxy so context consumers stay reactive to editor.definitions ($state).
   setDefinitionsContext({
@@ -130,7 +131,7 @@
     class:tools-below={toolsBelow}
     bind:this={topEl}
   >
-    <!-- Pipeline chrome only: #actions button styles must not reach the legend tools. -->
+    <!-- Pipeline chrome: buttons use Common/Button (not #actions descendant styles). -->
     <div class="app-chrome" id="actions">
       <div class="chrome-pipelines">
         <div class="chrome-lane chrome-zmk" aria-label="ZMK keymap">
@@ -144,8 +145,8 @@
                 label={editor.isDirty ? 'Changed' : 'Saved'}
                 title={editor.statusText}
               />
-              <button
-                type="button"
+              <Button
+                variant="danger"
                 class="discard-draft"
                 title={editor.isDirty
                   ? 'Revert all unpublished edits to the last loaded keymap'
@@ -160,7 +161,7 @@
                 }}
               >
                 Discard draft
-              </button>
+              </Button>
             </div>
           {/if}
 
@@ -175,8 +176,8 @@
 
           {#if editor.draftKeymap}
             <div class="chrome-group actions-history">
-              <button
-                type="button"
+              <Button
+                variant="icon"
                 class="history"
                 aria-label="Undo"
                 title="Undo (Ctrl/Cmd+Z)"
@@ -187,9 +188,9 @@
                   <path d="M9 14 4 9l5-5" />
                   <path d="M4 9h11a5 5 0 0 1 0 10H12" />
                 </svg>
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="icon"
                 class="history"
                 aria-label="Redo"
                 title="Redo (Ctrl/Cmd+Shift+Z)"
@@ -200,33 +201,33 @@
                   <path d="m15 14 5-5-5-5" />
                   <path d="M20 9H9a5 5 0 0 0 0 10h3" />
                 </svg>
-              </button>
+              </Button>
             </div>
           {/if}
 
           <div class="chrome-group actions-publish">
             {#if editor.source === 'local'}
-              <button
-                class="primary"
-                class:ready={editor.isDirty}
+              <Button
+                variant="publish"
+                ready={editor.isDirty}
                 disabled={!editor.isDirty || editor.saving}
                 onclick={handleWriteFiles}
               >
                 {editor.saving ? 'Saving' : 'Write files'}
                 {#if editor.saving}<Spinner />{/if}
-              </button>
+              </Button>
             {/if}
             {#if editor.source === 'github'}
-              <button
-                class="primary"
-                class:ready={editor.isDirty}
+              <Button
+                variant="publish"
+                ready={editor.isDirty}
                 title="Commit keymap changes to GitHub repository"
                 disabled={!editor.isDirty || editor.saving}
                 onclick={handleCommitToGitHub}
               >
                 {editor.saving ? 'Saving' : 'Commit'}
                 {#if editor.saving}<Spinner />{/if}
-              </button>
+              </Button>
               {#if editor.githubMeta}
                 <FirmwareBuild
                   repository={editor.githubMeta.repository}
@@ -406,59 +407,6 @@
     gap: 4px;
   }
 
-  #actions button.history {
-    width: var(--chrome-h);
-    height: var(--chrome-h);
-    padding: 0;
-    margin: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--surface);
-    color: var(--text);
-    border-color: var(--border);
-  }
-
-  #actions button.history:hover:not(:disabled) {
-    background: var(--surface-sunken);
-    color: var(--accent);
-    border-color: var(--accent);
-  }
-
-  #actions button.history svg {
-    width: 16px;
-    height: 16px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2.4;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  #actions button.history:disabled {
-    background: var(--surface-sunken);
-    color: var(--text-disabled);
-    border-color: var(--border-subtle);
-  }
-
-  #actions button.primary.ready {
-    background: var(--selection);
-    color: var(--on-accent);
-    border-color: transparent;
-  }
-
-  #actions button.primary.ready:hover:not(:disabled) {
-    background: var(--ok-fill-strong);
-    color: var(--on-accent);
-  }
-
-  #actions button.primary.ready:disabled {
-    background: var(--hover-selection);
-    color: var(--on-accent);
-    border-color: transparent;
-    opacity: 0.7;
-  }
-
   .board-stack {
     flex: 1;
     min-height: 0;
@@ -484,33 +432,6 @@
     gap: 8px 12px;
     min-width: 0;
     box-sizing: border-box;
-  }
-
-  #actions button.discard-draft {
-    cursor: pointer;
-    background: transparent;
-    color: var(--danger-ink);
-    border: 1px solid var(--danger-border);
-    border-radius: 5px;
-    box-sizing: border-box;
-    height: var(--chrome-h);
-    padding: 0 8px;
-    margin: 0;
-    font: inherit;
-    font-size: var(--font-md);
-    font-weight: 500;
-    box-shadow: none;
-  }
-
-  #actions button.discard-draft:hover:not(:disabled) {
-    background: var(--danger-wash);
-  }
-
-  #actions button.discard-draft:disabled {
-    background: transparent;
-    color: var(--text-disabled);
-    border-color: var(--border-soft);
-    cursor: not-allowed;
   }
 
   .save-notice {

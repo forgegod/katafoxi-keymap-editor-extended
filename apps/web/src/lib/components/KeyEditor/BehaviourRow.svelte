@@ -5,6 +5,7 @@
     zmkBehaviorDocsUrl,
     type CatalogChoice
   } from '@keymap-editor/keymap-core'
+  import SelectChip from '../Common/SelectChip.svelte'
 
   interface Props {
     behaviours: CatalogChoice[]
@@ -39,16 +40,14 @@
 </script>
 
 {#snippet chip(behaviour: CatalogChoice)}
-  <button
-    type="button"
-    class="key-editor-chip"
-    class:active={String(behaviour.code) === String(activeCode ?? '')}
-    class:instant={isInstantBehavior(behaviour)}
+  <SelectChip
+    active={String(behaviour.code) === String(activeCode ?? '')}
+    instant={isInstantBehavior(behaviour)}
     title={behaviourTooltip(behaviour)}
     onclick={event => handleBehaviourClick(event, behaviour)}
   >
     {behaviour.code}
-  </button>
+  </SelectChip>
 {/snippet}
 
 <section class="key-editor-row">

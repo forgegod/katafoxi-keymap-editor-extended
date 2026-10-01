@@ -3,6 +3,7 @@
   import { editor } from '../editor.svelte.js'
   import stackLanguagesIcon from '../assets/stack-languages.png'
   import symbolDifferencesIcon from '../assets/symbol-differences.png'
+  import PressToggle from './Common/PressToggle.svelte'
   import SymbolAlignKey from './SymbolAlignKey.svelte'
 
   const canStack = $derived(editor.hostLegend.columns.length >= 3)
@@ -29,12 +30,10 @@
 </script>
 
 <div class="legend-view" aria-label="Legend view">
-  <button
-    type="button"
+  <PressToggle
     class="view-toggle"
-    class:on={canStack && stacked}
-    class:pale={!canStack}
-    aria-pressed={canStack && stacked}
+    pressed={canStack && stacked}
+    pale={!canStack}
     aria-label="Stack languages"
     title={stackTitle}
     disabled={!canStack}
@@ -42,14 +41,12 @@
   >
     <img src={stackLanguagesIcon} alt="" width="14" height="14" />
     <span class="view-label">Stack</span>
-  </button>
+  </PressToggle>
 
   <div class="align-block">
-    <button
-      type="button"
+    <PressToggle
       class="view-toggle"
-      class:on={marksOn}
-      aria-pressed={marksOn}
+      pressed={marksOn}
       aria-label="Highlight symbol differences"
       title={alignTitle}
       disabled={!canAlign}
@@ -57,18 +54,16 @@
     >
       <img src={symbolDifferencesIcon} alt="" width="14" height="14" />
       <span class="view-label">Differences</span>
-    </button>
+    </PressToggle>
     <div class="align-slot" class:on={marksOn}>
       <SymbolAlignKey />
     </div>
   </div>
 
   <div class="board-row" role="group" aria-label="Keyboard layout view">
-    <button
-      type="button"
+    <PressToggle
       class="view-toggle half"
-      class:on={editor.layerTonesOn}
-      aria-pressed={editor.layerTonesOn}
+      pressed={editor.layerTonesOn}
       aria-label="Layer colors"
       title="Tint each firmware layer on the key with a soft wash."
       onclick={() => (editor.layerTonesOn = !editor.layerTonesOn)}
@@ -80,14 +75,12 @@
         <rect x="0" y="13" width="16" height="3" rx="0.5" opacity="0.94" />
       </svg>
       <span class="view-label">Colors</span>
-    </button>
+    </PressToggle>
     <div class="empty-slot">
       {#if topRowEmpty}
-        <button
-          type="button"
+        <PressToggle
           class="view-toggle half"
-          class:on={editor.revealEmptyRow}
-          aria-pressed={editor.revealEmptyRow}
+          pressed={editor.revealEmptyRow}
           aria-label={emptyRowLabel}
           title={emptyRowLabel}
           onclick={() => (editor.revealEmptyRow = !editor.revealEmptyRow)}
@@ -107,7 +100,7 @@
             <rect x="8.75" y="8.5" width="6" height="5.5" rx="1" opacity="0.78" />
           </svg>
           <span class="view-label">Empty</span>
-        </button>
+        </PressToggle>
       {/if}
     </div>
   </div>
@@ -162,72 +155,17 @@
     min-height: 22px;
   }
 
-  /* One control for Stack / Differences / Colors / Empty:
-     off (sunken), on (same as assembly chips / catalog), disabled (pale). */
-  .view-toggle {
-    box-sizing: border-box;
-    display: inline-flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 4px;
-    width: 100%;
-    height: 22px;
-    margin: 0;
-    padding: 0 6px;
-    white-space: nowrap;
-    border: 1px solid var(--border);
-    border-radius: 5px;
-    background: var(--surface-sunken);
-    color: var(--text-muted);
-    font: inherit;
-    cursor: pointer;
-  }
-
-  .view-toggle.half {
+  .legend-view :global(.view-toggle.half) {
     padding: 0 4px;
     gap: 3px;
   }
 
-  .view-toggle:hover:not(:disabled):not(.on) {
-    background: var(--surface);
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
-  .view-toggle.on {
-    background: var(--surface);
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
-  .view-toggle.pale,
-  .view-toggle:disabled {
-    background: var(--surface-sunken);
-    border-color: var(--border-subtle);
-    color: var(--text-muted);
-    opacity: 0.45;
-    cursor: default;
-  }
-
-  .view-toggle img,
-  .view-toggle .layer-tones-icon,
-  .view-toggle .empty-row-icon {
-    display: block;
-    width: 14px;
-    height: 14px;
-    flex: none;
-  }
-
-  .view-toggle .layer-tones-icon {
+  .legend-view :global(.layer-tones-icon),
+  .legend-view :global(.empty-row-icon) {
     fill: currentColor;
   }
 
-  .view-toggle .empty-row-icon {
-    fill: currentColor;
-  }
-
-  .view-toggle .empty-row-icon rect[fill='none'] {
+  .legend-view :global(.empty-row-icon rect[fill='none']) {
     fill: none;
     stroke: currentColor;
   }

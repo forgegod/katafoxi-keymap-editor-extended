@@ -7,6 +7,7 @@
   import { findBy, mapProp } from '../../../utils'
   import ValidationErrors from './ValidationErrors.svelte'
   import IconButton from '../../Common/IconButton.svelte'
+  import Button from '../../Common/Button.svelte'
   import Selector from '../../Common/Selector.svelte'
   import SourceMenu from '../SourceMenu.svelte'
 
@@ -406,22 +407,22 @@
           <p class="branch-error" role="alert">{branchError}</p>
         {/if}
         <div class="branch-actions">
-          <button
-            type="button"
+          <Button
+            variant="outline"
             disabled={creatingBranch || !branchDraft.trim()}
             onclick={() => void submitBranch()}
           >
             {creatingBranch ? 'Creating' : 'Create'}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="outline"
             onclick={() => {
               branchForm = false
               branchError = ''
             }}
           >
             Cancel
-          </button>
+          </Button>
         </div>
       </div>
     {:else if selectedBranchName}

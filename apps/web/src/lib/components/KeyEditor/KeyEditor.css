@@ -171,67 +171,6 @@
     display: contents;
   }
 
-  .key-editor-chip {
-    cursor: pointer;
-    flex-shrink: 0;
-    border: 1px solid var(--border-soft);
-    background: var(--key-face);
-    color: var(--text);
-    border-radius: 4px;
-    padding: 2px 6px;
-    font-family: inherit;
-    font-size: var(--font-xs);
-    font-weight: 500;
-    white-space: nowrap;
-  }
-
-  .key-editor-chip.active {
-    background: var(--hover-selection);
-    border-color: var(--hover-selection);
-    color: var(--on-accent);
-  }
-
-  .key-editor-chip.attention {
-    animation: key-needed 1s ease;
-  }
-
-  @keyframes key-needed {
-    0%,
-    100% {
-      background: var(--key-face);
-      border-color: var(--border-soft);
-      color: var(--text);
-    }
-    18%,
-    42% {
-      background: var(--amber);
-      border-color: var(--amber-strong);
-      color: var(--amber-ink);
-    }
-    62% {
-      background: var(--amber-soft);
-      border-color: var(--amber-strong);
-      color: var(--amber-ink);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .key-editor-chip.attention {
-      animation: none;
-      background: var(--amber);
-      border-color: var(--amber-strong);
-      color: var(--amber-ink);
-    }
-  }
-
-  .key-editor-chip.instant {
-    border-style: dashed;
-  }
-
-  .key-editor-chip.instant.active {
-    border-style: dashed;
-  }
-
   .key-editor-filter {
     display: block;
     width: 100%;

@@ -17,6 +17,7 @@
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
   import EyeToggle from './EyeToggle.svelte'
+  import PressToggle from './Common/PressToggle.svelte'
   import HostProfileMenu from './HostProfileMenu.svelte'
   import LangFlag from './LangFlag.svelte'
 
@@ -258,16 +259,16 @@
       onmouseleave={interactive ? clearHover : undefined}
     >
       {#if interactive}
-        <button
-          type="button"
+        <PressToggle
           class="col-toggle"
-          class:on={column.altGr}
+          density="pill"
+          pressed={column.altGr}
           aria-label="AltGr"
           title="AltGr"
           onclick={() => toggleAlt('altGr', column.altGr)}
         >
           {ALT_GR_COLUMN_LABEL}
-        </button>
+        </PressToggle>
       {:else}
         {ALT_GR_COLUMN_LABEL}
       {/if}
@@ -278,16 +279,16 @@
       onmouseleave={interactive ? clearHover : undefined}
     >
       {#if interactive}
-        <button
-          type="button"
+        <PressToggle
           class="col-toggle"
-          class:on={column.altGrShift}
+          density="pill"
+          pressed={column.altGrShift}
           aria-label="AltGr+Shift"
           title="AltGr+Shift"
           onclick={() => toggleAlt('altGrShift', column.altGrShift)}
         >
           {ALT_GR_SHIFT_COLUMN_LABEL}
-        </button>
+        </PressToggle>
       {:else}
         {ALT_GR_SHIFT_COLUMN_LABEL}
       {/if}
@@ -445,24 +446,5 @@
     width: 16px;
     height: 16px;
     padding: 1px;
-  }
-
-  .col-toggle {
-    margin: 0;
-    padding: 1px 6px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--surface-sunken);
-    color: var(--text-muted);
-    font: inherit;
-    font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
-    font-size: var(--font-sm);
-    cursor: pointer;
-  }
-
-  .col-toggle.on {
-    background: var(--surface);
-    border-color: var(--accent);
-    color: var(--text);
   }
 </style>

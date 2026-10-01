@@ -3,6 +3,7 @@
     taxonomyChipIsActive,
     type TaxonomyChip
   } from '@keymap-editor/keymap-core'
+  import SelectChip from '../Common/SelectChip.svelte'
 
   interface Props {
     chips: TaxonomyChip[]
@@ -15,15 +16,13 @@
 
 <div class="key-editor-taxonomy" role="tablist" aria-label="Value group">
   {#each chips as chip (chip.id)}
-    <button
-      type="button"
-      class="key-editor-chip"
-      class:active={taxonomyChipIsActive(chip, activeContexts)}
+    <SelectChip
+      active={taxonomyChipIsActive(chip, activeContexts)}
       role="tab"
       aria-selected={taxonomyChipIsActive(chip, activeContexts)}
       onclick={() => onChoose(chip.id)}
     >
       {chip.label}
-    </button>
+    </SelectChip>
   {/each}
 </div>

@@ -167,55 +167,9 @@ code {
   box-sizing: border-box;
 }
 
-/* Header actions are outline by default. Filled green is only .primary. */
-#actions button {
-  cursor: pointer;
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: var(--chrome-h);
-  background: var(--surface);
-  color: var(--text);
-  font-family: Quicksand, avenir, sans-serif;
-  font-size: var(--font-md);
-  font-weight: 500;
-  line-height: 1;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0 8px;
-  margin: 0;
-}
-
-#actions button:hover:not(:disabled) {
-  background: var(--surface);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-#actions button:disabled {
-  background: var(--surface-sunken);
-  color: var(--text-disabled);
-  border-color: var(--border-subtle);
-  cursor: not-allowed;
-}
-
 #actions :is(button, a):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
-}
-
-/* Host install: light accent while a user layout is waiting. Solid green stays on ZMK publish. */
-#actions button.download.ready:not(:disabled) {
-  background: var(--ok-wash);
-  border-color: var(--ok);
-  color: var(--ok);
-}
-
-#actions button.download.ready:hover:not(:disabled) {
-  background: var(--surface);
-  border-color: var(--ok-strong);
-  color: var(--ok-strong);
 }
 
 .lane-label {

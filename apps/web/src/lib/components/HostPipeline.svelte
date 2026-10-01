@@ -5,6 +5,7 @@
   import logoWindows from '../assets/logo-windows.png'
   import Modal from './Common/Modal.svelte'
   import ChromeStatus from './Common/ChromeStatus.svelte'
+  import Button from './Common/Button.svelte'
   import LangFlag from './LangFlag.svelte'
 
   type InstallSheet = 'linux' | 'windows' | null
@@ -198,29 +199,29 @@
   <span class="lane-label" title="Host layout: install results on the OS">Host</span>
   <ChromeStatus dirty={dirty} label={statusLabel} title={statusTitle} />
 
-  <button
-    type="button"
+  <Button
+    variant="softReady"
     class="download"
-    class:ready={dirty}
+    ready={dirty}
     aria-label="Install host layout on Linux"
     title="Open Linux install guide"
     onclick={() => openSheet('linux')}
   >
     <img class="os-icon" src={logoLinux} alt="" width="20" height="20" />
     <span class="dl-label">Linux</span>
-  </button>
+  </Button>
 
-  <button
-    type="button"
+  <Button
+    variant="softReady"
     class="download"
-    class:ready={dirty}
+    ready={dirty}
     aria-label="Install host layout on Windows"
     title="Open Windows install guide"
     onclick={() => openSheet('windows')}
   >
     <img class="os-icon" src={logoWindows} alt="" width="20" height="20" />
     <span class="dl-label">Windows</span>
-  </button>
+  </Button>
 </div>
 
 {#if sheet === 'linux'}
@@ -289,13 +290,12 @@
               readonly
               value={target.systemPath}
             />
-            <button
-              type="button"
-              class="secondary"
+            <Button
+              variant="outline"
               onclick={() => copyText(target.systemPath, 'System path copied')}
             >
               Copy path
-            </button>
+            </Button>
           </div>
 
           <label class="path-label" for={`user-path-${item.layoutId}`}>Example user path</label>
@@ -306,40 +306,34 @@
               readonly
               value={target.userPath}
             />
-            <button
-              type="button"
-              class="secondary"
+            <Button
+              variant="outline"
               onclick={() => copyText(target.userPath, 'User path copied')}
             >
               Copy path
-            </button>
+            </Button>
           </div>
 
           <pre class="section-preview">{item.text}</pre>
           <div class="row-actions">
-            <button
-              type="button"
-              class="primary"
+            <Button
+              variant="accent"
               onclick={() => copyText(item.text, `Section “${item.name}” copied`, true)}
             >
               Copy section
-            </button>
-            <button
-              type="button"
-              class="secondary"
-              onclick={() => downloadSection(item.text, item.name)}
-            >
+            </Button>
+            <Button variant="outline" onclick={() => downloadSection(item.text, item.name)}>
               Download file
-            </button>
+            </Button>
           </div>
         </section>
       {/each}
 
       {#if exports.length > 1}
         <div class="row-actions bulk">
-          <button type="button" class="secondary" onclick={downloadAllLinux}>
+          <Button variant="outline" onclick={downloadAllLinux}>
             Download all sections
-          </button>
+          </Button>
         </div>
       {/if}
 
@@ -348,7 +342,7 @@
       {/if}
 
       <div class="dialog-foot">
-        <button type="button" class="secondary" onclick={closeSheet}>Close</button>
+        <Button variant="outline" onclick={closeSheet}>Close</Button>
       </div>
     </div>
   </Modal>
@@ -442,9 +436,9 @@
               English column “{item.baseLayoutName}”, {item.capsLanguageName} column “{item.capsLayoutName}”.
             </p>
             <div class="row-actions">
-              <button type="button" class="primary" onclick={() => downloadCapsKlc(item)}>
+              <Button variant="accent" onclick={() => downloadCapsKlc(item)}>
                 Download {item.baseLanguageName} + {item.capsLanguageName} .klc
-              </button>
+              </Button>
             </div>
           {/each}
         </section>
@@ -459,15 +453,15 @@
             <span class="profile-name">“{item.name}”</span>
           </h3>
           <div class="row-actions">
-            <button type="button" class="primary" onclick={() => downloadKlc(item.layoutId, item.name)}>
+            <Button variant="accent" onclick={() => downloadKlc(item.layoutId, item.name)}>
               Download .klc
-            </button>
+            </Button>
           </div>
         </section>
       {/each}
 
       <div class="dialog-foot">
-        <button type="button" class="secondary" onclick={closeSheet}>Close</button>
+        <Button variant="outline" onclick={closeSheet}>Close</Button>
       </div>
     </div>
   </Modal>
@@ -484,32 +478,9 @@
     font-size: var(--font-md);
   }
 
-  .download {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    box-sizing: border-box;
-    height: var(--chrome-h);
-    margin: 0;
+  .host-pipeline :global(.download) {
+    /* Layout extras for softReady OS buttons; colors come from Button. */
     padding: 0 8px 0 6px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--surface-sunken);
-    color: var(--text);
-    font: inherit;
-    font-size: var(--font-md);
-    cursor: pointer;
-  }
-
-  .download:hover:not(:disabled) {
-    background: var(--surface);
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
-  .download:disabled {
-    opacity: 0.45;
-    cursor: default;
   }
 
   .os-icon {
@@ -735,43 +706,6 @@
 
   .row-actions.bulk {
     margin-bottom: 8px;
-  }
-
-  .primary,
-  .secondary {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 30px;
-    margin: 0;
-    padding: 0 12px;
-    border-radius: 8px;
-    font: inherit;
-    font-size: var(--font-md);
-    cursor: pointer;
-    text-decoration: none;
-  }
-
-  .primary {
-    border: 0;
-    background: var(--accent);
-    color: var(--on-accent);
-  }
-
-  .secondary {
-    border: 1px solid var(--border);
-    background: var(--surface-sunken);
-    color: var(--text);
-  }
-
-  .secondary:hover:not(:disabled),
-  .primary:hover:not(:disabled) {
-    filter: brightness(1.05);
-  }
-
-  .secondary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 
   .copy-note {

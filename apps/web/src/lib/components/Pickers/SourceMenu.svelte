@@ -73,9 +73,33 @@
 
   :global(#actions) .source-trigger {
     position: relative;
-    max-width: 16rem;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
     justify-content: flex-start;
+    max-width: 16rem;
+    height: var(--chrome-h);
+    margin: 0;
     padding: 0 22px 0 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    font-family: Quicksand, avenir, sans-serif;
+    font-size: var(--font-md);
+    font-weight: 500;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  :global(#actions) .source-trigger:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  :global(#actions) .source-trigger:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
   }
 
   .source-trigger-label {

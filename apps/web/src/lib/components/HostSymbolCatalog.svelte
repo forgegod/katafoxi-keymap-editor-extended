@@ -1,6 +1,7 @@
 <script lang="ts">
   import { hostLegendColumns, type HostLanguageId } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
+  import PressToggle from './Common/PressToggle.svelte'
   import HostSymbolPicker from './HostSymbolPicker.svelte'
 
   interface Props {
@@ -41,12 +42,11 @@
 
 {#if showToggle}
   <div class="catalog-chrome">
-    <button
-      bind:this={toggleEl}
-      type="button"
+    <PressToggle
+      bind:buttonEl={toggleEl}
       class="catalog-toggle"
-      class:on={open}
-      aria-pressed={open}
+      density="bar"
+      pressed={open}
       aria-expanded={open}
       aria-controls={open ? 'host-symbol-catalog' : undefined}
       aria-label="Host symbol catalog"
@@ -55,7 +55,7 @@
     >
       <span class="catalog-glyph" aria-hidden="true">Ω</span>
       <span class="catalog-label">Symbols</span>
-    </button>
+    </PressToggle>
     {#if open}
       <div id="host-symbol-catalog" class="catalog-float">
         <HostSymbolPicker language={language} anchorEl={toggleEl ?? null} disabled={disabled} />
@@ -82,35 +82,6 @@
     overflow: visible;
   }
 
-  .catalog-toggle {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    height: 28px;
-    margin: 2px 0 0;
-    padding: 0 8px 0 7px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--surface-sunken);
-    color: var(--text-muted);
-    font: inherit;
-    font-size: var(--font-xs);
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .catalog-toggle.on {
-    background: var(--surface);
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
-  .catalog-toggle:hover {
-    background: var(--surface);
-  }
-
   .catalog-glyph {
     font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
     font-size: var(--font-icon);
@@ -119,6 +90,6 @@
   }
 
   .catalog-label {
-    letter-spacing: 0.02em;
+    line-height: 1;
   }
 </style>

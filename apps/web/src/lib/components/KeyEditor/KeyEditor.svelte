@@ -34,6 +34,7 @@
   import HoldRow from './HoldRow.svelte'
   import TaxonomyChips from './TaxonomyChips.svelte'
   import ValueGrid from './ValueGrid.svelte'
+  import SelectChip from '../Common/SelectChip.svelte'
   import './KeyEditor.css'
 
   interface Choice extends CatalogChoice {
@@ -284,17 +285,15 @@
           <div class="key-editor-chips">
             {#if paramSlots.length > 1}
               {#each paramSlots as slot}
-                <button
-                  type="button"
-                  class="key-editor-chip"
-                  class:active={slot.codeIndex === activeSlot?.codeIndex}
-                  class:attention={pulseOn && pulseIndex === slot.codeIndex}
+                <SelectChip
+                  active={slot.codeIndex === activeSlot?.codeIndex}
+                  attention={pulseOn && pulseIndex === slot.codeIndex}
                   onclick={() => onActivateSlot(slot.codeIndex)}
                 >
                   {slot.label}{slot.value != null && slot.value !== ''
                     ? ` · ${slot.value}`
                     : ''}
-                </button>
+                </SelectChip>
               {/each}
             {/if}
             {#if showTaxonomy}
@@ -367,17 +366,15 @@
           {#if paramSlots.length > 1}
             <div class="key-editor-chips">
               {#each paramSlots as slot}
-                <button
-                  type="button"
-                  class="key-editor-chip"
-                  class:active={slot.codeIndex === activeSlot?.codeIndex}
-                  class:attention={pulseOn && pulseIndex === slot.codeIndex}
+                <SelectChip
+                  active={slot.codeIndex === activeSlot?.codeIndex}
+                  attention={pulseOn && pulseIndex === slot.codeIndex}
                   onclick={() => onActivateSlot(slot.codeIndex)}
                 >
                   {slot.label}{slot.value != null && slot.value !== ''
                     ? ` · ${slot.value}`
                     : ''}
-                </button>
+                </SelectChip>
               {/each}
             </div>
           {/if}
