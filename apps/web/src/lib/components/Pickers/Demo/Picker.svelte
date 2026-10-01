@@ -6,7 +6,7 @@
     writeStoredDemoId,
     type DemoCatalogEntry
   } from '../../../demo/catalog'
-  import type { LayoutKey } from '@keymap-editor/keymap-core'
+  import type { KeyBindingNode, LayoutKey } from '@keymap-editor/keymap-core'
   import LayoutThumb from './LayoutThumb.svelte'
 
   interface KeymapEvent {
@@ -26,12 +26,18 @@
 
   let { onSelect, onConnectGithub, showGithubCta = true }: Props = $props()
 
-  const cards: { entry: DemoCatalogEntry; layout: LayoutKey[] }[] = DEMO_CATALOG.map(
-    entry => ({
+  const cards: {
+    entry: DemoCatalogEntry
+    layout: LayoutKey[]
+    layers: KeyBindingNode[][]
+  }[] = DEMO_CATALOG.map(entry => {
+    const bundle = loadDemo(entry.id)
+    return {
       entry,
-      layout: loadDemo(entry.id).layout
-    })
-  )
+      layout: bundle.layout,
+      layers: bundle.keymap.layers
+    }
+  })
 
   let selectedId = $state(readStoredDemoId())
   let error = $state<string | null>(null)
@@ -89,7 +95,11 @@
           aria-selected={card.entry.id === selectedId}
           onclick={() => choose(card.entry.id)}
         >
-          <LayoutThumb layout={card.layout} label="{card.entry.name} layout" />
+          <LayoutThumb
+            layout={card.layout}
+            layers={card.layers}
+            label="{card.entry.name} layout"
+          />
           <span class="demo-meta">
             <span class="demo-name">{card.entry.name}</span>
             <span class="demo-blurb">{card.entry.blurb}</span>
