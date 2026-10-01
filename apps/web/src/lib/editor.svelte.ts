@@ -278,11 +278,9 @@ export class EditorState {
    * legend table. Off by default; not stored with the legend view.
    */
   layerTonesOn = $state(false)
-  /**
-   * Session toggle. When the physical top row is blank on every layer, the
-   * board hides it until this is on. Not stored with the keymap.
-   */
-  revealEmptyRow = $state(false)
+  /** Prototype: full matrix + layout row/col rails on the board. Not stored. */
+  schemeMode = $state(false)
+
   /** Which firmware layers are drawn on the keycap. */
   layerView = $state<LayerView>(standardLayerView())
   userLayouts = $state<UserHostLayout[]>([])
@@ -1348,7 +1346,7 @@ export class EditorState {
     this.source = event.source ?? null
     this.githubMeta = event.github ?? null
     this.layout = event.layout ?? null
-    this.revealEmptyRow = false
+    this.schemeMode = false
     const km = event.keymap ?? null
     if (!km) {
       this.baselineKeymap = null
@@ -1594,7 +1592,7 @@ export class EditorState {
     this.draftKeymap = null
     this.clearHistory()
     this.saving = false
-    this.revealEmptyRow = false
+    this.schemeMode = false
     this.saveNotice = null
   }
 
@@ -1621,7 +1619,7 @@ export class EditorState {
     this.symbolAlignOn = true
     this.multilangView = false
     this.layerTonesOn = false
-    this.revealEmptyRow = false
+    this.schemeMode = false
     this.layerView = standardLayerView()
     this.userLayouts = []
     this.hostProfilePrompt = null

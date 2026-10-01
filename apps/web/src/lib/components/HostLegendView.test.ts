@@ -102,67 +102,40 @@ describe('HostLegendView', () => {
     expect(tones.classList.contains('on')).toBe(true)
   })
 
-  it('shows an empty-row toggle beside layer colors when the top row is blank', () => {
-    editor.layout = [
-      { x: 0, y: 0, row: 0 },
-      { x: 1, y: 0, row: 0 },
-      { x: 0, y: 1, row: 1 }
-    ]
-    editor.draftKeymap = {
-      layers: [
-        [
-          { value: '&none', params: [] },
-          { value: '&none', params: [] },
-          { value: '&kp', params: [{ value: 'A', params: [] }] }
-        ]
-      ]
-    }
+  it('shows a scheme toggle beside layer colors', () => {
     mountView()
 
     const modes = [...target.querySelectorAll('.view-toggle')]
-    const empty = button('Show empty row')
+    const scheme = button('Show matrix scheme')
     const board = target.querySelector('.board-row')
     if (!(board instanceof HTMLElement)) throw new Error('missing board row')
     expect(modes.map(el => el.getAttribute('aria-label'))).toEqual([
       'Stack languages',
       'Highlight symbol differences',
       'Layer colors',
-      'Show empty row'
+      'Show matrix scheme'
     ])
     expect(board.contains(modes[2]!)).toBe(true)
-    expect(board.contains(empty)).toBe(true)
-    expect(modes[2]?.nextElementSibling?.classList.contains('empty-slot')).toBe(true)
-    expect(empty.classList.contains('view-toggle')).toBe(true)
-    expect(empty.classList.contains('half')).toBe(true)
-    expect(empty.classList.contains('on')).toBe(false)
-    expect(empty.getAttribute('aria-pressed')).toBe('false')
-    expect(empty.querySelector('.view-label')?.textContent).toBe('Empty')
+    expect(board.contains(scheme)).toBe(true)
+    expect(modes[2]?.nextElementSibling?.classList.contains('scheme-slot')).toBe(true)
+    expect(scheme.classList.contains('view-toggle')).toBe(true)
+    expect(scheme.classList.contains('half')).toBe(true)
+    expect(scheme.classList.contains('on')).toBe(false)
+    expect(scheme.getAttribute('aria-pressed')).toBe('false')
+    expect(scheme.querySelector('.view-label')?.textContent).toBe('Scheme')
 
-    empty.click()
+    scheme.click()
     flushSync()
-    expect(editor.revealEmptyRow).toBe(true)
-    expect(empty.getAttribute('aria-label')).toBe('Hide empty row')
-    expect(empty.getAttribute('aria-pressed')).toBe('true')
-    expect(empty.classList.contains('on')).toBe(true)
-    expect(empty.querySelector('.view-label')?.textContent).toBe('Empty')
+    expect(editor.schemeMode).toBe(true)
+    expect(scheme.getAttribute('aria-label')).toBe('Hide matrix scheme')
+    expect(scheme.getAttribute('aria-pressed')).toBe('true')
+    expect(scheme.classList.contains('on')).toBe(true)
+    expect(scheme.querySelector('.view-label')?.textContent).toBe('Scheme')
   })
 
-  it('keeps the empty-row slot when the top row has a binding', () => {
-    editor.layout = [
-      { x: 0, y: 0, row: 0 },
-      { x: 0, y: 1, row: 1 }
-    ]
-    editor.draftKeymap = {
-      layers: [
-        [
-          { value: '&kp', params: [{ value: 'ESC', params: [] }] },
-          { value: '&none', params: [] }
-        ]
-      ]
-    }
+  it('keeps the scheme slot beside layer colors', () => {
     mountView()
-    expect(target.querySelector('.empty-row')).toBeNull()
-    expect(target.querySelector('.board-row .empty-slot')).toBeInstanceOf(HTMLElement)
+    expect(target.querySelector('.board-row .scheme-slot')).toBeInstanceOf(HTMLElement)
     expect(button('Layer colors').classList.contains('half')).toBe(true)
   })
 })

@@ -20,6 +20,7 @@
   import { buildSearchContext } from '../../search-context'
   import { getKeyBoundingBox } from '../../key-units'
   import KeyboardLayout from './KeyboardLayout.svelte'
+  import MatrixSchemeOverlay from './MatrixSchemeOverlay.svelte'
 
   interface Props {
     layout: LayoutKey[]
@@ -28,8 +29,11 @@
     hostView?: HostLegendView
     layerView?: LayerView
     legendHover?: LegendHover | null
-    /** When the top row is blank, false hides it. The legend column owns the toggle. */
-    revealEmptyRow?: boolean
+    /**
+     * Firmware-scheme view: show absent slots and blank rows, and draw
+     * layout row/col rails. The legend column owns the toggle.
+     */
+    schemeMode?: boolean
   }
 
   let {
@@ -39,7 +43,7 @@
     hostView,
     layerView,
     legendHover = null,
-    revealEmptyRow = false
+    schemeMode = false
   }: Props = $props()
 
   const definitionsBox = getDefinitionsContext()
@@ -80,10 +84,9 @@
 
   const blankTopRow = $derived(blankTopRowIndexes(layout, keymap.layers ?? []))
   const hiddenKeys = $derived.by(() => {
+    if (schemeMode) return new Set<number>()
     const hidden = new Set(absentLayoutIndexes(layout))
-    if (!revealEmptyRow) {
-      for (const index of blankTopRow) hidden.add(index)
-    }
+    for (const index of blankTopRow) hidden.add(index)
     return hidden
   })
 
@@ -196,6 +199,15 @@
             {usedLayerLabels}
             onUpdate={handleUpdateBinding}
           />
+          {#if schemeMode}
+            <MatrixSchemeOverlay
+              {layout}
+              width={bounds.width}
+              height={bounds.height}
+              minX={bounds.minX}
+              minY={bounds.minY}
+            />
+          {/if}
         {/if}
       </div>
     </div>

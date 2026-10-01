@@ -293,7 +293,7 @@
         hostView={editor.hostLegend}
         layerView={editor.layerView}
         legendHover={editor.legendHover}
-        revealEmptyRow={editor.revealEmptyRow}
+        schemeMode={editor.schemeMode}
       />
     {/if}
   </div>
