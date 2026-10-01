@@ -122,7 +122,7 @@
     gap: 8px;
     box-sizing: border-box;
     min-width: 16rem;
-    max-width: 22rem;
+    max-width: 24rem;
     margin: 0;
     padding: 8px;
     background: var(--surface);

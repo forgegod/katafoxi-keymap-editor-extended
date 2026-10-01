@@ -5,8 +5,10 @@
   import { githubChipLabel, githubGateAction } from '../../github/chrome-label.js'
   import github from '../../github/api.svelte.js'
   import { compact } from '../../utils'
+  import { readStoredDemoId, DEMO_CATALOG } from '../../demo/catalog'
   import Selector from '../Common/Selector.svelte'
   import GithubPicker, { type GithubChromeStatus } from './Github/Picker.svelte'
+  import DemoPicker from './Demo/Picker.svelte'
   import SourceMenu from './SourceMenu.svelte'
 
   interface KeymapEvent {
@@ -14,6 +16,7 @@
     layout?: unknown
     keymap?: unknown
     github?: { repository: string; branch: string }
+    demo?: { id: string; name: string }
     [key: string]: unknown
   }
 
@@ -25,20 +28,29 @@
   let { onSelect, onLogout }: Props = $props()
 
   const sourceChoices = compact([
+    { id: 'demo', name: 'Demo' },
     config.enableLocal ? { id: 'local', name: 'Local' } : null,
     config.enableGitHub ? { id: 'github', name: 'GitHub' } : null
   ])
 
   const selectedSource = localStorage.getItem('selectedSource')
   const onlySource = sourceChoices.length === 1 ? sourceChoices[0].id : null
+  const storedIsChoice = Boolean(
+    selectedSource && sourceChoices.some(source => source.id === selectedSource)
+  )
   const defaultSource =
     onlySource ||
-    (sourceChoices.find(source => source.id === selectedSource)
+    (storedIsChoice
       ? selectedSource
-      : null)
+      : selectedSource
+        ? null
+        : (sourceChoices.find(source => source.id === 'demo')?.id ?? null))
 
   let source = $state<string | null>(defaultSource)
   let gh = $state<GithubChromeStatus | null>(null)
+  let demoName = $state<string | null>(
+    DEMO_CATALOG.find(entry => entry.id === readStoredDemoId())?.name ?? null
+  )
 
   const gate = $derived(
     source === 'github'
@@ -53,6 +65,7 @@
 
   const triggerLabel = $derived.by(() => {
     if (source === 'local') return 'Local'
+    if (source === 'demo') return demoName ? `Demo · ${demoName}` : 'Demo'
     if (source !== 'github') return 'Source'
     if (gate === 'login') return 'Login with GitHub'
     if (gate === 'install') return 'Add Repository'
@@ -62,6 +75,11 @@
 
   const triggerTitle = $derived.by(() => {
     if (source === 'local') return 'Local files'
+    if (source === 'demo') {
+      return demoName
+        ? `Demo keyboard: ${demoName}`
+        : 'Choose a demo keyboard'
+    }
     if (source !== 'github') return 'Choose a keymap source'
     if (!gh?.ready || !gh.authorized) return 'Login with GitHub'
     if (!gh.appInstalled) return 'Add a GitHub repository'
@@ -87,12 +105,18 @@
       km.layer_names || km.layers.map((_, i) => `Layer ${i}`)
     Object.assign(km, { layer_names: layerNames })
 
+    if (event.demo?.name) demoName = event.demo.name
+
     onSelect({ source: source ?? undefined, layout, keymap: km, ...rest })
   }
 
   async function fetchLocalKeyboard() {
     const [layout, keymap] = await Promise.all([loadLayout(), loadKeymap()])
     handleKeyboardSelected({ source: source ?? undefined, layout, keymap })
+  }
+
+  function connectGithub() {
+    source = 'github'
   }
 
   $effect(() => {
@@ -124,6 +148,13 @@
           onUpdate={value => {
             source = String(value)
           }}
+        />
+      {/if}
+      {#if source === 'demo'}
+        <DemoPicker
+          onSelect={handleKeyboardSelected}
+          onConnectGithub={config.enableGitHub ? connectGithub : undefined}
+          showGithubCta={config.enableGitHub}
         />
       {/if}
       {#if source === 'github'}

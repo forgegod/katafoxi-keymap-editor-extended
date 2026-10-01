@@ -207,6 +207,14 @@
           {/if}
 
           <div class="chrome-group actions-publish">
+            {#if editor.source === 'demo'}
+              <span
+                class="demo-status"
+                title="Demo edits stay in this browser. Connect GitHub or Local to save a real config."
+              >
+                Demo — not saved to a repo
+              </span>
+            {/if}
             {#if editor.source === 'local'}
               <Button
                 variant="publish"
@@ -422,6 +430,15 @@
 
   .actions-history {
     gap: 4px;
+  }
+
+  .demo-status {
+    display: inline-flex;
+    align-items: center;
+    height: var(--chrome-h);
+    color: var(--text-muted);
+    font-size: var(--font-sm, 0.85rem);
+    white-space: nowrap;
   }
 
   .board-stack {

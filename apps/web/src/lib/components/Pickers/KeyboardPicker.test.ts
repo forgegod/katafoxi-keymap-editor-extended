@@ -64,6 +64,26 @@ describe('KeyboardPicker', () => {
     return onSelect
   }
 
+  it('defaults to Demo when no source is stored and loads a keyboard', async () => {
+    const onSelect = open()
+
+    const select = target.querySelector('#source')
+    if (!(select instanceof HTMLSelectElement)) {
+      throw new Error('missing source select')
+    }
+    expect(select.selectedOptions[0]?.textContent?.trim()).toBe('Demo')
+    await vi.waitFor(() => {
+      expect(onSelect).toHaveBeenCalled()
+    })
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'demo',
+        demo: expect.objectContaining({ id: 'lark' })
+      })
+    )
+    expect(loadLayout).not.toHaveBeenCalled()
+  })
+
   it('starts on GitHub when selectedSource is github and does not fetch local files', () => {
     localStorage.setItem('selectedSource', 'github')
 
@@ -87,7 +107,7 @@ describe('KeyboardPicker', () => {
     if (!(select instanceof HTMLSelectElement)) {
       throw new Error('missing source select')
     }
-    expect(select.options).toHaveLength(2)
+    expect(select.options).toHaveLength(3)
     expect(localStorage.getItem('selectedSource')).toBe('nope')
     expect(target.querySelector('#repo')).toBeNull()
     expect(onSelect).not.toHaveBeenCalled()
@@ -103,7 +123,8 @@ describe('KeyboardPicker', () => {
     if (!(select instanceof HTMLSelectElement)) {
       throw new Error('missing source select')
     }
-    select.value = '0'
+    // Demo=0, Local=1, GitHub=2
+    select.value = '1'
     select.dispatchEvent(new Event('change', { bubbles: true }))
     flushSync()
 
