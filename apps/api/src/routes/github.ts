@@ -154,12 +154,17 @@ githubRoutes.get('/keyboard-files/:installationId/:repository', async c => {
   const { installationId, repository } = c.req.param()
   const branch = c.req.query('branch')
   try {
-    const { info, keymap } = await files.fetchKeyboardFiles(installationId, repository, branch)
+    const { info, keymap, hostSnapshot } = await files.fetchKeyboardFiles(
+      installationId,
+      repository,
+      branch
+    )
     validateInfoJson(info)
     validateKeymapJson(keymap)
     return c.json({
       info,
-      keymap: parseKeymap(keymap as { layers: string[][] })
+      keymap: parseKeymap(keymap as { layers: string[][] }),
+      hostSnapshot: hostSnapshot ?? null
     })
   } catch (err) {
     if (err instanceof files.MissingRepoFile) {
@@ -207,14 +212,16 @@ githubRoutes.get('/builds/:installationId/:repository', async c => {
 
 githubRoutes.post('/keyboard-files/:installationId/:repository/:branch', async c => {
   const { installationId, repository, branch } = c.req.param()
-  const { keymap, layout } = await c.req.json()
+  const { keymap, layout, hostSnapshot, hostDeliverables } = await c.req.json()
   try {
     const { mode, warnings } = await files.commitChanges(
       installationId,
       repository,
       branch,
       layout,
-      keymap
+      keymap,
+      hostSnapshot ?? null,
+      hostDeliverables ?? null
     )
     return c.json({ ok: true, mode, warnings })
   } catch (err) {

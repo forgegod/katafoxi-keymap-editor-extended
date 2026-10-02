@@ -1,4 +1,4 @@
-import { parseKeymap } from '@keymap-editor/keymap-core'
+import { parseKeymap, HOST_KEYMAP_SNAPSHOT_PATH } from '@keymap-editor/keymap-core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ApiRequestOptions } from './api.js'
 import * as api from './api.js'
@@ -241,16 +241,20 @@ describe('fetchKeyboardFiles', () => {
   })
 
   it('lists config once and does not download .keymap when keymap.json is valid', async () => {
-    const request = mockGithub({
-      'config/info.json': JSON.stringify(INFO),
-      config: LISTING,
-      'config/keymap.json': JSON.stringify(KEYMAP_JSON)
-    })
+    const request = mockGithub(
+      {
+        'config/info.json': JSON.stringify(INFO),
+        config: LISTING,
+        'config/keymap.json': JSON.stringify(KEYMAP_JSON)
+      },
+      { missing: [HOST_KEYMAP_SNAPSHOT_PATH] }
+    )
 
     const result = await fetchKeyboardFiles('1', REPO, 'main')
 
     expect(result.originalCodeKeymap.path).toBe(KEYMAP_PATH)
     expect(result.keymap).toEqual(KEYMAP_JSON)
+    expect(result.hostSnapshot).toBeNull()
     expect(requestUrls(request).filter(url => url.endsWith('/contents/config'))).toHaveLength(
       1
     )
@@ -264,7 +268,7 @@ describe('fetchKeyboardFiles', () => {
         config: LISTING,
         [KEYMAP_PATH]: DTS
       },
-      { missing: ['config/keymap.json'] }
+      { missing: ['config/keymap.json', HOST_KEYMAP_SNAPSHOT_PATH] }
     )
 
     const result = await fetchKeyboardFiles('1', REPO)
@@ -280,12 +284,15 @@ describe('fetchKeyboardFiles', () => {
   })
 
   it('falls back to .keymap when keymap.json is not JSON', async () => {
-    const request = mockGithub({
-      'config/info.json': JSON.stringify(INFO),
-      config: LISTING,
-      'config/keymap.json': 'not-json',
-      [KEYMAP_PATH]: DTS
-    })
+    const request = mockGithub(
+      {
+        'config/info.json': JSON.stringify(INFO),
+        config: LISTING,
+        'config/keymap.json': 'not-json',
+        [KEYMAP_PATH]: DTS
+      },
+      { missing: [HOST_KEYMAP_SNAPSHOT_PATH] }
+    )
 
     const result = await fetchKeyboardFiles('1', REPO)
 
@@ -297,12 +304,15 @@ describe('fetchKeyboardFiles', () => {
   })
 
   it('falls back to .keymap when keymap.json is not primary and skips the template', async () => {
-    const request = mockGithub({
-      'config/info.json': JSON.stringify(INFO),
-      config: LISTING,
-      'config/keymap.json': JSON.stringify({ layers: [] }),
-      [KEYMAP_PATH]: DTS
-    })
+    const request = mockGithub(
+      {
+        'config/info.json': JSON.stringify(INFO),
+        config: LISTING,
+        'config/keymap.json': JSON.stringify({ layers: [] }),
+        [KEYMAP_PATH]: DTS
+      },
+      { missing: [HOST_KEYMAP_SNAPSHOT_PATH] }
+    )
 
     const result = await fetchKeyboardFiles('1', REPO)
 
@@ -321,7 +331,10 @@ describe('fetchKeyboardFiles', () => {
         config: LISTING,
         [KEYMAP_PATH]: DTS
       },
-      { errors: { 'config/keymap.json': 500 } }
+      {
+        missing: [HOST_KEYMAP_SNAPSHOT_PATH],
+        errors: { 'config/keymap.json': 500 }
+      }
     )
 
     await expect(fetchKeyboardFiles('1', REPO)).rejects.toMatchObject({
@@ -336,12 +349,40 @@ describe('fetchKeyboardFiles', () => {
         config: LISTING,
         'config/keymap.json': JSON.stringify(KEYMAP_JSON)
       },
-      { missing: ['config/info.json'] }
+      { missing: ['config/info.json', HOST_KEYMAP_SNAPSHOT_PATH] }
     )
 
     const err = await fetchKeyboardFiles('1', REPO).catch(e => e)
     expect(err).toBeInstanceOf(MissingRepoFile)
     expect((err as MissingRepoFile).path).toBe('config/info.json')
+  })
+
+  it('returns a parsed host snapshot when host_keymap/snapshot.json exists', async () => {
+    const hostSnapshot = {
+      version: 1,
+      view: {
+        columns: [
+          {
+            language: 'en',
+            layoutId: 'system-us',
+            visible: true,
+            altGr: true,
+            altGrShift: true
+          }
+        ],
+        open: null
+      },
+      layouts: []
+    }
+    mockGithub({
+      'config/info.json': JSON.stringify(INFO),
+      config: LISTING,
+      'config/keymap.json': JSON.stringify(KEYMAP_JSON),
+      [HOST_KEYMAP_SNAPSHOT_PATH]: JSON.stringify(hostSnapshot)
+    })
+
+    const result = await fetchKeyboardFiles('1', REPO, 'main')
+    expect(result.hostSnapshot).toEqual(hostSnapshot)
   })
 })
 
@@ -480,5 +521,98 @@ describe('commitChanges', () => {
     expect(findRequest(request, 'PATCH', `/repos/${REPO}/git/refs/heads/main`)).toBeUndefined()
     expect(requestUrls(request).some(url => url.includes('/git/refs/'))).toBe(false)
     expect(findRequest(request, 'POST', `/repos/${REPO}/git/trees`)).toBeUndefined()
+  })
+
+  it('writes host_keymap/snapshot.json in the same tree when a snapshot is provided', async () => {
+    const request = mockGithub({
+      config: LISTING_NO_TEMPLATE,
+      [KEYMAP_PATH]: ORIGINAL_SOURCE,
+      ...gitCommitEndpoints('main')
+    })
+    const hostSnapshot = {
+      version: 1 as const,
+      view: {
+        columns: [
+          {
+            language: 'en' as const,
+            layoutId: 'system-us',
+            visible: true,
+            altGr: true,
+            altGrShift: true
+          }
+        ],
+        open: null
+      },
+      layouts: []
+    }
+
+    await commitChanges('1', REPO, 'main', ONE_KEY_LAYOUT, EDITED_KEYMAP, hostSnapshot)
+
+    const blobs = treeBlobs(request)
+    expect(blobs.tree?.map(blob => blob.path)).toEqual([
+      KEYMAP_PATH,
+      'config/keymap.json',
+      HOST_KEYMAP_SNAPSHOT_PATH
+    ])
+    expect(
+      blobs.tree?.find(blob => blob.path === HOST_KEYMAP_SNAPSHOT_PATH)?.content
+    ).toContain('"version": 1')
+  })
+
+  it('writes host deliverable files beside the snapshot', async () => {
+    const request = mockGithub({
+      config: LISTING_NO_TEMPLATE,
+      [KEYMAP_PATH]: ORIGINAL_SOURCE,
+      ...gitCommitEndpoints('main')
+    })
+    const hostSnapshot = {
+      version: 1 as const,
+      view: {
+        columns: [
+          {
+            language: 'en' as const,
+            layoutId: 'system-us',
+            visible: true,
+            altGr: true,
+            altGrShift: true
+          }
+        ],
+        open: null
+      },
+      layouts: []
+    }
+    const hostDeliverables = [
+      {
+        path: 'host_keymap/linux/ru.xkb',
+        content: 'xkb_symbols "ru" { };\n'
+      },
+      {
+        path: 'host_keymap/windows/ru.klc',
+        content: 'KBD\tru\t"Russian"\r\n'
+      },
+      {
+        path: 'evil/../escape.txt',
+        content: 'nope'
+      }
+    ]
+
+    await commitChanges(
+      '1',
+      REPO,
+      'main',
+      ONE_KEY_LAYOUT,
+      EDITED_KEYMAP,
+      hostSnapshot,
+      hostDeliverables
+    )
+
+    const paths = treeBlobs(request).tree?.map(blob => blob.path) ?? []
+    expect(paths).toEqual([
+      KEYMAP_PATH,
+      'config/keymap.json',
+      HOST_KEYMAP_SNAPSHOT_PATH,
+      'host_keymap/linux/ru.xkb',
+      'host_keymap/windows/ru.klc'
+    ])
   })
 })

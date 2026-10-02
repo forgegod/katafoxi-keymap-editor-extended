@@ -1,8 +1,13 @@
 import {
   buildKeymapCode,
+  encodeHostKeymapSnapshot,
+  HOST_KEYMAP_SNAPSHOT_PATH,
   isPrimaryKeymapJson,
   isUserKeymapFilename,
   parseDtsKeymap,
+  parseHostKeymapSnapshot,
+  type HostKeymapDeliverableFile,
+  type HostKeymapSnapshot,
   type LayoutKey,
   type ParsedKeymap
 } from '@keymap-editor/keymap-core'
@@ -151,6 +156,28 @@ async function fetchKeymap(
   return fetchKeymapFromDts(installationToken, repository, originalCodeKeymap, branch)
 }
 
+async function fetchHostKeymapSnapshot(
+  installationToken: string,
+  repository: string,
+  branch?: string
+): Promise<HostKeymapSnapshot | null> {
+  try {
+    const { data } = await fetchFile(
+      installationToken,
+      repository,
+      HOST_KEYMAP_SNAPSHOT_PATH,
+      { raw: true, branch }
+    )
+    const parsed = parseHostKeymapSnapshot(
+      typeof data === 'string' ? data : parseJsonBody(data)
+    )
+    return parsed
+  } catch (err) {
+    if (err instanceof MissingRepoFile) return null
+    throw err
+  }
+}
+
 export async function fetchKeyboardFiles(
   installationId: string,
   repository: string,
@@ -173,7 +200,12 @@ export async function fetchKeyboardFiles(
     originalCodeKeymap,
     branch
   )
-  return { info, keymap, originalCodeKeymap }
+  const hostSnapshot = await fetchHostKeymapSnapshot(
+    installationToken,
+    repository,
+    branch
+  )
+  return { info, keymap, originalCodeKeymap, hostSnapshot }
 }
 
 export async function commitChanges(
@@ -181,7 +213,9 @@ export async function commitChanges(
   repository: string,
   branch: string,
   layout: LayoutKey[],
-  keymap: ParsedKeymap
+  keymap: ParsedKeymap,
+  hostSnapshot?: HostKeymapSnapshot | null,
+  hostDeliverables?: HostKeymapDeliverableFile[] | null
 ) {
   const { data } = await auth.createInstallationToken(installationId)
   const installationToken = (data as { token: string }).token
@@ -213,26 +247,46 @@ export async function commitChanges(
     commit: { tree: { sha: string } }
   }
 
+  const tree: Array<{ path: string; mode: string; type: string; content: string }> = [
+    {
+      path: originalCodeKeymap.path,
+      mode: MODE_FILE,
+      type: 'blob',
+      content: built.code
+    },
+    {
+      path: 'config/keymap.json',
+      mode: MODE_FILE,
+      type: 'blob',
+      content: built.json
+    }
+  ]
+  if (hostSnapshot) {
+    tree.push({
+      path: HOST_KEYMAP_SNAPSHOT_PATH,
+      mode: MODE_FILE,
+      type: 'blob',
+      content: encodeHostKeymapSnapshot(hostSnapshot)
+    })
+    for (const file of hostDeliverables ?? []) {
+      if (!file?.path || typeof file.content !== 'string') continue
+      if (!file.path.startsWith('host_keymap/')) continue
+      tree.push({
+        path: file.path,
+        mode: MODE_FILE,
+        type: 'blob',
+        content: file.content
+      })
+    }
+  }
+
   const { data: treeData } = await api.request({
     url: `/repos/${repository}/git/trees`,
     method: 'POST',
     token: installationToken,
     data: {
       base_tree: commit.tree.sha,
-      tree: [
-        {
-          path: originalCodeKeymap.path,
-          mode: MODE_FILE,
-          type: 'blob',
-          content: built.code
-        },
-        {
-          path: 'config/keymap.json',
-          mode: MODE_FILE,
-          type: 'blob',
-          content: built.json
-        }
-      ]
+      tree
     }
   })
   const newTreeSha = (treeData as { sha: string }).sha
