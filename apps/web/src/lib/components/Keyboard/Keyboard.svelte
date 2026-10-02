@@ -1,6 +1,8 @@
 <script lang="ts">
   import {
     collectUsedKeycodes,
+    encodeKeyBinding,
+    effectiveShownLayers,
     isBlankLayerBinding,
     layerLegendSymbol,
     usedKeycodesRevision,
@@ -9,7 +11,8 @@
     type LegendHover,
     type KeyBindingNode,
     type LayoutKey,
-    type ParsedKeymap
+    type ParsedKeymap,
+    type ZmkCombo
   } from '@keymap-editor/keymap-core'
   import { hiddenBoardIndexes } from '../../blank-top-row'
   import {
@@ -22,6 +25,7 @@
   import { getKeyBoundingBox } from '../../key-units'
   import KeyboardLayout from './KeyboardLayout.svelte'
   import MatrixSchemeOverlay from './MatrixSchemeOverlay.svelte'
+  import ComboArcsOverlay from './ComboArcsOverlay.svelte'
   import ComboPanel from '../ComboPanel.svelte'
 
   interface Props {
@@ -90,6 +94,29 @@
     const combo = (keymap.combos ?? []).find(c => c.id === editor.activeComboId)
     return combo ? new Set(combo.keyPositions) : null
   })
+  const shownLayersForCombos = $derived(
+    layerView
+      ? effectiveShownLayers(layerView, keymap.layers?.length ?? 0)
+      : [0]
+  )
+  const boardCombos = $derived(keymap.combos ?? [])
+
+  function comboBindingLabel(combo: ZmkCombo): string {
+    try {
+      return encodeKeyBinding(combo.binding)
+    } catch {
+      return String(combo.binding.value)
+    }
+  }
+
+  function openComboFromBoard(comboId: string) {
+    editor.activeComboId = comboId
+    editor.comboNotice = null
+    if (!editor.comboMode) {
+      editor.schemeMode = false
+      editor.comboMode = true
+    }
+  }
 
   const hiddenKeys = $derived.by(() => {
     if (schemeMode || comboMode) return new Set<number>()
@@ -230,6 +257,20 @@
             onUpdate={handleUpdateBinding}
             onComboToggle={index => editor.toggleComboPosition(index)}
           />
+          {#if !comboMode && boardCombos.length > 0}
+            <ComboArcsOverlay
+              {layout}
+              combos={boardCombos}
+              shownLayers={shownLayersForCombos}
+              hidden={hiddenKeys}
+              width={bounds.width}
+              height={bounds.height}
+              minX={bounds.minX}
+              minY={bounds.minY}
+              labelFor={comboBindingLabel}
+              onSelect={openComboFromBoard}
+            />
+          {/if}
           {#if schemeMode}
             <MatrixSchemeOverlay
               {layout}
