@@ -74,9 +74,8 @@ describe('KeyboardPicker', () => {
     expect(select.selectedOptions[0]?.textContent?.trim()).toBe('Demo')
     const popover = target.querySelector('.source-popover')
     expect(popover).toBeTruthy()
-    expect(popover?.hasAttribute('hidden')).toBe(false)
+    expect(popover?.hasAttribute('hidden')).toBe(true)
     expect(target.querySelector('.source-trigger-accent')).toBeTruthy()
-    expect(target.querySelector('.source-select-accent')).toBeTruthy()
     await vi.waitFor(() => {
       expect(onSelect).toHaveBeenCalled()
     })
@@ -89,18 +88,48 @@ describe('KeyboardPicker', () => {
     expect(loadLayout).not.toHaveBeenCalled()
   })
 
-  it('closes the first-visit accent when the source menu is dismissed', async () => {
-    open()
-
-    expect(target.querySelector('.source-trigger-accent')).toBeTruthy()
-    document.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+  it('opens a requested source from the welcome banner', () => {
+    const onOpenSourceConsumed = vi.fn()
+    view = mount(KeyboardPicker, {
+      target,
+      props: {
+        onSelect: vi.fn(),
+        openSource: 'clipboard',
+        onOpenSourceConsumed
+      }
+    })
     flushSync()
+
+    expect(target.querySelector('.clipboard-picker')).toBeTruthy()
+    expect(target.querySelector('.source-popover')?.hasAttribute('hidden')).toBe(
+      false
+    )
+    expect(onOpenSourceConsumed).toHaveBeenCalled()
+    expect(target.querySelector('.source-trigger-accent')).toBeNull()
+  })
+
+  it('keeps the Demo trigger pulsing while Demo is selected', async () => {
+    open()
 
     expect(target.querySelector('.source-popover')?.hasAttribute('hidden')).toBe(
       true
     )
+    expect(target.querySelector('.source-trigger-accent')).toBeTruthy()
+
+    ;(target.querySelector('.source-trigger') as HTMLButtonElement).click()
+    flushSync()
+
+    expect(target.querySelector('.source-popover')?.hasAttribute('hidden')).toBe(
+      false
+    )
+    expect(target.querySelector('.source-trigger-accent')).toBeTruthy()
+    expect(target.querySelector('.source-select-accent')).toBeTruthy()
+  })
+
+  it('stops the Demo pulse when leaving Demo', () => {
+    localStorage.setItem('selectedSource', 'github')
+    open()
     expect(target.querySelector('.source-trigger-accent')).toBeNull()
-    expect(target.querySelector('.source-select-accent')).toBeNull()
   })
 
   it('starts on GitHub when selectedSource is github and does not fetch local files', () => {
@@ -129,7 +158,7 @@ describe('KeyboardPicker', () => {
     expect(target.querySelector('.source-popover')?.hasAttribute('hidden')).toBe(
       true
     )
-    expect(target.querySelector('.source-trigger-accent')).toBeNull()
+    expect(target.querySelector('.source-trigger-accent')).toBeTruthy()
     await vi.waitFor(() => {
       expect(onSelect).toHaveBeenCalled()
     })

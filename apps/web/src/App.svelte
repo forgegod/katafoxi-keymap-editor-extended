@@ -19,6 +19,7 @@
   import HostBasicGaps from './lib/components/HostBasicGaps.svelte'
   import HostLegendPicker from './lib/components/HostLegendPicker.svelte'
   import HostPipeline from './lib/components/HostPipeline.svelte'
+  import WelcomeBanner from './lib/components/WelcomeBanner.svelte'
   import Loader from './lib/components/Common/Loader.svelte'
   import github from './lib/github/api.svelte.js'
   import FirmwareBuild from './lib/components/FirmwareBuild.svelte'
@@ -39,6 +40,7 @@
   let topEl: HTMLDivElement | undefined = $state()
   /** Tools sit under the pipelines when they no longer fit beside them. */
   let toolsBelow = $state(false)
+  let openSourceRequest = $state<string | null>(null)
   let clipboardExport = $state<{
     code: string
     copied: boolean
@@ -199,7 +201,7 @@
         <div class="chrome-lane chrome-zmk" aria-label="ZMK keymap">
           <span class="lane-label" title="ZMK keymap: source, edit history, and publish">ZMK</span>
 
-          {#if editor.draftKeymap}
+          {#if editor.draftKeymap && (editor.isDirty || editor.source !== 'demo')}
             <div class="chrome-group chrome-draft">
               <ChromeStatus
                 class="publish-status"
@@ -233,6 +235,8 @@
 
           <div class="chrome-group chrome-source">
             <KeyboardPicker
+              openSource={openSourceRequest}
+              onOpenSourceConsumed={() => (openSourceRequest = null)}
               onSelect={event => {
                 void editor.selectKeyboard(event as KeyboardSelection)
               }}
@@ -360,6 +364,16 @@
       <GitHubLink />
     </div>
   </div>
+
+  {#if editor.source === 'demo' && editor.draftKeymap}
+    <WelcomeBanner
+      showGithub={config.enableGitHub}
+      onPasteKeymap={() => (openSourceRequest = 'clipboard')}
+      onConnectGithub={
+        config.enableGitHub ? () => (openSourceRequest = 'github') : undefined
+      }
+    />
+  {/if}
 
   <div class="board-stack">
     {#if editor.definitions && editor.layout && editor.draftKeymap}

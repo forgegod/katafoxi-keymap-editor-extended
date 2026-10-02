@@ -27,9 +27,13 @@
   interface Props {
     onSelect: (event: KeymapEvent) => void
     onLogout?: () => void
+    /** Switch source and open the menu (welcome banner / demo CTAs). */
+    openSource?: string | null
+    onOpenSourceConsumed?: () => void
   }
 
-  let { onSelect, onLogout }: Props = $props()
+  let { onSelect, onLogout, openSource = null, onOpenSourceConsumed }: Props =
+    $props()
 
   const sourceChoices = compact([
     { id: 'demo', name: 'Demo' },
@@ -43,8 +47,7 @@
   const storedIsChoice = Boolean(
     selectedSource && sourceChoices.some(source => source.id === selectedSource)
   )
-  /** Cold start with no remembered source: land on Demo and open the picker once. */
-  const firstVisit = !selectedSource
+  /** Cold start with no remembered source: land on Demo with the board visible. */
   const defaultSource =
     onlySource ||
     (storedIsChoice
@@ -54,8 +57,7 @@
         : (sourceChoices.find(source => source.id === 'demo')?.id ?? null))
 
   let source = $state<string | null>(defaultSource)
-  let menuOpen = $state(firstVisit && defaultSource === 'demo')
-  let demoAccent = $state(firstVisit && defaultSource === 'demo')
+  let menuOpen = $state(false)
   let gh = $state<GithubChromeStatus | null>(null)
   let demoName = $state<string | null>(
     DEMO_CATALOG.find(entry => entry.id === readStoredDemoId())?.name ?? null
@@ -143,6 +145,12 @@
 
   function connectGithub() {
     source = 'github'
+    menuOpen = true
+  }
+
+  function connectClipboard() {
+    source = 'clipboard'
+    menuOpen = true
   }
 
   $effect(() => {
@@ -154,7 +162,13 @@
   })
 
   $effect(() => {
-    if (!menuOpen && demoAccent) demoAccent = false
+    const next = openSource
+    if (!next) return
+    if (sourceChoices.some(choice => choice.id === next)) {
+      source = next
+      menuOpen = true
+    }
+    onOpenSourceConsumed?.()
   })
 </script>
 
@@ -166,13 +180,13 @@
       label={triggerLabel}
       title={triggerTitle}
       busy={source === 'github' && !!gh?.loading}
-      accent={demoAccent}
+      accent={source === 'demo'}
       popup={gate === null}
       bind:open={menuOpen}
       onActivate={runGate}
     >
       {#if sourceChoices.length > 1}
-        <div class="source-select" class:source-select-accent={demoAccent && source === 'demo'}>
+        <div class="source-select" class:source-select-accent={source === 'demo'}>
           <Selector
             id="source"
             label="Source"
@@ -187,6 +201,7 @@
       {#if source === 'demo'}
         <DemoPicker
           onSelect={handleKeyboardSelected}
+          onConnectClipboard={connectClipboard}
           onConnectGithub={config.enableGitHub ? connectGithub : undefined}
           showGithubCta={config.enableGitHub}
         />

@@ -19,12 +19,19 @@
 
   interface Props {
     onSelect: (event: KeymapEvent) => void
+    /** Ask the source menu to switch to Clipboard. */
+    onConnectClipboard?: () => void
     /** Ask the source menu to switch to GitHub. */
     onConnectGithub?: () => void
     showGithubCta?: boolean
   }
 
-  let { onSelect, onConnectGithub, showGithubCta = true }: Props = $props()
+  let {
+    onSelect,
+    onConnectClipboard,
+    onConnectGithub,
+    showGithubCta = true
+  }: Props = $props()
 
   const cards: {
     entry: DemoCatalogEntry
@@ -122,7 +129,7 @@
     <p class="demo-error" role="alert">{error}</p>
   {/if}
 
-  {#if showGithubCta && onConnectGithub}
+  {#if onConnectClipboard || (showGithubCta && onConnectGithub)}
     <div class="demo-cta">
       <p>
         Ready for your own keymap?
@@ -130,9 +137,18 @@
           You are on the {selectedEntry.name} demo.
         {/if}
       </p>
-      <button type="button" class="cta-link" onclick={() => onConnectGithub()}>
-        Connect GitHub…
-      </button>
+      <div class="cta-links">
+        {#if onConnectClipboard}
+          <button type="button" class="cta-link" onclick={() => onConnectClipboard()}>
+            Paste .keymap
+          </button>
+        {/if}
+        {#if showGithubCta && onConnectGithub}
+          <button type="button" class="cta-link" onclick={() => onConnectGithub()}>
+            Connect GitHub…
+          </button>
+        {/if}
+      </div>
     </div>
   {/if}
 </div>
@@ -242,6 +258,13 @@
     flex: 1 1 10rem;
     color: var(--text-muted);
     font-size: var(--font-sm, 0.85rem);
+  }
+
+  .cta-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 12px;
   }
 
   .cta-link {
