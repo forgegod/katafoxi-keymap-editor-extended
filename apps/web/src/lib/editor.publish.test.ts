@@ -304,4 +304,52 @@ describe('editor publish / draft persistence', () => {
     expect(editor.saveNotice).toBeNull()
     expect(editor.isDirty).toBe(false)
   })
+
+  it('keeps dirty draft and Host languages when preserveSession retargets the branch', async () => {
+    const { addHostLanguage } = await import('@keymap-editor/keymap-core')
+    const mainId = buildDraftIdentity({
+      source: 'github',
+      repo: 'acme/lark',
+      branch: 'main',
+      keyboard: 'lark'
+    })!
+    const topicId = buildDraftIdentity({
+      source: 'github',
+      repo: 'acme/lark',
+      branch: 'topic',
+      keyboard: 'lark'
+    })!
+    await deleteStoredDraft(mainId)
+    await deleteStoredDraft(topicId)
+
+    await editor.selectKeyboard({
+      source: 'github',
+      github: { repository: 'acme/lark', branch: 'main' },
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A')
+    })
+    editor.updateKeymap(km('Z'))
+    editor.hostLegend = addHostLanguage(editor.hostLegend, 'ru')
+    expect(editor.isDirty).toBe(true)
+    expect(editor.hostLegend.columns.map(c => c.language)).toEqual(['en', 'ru'])
+
+    await editor.selectKeyboard({
+      source: 'github',
+      github: { repository: 'acme/lark', branch: 'topic' },
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A'),
+      preserveSession: true
+    })
+
+    expect(editor.githubMeta).toEqual({ repository: 'acme/lark', branch: 'topic' })
+    expect(editor.isDirty).toBe(true)
+    expect(editor.draftKeymap?.layers[0][0]).toEqual({
+      value: '&kp',
+      params: [{ value: 'Z', params: [] }]
+    })
+    expect(editor.hostLegend.columns.map(c => c.language)).toEqual(['en', 'ru'])
+
+    await deleteStoredDraft(mainId)
+    await deleteStoredDraft(topicId)
+  })
 })

@@ -242,6 +242,11 @@ export type KeyboardSelection = {
   layout?: LayoutKey[] | null
   keymap?: ParsedKeymap | null
   github?: GithubMeta
+  /**
+   * Keep the live draft and Host legend when retargeting the same GitHub repo
+   * (Create branch ≈ `git checkout -b`). Baseline becomes the loaded tip.
+   */
+  preserveSession?: boolean
   /** Demo-only host layouts to open when the legend is still English-only. */
   demoHost?: DemoHostLayoutSeed[]
   /** Pasted `.keymap` text for clipboard Copy (splice). */
@@ -1378,6 +1383,13 @@ export class EditorState {
       ? draftIdentityKey(upcomingIdentity)
       : null
 
+    if (
+      event.preserveSession &&
+      (await this.#preserveGithubSession(event, upcomingIdentity, upcomingKey, selectToken))
+    ) {
+      return
+    }
+
     const alreadyHandled =
       upcomingKey != null && upcomingKey === this.#handledDraftIdentityKey
     const keepLiveDraft =
@@ -1431,6 +1443,84 @@ export class EditorState {
       if (selectToken !== this.#selectGeneration) return
     }
     await this.#maybeRestorePersistedDraft(selectToken)
+  }
+
+  /**
+   * Retarget the open GitHub repo to another branch without dropping the live
+   * draft or Host legend (Create branch ≈ `git checkout -b`).
+   */
+  async #preserveGithubSession(
+    event: KeyboardSelection,
+    upcomingIdentity: DraftIdentity | null,
+    upcomingKey: string | null,
+    selectToken: number
+  ): Promise<boolean> {
+    const github = event.github
+    const km = event.keymap
+    if (!github || !km || !this.draftKeymap || !this.baselineKeymap) return false
+    if (this.source !== 'github' && event.source !== 'github') return false
+    if (
+      this.githubMeta &&
+      this.githubMeta.repository !== github.repository
+    ) {
+      return false
+    }
+
+    const previousIdentity = this.currentDraftIdentity()
+    this.source = 'github'
+    this.githubMeta = github
+    if (event.layout) this.layout = event.layout
+    this.baselineKeymap = cloneParsedKeymap(km)
+    this.schemeMode = false
+    this.comboMode = false
+    this.activeComboId = null
+    this.comboNotice = null
+    this.saveNotice = null
+    this.clipboardOriginalSource = null
+    if (upcomingKey) this.#handledDraftIdentityKey = upcomingKey
+
+    await this.#migrateSessionIdentity(previousIdentity, upcomingIdentity)
+    if (selectToken !== this.#selectGeneration) return true
+    this.schedulePersist()
+    return true
+  }
+
+  /** Move draft + Host legend/assemblies IDB rows to the new identity key. */
+  async #migrateSessionIdentity(
+    previous: DraftIdentity | null,
+    next: DraftIdentity | null
+  ): Promise<void> {
+    if (!next) return
+    const nextKey = draftIdentityKey(next)
+    const prevKey = previous ? draftIdentityKey(previous) : null
+    if (prevKey === nextKey) {
+      await this.#persistHostLegend()
+      await this.#persistHostAssemblies()
+      return
+    }
+
+    try {
+      if (this.draftKeymap && this.isDirty) {
+        await saveStoredDraft(next, cloneParsedKeymap(this.draftKeymap), {
+          baselineHint: this.baselineKeymap
+            ? baselineFingerprint(this.baselineKeymap)
+            : undefined
+        })
+      }
+      if (previous) await deleteStoredDraft(previous)
+    } catch {
+      /* IDB failures are non-fatal */
+    }
+
+    try {
+      await saveHostLegendView(this.hostLegend, hostLegendSettingId(nextKey))
+      await saveHostAssemblies(
+        hostAssembliesSettingId(nextKey),
+        this.hostAssemblies
+      )
+    } catch {
+      /* ignore */
+    }
   }
 
   /**
