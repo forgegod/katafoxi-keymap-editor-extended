@@ -19,9 +19,9 @@ Monorepo: Svelte 5 + Vite (`apps/web`), thin Hono API (`apps/api`), shared domai
 
 ### Demo — real board layout
 
-First visit opens **Demo** with bundled keyboards (Lark, Corne, Lily58, Sweep). Edits stay in the browser until you connect GitHub or use Clipboard / Local.
+First visit opens **Demo · Corne** (also Lark, Lily58, Sweep). A short spotlight tour covers click / Alt+click, layers, and bringing your own keymap. If the browser prefers Russian, Ukrainian, or German, that language is added as a second host column. Edits stay in the browser until you use **Clipboard**, **GitHub**, or **Local**. Replay the tour anytime with **Tour** in the top-right corner.
 
-![Demo source picker and Lark board with EN + RU legends](docs/screenshots/demo-lark.png)
+![Demo board with composed legends (Lark example with EN + RU)](docs/screenshots/demo-lark.png)
 
 ### Clipboard — `.keymap` only
 
@@ -51,7 +51,7 @@ Legend strip: show/hide languages, pick system or user profiles, stack or highli
 
 | Source | Role |
 |--------|------|
-| **Demo** | Bundled fixtures for first visit. No firmware write. |
+| **Demo** | Bundled fixtures for first visit (default Corne). No firmware write. Short coach tour; optional second host language from the browser locale. |
 | **Clipboard** | Paste `.keymap` (`info.json` optional). **Copy .keymap** → system clipboard + preview dialog. |
 | **GitHub** | Load/commit `zmk-config` via GitHub App + OAuth. **Latest** firmware artifact chip when available. |
 | **Local** | Dev adapter to a sibling `zmk-config` (junction). Not the long-term product path. |
@@ -63,8 +63,9 @@ Product persistence is **GitHub-first**; Local is for iterating against a cloned
 - One **KeyEditor**: behaviour chips, then the value grid (keys, layers, mods, mouse/BT commands). Enter applies; Esc cancels.
 - Compact ZMK legends (`L1`, `⌃`, hold-tap pills) in `keymap-core`.
 - Undo / redo, **Draft** / Ready status, Discard draft.
-- Host lane: Clean/Changed, Linux and Windows install dialogs, assemblies (remembered legend sets).
+- Host lane: Ready / Changed / Saved, Linux and Windows install dialogs, assemblies (remembered legend sets).
 - Light / dark theme (default dark).
+- Lane labels: **ZMK** = what the firmware sends; **Host** = what the OS types.
 
 ## Not in this tree (yet)
 

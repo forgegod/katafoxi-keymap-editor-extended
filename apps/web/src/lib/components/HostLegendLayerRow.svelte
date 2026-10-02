@@ -119,6 +119,7 @@
               ? `Show host legend ${row.name}`
               : `Show ${row.name}`
           }
+          dataTour="layer-eye"
           onclick={toggleLayer}
         />
         {#if renamingIndex === row.index}

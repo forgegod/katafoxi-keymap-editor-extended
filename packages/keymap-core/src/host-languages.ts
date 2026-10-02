@@ -145,3 +145,19 @@ export function isAddableHostLanguage(
 export function hostLanguageName(language: HostLanguageId): string {
   return hostLanguage(language).name
 }
+
+/**
+ * Map browser/OS locale tags (`navigator.languages`) to the first addable
+ * host language. English is never chosen — it is already the base column.
+ */
+export function preferredAddableHostLanguage(
+  locales: readonly string[]
+): HostLanguageId | null {
+  for (const tag of locales) {
+    if (typeof tag !== 'string') continue
+    const primary = tag.trim().toLowerCase().split(/[-_]/)[0]
+    if (!primary || primary === 'en') continue
+    if (isAddableHostLanguage(primary)) return primary
+  }
+  return null
+}

@@ -47,13 +47,17 @@
   }
 
   const dirty = $derived(editor.isHostDirty)
-  const statusLabel = $derived(dirty ? 'Changed' : 'Saved')
+  const hasDeliverable = $derived(editor.hostDeliverableLayoutIds.length > 0)
+  /** Quiet first visit: no user layout yet → Ready, not Saved. */
+  const statusLabel = $derived(
+    dirty ? 'Changed' : hasDeliverable ? 'Saved' : 'Ready'
+  )
   const statusTitle = $derived(
     dirty
       ? 'User layout ready to install'
-      : editor.hostDeliverableLayoutIds.length > 0
-        ? 'Already exported — edit again to re-enable install'
-        : 'No user layout to install'
+      : hasDeliverable
+        ? 'No pending host edits'
+        : 'No custom host layout yet — Alt+click a key to edit what the OS types'
   )
   const exports = $derived.by(() => {
     void editor.hostLayoutRevision
@@ -190,9 +194,12 @@
   class="host-pipeline"
   class:dirty
   data-host-dirty={dirty ? 'true' : 'false'}
-  title="Host layout: install results on the OS"
+  title="What the OS types — install host layouts on Linux or Windows"
 >
-  <span class="lane-label" title="Host layout: install results on the OS">Host</span>
+  <span
+    class="lane-label"
+    title="What the OS types — install host layouts on Linux or Windows"
+  >Host</span>
   <ChromeStatus dirty={dirty} label={statusLabel} title={statusTitle} />
 
   <Button

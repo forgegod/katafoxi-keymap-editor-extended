@@ -40,9 +40,13 @@ describe('HostPipeline', () => {
     const root = target.querySelector('.host-pipeline')
     expect(root?.getAttribute('data-host-dirty')).toBe('false')
     const hostStatus = root?.querySelector('.chrome-status')
-    expect(hostStatus?.textContent?.trim()).toBe('Saved')
-    expect(hostStatus?.getAttribute('title')).toBe('No user layout to install')
-    expect(hostStatus?.getAttribute('aria-label')).toBe('No user layout to install')
+    expect(hostStatus?.textContent?.trim()).toBe('Ready')
+    expect(hostStatus?.getAttribute('title')).toBe(
+      'No custom host layout yet — Alt+click a key to edit what the OS types'
+    )
+    expect(hostStatus?.getAttribute('aria-label')).toBe(
+      'No custom host layout yet — Alt+click a key to edit what the OS types'
+    )
     const buttons = [...target.querySelectorAll('button.download')] as HTMLButtonElement[]
     expect(buttons).toHaveLength(2)
     expect(buttons.every(button => !button.disabled)).toBe(true)

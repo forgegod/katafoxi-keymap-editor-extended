@@ -3,7 +3,8 @@ import {
   ADDABLE_HOST_LANGUAGE_IDS,
   HOST_LANGUAGES,
   HOST_LANGUAGE_IDS,
-  hostLanguageName
+  hostLanguageName,
+  preferredAddableHostLanguage
 } from './host-languages.js'
 import { catalogLayoutsForLanguage, hostLayoutChoices } from './host-layout-catalog.js'
 import {
@@ -49,5 +50,16 @@ describe('HOST_LANGUAGES table', () => {
       expect(hostLanguagesAvailable(next)).not.toContain(language)
     }
     expect(hostLanguagesAvailable(next)).toEqual([])
+  })
+})
+
+describe('preferredAddableHostLanguage', () => {
+  it('picks the first addable locale and skips English', () => {
+    expect(preferredAddableHostLanguage(['en-US', 'ru-RU', 'de'])).toBe('ru')
+    expect(preferredAddableHostLanguage(['uk-UA'])).toBe('uk')
+    expect(preferredAddableHostLanguage(['de-DE', 'ru'])).toBe('de')
+    expect(preferredAddableHostLanguage(['en', 'en-GB'])).toBeNull()
+    expect(preferredAddableHostLanguage(['fr-FR', 'es'])).toBeNull()
+    expect(preferredAddableHostLanguage([])).toBeNull()
   })
 })

@@ -19,6 +19,7 @@
   import HostBasicGaps from './lib/components/HostBasicGaps.svelte'
   import HostLegendPicker from './lib/components/HostLegendPicker.svelte'
   import HostPipeline from './lib/components/HostPipeline.svelte'
+  import CoachTour from './lib/components/CoachTour.svelte'
   import Loader from './lib/components/Common/Loader.svelte'
   import github from './lib/github/api.svelte.js'
   import FirmwareBuild from './lib/components/FirmwareBuild.svelte'
@@ -39,6 +40,9 @@
   let topEl: HTMLDivElement | undefined = $state()
   /** Tools sit under the pipelines when they no longer fit beside them. */
   let toolsBelow = $state(false)
+  let openSourceRequest = $state<string | null>(null)
+  let tourExpandLegend = $state(false)
+  let tourRestartKey = $state(0)
   let clipboardExport = $state<{
     code: string
     copied: boolean
@@ -196,10 +200,13 @@
     <!-- Pipeline chrome: buttons use Common/Button (not #actions descendant styles). -->
     <div class="app-chrome" id="actions">
       <div class="chrome-pipelines">
-        <div class="chrome-lane chrome-zmk" aria-label="ZMK keymap">
-          <span class="lane-label" title="ZMK keymap: source, edit history, and publish">ZMK</span>
+        <div class="chrome-lane chrome-zmk" aria-label="What the firmware sends">
+          <span
+            class="lane-label"
+            title="What the firmware sends — source, edit history, and publish"
+          >ZMK</span>
 
-          {#if editor.draftKeymap}
+          {#if editor.draftKeymap && (editor.isDirty || editor.source !== 'demo')}
             <div class="chrome-group chrome-draft">
               <ChromeStatus
                 class="publish-status"
@@ -233,6 +240,8 @@
 
           <div class="chrome-group chrome-source">
             <KeyboardPicker
+              openSource={openSourceRequest}
+              onOpenSourceConsumed={() => (openSourceRequest = null)}
               onSelect={event => {
                 void editor.selectKeyboard(event as KeyboardSelection)
               }}
@@ -326,7 +335,7 @@
         </div>
 
         {#if editor.draftKeymap}
-          <div class="chrome-lane chrome-host" aria-label="Host layout">
+          <div class="chrome-lane chrome-host" aria-label="What the OS types">
             <HostPipeline />
           </div>
         {/if}
@@ -349,17 +358,40 @@
     {#if editor.draftKeymap}
       <div class="chrome-tools" aria-label="Legend tools">
         <div class="host-legend-wrap">
-          <HostLegendPicker />
+          <HostLegendPicker forceOpen={tourExpandLegend} />
           <HostBasicGaps />
         </div>
       </div>
     {/if}
 
     <div class="chrome-corner">
+      {#if editor.source === 'demo' && editor.draftKeymap}
+        <Button
+          variant="outline"
+          class="tour-reopen"
+          title="Replay the short intro tour"
+          aria-label="Replay the short intro tour"
+          onclick={() => (tourRestartKey += 1)}
+        >
+          Tour
+        </Button>
+      {/if}
       <ThemeToggle />
       <GitHubLink />
     </div>
   </div>
+
+  {#if editor.source === 'demo' && editor.draftKeymap}
+    <CoachTour
+      showGithub={config.enableGitHub}
+      restartKey={tourRestartKey}
+      bind:expandLegend={tourExpandLegend}
+      onPasteKeymap={() => (openSourceRequest = 'clipboard')}
+      onConnectGithub={
+        config.enableGitHub ? () => (openSourceRequest = 'github') : undefined
+      }
+    />
+  {/if}
 
   <div class="board-stack">
     {#if editor.definitions && editor.layout && editor.draftKeymap}
@@ -406,6 +438,12 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
+  }
+
+  .chrome-corner :global(.tour-reopen) {
+    height: var(--chrome-h);
+    padding: 0 8px;
+    font-size: var(--font-sm, 0.85rem);
   }
 
   .app-chrome {

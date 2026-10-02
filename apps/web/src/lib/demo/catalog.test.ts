@@ -8,14 +8,17 @@ import {
 } from './catalog'
 
 describe('demo catalog', () => {
-  it('lists Lark first, then Corne, Lily58, and Sweep', () => {
+  it('lists Corne first as the default demo, then Lark, Lily58, and Sweep', () => {
     expect(DEMO_CATALOG.map(entry => entry.id)).toEqual([
-      'lark',
       'corne',
+      'lark',
       'lily58',
       'cradio'
     ])
-    expect(defaultDemoId()).toBe('lark')
+    expect(defaultDemoId()).toBe('corne')
+    expect(DEMO_CATALOG.filter(entry => entry.default).map(entry => entry.id)).toEqual([
+      'corne'
+    ])
   })
 
   it('loads each demo with matching layout and keymap sizes', () => {
@@ -43,11 +46,11 @@ describe('demo catalog', () => {
 
   it('remembers the selected demo id', () => {
     localStorage.clear()
-    expect(readStoredDemoId()).toBe('lark')
+    expect(readStoredDemoId()).toBe('corne')
     writeStoredDemoId('lily58')
     expect(readStoredDemoId()).toBe('lily58')
     writeStoredDemoId('nope')
     localStorage.setItem('selectedDemo', 'nope')
-    expect(readStoredDemoId()).toBe('lark')
+    expect(readStoredDemoId()).toBe('corne')
   })
 })

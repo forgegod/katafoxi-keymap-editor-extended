@@ -27,6 +27,13 @@
   const layerNames = $derived(editor.hostLegendLayerNames)
   const anchorIndex = $derived(hostLegendAnchorIndex(editor.draftKeymap))
 
+  interface Props {
+    /** Keep the layer table expanded (coach tour). */
+    forceOpen?: boolean
+  }
+
+  let { forceOpen = false }: Props = $props()
+
   let hovered = $state(false)
   let focused = $state(false)
   let openProfile = $state<HostLanguageId | null>(null)
@@ -37,7 +44,7 @@
   let pendingDelete = $state<{ index: number; name: string } | null>(null)
   let stripEl: HTMLDivElement | undefined = $state()
   const busy = $derived(renamingIndex != null || pendingDelete != null)
-  const open = $derived(hovered || focused || busy)
+  const open = $derived(forceOpen || hovered || focused || busy)
 
   const allRows = $derived(
     layerNames.map(
@@ -131,7 +138,7 @@
 {#snippet legendTable(rows: HostLegendLayerRowModel[], interactive: boolean)}
   <div class="legend-body">
     <HostLegendView />
-    <div class="legend-main">
+    <div class="legend-main" data-tour={interactive ? 'legend-main' : undefined}>
       <HostAssemblyBar />
       <div class="legend-table-row">
         <table>

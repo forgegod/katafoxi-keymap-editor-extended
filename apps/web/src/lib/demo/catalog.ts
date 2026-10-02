@@ -50,7 +50,7 @@ export const DEMO_CATALOG: DemoCatalogEntry[] = (
 const DEMO_STORAGE_KEY = 'selectedDemo'
 
 export function defaultDemoId(): string {
-  return DEMO_CATALOG.find(entry => entry.default)?.id ?? DEMO_CATALOG[0]?.id ?? 'lark'
+  return DEMO_CATALOG.find(entry => entry.default)?.id ?? DEMO_CATALOG[0]?.id ?? 'corne'
 }
 
 export function readStoredDemoId(): string {
