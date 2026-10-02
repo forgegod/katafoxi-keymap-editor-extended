@@ -35,6 +35,7 @@ describe('Lark demo host seed', () => {
     expect(
       editor.profilesForLanguage('ru').find(profile => profile.id === DEMO_LARK_RU_ID)?.name
     ).toBe('ru2')
+    expect(editor.isHostDirty).toBe(false)
   })
 
   it('does not overwrite a customized legend', async () => {

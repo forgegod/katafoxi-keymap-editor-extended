@@ -1404,6 +1404,9 @@ export class EditorState {
     seeds: DemoHostLayoutSeed[],
     selectToken: number
   ): Promise<void> {
+    // Re-registering fixtures bumps hostLayoutRevision; do not treat that as a
+    // user edit waiting for OS install.
+    const dirtyBefore = this.isHostDirty
     for (const seed of seeds) {
       const table = demoHostLayoutTable(seed)
       const record: UserHostLayoutRecord = {
@@ -1430,7 +1433,10 @@ export class EditorState {
       if (selectToken !== this.#selectGeneration) return
     }
 
-    if (!sameHostLegendView(this.hostLegend, standardHostLegendView())) return
+    if (!sameHostLegendView(this.hostLegend, standardHostLegendView())) {
+      if (!dirtyBefore) this.markHostDelivered()
+      return
+    }
 
     let view = this.hostLegend
     for (const seed of seeds) {
@@ -1442,6 +1448,7 @@ export class EditorState {
 
     this.hostLegend = view
     await this.#persistHostLegend()
+    this.markHostDelivered()
   }
 
   async #maybeRestorePersistedDraft(selectToken: number) {

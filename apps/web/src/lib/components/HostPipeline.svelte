@@ -52,7 +52,7 @@
     dirty
       ? 'User layout ready to install'
       : editor.hostDeliverableLayoutIds.length > 0
-        ? 'Already exported — edit again to re-enable install'
+        ? 'No pending host edits'
         : 'No user layout to install'
   )
   const exports = $derived.by(() => {
