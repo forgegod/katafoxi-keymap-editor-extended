@@ -107,7 +107,8 @@
   .source-menu :global(.source-trigger-accent) {
     border-color: var(--accent);
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
-    animation: source-trigger-pulse 2.2s ease-in-out 2;
+    /* Soft pulse while Demo is the active source. */
+    animation: source-trigger-pulse 2s ease-in-out infinite;
   }
 
   @keyframes source-trigger-pulse {
@@ -116,7 +117,7 @@
       box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
     }
     50% {
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent);
     }
   }
 
