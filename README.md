@@ -69,7 +69,7 @@ Product persistence is **GitHub-first**; Local is for iterating against a cloned
 
 ## Not in this tree (yet)
 
-Upstream or planned: browser **File System Access**, visual **combo** / **macro** / custom **behavior** editors, rotary encoders, conditional layers, auto-generated layouts from ZMK DTS. See [upstream README](https://github.com/nickcoutsos/keymap-editor/blob/master/README.md) for the classic feature list.
+Upstream or planned: browser **File System Access**, visual **macro** / custom **behavior** editors, rotary encoders, conditional layers, auto-generated layouts from ZMK DTS. First-iteration visual **combo** editing is in (list + board key-positions + binding via KeyEditor; timeout/layers/slow-release UI later). See [upstream README](https://github.com/nickcoutsos/keymap-editor/blob/master/README.md) for the classic feature list.
 
 Vision and contracts: [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md).
 

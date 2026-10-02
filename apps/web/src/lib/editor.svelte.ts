@@ -57,7 +57,11 @@ import {
   type KeyBindingNode,
   type KeymapChange,
   type LayoutKey,
-  type ParsedKeymap
+  type ParsedKeymap,
+  type ZmkCombo,
+  COMBO_MAX_KEYS,
+  comboKeysIssue,
+  comboKeysMessage
 } from '@keymap-editor/keymap-core'
 import type { Definitions } from './context'
 import {
@@ -214,6 +218,22 @@ export function cloneParsedKeymap(km: ParsedKeymap): ParsedKeymap {
   if (km.keyboard != null) out.keyboard = km.keyboard
   if (km.keymap != null) out.keymap = km.keymap
   if (km.layout != null) out.layout = km.layout
+  if (km.combos) {
+    out.combos = km.combos.map(c => {
+      const combo: ZmkCombo = {
+        id: c.id,
+        keyPositions: [...c.keyPositions],
+        binding: cloneBinding(c.binding)
+      }
+      if (c.timeoutMs !== undefined) combo.timeoutMs = c.timeoutMs
+      if (c.requirePriorIdleMs !== undefined) {
+        combo.requirePriorIdleMs = c.requirePriorIdleMs
+      }
+      if (c.slowRelease) combo.slowRelease = true
+      if (c.layers) combo.layers = [...c.layers]
+      return combo
+    })
+  }
   return out
 }
 
@@ -279,6 +299,15 @@ export class EditorState {
   layerTonesOn = $state(false)
   /** Full matrix + layout row/col rails on the board. Session-only; not stored. */
   schemeMode = $state(false)
+  /**
+   * Session mode: list/edit ZMK combos and pick `key-positions` on the board.
+   * Not stored with the keymap draft identity.
+   */
+  comboMode = $state(false)
+  /** Selected combo id while `comboMode` is on. */
+  activeComboId = $state<string | null>(null)
+  /** Short hint while editing combos (too few / too many keys). */
+  comboNotice = $state<string | null>(null)
 
   /**
    * In scheme mode, a real binding on an absent slot promotes it to a
@@ -1366,6 +1395,9 @@ export class EditorState {
     }
     this.layout = event.layout ?? null
     this.schemeMode = false
+    this.comboMode = false
+    this.activeComboId = null
+    this.comboNotice = null
     const km = event.keymap ?? null
     if (!km) {
       this.baselineKeymap = null
@@ -1568,6 +1600,87 @@ export class EditorState {
     this.schedulePersist()
   }
 
+  /** Replace the combos list on the draft (undoable via updateKeymap). */
+  updateCombos(combos: ZmkCombo[]) {
+    const km = this.draftKeymap
+    if (!km) return
+    this.updateKeymap({ ...km, combos })
+    if (this.activeComboId && !combos.some(c => c.id === this.activeComboId)) {
+      this.activeComboId = combos[0]?.id ?? null
+    }
+  }
+
+  toggleComboMode() {
+    if (this.comboMode) {
+      if (!this.tryExitComboMode()) return
+      return
+    }
+
+    this.comboMode = true
+    this.schemeMode = false
+    this.comboNotice = null
+    const combos = this.draftKeymap?.combos ?? []
+    if (
+      this.activeComboId == null ||
+      !combos.some(c => c.id === this.activeComboId)
+    ) {
+      this.activeComboId = combos[0]?.id ?? null
+    }
+  }
+
+  /**
+   * Leave combo mode when every kept combo has 2–COMBO_MAX_KEYS keys.
+   * Drops empty drafts. Returns false if an incomplete combo blocks exit.
+   */
+  tryExitComboMode(): boolean {
+    if (!this.comboMode) return true
+    const km = this.draftKeymap
+    const list = km?.combos ?? []
+    const withoutEmpty = list.filter(c => c.keyPositions.length > 0)
+    if (km && withoutEmpty.length !== list.length) {
+      this.updateCombos(withoutEmpty)
+    }
+    const incomplete = withoutEmpty.find(c => comboKeysIssue(c.keyPositions) != null)
+    if (incomplete) {
+      this.activeComboId = incomplete.id
+      this.comboNotice =
+        comboKeysMessage(comboKeysIssue(incomplete.keyPositions)) ??
+        'Fix incomplete combos before leaving.'
+      return false
+    }
+    this.comboMode = false
+    this.comboNotice = null
+    return true
+  }
+
+  /** Toggle `keyIndex` in the active combo's key-positions. */
+  toggleComboPosition(keyIndex: number) {
+    const km = this.draftKeymap
+    if (!km || this.activeComboId == null) return
+    const combos = [...(km.combos ?? [])]
+    const i = combos.findIndex(c => c.id === this.activeComboId)
+    if (i < 0) return
+    const combo = combos[i]
+    const set = new Set(combo.keyPositions)
+    if (set.has(keyIndex)) {
+      set.delete(keyIndex)
+      this.comboNotice = null
+    } else {
+      if (set.size >= COMBO_MAX_KEYS) {
+        this.comboNotice = comboKeysMessage('too_many')
+        return
+      }
+      set.add(keyIndex)
+      this.comboNotice =
+        set.size < 2 ? comboKeysMessage('too_few') : null
+    }
+    combos[i] = {
+      ...combo,
+      keyPositions: [...set].sort((a, b) => a - b)
+    }
+    this.updateCombos(combos)
+  }
+
   undo() {
     if (!this.draftKeymap || this.undoStack.length === 0) return
     const stack = this.undoStack
@@ -1670,6 +1783,9 @@ export class EditorState {
     this.clearHistory()
     this.saving = false
     this.schemeMode = false
+    this.comboMode = false
+    this.activeComboId = null
+    this.comboNotice = null
     this.saveNotice = null
   }
 
@@ -1698,6 +1814,9 @@ export class EditorState {
     this.multilangView = false
     this.layerTonesOn = false
     this.schemeMode = false
+    this.comboMode = false
+    this.activeComboId = null
+    this.comboNotice = null
     this.layerView = standardLayerView()
     this.userLayouts = []
     this.hostProfilePrompt = null

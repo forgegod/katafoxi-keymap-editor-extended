@@ -16,6 +16,15 @@
 .key[data-editable='true'] {
   cursor: pointer;
 }
+.key.combo-pick {
+  outline: 1px dashed color-mix(in srgb, var(--accent, #3a7) 45%, transparent);
+  outline-offset: -2px;
+}
+.key.combo-member {
+  outline: 2px solid var(--accent, #3a7);
+  outline-offset: -2px;
+  background-color: color-mix(in srgb, var(--accent, #3a7) 18%, var(--key-face));
+}
 .key:hover {
   transition: 200ms;
   z-index: 1;

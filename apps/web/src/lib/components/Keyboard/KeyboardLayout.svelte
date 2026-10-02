@@ -21,6 +21,9 @@
     usedRevision?: string
     usedLayerLabels?: readonly string[]
     hidden?: ReadonlySet<number>
+    comboMode?: boolean
+    comboPositions?: ReadonlySet<number> | null
+    onComboToggle?: (keyIndex: number) => void
   }
 
   let {
@@ -35,7 +38,10 @@
     usedKeycodes = new Map(),
     usedRevision = '',
     usedLayerLabels = [],
-    hidden
+    hidden,
+    comboMode = false,
+    comboPositions = null,
+    onComboToggle
   }: Props = $props()
 
   const normalized = $derived(
@@ -74,7 +80,10 @@
       {layerView}
       {legendHover}
       layerBindings={layerStack?.map(layer => layer[i] ?? { value: '&none', params: [] })}
+      {comboMode}
+      comboMember={comboPositions?.has(i) ?? false}
       {onUpdate}
+      {onComboToggle}
     />
     {/if}
   {/each}

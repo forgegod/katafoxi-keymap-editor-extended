@@ -57,6 +57,9 @@
     usedKeycodes?: ReadonlyMap<string, readonly number[]>
     usedRevision?: string
     usedLayerLabels?: readonly string[]
+    comboMode?: boolean
+    comboMember?: boolean
+    onComboToggle?: (keyIndex: number) => void
   }
 
   let {
@@ -75,7 +78,10 @@
     layerBindings,
     usedKeycodes = new Map(),
     usedRevision = '',
-    usedLayerLabels = []
+    usedLayerLabels = [],
+    comboMode = false,
+    comboMember = false,
+    onComboToggle
   }: Props = $props()
 
   const searchBox = getSearchContext()
@@ -202,6 +208,11 @@
 
   function handleRowClick(event: MouseEvent, fromLayer: number) {
     event.stopPropagation()
+    if (comboMode) {
+      event.preventDefault()
+      onComboToggle?.(keyIndex)
+      return
+    }
     // Alt+click: only entry into host-layout edit (locked card + catalog).
     if (event.altKey) {
       event.preventDefault()
@@ -326,6 +337,8 @@
 <div
   bind:this={keyRoot}
   class="key"
+  class:combo-member={comboMember}
+  class:combo-pick={comboMode}
   data-label={label}
   data-u={size.u}
   data-h={size.h}
@@ -333,7 +346,7 @@
   data-long={isComplex(session.normalized, behaviourParams)}
   data-hold-tap={holdTapVisible}
   data-behavior={behaviorRole}
-  data-editable={session.canEdit}
+  data-editable={comboMode || session.canEdit}
   data-tour={isLegendAnchor ? 'legend-key' : undefined}
   data-stacked="true"
   style={Object.entries(positioningStyle)

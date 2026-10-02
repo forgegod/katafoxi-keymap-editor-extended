@@ -575,6 +575,7 @@
     background: var(--stage-bg);
   }
 
+  .board-stack :global(.keyboard-root),
   .board-stack :global(.keyboard-stage) {
     grid-column: 1;
     grid-row: 1;

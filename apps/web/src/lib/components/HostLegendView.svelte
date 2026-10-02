@@ -21,6 +21,11 @@
   const schemeTitle = $derived(
     editor.schemeMode ? 'Hide matrix scheme' : 'Show matrix scheme'
   )
+  const comboTitle = $derived(
+    editor.comboMode
+      ? 'Exit combo editing'
+      : 'Edit ZMK combos: pick key positions on the board'
+  )
 </script>
 
 <div class="legend-view" aria-label="Legend view">
@@ -96,7 +101,14 @@
         pressed={editor.schemeMode}
         aria-label={schemeTitle}
         title={schemeTitle}
-        onclick={() => (editor.schemeMode = !editor.schemeMode)}
+        onclick={() => {
+          if (!editor.schemeMode) {
+            if (editor.comboMode && !editor.tryExitComboMode()) return
+            editor.schemeMode = true
+          } else {
+            editor.schemeMode = false
+          }
+        }}
       >
         <svg class="scheme-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
           <path
@@ -111,6 +123,46 @@
       </PressToggle>
     </div>
   </div>
+
+  <PressToggle
+    class="view-toggle"
+    pressed={editor.comboMode}
+    aria-label={comboTitle}
+    title={comboTitle}
+    onclick={() => editor.toggleComboMode()}
+  >
+    <svg class="combo-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <rect
+        x="2"
+        y="2"
+        width="5"
+        height="5"
+        rx="1"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.25"
+      />
+      <rect
+        x="9"
+        y="9"
+        width="5"
+        height="5"
+        rx="1"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.25"
+      />
+      <path
+        d="M7 5.5h2.5V8"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.25"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+    <span class="view-label">Combos</span>
+  </PressToggle>
 </div>
 
 <style>
@@ -186,7 +238,9 @@
 
   .legend-view :global(.stack-icon path),
   .legend-view :global(.diff-icon path),
-  .legend-view :global(.scheme-icon path) {
+  .legend-view :global(.scheme-icon path),
+  .legend-view :global(.combo-icon path),
+  .legend-view :global(.combo-icon rect) {
     fill: none;
     stroke: currentColor;
   }

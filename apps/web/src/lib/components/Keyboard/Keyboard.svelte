@@ -22,6 +22,7 @@
   import { getKeyBoundingBox } from '../../key-units'
   import KeyboardLayout from './KeyboardLayout.svelte'
   import MatrixSchemeOverlay from './MatrixSchemeOverlay.svelte'
+  import ComboPanel from '../ComboPanel.svelte'
 
   interface Props {
     layout: LayoutKey[]
@@ -83,8 +84,15 @@
       (keymap?.layers?.length ?? 0) > 0
   )
 
+  const comboMode = $derived(editor.comboMode)
+  const activeComboPositions = $derived.by(() => {
+    if (!comboMode || editor.activeComboId == null) return null
+    const combo = (keymap.combos ?? []).find(c => c.id === editor.activeComboId)
+    return combo ? new Set(combo.keyPositions) : null
+  })
+
   const hiddenKeys = $derived.by(() => {
-    if (schemeMode) return new Set<number>()
+    if (schemeMode || comboMode) return new Set<number>()
     return new Set(hiddenBoardIndexes(layout, keymap.layers ?? []))
   })
 
@@ -123,6 +131,14 @@
   let stageW = $state(0)
   let stageH = $state(0)
 
+  function measureStage() {
+    const el = stageEl
+    if (!el) return
+    const box = el.getBoundingClientRect()
+    stageW = box.width
+    stageH = box.height
+  }
+
   $effect(() => {
     const el = stageEl
     if (!el || typeof ResizeObserver === 'undefined') return
@@ -133,7 +149,15 @@
       stageH = box.height
     })
     observer.observe(el)
+    measureStage()
     return () => observer.disconnect()
+  })
+
+  // Panel mount/unmount changes stage width; remeasure after layout.
+  $effect(() => {
+    void comboMode
+    if (!stageEl) return
+    requestAnimationFrame(measureStage)
   })
 
   const scale = $derived.by(() => {
@@ -182,6 +206,9 @@
 </script>
 
 <div class="keyboard-root">
+  {#if comboMode}
+    <ComboPanel />
+  {/if}
   <div class="keyboard-stage" bind:this={stageEl}>
     <div class="keyboard-fit" style={fitStyle}>
       <div class="keyboard-canvas" style={canvasStyle}>
@@ -198,7 +225,10 @@
             {usedKeycodes}
             {usedRevision}
             {usedLayerLabels}
+            {comboMode}
+            comboPositions={activeComboPositions}
             onUpdate={handleUpdateBinding}
+            onComboToggle={index => editor.toggleComboPosition(index)}
           />
           {#if schemeMode}
             <MatrixSchemeOverlay
@@ -216,12 +246,22 @@
 </div>
 
 <style>
+  /* Fill board-stack. Combo panel sits beside the stage and shrinks it. */
   .keyboard-root {
-    display: contents;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 10px;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    box-sizing: border-box;
   }
 
   .keyboard-stage {
     display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
     align-items: center;
     /* Sit under the legend tools; leftover height stays below the board. */
