@@ -704,6 +704,31 @@ describe('Key click editor', () => {
     expect(stackRows()[0].querySelector('.zmk-row')?.textContent?.trim()).toBe('&bt CLR')
   })
 
+  it('highlights layer activators when hovering a stacked layer row', () => {
+    open({
+      layerBindings: [
+        { value: '&mo', params: [{ value: '1', params: [] }] },
+        { value: '&kp', params: [{ value: 'B', params: [] }] }
+      ],
+      layerView: { shown: [0, 1], layer0Raw: true }
+    })
+    const rows = stackRows()
+    const layer0 = rows.find(row => row.dataset.layer === '0')
+    const layer1 = rows.find(row => row.dataset.layer === '1')
+    expect(layer0).toBeInstanceOf(HTMLButtonElement)
+    expect(layer1).toBeInstanceOf(HTMLButtonElement)
+
+    layer1?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    expect(editor.legendHover).toEqual({ kind: 'layer', layer: 1 })
+    expect(layer0?.querySelector('.zmk-row')?.classList.contains('legend-hit')).toBe(true)
+
+    layer1?.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }))
+    flushSync()
+    expect(editor.legendHover).toBeNull()
+    expect(layer0?.querySelector('.zmk-row')?.classList.contains('legend-hit')).toBe(false)
+  })
+
   it('renders layer0 as a raw ZMK row when layer0Raw is set', () => {
     open({
       layerBindings: [

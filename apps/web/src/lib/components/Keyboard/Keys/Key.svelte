@@ -154,6 +154,9 @@
     const rect = target.getBoundingClientRect()
     if (!claimLegendDecode(keyIndex, layer, hideDecode)) return
     decode = { layer, rect }
+    // Same preview as hovering that layer's row in the host-legend strip:
+    // highlight bindings that activate / reference this layer.
+    editor.legendHover = { kind: 'layer', layer }
   }
 
   function hideDecode() {
@@ -163,6 +166,10 @@
     if (editor.hostEditSession?.keyIndex === keyIndex) {
       editor.endHostEditSession()
     }
+  }
+
+  function clearLayerHover() {
+    if (editor.legendHover?.kind === 'layer') editor.legendHover = null
   }
 
   function endHostEditSession() {
@@ -175,11 +182,13 @@
   function handleRowBlur() {
     if (inHostSession) return
     hideDecode()
+    clearLayerHover()
   }
 
   function handleRowLeave() {
     if (inHostSession) return
     hideDecode()
+    clearLayerHover()
   }
 
   function openEditor(slotCodeIndex: number, fromLayer?: number) {
