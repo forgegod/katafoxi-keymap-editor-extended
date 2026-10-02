@@ -155,8 +155,9 @@ export function parseKeymap(keymap: {
   const combos = Array.isArray(keymap.combos)
     ? keymap.combos.map(parseComboFromJson)
     : undefined
+  const { combos: _rawCombos, layers: _rawLayers, ...rest } = keymap
   const out: ParsedKeymap = {
-    ...keymap,
+    ...rest,
     layers: keymap.layers.map(layer => layer.map(parseKeyBinding))
   }
   if (combos) out.combos = combos
