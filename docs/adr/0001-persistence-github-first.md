@@ -19,7 +19,7 @@ The only hard requirement for a backend today is **keeping GitHub App / OAuth se
 1. **Treat the Hono API as a thin GitHub gateway** (OAuth, installation tokens, read/write repo files). Do not add product features that require the server to own the user’s disk.
 2. **Treat local `zmk-config` / junction I/O (`ENABLE_LOCAL`, `GET/POST /layout|/keymap`) as a dev adapter** — allowed for fixtures and iteration on real boards, not the architectural center.
 3. **Keep all keymap/host domain logic in `packages/keymap-core`**, usable from the browser first; the API calls core for generate/parse when committing or for the dev bridge.
-4. **Target product sources** (implement or restore over time): **Demo** (bundled first-visit fixtures; browser-only, no firmware write), GitHub (primary persist), Clipboard, File System Access API — including future host-layout artifacts alongside ZMK config.
+4. **Target product sources** (implement or restore over time): **Demo** (bundled first-visit fixtures; browser-only, no firmware write), GitHub (primary persist — ZMK plus `host_keymap/snapshot.json` per [ADR 0005](0005-host-keymap-github-snapshot.md)), Clipboard, File System Access API — including host-layout artifacts alongside ZMK config.
 5. When local and GitHub share a file format concern (e.g. `.keymap` round-trip), implement it **once in core**, then wire both adapters.
 
 ## Consequences
@@ -35,6 +35,7 @@ The only hard requirement for a backend today is **keeping GitHub App / OAuth se
 - Dev-local and GitHub can drift if adapters are not kept on the same core contracts — must share parse/generate/splice and tests.
 - File System Access is not fully restored in this tree yet; until it is, **Demo**, **Clipboard**, GitHub, and optional dev-local remain the practical paths.
 - Saving via GitHub still needs careful `.keymap` preservation (template or splice); see [ADR 0002](0002-keymap-file-contract.md).
+- Host snapshot co-commit is [ADR 0005](0005-host-keymap-github-snapshot.md).
 
 ## References
 

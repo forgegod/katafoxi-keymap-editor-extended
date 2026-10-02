@@ -71,14 +71,14 @@ Scan codes for the typewriter block are the evdev code (`HostKeyId.scan`). Do no
 
 ### Persistence reminder
 
-IndexedDB already persists user layouts. Host **Changed** means “there is an active user layout to install,” not “unsaved in the browser.”
+IndexedDB already persists user layouts. Host **Changed** means “there is an active user layout to install,” not “unsaved in the browser” and not “uncommitted to GitHub.” Git dirty for the host half of a GitHub session is separate (`isHostRepoDirty` / Commit); see [ADR 0005](0005-host-keymap-github-snapshot.md).
 
 ## Consequences
 
 - Agents must not reintroduce hover-to-edit, card pin-without-Alt, or bridge delays for decode cards.
 - Do not put **Show empty row** back; blank top rows stay auto-hidden, and **Scheme** is the board disclosure for the full matrix.
 - Do not invent a second AltGr merge for the Win AltGr mark, and do not put Copy AltGr back. The mark follows the combined Windows file: the open language wins, and an empty national cell keeps the base symbol.
-- Do not add API routes for host layout files; install remains client-side download/copy + OS tools.
+- Do not add API routes that own host layout files on the server disk; GitHub Commit writes `host_keymap/snapshot.json` through the existing keyboard-files path ([ADR 0005](0005-host-keymap-github-snapshot.md)). Install remains client-side download/copy + OS tools.
 - KLC export stays one writer. A new host language adds a `WINDOWS_LOCALES` entry (and a dead-key row only when the accent is new). Do not grow a second `.klc` implementation in the web app, and do not commit stock Microsoft `.klc` files. KLC import stays the one reader in `klc-read.ts`. Do not store a paired file as a third profile type.
 - Every `.klc` line is CRLF. A bare LF inside `KEYNAME` is the `Right` / `0e` compile failure above. Leave `KeyboardVerify.log` warnings alone: do not drop characters, and do not move the combined file off `00000409`, to silence them.
 - UI chrome stays English; a short Russian tip on the Russian Linux card is allowed as install **content** for that language only (see TARGET / ui-english).
@@ -86,5 +86,6 @@ IndexedDB already persists user layouts. Host **Changed** means “there is an a
 ## Related
 
 - [TARGET_SYSTEM.md](../TARGET_SYSTEM.md) — product UX summary
-- [0001](0001-persistence-github-first.md) — host layouts in the browser
+- [0001](0001-persistence-github-first.md) — GitHub-first persistence
 - [0002](0002-keymap-file-contract.md) — ZMK `#define` expansion vs host deliverables
+- [0005](0005-host-keymap-github-snapshot.md) — host snapshot co-committed with ZMK on GitHub

@@ -16,7 +16,7 @@ cmd //c "mklink /J zmk-config C:\path\to\your\zmk-config"
 ln -s ../zmk-keyboard-lark zmk-config
 ```
 
-**Load:** Local mode prefers `config/keymap.json` when it exists and its `layers` are non-empty and valid. Otherwise it reads the raw `.keymap` (so a missing file, empty `layers`, or `layers: [[]]` all fall back). After the first **Write files**, `keymap.json` is written and becomes the primary source on the next load (with expanded binds). `*.keymap.template` is never treated as the keymap file to overwrite. Loading host layouts from a keyboard repo (`host_keymap/`) is future work and needs an ADR — do not teach the product a concrete board.
+**Load:** Local mode prefers `config/keymap.json` when it exists and its `layers` are non-empty and valid. Otherwise it reads the raw `.keymap` (so a missing file, empty `layers`, or `layers: [[]]` all fall back). After the first **Write files**, `keymap.json` is written and becomes the primary source on the next load (with expanded binds). `*.keymap.template` is never treated as the keymap file to overwrite. GitHub also loads/saves `host_keymap/snapshot.json` with the keymap ([ADR 0005](docs/adr/0005-host-keymap-github-snapshot.md)); the local adapter does not write host files yet.
 4. Install [pnpm](https://pnpm.io/) (Node 20+), then run:
 
 ```bash
