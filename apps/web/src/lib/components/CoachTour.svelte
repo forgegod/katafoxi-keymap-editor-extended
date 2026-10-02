@@ -3,6 +3,7 @@
   import Button from './Common/Button.svelte'
   import {
     COACH_TOUR_STEPS,
+    clearCoachTourDone,
     readCoachTourDone,
     writeCoachTourDone,
     type CoachTourStep
@@ -11,6 +12,8 @@
   interface Props {
     showGithub?: boolean
     expandLegend?: boolean
+    /** Increment to reopen the tour from step 1 (Demo chrome “Tour”). */
+    restartKey?: number
     onPasteKeymap?: () => void
     onConnectGithub?: () => void
   }
@@ -18,12 +21,14 @@
   let {
     showGithub = true,
     expandLegend = $bindable(false),
+    restartKey = 0,
     onPasteKeymap,
     onConnectGithub
   }: Props = $props()
 
   let active = $state(!readCoachTourDone())
   let stepIndex = $state(0)
+  let appliedRestartKey = $state(0)
   let hole = $state<{
     top: number
     left: number
@@ -37,6 +42,18 @@
   const step = $derived(COACH_TOUR_STEPS[stepIndex] as CoachTourStep | undefined)
   const total = COACH_TOUR_STEPS.length
   const isLast = $derived(Boolean(step?.finish))
+
+  function restartTour() {
+    clearCoachTourDone()
+    stepIndex = 0
+    active = true
+  }
+
+  $effect(() => {
+    if (restartKey === appliedRestartKey) return
+    appliedRestartKey = restartKey
+    if (restartKey > 0) restartTour()
+  })
 
   function finish() {
     active = false

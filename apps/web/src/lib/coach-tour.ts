@@ -80,3 +80,11 @@ export function writeCoachTourDone() {
     /* private mode */
   }
 }
+
+export function clearCoachTourDone() {
+  try {
+    localStorage.removeItem(COACH_TOUR_STORAGE_KEY)
+  } catch {
+    /* private mode */
+  }
+}

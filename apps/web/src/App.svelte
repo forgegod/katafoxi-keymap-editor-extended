@@ -42,6 +42,7 @@
   let toolsBelow = $state(false)
   let openSourceRequest = $state<string | null>(null)
   let tourExpandLegend = $state(false)
+  let tourRestartKey = $state(0)
   let clipboardExport = $state<{
     code: string
     copied: boolean
@@ -199,8 +200,11 @@
     <!-- Pipeline chrome: buttons use Common/Button (not #actions descendant styles). -->
     <div class="app-chrome" id="actions">
       <div class="chrome-pipelines">
-        <div class="chrome-lane chrome-zmk" aria-label="ZMK keymap">
-          <span class="lane-label" title="ZMK keymap: source, edit history, and publish">ZMK</span>
+        <div class="chrome-lane chrome-zmk" aria-label="What the firmware sends">
+          <span
+            class="lane-label"
+            title="What the firmware sends — source, edit history, and publish"
+          >ZMK</span>
 
           {#if editor.draftKeymap && (editor.isDirty || editor.source !== 'demo')}
             <div class="chrome-group chrome-draft">
@@ -331,7 +335,7 @@
         </div>
 
         {#if editor.draftKeymap}
-          <div class="chrome-lane chrome-host" aria-label="Host layout">
+          <div class="chrome-lane chrome-host" aria-label="What the OS types">
             <HostPipeline />
           </div>
         {/if}
@@ -361,6 +365,17 @@
     {/if}
 
     <div class="chrome-corner">
+      {#if editor.source === 'demo' && editor.draftKeymap}
+        <Button
+          variant="outline"
+          class="tour-reopen"
+          title="Replay the short intro tour"
+          aria-label="Replay the short intro tour"
+          onclick={() => (tourRestartKey += 1)}
+        >
+          Tour
+        </Button>
+      {/if}
       <ThemeToggle />
       <GitHubLink />
     </div>
@@ -369,6 +384,7 @@
   {#if editor.source === 'demo' && editor.draftKeymap}
     <CoachTour
       showGithub={config.enableGitHub}
+      restartKey={tourRestartKey}
       bind:expandLegend={tourExpandLegend}
       onPasteKeymap={() => (openSourceRequest = 'clipboard')}
       onConnectGithub={
@@ -422,6 +438,12 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
+  }
+
+  .chrome-corner :global(.tour-reopen) {
+    height: var(--chrome-h);
+    padding: 0 8px;
+    font-size: var(--font-sm, 0.85rem);
   }
 
   .app-chrome {

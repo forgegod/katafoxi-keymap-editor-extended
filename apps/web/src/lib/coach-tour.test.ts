@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest'
 import {
   COACH_TOUR_STEPS,
   COACH_TOUR_STORAGE_KEY,
+  clearCoachTourDone,
   readCoachTourDone,
   writeCoachTourDone
 } from './coach-tour'
@@ -38,5 +39,7 @@ describe('coach-tour', () => {
     writeCoachTourDone()
     expect(localStorage.getItem(COACH_TOUR_STORAGE_KEY)).toBe('1')
     expect(readCoachTourDone()).toBe(true)
+    clearCoachTourDone()
+    expect(readCoachTourDone()).toBe(false)
   })
 })

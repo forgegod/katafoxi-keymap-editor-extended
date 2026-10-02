@@ -140,4 +140,29 @@ describe('CoachTour', () => {
     expect(localStorage.getItem(COACH_TOUR_STORAGE_KEY)).toBe('1')
     expect(dialog()).toBeNull()
   })
+
+  it('reopens from step 1 when restartKey increments', async () => {
+    localStorage.setItem(COACH_TOUR_STORAGE_KEY, '1')
+    await open({ restartKey: 0 })
+    expect(dialog()).toBeNull()
+
+    if (view) unmount(view)
+    view = mount(CoachTour, {
+      target,
+      props: {
+        showGithub: true,
+        expandLegend: false,
+        restartKey: 1,
+        onPasteKeymap: vi.fn(),
+        onConnectGithub: vi.fn()
+      }
+    })
+    flushSync()
+    await tick()
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+    flushSync()
+
+    expect(dialog()?.textContent).toMatch(/Edit a key/)
+    expect(localStorage.getItem(COACH_TOUR_STORAGE_KEY)).toBeNull()
+  })
 })
