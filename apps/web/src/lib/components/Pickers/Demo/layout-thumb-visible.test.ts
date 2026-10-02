@@ -3,23 +3,21 @@ import { loadDemo } from '../../../demo/catalog'
 import { layoutThumbVisibleIndexes } from './layout-thumb-visible'
 
 describe('layoutThumbVisibleIndexes', () => {
-  it('hides Lark absent slots and the blank top row', () => {
-    const { layout, keymap } = loadDemo('lark')
-    const visible = layoutThumbVisibleIndexes(layout, keymap.layers)
+  it('hides Lark absent slots including the unused top row', () => {
+    const { layout } = loadDemo('lark')
+    const visible = layoutThumbVisibleIndexes(layout)
     const labels = visible.map(index => layout[index].label)
+    const absentCount = layout.filter(key => key.absent).length
 
-    expect(labels).not.toContain('0,0')
-    expect(labels).not.toContain('0,6')
+    expect(labels.some(label => label?.startsWith('0,'))).toBe(false)
     expect(labels).not.toContain('5,6')
     expect(labels).not.toContain('6,0')
     expect(labels).not.toContain('6,6')
-    // Blank top-row labels (non-absent corners already listed above).
-    expect(labels.some(label => label?.startsWith('0,'))).toBe(false)
-    expect(visible.length).toBe(layout.length - 5 - 10)
+    expect(visible.length).toBe(layout.length - absentCount)
   })
 
-  it('keeps every key when the top row is used', () => {
-    const { layout, keymap } = loadDemo('corne')
-    expect(layoutThumbVisibleIndexes(layout, keymap.layers)).toHaveLength(layout.length)
+  it('keeps every key when none are absent', () => {
+    const { layout } = loadDemo('corne')
+    expect(layoutThumbVisibleIndexes(layout)).toHaveLength(layout.length)
   })
 })

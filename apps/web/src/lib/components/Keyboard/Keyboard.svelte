@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    absentLayoutIndexes,
     collectUsedKeycodes,
     encodeKeyBinding,
     effectiveShownLayers,
@@ -14,7 +15,6 @@
     type ParsedKeymap,
     type ZmkCombo
   } from '@keymap-editor/keymap-core'
-  import { hiddenBoardIndexes } from '../../blank-top-row'
   import {
     getDefinitionsContext,
     setSearchContext,
@@ -36,8 +36,8 @@
     layerView?: LayerView
     legendHover?: LegendHover | null
     /**
-     * Firmware-scheme view: show absent slots and blank rows, and draw
-     * layout row/col rails. The legend column owns the toggle.
+     * Firmware-scheme view: show every matrix slot (including absent) and
+     * draw layout row/col rails. The legend column owns the toggle.
      */
     schemeMode?: boolean
   }
@@ -119,8 +119,8 @@
   }
 
   const hiddenKeys = $derived.by(() => {
-    if (schemeMode || comboMode) return new Set<number>()
-    return new Set(hiddenBoardIndexes(layout, keymap.layers ?? []))
+    if (schemeMode) return new Set<number>()
+    return new Set(absentLayoutIndexes(layout))
   })
 
   const bounds = $derived.by(() => {

@@ -1,20 +1,10 @@
-import {
-  absentLayoutIndexes,
-  type KeyBindingNode,
-  type LayoutKey
-} from '@keymap-editor/keymap-core'
-import { hiddenBoardIndexes } from '../../../blank-top-row'
+import { absentLayoutIndexes, type LayoutKey } from '@keymap-editor/keymap-core'
 
 /**
- * Indexes drawn in the demo card thumb: omit absent matrix slots and a
- * blank top row, matching the main board’s default presentation.
+ * Indexes drawn in the demo card thumb: omit absent matrix slots, matching
+ * the main board’s default presentation.
  */
-export function layoutThumbVisibleIndexes(
-  layout: LayoutKey[],
-  layers?: KeyBindingNode[][]
-): number[] {
-  const hidden = new Set(
-    layers?.length ? hiddenBoardIndexes(layout, layers) : absentLayoutIndexes(layout)
-  )
+export function layoutThumbVisibleIndexes(layout: LayoutKey[]): number[] {
+  const hidden = new Set(absentLayoutIndexes(layout))
   return layout.flatMap((_, index) => (hidden.has(index) ? [] : [index]))
 }
