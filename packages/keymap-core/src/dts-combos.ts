@@ -7,7 +7,12 @@
  */
 
 import { findMatchingBrace } from './dts-keymap.js'
-import type { ZmkCombo } from './types.js'
+import {
+  isModifierWrapCode,
+  modifierHoldForKey,
+  modifierHoldForWrap
+} from './modifiers.js'
+import type { KeyBindingNode, ZmkCombo } from './types.js'
 
 export interface DtsCombosBlock {
   /** Absolute start of the `combos` keyword. */
@@ -273,6 +278,105 @@ export function comboKeysMessage(issue: ComboKeysIssue | null): string | null {
 /** True when the combo is safe to leave in the keymap / exit the editor. */
 export function isComboReady(combo: { keyPositions: readonly number[] }): boolean {
   return comboKeysIssue(combo.keyPositions) === null
+}
+
+/**
+ * True when layer0 at this index is a standalone modifier key
+ * (`&kp LSHIFT`, `&sk LCTRL`, hold side of `&mt LALT A`).
+ */
+export function bindingIsModifierKey(node: KeyBindingNode | undefined): boolean {
+  if (!node) return false
+  const behavior = String(node.value)
+  if (behavior === '&kp' || behavior === '&sk') {
+    return modifierHoldForKey(node.params[0]?.value) != null
+  }
+  if (behavior === '&mt') {
+    return modifierHoldForKey(node.params[0]?.value) != null
+  }
+  return false
+}
+
+/** True when the bind is a mod key or nests a wrap like `LS(CAPS)` / `LC(BSPC)`. */
+export function bindingCarriesModifier(node: KeyBindingNode | undefined): boolean {
+  if (!node) return false
+  if (bindingIsModifierKey(node)) return true
+  if (isModifierWrapCode(node.value)) return true
+  return (node.params ?? []).some(child => bindingCarriesModifier(child))
+}
+
+/**
+ * Soft design hint: any selected layer0 key carries a modifier
+ * (standalone Shift/Alt, `&mt` hold-mod, or `LS()`/`LA()` wraps).
+ * Mixing those into a combo usually mimics a normal host chord.
+ * Does not block save or exit.
+ */
+export function comboLooksLikeModifierChord(
+  keyPositions: readonly number[],
+  layer0: readonly (KeyBindingNode | undefined)[] | undefined
+): boolean {
+  if (keyPositions.length < COMBO_MIN_KEYS || !layer0) return false
+  return keyPositions.some(index => bindingCarriesModifier(layer0[index]))
+}
+
+export function comboModifierChordMessage(): string {
+  return 'Looks like a normal modifier chord; combos usually use letter or thumb keys.'
+}
+
+/** Typical ZMK default when `timeout-ms` is omitted. */
+export const COMBO_TIMEOUT_MS_DEFAULT = 50
+export const COMBO_TIMEOUT_MS_MIN = 20
+export const COMBO_TIMEOUT_MS_MAX = 200
+
+export function clampComboTimeoutMs(ms: number): number {
+  if (!Number.isFinite(ms)) return COMBO_TIMEOUT_MS_DEFAULT
+  return Math.min(
+    COMBO_TIMEOUT_MS_MAX,
+    Math.max(COMBO_TIMEOUT_MS_MIN, Math.round(ms))
+  )
+}
+
+function isTabKeycode(value: string | number | undefined | null): boolean {
+  if (value == null || value === '') return false
+  const code = String(value).toUpperCase().replace(/^KC_/, '')
+  return code === 'TAB'
+}
+
+/**
+ * True when the binding is essentially Alt+Tab (`&kp LA(TAB)` / `RA(TAB)`).
+ * Host task-switchers expect Alt held; a one-shot combo is usually a poor fit.
+ */
+export function bindingLooksLikeAltTab(node: KeyBindingNode | undefined): boolean {
+  if (!node) return false
+  const wrap = modifierHoldForWrap(node.value)
+  if (wrap?.role === 'alt' && isTabKeycode(node.params[0]?.value)) return true
+  return (node.params ?? []).some(child => bindingLooksLikeAltTab(child))
+}
+
+export function comboAltTabMessage(): string {
+  return 'Alt+Tab usually needs Alt held; a one-shot combo often works poorly on the host.'
+}
+
+export function comboBindingHint(binding: KeyBindingNode | undefined): string | null {
+  if (bindingLooksLikeAltTab(binding)) return comboAltTabMessage()
+  return null
+}
+
+/**
+ * Soft design hints when hard key-count rules already pass.
+ * Binding hints (Alt+Tab) win over position hints (mod chord).
+ */
+export function comboDesignHint(
+  keyPositions: readonly number[],
+  layer0: readonly (KeyBindingNode | undefined)[] | undefined,
+  binding?: KeyBindingNode
+): string | null {
+  if (comboKeysIssue(keyPositions) != null) return null
+  const fromBinding = comboBindingHint(binding)
+  if (fromBinding) return fromBinding
+  if (comboLooksLikeModifierChord(keyPositions, layer0)) {
+    return comboModifierChordMessage()
+  }
+  return null
 }
 
 /** Empty starter combo for the visual editor (parsed binding). */

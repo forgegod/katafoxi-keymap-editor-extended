@@ -2,6 +2,11 @@
   import {
     COMBO_MAX_KEYS,
     COMBO_MIN_KEYS,
+    COMBO_TIMEOUT_MS_DEFAULT,
+    COMBO_TIMEOUT_MS_MAX,
+    COMBO_TIMEOUT_MS_MIN,
+    clampComboTimeoutMs,
+    comboDesignHint,
     comboKeysIssue,
     comboKeysMessage,
     createEmptyCombo,
@@ -18,15 +23,26 @@
   const searchBox = getSearchContext()
 
   const combos = $derived(editor.draftKeymap?.combos ?? [])
+  const layer0 = $derived(editor.draftKeymap?.layers?.[0])
   const active = $derived(
     combos.find(c => c.id === editor.activeComboId) ?? null
   )
   const activeIssue = $derived(
     active ? comboKeysIssue(active.keyPositions) : null
   )
-  const activeHint = $derived(
-    editor.comboNotice ?? comboKeysMessage(activeIssue)
+  const designHint = $derived(
+    active
+      ? comboDesignHint(active.keyPositions, layer0, active.binding)
+      : null
   )
+  const activeHint = $derived(
+    editor.comboNotice ?? comboKeysMessage(activeIssue) ?? designHint
+  )
+  const hintIsSoft = $derived(
+    !editor.comboNotice && activeIssue == null && designHint != null
+  )
+  const timeoutMs = $derived(active?.timeoutMs ?? COMBO_TIMEOUT_MS_DEFAULT)
+  const timeoutIsCustom = $derived(active?.timeoutMs !== undefined)
 
   const sources = $derived.by(() => {
     const defs = definitionsBox.current
@@ -50,9 +66,14 @@
 
   function patchActive(patch: Partial<ZmkCombo>) {
     if (!active) return
-    const next = combos.map(c =>
-      c.id === active.id ? { ...c, ...patch } : c
-    )
+    const next = combos.map(c => {
+      if (c.id !== active.id) return c
+      const merged = { ...c, ...patch }
+      if ('timeoutMs' in patch && patch.timeoutMs === undefined) {
+        delete merged.timeoutMs
+      }
+      return merged
+    })
     editor.updateCombos(next)
   }
 
@@ -87,6 +108,19 @@
     }
     patchActive({ id })
     editor.activeComboId = id
+  }
+
+  function setTimeoutMs(ms: number) {
+    patchActive({ timeoutMs: clampComboTimeoutMs(ms) })
+  }
+
+  function onTimeoutInput(event: Event) {
+    const input = event.currentTarget as HTMLInputElement
+    setTimeoutMs(Number(input.value))
+  }
+
+  function clearTimeoutMs() {
+    patchActive({ timeoutMs: undefined })
   }
 
   function editBinding() {
@@ -145,12 +179,16 @@
     <ul class="combo-list" role="listbox" aria-label="Combo list">
       {#each combos as combo (combo.id)}
         {@const issue = comboKeysIssue(combo.keyPositions)}
+        {@const soft =
+          issue == null &&
+          comboDesignHint(combo.keyPositions, layer0, combo.binding)}
         <li>
           <button
             type="button"
             class="combo-item"
             class:active={combo.id === editor.activeComboId}
             class:invalid={issue != null}
+            class:soft-warn={!!soft}
             role="option"
             aria-selected={combo.id === editor.activeComboId}
             onclick={() => selectCombo(combo.id)}
@@ -175,6 +213,71 @@
           onchange={renameActive}
         />
       </label>
+
+      <div class="combo-timeout" role="group" aria-label="Combo timeout">
+        <div class="timeout-label-row">
+          <span class="timeout-label">
+            Timeout
+            <strong>{timeoutMs} ms</strong>
+            {#if !timeoutIsCustom}
+              <span class="timeout-default">(default)</span>
+            {/if}
+          </span>
+          {#if timeoutIsCustom}
+            <button
+              type="button"
+              class="combo-btn quiet"
+              onclick={clearTimeoutMs}
+              title="Omit timeout-ms and use the firmware default"
+            >
+              Default
+            </button>
+          {/if}
+        </div>
+        <input
+          class="timeout-range"
+          type="range"
+          min={COMBO_TIMEOUT_MS_MIN}
+          max={COMBO_TIMEOUT_MS_MAX}
+          step="5"
+          value={timeoutMs}
+          aria-valuemin={COMBO_TIMEOUT_MS_MIN}
+          aria-valuemax={COMBO_TIMEOUT_MS_MAX}
+          aria-valuenow={timeoutMs}
+          aria-label="Combo timeout in milliseconds"
+          oninput={onTimeoutInput}
+        />
+        <div class="timeout-presets">
+          <button
+            type="button"
+            class="combo-btn quiet"
+            class:on={timeoutMs === 30 && timeoutIsCustom}
+            onclick={() => setTimeoutMs(30)}
+          >
+            Fast
+          </button>
+          <button
+            type="button"
+            class="combo-btn quiet"
+            class:on={timeoutMs === 50}
+            onclick={() => setTimeoutMs(50)}
+          >
+            Normal
+          </button>
+          <button
+            type="button"
+            class="combo-btn quiet"
+            class:on={timeoutMs === 100 && timeoutIsCustom}
+            onclick={() => setTimeoutMs(100)}
+          >
+            Slow
+          </button>
+        </div>
+        <p class="combo-hint">
+          How quickly all keys must be pressed together.
+        </p>
+      </div>
+
       <div class="combo-actions">
         <button type="button" class="combo-btn" onclick={editBinding}>
           Edit binding
@@ -184,7 +287,7 @@
         </button>
       </div>
       {#if activeHint}
-        <p class="combo-warn" role="status">{activeHint}</p>
+        <p class="combo-warn" class:soft={hintIsSoft} role="status">{activeHint}</p>
       {:else}
         <p class="combo-hint">
           Click keys on the board ({COMBO_MIN_KEYS}–{COMBO_MAX_KEYS}) to set
@@ -263,6 +366,17 @@
     cursor: pointer;
   }
 
+  .combo-btn.quiet {
+    height: 22px;
+    padding: 0 6px;
+    font-size: 0.92em;
+  }
+
+  .combo-btn.quiet.on {
+    border-color: var(--accent, #3a7);
+    background: color-mix(in srgb, var(--accent, #3a7) 16%, transparent);
+  }
+
   .combo-btn.danger {
     color: var(--danger, #b33);
   }
@@ -314,6 +428,10 @@
     color: var(--danger, #b33);
   }
 
+  .combo-item.soft-warn .combo-pos {
+    color: var(--warning, #b8860b);
+  }
+
   .combo-id {
     font-weight: 600;
   }
@@ -349,6 +467,45 @@
     font: inherit;
   }
 
+  .combo-timeout {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .timeout-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .timeout-label {
+    color: var(--text-muted);
+    font-size: 0.92em;
+  }
+
+  .timeout-label strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .timeout-default {
+    opacity: 0.75;
+  }
+
+  .timeout-range {
+    width: 100%;
+    margin: 0;
+    accent-color: var(--accent, #3a7);
+  }
+
+  .timeout-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
   .combo-actions {
     display: flex;
     flex-wrap: wrap;
@@ -359,5 +516,9 @@
     margin: 0;
     color: var(--danger, #b33);
     line-height: 1.35;
+  }
+
+  .combo-warn.soft {
+    color: var(--warning, #b8860b);
   }
 </style>

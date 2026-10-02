@@ -3,7 +3,10 @@ import {
   buildKeymapCode,
   COMBO_MAX_KEYS,
   COMBO_MIN_KEYS,
+  bindingLooksLikeAltTab,
+  comboDesignHint,
   comboKeysIssue,
+  comboLooksLikeModifierChord,
   createEmptyCombo,
   encodeKeyBinding,
   formatCombosBlock,
@@ -174,5 +177,85 @@ describe('combo key counts', () => {
     expect(comboKeysIssue([0, 1, 2, 3, 4, 5])).toBe('too_many')
     expect(isComboReady({ keyPositions: [1, 2] })).toBe(true)
     expect(isComboReady({ keyPositions: [1] })).toBe(false)
+  })
+})
+
+describe('combo modifier-chord hint', () => {
+  const layer0 = [
+    { value: '&kp', params: [{ value: 'LSHIFT', params: [] }] },
+    { value: '&kp', params: [{ value: 'R', params: [] }] },
+    { value: '&kp', params: [{ value: 'A', params: [] }] },
+    {
+      value: '&mt',
+      params: [
+        { value: 'LCTRL', params: [] },
+        { value: 'ESC', params: [] }
+      ]
+    },
+    {
+      value: '&lt',
+      params: [
+        { value: 1, params: [] },
+        { value: 'LS', params: [{ value: 'CAPS', params: [] }] }
+      ]
+    },
+    { value: '&kp', params: [{ value: 'H', params: [] }] }
+  ]
+
+  it('flags Shift+letter positions on layer0', () => {
+    expect(comboLooksLikeModifierChord([0, 1], layer0)).toBe(true)
+    expect(comboDesignHint([0, 1], layer0)).toMatch(/modifier chord/)
+  })
+
+  it('stays quiet for two letter keys', () => {
+    expect(comboLooksLikeModifierChord([1, 2], layer0)).toBe(false)
+    expect(comboDesignHint([1, 2], layer0)).toBeNull()
+  })
+
+  it('flags &mt hold-mod + another key', () => {
+    expect(comboLooksLikeModifierChord([3, 2], layer0)).toBe(true)
+  })
+
+  it('flags two modifier keys (e.g. Alt + RAlt/Tab)', () => {
+    const alt = { value: '&kp', params: [{ value: 'LALT', params: [] }] }
+    const raltTab = {
+      value: '&mt',
+      params: [
+        { value: 'RALT', params: [] },
+        { value: 'TAB', params: [] }
+      ]
+    }
+    const board = [alt, raltTab, { value: '&kp', params: [{ value: 'A', params: [] }] }]
+    expect(comboLooksLikeModifierChord([0, 1], board)).toBe(true)
+    expect(comboDesignHint([0, 1], board)).toMatch(/modifier chord/)
+  })
+
+  it('flags letter + &lt with LS() tap (Lark Caps key)', () => {
+    expect(comboLooksLikeModifierChord([5, 4], layer0)).toBe(true)
+    expect(comboDesignHint([5, 4], layer0)).toMatch(/modifier chord/)
+  })
+
+  it('does not warn when the hard count rule already fails', () => {
+    expect(comboDesignHint([0], layer0)).toBeNull()
+  })
+
+  it('warns on Alt+Tab bindings', () => {
+    const altTab = {
+      value: '&kp',
+      params: [{ value: 'LA', params: [{ value: 'TAB', params: [] }] }]
+    }
+    expect(bindingLooksLikeAltTab(altTab)).toBe(true)
+    expect(comboDesignHint([1, 2], layer0, altTab)).toMatch(/Alt\+Tab/)
+    // Binding hint wins over mod-chord positions
+    expect(comboDesignHint([0, 1], layer0, altTab)).toMatch(/Alt\+Tab/)
+  })
+
+  it('stays quiet for Ctrl+C bindings', () => {
+    const copy = {
+      value: '&kp',
+      params: [{ value: 'LC', params: [{ value: 'C', params: [] }] }]
+    }
+    expect(bindingLooksLikeAltTab(copy)).toBe(false)
+    expect(comboDesignHint([1, 2], layer0, copy)).toBeNull()
   })
 })
