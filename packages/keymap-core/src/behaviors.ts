@@ -70,7 +70,7 @@ export function behaviorFirmwareNote(
 
 /**
  * Short English peek for the decode card — what the behaviour does,
- * not a docs dump. Layer / hold-tap families only; `&kp` stays silent.
+ * not a docs dump. Layer / hold-tap / sticky families only; `&kp` stays silent.
  */
 const PEEK_NOTES: Record<string, string> = {
   '&mo': 'Hold to activate the layer; release returns.',
@@ -82,7 +82,7 @@ const PEEK_NOTES: Record<string, string> = {
   '&sk': 'Holds the modifier until the next keypress (sticky).'
 }
 
-/** One-line behaviour hint for hover decode when the binding is not a host key. */
+/** One-line behaviour hint shown on the hover decode card. */
 export function behaviorPeekNote(
   code: string | number | undefined | null
 ): string | null {

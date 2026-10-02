@@ -154,8 +154,7 @@
     const rect = target.getBoundingClientRect()
     if (!claimLegendDecode(keyIndex, layer, hideDecode)) return
     decode = { layer, rect }
-    // Same preview as hovering that layer's row in the host-legend strip:
-    // highlight bindings that activate / reference this layer.
+    // Same layer preview as the host-legend strip row.
     editor.legendHover = { kind: 'layer', layer }
   }
 
