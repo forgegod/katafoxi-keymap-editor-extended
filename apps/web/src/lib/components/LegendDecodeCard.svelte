@@ -3,6 +3,7 @@
     ALT_GR_COLUMN_LABEL,
     ALT_GR_SHIFT_COLUMN_LABEL,
     ALT_LEVEL_EMPTY,
+    behaviorPeekNote,
     composeLegendDecode,
     hostLanguageName,
     hostLevels,
@@ -53,6 +54,13 @@
       return withEditableLegendDecodeGaps(base, editor.hostLegend)
     } catch {
       return card
+    }
+  })
+  const behaviorNote = $derived.by(() => {
+    try {
+      return behaviorPeekNote(parseKeyBinding(displayCard.binding).value)
+    } catch {
+      return null
     }
   })
   const editing = $derived.by(() => {
@@ -187,6 +195,7 @@
   class:session={hostSession}
   class:peek={!hostSession}
   class:has-table={displayCard.current.length > 0}
+  class:has-note={Boolean(behaviorNote)}
   style="position:fixed;left:{anchor.left}px;top:{anchor.top}px;z-index:40"
 >
   {#if previous !== undefined}
@@ -205,6 +214,9 @@
     {/if}
     {#if displayCard.hold}<span class="hold">{displayCard.hold}</span>{/if}
   </div>
+  {#if behaviorNote}
+    <p class="behavior-note">{behaviorNote}</p>
+  {/if}
   {#if displayCard.current.length}
     <div
       class="decode-table"
@@ -386,9 +398,15 @@
     max-width: min(40em, calc(100vw - 16px));
   }
 
-  .legend-decode.has-table :is(.was, .ids, .mode-hint, .session-bar) {
+  .legend-decode.has-table :is(.was, .ids, .behavior-note, .mode-hint, .session-bar) {
     width: 0;
     min-width: 100%;
+    white-space: normal;
+  }
+
+  /* Layer / hold-tap peeks have no grid — still wrap the one-liner. */
+  .legend-decode.has-note:not(.has-table) {
+    max-width: min(22em, calc(100vw - 16px));
     white-space: normal;
   }
 
@@ -398,6 +416,15 @@
     font-size: var(--font-md);
     font-family: Quicksand, avenir, sans-serif;
     line-height: 1.3;
+  }
+
+  .behavior-note {
+    margin: 0 0 6px;
+    white-space: normal;
+    font-family: Quicksand, avenir, sans-serif;
+    font-size: var(--font-sm);
+    line-height: 1.35;
+    color: var(--paper-ink-subtle);
   }
 
   .ids {

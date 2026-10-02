@@ -69,6 +69,28 @@ export function behaviorFirmwareNote(
 }
 
 /**
+ * Short English peek for the decode card — what the behaviour does,
+ * not a docs dump. Layer / hold-tap families only; `&kp` stays silent.
+ */
+const PEEK_NOTES: Record<string, string> = {
+  '&mo': 'Hold to activate the layer; release returns.',
+  '&to': 'Switch to that layer and stay there (other non-default layers turn off).',
+  '&tog': 'Toggle the layer on or off with each press.',
+  '&sl': 'Activates the layer until the next keypress (sticky).',
+  '&lt': 'Hold for the layer; tap for the key.',
+  '&mt': 'Hold for the modifier; tap for the key.',
+  '&sk': 'Holds the modifier until the next keypress (sticky).'
+}
+
+/** One-line behaviour hint for hover decode when the binding is not a host key. */
+export function behaviorPeekNote(
+  code: string | number | undefined | null
+): string | null {
+  if (code == null || code === '') return null
+  return PEEK_NOTES[String(code)] ?? null
+}
+
+/**
  * First value-slot param and, for command behaviours, the command list.
  * Used by the key editor so `&mkp` / `&msc` / `&mmv` do not fall back
  * to the Keyboard+Keypad keycode grid.
