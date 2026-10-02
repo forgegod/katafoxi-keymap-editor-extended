@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   absentLayoutIndexes,
+  bindingColumnWidths,
   buildKeymapCode,
   parseKeymap,
   promoteAbsentLayoutKey,
@@ -53,6 +54,25 @@ describe('renderTable', () => {
     const rendered = renderTable(layout, ['&none', '&kp A'], { columnSeparator: ' ' })
     expect(rendered).toContain('&none')
     expect(rendered).toContain('&kp A')
+  })
+
+  it('aligns the same matrix column across layers when widths are shared', () => {
+    const layout: LayoutKey[] = [
+      { x: 0, y: 0, row: 0, col: 0 },
+      { x: 1, y: 0, row: 0, col: 1 },
+      { x: 2, y: 0, row: 0, col: 2 }
+    ]
+    const layers = [
+      ['&kp A', '&kp B', '&kp C'],
+      ['&trans', '&mt LCTRL J', '&kp D']
+    ]
+    const columnWidths = bindingColumnWidths(layout, layers, { columnSeparator: ' ' })
+    const [shortLayer, longLayer] = layers.map(layer =>
+      renderTable(layout, layer, { columnSeparator: ' ', columnWidths })
+    )
+    // padEnd: left edges of the same matrix column line up across layers.
+    expect(shortLayer.indexOf('&kp B')).toBe(longLayer.indexOf('&mt LCTRL J'))
+    expect(shortLayer.indexOf('&kp C')).toBe(longLayer.indexOf('&kp D'))
   })
 })
 

@@ -144,9 +144,25 @@ describe('KeyboardPicker', () => {
     if (!(select instanceof HTMLSelectElement)) {
       throw new Error('missing source select')
     }
-    expect(select.options).toHaveLength(3)
+    expect(select.options).toHaveLength(4)
     expect(localStorage.getItem('selectedSource')).toBe('nope')
     expect(target.querySelector('#repo')).toBeNull()
+    expect(onSelect).not.toHaveBeenCalled()
+    expect(loadLayout).not.toHaveBeenCalled()
+    expect(loadKeymap).not.toHaveBeenCalled()
+  })
+
+  it('opens the clipboard picker without loading local files', () => {
+    localStorage.setItem('selectedSource', 'clipboard')
+
+    const onSelect = open()
+
+    const select = target.querySelector('#source')
+    if (!(select instanceof HTMLSelectElement)) {
+      throw new Error('missing source select')
+    }
+    expect(select.selectedOptions[0]?.textContent?.trim()).toBe('Clipboard')
+    expect(target.querySelector('.clipboard-picker')).toBeTruthy()
     expect(onSelect).not.toHaveBeenCalled()
     expect(loadLayout).not.toHaveBeenCalled()
     expect(loadKeymap).not.toHaveBeenCalled()
@@ -160,8 +176,8 @@ describe('KeyboardPicker', () => {
     if (!(select instanceof HTMLSelectElement)) {
       throw new Error('missing source select')
     }
-    // Demo=0, Local=1, GitHub=2
-    select.value = '1'
+    // Demo=0, Clipboard=1, Local=2, GitHub=3
+    select.value = '2'
     select.dispatchEvent(new Event('change', { bubbles: true }))
     flushSync()
 

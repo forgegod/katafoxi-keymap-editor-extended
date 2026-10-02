@@ -5,8 +5,8 @@ import {
   parseDefines
 } from './dts-keymap.js'
 import { assertLayerKeyCounts, spliceBindingsIntoDts } from './dts-splice.js'
+import { bindingColumnWidths, renderTable } from './layout.js'
 import { KeymapValidationError } from './errors.js'
-import { renderTable } from './layout.js'
 import type { BehaviorDef, KeyBindingNode, LayoutKey, ParsedKeymap } from './types.js'
 
 export { KeymapValidationError } from './errors.js'
@@ -125,12 +125,16 @@ function renderTemplate(
 ): string {
   const includesPattern = /\{\{\s*behaviour_includes\s*\}\}/
   const layersPattern = /\{\{\s*rendered_layers\s*\}\}/
+  const columnWidths = bindingColumnWidths(params.layout, params.layers, {
+    columnSeparator: ' '
+  })
 
   const renderedLayers = params.layers.map((layer, i) => {
     const name = i === 0 ? 'default_layer' : `layer_${params.layerNames[i] || i}`
     const rendered = renderTable(params.layout, layer, {
       linePrefix: '',
-      columnSeparator: ' '
+      columnSeparator: ' ',
+      columnWidths
     })
 
     return `
@@ -174,16 +178,19 @@ function generateKeymapJSON(
   layout: LayoutKey[],
   encoded: ReturnType<typeof encodeKeymap>
 ): string {
+  const layers = encoded.layers as string[][]
+  const columnWidths = bindingColumnWidths(layout, layers, { useQuotes: true })
   const base = JSON.stringify({ ...encoded, layers: null }, null, 2)
-  const layers = (encoded.layers as string[][]).map(layer => {
-    const rendered = renderTable(layout, layer, {
+  const rendered = layers.map(layer => {
+    const body = renderTable(layout, layer, {
       useQuotes: true,
-      linePrefix: '      '
+      linePrefix: '      ',
+      columnWidths
     })
-    return `[\n${rendered}\n    ]`
+    return `[\n${body}\n    ]`
   })
 
-  return base.replace('"layers": null', `"layers": [\n    ${layers.join(', ')}\n  ]`)
+  return base.replace('"layers": null', `"layers": [\n    ${rendered.join(', ')}\n  ]`)
 }
 
 export function generateKeymap(

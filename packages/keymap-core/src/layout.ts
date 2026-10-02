@@ -7,20 +7,19 @@ export interface RenderTableOpts {
   useQuotes?: boolean
   linePrefix?: string
   columnSeparator?: string
+  /**
+   * Shared column widths (characters including separator). When omitted, widths
+   * come from this layer only. Pass {@link bindingColumnWidths} so every layer
+   * lines up the same matrix column.
+   */
+  columnWidths?: number[]
 }
 
-export function renderTable(
+/** Place bindings into physical rows/cols from the layout. */
+function layerBindingGrid(
   layout: LayoutKey[],
-  layer: string[],
-  opts: RenderTableOpts = {}
-): string {
-  const {
-    useQuotes = false,
-    linePrefix = '',
-    columnSeparator = ','
-  } = opts
-  const minWidth = useQuotes ? 9 : 7
-
+  layer: string[]
+): (string | undefined)[][] {
   // Dense Map — sparse `row` indices (e.g. 0,2 with 1 unused) must not create
   // holes in a JS array. Spreading those holes into Math.max yields NaN and an
   // empty bindings block on save.
@@ -35,13 +34,24 @@ export function renderTable(
     }
   })
 
-  const table = [...rowsByIndex.keys()]
+  return [...rowsByIndex.keys()]
     .sort((a, b) => a - b)
     .map(row => rowsByIndex.get(row)!)
+}
 
-  const columns = table.reduce((max, row) => Math.max(max, row.length), 0)
-  const columnIndices = Array.from({ length: columns }, (_, i) => i)
-  const columnWidths = columnIndices.map(i =>
+function columnCount(table: (string | undefined)[][]): number {
+  return table.reduce((max, row) => Math.max(max, row.length), 0)
+}
+
+function widthsForGrid(
+  table: (string | undefined)[][],
+  opts: Pick<RenderTableOpts, 'useQuotes' | 'columnSeparator'>
+): number[] {
+  const useQuotes = opts.useQuotes ?? false
+  const columnSeparator = opts.columnSeparator ?? ','
+  const minWidth = useQuotes ? 9 : 7
+  const columns = columnCount(table)
+  return Array.from({ length: columns }, (_, i) =>
     Math.max(
       minWidth,
       ...table.map(
@@ -51,6 +61,44 @@ export function renderTable(
           (useQuotes ? 2 : 0)
       )
     )
+  )
+}
+
+/**
+ * Max width per matrix column across every layer so `.keymap` / `keymap.json`
+ * tables share one horizontal grid.
+ */
+export function bindingColumnWidths(
+  layout: LayoutKey[],
+  layers: string[][],
+  opts: Pick<RenderTableOpts, 'useQuotes' | 'columnSeparator'> = {}
+): number[] {
+  const grids = layers.map(layer => layerBindingGrid(layout, layer))
+  const columns = grids.reduce((max, table) => Math.max(max, columnCount(table)), 0)
+  const perLayer = grids.map(table => widthsForGrid(table, opts))
+  return Array.from({ length: columns }, (_, i) =>
+    Math.max(0, ...perLayer.map(widths => widths[i] ?? 0))
+  )
+}
+
+export function renderTable(
+  layout: LayoutKey[],
+  layer: string[],
+  opts: RenderTableOpts = {}
+): string {
+  const {
+    useQuotes = false,
+    linePrefix = '',
+    columnSeparator = ','
+  } = opts
+  const minWidth = useQuotes ? 9 : 7
+
+  const table = layerBindingGrid(layout, layer)
+  const columns = columnCount(table)
+  const columnIndices = Array.from({ length: columns }, (_, i) => i)
+  const computed = widthsForGrid(table, { useQuotes, columnSeparator })
+  const columnWidths = columnIndices.map(i =>
+    Math.max(minWidth, opts.columnWidths?.[i] ?? computed[i] ?? minWidth)
   )
 
   return table
@@ -62,16 +110,16 @@ export function renderTable(
           .map(i => {
             const noMoreValues = row.slice(i).every(col => col === undefined)
             const noFollowingValues = row.slice(i + 1).every(col => col === undefined)
-            const padding = Math.max(minWidth, columnWidths[i])
+            const padding = columnWidths[i] ?? minWidth
 
             if (noMoreValues) return ''
             if (!row[i]) return ' '.repeat(padding + 1)
-            const column = (useQuotes ? `"${row[i]}"` : row[i]!).padStart(padding)
+            // Left-align so the same matrix column starts at one x across layers.
+            const column = (useQuotes ? `"${row[i]}"` : row[i]!).padEnd(padding)
             const suffix = isLastRow && noFollowingValues ? '' : columnSeparator
             return column + suffix
           })
           .join('')
-          .replace(/\s+$/, '')
       )
     })
     .join('\n')

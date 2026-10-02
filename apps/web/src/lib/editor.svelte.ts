@@ -73,6 +73,10 @@ import {
   type DraftIdentity
 } from './draft-storage'
 import {
+  readClipboardOriginalSource,
+  writeClipboardOriginalSource
+} from './clipboard/session.js'
+import {
   cloneHostLayoutTable,
   deleteUserHostLayout,
   isUserHostLayoutId,
@@ -142,7 +146,9 @@ const WARNING_MESSAGES: Record<string, string> = {
   macros_expanded:
     'Macros were expanded to raw keycodes (for example VU → C_VOL_UP). #define lines in the keymap may now be unused.',
   generated_default_template:
-    'No existing keymap or template was used, so the file was saved from the default generated template.'
+    'No existing keymap or template was used, so the file was saved from the default generated template.',
+  clipboard_json_no_export_source:
+    'Loaded from keymap.json only — Copy .keymap will use the default ZMK template unless you also paste a .keymap under “Export source”.'
 }
 
 function cloneHostLegendView(view: HostLegendView): HostLegendView {
@@ -233,6 +239,8 @@ export type KeyboardSelection = {
   github?: GithubMeta
   /** Demo-only host layouts to open when the legend is still English-only. */
   demoHost?: DemoHostLayoutSeed[]
+  /** Pasted `.keymap` text for clipboard Copy (splice). */
+  clipboardOriginalSource?: string | null
   [key: string]: unknown
 }
 
@@ -240,6 +248,8 @@ export class EditorState {
   definitions = $state<Definitions | null>(null)
   source = $state<string | null>(null)
   githubMeta = $state<GithubMeta | null>(null)
+  /** Pasted `.keymap` kept for clipboard splice / Copy. */
+  clipboardOriginalSource = $state<string | null>(null)
   layout = $state<LayoutKey[] | null>(null)
   /** Last loaded / successfully published+reloaded keymap. */
   baselineKeymap = $state<ParsedKeymap | null>(null)
@@ -511,9 +521,10 @@ export class EditorState {
   get statusText(): string {
     if (!this.draftKeymap) return ''
     if (!this.isDirty) {
-      return this.source === 'github'
-        ? 'Up to date with repo'
-        : 'Up to date with disk'
+      if (this.source === 'github') return 'Up to date with repo'
+      if (this.source === 'clipboard') return 'Ready — copy .keymap out'
+      if (this.source === 'demo') return 'Demo — not saved to a repo'
+      return 'Up to date with disk'
     }
     return 'Draft'
   }
@@ -1358,6 +1369,14 @@ export class EditorState {
 
     this.source = event.source ?? null
     this.githubMeta = event.github ?? null
+    if (event.source === 'clipboard' && upcomingIdentity) {
+      const pasted = event.clipboardOriginalSource ?? null
+      this.clipboardOriginalSource =
+        pasted ?? readClipboardOriginalSource(upcomingIdentity)
+      if (pasted) writeClipboardOriginalSource(upcomingIdentity, pasted)
+    } else {
+      this.clipboardOriginalSource = null
+    }
     this.layout = event.layout ?? null
     this.schemeMode = false
     const km = event.keymap ?? null
@@ -1577,9 +1596,28 @@ export class EditorState {
     void this.clearPersistedDraft()
   }
 
+  /** After Copy .keymap: sync baseline; the export sheet carries user-facing notes. */
+  applyClipboardCopied(reloaded: ParsedKeymap, _saveMeta?: unknown) {
+    const baseline = cloneParsedKeymap(reloaded)
+    this.baselineKeymap = baseline
+    this.draftKeymap = cloneParsedKeymap(baseline)
+    this.clearHistory()
+    this.saveNotice = null
+    const identity = this.currentDraftIdentity()
+    if (identity && this.clipboardOriginalSource) {
+      writeClipboardOriginalSource(identity, this.clipboardOriginalSource)
+    }
+    void this.clearPersistedDraft()
+  }
+
   /** Publish (POST/commit) succeeded but reload failed — keep draft dirty. */
   applyReloadFailure(source: string | null = this.source) {
-    const where = source === 'github' ? 'repository' : 'disk'
+    const where =
+      source === 'github'
+        ? 'repository'
+        : source === 'clipboard'
+          ? 'clipboard'
+          : 'disk'
     this.saveNotice = {
       kind: 'error',
       messages: [
@@ -1600,6 +1638,7 @@ export class EditorState {
     this.#publishGeneration += 1
     this.source = null
     this.githubMeta = null
+    this.clipboardOriginalSource = null
     this.layout = null
     this.baselineKeymap = null
     this.draftKeymap = null
@@ -1619,6 +1658,7 @@ export class EditorState {
     this.definitions = null
     this.source = null
     this.githubMeta = null
+    this.clipboardOriginalSource = null
     this.layout = null
     this.baselineKeymap = null
     this.draftKeymap = null

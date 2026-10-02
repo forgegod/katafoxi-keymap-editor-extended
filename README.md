@@ -14,13 +14,15 @@ For the original upstream feature list, see the
 
 ## This tree
 
-- Sources: **Demo** (bundled fixtures on first visit), **Local** (dev adapter, sibling `zmk-config`), and **GitHub**.
+- Sources: **Demo** (bundled fixtures on first visit), **Clipboard** (paste
+  `info.json` + `.keymap` / `keymap.json`, copy edited `.keymap` out), **Local**
+  (dev adapter, sibling `zmk-config`), and **GitHub**.
 - One key editor: behaviour, then the value list for that slot (keys, layers, modifiers, mouse commands). Enter applies a complete binding; Esc cancels.
 - Composed host legends on the keycap; compact ZMK tokens (`L1`, `⌃`, `⇧⇪`, hold-tap pills) live in `keymap-core`.
-- Undo/redo, a short **Draft** status, **Write files**, **Commit to GitHub**, and a **Latest** firmware chip on the GitHub source.
+- Undo/redo, a short **Draft** status, **Write files**, **Commit to GitHub**, **Copy .keymap** (Clipboard: text out for paste into your repo), and a **Latest** firmware chip on the GitHub source.
 - Light / dark **theme** toggle (persisted in the browser; default dark).
 
-Clipboard, browser File System Access, and combo/macro editors are upstream or planned. They are not in this tree. Vision: [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md).
+Browser File System Access and combo/macro editors are upstream or planned. They are not in this tree. Vision: [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md).
 
 ## Docs
 

@@ -9,6 +9,7 @@
   import Selector from '../Common/Selector.svelte'
   import GithubPicker, { type GithubChromeStatus } from './Github/Picker.svelte'
   import DemoPicker from './Demo/Picker.svelte'
+  import ClipboardPicker from './Clipboard/Picker.svelte'
   import SourceMenu from './SourceMenu.svelte'
 
   interface KeymapEvent {
@@ -17,6 +18,7 @@
     keymap?: unknown
     github?: { repository: string; branch: string }
     demo?: { id: string; name: string }
+    clipboardOriginalSource?: string | null
     [key: string]: unknown
   }
 
@@ -29,6 +31,7 @@
 
   const sourceChoices = compact([
     { id: 'demo', name: 'Demo' },
+    { id: 'clipboard', name: 'Clipboard' },
     config.enableLocal ? { id: 'local', name: 'Local' } : null,
     config.enableGitHub ? { id: 'github', name: 'GitHub' } : null
   ])
@@ -55,6 +58,7 @@
   let demoName = $state<string | null>(
     DEMO_CATALOG.find(entry => entry.id === readStoredDemoId())?.name ?? null
   )
+  let clipboardKeyboard = $state<string | null>(null)
 
   const gate = $derived(
     source === 'github'
@@ -69,6 +73,9 @@
 
   const triggerLabel = $derived.by(() => {
     if (source === 'local') return 'Local'
+    if (source === 'clipboard') {
+      return clipboardKeyboard ? `Clipboard · ${clipboardKeyboard}` : 'Clipboard'
+    }
     if (source === 'demo') return demoName ? `Demo · ${demoName}` : 'Demo'
     if (source !== 'github') return 'Source'
     if (gate === 'login') return 'Login with GitHub'
@@ -79,6 +86,11 @@
 
   const triggerTitle = $derived.by(() => {
     if (source === 'local') return 'Local files'
+    if (source === 'clipboard') {
+      return clipboardKeyboard
+        ? `Clipboard keyboard: ${clipboardKeyboard}`
+        : 'Paste layout and keymap from the clipboard'
+    }
     if (source === 'demo') {
       return demoName
         ? `Demo keyboard: ${demoName}`
@@ -104,12 +116,17 @@
     const km = keymap as {
       layer_names?: string[]
       layers: unknown[]
+      keyboard?: string
     }
     const layerNames =
       km.layer_names || km.layers.map((_, i) => `Layer ${i}`)
     Object.assign(km, { layer_names: layerNames })
 
     if (event.demo?.name) demoName = event.demo.name
+    if (source === 'clipboard') {
+      clipboardKeyboard =
+        typeof km.keyboard === 'string' && km.keyboard ? km.keyboard : 'clipboard'
+    }
 
     onSelect({ source: source ?? undefined, layout, keymap: km, ...rest })
   }
@@ -168,6 +185,9 @@
           onConnectGithub={config.enableGitHub ? connectGithub : undefined}
           showGithubCta={config.enableGitHub}
         />
+      {/if}
+      {#if source === 'clipboard'}
+        <ClipboardPicker onSelect={handleKeyboardSelected} />
       {/if}
       {#if source === 'github'}
         <GithubPicker
