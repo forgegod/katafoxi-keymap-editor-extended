@@ -47,7 +47,7 @@ function keyGeoms(layout: LayoutKey[]): KeyGeom[] {
  * Stack slot among `shownLayers` for this combo's face.
  * All-layers → top strip (0). Layer-restricted → first shown layer it applies to.
  */
-export function comboFaceSlot(
+function comboFaceSlot(
   combo: { layers?: readonly number[] },
   shownLayers: readonly number[]
 ): number {

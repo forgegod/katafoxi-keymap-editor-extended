@@ -14,7 +14,7 @@ import {
 } from './modifiers.js'
 import type { KeyBindingNode, ZmkCombo } from './types.js'
 
-export interface DtsCombosBlock {
+interface DtsCombosBlock {
   /** Absolute start of the `combos` keyword. */
   keywordStart: number
   openBrace: number
@@ -27,7 +27,7 @@ export interface DtsCombosBlock {
  * Locate a `combos { … }` block. Prefers one that declares
  * `compatible = "zmk,combos"` when several exist.
  */
-export function findCombosBlock(source: string): DtsCombosBlock | null {
+function findCombosBlock(source: string): DtsCombosBlock | null {
   const re = /\bcombos\s*\{/g
   let fallback: DtsCombosBlock | null = null
   let m: RegExpExecArray | null
@@ -167,7 +167,7 @@ function sanitizeComboId(id: string): string {
 }
 
 /** Format one combo node (encoded binding string already on the raw). */
-export function formatComboNode(combo: DtsComboJson, indent = '        '): string {
+function formatComboNode(combo: DtsComboJson, indent = '        '): string {
   const inner = indent + '    '
   const lines: string[] = [`${indent}${sanitizeComboId(combo.id)} {`]
   lines.push(`${inner}bindings = <${combo.binding}>;`)
@@ -240,15 +240,6 @@ export function spliceCombosIntoDts(original: string, combos: DtsComboJson[]): s
   }
 
   return `${original.trimEnd()}\n\n/ {\n${formatted}\n};\n`
-}
-
-/** Suggest a unique combo id like `combo`, `combo_2`, … */
-export function nextComboId(existing: readonly { id: string }[]): string {
-  const used = new Set(existing.map(c => c.id))
-  if (!used.has('combo')) return 'combo'
-  let n = 2
-  while (used.has(`combo_${n}`)) n++
-  return `combo_${n}`
 }
 
 function sanitizeComboIdPart(raw: string): string {
@@ -329,15 +320,7 @@ export function comboListMeta(combo: {
   return bits.join(' · ')
 }
 
-/** True when the combo may fire on this firmware layer. */
-export function comboAppliesToLayer(
-  combo: { layers?: readonly number[] },
-  layer: number
-): boolean {
-  if (!combo.layers || combo.layers.length === 0) return true
-  return combo.layers.includes(layer)
-}
-
+/** True when the combo may fire on any of the shown firmware layers. */
 export function comboAppliesToAnyLayer(
   combo: { layers?: readonly number[] },
   layers: readonly number[]
@@ -414,7 +397,7 @@ export function comboLooksLikeModifierChord(
   return keyPositions.some(index => bindingCarriesModifier(layer0[index]))
 }
 
-export function comboModifierChordMessage(): string {
+function comboModifierChordMessage(): string {
   return 'Looks like a normal modifier chord; combos usually use letter or thumb keys.'
 }
 
@@ -464,11 +447,11 @@ export function bindingLooksLikeAltTab(node: KeyBindingNode | undefined): boolea
   return (node.params ?? []).some(child => bindingLooksLikeAltTab(child))
 }
 
-export function comboAltTabMessage(): string {
+function comboAltTabMessage(): string {
   return 'Alt+Tab usually needs Alt held; a one-shot combo often works poorly on the host.'
 }
 
-export function comboBindingHint(binding: KeyBindingNode | undefined): string | null {
+function comboBindingHint(binding: KeyBindingNode | undefined): string | null {
   if (bindingLooksLikeAltTab(binding)) return comboAltTabMessage()
   return null
 }

@@ -7,7 +7,7 @@
 
 This fork needs a clear split between:
 
-1. **Product persistence** — how end users load and save firmware (and later host) keymap data.
+1. **Product persistence** — how end users load and save firmware and host keymap data.
 2. **Development convenience** — editing against a local clone such as `zmk-keyboard-lark` while building features.
 
 Upstream keymap-editor intent (see the [upstream README](https://github.com/nickcoutsos/keymap-editor/blob/master/README.md)) lists GitHub, Clipboard, and browser File System Access as keymap sources. The frozen tree also contains a Node “sibling `zmk-config`” path used by `running-locally.md`. Growing that Node path into a full local file server would fight the planned work (composed host×ZMK legends, host layout files) and duplicate what the browser or GitHub already can do.
