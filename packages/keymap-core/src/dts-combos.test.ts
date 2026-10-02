@@ -6,15 +6,18 @@ import {
   bindingLooksLikeAltTab,
   comboDesignHint,
   comboKeysIssue,
+  comboListMeta,
   comboLooksLikeModifierChord,
   createEmptyCombo,
   encodeKeyBinding,
   formatCombosBlock,
   isComboReady,
+  nextComboIdFromBinding,
   parseDtsCombos,
   parseDtsKeymap,
   parseKeymap,
-  spliceCombosIntoDts
+  spliceCombosIntoDts,
+  suggestComboIdStem
 } from '../src/index.js'
 import type { LayoutKey } from '../src/types.js'
 
@@ -149,11 +152,11 @@ describe('buildKeymapCode combos', () => {
 })
 
 describe('createEmptyCombo / formatCombosBlock', () => {
-  it('allocates a unique id', () => {
+  it('names new combos from the default ESC binding', () => {
     const a = createEmptyCombo([])
-    expect(a.id).toBe('combo')
+    expect(a.id).toBe('combo_esc')
     const b = createEmptyCombo([a])
-    expect(b.id).toBe('combo_2')
+    expect(b.id).toBe('combo_esc_2')
     expect(encodeKeyBinding(a.binding)).toBe('&kp ESC')
   })
 
@@ -163,6 +166,29 @@ describe('createEmptyCombo / formatCombosBlock', () => {
     ])
     expect(text).toContain('compatible = "zmk,combos"')
     expect(text).toContain('combo_esc')
+  })
+
+  it('builds list meta and binding-based ids', () => {
+    expect(
+      comboListMeta({
+        keyPositions: [0, 1],
+        timeoutMs: 30,
+        layers: [0, 1],
+        slowRelease: true
+      })
+    ).toBe('30ms · L0L1 · slow')
+    expect(
+      suggestComboIdStem({
+        value: '&mo',
+        params: [{ value: 1, params: [] }]
+      })
+    ).toBe('combo_mo_1')
+    expect(
+      nextComboIdFromBinding(
+        { value: '&kp', params: [{ value: 'TAB', params: [] }] },
+        [{ id: 'combo_tab' }]
+      )
+    ).toBe('combo_tab_2')
   })
 })
 

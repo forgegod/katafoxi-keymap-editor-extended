@@ -251,6 +251,98 @@ export function nextComboId(existing: readonly { id: string }[]): string {
   return `combo_${n}`
 }
 
+function sanitizeComboIdPart(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+}
+
+function flattenBindingForId(node: KeyBindingNode): string {
+  const wrap = isModifierWrapCode(node.value)
+  const head = sanitizeComboIdPart(String(node.value ?? '').replace(/^&/, ''))
+  const kids = (node.params ?? []).map(flattenBindingForId).filter(Boolean)
+  if (wrap && kids.length > 0) return [head, ...kids].join('_')
+  if (kids.length === 0) return head
+  return [head, ...kids].join('_')
+}
+
+/**
+ * Stem from the combo binding (`&kp ESC` → `combo_esc`, `&mo 1` → `combo_mo_1`).
+ * Always a legal DTS node id fragment.
+ */
+export function suggestComboIdStem(binding: KeyBindingNode): string {
+  const behavior = sanitizeComboIdPart(String(binding.value ?? '').replace(/^&/, ''))
+  const paramBits = (binding.params ?? []).map(flattenBindingForId).filter(Boolean)
+  let body: string
+  if (behavior === 'kp' && paramBits.length === 1) {
+    body = paramBits[0]
+  } else if (paramBits.length > 0) {
+    body = [behavior, ...paramBits].join('_')
+  } else {
+    body = behavior || 'combo'
+  }
+  body = body.replace(/_+/g, '_').replace(/^_|_$/g, '') || 'combo'
+  if (body === 'combo' || body.startsWith('combo_')) return body
+  return `combo_${body}`
+}
+
+/** Unique id from binding; appends `_2`, `_3`, … on collision. */
+export function nextComboIdFromBinding(
+  binding: KeyBindingNode,
+  existing: readonly { id: string }[]
+): string {
+  const stem = suggestComboIdStem(binding)
+  const used = new Set(existing.map(c => c.id))
+  if (!used.has(stem)) return stem
+  let n = 2
+  while (used.has(`${stem}_${n}`)) n++
+  return `${stem}_${n}`
+}
+
+/** Placeholder ids that may be renamed when the binding changes. */
+export function isPlaceholderComboId(id: string): boolean {
+  return /^combo(_\d+)?$/.test(id)
+}
+
+/** Compact list meta: `50ms · all` / `30ms · L0L1 · slow` (no matrix indexes). */
+export function comboListMeta(combo: {
+  keyPositions: readonly number[]
+  timeoutMs?: number
+  slowRelease?: boolean
+  layers?: readonly number[]
+}): string {
+  const bits: string[] = []
+  bits.push(`${combo.timeoutMs ?? 50}ms`)
+  if (combo.layers && combo.layers.length > 0) {
+    bits.push(combo.layers.map(i => `L${i}`).join(''))
+  } else {
+    bits.push('all')
+  }
+  if (combo.slowRelease) bits.push('slow')
+  const n = combo.keyPositions.length
+  if (n < 2) bits.push(n === 0 ? 'no keys' : 'need 2+')
+  return bits.join(' · ')
+}
+
+/** True when the combo may fire on this firmware layer. */
+export function comboAppliesToLayer(
+  combo: { layers?: readonly number[] },
+  layer: number
+): boolean {
+  if (!combo.layers || combo.layers.length === 0) return true
+  return combo.layers.includes(layer)
+}
+
+export function comboAppliesToAnyLayer(
+  combo: { layers?: readonly number[] },
+  layers: readonly number[]
+): boolean {
+  if (!combo.layers || combo.layers.length === 0) return true
+  if (layers.length === 0) return true
+  return combo.layers.some(l => layers.includes(l))
+}
+
 /** ZMK combos are chords — one key is just a normal binding. */
 export const COMBO_MIN_KEYS = 2
 /** Soft cap: more than a handful is awkward to press and usually a mistake. */
@@ -381,9 +473,13 @@ export function comboDesignHint(
 
 /** Empty starter combo for the visual editor (parsed binding). */
 export function createEmptyCombo(existing: readonly { id: string }[]): ZmkCombo {
+  const binding: KeyBindingNode = {
+    value: '&kp',
+    params: [{ value: 'ESC', params: [] }]
+  }
   return {
-    id: nextComboId(existing),
+    id: nextComboIdFromBinding(binding, existing),
     keyPositions: [],
-    binding: { value: '&kp', params: [{ value: 'ESC', params: [] }] }
+    binding
   }
 }
