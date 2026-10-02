@@ -56,7 +56,7 @@ Legend strip: show/hide languages, pick system or user profiles, stack or highli
 | **GitHub** | Load/commit `zmk-config` via GitHub App + OAuth. **Latest** firmware artifact chip when available. |
 | **Local** | Dev adapter to a sibling `zmk-config` (junction). Not the long-term product path. |
 
-Product persistence is **GitHub-first**; Local is for iterating against a cloned firmware tree. See [ADR 0001](docs/adr/0001-persistence-github-first.md).
+Product persistence is **GitHub-first**; Local is for iterating against a cloned firmware tree; Clipboard is browser-only paste/export. Save/load rules: [ADR 0001](docs/adr/0001-persistence-github-first.md), [ADR 0002](docs/adr/0002-keymap-file-contract.md).
 
 ## Editor highlights
 
@@ -87,7 +87,7 @@ Full setup (env, Local junction, GitHub App): [running-locally.md](running-local
 
 | Doc | Content |
 |-----|---------|
-| [running-locally.md](running-locally.md) | Install, Local, GitHub, tests |
+| [running-locally.md](running-locally.md) | Install, Demo, Clipboard, Local, GitHub, tests |
 | [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md) | Product vision |
 | [docs/adr/](docs/adr/README.md) | Architecture decisions |
 | [AGENTS.md](AGENTS.md) | Notes for coding agents |

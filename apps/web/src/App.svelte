@@ -8,6 +8,7 @@
   import { publishKeymap } from './lib/publish-keymap'
   import { reloadLocalKeyboard } from './lib/api'
   import { buildClipboardExport } from './lib/clipboard/export'
+  import { formatKeymapSaveWarnings } from './lib/keymap-save-warnings'
   import { writeClipboardOriginalSource } from './lib/clipboard/session'
   import KeyboardPicker from './lib/components/Pickers/KeyboardPicker.svelte'
   import ClipboardExportSheet from './lib/components/Pickers/Clipboard/ExportSheet.svelte'
@@ -134,18 +135,6 @@
     if (ok) buildRefresh += 1
   }
 
-  function clipboardExportWarnings(codes: string[]): string[] {
-    return codes.map(code => {
-      if (code === 'generated_default_template') {
-        return 'Built from the default ZMK template — paste a .keymap on Load (or Export source) next time to keep includes and behavior blocks.'
-      }
-      if (code === 'macros_expanded') {
-        return 'Macros were expanded to raw keycodes (for example VU → C_VOL_UP).'
-      }
-      return code
-    })
-  }
-
   async function handleCopyClipboard() {
     if (!editor.layout || !editor.draftKeymap || editor.saving) return
     editor.saving = true
@@ -186,7 +175,7 @@
       clipboardExport = {
         code: built.code,
         copied,
-        warnings: clipboardExportWarnings(built.warnings)
+        warnings: formatKeymapSaveWarnings(built.warnings)
       }
     } catch (err) {
       const message =

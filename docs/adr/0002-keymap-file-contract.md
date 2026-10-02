@@ -7,7 +7,7 @@
 
 The original editor’s everyday path is **`keymap.json`** (plus layout from `info.json`). This fork also loads and saves raw ZMK **`.keymap`** so boards like LARK (preamble `#define` / `#include`, custom `&mt` / `&lt` blocks) stay usable.
 
-Without a fixed contract, Save can silently overwrite a hand-maintained `.keymap` with the default “THIS FILE WAS GENERATED” template, or Local and GitHub can disagree on load. Implementing parse/splice once in `keymap-core` is required by [ADR 0001](0001-persistence-github-first.md).
+Without a fixed contract, Save can silently overwrite a hand-maintained `.keymap` with the default “THIS FILE WAS GENERATED” template, or Local, GitHub, and Clipboard can disagree on load. Implementing parse/splice once in `keymap-core` is required by [ADR 0001](0001-persistence-github-first.md).
 
 “Macros” here means **C-style `#define` aliases** in `.keymap` text (e.g. `#define VU C_VOL_UP`), not ZMK `&macro` behaviors in the editor UI.
 

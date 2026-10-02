@@ -26,7 +26,6 @@
   /** When the keymap field is keymap.json, paste the matching .keymap here for Copy splice. */
   let exportKeymapText = $state('')
   let error = $state<string | null>(null)
-  let notice = $state<string | null>(null)
   let loadedKeyboard = $state<string | null>(null)
   let busy = $state(false)
 
@@ -54,17 +53,8 @@
     })
   }
 
-  const LOAD_NOTICES: Record<string, string> = {
-    macros_expanded: 'Macros were expanded to raw keycodes in the pasted .keymap.',
-    clipboard_json_no_export_source:
-      'Loaded keymap.json. Paste the matching .keymap under Export source so Copy .keymap keeps includes and behavior blocks.',
-    clipboard_inferred_layout:
-      'No info.json — drawing a flat rectangular board from the binding count. Paste info.json for the real layout.'
-  }
-
   function load() {
     error = null
-    notice = null
     busy = true
     try {
       const bundle = loadClipboardBundle(
@@ -73,9 +63,6 @@
         exportKeymapText.trim() ? exportKeymapText : undefined
       )
       emitBundle(bundle)
-      if (bundle.warnings.length > 0) {
-        notice = bundle.warnings.map(w => LOAD_NOTICES[w] ?? w).join(' ')
-      }
     } catch (err) {
       error = errorMessage(err)
       loadedKeyboard = null
@@ -90,7 +77,6 @@
   ) {
     event.preventDefault()
     error = null
-    notice = null
     try {
       const text = await navigator.clipboard.readText()
       if (field === 'info') infoText = text
@@ -197,9 +183,6 @@
     {/if}
   </div>
 
-  {#if notice}
-    <p class="clipboard-notice" role="status">{notice}</p>
-  {/if}
   {#if error}
     <p class="clipboard-error" role="alert">{error}</p>
   {/if}
@@ -287,13 +270,6 @@
   .clipboard-loaded {
     color: var(--text-muted);
     font-size: var(--font-sm, 0.85rem);
-  }
-
-  .clipboard-notice {
-    margin: 0;
-    color: var(--warn-ink, var(--text-muted));
-    font-size: var(--font-sm, 0.85rem);
-    line-height: 1.35;
   }
 
   .clipboard-error {

@@ -62,7 +62,7 @@ In a **clean browser profile** the legend is system English only (`system-us`), 
 
 Includes inside those files resolve against vendored system modules (`us(basic)`, and so on).
 
-Click **Write files** to write `keymap.json` and update the `.keymap` in `zmk-config`. On GitHub the same action is **Commit to GitHub**. The write path depends on what is already on disk:
+Click **Write files** to write `keymap.json` and update the `.keymap` in `zmk-config`. On GitHub the same action is **Commit to GitHub**. With Source **Clipboard**, **Copy .keymap** uses the same splice order but returns text to the system clipboard (and a preview dialog) instead of writing disk. The write path depends on what is already on disk:
 
 1. If `config/*.keymap.template` exists, that template fully controls the written `.keymap` (`{{rendered_layers}}` / `{{behaviour_includes}}`).
 2. Otherwise, if a `.keymap` already exists, Write files splices bindings only inside `keymap { compatible = "zmk,keymap"; }`. `#define`, `#include`, and `&mt` / `&lt` blocks outside those bindings stay.
