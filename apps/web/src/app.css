@@ -158,7 +158,8 @@
   --warn-ink: #f0c878;
   --warn-wash: #3a3018;
   --warn-border: #6a5a30;
-  --highlight: #e4c56a;
+  /* Dark gold fill so light warn/accent ink on .slot.diff and legend hits stays readable. */
+  --highlight: #6b5420;
 
   --amber: #f0b429;
   --amber-strong: #f6c85a;

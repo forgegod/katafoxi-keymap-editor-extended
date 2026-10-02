@@ -1,22 +1,29 @@
 import {
+  absentLayoutIndexes,
+  isAbsentLayoutKey,
   isBlankLayerBinding,
   type KeyBindingNode,
   type LayoutKey
 } from '@keymap-editor/keymap-core'
 
 /** Indexes of the physical top row, or none when the board is a single row. */
-export function topRowKeyIndexes(keys: LayoutKey[]): number[] {
-  if (keys.length < 2) return []
-  const rows = keys.map(key => key.row)
+function topRowKeyIndexes(keys: LayoutKey[]): number[] {
+  const present = keys
+    .map((key, index) => ({ key, index }))
+    .filter(({ key }) => !isAbsentLayoutKey(key))
+  if (present.length < 2) return []
+  const rows = present.map(({ key }) => key.row)
   let indexes: number[]
   if (rows.every(row => typeof row === 'number')) {
     const top = Math.min(...(rows as number[]))
-    indexes = keys.flatMap((key, index) => (key.row === top ? [index] : []))
+    indexes = present.flatMap(({ key, index }) => (key.row === top ? [index] : []))
   } else {
-    const minY = Math.min(...keys.map(key => key.y))
-    indexes = keys.flatMap((key, index) => (Math.abs(key.y - minY) < 0.05 ? [index] : []))
+    const minY = Math.min(...present.map(({ key }) => key.y))
+    indexes = present.flatMap(({ key, index }) =>
+      Math.abs(key.y - minY) < 0.05 ? [index] : []
+    )
   }
-  if (indexes.length === 0 || indexes.length === keys.length) return []
+  if (indexes.length === 0 || indexes.length === present.length) return []
   return indexes
 }
 
@@ -36,4 +43,17 @@ export function blankTopRowIndexes(
     )
   )
   return blank ? indexes : []
+}
+
+/**
+ * Indexes omitted from the default board view: absent matrix slots plus a
+ * blank top row. Scheme mode should skip this and draw every slot.
+ */
+export function hiddenBoardIndexes(
+  layout: LayoutKey[],
+  layers: KeyBindingNode[][]
+): number[] {
+  const hidden = new Set(absentLayoutIndexes(layout))
+  for (const index of blankTopRowIndexes(layout, layers)) hidden.add(index)
+  return [...hidden]
 }

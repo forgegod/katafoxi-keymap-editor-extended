@@ -27,6 +27,11 @@ export interface LayoutKey {
   row?: number
   col?: number
   label?: string
+  /**
+   * Matrix slot kept for keymap index alignment, but no physical key.
+   * Still counts toward layer length / DTS output; omit from the drawn board.
+   */
+  absent?: boolean
 }
 
 export interface BehaviorDef {

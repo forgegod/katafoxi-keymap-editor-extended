@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { blankTopRowIndexes } from '../blank-top-row'
   import { editor } from '../editor.svelte.js'
   import stackLanguagesIcon from '../assets/stack-languages.png'
   import symbolDifferencesIcon from '../assets/symbol-differences.png'
@@ -10,12 +9,6 @@
   const stacked = $derived(editor.multilangViewOn)
   const canAlign = $derived(editor.canAlignHostSymbols)
   const marksOn = $derived(canAlign && editor.symbolAlignOn)
-  const topRowEmpty = $derived(
-    blankTopRowIndexes(editor.layout ?? [], editor.draftKeymap?.layers ?? []).length > 0
-  )
-  const emptyRowLabel = $derived(
-    editor.revealEmptyRow ? 'Hide empty row' : 'Show empty row'
-  )
 
   const stackTitle = $derived(
     canStack
@@ -26,6 +19,9 @@
     canAlign
       ? 'Highlight symbol differences'
       : 'Highlight symbol differences. Open a second host language first.'
+  )
+  const schemeTitle = $derived(
+    editor.schemeMode ? 'Hide matrix scheme' : 'Show matrix scheme'
   )
 </script>
 
@@ -76,32 +72,25 @@
       </svg>
       <span class="view-label">Colors</span>
     </PressToggle>
-    <div class="empty-slot">
-      {#if topRowEmpty}
-        <PressToggle
-          class="view-toggle half"
-          pressed={editor.revealEmptyRow}
-          aria-label={emptyRowLabel}
-          title={emptyRowLabel}
-          onclick={() => (editor.revealEmptyRow = !editor.revealEmptyRow)}
-        >
-          <svg class="empty-row-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-            <rect
-              x="1.25"
-              y="1.5"
-              width="13.5"
-              height="5"
-              rx="1"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.25"
-            />
-            <rect x="1.25" y="8.5" width="6" height="5.5" rx="1" opacity="0.78" />
-            <rect x="8.75" y="8.5" width="6" height="5.5" rx="1" opacity="0.78" />
-          </svg>
-          <span class="view-label">Empty</span>
-        </PressToggle>
-      {/if}
+    <div class="scheme-slot">
+      <PressToggle
+        class="view-toggle half"
+        pressed={editor.schemeMode}
+        aria-label={schemeTitle}
+        title={schemeTitle}
+        onclick={() => (editor.schemeMode = !editor.schemeMode)}
+      >
+        <svg class="scheme-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+          <path
+            d="M2 3.5h12M2 8h12M2 12.5h12M4 2v12M8 2v12M12 2v12"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.25"
+            stroke-linecap="round"
+          />
+        </svg>
+        <span class="view-label">Scheme</span>
+      </PressToggle>
     </div>
   </div>
 </div>
@@ -150,22 +139,35 @@
     align-items: stretch;
   }
 
-  .empty-slot {
+  .scheme-slot {
     min-width: 0;
     min-height: 22px;
   }
 
   .legend-view :global(.view-toggle.half) {
-    padding: 0 4px;
-    gap: 3px;
+    min-width: 0;
+    padding: 0 3px;
+    gap: 2px;
+    overflow: hidden;
   }
 
-  .legend-view :global(.layer-tones-icon),
-  .legend-view :global(.empty-row-icon) {
+  .legend-view :global(.view-toggle.half .view-label) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .legend-view :global(.view-toggle.half img),
+  .legend-view :global(.view-toggle.half svg) {
+    width: 12px;
+    height: 12px;
+  }
+
+  .legend-view :global(.layer-tones-icon) {
     fill: currentColor;
   }
 
-  .legend-view :global(.empty-row-icon rect[fill='none']) {
+  .legend-view :global(.scheme-icon path) {
     fill: none;
     stroke: currentColor;
   }

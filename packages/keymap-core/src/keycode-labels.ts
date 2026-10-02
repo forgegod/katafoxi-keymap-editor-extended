@@ -57,12 +57,15 @@ const KEYPAD_GLYPH_LABELS = new Map<string, string>([
 ])
 
 /** Compact keypad legend shared by edit_key chips and keycap text. */
-export function keypadGlyphLabel(code?: string | number | null): string | null {
-  const upper = String(code ?? '')
+function normalizeKeycodeName(code?: string | number | null): string {
+  return String(code ?? '')
     .trim()
     .toUpperCase()
     .replace(/^KC_/, '')
-  return KEYPAD_GLYPH_LABELS.get(upper) ?? null
+}
+
+export function keypadGlyphLabel(code?: string | number | null): string | null {
+  return KEYPAD_GLYPH_LABELS.get(normalizeKeycodeName(code)) ?? null
 }
 
 export function keypadCompactPunctLabel(choice: CatalogChoice): string | null {
@@ -261,6 +264,21 @@ const US_SHIFT_BY_NAME = new Map<string, ShiftAliasEntry>(
     )
   )
 )
+
+/**
+ * Single-glyph legend for HID punctuation (`MINUS` → `-`) and US shift
+ * aliases (`PRCNT` → `%`, `HASH` → `#`). Number-row bases (`N5`) stay out —
+ * those keep the catalog digit until a host compose column replaces them.
+ */
+export function keycodeGlyphLabel(code?: string | number | null): string | null {
+  const upper = normalizeKeycodeName(code)
+  if (!upper) return null
+  return (
+    PUNCT_HID_BY_NAME.get(upper)?.symbol ??
+    US_SHIFT_BY_NAME.get(upper)?.symbol ??
+    null
+  )
+}
 
 function choiceNames(choice: CatalogChoice): string[] {
   const aliases = Array.isArray(choice.aliases)

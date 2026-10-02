@@ -109,8 +109,8 @@ function larkView(): HostLegendView {
 describe('lark host layouts', () => {
   it('joins AC01 to A / ф and keeps shared AltGr', () => {
     registerLarkHostFixture()
-    expect(hostLayout('lark-en')?.byZmk.get('A')?.glyphs).toEqual(['a', 'A', '@', 'α'])
-    expect(hostLayout('lark-ru')?.byZmk.get('A')?.glyphs).toEqual(['ф', 'Ф', '@', 'α'])
+    expect(hostLayout('lark-en')?.byZmk.get('A')?.glyphs).toEqual(['a', 'A', '@', '×'])
+    expect(hostLayout('lark-ru')?.byZmk.get('A')?.glyphs).toEqual(['ф', 'Ф', '@', '×'])
     expect(hostLegendFor('KC_A', larkView())).toEqual({
       columns: [
         {
@@ -118,7 +118,7 @@ describe('lark host layouts', () => {
           tone: 'base',
           pair: ['a', 'A'],
           altGr: '@',
-          altGrShift: 'α',
+          altGrShift: '×',
           showAltGr: true,
           showAltGrShift: true,
           onKeycap: true
@@ -128,7 +128,7 @@ describe('lark host layouts', () => {
           tone: 'second',
           pair: ['ф', 'Ф'],
           altGr: '@',
-          altGrShift: 'α',
+          altGrShift: '×',
           showAltGr: true,
           showAltGrShift: true,
           onKeycap: true
@@ -138,27 +138,26 @@ describe('lark host layouts', () => {
     })
   })
 
-  it('keeps an empty AltGr cell empty', () => {
+  it('shares bracket AltGr on J', () => {
     expect(hostLegendFor('J', larkView())).toMatchObject({
       columns: [
-        { language: 'en', pair: ['j', 'J'], altGr: '', altGrShift: 'ξ' },
-        { language: 'ru', pair: ['о', 'О'] }
+        { language: 'en', pair: ['j', 'J'], altGr: '[', altGrShift: '{' },
+        { language: 'ru', pair: ['о', 'О'], altGr: '[', altGrShift: '{' }
       ]
     })
   })
 
-  it('records the three LARK divergences', () => {
-    expect(altNote(hostLegendFor('T', larkView())!)).toBe('Δτ/ёЁ')
-    expect(altNote(hostLegendFor('M', larkView())!)).toBe('ˬμ/ъЪ')
-    expect(altNote(hostLegendFor('GRAVE', larkView())!)).toBe('/ёЁ')
+  it('records LARK divergences on T, M, and O', () => {
+    expect(altNote(hostLegendFor('T', larkView())!)).toBe('/ёЁ')
+    expect(altNote(hostLegendFor('M', larkView())!)).toBe('/ъЪ')
     expect(extraPair(hostLegendFor('O', larkView())!)).toEqual(['щ', 'Щ'])
   })
 
   it('splits E into language and AltGr columns', () => {
     expect(hostLegendFor('E', larkView())).toMatchObject({
       columns: [
-        { language: 'en', pair: ['e', 'E'], altGr: '&', altGrShift: 'ε' },
-        { language: 'ru', pair: ['у', 'У'] }
+        { language: 'en', pair: ['e', 'E'], altGr: '№', altGrShift: '{' },
+        { language: 'ru', pair: ['у', 'У'], altGr: '№', altGrShift: '{' }
       ]
     })
   })
@@ -312,8 +311,8 @@ describe('system Russian winkeys', () => {
     )
     expect(hostLegendFor('A', withAlt)?.columns[0]?.pair).toEqual(['a', 'A'])
     expect(extraPair(hostLegendFor('A', withAlt)!)).toEqual(['ф', 'Ф'])
-    expect(altNote(hostLegendFor('A', withAlt)!)).toBe('@α/')
-    expect(altNote(hostLegendFor('Q', withAlt)!)).toBe('øØ/')
+    expect(altNote(hostLegendFor('A', withAlt)!)).toBe('@×/')
+    expect(altNote(hostLegendFor('Q', withAlt)!)).toBe('ø÷/')
     expect(altNote(hostLegendFor('N8', withAlt)!)).toContain('₽')
   })
 })
@@ -516,10 +515,10 @@ describe('host legend view', () => {
       language: 'en',
       pair: ['a', 'A'],
       altGr: '@',
-      altGrShift: 'α'
+      altGrShift: '×'
     })
     expect(extraPair(legend)).toBeNull()
-    expect(altNote(legend)).toBe('@α')
+    expect(altNote(legend)).toBe('@×')
   })
 
   it('hides AltGr columns without changing the layout', () => {
@@ -534,7 +533,7 @@ describe('host legend view', () => {
     const onlyShift = setHostColumnAlt(setHostColumnAlt(standard, 'en', 'altGr', false), 'ru', 'altGr', false)
     expect(hostLegendFor('E', onlyShift)?.columns[0]).toMatchObject({
       altGr: '',
-      altGrShift: 'ε'
+      altGrShift: '{'
     })
   })
 

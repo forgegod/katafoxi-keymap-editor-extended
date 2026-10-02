@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { buildKeymapCode, parseKeymap, renderTable } from './index.js'
+import {
+  absentLayoutIndexes,
+  buildKeymapCode,
+  parseKeymap,
+  promoteAbsentLayoutKey,
+  renderTable,
+  validateInfoJson
+} from './index.js'
 import type { LayoutKey } from './types.js'
 
 /** Thumb-cluster style: physical row 1 unused in matrix numbering. */
@@ -36,6 +43,70 @@ describe('renderTable', () => {
     expect(lines).toHaveLength(2)
     expect(lines[0]).toMatch(/&kp A\s+&kp B/)
     expect(lines[1]).toMatch(/&kp C\s+&kp D/)
+  })
+
+  it('still emits bindings for absent matrix slots', () => {
+    const layout: LayoutKey[] = [
+      { x: 0, y: 0, row: 0, col: 0, absent: true },
+      { x: 1, y: 0, row: 0, col: 1 }
+    ]
+    const rendered = renderTable(layout, ['&none', '&kp A'], { columnSeparator: ' ' })
+    expect(rendered).toContain('&none')
+    expect(rendered).toContain('&kp A')
+  })
+})
+
+describe('absentLayoutIndexes', () => {
+  it('lists only slots marked absent', () => {
+    const layout: LayoutKey[] = [
+      { x: 0, y: 0, row: 0, col: 0, absent: true },
+      { x: 1, y: 0, row: 0, col: 1 },
+      { x: 2, y: 0, row: 0, col: 2, absent: true }
+    ]
+    expect(absentLayoutIndexes(layout)).toEqual([0, 2])
+  })
+})
+
+describe('promoteAbsentLayoutKey', () => {
+  it('clears absent on the edited slot and leaves others alone', () => {
+    const layout: LayoutKey[] = [
+      { x: 0, y: 0, row: 0, col: 0, absent: true, label: '0,0' },
+      { x: 1, y: 0, row: 0, col: 1, absent: true, label: '0,1' }
+    ]
+    const next = promoteAbsentLayoutKey(layout, 0)
+    expect(next[0]).toEqual({ x: 0, y: 0, row: 0, col: 0, label: '0,0' })
+    expect(next[1]?.absent).toBe(true)
+  })
+
+  it('returns the same array when the slot is already present', () => {
+    const layout: LayoutKey[] = [{ x: 0, y: 0, row: 0, col: 0 }]
+    expect(promoteAbsentLayoutKey(layout, 0)).toBe(layout)
+  })
+})
+
+describe('validateInfoJson absent', () => {
+  it('accepts boolean absent on a key', () => {
+    expect(() =>
+      validateInfoJson({
+        layouts: {
+          LAYOUT: {
+            layout: [{ x: 0, y: 0, row: 0, col: 0, absent: true }]
+          }
+        }
+      })
+    ).not.toThrow()
+  })
+
+  it('rejects a non-boolean absent flag', () => {
+    expect(() =>
+      validateInfoJson({
+        layouts: {
+          LAYOUT: {
+            layout: [{ x: 0, y: 0, row: 0, col: 0, absent: 'yes' }]
+          }
+        }
+      })
+    ).toThrow(/absent/)
   })
 })
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   import {
     collectUsedKeycodes,
+    isBlankLayerBinding,
     layerLegendSymbol,
     usedKeycodesRevision,
     type HostLegendView,
@@ -10,15 +11,17 @@
     type LayoutKey,
     type ParsedKeymap
   } from '@keymap-editor/keymap-core'
-  import { blankTopRowIndexes } from '../../blank-top-row'
+  import { hiddenBoardIndexes } from '../../blank-top-row'
   import {
     getDefinitionsContext,
     setSearchContext,
     type SearchContextValue
   } from '../../context'
+  import { editor } from '../../editor.svelte.js'
   import { buildSearchContext } from '../../search-context'
   import { getKeyBoundingBox } from '../../key-units'
   import KeyboardLayout from './KeyboardLayout.svelte'
+  import MatrixSchemeOverlay from './MatrixSchemeOverlay.svelte'
 
   interface Props {
     layout: LayoutKey[]
@@ -27,8 +30,11 @@
     hostView?: HostLegendView
     layerView?: LayerView
     legendHover?: LegendHover | null
-    /** When the top row is blank, false hides it. The legend column owns the toggle. */
-    revealEmptyRow?: boolean
+    /**
+     * Firmware-scheme view: show absent slots and blank rows, and draw
+     * layout row/col rails. The legend column owns the toggle.
+     */
+    schemeMode?: boolean
   }
 
   let {
@@ -38,7 +44,7 @@
     hostView,
     layerView,
     legendHover = null,
-    revealEmptyRow = false
+    schemeMode = false
   }: Props = $props()
 
   const definitionsBox = getDefinitionsContext()
@@ -77,10 +83,10 @@
       (keymap?.layers?.length ?? 0) > 0
   )
 
-  const blankTopRow = $derived(blankTopRowIndexes(layout, keymap.layers ?? []))
-  const hiddenKeys = $derived(
-    !revealEmptyRow && blankTopRow.length > 0 ? new Set(blankTopRow) : new Set<number>()
-  )
+  const hiddenKeys = $derived.by(() => {
+    if (schemeMode) return new Set<number>()
+    return new Set(hiddenBoardIndexes(layout, keymap.layers ?? []))
+  })
 
   const bounds = $derived.by(() => {
     let minX = Infinity
@@ -163,6 +169,9 @@
     const layer = keymap.layers[layerIndex]
     if (!layer) return
     if (keyIndex < 0 || keyIndex >= layer.length) return
+    if (schemeMode && !isBlankLayerBinding(binding)) {
+      editor.promoteAbsentKey(keyIndex, binding)
+    }
     handleUpdateLayer(layerIndex, [
       ...layer.slice(0, keyIndex),
       binding,
@@ -191,6 +200,15 @@
             {usedLayerLabels}
             onUpdate={handleUpdateBinding}
           />
+          {#if schemeMode}
+            <MatrixSchemeOverlay
+              {layout}
+              width={bounds.width}
+              height={bounds.height}
+              minX={bounds.minX}
+              minY={bounds.minY}
+            />
+          {/if}
         {/if}
       </div>
     </div>

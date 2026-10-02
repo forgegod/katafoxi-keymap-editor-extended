@@ -64,6 +64,45 @@ describe('KeyboardPicker', () => {
     return onSelect
   }
 
+  it('defaults to Demo when no source is stored and loads a keyboard', async () => {
+    const onSelect = open()
+
+    const select = target.querySelector('#source')
+    if (!(select instanceof HTMLSelectElement)) {
+      throw new Error('missing source select')
+    }
+    expect(select.selectedOptions[0]?.textContent?.trim()).toBe('Demo')
+    const popover = target.querySelector('.source-popover')
+    expect(popover).toBeTruthy()
+    expect(popover?.hasAttribute('hidden')).toBe(false)
+    expect(target.querySelector('.source-trigger-accent')).toBeTruthy()
+    expect(target.querySelector('.source-select-accent')).toBeTruthy()
+    await vi.waitFor(() => {
+      expect(onSelect).toHaveBeenCalled()
+    })
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'demo',
+        demo: expect.objectContaining({ id: 'lark' })
+      })
+    )
+    expect(loadLayout).not.toHaveBeenCalled()
+  })
+
+  it('closes the first-visit accent when the source menu is dismissed', async () => {
+    open()
+
+    expect(target.querySelector('.source-trigger-accent')).toBeTruthy()
+    document.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    flushSync()
+
+    expect(target.querySelector('.source-popover')?.hasAttribute('hidden')).toBe(
+      true
+    )
+    expect(target.querySelector('.source-trigger-accent')).toBeNull()
+    expect(target.querySelector('.source-select-accent')).toBeNull()
+  })
+
   it('starts on GitHub when selectedSource is github and does not fetch local files', () => {
     localStorage.setItem('selectedSource', 'github')
 
@@ -74,8 +113,26 @@ describe('KeyboardPicker', () => {
       throw new Error('missing source select')
     }
     expect(select.selectedOptions[0]?.textContent?.trim()).toBe('GitHub')
+    expect(target.querySelector('.source-popover')?.hasAttribute('hidden')).toBe(
+      true
+    )
+    expect(target.querySelector('.source-trigger-accent')).toBeNull()
     expect(loadLayout).not.toHaveBeenCalled()
     expect(loadKeymap).not.toHaveBeenCalled()
+  })
+
+  it('keeps the source menu closed when Demo was already chosen before', async () => {
+    localStorage.setItem('selectedSource', 'demo')
+
+    const onSelect = open()
+
+    expect(target.querySelector('.source-popover')?.hasAttribute('hidden')).toBe(
+      true
+    )
+    expect(target.querySelector('.source-trigger-accent')).toBeNull()
+    await vi.waitFor(() => {
+      expect(onSelect).toHaveBeenCalled()
+    })
   })
 
   it('leaves the source select empty for a stored source that is not a choice', () => {
@@ -87,7 +144,7 @@ describe('KeyboardPicker', () => {
     if (!(select instanceof HTMLSelectElement)) {
       throw new Error('missing source select')
     }
-    expect(select.options).toHaveLength(2)
+    expect(select.options).toHaveLength(3)
     expect(localStorage.getItem('selectedSource')).toBe('nope')
     expect(target.querySelector('#repo')).toBeNull()
     expect(onSelect).not.toHaveBeenCalled()
@@ -103,7 +160,8 @@ describe('KeyboardPicker', () => {
     if (!(select instanceof HTMLSelectElement)) {
       throw new Error('missing source select')
     }
-    select.value = '0'
+    // Demo=0, Local=1, GitHub=2
+    select.value = '1'
     select.dispatchEvent(new Event('change', { bubbles: true }))
     flushSync()
 

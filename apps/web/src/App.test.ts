@@ -6,6 +6,14 @@ import { editor, type KeyboardSelection } from './lib/editor.svelte.js'
 import github from './lib/github/api.svelte.js'
 import App from './App.svelte'
 
+vi.mock('./lib/config', () => ({
+  apiBaseUrl: '',
+  appBaseUrl: '',
+  githubAppName: 'test-app',
+  enableGitHub: true,
+  enableLocal: true
+}))
+
 // happy-dom comment nodes are not `instanceof Comment`. Svelte skips empty
 // comment anchors with that check; without it, Keyboard's wrapper style is
 // applied to a text node and mount throws.
@@ -91,7 +99,9 @@ describe('App chrome', () => {
   beforeEach(async () => {
     editor.resetForTests()
     await clearDrafts()
-    localStorage.removeItem('selectedSource')
+    // Idle GitHub source: no Demo auto-load, no Local fetch, no persisted repo.
+    localStorage.clear()
+    localStorage.setItem('selectedSource', 'github')
 
     fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input)
@@ -106,6 +116,12 @@ describe('App chrome', () => {
       layout: oneKeyLayout,
       keymap: km('A')
     })
+    vi.spyOn(github, 'init').mockResolvedValue(undefined)
+    github.initialized = true
+    github.authorized = false
+    github.repositories = null
+    github.repoInstallationMap = null
+    github.installations = null
 
     target = document.createElement('div')
     document.body.appendChild(target)
@@ -118,6 +134,11 @@ describe('App chrome', () => {
     }
     target?.remove()
     editor.resetForTests()
+    github.initialized = false
+    github.authorized = false
+    github.repositories = null
+    github.repoInstallationMap = null
+    github.installations = null
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })

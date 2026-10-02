@@ -45,6 +45,8 @@ import {
   summarizeKeymapDiff,
   withHostKey,
   symbolAlign,
+  promoteAbsentLayoutKey,
+  isBlankLayerBinding,
   type HostLayout,
   type SymbolAlign,
   type HostLegendView,
@@ -57,6 +59,10 @@ import {
   type ParsedKeymap
 } from '@keymap-editor/keymap-core'
 import type { Definitions } from './context'
+import {
+  demoHostLayoutTable,
+  type DemoHostLayoutSeed
+} from './demo/host-seeds.js'
 import {
   baselineFingerprint,
   buildDraftIdentity,
@@ -225,6 +231,8 @@ export type KeyboardSelection = {
   layout?: LayoutKey[] | null
   keymap?: ParsedKeymap | null
   github?: GithubMeta
+  /** Demo-only host layouts to open when the legend is still English-only. */
+  demoHost?: DemoHostLayoutSeed[]
   [key: string]: unknown
 }
 
@@ -272,11 +280,20 @@ export class EditorState {
    * legend table. Off by default; not stored with the legend view.
    */
   layerTonesOn = $state(false)
+  /** Full matrix + layout row/col rails on the board. Session-only; not stored. */
+  schemeMode = $state(false)
+
   /**
-   * Session toggle. When the physical top row is blank on every layer, the
-   * board hides it until this is on. Not stored with the keymap.
+   * In scheme mode, a real binding on an absent slot promotes it to a
+   * physical key for this session (clears `absent` on the live layout).
    */
-  revealEmptyRow = $state(false)
+  promoteAbsentKey(keyIndex: number, binding: KeyBindingNode) {
+    if (!this.schemeMode || !this.layout) return
+    if (isBlankLayerBinding(binding)) return
+    const next = promoteAbsentLayoutKey(this.layout, keyIndex)
+    if (next !== this.layout) this.layout = next
+  }
+
   /** Which firmware layers are drawn on the keycap. */
   layerView = $state<LayerView>(standardLayerView())
   userLayouts = $state<UserHostLayout[]>([])
@@ -1342,7 +1359,7 @@ export class EditorState {
     this.source = event.source ?? null
     this.githubMeta = event.github ?? null
     this.layout = event.layout ?? null
-    this.revealEmptyRow = false
+    this.schemeMode = false
     const km = event.keymap ?? null
     if (!km) {
       this.baselineKeymap = null
@@ -1361,7 +1378,59 @@ export class EditorState {
     if (!alreadyHandled) await this.#restoreHostLegend(selectToken)
     if (selectToken !== this.#selectGeneration) return
     if (alreadyHandled) return
+    if (event.demoHost?.length) {
+      await this.#seedDemoHostLayouts(event.demoHost, selectToken)
+      if (selectToken !== this.#selectGeneration) return
+    }
     await this.#maybeRestorePersistedDraft(selectToken)
+  }
+
+  /**
+   * Keep demo host layouts (`en2` / `ru2` for Lark) registered under stable ids.
+   * Assign them on the legend only while it is still the default English-only view.
+   */
+  async #seedDemoHostLayouts(
+    seeds: DemoHostLayoutSeed[],
+    selectToken: number
+  ): Promise<void> {
+    for (const seed of seeds) {
+      const table = demoHostLayoutTable(seed)
+      const record: UserHostLayoutRecord = {
+        id: seed.id,
+        name: seed.name,
+        language: seed.language,
+        origin: { from: 'xkb', fileName: seed.name, section: seed.section },
+        updatedAt: Date.now(),
+        layout: table
+      }
+      this.#registerUserLayout(record)
+      const listed = this.userLayouts.some(item => item.id === seed.id)
+      const listedItem = {
+        id: record.id,
+        name: record.name,
+        language: record.language,
+        origin: record.origin,
+        updatedAt: record.updatedAt
+      }
+      this.userLayouts = listed
+        ? this.userLayouts.map(item => (item.id === seed.id ? listedItem : item))
+        : [...this.userLayouts, listedItem]
+      await saveUserHostLayout(record)
+      if (selectToken !== this.#selectGeneration) return
+    }
+
+    if (!sameHostLegendView(this.hostLegend, standardHostLegendView())) return
+
+    let view = this.hostLegend
+    for (const seed of seeds) {
+      if (!view.columns.some(column => column.language === seed.language)) {
+        view = addHostLanguage(view, seed.language)
+      }
+      view = assignHostLanguageLayout(view, seed.language, seed.id)
+    }
+
+    this.hostLegend = view
+    await this.#persistHostLegend()
   }
 
   async #maybeRestorePersistedDraft(selectToken: number) {
@@ -1536,7 +1605,7 @@ export class EditorState {
     this.draftKeymap = null
     this.clearHistory()
     this.saving = false
-    this.revealEmptyRow = false
+    this.schemeMode = false
     this.saveNotice = null
   }
 
@@ -1563,7 +1632,7 @@ export class EditorState {
     this.symbolAlignOn = true
     this.multilangView = false
     this.layerTonesOn = false
-    this.revealEmptyRow = false
+    this.schemeMode = false
     this.layerView = standardLayerView()
     this.userLayouts = []
     this.hostProfilePrompt = null
