@@ -149,7 +149,8 @@
     box-sizing: border-box;
     width: max-content;
     min-width: 16rem;
-    max-width: min(24rem, calc(100vw - 24px));
+    /* Wide enough for a row of source cards; demo list still fits. */
+    max-width: min(36rem, calc(100vw - 24px));
     margin: 0;
     padding: 8px;
     overflow-x: hidden;

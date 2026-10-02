@@ -64,14 +64,28 @@ describe('KeyboardPicker', () => {
     return onSelect
   }
 
+  function selectedSourceCard(): HTMLButtonElement {
+    const card = target.querySelector('.source-card.selected')
+    if (!(card instanceof HTMLButtonElement)) {
+      throw new Error('missing selected source card')
+    }
+    return card
+  }
+
+  function clickSource(id: string) {
+    const card = target.querySelector(`[data-source="${id}"]`)
+    if (!(card instanceof HTMLButtonElement)) {
+      throw new Error(`missing source card: ${id}`)
+    }
+    card.click()
+    flushSync()
+  }
+
   it('defaults to Demo when no source is stored and loads a keyboard', async () => {
     const onSelect = open()
 
-    const select = target.querySelector('#source')
-    if (!(select instanceof HTMLSelectElement)) {
-      throw new Error('missing source select')
-    }
-    expect(select.selectedOptions[0]?.textContent?.trim()).toBe('Demo')
+    expect(selectedSourceCard().dataset.source).toBe('demo')
+    expect(selectedSourceCard().textContent).toContain('Try a sample keyboard')
     const popover = target.querySelector('.source-popover')
     expect(popover).toBeTruthy()
     expect(popover?.hasAttribute('hidden')).toBe(true)
@@ -82,7 +96,7 @@ describe('KeyboardPicker', () => {
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({
         source: 'demo',
-        demo: expect.objectContaining({ id: 'lark' })
+        demo: expect.objectContaining({ id: 'corne' })
       })
     )
     expect(loadLayout).not.toHaveBeenCalled()
@@ -123,7 +137,7 @@ describe('KeyboardPicker', () => {
       false
     )
     expect(target.querySelector('.source-trigger-accent')).toBeTruthy()
-    expect(target.querySelector('.source-select-accent')).toBeTruthy()
+    expect(selectedSourceCard().dataset.source).toBe('demo')
   })
 
   it('stops the Demo pulse when leaving Demo', () => {
@@ -137,11 +151,7 @@ describe('KeyboardPicker', () => {
 
     open()
 
-    const select = target.querySelector('#source')
-    if (!(select instanceof HTMLSelectElement)) {
-      throw new Error('missing source select')
-    }
-    expect(select.selectedOptions[0]?.textContent?.trim()).toBe('GitHub')
+    expect(selectedSourceCard().dataset.source).toBe('github')
     expect(target.querySelector('.source-popover')?.hasAttribute('hidden')).toBe(
       true
     )
@@ -164,16 +174,13 @@ describe('KeyboardPicker', () => {
     })
   })
 
-  it('leaves the source select empty for a stored source that is not a choice', () => {
+  it('leaves no source selected for a stored source that is not a choice', () => {
     localStorage.setItem('selectedSource', 'nope')
 
     const onSelect = open()
 
-    const select = target.querySelector('#source')
-    if (!(select instanceof HTMLSelectElement)) {
-      throw new Error('missing source select')
-    }
-    expect(select.options).toHaveLength(4)
+    expect(target.querySelectorAll('.source-card')).toHaveLength(4)
+    expect(target.querySelector('.source-card.selected')).toBeNull()
     expect(localStorage.getItem('selectedSource')).toBe('nope')
     expect(target.querySelector('#repo')).toBeNull()
     expect(onSelect).not.toHaveBeenCalled()
@@ -186,11 +193,7 @@ describe('KeyboardPicker', () => {
 
     const onSelect = open()
 
-    const select = target.querySelector('#source')
-    if (!(select instanceof HTMLSelectElement)) {
-      throw new Error('missing source select')
-    }
-    expect(select.selectedOptions[0]?.textContent?.trim()).toBe('Clipboard')
+    expect(selectedSourceCard().dataset.source).toBe('clipboard')
     expect(target.querySelector('.clipboard-picker')).toBeTruthy()
     expect(target.querySelector('.source-trigger')?.getAttribute('title')).toBe(
       'Paste a .keymap from the clipboard (layout optional)'
@@ -246,18 +249,11 @@ describe('KeyboardPicker', () => {
     )
   })
 
-  it('writes selectedSource and calls onSelect when local is chosen by index', async () => {
+  it('writes selectedSource and calls onSelect when local is chosen', async () => {
     localStorage.setItem('selectedSource', 'github')
     const onSelect = open()
 
-    const select = target.querySelector('#source')
-    if (!(select instanceof HTMLSelectElement)) {
-      throw new Error('missing source select')
-    }
-    // Demo=0, Clipboard=1, Local=2, GitHub=3
-    select.value = '2'
-    select.dispatchEvent(new Event('change', { bubbles: true }))
-    flushSync()
+    clickSource('local')
 
     await vi.waitFor(() => {
       expect(onSelect).toHaveBeenCalled()

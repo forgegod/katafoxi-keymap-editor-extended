@@ -6,11 +6,17 @@
   import github from '../../github/api.svelte.js'
   import { compact } from '../../utils'
   import { readStoredDemoId, DEMO_CATALOG } from '../../demo/catalog'
-  import Selector from '../Common/Selector.svelte'
   import GithubPicker, { type GithubChromeStatus } from './Github/Picker.svelte'
   import DemoPicker from './Demo/Picker.svelte'
   import ClipboardPicker from './Clipboard/Picker.svelte'
   import SourceMenu from './SourceMenu.svelte'
+
+  const SOURCE_BLURBS: Record<string, string> = {
+    demo: 'Try a sample keyboard',
+    clipboard: 'Paste .keymap · no login',
+    github: 'Commit to your firmware repo',
+    local: 'Dev sibling zmk-config'
+  }
 
   interface KeymapEvent {
     source?: string
@@ -36,10 +42,14 @@
     $props()
 
   const sourceChoices = compact([
-    { id: 'demo', name: 'Demo' },
-    { id: 'clipboard', name: 'Clipboard' },
-    config.enableLocal ? { id: 'local', name: 'Local' } : null,
-    config.enableGitHub ? { id: 'github', name: 'GitHub' } : null
+    { id: 'demo', name: 'Demo', blurb: SOURCE_BLURBS.demo },
+    { id: 'clipboard', name: 'Clipboard', blurb: SOURCE_BLURBS.clipboard },
+    config.enableLocal
+      ? { id: 'local', name: 'Local', blurb: SOURCE_BLURBS.local }
+      : null,
+    config.enableGitHub
+      ? { id: 'github', name: 'GitHub', blurb: SOURCE_BLURBS.github }
+      : null
   ])
 
   const selectedSource = localStorage.getItem('selectedSource')
@@ -186,16 +196,28 @@
       onActivate={runGate}
     >
       {#if sourceChoices.length > 1}
-        <div class="source-select" class:source-select-accent={source === 'demo'}>
-          <Selector
-            id="source"
-            label="Source"
-            value={source}
-            choices={sourceChoices}
-            onUpdate={value => {
-              source = String(value)
-            }}
-          />
+        <div
+          class="source-cards"
+          role="radiogroup"
+          aria-label="Keymap source"
+        >
+          {#each sourceChoices as choice}
+            <button
+              type="button"
+              class="source-card"
+              class:selected={choice.id === source}
+              role="radio"
+              aria-checked={choice.id === source}
+              data-source={choice.id}
+              title={choice.blurb}
+              onclick={() => {
+                source = choice.id
+              }}
+            >
+              <span class="source-card-name">{choice.name}</span>
+              <span class="source-card-blurb">{choice.blurb}</span>
+            </button>
+          {/each}
         </div>
       {/if}
       {#if source === 'demo'}
@@ -235,16 +257,47 @@
     font-size: var(--font-md);
   }
 
-  .source-select {
+  .source-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+    gap: 6px;
     width: 100%;
   }
 
-  .source-select-accent :global(.control select) {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+  .source-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    margin: 0;
+    padding: 8px 8px 7px;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
   }
 
-  .source-select-accent :global(label) {
-    color: var(--accent);
+  .source-card:hover {
+    border-color: var(--text-muted);
+  }
+
+  .source-card.selected {
+    border-color: var(--accent, #2a9d8f);
+    box-shadow: inset 0 0 0 1px var(--accent, #2a9d8f);
+  }
+
+  .source-card-name {
+    font-weight: 600;
+    font-size: var(--font-md);
+    line-height: 1.2;
+  }
+
+  .source-card-blurb {
+    color: var(--text-muted);
+    font-size: var(--font-sm, 0.85rem);
+    line-height: 1.25;
   }
 </style>
