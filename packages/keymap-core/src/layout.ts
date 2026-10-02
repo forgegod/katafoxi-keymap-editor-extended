@@ -129,6 +129,54 @@ function isNumber(val: unknown): val is number {
   return typeof val === 'number' && !Number.isNaN(val)
 }
 
+/**
+ * Pick a column count for an inferred board: prefer a divisor of `keyCount`,
+ * else 12 (last row may be short).
+ */
+export function inferRectangularColumns(keyCount: number): number {
+  if (!Number.isInteger(keyCount) || keyCount <= 0) {
+    throw new Error('keyCount must be a positive integer')
+  }
+  if (keyCount <= 12) {
+    for (const cols of [12, 10, 8, 7, 6, 5, 4, 3, 2]) {
+      if (cols <= keyCount && keyCount % cols === 0) return cols
+    }
+    return keyCount
+  }
+  for (const cols of [12, 10, 8, 6]) {
+    if (keyCount % cols === 0) return cols
+  }
+  return 12
+}
+
+/**
+ * Flat rectangular layout for Clipboard when the user has no info.json.
+ * Keys are row-major in binding order; no angles or staggered offsets.
+ */
+export function inferRectangularLayout(
+  keyCount: number,
+  options?: { columns?: number }
+): LayoutKey[] {
+  const columns = options?.columns ?? inferRectangularColumns(keyCount)
+  if (!Number.isInteger(columns) || columns <= 0) {
+    throw new Error('columns must be a positive integer')
+  }
+  if (!Number.isInteger(keyCount) || keyCount <= 0) {
+    throw new Error('keyCount must be a positive integer')
+  }
+  return Array.from({ length: keyCount }, (_, i) => {
+    const row = Math.floor(i / columns)
+    const col = i % columns
+    return {
+      row,
+      col,
+      x: col,
+      y: row,
+      label: `${row},${col}`
+    }
+  })
+}
+
 /** True when the layout slot exists only to hold a matrix/keymap index. */
 export function isAbsentLayoutKey(key: LayoutKey): boolean {
   return key.absent === true

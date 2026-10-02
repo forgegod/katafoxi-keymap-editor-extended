@@ -68,7 +68,17 @@ describe('loadClipboardBundle', () => {
   it('loads matching lark info + keymap', () => {
     const bundle = loadClipboardBundle(infoText, keymapText)
     expect(bundle.keyboard).toBe('lark')
+    expect(bundle.inferredLayout).toBe(false)
     expect(bundle.layout.length).toBe(bundle.keymap.layers[0].length)
+    expect(bundle.originalSource).toContain('compatible = "zmk,keymap"')
+  })
+
+  it('infers a rectangular layout when info.json is omitted', () => {
+    const bundle = loadClipboardBundle('', keymapText)
+    expect(bundle.inferredLayout).toBe(true)
+    expect(bundle.warnings).toContain('clipboard_inferred_layout')
+    expect(bundle.layout.length).toBe(bundle.keymap.layers[0].length)
+    expect(bundle.layout[0]).toMatchObject({ row: 0, col: 0, x: 0, y: 0 })
     expect(bundle.originalSource).toContain('compatible = "zmk,keymap"')
   })
 

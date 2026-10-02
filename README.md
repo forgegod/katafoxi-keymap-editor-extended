@@ -15,8 +15,9 @@ For the original upstream feature list, see the
 ## This tree
 
 - Sources: **Demo** (bundled fixtures on first visit), **Clipboard** (paste
-  `info.json` + `.keymap` / `keymap.json`, copy edited `.keymap` out), **Local**
-  (dev adapter, sibling `zmk-config`), and **GitHub**.
+  `.keymap`; `info.json` optional — otherwise a flat rectangular board; copy
+  edited `.keymap` out), **Local** (dev adapter, sibling `zmk-config`), and
+  **GitHub**.
 - One key editor: behaviour, then the value list for that slot (keys, layers, modifiers, mouse commands). Enter applies a complete binding; Esc cancels.
 - Composed host legends on the keycap; compact ZMK tokens (`L1`, `⌃`, `⇧⇪`, hold-tap pills) live in `keymap-core`.
 - Undo/redo, a short **Draft** status, **Write files**, **Commit to GitHub**, **Copy .keymap** (Clipboard: text out for paste into your repo), and a **Latest** firmware chip on the GitHub source.

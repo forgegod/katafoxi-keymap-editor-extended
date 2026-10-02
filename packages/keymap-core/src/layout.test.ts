@@ -3,6 +3,7 @@ import {
   absentLayoutIndexes,
   bindingColumnWidths,
   buildKeymapCode,
+  inferRectangularLayout,
   parseKeymap,
   promoteAbsentLayoutKey,
   renderTable,
@@ -73,6 +74,22 @@ describe('renderTable', () => {
     // padEnd: left edges of the same matrix column line up across layers.
     expect(shortLayer.indexOf('&kp B')).toBe(longLayer.indexOf('&mt LCTRL J'))
     expect(shortLayer.indexOf('&kp C')).toBe(longLayer.indexOf('&kp D'))
+  })
+})
+
+describe('inferRectangularLayout', () => {
+  it('builds a 12-column board when the count divides evenly', () => {
+    const layout = inferRectangularLayout(84)
+    expect(layout).toHaveLength(84)
+    expect(layout[0]).toMatchObject({ row: 0, col: 0, x: 0, y: 0 })
+    expect(layout[12]).toMatchObject({ row: 1, col: 0, x: 0, y: 1 })
+    expect(layout[83]).toMatchObject({ row: 6, col: 11 })
+  })
+
+  it('uses a single row for a small board', () => {
+    const layout = inferRectangularLayout(5)
+    expect(layout).toHaveLength(5)
+    expect(layout.every((key, i) => key.row === 0 && key.col === i)).toBe(true)
   })
 })
 

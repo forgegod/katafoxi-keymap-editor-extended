@@ -6,6 +6,7 @@
 import {
   assertLayerKeyCounts,
   encodeKeymap,
+  inferRectangularLayout,
   isPrimaryKeymapJson,
   parseDtsKeymap,
   parseKeymap,
@@ -23,6 +24,8 @@ export type ClipboardBundle = {
   /** Pasted `.keymap` text for splice on Copy; null when the paste was JSON-only. */
   originalSource: string | null
   warnings: string[]
+  /** True when layout was synthesized (no info.json). */
+  inferredLayout: boolean
 }
 
 type InfoJson = {
@@ -118,18 +121,47 @@ export function parseClipboardKeymap(
   return { keymap, originalSource: trimmed, warnings }
 }
 
-/** Load a clipboard session from pasted layout + keymap text. */
+/**
+ * Load a clipboard session from pasted keymap text.
+ * `info.json` is optional: without it, a flat rectangular layout is inferred.
+ */
 export function loadClipboardBundle(
   infoText: string,
   keymapText: string,
   exportKeymapText?: string
 ): ClipboardBundle {
-  const { layout, layoutName, keyboard } = parseClipboardInfo(infoText)
+  const infoTrimmed = infoText.trim()
+  let layout: LayoutKey[]
+  let layoutName: string
+  let keyboard: string
+  let inferredLayout = false
+
+  if (infoTrimmed) {
+    ;({ layout, layoutName, keyboard } = parseClipboardInfo(infoTrimmed))
+  } else {
+    layoutName = 'LAYOUT'
+    keyboard = 'clipboard'
+    layout = []
+    inferredLayout = true
+  }
+
   const { keymap, originalSource, warnings } = parseClipboardKeymap(
     keymapText,
     { keyboard, layoutName },
     exportKeymapText
   )
+
+  if (inferredLayout) {
+    const keyCount = keymap.layers[0]?.length ?? 0
+    if (keyCount <= 0) {
+      throw new Error('Keymap has no bindings to infer a layout from')
+    }
+    layout = inferRectangularLayout(keyCount)
+    keymap.keyboard = keyboard
+    keymap.layout = layoutName
+    warnings.push('clipboard_inferred_layout')
+  }
+
   const encoded = encodeKeymap(keymap)
   assertLayerKeyCounts(layout, encoded.layers as string[][])
   return {
@@ -138,6 +170,7 @@ export function loadClipboardBundle(
     keyboard,
     keymap,
     originalSource,
-    warnings
+    warnings,
+    inferredLayout
   }
 }

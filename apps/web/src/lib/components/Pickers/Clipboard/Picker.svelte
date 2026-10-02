@@ -39,7 +39,9 @@
   }
 
   function emitBundle(bundle: ClipboardBundle) {
-    loadedKeyboard = bundle.keyboard
+    loadedKeyboard = bundle.inferredLayout
+      ? `${bundle.keyboard} (inferred)`
+      : bundle.keyboard
     onSelect({
       source: 'clipboard',
       layout: bundle.layout,
@@ -51,7 +53,9 @@
   const LOAD_NOTICES: Record<string, string> = {
     macros_expanded: 'Macros were expanded to raw keycodes in the pasted .keymap.',
     clipboard_json_no_export_source:
-      'Loaded keymap.json. Paste the matching .keymap under Export source so Copy .keymap keeps includes and behavior blocks.'
+      'Loaded keymap.json. Paste the matching .keymap under Export source so Copy .keymap keeps includes and behavior blocks.',
+    clipboard_inferred_layout:
+      'No info.json — drawing a flat rectangular board from the binding count. Paste info.json for the real layout.'
   }
 
   function load() {
@@ -93,38 +97,16 @@
     }
   }
 
-  const canLoad = $derived(infoText.trim().length > 0 && keymapText.trim().length > 0)
+  const canLoad = $derived(keymapText.trim().length > 0)
   const keymapLooksJson = $derived(keymapText.trim().startsWith('{'))
 </script>
 
 <div class="clipboard-picker">
   <p class="clipboard-hint">
-    Offline path: paste <code>info.json</code> + your ZMK <code>.keymap</code>,
-    edit, then <strong>Copy .keymap</strong> and paste the text back into your
-    firmware repo. Prefer the <code>.keymap</code> file over
-    <code>keymap.json</code> so includes and behaviors stay intact.
+    Paste a ZMK <code>.keymap</code> to start. <code>info.json</code> is
+    optional — without it the board is a flat rectangle in binding order.
+    Then <strong>Copy .keymap</strong> and paste back into your firmware repo.
   </p>
-
-  <label class="clipboard-field">
-    <span class="clipboard-field-head">
-      <span>Layout · info.json</span>
-      <Button
-        variant="outline"
-        class="clipboard-paste"
-        title="Paste from system clipboard"
-        onclick={event => void pasteInto('info', event)}
-      >
-        Paste
-      </Button>
-    </span>
-    <textarea
-      class="clipboard-text"
-      rows="5"
-      spellcheck="false"
-      placeholder={'{\n  "id": "…",\n  "layouts": { "LAYOUT": { "layout": [ … ] } }\n}'}
-      bind:value={infoText}
-    ></textarea>
-  </label>
 
   <label class="clipboard-field">
     <span class="clipboard-field-head">
@@ -144,6 +126,27 @@
       spellcheck="false"
       placeholder="Paste your board .keymap (preferred). keymap.json also loads for editing."
       bind:value={keymapText}
+    ></textarea>
+  </label>
+
+  <label class="clipboard-field">
+    <span class="clipboard-field-head">
+      <span>Layout · info.json (optional)</span>
+      <Button
+        variant="outline"
+        class="clipboard-paste"
+        title="Paste from system clipboard"
+        onclick={event => void pasteInto('info', event)}
+      >
+        Paste
+      </Button>
+    </span>
+    <textarea
+      class="clipboard-text"
+      rows="4"
+      spellcheck="false"
+      placeholder={'Optional. Without it: rectangular board from binding count.\n{\n  "id": "…",\n  "layouts": { "LAYOUT": { "layout": [ … ] } }\n}'}
+      bind:value={infoText}
     ></textarea>
   </label>
 
@@ -179,7 +182,7 @@
       variant="accent"
       disabled={!canLoad || busy}
       onclick={load}
-      title="Parse the pasted layout and keymap"
+      title="Parse the pasted keymap (and layout if provided)"
     >
       {busy ? 'Loading…' : 'Load'}
     </Button>

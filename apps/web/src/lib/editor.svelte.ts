@@ -148,7 +148,9 @@ const WARNING_MESSAGES: Record<string, string> = {
   generated_default_template:
     'No existing keymap or template was used, so the file was saved from the default generated template.',
   clipboard_json_no_export_source:
-    'Loaded from keymap.json only — Copy .keymap will use the default ZMK template unless you also paste a .keymap under “Export source”.'
+    'Loaded from keymap.json only — Copy .keymap will use the default ZMK template unless you also paste a .keymap under “Export source”.',
+  clipboard_inferred_layout:
+    'No info.json — using a flat rectangular board from the binding count. Paste info.json for the real layout.'
 }
 
 function cloneHostLegendView(view: HostLegendView): HostLegendView {
