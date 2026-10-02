@@ -8,6 +8,8 @@ export interface CatalogChoice {
   context?: string
   symbol?: string
   params?: unknown[]
+  /** ZMK HID OS table when the binder passed it through. */
+  os?: unknown
   [key: string]: unknown
 }
 
