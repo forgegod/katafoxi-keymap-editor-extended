@@ -9,8 +9,12 @@
     comboDesignHint,
     comboKeysIssue,
     comboKeysMessage,
+    comboListMeta,
     createEmptyCombo,
     encodeKeyBinding,
+    isPlaceholderComboId,
+    layerLegendSymbol,
+    nextComboIdFromBinding,
     type ZmkCombo
   } from '@keymap-editor/keymap-core'
   import { getDefinitionsContext, getSearchContext } from '../context'
@@ -24,6 +28,11 @@
 
   const combos = $derived(editor.draftKeymap?.combos ?? [])
   const layer0 = $derived(editor.draftKeymap?.layers?.[0])
+  const layerCount = $derived(editor.draftKeymap?.layers?.length ?? 0)
+  const layerNames = $derived(
+    editor.draftKeymap?.layer_names ??
+      Array.from({ length: layerCount }, (_, i) => `Layer ${i}`)
+  )
   const active = $derived(
     combos.find(c => c.id === editor.activeComboId) ?? null
   )
@@ -43,6 +52,10 @@
   )
   const timeoutMs = $derived(active?.timeoutMs ?? COMBO_TIMEOUT_MS_DEFAULT)
   const timeoutIsCustom = $derived(active?.timeoutMs !== undefined)
+  const layersAreGlobal = $derived(
+    !active?.layers || active.layers.length === 0
+  )
+  const selectedLayers = $derived(new Set(active?.layers ?? []))
 
   const sources = $derived.by(() => {
     const defs = definitionsBox.current
@@ -60,7 +73,15 @@
     keyIndex: () => -1,
     onUpdate: (_keyIndex, _layerIndex, binding) => {
       if (!active) return
-      patchActive({ binding })
+      const patch: Partial<ZmkCombo> = { binding }
+      if (isPlaceholderComboId(active.id)) {
+        patch.id = nextComboIdFromBinding(
+          binding,
+          combos.filter(c => c.id !== active.id)
+        )
+      }
+      patchActive(patch)
+      if (patch.id) editor.activeComboId = patch.id
     }
   })
 
@@ -68,9 +89,18 @@
     if (!active) return
     const next = combos.map(c => {
       if (c.id !== active.id) return c
-      const merged = { ...c, ...patch }
+      const merged: ZmkCombo = { ...c, ...patch }
       if ('timeoutMs' in patch && patch.timeoutMs === undefined) {
         delete merged.timeoutMs
+      }
+      if (
+        'layers' in patch &&
+        (patch.layers === undefined || patch.layers.length === 0)
+      ) {
+        delete merged.layers
+      }
+      if ('slowRelease' in patch && !patch.slowRelease) {
+        delete merged.slowRelease
       }
       return merged
     })
@@ -123,6 +153,30 @@
     patchActive({ timeoutMs: undefined })
   }
 
+  function setSlowRelease(on: boolean) {
+    patchActive({ slowRelease: on || undefined })
+  }
+
+  function setAllLayers() {
+    patchActive({ layers: undefined })
+  }
+
+  function toggleLayer(index: number) {
+    if (!active) return
+    if (layersAreGlobal) {
+      patchActive({ layers: [index] })
+      return
+    }
+    const set = new Set(active.layers)
+    if (set.has(index)) set.delete(index)
+    else set.add(index)
+    if (set.size === 0 || set.size >= layerCount) {
+      patchActive({ layers: undefined })
+      return
+    }
+    patchActive({ layers: [...set].sort((a, b) => a - b) })
+  }
+
   function editBinding() {
     if (!active) return
     session.openRow(0)
@@ -138,14 +192,6 @@
     } catch {
       return String(combo.binding.value)
     }
-  }
-
-  function positionLabel(combo: ZmkCombo): string {
-    const n = combo.keyPositions.length
-    if (n === 0) return 'no keys'
-    if (n === 1) return '1 key — need 2+'
-    if (n > COMBO_MAX_KEYS) return `${n} keys — max ${COMBO_MAX_KEYS}`
-    return combo.keyPositions.join(' · ')
   }
 
   function closePanel() {
@@ -170,11 +216,142 @@
     </div>
   </header>
 
+  <section class="combo-props" aria-label="Selected combo settings">
+    {#if active}
+      <div class="props-top">
+        <label class="combo-field grow">
+          <span class="field-label" title="Settings apply to this combo only">
+            Id · {active.id}
+          </span>
+          <input
+            type="text"
+            value={active.id}
+            spellcheck="false"
+            onchange={renameActive}
+          />
+        </label>
+        <label class="slow-compact" title="Keep the binding until every combo key is released">
+          <input
+            type="checkbox"
+            checked={!!active.slowRelease}
+            onchange={event =>
+              setSlowRelease((event.currentTarget as HTMLInputElement).checked)}
+          />
+          Slow
+        </label>
+      </div>
+
+      <div class="combo-timeout" role="group" aria-label="Combo timeout">
+        <div class="timeout-label-row">
+          <span class="timeout-label">
+            Timeout <strong>{timeoutMs}ms</strong>
+            {#if !timeoutIsCustom}
+              <span class="timeout-default">def</span>
+            {/if}
+          </span>
+          <div class="timeout-presets">
+            <button
+              type="button"
+              class="combo-btn quiet"
+              class:on={timeoutMs === 30 && timeoutIsCustom}
+              onclick={() => setTimeoutMs(30)}
+            >
+              Fast
+            </button>
+            <button
+              type="button"
+              class="combo-btn quiet"
+              class:on={timeoutMs === 50}
+              onclick={() => setTimeoutMs(50)}
+              title="Firmware default when unmarked"
+            >
+              Norm
+            </button>
+            <button
+              type="button"
+              class="combo-btn quiet"
+              class:on={timeoutMs === 100 && timeoutIsCustom}
+              onclick={() => setTimeoutMs(100)}
+            >
+              Slow
+            </button>
+            {#if timeoutIsCustom}
+              <button
+                type="button"
+                class="combo-btn quiet"
+                onclick={clearTimeoutMs}
+                title="Omit timeout-ms"
+              >
+                Def
+              </button>
+            {/if}
+          </div>
+        </div>
+        <input
+          class="timeout-range"
+          type="range"
+          min={COMBO_TIMEOUT_MS_MIN}
+          max={COMBO_TIMEOUT_MS_MAX}
+          step="5"
+          value={timeoutMs}
+          aria-label="Combo timeout in milliseconds"
+          oninput={onTimeoutInput}
+        />
+      </div>
+
+      <div class="combo-layers" role="group" aria-label="Active layers">
+        <div class="timeout-label-row">
+          <span class="timeout-label">Layers</span>
+          <button
+            type="button"
+            class="combo-btn quiet"
+            class:on={layersAreGlobal}
+            onclick={setAllLayers}
+            title="Combo works on every layer"
+          >
+            All
+          </button>
+        </div>
+        <div class="layer-chips">
+          {#each Array.from({ length: layerCount }, (_, i) => i) as index (index)}
+            <button
+              type="button"
+              class="combo-btn quiet layer-chip"
+              class:on={!layersAreGlobal && selectedLayers.has(index)}
+              title={layerNames[index] ?? `Layer ${index}`}
+              aria-pressed={!layersAreGlobal && selectedLayers.has(index)}
+              onclick={() => toggleLayer(index)}
+            >
+              {layerLegendSymbol(index)}
+            </button>
+          {/each}
+        </div>
+      </div>
+
+      <div class="combo-actions">
+        <button type="button" class="combo-btn" onclick={editBinding}>
+          Binding
+        </button>
+        <button type="button" class="combo-btn danger" onclick={removeActive}>
+          Delete
+        </button>
+      </div>
+      {#if activeHint}
+        <p class="combo-warn" class:soft={hintIsSoft} role="status">{activeHint}</p>
+      {:else}
+        <p class="combo-hint">
+          Click {COMBO_MIN_KEYS}–{COMBO_MAX_KEYS} keys on the board.
+        </p>
+      {/if}
+    {:else}
+      <p class="combo-empty props-empty">
+        Select or New. Properties are per combo.
+      </p>
+    {/if}
+  </section>
+
   {#if combos.length === 0}
-    <p class="combo-empty">
-      No combos yet. New creates one; click {COMBO_MIN_KEYS}–{COMBO_MAX_KEYS} keys
-      on the board.
-    </p>
+    <p class="combo-empty">No combos yet.</p>
   {:else}
     <ul class="combo-list" role="listbox" aria-label="Combo list">
       {#each combos as combo (combo.id)}
@@ -193,108 +370,15 @@
             aria-selected={combo.id === editor.activeComboId}
             onclick={() => selectCombo(combo.id)}
           >
-            <span class="combo-id">{combo.id}</span>
-            <span class="combo-bind">{bindingLabel(combo)}</span>
-            <span class="combo-pos">{positionLabel(combo)}</span>
+            <span class="combo-main">
+              <span class="combo-id">{combo.id}</span>
+              <span class="combo-bind">{bindingLabel(combo)}</span>
+            </span>
+            <span class="combo-meta">{comboListMeta(combo)}</span>
           </button>
         </li>
       {/each}
     </ul>
-  {/if}
-
-  {#if active}
-    <div class="combo-detail">
-      <label class="combo-field">
-        <span>Id</span>
-        <input
-          type="text"
-          value={active.id}
-          spellcheck="false"
-          onchange={renameActive}
-        />
-      </label>
-
-      <div class="combo-timeout" role="group" aria-label="Combo timeout">
-        <div class="timeout-label-row">
-          <span class="timeout-label">
-            Timeout
-            <strong>{timeoutMs} ms</strong>
-            {#if !timeoutIsCustom}
-              <span class="timeout-default">(default)</span>
-            {/if}
-          </span>
-          {#if timeoutIsCustom}
-            <button
-              type="button"
-              class="combo-btn quiet"
-              onclick={clearTimeoutMs}
-              title="Omit timeout-ms and use the firmware default"
-            >
-              Default
-            </button>
-          {/if}
-        </div>
-        <input
-          class="timeout-range"
-          type="range"
-          min={COMBO_TIMEOUT_MS_MIN}
-          max={COMBO_TIMEOUT_MS_MAX}
-          step="5"
-          value={timeoutMs}
-          aria-valuemin={COMBO_TIMEOUT_MS_MIN}
-          aria-valuemax={COMBO_TIMEOUT_MS_MAX}
-          aria-valuenow={timeoutMs}
-          aria-label="Combo timeout in milliseconds"
-          oninput={onTimeoutInput}
-        />
-        <div class="timeout-presets">
-          <button
-            type="button"
-            class="combo-btn quiet"
-            class:on={timeoutMs === 30 && timeoutIsCustom}
-            onclick={() => setTimeoutMs(30)}
-          >
-            Fast
-          </button>
-          <button
-            type="button"
-            class="combo-btn quiet"
-            class:on={timeoutMs === 50}
-            onclick={() => setTimeoutMs(50)}
-          >
-            Normal
-          </button>
-          <button
-            type="button"
-            class="combo-btn quiet"
-            class:on={timeoutMs === 100 && timeoutIsCustom}
-            onclick={() => setTimeoutMs(100)}
-          >
-            Slow
-          </button>
-        </div>
-        <p class="combo-hint">
-          How quickly all keys must be pressed together.
-        </p>
-      </div>
-
-      <div class="combo-actions">
-        <button type="button" class="combo-btn" onclick={editBinding}>
-          Edit binding
-        </button>
-        <button type="button" class="combo-btn danger" onclick={removeActive}>
-          Delete
-        </button>
-      </div>
-      {#if activeHint}
-        <p class="combo-warn" class:soft={hintIsSoft} role="status">{activeHint}</p>
-      {:else}
-        <p class="combo-hint">
-          Click keys on the board ({COMBO_MIN_KEYS}–{COMBO_MAX_KEYS}) to set
-          positions.
-        </p>
-      {/if}
-    </div>
   {/if}
 </aside>
 
@@ -319,14 +403,14 @@
 <style>
   .combo-panel {
     box-sizing: border-box;
-    flex: 0 0 14rem;
-    width: 14rem;
+    flex: 0 0 16rem;
+    width: 16rem;
     align-self: stretch;
     max-height: 100%;
-    overflow: auto;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     margin: 0;
     padding: 8px 10px;
     border: 1px solid color-mix(in srgb, var(--shade) 12%, transparent);
@@ -337,6 +421,7 @@
   }
 
   .combo-head {
+    flex: none;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -355,9 +440,30 @@
     gap: 4px;
   }
 
+  .combo-props {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 7px 8px;
+    border: 1px solid color-mix(in srgb, var(--shade) 12%, transparent);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--surface-sunken) 55%, transparent);
+  }
+
+  .props-top {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+  }
+
+  .props-empty {
+    margin: 0;
+  }
+
   .combo-btn {
-    height: 24px;
-    padding: 0 8px;
+    height: 22px;
+    padding: 0 7px;
     border: 1px solid var(--border);
     border-radius: 5px;
     background: var(--surface-sunken);
@@ -367,9 +473,9 @@
   }
 
   .combo-btn.quiet {
-    height: 22px;
-    padding: 0 6px;
-    font-size: 0.92em;
+    height: 20px;
+    padding: 0 5px;
+    font-size: 0.9em;
   }
 
   .combo-btn.quiet.on {
@@ -385,7 +491,8 @@
   .combo-hint {
     margin: 0;
     color: var(--text-muted);
-    line-height: 1.35;
+    line-height: 1.3;
+    font-size: 0.92em;
   }
 
   .combo-list {
@@ -394,16 +501,18 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    max-height: 12rem;
+    gap: 3px;
+    min-height: 0;
+    flex: 1 1 auto;
     overflow: auto;
   }
 
   .combo-item {
     width: 100%;
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 1px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+    align-items: start;
     margin: 0;
     padding: 5px 7px;
     text-align: left;
@@ -424,41 +533,60 @@
     background: color-mix(in srgb, var(--accent, #3a7) 14%, transparent);
   }
 
-  .combo-item.invalid .combo-pos {
+  .combo-item.invalid .combo-meta {
     color: var(--danger, #b33);
   }
 
-  .combo-item.soft-warn .combo-pos {
+  .combo-item.soft-warn .combo-meta {
     color: var(--warning, #b8860b);
+  }
+
+  .combo-main {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
   }
 
   .combo-id {
     font-weight: 600;
   }
 
-  .combo-bind,
-  .combo-pos {
+  .combo-bind {
     color: var(--text-muted);
-    font-size: 0.92em;
+    font-size: 0.9em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .combo-detail {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding-top: 4px;
-    border-top: 1px solid color-mix(in srgb, var(--shade) 12%, transparent);
+  .combo-meta {
+    color: var(--text-muted);
+    font-size: 0.82em;
+    line-height: 1.25;
+    text-align: right;
+    max-width: 6.5rem;
   }
 
   .combo-field {
     display: grid;
     gap: 2px;
-    font-size: 0.92em;
+    font-size: 0.9em;
     color: var(--text-muted);
   }
 
+  .combo-field.grow {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .field-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .combo-field input {
-    height: 26px;
+    height: 24px;
     padding: 0 6px;
     border: 1px solid var(--border);
     border-radius: 4px;
@@ -467,22 +595,23 @@
     font: inherit;
   }
 
-  .combo-timeout {
+  .combo-timeout,
+  .combo-layers {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
   }
 
   .timeout-label-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 6px;
+    gap: 4px;
   }
 
   .timeout-label {
     color: var(--text-muted);
-    font-size: 0.92em;
+    font-size: 0.9em;
   }
 
   .timeout-label strong {
@@ -491,7 +620,7 @@
   }
 
   .timeout-default {
-    opacity: 0.75;
+    opacity: 0.7;
   }
 
   .timeout-range {
@@ -500,22 +629,40 @@
     accent-color: var(--accent, #3a7);
   }
 
-  .timeout-presets {
+  .timeout-presets,
+  .layer-chips {
     display: flex;
     flex-wrap: wrap;
+    gap: 3px;
+  }
+
+  .layer-chip {
+    min-width: 1.75rem;
+    justify-content: center;
+  }
+
+  .slow-compact {
+    display: inline-flex;
+    align-items: center;
     gap: 4px;
+    flex: none;
+    margin: 0 0 1px;
+    font-size: 0.9em;
+    cursor: pointer;
+    white-space: nowrap;
   }
 
   .combo-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 4px;
   }
 
   .combo-warn {
     margin: 0;
     color: var(--danger, #b33);
-    line-height: 1.35;
+    line-height: 1.3;
+    font-size: 0.92em;
   }
 
   .combo-warn.soft {
