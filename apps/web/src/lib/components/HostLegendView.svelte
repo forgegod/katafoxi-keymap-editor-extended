@@ -1,7 +1,5 @@
 <script lang="ts">
   import { editor } from '../editor.svelte.js'
-  import stackLanguagesIcon from '../assets/stack-languages.png'
-  import symbolDifferencesIcon from '../assets/symbol-differences.png'
   import PressToggle from './Common/PressToggle.svelte'
   import SymbolAlignKey from './SymbolAlignKey.svelte'
 
@@ -35,7 +33,17 @@
     disabled={!canStack}
     onclick={() => (editor.multilangView = !editor.multilangView)}
   >
-    <img src={stackLanguagesIcon} alt="" width="14" height="14" />
+    <!-- Layered sheets: matches “Stack” better than a colorful PNG at 14px. -->
+    <svg class="stack-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <path
+        d="M2.5 10.2 8 13.2l5.5-3M2.5 7.8 8 10.8l5.5-3M8 2.8 2.5 5.8 8 8.8l5.5-3Z"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.25"
+        stroke-linejoin="round"
+        stroke-linecap="round"
+      />
+    </svg>
     <span class="view-label">Stack</span>
   </PressToggle>
 
@@ -48,7 +56,17 @@
       disabled={!canAlign}
       onclick={() => (editor.symbolAlignOn = !editor.symbolAlignOn)}
     >
-      <img src={symbolDifferencesIcon} alt="" width="14" height="14" />
+      <!-- Three-way diverge: same idea as the old fork PNG, theme-colored. -->
+      <svg class="diff-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+        <path
+          d="M8 14V7M8 7 3 2.5M8 7l5-4.5M3 2.5H1.5M13 2.5h1.5"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.35"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
       <span class="view-label">Differences</span>
     </PressToggle>
     <div class="align-slot" class:on={marksOn}>
@@ -157,7 +175,6 @@
     text-overflow: ellipsis;
   }
 
-  .legend-view :global(.view-toggle.half img),
   .legend-view :global(.view-toggle.half svg) {
     width: 12px;
     height: 12px;
@@ -167,6 +184,8 @@
     fill: currentColor;
   }
 
+  .legend-view :global(.stack-icon path),
+  .legend-view :global(.diff-icon path),
   .legend-view :global(.scheme-icon path) {
     fill: none;
     stroke: currentColor;
