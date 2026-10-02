@@ -39,7 +39,7 @@ describe('WelcomeBanner', () => {
 
     expect(target.querySelector('.welcome-banner')).toBeTruthy()
     expect(target.textContent).toMatch(/Alt\+click/)
-    expect(target.textContent).toMatch(/Demo · Lark/)
+    expect(target.textContent).toMatch(/Demo · Corne/)
     expect(target.textContent).toMatch(/Paste \.keymap/)
     expect(target.textContent).toMatch(/Connect GitHub/)
 

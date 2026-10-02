@@ -15,7 +15,7 @@ describe('demo catalog', () => {
       'lily58',
       'cradio'
     ])
-    expect(defaultDemoId()).toBe('lark')
+    expect(defaultDemoId()).toBe('corne')
   })
 
   it('loads each demo with matching layout and keymap sizes', () => {
@@ -43,11 +43,11 @@ describe('demo catalog', () => {
 
   it('remembers the selected demo id', () => {
     localStorage.clear()
-    expect(readStoredDemoId()).toBe('lark')
+    expect(readStoredDemoId()).toBe('corne')
     writeStoredDemoId('lily58')
     expect(readStoredDemoId()).toBe('lily58')
     writeStoredDemoId('nope')
     localStorage.setItem('selectedDemo', 'nope')
-    expect(readStoredDemoId()).toBe('lark')
+    expect(readStoredDemoId()).toBe('corne')
   })
 })

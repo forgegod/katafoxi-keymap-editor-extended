@@ -4,14 +4,14 @@
       "id": "lark",
       "name": "Lark",
       "blurb": "60-key split · two 5-way sticks · en2 + ru2",
-      "repoUrl": "https://github.com/katafoxi/zmk-keyboard-lark",
-      "default": true
+      "repoUrl": "https://github.com/katafoxi/zmk-keyboard-lark"
     },
     {
       "id": "corne",
       "name": "Corne",
       "blurb": "42-key split · 3×6 + thumbs",
-      "repoUrl": "https://github.com/foostan/crkbd"
+      "repoUrl": "https://github.com/foostan/crkbd",
+      "default": true
     },
     {
       "id": "lily58",

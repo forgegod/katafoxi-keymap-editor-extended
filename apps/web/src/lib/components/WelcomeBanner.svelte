@@ -44,7 +44,7 @@
 {#if !dismissed}
   <div class="welcome-banner" role="status">
     <p class="welcome-copy">
-      Demo keyboard — open <strong>Demo · Lark</strong> above to try Corne, Lily58, or
+      Demo keyboard — open <strong>Demo · Corne</strong> above to try Lark, Lily58, or
       Sweep. Click a key to change what it sends · Alt+click to change what your OS
       types. Bring your own:
       <button type="button" class="welcome-link" onclick={pasteKeymap}>
