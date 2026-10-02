@@ -192,6 +192,7 @@
                 ? `Hide ${choice?.languageName ?? language}`
                 : `Show ${choice?.languageName ?? language}`
           }
+          dataTour="language-eye"
           onclick={toggleLanguage}
         />
         {#if extra}

@@ -20,7 +20,7 @@
   } from '@keymap-editor/keymap-core'
   import { currentBinding } from '../../../binding-tree'
   import { getSearchContext } from '../../../context'
-  import { editor } from '../../../editor.svelte.js'
+  import { editor, hostLegendAnchorIndex } from '../../../editor.svelte.js'
   import { getBehaviourParams } from '../../../hydrate'
   import { createKeyEditSession } from '../../../key-edit-session.svelte'
   import { getKeyStyles } from '../../../key-units'
@@ -81,6 +81,9 @@
   const searchBox = getSearchContext()
   const search = $derived(searchBox.current)
   const sources = $derived(search?.sources ?? {})
+  const isLegendAnchor = $derived(
+    hostLegendAnchorIndex(editor.draftKeymap) === keyIndex
+  )
   const stackBindings = $derived(
     layerBindings?.length ? layerBindings : [currentBinding(value, params)]
   )
@@ -323,6 +326,7 @@
   data-hold-tap={holdTapVisible}
   data-behavior={behaviorRole}
   data-editable={session.canEdit}
+  data-tour={isLegendAnchor ? 'legend-key' : undefined}
   data-stacked="true"
   style={Object.entries(positioningStyle)
     .map(([k, v]) => `${k.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`)}:${v}`)

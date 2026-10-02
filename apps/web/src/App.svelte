@@ -19,7 +19,7 @@
   import HostBasicGaps from './lib/components/HostBasicGaps.svelte'
   import HostLegendPicker from './lib/components/HostLegendPicker.svelte'
   import HostPipeline from './lib/components/HostPipeline.svelte'
-  import WelcomeBanner from './lib/components/WelcomeBanner.svelte'
+  import CoachTour from './lib/components/CoachTour.svelte'
   import Loader from './lib/components/Common/Loader.svelte'
   import github from './lib/github/api.svelte.js'
   import FirmwareBuild from './lib/components/FirmwareBuild.svelte'
@@ -41,6 +41,7 @@
   /** Tools sit under the pipelines when they no longer fit beside them. */
   let toolsBelow = $state(false)
   let openSourceRequest = $state<string | null>(null)
+  let tourExpandLegend = $state(false)
   let clipboardExport = $state<{
     code: string
     copied: boolean
@@ -353,7 +354,7 @@
     {#if editor.draftKeymap}
       <div class="chrome-tools" aria-label="Legend tools">
         <div class="host-legend-wrap">
-          <HostLegendPicker />
+          <HostLegendPicker forceOpen={tourExpandLegend} />
           <HostBasicGaps />
         </div>
       </div>
@@ -366,8 +367,9 @@
   </div>
 
   {#if editor.source === 'demo' && editor.draftKeymap}
-    <WelcomeBanner
+    <CoachTour
       showGithub={config.enableGitHub}
+      bind:expandLegend={tourExpandLegend}
       onPasteKeymap={() => (openSourceRequest = 'clipboard')}
       onConnectGithub={
         config.enableGitHub ? () => (openSourceRequest = 'github') : undefined

@@ -4,9 +4,11 @@
     label: string
     onclick: () => void
     disabled?: boolean
+    /** Stable hook for the first-visit coach tour. */
+    dataTour?: string
   }
 
-  let { on, label, onclick, disabled = false }: Props = $props()
+  let { on, label, onclick, disabled = false, dataTour }: Props = $props()
 </script>
 
 <button
@@ -15,6 +17,7 @@
   class:off={!on}
   aria-pressed={on}
   aria-label={label}
+  data-tour={dataTour}
   {disabled}
   {onclick}
 >
