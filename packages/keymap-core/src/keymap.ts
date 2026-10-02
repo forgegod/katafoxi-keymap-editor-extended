@@ -1,4 +1,5 @@
 import behaviorsData from '../data/zmk-behaviors.json' with { type: 'json' }
+import { spliceCombosIntoDts, type DtsComboJson } from './dts-combos.js'
 import {
   keymapBindingsText,
   macrosAppearInText,
@@ -7,7 +8,13 @@ import {
 import { assertLayerKeyCounts, spliceBindingsIntoDts } from './dts-splice.js'
 import { bindingColumnWidths, renderTable } from './layout.js'
 import { KeymapValidationError } from './errors.js'
-import type { BehaviorDef, KeyBindingNode, LayoutKey, ParsedKeymap } from './types.js'
+import type {
+  BehaviorDef,
+  KeyBindingNode,
+  LayoutKey,
+  ParsedKeymap,
+  ZmkCombo
+} from './types.js'
 
 export { KeymapValidationError } from './errors.js'
 
@@ -61,9 +68,11 @@ export function encodeKeyBinding(parsed: KeyBindingNode): string {
 }
 
 export function encodeKeymap(parsedKeymap: ParsedKeymap) {
+  const combos = parsedKeymap.combos?.map(encodeComboToJson)
   return {
     ...parsedKeymap,
-    layers: parsedKeymap.layers.map(layer => layer.map(encodeKeyBinding))
+    layers: parsedKeymap.layers.map(layer => layer.map(encodeKeyBinding)),
+    ...(combos ? { combos } : {})
   }
 }
 
@@ -104,14 +113,56 @@ export function parseKeyBinding(binding: string): KeyBindingNode {
   return { value, params }
 }
 
+function parseComboFromJson(raw: DtsComboJson | ZmkCombo): ZmkCombo {
+  const binding =
+    typeof raw.binding === 'string'
+      ? parseKeyBinding(raw.binding)
+      : (raw.binding as KeyBindingNode)
+  const combo: ZmkCombo = {
+    id: String(raw.id),
+    keyPositions: [...(raw.keyPositions ?? [])].map(Number),
+    binding
+  }
+  if (raw.timeoutMs !== undefined) combo.timeoutMs = Number(raw.timeoutMs)
+  if (raw.requirePriorIdleMs !== undefined) {
+    combo.requirePriorIdleMs = Number(raw.requirePriorIdleMs)
+  }
+  if (raw.slowRelease) combo.slowRelease = true
+  if (Array.isArray(raw.layers)) combo.layers = raw.layers.map(Number)
+  return combo
+}
+
+function encodeComboToJson(combo: ZmkCombo): DtsComboJson {
+  const raw: DtsComboJson = {
+    id: combo.id,
+    keyPositions: [...combo.keyPositions],
+    binding: encodeKeyBinding(combo.binding)
+  }
+  if (combo.timeoutMs !== undefined) raw.timeoutMs = combo.timeoutMs
+  if (combo.requirePriorIdleMs !== undefined) {
+    raw.requirePriorIdleMs = combo.requirePriorIdleMs
+  }
+  if (combo.slowRelease) raw.slowRelease = true
+  if (combo.layers) raw.layers = [...combo.layers]
+  return raw
+}
+
 export function parseKeymap(keymap: {
   layers: string[][]
+  combos?: Array<DtsComboJson | ZmkCombo>
   [key: string]: unknown
 }): ParsedKeymap {
-  return {
-    ...keymap,
+  const combos = Array.isArray(keymap.combos)
+    ? keymap.combos.map(parseComboFromJson)
+    : undefined
+  const { combos: _rawCombos, layers: _rawLayers, ...rest } = keymap
+  const out: ParsedKeymap = {
+    ...rest,
     layers: keymap.layers.map(layer => layer.map(parseKeyBinding))
   }
+  if (combos) out.combos = combos
+  else delete out.combos
+  return out
 }
 
 function renderTemplate(
@@ -238,11 +289,15 @@ export function buildKeymapCode(
     if (bindingsText && macrosAppearInText(bindingsText, macros)) {
       warnings.push('macros_expanded')
     }
-    const code = spliceBindingsIntoDts(originalSource, {
+    let code = spliceBindingsIntoDts(originalSource, {
       layout,
       layers,
       layerNames
     })
+    // Always rewrite combos from the model when present (including empty → drop block).
+    if (keymap.combos !== undefined) {
+      code = spliceCombosIntoDts(code, (keymap.combos ?? []).map(encodeComboToJson))
+    }
     return {
       code,
       json: generateKeymapJSON(layout, encoded),

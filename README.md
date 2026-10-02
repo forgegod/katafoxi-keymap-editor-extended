@@ -53,23 +53,24 @@ Legend strip: show/hide languages, pick system or user profiles, stack or highli
 |--------|------|
 | **Demo** | Bundled fixtures for first visit (default Corne). No firmware write. Short coach tour; optional second host language from the browser locale. |
 | **Clipboard** | Paste `.keymap` (`info.json` optional). **Copy .keymap** → system clipboard + preview dialog. |
-| **GitHub** | Load/commit `zmk-config` via GitHub App + OAuth. **Latest** firmware artifact chip when available. |
+| **GitHub** | Load/commit `zmk-config` via GitHub App + OAuth. Host layouts share the commit as `host_keymap/snapshot.json` (+ Linux/Windows install files). **Latest** firmware artifact chip when available. |
 | **Local** | Dev adapter to a sibling `zmk-config` (junction). Not the long-term product path. |
 
-Product persistence is **GitHub-first**; Local is for iterating against a cloned firmware tree; Clipboard is browser-only paste/export. Save/load rules: [ADR 0001](docs/adr/0001-persistence-github-first.md), [ADR 0002](docs/adr/0002-keymap-file-contract.md).
+Product persistence is **GitHub-first**; Local is for iterating against a cloned firmware tree; Clipboard is browser-only paste/export. Save/load rules: [ADR 0001](docs/adr/0001-persistence-github-first.md), [ADR 0002](docs/adr/0002-keymap-file-contract.md), host snapshot [ADR 0005](docs/adr/0005-host-keymap-github-snapshot.md).
 
 ## Editor highlights
 
 - One **KeyEditor**: behaviour chips, then the value grid (keys, layers, mods, mouse/BT commands). Enter applies; Esc cancels.
 - Compact ZMK legends (`L1`, `⌃`, hold-tap pills) in `keymap-core`.
+- Visual **Combos**: list + board key-positions, binding via KeyEditor, timeout / layers / slow-release / prior-idle props; adjacent horizontal pairs get gap beads on the board.
 - Undo / redo, **Draft** / Ready status, Discard draft.
-- Host lane: Ready / Changed / Saved, Linux and Windows install dialogs, assemblies (remembered legend sets).
+- Host lane: Ready / Changed / Saved, Linux and Windows install dialogs, assemblies (remembered legend sets). On GitHub, Commit/Load round-trip the host snapshot with ZMK.
 - Light / dark theme (default dark).
 - Lane labels: **ZMK** = what the firmware sends; **Host** = what the OS types.
 
 ## Not in this tree (yet)
 
-Upstream or planned: browser **File System Access**, visual **combo** / **macro** / custom **behavior** editors, rotary encoders, conditional layers, auto-generated layouts from ZMK DTS. See [upstream README](https://github.com/nickcoutsos/keymap-editor/blob/master/README.md) for the classic feature list.
+Upstream or planned: browser **File System Access**, visual **macro** / custom **behavior** editors, rotary encoders, conditional layers, auto-generated layouts from ZMK DTS. See [upstream README](https://github.com/nickcoutsos/keymap-editor/blob/master/README.md) for the classic feature list.
 
 Vision and contracts: [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md).
 

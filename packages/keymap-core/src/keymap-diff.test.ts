@@ -82,6 +82,63 @@ describe('diffKeymaps', () => {
       { type: 'layer_remove', layer: 1, name: 'Nav' }
     ])
   })
+
+  it('detects combo add, change, and remove', () => {
+    const a = base()
+    const withCombo = base()
+    withCombo.combos = [
+      {
+        id: 'combo_esc',
+        keyPositions: [0, 1],
+        binding: { value: '&kp', params: [{ value: 'ESC', params: [] }] }
+      }
+    ]
+    expect(diffKeymaps(a, withCombo)).toEqual([
+      {
+        type: 'combo',
+        id: 'combo_esc',
+        before: '',
+        after: '[0 1] &kp ESC all'
+      }
+    ])
+    expect(keymapsAreEqual(a, withCombo)).toBe(false)
+
+    const edited = base()
+    edited.combos = [
+      {
+        id: 'combo_esc',
+        keyPositions: [0, 1],
+        binding: { value: '&kp', params: [{ value: 'ESC', params: [] }] },
+        timeoutMs: 30,
+        layers: [0],
+        slowRelease: true
+      }
+    ]
+    expect(diffKeymaps(withCombo, edited)).toEqual([
+      {
+        type: 'combo',
+        id: 'combo_esc',
+        before: '[0 1] &kp ESC all',
+        after: '[0 1] &kp ESC 30ms L0 slow'
+      }
+    ])
+
+    expect(diffKeymaps(withCombo, a)).toEqual([
+      {
+        type: 'combo',
+        id: 'combo_esc',
+        before: '[0 1] &kp ESC all',
+        after: ''
+      }
+    ])
+  })
+
+  it('treats missing and empty combos as equal', () => {
+    const a = base()
+    const b = base()
+    b.combos = []
+    expect(diffKeymaps(a, b)).toEqual([])
+  })
 })
 
 describe('formatKeymapChange', () => {
@@ -109,6 +166,22 @@ describe('formatKeymapChange', () => {
     expect(
       formatKeymapChange({ type: 'layer_remove', layer: 1, name: 'Nav' })
     ).toBe('L1 removed: Nav')
+    expect(
+      formatKeymapChange({
+        type: 'combo',
+        id: 'combo_esc',
+        before: '',
+        after: '[0 1] &kp ESC all'
+      })
+    ).toBe('combo_esc added: [0 1] &kp ESC all')
+    expect(
+      formatKeymapChange({
+        type: 'combo',
+        id: 'combo_esc',
+        before: '[0 1] &kp ESC all',
+        after: ''
+      })
+    ).toBe('combo_esc removed: [0 1] &kp ESC all')
   })
 })
 
@@ -150,5 +223,15 @@ describe('summarizeKeymapDiff', () => {
     expect(
       summarizeKeymapDiff([{ type: 'layer_add', layer: 2, name: 'Sym' }])
     ).toBe('1 layer added')
+    expect(
+      summarizeKeymapDiff([
+        {
+          type: 'combo',
+          id: 'combo_esc',
+          before: '',
+          after: '[0 1] &kp ESC all'
+        }
+      ])
+    ).toBe('1 combo')
   })
 })

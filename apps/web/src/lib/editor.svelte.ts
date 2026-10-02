@@ -48,6 +48,12 @@ import {
   symbolAlign,
   promoteAbsentLayoutKey,
   isBlankLayerBinding,
+  buildHostKeymapSnapshot,
+  encodeHostKeymapSnapshot,
+  hostLayoutFromKeymapSnapshotKeys,
+  buildHostKeymapDeliverableFiles,
+  type HostKeymapSnapshot,
+  type HostKeymapDeliverableFile,
   type HostLayout,
   type SymbolAlign,
   type HostLegendView,
@@ -57,7 +63,11 @@ import {
   type KeyBindingNode,
   type KeymapChange,
   type LayoutKey,
-  type ParsedKeymap
+  type ParsedKeymap,
+  type ZmkCombo,
+  COMBO_MAX_KEYS,
+  comboKeysIssue,
+  comboKeysMessage
 } from '@keymap-editor/keymap-core'
 import type { Definitions } from './context'
 import {
@@ -214,6 +224,22 @@ export function cloneParsedKeymap(km: ParsedKeymap): ParsedKeymap {
   if (km.keyboard != null) out.keyboard = km.keyboard
   if (km.keymap != null) out.keymap = km.keymap
   if (km.layout != null) out.layout = km.layout
+  if (km.combos) {
+    out.combos = km.combos.map(c => {
+      const combo: ZmkCombo = {
+        id: c.id,
+        keyPositions: [...c.keyPositions],
+        binding: cloneBinding(c.binding)
+      }
+      if (c.timeoutMs !== undefined) combo.timeoutMs = c.timeoutMs
+      if (c.requirePriorIdleMs !== undefined) {
+        combo.requirePriorIdleMs = c.requirePriorIdleMs
+      }
+      if (c.slowRelease) combo.slowRelease = true
+      if (c.layers) combo.layers = [...c.layers]
+      return combo
+    })
+  }
   return out
 }
 
@@ -222,12 +248,22 @@ export type KeyboardSelection = {
   layout?: LayoutKey[] | null
   keymap?: ParsedKeymap | null
   github?: GithubMeta
+  /**
+   * Keep the live draft and Host legend when retargeting the same GitHub repo
+   * (Create branch ≈ `git checkout -b`). Baseline becomes the loaded tip.
+   */
+  preserveSession?: boolean
   /** Demo-only host layouts to open when the legend is still English-only. */
   demoHost?: DemoHostLayoutSeed[]
   /** Pasted `.keymap` text for clipboard Copy (splice). */
   clipboardOriginalSource?: string | null
   /** Clipboard load warning codes (`clipboard_inferred_layout`, …). */
   warnings?: string[]
+  /**
+   * Host snapshot from `host_keymap/snapshot.json` (GitHub). When present it
+   * wins over IndexedDB for this keymap identity.
+   */
+  hostSnapshot?: HostKeymapSnapshot | null
   [key: string]: unknown
 }
 
@@ -279,6 +315,15 @@ export class EditorState {
   layerTonesOn = $state(false)
   /** Full matrix + layout row/col rails on the board. Session-only; not stored. */
   schemeMode = $state(false)
+  /**
+   * Session mode: list/edit ZMK combos and pick `key-positions` on the board.
+   * Not stored with the keymap draft identity.
+   */
+  comboMode = $state(false)
+  /** Selected combo id while `comboMode` is on. */
+  activeComboId = $state<string | null>(null)
+  /** Short hint while editing combos (too few / too many keys). */
+  comboNotice = $state<string | null>(null)
 
   /**
    * In scheme mode, a real binding on an absent slot promotes it to a
@@ -376,6 +421,11 @@ export class EditorState {
    * Prevents picker effect re-entry from wiping a restored draft.
    */
   #handledDraftIdentityKey: string | null = null
+  /**
+   * Encoded `host_keymap/snapshot.json` last loaded from or committed to the
+   * GitHub repo. Null when this session has no repo host baseline yet.
+   */
+  #hostRepoBaselineEncoded: string | null = null
 
   #changes = $derived.by(() => {
     if (!this.baselineKeymap || !this.draftKeymap) return []
@@ -401,6 +451,93 @@ export class EditorState {
 
   get isDirty(): boolean {
     return this.#changes.length > 0
+  }
+
+  /**
+   * Live host snapshot text for the open legend + referenced user layouts.
+   * Used for GitHub Commit and dirty comparison against the repo baseline.
+   */
+  buildCurrentHostKeymapSnapshot(): HostKeymapSnapshot {
+    void this.hostLayoutRevision
+    void this.hostLegend
+    const layouts = this.userLayouts.flatMap(meta => {
+      const layout = hostLayout(meta.id)
+      if (!layout) return []
+      return [
+        {
+          id: meta.id,
+          name: meta.name,
+          language: meta.language,
+          origin: meta.origin,
+          layout
+        }
+      ]
+    })
+    return buildHostKeymapSnapshot(this.hostLegend, layouts)
+  }
+
+  /**
+   * Linux xkb + Windows `.klc` sources for the same Commit as the host snapshot.
+   * Empty when every column is still a system layout.
+   */
+  buildCurrentHostKeymapDeliverables(): HostKeymapDeliverableFile[] {
+    void this.hostLayoutRevision
+    void this.hostLegend
+    const layoutsById = new Map<
+      string,
+      {
+        id: string
+        name: string
+        language: HostLanguageId
+        layout: HostLayout
+        user: boolean
+      }
+    >()
+    for (const column of this.hostLegend.columns) {
+      if (layoutsById.has(column.layoutId)) continue
+      const table = hostLayout(column.layoutId)
+      if (!table) continue
+      const user = this.userLayouts.find(item => item.id === column.layoutId)
+      layoutsById.set(column.layoutId, {
+        id: column.layoutId,
+        name: user?.name ?? hostLayoutMeta(column.layoutId)?.name ?? column.language,
+        language: column.language,
+        layout: table,
+        user: Boolean(user)
+      })
+    }
+    return buildHostKeymapDeliverableFiles(this.hostLegend, layoutsById)
+  }
+
+  #encodeLiveHostSnapshot(): string {
+    return encodeHostKeymapSnapshot(this.buildCurrentHostKeymapSnapshot())
+  }
+
+  /** Host half differs from the last GitHub load/commit (ADR 0005). */
+  get isHostRepoDirty(): boolean {
+    if (this.source !== 'github') return false
+    void this.hostLayoutRevision
+    void this.hostLegend
+    const live = this.#encodeLiveHostSnapshot()
+    if (this.#hostRepoBaselineEncoded === null) {
+      return (
+        live !==
+        encodeHostKeymapSnapshot(
+          buildHostKeymapSnapshot(standardHostLegendView(), [])
+        )
+      )
+    }
+    return live !== this.#hostRepoBaselineEncoded
+  }
+
+  /** ZMK draft and/or host snapshot need a GitHub Commit. */
+  get isPublishDirty(): boolean {
+    return this.isDirty || this.isHostRepoDirty
+  }
+
+  /** After a successful Commit, treat the live host snapshot as the repo tip. */
+  acceptHostRepoBaseline() {
+    this.#hostRepoBaselineEncoded = this.#encodeLiveHostSnapshot()
   }
 
   get changes(): KeymapChange[] {
@@ -507,13 +644,14 @@ export class EditorState {
 
   get statusText(): string {
     if (!this.draftKeymap) return ''
-    if (!this.isDirty) {
-      if (this.source === 'github') return 'Up to date with repo'
-      if (this.source === 'clipboard') return 'Ready — copy .keymap out'
-      if (this.source === 'demo') return 'Demo — not saved to a repo'
-      return 'Up to date with disk'
+    if (this.isDirty) return 'Draft'
+    if (this.isHostRepoDirty) {
+      return 'Host layout changed — commit to save with the keymap'
     }
-    return 'Draft'
+    if (this.source === 'github') return 'Up to date with repo'
+    if (this.source === 'clipboard') return 'Ready — copy .keymap out'
+    if (this.source === 'demo') return 'Demo — not saved to a repo'
+    return 'Up to date with disk'
   }
 
   get canUndo(): boolean {
@@ -663,6 +801,51 @@ export class EditorState {
       /* keep the in-memory view */
     }
     if (selectToken !== this.#selectGeneration) return
+    await this.#restoreHostAssemblies(selectToken)
+  }
+
+  /**
+   * Apply a GitHub `host_keymap/snapshot.json`: register layouts, set the
+   * legend, mirror into IndexedDB, and set the repo host baseline.
+   */
+  async #applyHostKeymapSnapshot(
+    snapshot: HostKeymapSnapshot,
+    selectToken: number
+  ): Promise<void> {
+    for (const item of snapshot.layouts) {
+      const layout = hostLayoutFromKeymapSnapshotKeys(item.id, item.keys)
+      const record: UserHostLayoutRecord = {
+        id: item.id,
+        name: item.name,
+        language: item.language,
+        origin: item.origin,
+        updatedAt: Date.now(),
+        layout
+      }
+      this.#registerUserLayout(record)
+      const listedItem = {
+        id: record.id,
+        name: record.name,
+        language: record.language,
+        origin: record.origin,
+        updatedAt: record.updatedAt
+      }
+      this.userLayouts = this.userLayouts.some(entry => entry.id === item.id)
+        ? this.userLayouts.map(entry => (entry.id === item.id ? listedItem : entry))
+        : [...this.userLayouts, listedItem]
+      await saveUserHostLayout(record)
+      if (selectToken !== this.#selectGeneration) return
+    }
+    const { view, replaced } = sanitizeHostLegendView(snapshot.view)
+    this.hostLegend = view
+    if (replaced.length > 0) this.hostProfileNote = UNKNOWN_HOST_LAYOUT_NOTE
+    await this.#persistHostLegend()
+    if (selectToken !== this.#selectGeneration) return
+    this.#hostRepoBaselineEncoded = encodeHostKeymapSnapshot({
+      ...snapshot,
+      view
+    })
+    this.markHostDelivered()
     await this.#restoreHostAssemblies(selectToken)
   }
 
@@ -1349,6 +1532,13 @@ export class EditorState {
       ? draftIdentityKey(upcomingIdentity)
       : null
 
+    if (
+      event.preserveSession &&
+      (await this.#preserveGithubSession(event, upcomingIdentity, upcomingKey, selectToken))
+    ) {
+      return
+    }
+
     const alreadyHandled =
       upcomingKey != null && upcomingKey === this.#handledDraftIdentityKey
     const keepLiveDraft =
@@ -1356,6 +1546,9 @@ export class EditorState {
 
     this.source = event.source ?? null
     this.githubMeta = event.github ?? null
+    if (event.source !== 'github') {
+      this.#hostRepoBaselineEncoded = null
+    }
     if (event.source === 'clipboard' && upcomingIdentity) {
       const pasted = event.clipboardOriginalSource ?? null
       this.clipboardOriginalSource =
@@ -1366,6 +1559,9 @@ export class EditorState {
     }
     this.layout = event.layout ?? null
     this.schemeMode = false
+    this.comboMode = false
+    this.activeComboId = null
+    this.comboNotice = null
     const km = event.keymap ?? null
     if (!km) {
       this.baselineKeymap = null
@@ -1387,7 +1583,14 @@ export class EditorState {
       }
     }
 
-    if (!alreadyHandled) await this.#restoreHostLegend(selectToken)
+    if (!alreadyHandled) {
+      if (event.hostSnapshot) {
+        await this.#applyHostKeymapSnapshot(event.hostSnapshot, selectToken)
+      } else {
+        if (event.source === 'github') this.#hostRepoBaselineEncoded = null
+        await this.#restoreHostLegend(selectToken)
+      }
+    }
     if (selectToken !== this.#selectGeneration) return
     if (alreadyHandled) return
     if (event.demoHost?.length) {
@@ -1399,6 +1602,84 @@ export class EditorState {
       if (selectToken !== this.#selectGeneration) return
     }
     await this.#maybeRestorePersistedDraft(selectToken)
+  }
+
+  /**
+   * Retarget the open GitHub repo to another branch without dropping the live
+   * draft or Host legend (Create branch ≈ `git checkout -b`).
+   */
+  async #preserveGithubSession(
+    event: KeyboardSelection,
+    upcomingIdentity: DraftIdentity | null,
+    upcomingKey: string | null,
+    selectToken: number
+  ): Promise<boolean> {
+    const github = event.github
+    const km = event.keymap
+    if (!github || !km || !this.draftKeymap || !this.baselineKeymap) return false
+    if (this.source !== 'github' && event.source !== 'github') return false
+    if (
+      this.githubMeta &&
+      this.githubMeta.repository !== github.repository
+    ) {
+      return false
+    }
+
+    const previousIdentity = this.currentDraftIdentity()
+    this.source = 'github'
+    this.githubMeta = github
+    if (event.layout) this.layout = event.layout
+    this.baselineKeymap = cloneParsedKeymap(km)
+    this.schemeMode = false
+    this.comboMode = false
+    this.activeComboId = null
+    this.comboNotice = null
+    this.saveNotice = null
+    this.clipboardOriginalSource = null
+    if (upcomingKey) this.#handledDraftIdentityKey = upcomingKey
+
+    await this.#migrateSessionIdentity(previousIdentity, upcomingIdentity)
+    if (selectToken !== this.#selectGeneration) return true
+    this.schedulePersist()
+    return true
+  }
+
+  /** Move draft + Host legend/assemblies IDB rows to the new identity key. */
+  async #migrateSessionIdentity(
+    previous: DraftIdentity | null,
+    next: DraftIdentity | null
+  ): Promise<void> {
+    if (!next) return
+    const nextKey = draftIdentityKey(next)
+    const prevKey = previous ? draftIdentityKey(previous) : null
+    if (prevKey === nextKey) {
+      await this.#persistHostLegend()
+      await this.#persistHostAssemblies()
+      return
+    }
+
+    try {
+      if (this.draftKeymap && this.isDirty) {
+        await saveStoredDraft(next, cloneParsedKeymap(this.draftKeymap), {
+          baselineHint: this.baselineKeymap
+            ? baselineFingerprint(this.baselineKeymap)
+            : undefined
+        })
+      }
+      if (previous) await deleteStoredDraft(previous)
+    } catch {
+      /* IDB failures are non-fatal */
+    }
+
+    try {
+      await saveHostLegendView(this.hostLegend, hostLegendSettingId(nextKey))
+      await saveHostAssemblies(
+        hostAssembliesSettingId(nextKey),
+        this.hostAssemblies
+      )
+    } catch {
+      /* ignore */
+    }
   }
 
   /**
@@ -1568,6 +1849,87 @@ export class EditorState {
     this.schedulePersist()
   }
 
+  /** Replace the combos list on the draft (undoable via updateKeymap). */
+  updateCombos(combos: ZmkCombo[]) {
+    const km = this.draftKeymap
+    if (!km) return
+    this.updateKeymap({ ...km, combos })
+    if (this.activeComboId && !combos.some(c => c.id === this.activeComboId)) {
+      this.activeComboId = combos[0]?.id ?? null
+    }
+  }
+
+  toggleComboMode() {
+    if (this.comboMode) {
+      if (!this.tryExitComboMode()) return
+      return
+    }
+
+    this.comboMode = true
+    this.schemeMode = false
+    this.comboNotice = null
+    const combos = this.draftKeymap?.combos ?? []
+    if (
+      this.activeComboId == null ||
+      !combos.some(c => c.id === this.activeComboId)
+    ) {
+      this.activeComboId = combos[0]?.id ?? null
+    }
+  }
+
+  /**
+   * Leave combo mode when every kept combo has 2–COMBO_MAX_KEYS keys.
+   * Drops empty drafts. Returns false if an incomplete combo blocks exit.
+   */
+  tryExitComboMode(): boolean {
+    if (!this.comboMode) return true
+    const km = this.draftKeymap
+    const list = km?.combos ?? []
+    const withoutEmpty = list.filter(c => c.keyPositions.length > 0)
+    if (km && withoutEmpty.length !== list.length) {
+      this.updateCombos(withoutEmpty)
+    }
+    const incomplete = withoutEmpty.find(c => comboKeysIssue(c.keyPositions) != null)
+    if (incomplete) {
+      this.activeComboId = incomplete.id
+      this.comboNotice =
+        comboKeysMessage(comboKeysIssue(incomplete.keyPositions)) ??
+        'Fix incomplete combos before leaving.'
+      return false
+    }
+    this.comboMode = false
+    this.comboNotice = null
+    return true
+  }
+
+  /** Toggle `keyIndex` in the active combo's key-positions. */
+  toggleComboPosition(keyIndex: number) {
+    const km = this.draftKeymap
+    if (!km || this.activeComboId == null) return
+    const combos = [...(km.combos ?? [])]
+    const i = combos.findIndex(c => c.id === this.activeComboId)
+    if (i < 0) return
+    const combo = combos[i]
+    const set = new Set(combo.keyPositions)
+    if (set.has(keyIndex)) {
+      set.delete(keyIndex)
+      this.comboNotice = null
+    } else {
+      if (set.size >= COMBO_MAX_KEYS) {
+        this.comboNotice = comboKeysMessage('too_many')
+        return
+      }
+      set.add(keyIndex)
+      this.comboNotice =
+        set.size < 2 ? comboKeysMessage('too_few') : null
+    }
+    combos[i] = {
+      ...combo,
+      keyPositions: [...set].sort((a, b) => a - b)
+    }
+    this.updateCombos(combos)
+  }
+
   undo() {
     if (!this.draftKeymap || this.undoStack.length === 0) return
     const stack = this.undoStack
@@ -1663,6 +2025,7 @@ export class EditorState {
     this.#publishGeneration += 1
     this.source = null
     this.githubMeta = null
+    this.#hostRepoBaselineEncoded = null
     this.clipboardOriginalSource = null
     this.layout = null
     this.baselineKeymap = null
@@ -1670,6 +2033,9 @@ export class EditorState {
     this.clearHistory()
     this.saving = false
     this.schemeMode = false
+    this.comboMode = false
+    this.activeComboId = null
+    this.comboNotice = null
     this.saveNotice = null
   }
 
@@ -1680,6 +2046,7 @@ export class EditorState {
     this.#selectGeneration += 1
     this.#publishGeneration += 1
     this.#handledDraftIdentityKey = null
+    this.#hostRepoBaselineEncoded = null
     this.definitions = null
     this.source = null
     this.githubMeta = null
@@ -1698,6 +2065,9 @@ export class EditorState {
     this.multilangView = false
     this.layerTonesOn = false
     this.schemeMode = false
+    this.comboMode = false
+    this.activeComboId = null
+    this.comboNotice = null
     this.layerView = standardLayerView()
     this.userLayouts = []
     this.hostProfilePrompt = null

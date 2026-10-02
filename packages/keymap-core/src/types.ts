@@ -6,12 +6,29 @@ export interface KeyBindingNode {
   params: KeyBindingNode[]
 }
 
+/**
+ * One ZMK combo node (`combos { combo_id { … } }`).
+ * `keyPositions` are layout / matrix indices (same as board `keyIndex`).
+ */
+export interface ZmkCombo {
+  id: string
+  keyPositions: number[]
+  binding: KeyBindingNode
+  timeoutMs?: number
+  requirePriorIdleMs?: number
+  slowRelease?: boolean
+  /** Layer indexes the combo is active on; omit = all layers. */
+  layers?: number[]
+}
+
 export interface ParsedKeymap {
   keyboard?: string
   keymap?: string
   layout?: string
   layer_names?: string[]
   layers: KeyBindingNode[][]
+  /** ZMK combos from the .keymap; absent when the source had none. */
+  combos?: ZmkCombo[]
   [key: string]: unknown
 }
 

@@ -6,7 +6,7 @@
     writeStoredDemoId,
     type DemoCatalogEntry
   } from '../../../demo/catalog'
-  import type { KeyBindingNode, LayoutKey } from '@keymap-editor/keymap-core'
+  import type { LayoutKey } from '@keymap-editor/keymap-core'
   import LayoutThumb from './LayoutThumb.svelte'
 
   interface KeymapEvent {
@@ -36,13 +36,11 @@
   const cards: {
     entry: DemoCatalogEntry
     layout: LayoutKey[]
-    layers: KeyBindingNode[][]
   }[] = DEMO_CATALOG.map(entry => {
     const bundle = loadDemo(entry.id)
     return {
       entry,
-      layout: bundle.layout,
-      layers: bundle.keymap.layers
+      layout: bundle.layout
     }
   })
 
@@ -104,7 +102,6 @@
         >
           <LayoutThumb
             layout={card.layout}
-            layers={card.layers}
             label="{card.entry.name} layout"
           />
           <span class="demo-meta">

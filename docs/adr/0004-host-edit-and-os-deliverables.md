@@ -23,7 +23,7 @@ ZMK already has a visible chrome pipeline (Source → draft → Write files / Gi
 
 1. **ZMK** lane: Source, then draft status (**Draft**, or a dot whose tooltip is **Up to date with repo** / **disk**), undo/redo, then Write files / Commit and **Latest** in that same cluster. Spare width stays after that cluster, before the Host divider. **Discard draft** sits beside **Draft** and restores the last loaded keymap. On GitHub, **Latest** is the branch’s Actions firmware build: neutral until a firmware artifact can be downloaded, then filled, with no commit hash in the label. A successful run with a firmware artifact downloads the zip through the API; the browser never sees the installation token. Any other finished state opens the Actions page. An unpublished binding washes that layer’s row until publish. The decode card’s first line is `Was …`, and the ZMK / Windows / Linux identifiers stay on the next line. Layer add, rename, and remove stay **Draft** without a per-key mark. Undo only walks the in-memory stack.
 2. **Host** lane: shown once a keymap is loaded. Status is **Ready** (no custom user layout yet), **Changed** (user layout waiting to install), or **Saved** (deliverable layouts, nothing pending); **Linux** / **Windows** open install dialogs (not instant blob downloads). While a user layout is waiting to install, those buttons take a light green outline. With nothing pending, those buttons stay enabled for reinstall; the tooltip explains Ready vs Saved. The keycap draws at most two languages, any pair (`keycap`). English stays column 0 when its eye is off. The combined Windows file uses that base and `open`, not whichever pair is drawn.
-3. **Legend modes** sit on the assembly line, left of the remembered chips: **Stack languages** and **Symbol differences** are labeled mode buttons in one row. Stack stays pale until three host columns exist (two languages already share the key). **Highlight symbol differences** is on when a second language is open. While it is on, the samples `position` and `Win AltGr` sit on the keyboard stage, just above the board. Beside those modes, **Colors** and **Scheme** are board disclosures (not legend modes): Colors washes firmware layers on the keycap and in the table; Scheme shows the full matrix with row/col rails, including absent slots. A blank physical top row stays auto-hidden unless Scheme is on. The host symbol catalog (Ω) sits at the end of the language header row.
+3. **Legend modes** sit on the assembly line, left of the remembered chips: **Stack languages** and **Symbol differences** are labeled mode buttons in one row. Stack stays pale until three host columns exist (two languages already share the key). **Highlight symbol differences** is on when a second language is open. While it is on, the samples `position` and `Win AltGr` sit on the keyboard stage, just above the board. Beside those modes, **Colors** and **Scheme** are board disclosures (not legend modes): Colors washes firmware layers on the keycap and in the table; Scheme shows the full matrix with row/col rails, including absent slots. Default board view omits only `absent` matrix slots. The host symbol catalog (Ω) sits at the end of the language header row.
 4. Tiny ⓘ tooltips are not the install channel — the OS button opens the sheet.
 
 ### Linux / Windows deliverables
@@ -71,14 +71,14 @@ Scan codes for the typewriter block are the evdev code (`HostKeyId.scan`). Do no
 
 ### Persistence reminder
 
-IndexedDB already persists user layouts. Host **Changed** means “there is an active user layout to install,” not “unsaved in the browser.”
+IndexedDB already persists user layouts. Host **Changed** means “there is an active user layout to install,” not “unsaved in the browser” and not “uncommitted to GitHub.” Git dirty for the host half of a GitHub session is separate (`isHostRepoDirty` / Commit); see [ADR 0005](0005-host-keymap-github-snapshot.md).
 
 ## Consequences
 
 - Agents must not reintroduce hover-to-edit, card pin-without-Alt, or bridge delays for decode cards.
-- Do not put **Show empty row** back; blank top rows stay auto-hidden, and **Scheme** is the board disclosure for the full matrix.
+- Do not put **Show empty row** or blank-top-row auto-hide back; default view hides only `absent` slots, and **Scheme** is the board disclosure for the full matrix.
 - Do not invent a second AltGr merge for the Win AltGr mark, and do not put Copy AltGr back. The mark follows the combined Windows file: the open language wins, and an empty national cell keeps the base symbol.
-- Do not add API routes for host layout files; install remains client-side download/copy + OS tools.
+- Do not add API routes that own host layout files on the server disk; GitHub Commit writes `host_keymap/snapshot.json` through the existing keyboard-files path ([ADR 0005](0005-host-keymap-github-snapshot.md)). Install remains client-side download/copy + OS tools.
 - KLC export stays one writer. A new host language adds a `WINDOWS_LOCALES` entry (and a dead-key row only when the accent is new). Do not grow a second `.klc` implementation in the web app, and do not commit stock Microsoft `.klc` files. KLC import stays the one reader in `klc-read.ts`. Do not store a paired file as a third profile type.
 - Every `.klc` line is CRLF. A bare LF inside `KEYNAME` is the `Right` / `0e` compile failure above. Leave `KeyboardVerify.log` warnings alone: do not drop characters, and do not move the combined file off `00000409`, to silence them.
 - UI chrome stays English; a short Russian tip on the Russian Linux card is allowed as install **content** for that language only (see TARGET / ui-english).
@@ -86,5 +86,6 @@ IndexedDB already persists user layouts. Host **Changed** means “there is an a
 ## Related
 
 - [TARGET_SYSTEM.md](../TARGET_SYSTEM.md) — product UX summary
-- [0001](0001-persistence-github-first.md) — host layouts in the browser
+- [0001](0001-persistence-github-first.md) — GitHub-first persistence
 - [0002](0002-keymap-file-contract.md) — ZMK `#define` expansion vs host deliverables
+- [0005](0005-host-keymap-github-snapshot.md) — host snapshot co-committed with ZMK on GitHub

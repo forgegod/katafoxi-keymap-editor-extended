@@ -18,7 +18,7 @@
     local: 'Dev sibling zmk-config'
   }
 
-  interface KeymapEvent {
+    interface KeymapEvent {
     source?: string
     layout?: unknown
     keymap?: unknown
@@ -27,6 +27,7 @@
     clipboardOriginalSource?: string | null
     clipboardInferredLayout?: boolean
     warnings?: string[]
+    preserveSession?: boolean
     [key: string]: unknown
   }
 

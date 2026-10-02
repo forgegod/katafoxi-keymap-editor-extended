@@ -1,5 +1,5 @@
 import { encodeKeyBinding } from './keymap.js'
-import type { KeyBindingNode, ParsedKeymap } from './types.js'
+import type { KeyBindingNode, ParsedKeymap, ZmkCombo } from './types.js'
 
 export type KeymapChange =
   | {
@@ -25,6 +25,14 @@ export type KeymapChange =
       layer: number
       name: string
     }
+  | {
+      type: 'combo'
+      id: string
+      /** Empty when the combo was added. */
+      before: string
+      /** Empty when the combo was removed. */
+      after: string
+    }
 
 function layerName(keymap: ParsedKeymap, index: number): string {
   return keymap.layer_names?.[index] ?? `Layer ${index}`
@@ -33,6 +41,33 @@ function layerName(keymap: ParsedKeymap, index: number): string {
 function encodeOrEmpty(binding: KeyBindingNode | undefined): string {
   if (!binding) return ''
   return encodeKeyBinding(binding)
+}
+
+/** Stable fingerprint for dirty detection (id is keyed separately). */
+export function encodeComboFingerprint(combo: ZmkCombo): string {
+  const bits = [
+    `[${combo.keyPositions.join(' ')}]`,
+    encodeOrEmpty(combo.binding)
+  ]
+  if (combo.timeoutMs !== undefined) bits.push(`${combo.timeoutMs}ms`)
+  if (combo.layers && combo.layers.length > 0) {
+    bits.push(`L${combo.layers.join(',')}`)
+  } else {
+    bits.push('all')
+  }
+  if (combo.slowRelease) bits.push('slow')
+  if (combo.requirePriorIdleMs !== undefined) {
+    bits.push(`idle${combo.requirePriorIdleMs}`)
+  }
+  return bits.join(' ')
+}
+
+function comboMap(keymap: ParsedKeymap): Map<string, string> {
+  const map = new Map<string, string>()
+  for (const combo of keymap.combos ?? []) {
+    map.set(combo.id, encodeComboFingerprint(combo))
+  }
+  return map
 }
 
 /**
@@ -88,6 +123,17 @@ export function diffKeymaps(
     })
   }
 
+  const beforeCombos = comboMap(baseline)
+  const afterCombos = comboMap(draft)
+  const ids = new Set([...beforeCombos.keys(), ...afterCombos.keys()])
+  for (const id of [...ids].sort()) {
+    const before = beforeCombos.get(id) ?? ''
+    const after = afterCombos.get(id) ?? ''
+    if (before !== after) {
+      changes.push({ type: 'combo', id, before, after })
+    }
+  }
+
   return changes
 }
 
@@ -106,6 +152,10 @@ export function formatKeymapChange(change: KeymapChange): string {
       return `L${change.layer} added: ${change.name}`
     case 'layer_remove':
       return `L${change.layer} removed: ${change.name}`
+    case 'combo':
+      if (!change.before) return `${change.id} added: ${change.after}`
+      if (!change.after) return `${change.id} removed: ${change.before}`
+      return `${change.id}: ${change.before} → ${change.after}`
   }
 }
 
@@ -115,6 +165,7 @@ export function summarizeKeymapDiff(changes: KeymapChange[]): string {
   let renames = 0
   let adds = 0
   let removes = 0
+  let combos = 0
   for (const change of changes) {
     switch (change.type) {
       case 'binding':
@@ -129,6 +180,9 @@ export function summarizeKeymapDiff(changes: KeymapChange[]): string {
       case 'layer_remove':
         removes++
         break
+      case 'combo':
+        combos++
+        break
     }
   }
 
@@ -141,6 +195,7 @@ export function summarizeKeymapDiff(changes: KeymapChange[]): string {
   if (removes > 0) {
     parts.push(countLabel(removes, 'layer removed', 'layers removed'))
   }
+  if (combos > 0) parts.push(countLabel(combos, 'combo', 'combos'))
   return parts.join(', ')
 }
 

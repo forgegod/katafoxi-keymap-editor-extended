@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { KeyBindingNode, LayoutKey } from '@keymap-editor/keymap-core'
+  import type { LayoutKey } from '@keymap-editor/keymap-core'
   import { getKeyBoundingBox, getKeyStyles } from '../../../key-units'
   import { layoutThumbVisibleIndexes } from './layout-thumb-visible'
 
@@ -9,13 +9,11 @@
 
   interface Props {
     layout: LayoutKey[]
-    /** When set, a blank top row is omitted like on the main board. */
-    layers?: KeyBindingNode[][]
     /** Accessible name for the schematic. */
     label: string
   }
 
-  let { layout, layers, label }: Props = $props()
+  let { layout, label }: Props = $props()
 
   function keySize(key: LayoutKey) {
     const w = key.w ?? key.u ?? 1
@@ -27,7 +25,7 @@
   }
 
   const geometry = $derived.by(() => {
-    const visible = layoutThumbVisibleIndexes(layout, layers).map(index => layout[index])
+    const visible = layoutThumbVisibleIndexes(layout).map(index => layout[index])
     if (!visible.length) {
       return {
         width: FRAME_W,

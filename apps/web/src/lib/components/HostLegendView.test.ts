@@ -113,7 +113,8 @@ describe('HostLegendView', () => {
       'Stack languages',
       'Highlight symbol differences',
       'Layer colors',
-      'Show matrix scheme'
+      'Show matrix scheme',
+      'Edit ZMK combos: pick key positions on the board'
     ])
     expect(board.contains(modes[2]!)).toBe(true)
     expect(board.contains(scheme)).toBe(true)
@@ -127,10 +128,25 @@ describe('HostLegendView', () => {
     scheme.click()
     flushSync()
     expect(editor.schemeMode).toBe(true)
+    expect(editor.comboMode).toBe(false)
     expect(scheme.getAttribute('aria-label')).toBe('Hide matrix scheme')
     expect(scheme.getAttribute('aria-pressed')).toBe('true')
     expect(scheme.classList.contains('on')).toBe(true)
     expect(scheme.querySelector('.view-label')?.textContent).toBe('Scheme')
+  })
+
+  it('toggles combo mode from the Combos control', () => {
+    mountView()
+    const combos = button('Edit ZMK combos: pick key positions on the board')
+    expect(combos.querySelector('.view-label')?.textContent).toBe('Combos')
+    expect(combos.getAttribute('aria-pressed')).toBe('false')
+
+    combos.click()
+    flushSync()
+    expect(editor.comboMode).toBe(true)
+    expect(editor.schemeMode).toBe(false)
+    expect(combos.getAttribute('aria-label')).toBe('Exit combo editing')
+    expect(combos.getAttribute('aria-pressed')).toBe('true')
   })
 
   it('keeps the scheme slot beside layer colors', () => {

@@ -246,6 +246,7 @@ export class API extends EventEmitter {
         data: {
           info: { layouts: Record<string, { layout: unknown }> }
           keymap: unknown
+          hostSnapshot?: unknown
         }
       }
       const defaultLayout =
@@ -253,7 +254,8 @@ export class API extends EventEmitter {
         data.info.layouts[Object.keys(data.info.layouts)[0]]
       return {
         layout: defaultLayout.layout,
-        keymap: data.keymap
+        keymap: data.keymap,
+        hostSnapshot: data.hostSnapshot ?? null
       }
     } catch (err) {
       const requestErr = err as RequestError
@@ -293,7 +295,9 @@ export class API extends EventEmitter {
     repo: string,
     branch: string,
     layout: unknown,
-    keymap: unknown
+    keymap: unknown,
+    hostSnapshot?: unknown,
+    hostDeliverables?: unknown
   ) {
     const installation = encodeURIComponent(this.repoInstallationMap![repo])
     const repository = encodeURIComponent(repo)
@@ -302,7 +306,12 @@ export class API extends EventEmitter {
       url: `/github/keyboard-files/${installation}/${repository}/${encodeURIComponent(branch)}`,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      data: { layout, keymap }
+      data: {
+        layout,
+        keymap,
+        hostSnapshot: hostSnapshot ?? null,
+        hostDeliverables: hostDeliverables ?? null
+      }
     })
   }
 }

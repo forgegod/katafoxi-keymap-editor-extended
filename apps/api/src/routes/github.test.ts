@@ -263,13 +263,15 @@ describe('session and errors', () => {
     vi.mocked(files.fetchKeyboardFiles).mockResolvedValue({
       info: VALID_INFO,
       keymap: VALID_KEYMAP,
-      originalCodeKeymap: { name: 'lark.keymap', path: 'config/lark.keymap' }
+      originalCodeKeymap: { name: 'lark.keymap', path: 'config/lark.keymap' },
+      hostSnapshot: null
     })
     const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark')
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({
       info: VALID_INFO,
-      keymap: parseKeymap(VALID_KEYMAP)
+      keymap: parseKeymap(VALID_KEYMAP),
+      hostSnapshot: null
     })
   })
 
@@ -289,7 +291,15 @@ describe('session and errors', () => {
       name: 'KeymapValidationError',
       errors: ['bad keymap']
     })
-    expect(commit).toHaveBeenCalledWith('1', 'acme/lark', 'feature/x', layout, keymap)
+    expect(commit).toHaveBeenCalledWith(
+      '1',
+      'acme/lark',
+      'feature/x',
+      layout,
+      keymap,
+      null,
+      null
+    )
   })
 
   it('POST /github/installation branches requires a session and a valid name', async () => {

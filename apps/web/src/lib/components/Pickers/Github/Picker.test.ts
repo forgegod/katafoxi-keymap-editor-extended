@@ -310,6 +310,7 @@ describe('Github Picker', () => {
     clickButton('Create new branch')
     const input = target.querySelector('#new-branch')
     if (!(input instanceof HTMLInputElement)) throw new Error('missing branch input')
+    expect(target.textContent).toMatch(/Keeps your unpublished edits and\s*Host languages/)
     input.value = 'topic'
     input.dispatchEvent(new Event('input', { bubbles: true }))
     flushSync()
@@ -322,7 +323,8 @@ describe('Github Picker', () => {
     await vi.waitFor(() => {
       expect(onSelect).toHaveBeenCalledWith(
         expect.objectContaining({
-          github: { repository: 'acme/lark', branch: 'topic' }
+          github: { repository: 'acme/lark', branch: 'topic' },
+          preserveSession: true
         })
       )
     })

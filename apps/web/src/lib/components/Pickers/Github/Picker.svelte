@@ -26,6 +26,8 @@
       github: { repository: string; branch: string }
       layout: unknown
       keymap: unknown
+      /** Keep unpublished edits + Host legend when switching after Create branch. */
+      preserveSession?: boolean
     }) => void
     /** Parent draws the chip; this picker only fills the menu and keeps loading. */
     embedded?: boolean
@@ -39,6 +41,8 @@
   let branchDraft = $state('')
   let branchError = $state('')
   let creatingBranch = $state(false)
+  /** Next keymap load after Create branch keeps the live editor session. */
+  let preserveSessionOnLoad = $state(false)
 
   let selectedRepoId: number | null = $state(null)
   let selectedBranchName: string | null = $state(null)
@@ -193,13 +197,19 @@
         if (cancelled) return
         loadingKeyboard = false
         lintKeyboard(response as { layout: Array<Record<string, unknown>> })
+        const preserveSession = preserveSessionOnLoad
+        preserveSessionOnLoad = false
         onSelect({
           github: { repository, branch },
+          ...(preserveSession ? { preserveSession: true } : {}),
           ...response
         })
       })
       .catch(() => {
-        if (!cancelled) loadingKeyboard = false
+        if (!cancelled) {
+          loadingKeyboard = false
+          preserveSessionOnLoad = false
+        }
       })
 
     return () => {
@@ -279,6 +289,7 @@
       if (!branches.some(branch => branch.name === created.name)) {
         branches = [...branches, { name: created.name }]
       }
+      preserveSessionOnLoad = true
       selectedBranchName = created.name
       branchForm = false
       branchDraft = ''
@@ -401,7 +412,8 @@
           }}
         />
         <p class="branch-hint">
-          Copies {selectedBranchName} as it is on GitHub. Unpublished edits stay on the current branch.
+          Copies {selectedBranchName} from GitHub. Keeps your unpublished edits and
+          Host languages; Commit goes to the new branch.
         </p>
         {#if branchError}
           <p class="branch-error" role="alert">{branchError}</p>
