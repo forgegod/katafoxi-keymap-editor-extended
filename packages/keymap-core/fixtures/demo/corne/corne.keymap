@@ -9,6 +9,16 @@
 #include <dt-bindings/zmk/bt.h>
 
 / {
+        combos {
+                compatible = "zmk,combos";
+                // Demo: J+K (home-row adjacent) → Esc so Combos beads show on first visit.
+                combo_esc {
+                        bindings = <&kp ESC>;
+                        key-positions = <19 20>;
+                        timeout-ms = <50>;
+                };
+        };
+
         keymap {
                 compatible = "zmk,keymap";
 

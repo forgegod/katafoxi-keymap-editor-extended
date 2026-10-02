@@ -58,6 +58,10 @@ Click a stacked keycap row. One dialog edits that layer’s ZMK binding:
 - Enter applies a complete binding. Esc cancels. An unfinished hold-tap stays open.
 - Pointing behaviours remind that firmware needs `CONFIG_ZMK_POINTING=y`. The editor only adds `#include <dt-bindings/zmk/pointing.h>`.
 
+## Combos
+
+**Combos** is a board mode beside Scheme: pick `key-positions` on the matrix, edit the chord binding in KeyEditor, and set per-combo `timeout-ms`, `layers`, `slow-release`, and `require-prior-idle-ms`. Parse/splice live in `keymap-core` (`dts-combos`); Save rewrites the `combos { … }` block with the rest of the keymap contract ([ADR 0002](adr/0002-keymap-file-contract.md)). Adjacent same-row two-key chords get a gap bead on the board outside edit mode. Incomplete drafts (fewer than two keys) block leaving the mode; empty new rows are dropped on exit.
+
 ## Keycap / compose (target UX)
 
 - **ZMK legends** (compact codes on a raw layer0 row, and inside KeyEditor): helpers in `packages/keymap-core` `compose.ts` (`layerLegendSymbol`, `keycapLegend`, `isHoldTapBehavior`). Binding tokens stay ZMK (`1`, `LCTRL`, `LC(DEL)`).

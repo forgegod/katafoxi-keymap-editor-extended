@@ -178,6 +178,12 @@ describe('createEmptyCombo / formatCombosBlock', () => {
       })
     ).toBe('30ms · L0L1 · slow')
     expect(
+      comboListMeta({
+        keyPositions: [0, 1],
+        requirePriorIdleMs: 100
+      })
+    ).toBe('50ms · all · idle100')
+    expect(
       suggestComboIdStem({
         value: '&mo',
         params: [{ value: 1, params: [] }]

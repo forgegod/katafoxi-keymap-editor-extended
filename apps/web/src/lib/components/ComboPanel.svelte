@@ -2,9 +2,13 @@
   import {
     COMBO_MAX_KEYS,
     COMBO_MIN_KEYS,
+    COMBO_PRIOR_IDLE_MS_DEFAULT,
+    COMBO_PRIOR_IDLE_MS_MAX,
+    COMBO_PRIOR_IDLE_MS_MIN,
     COMBO_TIMEOUT_MS_DEFAULT,
     COMBO_TIMEOUT_MS_MAX,
     COMBO_TIMEOUT_MS_MIN,
+    clampComboPriorIdleMs,
     clampComboTimeoutMs,
     comboDesignHint,
     comboKeysIssue,
@@ -52,6 +56,10 @@
   )
   const timeoutMs = $derived(active?.timeoutMs ?? COMBO_TIMEOUT_MS_DEFAULT)
   const timeoutIsCustom = $derived(active?.timeoutMs !== undefined)
+  const priorIdleOn = $derived(active?.requirePriorIdleMs !== undefined)
+  const priorIdleMs = $derived(
+    active?.requirePriorIdleMs ?? COMBO_PRIOR_IDLE_MS_DEFAULT
+  )
   const layersAreGlobal = $derived(
     !active?.layers || active.layers.length === 0
   )
@@ -92,6 +100,12 @@
       const merged: ZmkCombo = { ...c, ...patch }
       if ('timeoutMs' in patch && patch.timeoutMs === undefined) {
         delete merged.timeoutMs
+      }
+      if (
+        'requirePriorIdleMs' in patch &&
+        patch.requirePriorIdleMs === undefined
+      ) {
+        delete merged.requirePriorIdleMs
       }
       if (
         'layers' in patch &&
@@ -151,6 +165,19 @@
 
   function clearTimeoutMs() {
     patchActive({ timeoutMs: undefined })
+  }
+
+  function setPriorIdleMs(ms: number) {
+    patchActive({ requirePriorIdleMs: clampComboPriorIdleMs(ms) })
+  }
+
+  function onPriorIdleInput(event: Event) {
+    const input = event.currentTarget as HTMLInputElement
+    setPriorIdleMs(Number(input.value))
+  }
+
+  function clearPriorIdleMs() {
+    patchActive({ requirePriorIdleMs: undefined })
   }
 
   function setSlowRelease(on: boolean) {
@@ -297,6 +324,65 @@
           aria-label="Combo timeout in milliseconds"
           oninput={onTimeoutInput}
         />
+      </div>
+
+      <div class="combo-timeout" role="group" aria-label="Require prior idle">
+        <div class="timeout-label-row">
+          <span class="timeout-label">
+            {#if priorIdleOn}
+              Prior idle <strong>{priorIdleMs}ms</strong>
+            {:else}
+              Prior idle <span class="timeout-default">off</span>
+            {/if}
+          </span>
+          <div class="timeout-presets">
+            <button
+              type="button"
+              class="combo-btn quiet"
+              class:on={!priorIdleOn}
+              onclick={clearPriorIdleMs}
+              title="Omit require-prior-idle-ms"
+            >
+              Off
+            </button>
+            <button
+              type="button"
+              class="combo-btn quiet"
+              class:on={priorIdleOn && priorIdleMs === 50}
+              onclick={() => setPriorIdleMs(50)}
+            >
+              50
+            </button>
+            <button
+              type="button"
+              class="combo-btn quiet"
+              class:on={priorIdleOn && priorIdleMs === 100}
+              onclick={() => setPriorIdleMs(100)}
+            >
+              100
+            </button>
+            <button
+              type="button"
+              class="combo-btn quiet"
+              class:on={priorIdleOn && priorIdleMs === 200}
+              onclick={() => setPriorIdleMs(200)}
+            >
+              200
+            </button>
+          </div>
+        </div>
+        {#if priorIdleOn}
+          <input
+            class="timeout-range"
+            type="range"
+            min={COMBO_PRIOR_IDLE_MS_MIN}
+            max={COMBO_PRIOR_IDLE_MS_MAX}
+            step="10"
+            value={priorIdleMs}
+            aria-label="Require prior idle in milliseconds"
+            oninput={onPriorIdleInput}
+          />
+        {/if}
       </div>
 
       <div class="combo-layers" role="group" aria-label="Active layers">

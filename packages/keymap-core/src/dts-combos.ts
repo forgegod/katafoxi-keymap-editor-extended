@@ -305,10 +305,11 @@ export function isPlaceholderComboId(id: string): boolean {
   return /^combo(_\d+)?$/.test(id)
 }
 
-/** Compact list meta: `50ms · all` / `30ms · L0L1 · slow` (no matrix indexes). */
+/** Compact list meta: `50ms · all` / `30ms · L0L1 · slow · idle100` (no matrix indexes). */
 export function comboListMeta(combo: {
   keyPositions: readonly number[]
   timeoutMs?: number
+  requirePriorIdleMs?: number
   slowRelease?: boolean
   layers?: readonly number[]
 }): string {
@@ -320,6 +321,9 @@ export function comboListMeta(combo: {
     bits.push('all')
   }
   if (combo.slowRelease) bits.push('slow')
+  if (combo.requirePriorIdleMs !== undefined) {
+    bits.push(`idle${combo.requirePriorIdleMs}`)
+  }
   const n = combo.keyPositions.length
   if (n < 2) bits.push(n === 0 ? 'no keys' : 'need 2+')
   return bits.join(' · ')
@@ -424,6 +428,22 @@ export function clampComboTimeoutMs(ms: number): number {
   return Math.min(
     COMBO_TIMEOUT_MS_MAX,
     Math.max(COMBO_TIMEOUT_MS_MIN, Math.round(ms))
+  )
+}
+
+/**
+ * Suggested starting value when the user turns on `require-prior-idle-ms`.
+ * Omitted in DTS means no prior-idle gate (Off in the UI).
+ */
+export const COMBO_PRIOR_IDLE_MS_DEFAULT = 100
+export const COMBO_PRIOR_IDLE_MS_MIN = 20
+export const COMBO_PRIOR_IDLE_MS_MAX = 500
+
+export function clampComboPriorIdleMs(ms: number): number {
+  if (!Number.isFinite(ms)) return COMBO_PRIOR_IDLE_MS_DEFAULT
+  return Math.min(
+    COMBO_PRIOR_IDLE_MS_MAX,
+    Math.max(COMBO_PRIOR_IDLE_MS_MIN, Math.round(ms))
   )
 }
 

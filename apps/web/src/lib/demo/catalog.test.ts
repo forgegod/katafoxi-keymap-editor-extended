@@ -37,6 +37,21 @@ describe('demo catalog', () => {
     }
   })
 
+  it('seeds Corne with a J+K Esc combo so Combos beads show on first visit', () => {
+    const { keymap } = loadDemo('corne')
+    expect(keymap.combos).toEqual([
+      expect.objectContaining({
+        id: 'combo_esc',
+        keyPositions: [19, 20],
+        timeoutMs: 50,
+        binding: {
+          value: '&kp',
+          params: [{ value: 'ESC', params: [] }]
+        }
+      })
+    ])
+  })
+
   it('keeps Lark phantom matrix slots in the keymap but marks them absent', () => {
     const { layout } = loadDemo('lark')
     const absent = layout.filter(key => key.absent)
