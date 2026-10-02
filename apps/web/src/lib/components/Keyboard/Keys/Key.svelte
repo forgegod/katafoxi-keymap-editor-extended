@@ -154,6 +154,8 @@
     const rect = target.getBoundingClientRect()
     if (!claimLegendDecode(keyIndex, layer, hideDecode)) return
     decode = { layer, rect }
+    // Same layer preview as the host-legend strip row.
+    editor.legendHover = { kind: 'layer', layer }
   }
 
   function hideDecode() {
@@ -163,6 +165,10 @@
     if (editor.hostEditSession?.keyIndex === keyIndex) {
       editor.endHostEditSession()
     }
+  }
+
+  function clearLayerHover() {
+    if (editor.legendHover?.kind === 'layer') editor.legendHover = null
   }
 
   function endHostEditSession() {
@@ -175,11 +181,13 @@
   function handleRowBlur() {
     if (inHostSession) return
     hideDecode()
+    clearLayerHover()
   }
 
   function handleRowLeave() {
     if (inHostSession) return
     hideDecode()
+    clearLayerHover()
   }
 
   function openEditor(slotCodeIndex: number, fromLayer?: number) {

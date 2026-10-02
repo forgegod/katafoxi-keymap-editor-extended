@@ -8,6 +8,7 @@
     type LayerView
   } from '@keymap-editor/keymap-core'
   import { setSearchContext } from '../../../context'
+  import { editor } from '../../../editor.svelte.js'
   import { buildSearchContext } from '../../../search-context'
   import Key from './Key.svelte'
 
@@ -69,5 +70,6 @@
   }
   {layerView}
   {hostView}
+  legendHover={editor.legendHover}
   onUpdate={(keyIndex, layerIndex, binding) => onUpdate(keyIndex, layerIndex, binding)}
 />

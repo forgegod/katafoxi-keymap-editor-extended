@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   behaviorFirmwareNote,
+  behaviorPeekNote,
   behaviorSlotParam,
   behaviorValueCatalog,
   isInstantBehavior,
@@ -54,6 +55,24 @@ describe('behaviorFirmwareNote', () => {
     expect(behaviorFirmwareNote('&bt')).toBeNull()
     expect(behaviorFirmwareNote('&out')).toBeNull()
     expect(behaviorFirmwareNote('&ext_power')).toBeNull()
+  })
+})
+
+describe('behaviorPeekNote', () => {
+  it('explains layer and hold-tap behaviours in one line', () => {
+    expect(behaviorPeekNote('&mo')).toMatch(/Hold.*layer/i)
+    expect(behaviorPeekNote('&to')).toMatch(/Switch.*stay/i)
+    expect(behaviorPeekNote('&tog')).toMatch(/Toggle/i)
+    expect(behaviorPeekNote('&sl')).toMatch(/sticky/i)
+    expect(behaviorPeekNote('&lt')).toMatch(/Hold.*layer.*tap/i)
+    expect(behaviorPeekNote('&mt')).toMatch(/Hold.*modifier.*tap/i)
+    expect(behaviorPeekNote('&sk')).toMatch(/sticky/i)
+  })
+
+  it('stays silent for ordinary key press', () => {
+    expect(behaviorPeekNote('&kp')).toBeNull()
+    expect(behaviorPeekNote('&bt')).toBeNull()
+    expect(behaviorPeekNote(undefined)).toBeNull()
   })
 })
 
