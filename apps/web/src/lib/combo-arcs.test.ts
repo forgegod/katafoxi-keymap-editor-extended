@@ -82,4 +82,18 @@ describe('buildComboArcSegs', () => {
     expect(segs[0]?.midY).toBeCloseTo(faceY, 5)
     expect(segs[0]!.midY).toBeLessThan(midY)
   })
+
+  it('anchors Y on the combo layer strip among shown layers', () => {
+    const onL2: ZmkCombo = { ...esc, layers: [2] }
+    const segs = buildComboArcSegs(layout, [onL2], {
+      shownLayers: [0, 1, 2],
+      labelFor: () => '&kp ESC'
+    })
+    expect(segs).toHaveLength(1)
+    const box = getKeyBoundingBox({ x: 0, y: 0 }, { u: 1, h: 1 })
+    const keyH = box.max.y - box.min.y
+    const faceH = keyH / 3
+    const faceY = box.min.y + faceH * 2 + faceH / 2
+    expect(segs[0]?.midY).toBeCloseTo(faceY, 5)
+  })
 })

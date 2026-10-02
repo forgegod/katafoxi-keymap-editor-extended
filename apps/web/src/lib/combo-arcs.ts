@@ -14,20 +14,16 @@ export type ComboArcSeg = {
   midY: number
 }
 
-type FacePoint = {
+type KeyGeom = {
   index: number
-  x: number
-  y: number
+  midX: number
+  minY: number
+  keyH: number
   row: number
   col: number
 }
 
-/**
- * Centers on the top shown layer face (not the mid of a stacked key cell),
- * so marks align with layer-slot[0] rather than looking like L1.
- */
-function faceCenters(layout: LayoutKey[], layerRowCount: number): FacePoint[] {
-  const rows = Math.max(1, layerRowCount)
+function keyGeoms(layout: LayoutKey[]): KeyGeom[] {
   return layout.map((key, index) => {
     const u = key.u || key.w || 1
     const h = key.h || 1
@@ -36,25 +32,39 @@ function faceCenters(layout: LayoutKey[], layerRowCount: number): FacePoint[] {
       { u, h },
       { x: key.rx, y: key.ry, a: key.r }
     )
-    const keyH = box.max.y - box.min.y
-    const faceH = keyH / rows
     return {
       index,
-      x: (box.min.x + box.max.x) / 2,
-      y: box.min.y + faceH / 2,
+      midX: (box.min.x + box.max.x) / 2,
+      minY: box.min.y,
+      keyH: box.max.y - box.min.y,
       row: typeof key.row === 'number' ? key.row : 0,
       col: typeof key.col === 'number' ? key.col : index
     }
   })
 }
 
-function isAdjacentSameRow(a: FacePoint, b: FacePoint): boolean {
+/**
+ * Stack slot among `shownLayers` for this combo's face.
+ * All-layers → top strip (0). Layer-restricted → first shown layer it applies to.
+ */
+export function comboFaceSlot(
+  combo: { layers?: readonly number[] },
+  shownLayers: readonly number[]
+): number {
+  if (!combo.layers || combo.layers.length === 0) return 0
+  for (let i = 0; i < shownLayers.length; i++) {
+    if (combo.layers.includes(shownLayers[i]!)) return i
+  }
+  return -1
+}
+
+function isAdjacentSameRow(a: KeyGeom, b: KeyGeom): boolean {
   return a.row === b.row && Math.abs(a.col - b.col) === 1
 }
 
 /**
  * Board beads for adjacent horizontal 2-key combos (gap mid only, no lines).
- * Vertical / diagonal / 3+ stay in the Combos list, not on the board.
+ * Y sits on the shown-layer strip the combo actually applies to.
  */
 export function buildComboArcSegs(
   layout: LayoutKey[],
@@ -65,28 +75,33 @@ export function buildComboArcSegs(
     labelFor: (combo: ZmkCombo) => string
   }
 ): ComboArcSeg[] {
-  const centers = faceCenters(layout, options.shownLayers.length)
+  const geoms = keyGeoms(layout)
+  const rowCount = Math.max(1, options.shownLayers.length)
   const out: ComboArcSeg[] = []
   for (const combo of combos) {
     if (combo.keyPositions.length !== 2) continue
     if (!comboAppliesToAnyLayer(combo, options.shownLayers)) continue
+    const slot = comboFaceSlot(combo, options.shownLayers)
+    if (slot < 0) continue
     const [i, j] = combo.keyPositions
     if (i == null || j == null) continue
     if (options.hidden?.has(i) || options.hidden?.has(j)) continue
-    const a = centers[i]
-    const b = centers[j]
+    const a = geoms[i]
+    const b = geoms[j]
     if (!a || !b) continue
     if (!isAdjacentSameRow(a, b)) continue
-    const left = a.x <= b.x ? a : b
-    const right = a.x <= b.x ? b : a
+    const left = a.midX <= b.midX ? a : b
+    const right = a.midX <= b.midX ? b : a
+    const faceH = left.keyH / rowCount
+    const midY = left.minY + faceH * slot + faceH / 2
     const label = options.labelFor(combo)
     out.push({
       id: `${combo.id}:${left.index}-${right.index}`,
       comboId: combo.id,
       label,
       title: `${combo.id}: ${label}`,
-      midX: (left.x + right.x) / 2,
-      midY: (left.y + right.y) / 2
+      midX: (left.midX + right.midX) / 2,
+      midY
     })
   }
   return out
