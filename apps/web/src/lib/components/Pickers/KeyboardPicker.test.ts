@@ -144,12 +144,77 @@ describe('KeyboardPicker', () => {
     if (!(select instanceof HTMLSelectElement)) {
       throw new Error('missing source select')
     }
-    expect(select.options).toHaveLength(3)
+    expect(select.options).toHaveLength(4)
     expect(localStorage.getItem('selectedSource')).toBe('nope')
     expect(target.querySelector('#repo')).toBeNull()
     expect(onSelect).not.toHaveBeenCalled()
     expect(loadLayout).not.toHaveBeenCalled()
     expect(loadKeymap).not.toHaveBeenCalled()
+  })
+
+  it('opens the clipboard picker without loading local files', () => {
+    localStorage.setItem('selectedSource', 'clipboard')
+
+    const onSelect = open()
+
+    const select = target.querySelector('#source')
+    if (!(select instanceof HTMLSelectElement)) {
+      throw new Error('missing source select')
+    }
+    expect(select.selectedOptions[0]?.textContent?.trim()).toBe('Clipboard')
+    expect(target.querySelector('.clipboard-picker')).toBeTruthy()
+    expect(target.querySelector('.source-trigger')?.getAttribute('title')).toBe(
+      'Paste a .keymap from the clipboard (layout optional)'
+    )
+    expect(onSelect).not.toHaveBeenCalled()
+    expect(loadLayout).not.toHaveBeenCalled()
+    expect(loadKeymap).not.toHaveBeenCalled()
+  })
+
+  it('marks the Clipboard chip when Load infers a rectangular board', async () => {
+    localStorage.setItem('selectedSource', 'clipboard')
+    const onSelect = open()
+
+    const areas = target.querySelectorAll('.clipboard-text')
+    const keymapArea = areas[0]
+    if (!(keymapArea instanceof HTMLTextAreaElement)) {
+      throw new Error('missing keymap textarea')
+    }
+    keymapArea.value = `
+/ {
+  keymap {
+    compatible = "zmk,keymap";
+    default_layer {
+      bindings = <&kp A &kp B &kp C &kp D>;
+    };
+  };
+};
+`
+    keymapArea.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+
+    const load = [...target.querySelectorAll('button')].find(
+      btn => btn.textContent?.trim() === 'Load'
+    )
+    if (!(load instanceof HTMLButtonElement)) {
+      throw new Error('missing Load button')
+    }
+    load.click()
+    flushSync()
+
+    await vi.waitFor(() => {
+      expect(onSelect).toHaveBeenCalled()
+    })
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'clipboard',
+        clipboardInferredLayout: true,
+        warnings: expect.arrayContaining(['clipboard_inferred_layout'])
+      })
+    )
+    expect(target.querySelector('.source-trigger')?.textContent).toMatch(
+      /Clipboard · clipboard \(inferred\)/
+    )
   })
 
   it('writes selectedSource and calls onSelect when local is chosen by index', async () => {
@@ -160,8 +225,8 @@ describe('KeyboardPicker', () => {
     if (!(select instanceof HTMLSelectElement)) {
       throw new Error('missing source select')
     }
-    // Demo=0, Local=1, GitHub=2
-    select.value = '1'
+    // Demo=0, Clipboard=1, Local=2, GitHub=3
+    select.value = '2'
     select.dispatchEvent(new Event('change', { bubbles: true }))
     flushSync()
 

@@ -1,12 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { parseDtsKeymap, parseKeymap } from '@keymap-editor/keymap-core'
   import * as config from './lib/config'
   import { setDefinitionsContext } from './lib/context'
   import { editor, type KeyboardSelection } from './lib/editor.svelte.js'
   import { handleEditorShortcut } from './lib/editor-shortcuts'
   import { publishKeymap } from './lib/publish-keymap'
   import { reloadLocalKeyboard } from './lib/api'
+  import { buildClipboardExport } from './lib/clipboard/export'
+  import { formatKeymapSaveWarnings } from './lib/keymap-save-warnings'
+  import { writeClipboardOriginalSource } from './lib/clipboard/session'
   import KeyboardPicker from './lib/components/Pickers/KeyboardPicker.svelte'
+  import ClipboardExportSheet from './lib/components/Pickers/Clipboard/ExportSheet.svelte'
   import Spinner from './lib/components/Common/Spinner.svelte'
   import Keyboard from './lib/components/Keyboard/Keyboard.svelte'
   import GitHubLink from './lib/components/GitHubLink.svelte'
@@ -34,6 +39,11 @@
   let topEl: HTMLDivElement | undefined = $state()
   /** Tools sit under the pipelines when they no longer fit beside them. */
   let toolsBelow = $state(false)
+  let clipboardExport = $state<{
+    code: string
+    copied: boolean
+    warnings: string[]
+  } | null>(null)
 
   $effect(() => {
     const root = topEl
@@ -124,6 +134,57 @@
     })
     if (ok) buildRefresh += 1
   }
+
+  async function handleCopyClipboard() {
+    if (!editor.layout || !editor.draftKeymap || editor.saving) return
+    editor.saving = true
+    try {
+      const built = buildClipboardExport(
+        editor.layout,
+        editor.draftKeymap,
+        editor.clipboardOriginalSource
+      )
+      let copied = false
+      try {
+        await navigator.clipboard.writeText(built.code)
+        copied = true
+      } catch {
+        copied = false
+      }
+
+      editor.clipboardOriginalSource = built.code
+      const identity = editor.currentDraftIdentity()
+      if (identity) writeClipboardOriginalSource(identity, built.code)
+
+      const km = editor.draftKeymap
+      const raw = parseDtsKeymap(built.code, {
+        keyboard: typeof km.keyboard === 'string' ? km.keyboard : 'clipboard',
+        keymap: typeof km.keymap === 'string' ? km.keymap : 'clipboard',
+        layout: typeof km.layout === 'string' ? km.layout : 'LAYOUT'
+      })
+      const reloaded = parseKeymap(raw)
+      if (editor.isDirty) {
+        editor.applyClipboardCopied(reloaded, {
+          mode: built.mode,
+          warnings: built.warnings
+        })
+      } else {
+        editor.saveNotice = null
+      }
+
+      clipboardExport = {
+        code: built.code,
+        copied,
+        warnings: formatKeymapSaveWarnings(built.warnings)
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Could not build the .keymap export'
+      editor.saveNotice = { kind: 'error', messages: [message] }
+    } finally {
+      editor.saving = false
+    }
+  }
 </script>
 
 <Loader load={initialize}>
@@ -143,7 +204,11 @@
               <ChromeStatus
                 class="publish-status"
                 dirty={editor.isDirty}
-                label={editor.isDirty ? 'Changed' : 'Saved'}
+                label={editor.isDirty
+                  ? 'Changed'
+                  : editor.source === 'clipboard'
+                    ? 'Ready'
+                    : 'Saved'}
                 title={editor.statusText}
               />
               <Button
@@ -214,6 +279,18 @@
               >
                 Demo — not saved to a repo
               </span>
+            {/if}
+            {#if editor.source === 'clipboard' && editor.draftKeymap}
+              <Button
+                variant="publish"
+                ready={editor.isDirty || !clipboardExport}
+                title="Copy the current .keymap text so you can paste it into your firmware repo"
+                disabled={editor.saving}
+                onclick={() => void handleCopyClipboard()}
+              >
+                {editor.saving ? 'Copying' : 'Copy .keymap'}
+                {#if editor.saving}<Spinner />{/if}
+              </Button>
             {/if}
             {#if editor.source === 'local'}
               <Button
@@ -298,6 +375,15 @@
     {/if}
   </div>
 </Loader>
+
+{#if clipboardExport}
+  <ClipboardExportSheet
+    code={clipboardExport.code}
+    copied={clipboardExport.copied}
+    warnings={clipboardExport.warnings}
+    onClose={() => (clipboardExport = null)}
+  />
+{/if}
 <!-- Inside the Svelte mount so portaled dialogs still receive delegated clicks. -->
 <div id="modal-root"></div>
 

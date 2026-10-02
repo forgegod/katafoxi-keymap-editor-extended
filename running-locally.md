@@ -24,7 +24,7 @@ pnpm install
 pnpm dev
 ```
 
-5. Open `http://127.0.0.1:5173` (Vite UI). The API listens on `http://127.0.0.1:8080`. A clean browser profile opens **Demo** (bundled fixtures: Lark, Corne, Lily58, Sweep). Source **Local** appears only when both `ENABLE_LOCAL` flags below are set.
+5. Open `http://127.0.0.1:5173` (Vite UI). The API listens on `http://127.0.0.1:8080`. A clean browser profile opens **Demo** (bundled fixtures: Lark, Corne, Lily58, Sweep). Source **Clipboard** pastes a `.keymap` (optional `info.json`) with no disk write — use **Copy .keymap** to put spliced firmware text back on the clipboard. Source **Local** appears only when both `ENABLE_LOCAL` flags below are set.
 
 ### Local source (`ENABLE_LOCAL`)
 
@@ -50,7 +50,7 @@ Set `PORT` if the API port must change. Set `APP_BASE_URL` to the browser-facing
 
 ## Using the editor
 
-On first visit the Source menu opens on **Demo**. Pick a layout card (or keep the default Lark). Demo edits stay in the browser; there is no Write files path until you switch to Local or GitHub. With Source **Local** (both `ENABLE_LOCAL` flags on), the sibling `zmk-config` keyboard loads automatically. Click a key to open the editor: pick a behaviour, then a value. Enter applies a complete binding; Esc cancels.
+On first visit the Source menu opens on **Demo**. Pick a layout card (or keep the default Lark). Demo edits stay in the browser; there is no Write files path until you switch to Local or GitHub. Source **Clipboard** also stays in the browser: paste a `.keymap` (and optionally `info.json`); without layout the board is a flat rectangle from the binding count; **Copy .keymap** splices into the pasted source (or the default template) and shows the result for paste into your firmware repo. With Source **Local** (both `ENABLE_LOCAL` flags on), the sibling `zmk-config` keyboard loads automatically. Click a key to open the editor: pick a behaviour, then a value. Enter applies a complete binding; Esc cancels.
 
 The board shows the host composed stack: click a keycap row to edit that layer’s ZMK binding; **Alt+click** starts a host-edit session (glyph catalog) when the key is a host character key. Hover is a read-only peek. If that row has an unpublished binding, the card’s first line is what it was (`Was …`). The header **ZMK** lane publishes the keymap; a dirty keymap says **Draft**, and the changed layer row stays washed until Write files or Commit. **Discard draft** restores the last loaded keymap, including edits Undo can no longer reach. The **Host** lane opens Linux/Windows install dialogs when a user layout is active. Left of the legend table, **Stack languages** stays pale until a third host language is open, and **Highlight symbol differences** marks a non-letter with no shared key across the open languages, and an AltGr cell the combined Windows file cannot keep. Beside those modes, **Colors** washes firmware layers and **Scheme** shows the full matrix with row/col rails (blank top rows and absent slots stay hidden unless Scheme is on). The far right of the legend strip lists basic letters and marks missing from a changed host layout. A keypad binding counts as present. Add, rename, and delete layers from the host-legend table. Each language column picks a host **layout** (a system catalog id such as `system-us` / `system-ru`, or a user layout `user:<uuid>`). Copy, **Import xkb…**, and **Import klc…** create user layouts; they persist in IndexedDB with the whole legend view. A one-language `.klc` fills that column. A file with another alphabet on Caps Lock fills the base language and that language. Above the legend table, **Remember** keeps up to three column sets for this keyboard; choosing one shows that set again, and the layouts stay shared.
 
@@ -62,7 +62,7 @@ In a **clean browser profile** the legend is system English only (`system-us`), 
 
 Includes inside those files resolve against vendored system modules (`us(basic)`, and so on).
 
-Click **Write files** to write `keymap.json` and update the `.keymap` in `zmk-config`. On GitHub the same action is **Commit to GitHub**. The write path depends on what is already on disk:
+Click **Write files** to write `keymap.json` and update the `.keymap` in `zmk-config`. On GitHub the same action is **Commit to GitHub**. With Source **Clipboard**, **Copy .keymap** uses the same splice order but returns text to the system clipboard (and a preview dialog) instead of writing disk. The write path depends on what is already on disk:
 
 1. If `config/*.keymap.template` exists, that template fully controls the written `.keymap` (`{{rendered_layers}}` / `{{behaviour_includes}}`).
 2. Otherwise, if a `.keymap` already exists, Write files splices bindings only inside `keymap { compatible = "zmk,keymap"; }`. `#define`, `#include`, and `&mt` / `&lt` blocks outside those bindings stay.

@@ -73,6 +73,10 @@ import {
   type DraftIdentity
 } from './draft-storage'
 import {
+  readClipboardOriginalSource,
+  writeClipboardOriginalSource
+} from './clipboard/session.js'
+import {
   cloneHostLayoutTable,
   deleteUserHostLayout,
   isUserHostLayoutId,
@@ -96,6 +100,7 @@ import {
   type UserHostLayoutRecord
 } from './host-layout-store'
 import { defaultHostEditTarget, stepHostEditTarget } from './host-edit-cycle'
+import { formatKeymapSaveWarnings } from './keymap-save-warnings.js'
 
 export type HostProfilePrompt =
   | { kind: 'save-as'; language: HostLanguageId }
@@ -138,13 +143,6 @@ const HISTORY_LIMIT = 50
 /** Debounce for IndexedDB draft writes. */
 const PERSIST_DEBOUNCE_MS = 400
 
-const WARNING_MESSAGES: Record<string, string> = {
-  macros_expanded:
-    'Macros were expanded to raw keycodes (for example VU → C_VOL_UP). #define lines in the keymap may now be unused.',
-  generated_default_template:
-    'No existing keymap or template was used, so the file was saved from the default generated template.'
-}
-
 function cloneHostLegendView(view: HostLegendView): HostLegendView {
   return {
     columns: view.columns.map(column => ({ ...column })),
@@ -166,14 +164,6 @@ function pairedImportNames(
     baseName: description.trim() || stem,
     capsName: hostLanguageName(caps)
   }
-}
-
-function formatWarnings(warnings: unknown): string[] {
-  if (!Array.isArray(warnings) || warnings.length === 0) return []
-  return warnings.map(code => {
-    const key = String(code)
-    return WARNING_MESSAGES[key] ?? key
-  })
 }
 
 function extractErrorMessages(data: unknown): string[] {
@@ -233,6 +223,10 @@ export type KeyboardSelection = {
   github?: GithubMeta
   /** Demo-only host layouts to open when the legend is still English-only. */
   demoHost?: DemoHostLayoutSeed[]
+  /** Pasted `.keymap` text for clipboard Copy (splice). */
+  clipboardOriginalSource?: string | null
+  /** Clipboard load warning codes (`clipboard_inferred_layout`, …). */
+  warnings?: string[]
   [key: string]: unknown
 }
 
@@ -240,6 +234,8 @@ export class EditorState {
   definitions = $state<Definitions | null>(null)
   source = $state<string | null>(null)
   githubMeta = $state<GithubMeta | null>(null)
+  /** Pasted `.keymap` kept for clipboard splice / Copy. */
+  clipboardOriginalSource = $state<string | null>(null)
   layout = $state<LayoutKey[] | null>(null)
   /** Last loaded / successfully published+reloaded keymap. */
   baselineKeymap = $state<ParsedKeymap | null>(null)
@@ -511,9 +507,10 @@ export class EditorState {
   get statusText(): string {
     if (!this.draftKeymap) return ''
     if (!this.isDirty) {
-      return this.source === 'github'
-        ? 'Up to date with repo'
-        : 'Up to date with disk'
+      if (this.source === 'github') return 'Up to date with repo'
+      if (this.source === 'clipboard') return 'Ready — copy .keymap out'
+      if (this.source === 'demo') return 'Demo — not saved to a repo'
+      return 'Up to date with disk'
     }
     return 'Draft'
   }
@@ -1358,6 +1355,14 @@ export class EditorState {
 
     this.source = event.source ?? null
     this.githubMeta = event.github ?? null
+    if (event.source === 'clipboard' && upcomingIdentity) {
+      const pasted = event.clipboardOriginalSource ?? null
+      this.clipboardOriginalSource =
+        pasted ?? readClipboardOriginalSource(upcomingIdentity)
+      if (pasted) writeClipboardOriginalSource(upcomingIdentity, pasted)
+    } else {
+      this.clipboardOriginalSource = null
+    }
     this.layout = event.layout ?? null
     this.schemeMode = false
     const km = event.keymap ?? null
@@ -1374,6 +1379,12 @@ export class EditorState {
       }
     }
     this.saveNotice = null
+    if (event.source === 'clipboard') {
+      const warnings = formatKeymapSaveWarnings(event.warnings)
+      if (warnings.length > 0) {
+        this.saveNotice = { kind: 'warning', messages: warnings }
+      }
+    }
 
     if (!alreadyHandled) await this.#restoreHostLegend(selectToken)
     if (selectToken !== this.#selectGeneration) return
@@ -1567,7 +1578,7 @@ export class EditorState {
     this.baselineKeymap = baseline
     this.draftKeymap = cloneParsedKeymap(baseline)
     this.clearHistory()
-    const warnings = formatWarnings(
+    const warnings = formatKeymapSaveWarnings(
       saveMeta && typeof saveMeta === 'object'
         ? (saveMeta as { warnings?: unknown }).warnings
         : undefined
@@ -1577,9 +1588,28 @@ export class EditorState {
     void this.clearPersistedDraft()
   }
 
+  /** After Copy .keymap: sync baseline; the export sheet carries user-facing notes. */
+  applyClipboardCopied(reloaded: ParsedKeymap, _saveMeta?: unknown) {
+    const baseline = cloneParsedKeymap(reloaded)
+    this.baselineKeymap = baseline
+    this.draftKeymap = cloneParsedKeymap(baseline)
+    this.clearHistory()
+    this.saveNotice = null
+    const identity = this.currentDraftIdentity()
+    if (identity && this.clipboardOriginalSource) {
+      writeClipboardOriginalSource(identity, this.clipboardOriginalSource)
+    }
+    void this.clearPersistedDraft()
+  }
+
   /** Publish (POST/commit) succeeded but reload failed — keep draft dirty. */
   applyReloadFailure(source: string | null = this.source) {
-    const where = source === 'github' ? 'repository' : 'disk'
+    const where =
+      source === 'github'
+        ? 'repository'
+        : source === 'clipboard'
+          ? 'clipboard'
+          : 'disk'
     this.saveNotice = {
       kind: 'error',
       messages: [
@@ -1600,6 +1630,7 @@ export class EditorState {
     this.#publishGeneration += 1
     this.source = null
     this.githubMeta = null
+    this.clipboardOriginalSource = null
     this.layout = null
     this.baselineKeymap = null
     this.draftKeymap = null
@@ -1619,6 +1650,7 @@ export class EditorState {
     this.definitions = null
     this.source = null
     this.githubMeta = null
+    this.clipboardOriginalSource = null
     this.layout = null
     this.baselineKeymap = null
     this.draftKeymap = null

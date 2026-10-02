@@ -146,10 +146,14 @@
     flex-direction: column;
     gap: 8px;
     box-sizing: border-box;
+    width: max-content;
     min-width: 16rem;
-    max-width: 24rem;
+    max-width: min(24rem, calc(100vw - 24px));
     margin: 0;
     padding: 8px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    max-height: min(70vh, 36rem);
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 6px;

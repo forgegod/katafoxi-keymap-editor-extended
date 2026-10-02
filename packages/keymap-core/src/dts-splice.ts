@@ -8,7 +8,7 @@ import {
   findZmkKeymapBlock
 } from './dts-keymap.js'
 import { KeymapValidationError } from './errors.js'
-import { renderTable } from './layout.js'
+import { bindingColumnWidths, renderTable } from './layout.js'
 import type { LayoutKey } from './types.js'
 
 export function assertLayerKeyCounts(layout: LayoutKey[], layers: string[][]): void {
@@ -21,10 +21,15 @@ export function assertLayerKeyCounts(layout: LayoutKey[], layers: string[][]): v
   }
 }
 
-function renderBindingsInterior(layout: LayoutKey[], layer: string[]): string {
+function renderBindingsInterior(
+  layout: LayoutKey[],
+  layer: string[],
+  columnWidths: number[]
+): string {
   return renderTable(layout, layer, {
     linePrefix: '',
-    columnSeparator: ' '
+    columnSeparator: ' ',
+    columnWidths
   })
 }
 
@@ -71,6 +76,7 @@ export function spliceBindingsIntoDts(
 
   const existing = findKeymapLayerNodes(original, block)
   const indent = inferLayerIndent(original, existing)
+  const columnWidths = bindingColumnWidths(layout, layers, { columnSeparator: ' ' })
 
   // Build from the end so earlier absolute indices stay valid
   let result = original
@@ -89,7 +95,7 @@ export function spliceBindingsIntoDts(
     const remaining = findKeymapLayerNodes(result, blockAfter)
     for (let i = remaining.length - 1; i >= 0; i--) {
       const node = remaining[i]
-      const interior = renderBindingsInterior(layout, layers[i])
+      const interior = renderBindingsInterior(layout, layers[i], columnWidths)
       result =
         result.slice(0, node.bindingsInterior.start) +
         '\n' +
@@ -103,7 +109,7 @@ export function spliceBindingsIntoDts(
   // Same or more layers: replace existing interiors, then append new nodes
   for (let i = existing.length - 1; i >= 0; i--) {
     const node = existing[i]
-    const interior = renderBindingsInterior(layout, layers[i])
+    const interior = renderBindingsInterior(layout, layers[i], columnWidths)
     result =
       result.slice(0, node.bindingsInterior.start) +
       '\n' +
@@ -120,7 +126,7 @@ export function spliceBindingsIntoDts(
     const insertAt = blockAfter.closeBrace
     const newNodes: string[] = []
     for (let i = existing.length; i < layers.length; i++) {
-      const interior = renderBindingsInterior(layout, layers[i])
+      const interior = renderBindingsInterior(layout, layers[i], columnWidths)
       newNodes.push(formatNewLayerNode(i, interior, indent))
     }
     const insertion = '\n' + newNodes.join('\n') + '\n'

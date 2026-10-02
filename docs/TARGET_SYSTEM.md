@@ -27,7 +27,7 @@ Primary user workflows (aligned with upstream intent):
 |--------|------|
 | **Demo** | First-visit onboarding: bundled fixtures under `packages/keymap-core/fixtures/` (catalog in `fixtures/demo/`, Lark host maps in `fixtures/lark/`). Edits stay in the browser; there is no firmware write path. Loaded only via `apps/web/src/lib/demo/`. |
 | **GitHub** | Load/save `zmk-config` via GitHub App + OAuth. Loading host layouts from a keyboard repo (`host_keymap/` or equivalent) is future work and needs its own ADR. |
-| **Clipboard** | Paste/copy keymap text (planned / restore) |
+| **Clipboard** | Paste `.keymap` (info.json optional — otherwise a flat rectangular board); **Copy .keymap** puts spliced firmware text on the system clipboard (and in a dialog) for paste into the user’s repo. |
 | **File System Access API** | Chromium: read/write local files without a Node file server (planned / restore) |
 
 The Node API exists mainly for **GitHub secrets and commits**. It is not the long-term home for “open my firmware folder on disk.”

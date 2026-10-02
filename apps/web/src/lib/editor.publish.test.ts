@@ -271,4 +271,37 @@ describe('editor publish / draft persistence', () => {
     expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('E1')
     expect(editor.canUndo).toBe(false)
   })
+
+  it('surfaces clipboard load warnings in saveNotice', async () => {
+    await editor.selectKeyboard({
+      source: 'clipboard',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A', 'clipboard'),
+      clipboardOriginalSource: 'bindings = <&kp A>;',
+      warnings: ['clipboard_inferred_layout', 'clipboard_json_no_export_source']
+    })
+
+    expect(editor.saveNotice?.kind).toBe('warning')
+    expect(editor.saveNotice?.messages).toEqual([
+      'No info.json — using a flat rectangular board from the binding count. Paste info.json for the real layout.',
+      'Loaded from keymap.json only — Copy .keymap will use the default ZMK template unless you also paste a .keymap under “Export source”.'
+    ])
+  })
+
+  it('clears saveNotice on applyClipboardCopied so the export sheet owns notes', async () => {
+    await editor.selectKeyboard({
+      source: 'clipboard',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A', 'clipboard'),
+      warnings: ['clipboard_inferred_layout']
+    })
+    expect(editor.saveNotice?.kind).toBe('warning')
+
+    editor.updateKeymap(km('B', 'clipboard'))
+    editor.applyClipboardCopied(km('B', 'clipboard'), {
+      warnings: ['generated_default_template']
+    })
+    expect(editor.saveNotice).toBeNull()
+    expect(editor.isDirty).toBe(false)
+  })
 })
