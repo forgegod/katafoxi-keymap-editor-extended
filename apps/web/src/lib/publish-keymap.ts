@@ -24,9 +24,6 @@ export async function publishKeymap(
   handlers: {
     write: () => Promise<unknown>
     reload: () => Promise<{ layout?: unknown; keymap?: unknown }>
-  },
-  options?: {
-    onPublished?: (reloaded: ParsedKeymap, saveMeta?: unknown) => void
   }
 ): Promise<boolean> {
   if (editor.saving || !editor.isDirty || !editor.draftKeymap) return false
@@ -44,10 +41,7 @@ export async function publishKeymap(
       if (reloaded.layout) {
         editor.layout = reloaded.layout as LayoutKey[]
       }
-      const apply =
-        options?.onPublished ??
-        ((reloaded, meta) => editor.applyPublished(reloaded, meta))
-      apply(reloaded.keymap as ParsedKeymap, saveMeta)
+      editor.applyPublished(reloaded.keymap as ParsedKeymap, saveMeta)
       return true
     } catch {
       if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {

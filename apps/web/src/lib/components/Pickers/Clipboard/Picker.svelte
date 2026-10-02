@@ -10,6 +10,8 @@
     layout?: unknown
     keymap?: unknown
     clipboardOriginalSource?: string | null
+    clipboardInferredLayout?: boolean
+    warnings?: string[]
     [key: string]: unknown
   }
 
@@ -46,7 +48,9 @@
       source: 'clipboard',
       layout: bundle.layout,
       keymap: bundle.keymap,
-      clipboardOriginalSource: bundle.originalSource
+      clipboardOriginalSource: bundle.originalSource,
+      clipboardInferredLayout: bundle.inferredLayout,
+      warnings: bundle.warnings
     })
   }
 
@@ -171,7 +175,7 @@
         class="clipboard-text"
         rows="5"
         spellcheck="false"
-        placeholder="Paste lark.keymap (or your board .keymap)"
+        placeholder="Paste the matching board .keymap from your firmware repo"
         bind:value={exportKeymapText}
       ></textarea>
     </label>

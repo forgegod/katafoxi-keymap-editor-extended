@@ -43,7 +43,7 @@
     <h2 class="clipboard-export-title">.keymap ready</h2>
     <p class="clipboard-export-hint">
       Paste this into your firmware repo (for example
-      <code>config/lark.keymap</code>). Clipboard mode does not write files on disk.
+      <code>config/*.keymap</code>). Clipboard mode does not write files on disk.
     </p>
     {#if warnings.length > 0}
       <ul class="clipboard-export-warnings">

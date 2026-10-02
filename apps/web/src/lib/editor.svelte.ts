@@ -243,6 +243,8 @@ export type KeyboardSelection = {
   demoHost?: DemoHostLayoutSeed[]
   /** Pasted `.keymap` text for clipboard Copy (splice). */
   clipboardOriginalSource?: string | null
+  /** Clipboard load warning codes (`clipboard_inferred_layout`, …). */
+  warnings?: string[]
   [key: string]: unknown
 }
 
@@ -1395,6 +1397,12 @@ export class EditorState {
       }
     }
     this.saveNotice = null
+    if (event.source === 'clipboard') {
+      const warnings = formatWarnings(event.warnings)
+      if (warnings.length > 0) {
+        this.saveNotice = { kind: 'warning', messages: warnings }
+      }
+    }
 
     if (!alreadyHandled) await this.#restoreHostLegend(selectToken)
     if (selectToken !== this.#selectGeneration) return

@@ -19,6 +19,8 @@
     github?: { repository: string; branch: string }
     demo?: { id: string; name: string }
     clipboardOriginalSource?: string | null
+    clipboardInferredLayout?: boolean
+    warnings?: string[]
     [key: string]: unknown
   }
 
@@ -89,7 +91,7 @@
     if (source === 'clipboard') {
       return clipboardKeyboard
         ? `Clipboard keyboard: ${clipboardKeyboard}`
-        : 'Paste layout and keymap from the clipboard'
+        : 'Paste a .keymap from the clipboard (layout optional)'
     }
     if (source === 'demo') {
       return demoName
@@ -124,8 +126,11 @@
 
     if (event.demo?.name) demoName = event.demo.name
     if (source === 'clipboard') {
-      clipboardKeyboard =
+      const base =
         typeof km.keyboard === 'string' && km.keyboard ? km.keyboard : 'clipboard'
+      clipboardKeyboard = event.clipboardInferredLayout
+        ? `${base} (inferred)`
+        : base
     }
 
     onSelect({ source: source ?? undefined, layout, keymap: km, ...rest })

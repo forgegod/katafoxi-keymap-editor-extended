@@ -25,7 +25,7 @@ Without a fixed contract, Save can silently overwrite a hand-maintained `.keymap
 - Splice must not treat combo/other `bindings =` outside the ZMK keymap block as layers.
 - Existing layer **node ids** are kept by index; UI `layer_names` do not rename DTS nodes. New layers use `layer_N`.
 
-Local and GitHub adapters both call the same `buildKeymapCode` helper.
+Local, GitHub, and Clipboard adapters all call the same `buildKeymapCode` helper.
 
 ### Load priority
 
@@ -48,14 +48,14 @@ This does not remove the original editor’s `keymap.json` workflow; it document
 ### Interchange
 
 - `keymap.json` remains the editor interchange format (aligned with upstream).
-- Product GitHub path and the dev-local bridge share this contract via core.
+- Product GitHub path, the Clipboard **Copy .keymap** path, and the dev-local bridge share this contract via core.
 
 ## Consequences
 
 ### Positive
 
 - LARK-style preambles survive Save path 2.
-- Local and GitHub stay on one implementation.
+- Local, GitHub, and Clipboard stay on one implementation.
 - Users and agents get an explicit warning instead of silent `#define` drift.
 - Classic JSON-only boards behave like the original editor.
 
@@ -69,7 +69,7 @@ This does not remove the original editor’s `keymap.json` workflow; it document
 ## References
 
 - Implementation: `packages/keymap-core` (`buildKeymapCode`, `dts-splice`, `parseDtsKeymap`)
-- Adapters: `apps/api` local + GitHub save/load
+- Adapters: `apps/api` local + GitHub save/load; Clipboard export in `apps/web/src/lib/clipboard/`
 - Operator notes: [running-locally.md](../../running-locally.md)
 - Vision: [TARGET_SYSTEM.md](../TARGET_SYSTEM.md)
 - Persistence boundary: [ADR 0001](0001-persistence-github-first.md)
