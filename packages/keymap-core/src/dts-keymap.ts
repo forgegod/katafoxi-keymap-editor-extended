@@ -2,7 +2,10 @@
  * Minimal ZMK .keymap (devicetree bindings=) parser for editor import.
  * Expands simple #define macros and extracts layer bindings arrays.
  * Only layer nodes inside `keymap { compatible = "zmk,keymap"; ... }` become layers.
+ * Combos are parsed separately into `combos` (never as layers).
  */
+
+import { parseDtsCombos, type DtsComboJson } from './dts-combos.js'
 
 const DEFINE_RE = /^#define\s+(\w+)\s+(.+)$/gm
 
@@ -184,6 +187,8 @@ export interface DtsKeymapJson {
   layout: string
   layer_names: string[]
   layers: string[][]
+  /** Raw combo nodes (string bindings); converted in parseKeymap. */
+  combos?: DtsComboJson[]
   warnings: string[]
   [key: string]: unknown
 }
@@ -220,6 +225,17 @@ export function parseDtsKeymap(
     throw new Error('No layers with bindings found in .keymap')
   }
 
+  const combosRaw = parseDtsCombos(source)
+  const combos: DtsComboJson[] = []
+  for (const c of combosRaw) {
+    if (macrosAppearInText(c.binding, macros)) {
+      anyMacroExpanded = true
+      combos.push({ ...c, binding: expandMacros(c.binding, macros) })
+    } else {
+      combos.push(c)
+    }
+  }
+
   if (anyMacroExpanded) {
     warnings.push('macros_expanded')
   }
@@ -230,6 +246,7 @@ export function parseDtsKeymap(
     layout: meta.layout ?? 'LAYOUT',
     layer_names,
     layers,
+    combos,
     warnings
   }
 }
