@@ -33,7 +33,7 @@
   interface Props {
     onSelect: (event: KeymapEvent) => void
     onLogout?: () => void
-    /** Switch source and open the menu (welcome banner / demo CTAs). */
+    /** Switch source and open the menu (coach-tour / Demo CTAs). */
     openSource?: string | null
     onOpenSourceConsumed?: () => void
   }

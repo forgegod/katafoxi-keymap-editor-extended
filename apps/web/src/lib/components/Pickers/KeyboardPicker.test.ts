@@ -102,7 +102,7 @@ describe('KeyboardPicker', () => {
     expect(loadLayout).not.toHaveBeenCalled()
   })
 
-  it('opens a requested source from the welcome banner', () => {
+  it('opens a requested source from the coach tour CTA', () => {
     const onOpenSourceConsumed = vi.fn()
     view = mount(KeyboardPicker, {
       target,

@@ -66,6 +66,7 @@ Product persistence is **GitHub-first**; Local is for iterating against a cloned
 - Host lane: Ready / Changed / Saved, Linux and Windows install dialogs, assemblies (remembered legend sets).
 - Light / dark theme (default dark).
 - Lane labels: **ZMK** = what the firmware sends; **Host** = what the OS types.
+
 ## Not in this tree (yet)
 
 Upstream or planned: browser **File System Access**, visual **combo** / **macro** / custom **behavior** editors, rotary encoders, conditional layers, auto-generated layouts from ZMK DTS. See [upstream README](https://github.com/nickcoutsos/keymap-editor/blob/master/README.md) for the classic feature list.
