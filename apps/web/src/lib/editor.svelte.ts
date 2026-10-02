@@ -16,6 +16,7 @@ import {
   hostLanguage,
   hostLanguageName,
   hostLanguagesAvailable,
+  preferredAddableHostLanguage,
   hostLayout,
   hostLayoutChoice,
   hostLayoutChoiceLabel,
@@ -1393,7 +1394,32 @@ export class EditorState {
       await this.#seedDemoHostLayouts(event.demoHost, selectToken)
       if (selectToken !== this.#selectGeneration) return
     }
+    if (event.source === 'demo') {
+      await this.#maybeAddPreferredDemoLanguage(selectToken)
+      if (selectToken !== this.#selectGeneration) return
+    }
     await this.#maybeRestorePersistedDraft(selectToken)
+  }
+
+  /**
+   * On a fresh demo (still English-only after restore/seeds), add one host
+   * language from the browser locale when we ship a system layout for it.
+   */
+  async #maybeAddPreferredDemoLanguage(selectToken: number): Promise<void> {
+    if (!sameHostLegendView(this.hostLegend, standardHostLegendView())) return
+    const locales =
+      typeof navigator !== 'undefined'
+        ? [...(navigator.languages ?? []), navigator.language].filter(Boolean)
+        : []
+    const preferred = preferredAddableHostLanguage(locales)
+    if (!preferred) return
+    if (!hostLanguagesAvailable(this.hostLegend).includes(preferred)) return
+
+    const dirtyBefore = this.isHostDirty
+    this.hostLegend = addHostLanguage(this.hostLegend, preferred)
+    await this.#persistHostLegend()
+    if (selectToken !== this.#selectGeneration) return
+    if (!dirtyBefore) this.markHostDelivered()
   }
 
   /**
