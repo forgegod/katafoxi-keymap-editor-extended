@@ -48,6 +48,12 @@ import {
   symbolAlign,
   promoteAbsentLayoutKey,
   isBlankLayerBinding,
+  buildHostKeymapSnapshot,
+  encodeHostKeymapSnapshot,
+  hostLayoutFromKeymapSnapshotKeys,
+  buildHostKeymapDeliverableFiles,
+  type HostKeymapSnapshot,
+  type HostKeymapDeliverableFile,
   type HostLayout,
   type SymbolAlign,
   type HostLegendView,
@@ -253,6 +259,11 @@ export type KeyboardSelection = {
   clipboardOriginalSource?: string | null
   /** Clipboard load warning codes (`clipboard_inferred_layout`, …). */
   warnings?: string[]
+  /**
+   * Host snapshot from `host_keymap/snapshot.json` (GitHub). When present it
+   * wins over IndexedDB for this keymap identity.
+   */
+  hostSnapshot?: HostKeymapSnapshot | null
   [key: string]: unknown
 }
 
@@ -410,6 +421,11 @@ export class EditorState {
    * Prevents picker effect re-entry from wiping a restored draft.
    */
   #handledDraftIdentityKey: string | null = null
+  /**
+   * Encoded `host_keymap/snapshot.json` last loaded from or committed to the
+   * GitHub repo. Null when this session has no repo host baseline yet.
+   */
+  #hostRepoBaselineEncoded: string | null = null
 
   #changes = $derived.by(() => {
     if (!this.baselineKeymap || !this.draftKeymap) return []
@@ -435,6 +451,93 @@ export class EditorState {
 
   get isDirty(): boolean {
     return this.#changes.length > 0
+  }
+
+  /**
+   * Live host snapshot text for the open legend + referenced user layouts.
+   * Used for GitHub Commit and dirty comparison against the repo baseline.
+   */
+  buildCurrentHostKeymapSnapshot(): HostKeymapSnapshot {
+    void this.hostLayoutRevision
+    void this.hostLegend
+    const layouts = this.userLayouts.flatMap(meta => {
+      const layout = hostLayout(meta.id)
+      if (!layout) return []
+      return [
+        {
+          id: meta.id,
+          name: meta.name,
+          language: meta.language,
+          origin: meta.origin,
+          layout
+        }
+      ]
+    })
+    return buildHostKeymapSnapshot(this.hostLegend, layouts)
+  }
+
+  /**
+   * Linux xkb + Windows `.klc` sources for the same Commit as the host snapshot.
+   * Empty when every column is still a system layout.
+   */
+  buildCurrentHostKeymapDeliverables(): HostKeymapDeliverableFile[] {
+    void this.hostLayoutRevision
+    void this.hostLegend
+    const layoutsById = new Map<
+      string,
+      {
+        id: string
+        name: string
+        language: HostLanguageId
+        layout: HostLayout
+        user: boolean
+      }
+    >()
+    for (const column of this.hostLegend.columns) {
+      if (layoutsById.has(column.layoutId)) continue
+      const table = hostLayout(column.layoutId)
+      if (!table) continue
+      const user = this.userLayouts.find(item => item.id === column.layoutId)
+      layoutsById.set(column.layoutId, {
+        id: column.layoutId,
+        name: user?.name ?? hostLayoutMeta(column.layoutId)?.name ?? column.language,
+        language: column.language,
+        layout: table,
+        user: Boolean(user)
+      })
+    }
+    return buildHostKeymapDeliverableFiles(this.hostLegend, layoutsById)
+  }
+
+  #encodeLiveHostSnapshot(): string {
+    return encodeHostKeymapSnapshot(this.buildCurrentHostKeymapSnapshot())
+  }
+
+  /** Host half differs from the last GitHub load/commit (ADR 0005). */
+  get isHostRepoDirty(): boolean {
+    if (this.source !== 'github') return false
+    void this.hostLayoutRevision
+    void this.hostLegend
+    const live = this.#encodeLiveHostSnapshot()
+    if (this.#hostRepoBaselineEncoded === null) {
+      return (
+        live !==
+        encodeHostKeymapSnapshot(
+          buildHostKeymapSnapshot(standardHostLegendView(), [])
+        )
+      )
+    }
+    return live !== this.#hostRepoBaselineEncoded
+  }
+
+  /** ZMK draft and/or host snapshot need a GitHub Commit. */
+  get isPublishDirty(): boolean {
+    return this.isDirty || this.isHostRepoDirty
+  }
+
+  /** After a successful Commit, treat the live host snapshot as the repo tip. */
+  acceptHostRepoBaseline() {
+    this.#hostRepoBaselineEncoded = this.#encodeLiveHostSnapshot()
   }
 
   get changes(): KeymapChange[] {
@@ -541,13 +644,14 @@ export class EditorState {
 
   get statusText(): string {
     if (!this.draftKeymap) return ''
-    if (!this.isDirty) {
-      if (this.source === 'github') return 'Up to date with repo'
-      if (this.source === 'clipboard') return 'Ready — copy .keymap out'
-      if (this.source === 'demo') return 'Demo — not saved to a repo'
-      return 'Up to date with disk'
+    if (this.isDirty) return 'Draft'
+    if (this.isHostRepoDirty) {
+      return 'Host layout changed — commit to save with the keymap'
     }
-    return 'Draft'
+    if (this.source === 'github') return 'Up to date with repo'
+    if (this.source === 'clipboard') return 'Ready — copy .keymap out'
+    if (this.source === 'demo') return 'Demo — not saved to a repo'
+    return 'Up to date with disk'
   }
 
   get canUndo(): boolean {
@@ -697,6 +801,51 @@ export class EditorState {
       /* keep the in-memory view */
     }
     if (selectToken !== this.#selectGeneration) return
+    await this.#restoreHostAssemblies(selectToken)
+  }
+
+  /**
+   * Apply a GitHub `host_keymap/snapshot.json`: register layouts, set the
+   * legend, mirror into IndexedDB, and set the repo host baseline.
+   */
+  async #applyHostKeymapSnapshot(
+    snapshot: HostKeymapSnapshot,
+    selectToken: number
+  ): Promise<void> {
+    for (const item of snapshot.layouts) {
+      const layout = hostLayoutFromKeymapSnapshotKeys(item.id, item.keys)
+      const record: UserHostLayoutRecord = {
+        id: item.id,
+        name: item.name,
+        language: item.language,
+        origin: item.origin,
+        updatedAt: Date.now(),
+        layout
+      }
+      this.#registerUserLayout(record)
+      const listedItem = {
+        id: record.id,
+        name: record.name,
+        language: record.language,
+        origin: record.origin,
+        updatedAt: record.updatedAt
+      }
+      this.userLayouts = this.userLayouts.some(entry => entry.id === item.id)
+        ? this.userLayouts.map(entry => (entry.id === item.id ? listedItem : entry))
+        : [...this.userLayouts, listedItem]
+      await saveUserHostLayout(record)
+      if (selectToken !== this.#selectGeneration) return
+    }
+    const { view, replaced } = sanitizeHostLegendView(snapshot.view)
+    this.hostLegend = view
+    if (replaced.length > 0) this.hostProfileNote = UNKNOWN_HOST_LAYOUT_NOTE
+    await this.#persistHostLegend()
+    if (selectToken !== this.#selectGeneration) return
+    this.#hostRepoBaselineEncoded = encodeHostKeymapSnapshot({
+      ...snapshot,
+      view
+    })
+    this.markHostDelivered()
     await this.#restoreHostAssemblies(selectToken)
   }
 
@@ -1397,6 +1546,9 @@ export class EditorState {
 
     this.source = event.source ?? null
     this.githubMeta = event.github ?? null
+    if (event.source !== 'github') {
+      this.#hostRepoBaselineEncoded = null
+    }
     if (event.source === 'clipboard' && upcomingIdentity) {
       const pasted = event.clipboardOriginalSource ?? null
       this.clipboardOriginalSource =
@@ -1431,7 +1583,14 @@ export class EditorState {
       }
     }
 
-    if (!alreadyHandled) await this.#restoreHostLegend(selectToken)
+    if (!alreadyHandled) {
+      if (event.hostSnapshot) {
+        await this.#applyHostKeymapSnapshot(event.hostSnapshot, selectToken)
+      } else {
+        if (event.source === 'github') this.#hostRepoBaselineEncoded = null
+        await this.#restoreHostLegend(selectToken)
+      }
+    }
     if (selectToken !== this.#selectGeneration) return
     if (alreadyHandled) return
     if (event.demoHost?.length) {
@@ -1866,6 +2025,7 @@ export class EditorState {
     this.#publishGeneration += 1
     this.source = null
     this.githubMeta = null
+    this.#hostRepoBaselineEncoded = null
     this.clipboardOriginalSource = null
     this.layout = null
     this.baselineKeymap = null
@@ -1886,6 +2046,7 @@ export class EditorState {
     this.#selectGeneration += 1
     this.#publishGeneration += 1
     this.#handledDraftIdentityKey = null
+    this.#hostRepoBaselineEncoded = null
     this.definitions = null
     this.source = null
     this.githubMeta = null

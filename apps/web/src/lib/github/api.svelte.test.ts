@@ -104,7 +104,12 @@ describe('API', () => {
       expect.objectContaining({
         method: 'POST',
         credentials: 'include',
-        body: JSON.stringify({ layout, keymap })
+        body: JSON.stringify({
+          layout,
+          keymap,
+          hostSnapshot: null,
+          hostDeliverables: null
+        })
       })
     )
   })

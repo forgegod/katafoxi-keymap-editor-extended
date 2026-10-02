@@ -4,6 +4,7 @@ import type { GithubMeta } from './editor.svelte.js'
 export type PublishKeymapEditor = {
   saving: boolean
   readonly isDirty: boolean
+  readonly isPublishDirty?: boolean
   readonly draftKeymap: unknown
   readonly source: string | null
   readonly githubMeta: GithubMeta | null
@@ -17,6 +18,8 @@ export type PublishKeymapEditor = {
   applyPublished(reloaded: ParsedKeymap, saveMeta?: unknown): void
   applyReloadFailure(source: string | null): void
   applySaveFailure(data: unknown): void
+  acceptHostRepoBaseline?(): void
+  buildCurrentHostKeymapSnapshot?(): unknown
 }
 
 export async function publishKeymap(
@@ -26,7 +29,9 @@ export async function publishKeymap(
     reload: () => Promise<{ layout?: unknown; keymap?: unknown }>
   }
 ): Promise<boolean> {
-  if (editor.saving || !editor.isDirty || !editor.draftKeymap) return false
+  const publishDirty =
+    typeof editor.isPublishDirty === 'boolean' ? editor.isPublishDirty : editor.isDirty
+  if (editor.saving || !publishDirty || !editor.draftKeymap) return false
   editor.saving = true
   const token = editor.beginPublish()
   const sourceAtStart = editor.source
@@ -42,6 +47,7 @@ export async function publishKeymap(
         editor.layout = reloaded.layout as LayoutKey[]
       }
       editor.applyPublished(reloaded.keymap as ParsedKeymap, saveMeta)
+      editor.acceptHostRepoBaseline?.()
       return true
     } catch {
       if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {

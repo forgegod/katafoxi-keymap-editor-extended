@@ -130,7 +130,9 @@
           gh.repository,
           gh.branch,
           editor.layout,
-          editor.draftKeymap
+          editor.draftKeymap,
+          editor.buildCurrentHostKeymapSnapshot(),
+          editor.buildCurrentHostKeymapDeliverables()
         )
         return result.data
       },
@@ -206,13 +208,17 @@
             title="What the firmware sends — source, edit history, and publish"
           >ZMK</span>
 
-          {#if editor.draftKeymap && (editor.isDirty || editor.source !== 'demo')}
+          {#if editor.draftKeymap && (editor.isPublishDirty || editor.source !== 'demo')}
             <div class="chrome-group chrome-draft">
               <ChromeStatus
-                class="publish-status"
-                dirty={editor.isDirty}
-                label={editor.isDirty
-                  ? 'Changed'
+                class="publish-status{!editor.isDirty && editor.isHostRepoDirty
+                  ? ' stacked'
+                  : ''}"
+                dirty={editor.isPublishDirty}
+                label={editor.isPublishDirty
+                  ? editor.isDirty
+                    ? 'Changed'
+                    : 'Host\nchanged'
                   : editor.source === 'clipboard'
                     ? 'Ready'
                     : 'Saved'}
@@ -315,9 +321,9 @@
             {#if editor.source === 'github'}
               <Button
                 variant="publish"
-                ready={editor.isDirty}
-                title="Commit keymap changes to GitHub repository"
-                disabled={!editor.isDirty || editor.saving}
+                ready={editor.isPublishDirty}
+                title="Commit keymap and host layout snapshot to the GitHub repository"
+                disabled={!editor.isPublishDirty || editor.saving}
                 onclick={handleCommitToGitHub}
               >
                 {editor.saving ? 'Saving' : 'Commit'}
@@ -498,6 +504,14 @@
     width: 5.5rem;
     min-width: 5.5rem;
     justify-content: flex-start;
+  }
+
+  /* Two-line host-repo dirty label inside the fixed status slot. */
+  .chrome-pipelines :global(.chrome-status.stacked) {
+    white-space: pre-line;
+    line-height: 1.1;
+    font-size: var(--font-xs);
+    align-items: center;
   }
 
   .chrome-pipelines :global(.host-pipeline) {
