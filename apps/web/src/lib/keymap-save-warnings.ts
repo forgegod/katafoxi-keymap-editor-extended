@@ -9,10 +9,10 @@ export type KeymapWarningNotice = {
   link?: KeymapWarningLink
 }
 
-/** Shared examples for building a real ZMK `info.json` physical layout. */
-export const INFO_JSON_EXAMPLES_LINK: KeymapWarningLink = {
-  href: 'https://github.com/nickcoutsos/keymap-editor-contrib/tree/main/keyboard-data',
-  label: 'Browse example info.json layouts'
+/** Visual tool for building a real ZMK physical layout / `info.json`. */
+export const INFO_JSON_LAYOUT_TOOL_LINK: KeymapWarningLink = {
+  href: 'https://shield-wizard.genteure.com/',
+  label: 'Create a physical layout in Shield Wizard'
 }
 
 /** User-facing text for save/load warning codes from core and adapters. */
@@ -30,8 +30,8 @@ export const KEYMAP_SAVE_WARNING_MESSAGES: Record<string, string> = {
 }
 
 const WARNING_LINKS: Partial<Record<string, KeymapWarningLink>> = {
-  clipboard_inferred_layout: INFO_JSON_EXAMPLES_LINK,
-  github_inferred_layout: INFO_JSON_EXAMPLES_LINK
+  clipboard_inferred_layout: INFO_JSON_LAYOUT_TOOL_LINK,
+  github_inferred_layout: INFO_JSON_LAYOUT_TOOL_LINK
 }
 
 export function formatKeymapSaveWarningNotices(

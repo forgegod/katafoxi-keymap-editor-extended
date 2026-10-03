@@ -288,8 +288,8 @@ describe('editor publish / draft persistence', () => {
     ])
     expect(editor.saveNotice?.links).toEqual([
       {
-        href: 'https://github.com/nickcoutsos/keymap-editor-contrib/tree/main/keyboard-data',
-        label: 'Browse example info.json layouts'
+        href: 'https://shield-wizard.genteure.com/',
+        label: 'Create a physical layout in Shield Wizard'
       }
     ])
   })
@@ -305,7 +305,7 @@ describe('editor publish / draft persistence', () => {
 
     expect(editor.saveNotice?.kind).toBe('warning')
     expect(editor.saveNotice?.messages[0]).toMatch(/No config\/info\.json/)
-    expect(editor.saveNotice?.links?.[0]?.label).toMatch(/example info\.json/)
+    expect(editor.saveNotice?.links?.[0]?.label).toMatch(/Shield Wizard/)
   })
 
   it('clears saveNotice on applyClipboardCopied so the export sheet owns notes', async () => {

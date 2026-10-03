@@ -147,7 +147,7 @@ export type HostKeyLevelEditResult =
 export type SaveNotice = {
   kind: 'warning' | 'error'
   messages: string[]
-  /** Optional help links for load/save warnings (e.g. example info.json). */
+  /** Optional help links for load/save warnings (e.g. Shield Wizard). */
   links?: Array<{ href: string; label: string }>
 }
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   formatKeymapSaveWarningNotices,
   formatKeymapSaveWarnings,
-  INFO_JSON_EXAMPLES_LINK
+  INFO_JSON_LAYOUT_TOOL_LINK
 } from './keymap-save-warnings'
 
 describe('formatKeymapSaveWarnings', () => {
@@ -30,7 +30,7 @@ describe('formatKeymapSaveWarnings', () => {
       {
         message:
           'No config/info.json — using a flat rectangular board from the binding count. Commit still updates the keymap only; add info.json for the real geometry.',
-        link: INFO_JSON_EXAMPLES_LINK
+        link: INFO_JSON_LAYOUT_TOOL_LINK
       },
       {
         message:
