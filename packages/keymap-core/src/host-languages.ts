@@ -1,11 +1,15 @@
+import { SYSTEM_BG_SYMBOLS } from './system-bg-symbols.js'
 import { SYSTEM_BR_SYMBOLS } from './system-br-symbols.js'
 import { SYSTEM_CZ_SYMBOLS } from './system-cz-symbols.js'
 import { SYSTEM_DE_SYMBOLS } from './system-de-symbols.js'
 import { SYSTEM_DK_SYMBOLS } from './system-dk-symbols.js'
 import { SYSTEM_ES_SYMBOLS } from './system-es-symbols.js'
+import { SYSTEM_FI_SYMBOLS } from './system-fi-symbols.js'
 import { SYSTEM_FR_SYMBOLS } from './system-fr-symbols.js'
+import { SYSTEM_GR_SYMBOLS } from './system-gr-symbols.js'
 import { SYSTEM_HU_SYMBOLS } from './system-hu-symbols.js'
 import { SYSTEM_IT_SYMBOLS } from './system-it-symbols.js'
+import { SYSTEM_NO_SYMBOLS } from './system-no-symbols.js'
 import { SYSTEM_PL_SYMBOLS } from './system-pl-symbols.js'
 import { SYSTEM_PT_SYMBOLS } from './system-pt-symbols.js'
 import { SYSTEM_RO_SYMBOLS } from './system-ro-symbols.js'
@@ -278,6 +282,50 @@ export const HOST_LANGUAGES = [
     primarySection: 'basic',
     addable: true,
     symbols: SYSTEM_RO_SYMBOLS
+  }),
+  language({
+    id: 'fi',
+    name: 'Finnish',
+    flag: '🇫🇮',
+    flagCode: 'fi',
+    xkbModule: 'fi',
+    sections: ['kotoistus', 'winkeys', 'classic', 'nodeadkeys', 'mac'],
+    primarySection: 'kotoistus',
+    addable: true,
+    symbols: SYSTEM_FI_SYMBOLS
+  }),
+  language({
+    id: 'no',
+    name: 'Norwegian',
+    flag: '🇳🇴',
+    flagCode: 'no',
+    xkbModule: 'no',
+    sections: ['basic', 'nodeadkeys', 'winkeys', 'dvorak', 'mac', 'mac_nodeadkeys'],
+    primarySection: 'basic',
+    addable: true,
+    symbols: SYSTEM_NO_SYMBOLS
+  }),
+  language({
+    id: 'el',
+    name: 'Greek',
+    flag: '🇬🇷',
+    flagCode: 'gr',
+    xkbModule: 'gr',
+    sections: ['basic', 'simple', 'polytonic', 'nodeadkeys'],
+    primarySection: 'basic',
+    addable: true,
+    symbols: SYSTEM_GR_SYMBOLS
+  }),
+  language({
+    id: 'bg',
+    name: 'Bulgarian',
+    flag: '🇧🇬',
+    flagCode: 'bg',
+    xkbModule: 'bg',
+    sections: ['bds', 'bekl', 'phonetic', 'bas_phonetic'],
+    primarySection: 'bds',
+    addable: true,
+    symbols: SYSTEM_BG_SYMBOLS
   })
 ] as const
 
@@ -326,7 +374,9 @@ export function preferredAddableHostLanguage(
     if (typeof tag !== 'string') continue
     const normalized = tag.trim().toLowerCase().replace(/_/g, '-')
     if (normalized === 'pt-br' || normalized.startsWith('pt-br-')) return 'br'
+    // Bokmål / Nynorsk tags map to the Norwegian host column (`no`).
     const primary = normalized.split('-')[0]
+    if (primary === 'nb' || primary === 'nn') return 'no'
     if (!primary || primary === 'en') continue
     if (isAddableHostLanguage(primary)) return primary
   }
@@ -336,11 +386,12 @@ export function preferredAddableHostLanguage(
 /**
  * Whether Caps Lock pairing with English is the recommended Windows install.
  *
- * Cyrillic alphabets (ru, uk) leave AltGr sparse enough that English letters
+ * Cyrillic alphabets (ru, uk, bg) leave AltGr sparse enough that English letters
  * on the key and the national alphabet on Caps Lock work as one layout.
  * Dense Latin layouts (fr, de, es, pl, …) fill all four levels and often use
  * dead keys — prefer a separate `.klc` per language and Win+Space instead.
+ * Greek stays separate (different script, but not Caps-paired today).
  */
 export function windowsCapsPairingRecommended(language: HostLanguageId): boolean {
-  return language === 'ru' || language === 'uk'
+  return language === 'ru' || language === 'uk' || language === 'bg'
 }

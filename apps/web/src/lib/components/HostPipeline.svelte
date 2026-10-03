@@ -407,8 +407,9 @@
         <section class="paired" aria-labelledby="windows-paired-title">
           <h3 id="windows-paired-title">Two alphabets in one layout</h3>
           <p>
-            For Russian or Ukrainian, this file stays an English keyboard in Windows. Caps Lock
-            types the other alphabet, so one English entry in the language list covers both.
+            For Russian, Ukrainian, or Bulgarian, this file stays an English keyboard in Windows.
+            Caps Lock types the other alphabet, so one English entry in the language list covers
+            both.
           </p>
           <p>
             Some programs follow the active Windows language when they handle shortcuts. GIMP is a
@@ -456,9 +457,9 @@
         <h3 class="files-heading">One language per file</h3>
       {:else if separateLayoutsNote && exports.length > 0}
         <p class="separate-note" role="note">
-          French, German, Polish, Spanish, and similar layouts fill every shift level (often with
-          dead keys). Caps Lock pairing with English does not fit those. Download a separate
-          <code>.klc</code> for each language below and switch with Win+Space.
+          Dense Latin layouts (French, German, Polish, Spanish, …) and Greek fill every shift
+          level (often with dead keys). Caps Lock pairing with English does not fit those.
+          Download a separate <code>.klc</code> for each language below and switch with Win+Space.
         </p>
         <h3 class="files-heading">One language per file</h3>
       {/if}

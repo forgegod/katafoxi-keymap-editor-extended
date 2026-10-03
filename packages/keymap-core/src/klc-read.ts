@@ -234,7 +234,10 @@ function guessCapsLanguage(layout: HostLayout): HostLanguageId | null {
     text += levels.glyphs[0] + levels.glyphs[1]
   }
   if (/[іїєґІЇЄҐ]/.test(text)) return 'uk'
+  // Bulgarian BDS places ѝ (U+045D) on soft-sign / ISO keys; check before ru.
+  if (/[ѝЍ]/.test(text)) return 'bg'
   if (/[\u0400-\u04FF]/.test(text)) return 'ru'
+  if (/[α-ωΑ-Ω]/.test(text)) return 'el'
   if (/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/.test(text)) return 'pl'
   if (/[ěščřžýáíéďťňúůĚŠČŘŽÝÁÍÉĎŤŇÚŮ]/.test(text)) return 'cs'
   if (/[șțăîâȘȚĂÎÂ]/.test(text)) return 'ro'

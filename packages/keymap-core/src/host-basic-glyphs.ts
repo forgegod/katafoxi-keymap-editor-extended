@@ -41,8 +41,9 @@ const KEYPAD_GLYPH_BY_CODE: ReadonlyMap<string, string> = new Map([
  * Letters a host language is expected to type. Ukrainian is not Russian:
  * і ї є ґ stand in, and ы э ъ ё do not. German adds ä ö ü ß; French adds
  * accented vowels and æ œ ç; Polish adds ą ć ę ł ń ó ś ź ż; Spanish adds ñ
- * and acute vowels. A letter the primary system layout never produces is
- * not required (`missingBasicGlyphs`).
+ * and acute vowels; Greek uses the modern alphabet (including final σ ς);
+ * Bulgarian omits Russian ы э ё. A letter the primary system layout never
+ * produces is not required (`missingBasicGlyphs`).
  */
 const LETTERS: Record<HostLanguageId, string> = {
   en: 'abcdefghijklmnopqrstuvwxyz',
@@ -60,7 +61,11 @@ const LETTERS: Record<HostLanguageId, string> = {
   sv: 'abcdefghijklmnopqrstuvwxyzåäö',
   hu: 'aábcdeéfghiíjklmnoóöőpqrstuúüűvwxyz',
   tr: 'abcçdefgğhıijklmnoöprsştuüvyz',
-  ro: 'aăâbcdefghiîjklmnopqrsștțuvwxyz'
+  ro: 'aăâbcdefghiîjklmnopqrsștțuvwxyz',
+  fi: 'abcdefghijklmnopqrstuvwxyzåäö',
+  no: 'abcdefghijklmnopqrstuvwxyzæøå',
+  el: 'αβγδεζηθικλμνξοπρσςτυφχψω',
+  bg: 'абвгдежзийклмнопрстуфхцчшщъьюя'
 }
 
 /** Digits plus typewriter punctuation and the shifted partner of each mark. */

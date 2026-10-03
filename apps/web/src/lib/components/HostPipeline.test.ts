@@ -254,7 +254,7 @@ describe('HostPipeline', () => {
     expect(dialog?.textContent).toMatch(/GIMP/)
     expect(dialog?.textContent).toMatch(/Caps Lock switches alphabet/)
     expect(dialog?.textContent).toMatch(/AltGr and AltGr\+Shift come from the other language/)
-    expect(dialog?.textContent).toMatch(/Russian or Ukrainian/)
+    expect(dialog?.textContent).toMatch(/Russian, Ukrainian, or Bulgarian/)
     expect(dialog?.textContent).toMatch(/One language per file/)
     const separate = [...(dialog?.querySelectorAll('button') ?? [])].find(
       button => button.textContent?.trim() === 'Download .klc'

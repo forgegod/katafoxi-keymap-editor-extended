@@ -4,15 +4,19 @@ import {
   type HostLanguage,
   type HostLanguageId
 } from './host-languages.js'
+import { SYSTEM_BG_SYMBOLS } from './system-bg-symbols.js'
 import { SYSTEM_BR_SYMBOLS } from './system-br-symbols.js'
 import { SYSTEM_CZ_SYMBOLS } from './system-cz-symbols.js'
 import { SYSTEM_DE_SYMBOLS } from './system-de-symbols.js'
 import { SYSTEM_DK_SYMBOLS } from './system-dk-symbols.js'
 import { SYSTEM_ES_SYMBOLS } from './system-es-symbols.js'
+import { SYSTEM_FI_SYMBOLS } from './system-fi-symbols.js'
 import { SYSTEM_FR_SYMBOLS } from './system-fr-symbols.js'
+import { SYSTEM_GR_SYMBOLS } from './system-gr-symbols.js'
 import { SYSTEM_HU_SYMBOLS } from './system-hu-symbols.js'
 import { SYSTEM_IT_SYMBOLS } from './system-it-symbols.js'
 import { SYSTEM_LATIN_SYMBOLS } from './system-latin-symbols.js'
+import { SYSTEM_NO_SYMBOLS } from './system-no-symbols.js'
 import { SYSTEM_PL_SYMBOLS } from './system-pl-symbols.js'
 import { SYSTEM_PT_SYMBOLS } from './system-pt-symbols.js'
 import { SYSTEM_RO_SYMBOLS } from './system-ro-symbols.js'
@@ -66,7 +70,11 @@ const XKB_INCLUDE_FILES: Readonly<Record<string, Readonly<Record<string, string>
   se: { ...LATIN_US, se: SYSTEM_SE_SYMBOLS },
   hu: { ...LATIN_US, hu: SYSTEM_HU_SYMBOLS },
   tr: { ...LATIN_US, tr: SYSTEM_TR_SYMBOLS },
-  ro: { ...LATIN_US, ro: SYSTEM_RO_SYMBOLS }
+  ro: { ...LATIN_US, ro: SYSTEM_RO_SYMBOLS },
+  fi: { fi: SYSTEM_FI_SYMBOLS },
+  no: { ...LATIN_US, no: SYSTEM_NO_SYMBOLS },
+  gr: { gr: SYSTEM_GR_SYMBOLS },
+  bg: { bg: SYSTEM_BG_SYMBOLS }
 }
 
 function systemLayoutId(language: HostLanguage, section: string): string {
@@ -142,6 +150,10 @@ export const SYSTEM_SV_LAYOUT_ID = systemLayoutId(hostLanguage('sv'), hostLangua
 export const SYSTEM_HU_LAYOUT_ID = systemLayoutId(hostLanguage('hu'), hostLanguage('hu').primarySection)
 export const SYSTEM_TR_LAYOUT_ID = systemLayoutId(hostLanguage('tr'), hostLanguage('tr').primarySection)
 export const SYSTEM_RO_LAYOUT_ID = systemLayoutId(hostLanguage('ro'), hostLanguage('ro').primarySection)
+export const SYSTEM_FI_LAYOUT_ID = systemLayoutId(hostLanguage('fi'), hostLanguage('fi').primarySection)
+export const SYSTEM_NO_LAYOUT_ID = systemLayoutId(hostLanguage('no'), hostLanguage('no').primarySection)
+export const SYSTEM_EL_LAYOUT_ID = systemLayoutId(hostLanguage('el'), hostLanguage('el').primarySection)
+export const SYSTEM_BG_LAYOUT_ID = systemLayoutId(hostLanguage('bg'), hostLanguage('bg').primarySection)
 
 /** Static catalog rows for one language. Runtime layouts are merged in the registry. */
 export function catalogLayoutsForLanguage(language: HostLanguageId): HostLayoutChoice[] {

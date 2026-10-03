@@ -244,6 +244,65 @@ export const WINDOWS_LOCALES: Record<HostLanguageId, WindowsLocale> = {
     localeId: '00020418',
     languageName: 'Romanian (Romania)',
     shiftStates: [0, 1, 2, 6, 7]
+  },
+  fi: {
+    // Oracle tmp/mklc/fi.klc — Nordic OEM map like da/sv/no.
+    localeName: 'fi-FI',
+    localeId: '0000040b',
+    languageName: 'Finnish (Finland)',
+    shiftStates: [0, 1, 2, 6],
+    vkByZmk: {
+      MINUS: 'OEM_PLUS',
+      EQUAL: 'OEM_4',
+      LBKT: 'OEM_6',
+      RBKT: 'OEM_1',
+      SEMI: 'OEM_3',
+      GRAVE: 'OEM_5',
+      BSLH: 'OEM_2',
+      SLASH: 'OEM_MINUS'
+    }
+  },
+  no: {
+    // Oracle tmp/mklc/no.klc (nb-NO).
+    localeName: 'nb-NO',
+    localeId: '00000414',
+    languageName: 'Norwegian (Bokmål)',
+    shiftStates: [0, 1, 2, 6],
+    vkByZmk: {
+      MINUS: 'OEM_PLUS',
+      EQUAL: 'OEM_4',
+      LBKT: 'OEM_6',
+      RBKT: 'OEM_1',
+      SEMI: 'OEM_3',
+      GRAVE: 'OEM_5',
+      BSLH: 'OEM_2',
+      SLASH: 'OEM_MINUS'
+    }
+  },
+  el: {
+    // Oracle tmp/mklc/gr.klc — US-like VKs; no punctuation remap needed.
+    localeName: 'el-GR',
+    localeId: '00000408',
+    languageName: 'Greek (Greece)',
+    shiftStates: [0, 1, 2, 6]
+  },
+  bg: {
+    // Oracle tmp/mklc/bg.klc — BDS (KLID 00030402); Q/DOT VKs differ from US.
+    localeName: 'bg-BG',
+    localeId: '00030402',
+    languageName: 'Bulgarian (Bulgaria)',
+    shiftStates: [0, 1, 2],
+    vkByZmk: {
+      EQUAL: 'OEM_PERIOD',
+      Q: 'OEM_COMMA',
+      COMMA: 'OEM_8',
+      DOT: 'Q',
+      SLASH: 'OEM_2'
+    },
+    sgcapByZmk: {
+      Q: 0x042b,
+      A: 0x042c
+    }
   }
 }
 

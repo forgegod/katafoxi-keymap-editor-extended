@@ -330,12 +330,16 @@ describe('HostLegendPicker', () => {
     await open(keymapOf(['default']))
     openAddLanguageMenu()
     expect(languageMenuLabels()).toEqual([
+      'Bulgarian',
       'Czech',
       'Danish',
+      'Finnish',
       'French',
       'German',
+      'Greek',
       'Hungarian',
       'Italian',
+      'Norwegian',
       'Polish',
       'Portuguese',
       'Portuguese (Brazil)',
@@ -386,12 +390,16 @@ describe('HostLegendPicker', () => {
     flushSync()
     expect(languageMenuLabels()).toEqual([
       'Ukrainian',
+      'Bulgarian',
       'Czech',
       'Danish',
+      'Finnish',
       'French',
       'German',
+      'Greek',
       'Hungarian',
       'Italian',
+      'Norwegian',
       'Polish',
       'Portuguese',
       'Portuguese (Brazil)',
@@ -412,12 +420,16 @@ describe('HostLegendPicker', () => {
     addAgain.click()
     flushSync()
     expect(languageMenuLabels()).toEqual([
+      'Bulgarian',
       'Czech',
       'Danish',
+      'Finnish',
       'French',
       'German',
+      'Greek',
       'Hungarian',
       'Italian',
+      'Norwegian',
       'Polish',
       'Portuguese',
       'Portuguese (Brazil)',
@@ -458,11 +470,15 @@ describe('HostLegendPicker', () => {
     flushSync()
     expect(languageMenuLabels()).toEqual([
       'German',
+      'Bulgarian',
       'Czech',
       'Danish',
+      'Finnish',
       'French',
+      'Greek',
       'Hungarian',
       'Italian',
+      'Norwegian',
       'Polish',
       'Portuguese',
       'Portuguese (Brazil)',
