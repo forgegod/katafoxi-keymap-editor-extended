@@ -88,6 +88,40 @@ const MARKS = [
   '>'
 ] as const
 
+/**
+ * Typewriter punctuation Differences treats as serious (Linux split / per-key gap).
+ * Digits stay out; national marks (`№`, …) stay ornament. Grave and tilde join the
+ * punct half of `MARKS`.
+ */
+export const BASIC_ALIGN_GLYPHS: ReadonlySet<string> = new Set([
+  ';',
+  ':',
+  '/',
+  '?',
+  '\\',
+  '|',
+  "'",
+  '"',
+  '-',
+  '_',
+  '=',
+  '+',
+  '[',
+  '{',
+  ']',
+  '}',
+  ',',
+  '<',
+  '.',
+  '>',
+  '`',
+  '~'
+])
+
+export function isBasicAlignGlyph(glyph: string): boolean {
+  return BASIC_ALIGN_GLYPHS.has(glyph)
+}
+
 const stockGlyphs = new Map<HostLanguageId, Set<string>>()
 
 function glyphsOf(layout: HostLayout): Set<string> {

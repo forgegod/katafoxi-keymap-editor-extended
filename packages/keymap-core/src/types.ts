@@ -144,9 +144,10 @@ export interface HostColumn {
 /**
  * Which host layouts fill the composed legend.
  * `columns[0]` is the base column: the firmware alphabet, kept even when its
- * glyphs are hidden. `open` is the national language paired with that base
- * for Highlight symbol differences and the combined Windows file.
- * `keycap` is the languages drawn on the key, oldest first, at most two.
+ * glyphs are hidden. `open` is the national language paired with that base for
+ * the combined Windows file. Highlight symbol differences compares the two
+ * languages on `keycap` (position marks); Win AltGr marks only when English
+ * and `open` are both drawn. `keycap` is oldest first, at most two.
  * Omitted on older saves: the visible base, plus `open` when that column is visible.
  */
 export interface HostLegendView {
