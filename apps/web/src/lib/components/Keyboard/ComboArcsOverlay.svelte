@@ -1,6 +1,12 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte'
   import type { LayoutKey, ZmkCombo } from '@keymap-editor/keymap-core'
   import { buildComboArcSegs } from '../../combo-arcs'
+
+  export type ComboBeadHover = {
+    positions: readonly number[]
+    faceLayer: number
+  }
 
   interface Props {
     layout: LayoutKey[]
@@ -13,6 +19,7 @@
     minY: number
     labelFor: (combo: ZmkCombo) => string
     onSelect: (comboId: string) => void
+    onHover?: (hover: ComboBeadHover | null) => void
   }
 
   let {
@@ -25,7 +32,8 @@
     minX,
     minY,
     labelFor,
-    onSelect
+    onSelect,
+    onHover
   }: Props = $props()
 
   const segs = $derived(
@@ -33,6 +41,21 @@
   )
 
   let hoverId = $state<string | null>(null)
+
+  function setHover(
+    comboId: string | null,
+    positions: readonly number[] | null,
+    faceLayer: number | null
+  ) {
+    hoverId = comboId
+    if (positions && faceLayer != null) {
+      onHover?.({ positions, faceLayer })
+    } else {
+      onHover?.(null)
+    }
+  }
+
+  onDestroy(() => onHover?.(null))
 </script>
 
 {#if segs.length > 0}
@@ -48,6 +71,7 @@
     {#each segs as seg (seg.id)}
       <g
         class="combo-bead"
+        class:anchor={seg.kind === 'anchor'}
         class:hover={hoverId === seg.comboId}
         role="button"
         tabindex="0"
@@ -59,13 +83,13 @@
             onSelect(seg.comboId)
           }
         }}
-        onmouseenter={() => (hoverId = seg.comboId)}
+        onmouseenter={() => setHover(seg.comboId, seg.keyPositions, seg.faceLayer)}
         onmouseleave={() => {
-          if (hoverId === seg.comboId) hoverId = null
+          if (hoverId === seg.comboId) setHover(null, null, null)
         }}
-        onfocus={() => (hoverId = seg.comboId)}
+        onfocus={() => setHover(seg.comboId, seg.keyPositions, seg.faceLayer)}
         onblur={() => {
-          if (hoverId === seg.comboId) hoverId = null
+          if (hoverId === seg.comboId) setHover(null, null, null)
         }}
       >
         <title>{seg.title}</title>
@@ -115,10 +139,20 @@
     stroke-width: 1.25;
   }
 
+  .combo-bead.anchor .dot {
+    fill: color-mix(in srgb, var(--combo, #c9a227) 82%, transparent);
+    stroke: color-mix(in srgb, var(--stage-bg, #111) 55%, transparent);
+  }
+
   .combo-bead.hover .dot,
   .combo-bead:focus-visible .dot {
     fill: var(--accent, #3a7);
     stroke-width: 1.5;
+  }
+
+  .combo-bead.anchor.hover .dot,
+  .combo-bead.anchor:focus-visible .dot {
+    fill: var(--combo, #c9a227);
   }
 
   .tip {
@@ -129,6 +163,10 @@
     fill: color-mix(in srgb, var(--stage-bg, #111) 88%, var(--surface, #222));
     stroke: color-mix(in srgb, var(--accent, #3a7) 45%, transparent);
     stroke-width: 1;
+  }
+
+  .combo-bead.anchor .tip-bg {
+    stroke: color-mix(in srgb, var(--combo, #c9a227) 50%, transparent);
   }
 
   .tip-text {

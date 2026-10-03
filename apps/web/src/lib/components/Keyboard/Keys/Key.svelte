@@ -59,6 +59,8 @@
     usedLayerLabels?: readonly string[]
     comboMode?: boolean
     comboMember?: boolean
+    /** Firmware layer strip to peek-highlight from combo-bead hover. */
+    comboPeekLayer?: number | null
     onComboToggle?: (keyIndex: number) => void
   }
 
@@ -81,6 +83,7 @@
     usedLayerLabels = [],
     comboMode = false,
     comboMember = false,
+    comboPeekLayer = null,
     onComboToggle
   }: Props = $props()
 
@@ -339,6 +342,7 @@
   class="key"
   class:combo-member={comboMember}
   class:combo-pick={comboMode}
+  class:combo-peeking={comboPeekLayer != null}
   data-label={label}
   data-u={size.u}
   data-h={size.h}
@@ -363,6 +367,7 @@
       <button
         type="button"
         class="layer-slot multilang-face"
+        class:combo-peek={comboPeekLayer === 0}
         class:unpublished={isUnpublished(0)}
         class:symbol-moved={marks.moved}
         class:altgr-conflict={marks.conflict}
@@ -400,6 +405,7 @@
       <button
         type="button"
         class="layer-slot"
+        class:combo-peek={comboPeekLayer === row.layer}
         class:unpublished={isUnpublished(row.layer)}
         class:symbol-moved={marks.moved}
         class:altgr-conflict={marks.conflict}

@@ -10,6 +10,45 @@
 #include <dt-bindings/zmk/ext_power.h>
 
 / {
+    combos {
+        compatible = "zmk,combos";
+        // Gap bead: J+K on Lower.
+        combo_l1_esc {
+            bindings = <&kp ESC>;
+            key-positions = <31 32>;
+            layers = <1>;
+            timeout-ms = <50>;
+        };
+        // Anchor bead: vertical U+J on Lower.
+        combo_l1_tab {
+            bindings = <&kp TAB>;
+            key-positions = <19 31>;
+            layers = <1>;
+            timeout-ms = <50>;
+        };
+        // Gap bead: U+I on Raise.
+        combo_l2_esc {
+            bindings = <&kp ESC>;
+            key-positions = <19 20>;
+            layers = <2>;
+            timeout-ms = <50>;
+        };
+        // Anchor bead: non-adjacent Q+T on Raise.
+        combo_l2_caps {
+            bindings = <&kp CAPS>;
+            key-positions = <13 17>;
+            layers = <2>;
+            timeout-ms = <50>;
+        };
+        // Anchor bead: J+K+L triple on Raise.
+        combo_l2_bspc {
+            bindings = <&kp BSPC>;
+            key-positions = <31 32 33>;
+            layers = <2>;
+            timeout-ms = <50>;
+        };
+    };
+
     keymap {
         compatible = "zmk,keymap";
 

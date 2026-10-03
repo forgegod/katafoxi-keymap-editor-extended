@@ -25,6 +25,9 @@
   outline-offset: -2px;
   background-color: color-mix(in srgb, var(--accent, #3a7) 18%, var(--key-face));
 }
+.key.combo-peeking {
+  z-index: 1;
+}
 .key:hover {
   transition: 200ms;
   z-index: 1;
@@ -179,6 +182,12 @@
 }
 .key .layer-slot.unpublished {
   background-color: color-mix(in srgb, var(--highlight) 28%, transparent);
+}
+.key .layer-slot.combo-peek {
+  outline: 2px solid var(--combo, #c9a227);
+  outline-offset: -2px;
+  background-color: color-mix(in srgb, var(--combo, #c9a227) 28%, var(--key-face));
+  z-index: 1;
 }
 .key .layer-slot.symbol-moved {
   box-shadow: inset 0 -1px 0 var(--mark-diff);

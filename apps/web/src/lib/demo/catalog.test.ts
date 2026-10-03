@@ -39,17 +39,41 @@ describe('demo catalog', () => {
 
   it('seeds Corne with a J+K Esc combo so Combos beads show on first visit', () => {
     const { keymap } = loadDemo('corne')
-    expect(keymap.combos).toEqual([
-      expect.objectContaining({
-        id: 'combo_esc',
-        keyPositions: [19, 20],
-        timeoutMs: 50,
-        binding: {
-          value: '&kp',
-          params: [{ value: 'ESC', params: [] }]
-        }
-      })
-    ])
+    expect(keymap.combos).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'combo_esc',
+          keyPositions: [19, 20],
+          timeoutMs: 50,
+          binding: {
+            value: '&kp',
+            params: [{ value: 'ESC', params: [] }]
+          }
+        })
+      ])
+    )
+  })
+
+  it('seeds each demo with gap and anchor combos on layers 1 and 2', () => {
+    for (const entry of DEMO_CATALOG) {
+      const { keymap } = loadDemo(entry.id)
+      const combos = keymap.combos ?? []
+      expect(combos.length, entry.id).toBeGreaterThanOrEqual(4)
+
+      const onL1 = combos.filter(c => c.layers?.includes(1))
+      const onL2 = combos.filter(c => c.layers?.includes(2))
+      expect(onL1.length, `${entry.id} L1`).toBeGreaterThanOrEqual(2)
+      expect(onL2.length, `${entry.id} L2`).toBeGreaterThanOrEqual(2)
+
+      expect(
+        combos.some(c => c.keyPositions.length === 2),
+        `${entry.id} has a 2-key combo`
+      ).toBe(true)
+      expect(
+        combos.some(c => c.keyPositions.length >= 3),
+        `${entry.id} has a 3+ key combo`
+      ).toBe(true)
+    }
   })
 
   it('keeps Lark phantom matrix slots in the keymap but marks them absent', () => {

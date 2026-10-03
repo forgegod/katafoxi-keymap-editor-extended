@@ -17,37 +17,57 @@ const esc: ZmkCombo = {
 }
 
 describe('buildComboArcSegs', () => {
-  it('places a bead mid-gap for an adjacent same-row pair', () => {
+  it('places a gap bead mid-gap for an adjacent same-row pair', () => {
     const segs = buildComboArcSegs(layout, [esc], {
       shownLayers: [0],
       labelFor: () => '&kp ESC'
     })
     expect(segs).toHaveLength(1)
     expect(segs[0]?.comboId).toBe('combo_esc')
+    expect(segs[0]?.kind).toBe('gap')
+    expect(segs[0]?.keyPositions).toEqual([0, 1])
+    expect(segs[0]?.faceLayer).toBe(0)
     expect(segs[0]?.midX).toBeGreaterThan(0)
     expect(segs[0]?.midY).toBeGreaterThan(0)
     expect(segs[0]).not.toHaveProperty('d')
   })
 
-  it('skips vertical neighbours', () => {
+  it('places a gap bead between vertical neighbours', () => {
     const vertical: ZmkCombo = { ...esc, id: 'combo_v', keyPositions: [0, 3] }
-    expect(
-      buildComboArcSegs(layout, [vertical], {
-        shownLayers: [0],
-        labelFor: () => '&kp ESC'
-      })
-    ).toHaveLength(0)
+    const segs = buildComboArcSegs(layout, [vertical], {
+      shownLayers: [0],
+      labelFor: () => '&kp ESC'
+    })
+    expect(segs).toHaveLength(1)
+    expect(segs[0]?.kind).toBe('gap')
+    expect(segs[0]?.keyPositions).toEqual([0, 3])
+    const top = getKeyBoundingBox({ x: 0, y: 0 }, { u: 1, h: 1 })
+    const bottom = getKeyBoundingBox({ x: 0, y: 1 }, { u: 1, h: 1 })
+    expect(segs[0]!.midX).toBeCloseTo((top.min.x + top.max.x) / 2, 5)
+    expect(segs[0]!.midY).toBeCloseTo((top.max.y + bottom.min.y) / 2, 5)
+    expect(segs[0]!.midY).toBeGreaterThan(top.max.y)
+    expect(segs[0]!.midY).toBeLessThan(bottom.min.y)
   })
 
-  it('skips non-adjacent same-row pairs and 3+ key combos', () => {
+  it('places an anchor bead in the mid-gap to the right of the first key', () => {
     const skip: ZmkCombo = { ...esc, id: 'combo_skip', keyPositions: [0, 2] }
     const triple: ZmkCombo = { ...esc, id: 'combo_3', keyPositions: [0, 1, 2] }
-    expect(
-      buildComboArcSegs(layout, [skip, triple], {
-        shownLayers: [0],
-        labelFor: c => c.id
-      })
-    ).toHaveLength(0)
+    const segs = buildComboArcSegs(layout, [skip, triple], {
+      shownLayers: [0],
+      labelFor: c => c.id
+    })
+    expect(segs).toHaveLength(2)
+    expect(segs.every(s => s.kind === 'anchor')).toBe(true)
+    const left = getKeyBoundingBox({ x: 0, y: 0 }, { u: 1, h: 1 })
+    const right = getKeyBoundingBox({ x: 1, y: 0 }, { u: 1, h: 1 })
+    const gapMid = (left.max.x + right.min.x) / 2
+    expect(segs[0]!.midX).toBeCloseTo(gapMid, 5)
+    expect(segs[0]!.midX).toBeGreaterThan(left.max.x)
+    expect(segs[0]!.midX).toBeLessThan(right.min.x)
+    expect(segs[0]?.id).toContain('anchor-0')
+    // Same anchor gutter → stacked along the strip, not sideways into the neighbour.
+    expect(segs[1]!.midX).toBeCloseTo(segs[0]!.midX, 5)
+    expect(segs[1]!.midY).toBeGreaterThan(segs[0]!.midY)
   })
 
   it('hides combos restricted to other layers', () => {
@@ -95,5 +115,27 @@ describe('buildComboArcSegs', () => {
     const faceH = keyH / 3
     const faceY = box.min.y + faceH * 2 + faceH / 2
     expect(segs[0]?.midY).toBeCloseTo(faceY, 5)
+  })
+
+  it('keeps side-anchor beads on the combo layer strip', () => {
+    const skip: ZmkCombo = {
+      ...esc,
+      id: 'combo_skip',
+      keyPositions: [0, 2],
+      layers: [1]
+    }
+    const segs = buildComboArcSegs(layout, [skip], {
+      shownLayers: [0, 1, 2],
+      labelFor: () => '&kp ESC'
+    })
+    expect(segs).toHaveLength(1)
+    expect(segs[0]?.kind).toBe('anchor')
+    expect(segs[0]?.faceLayer).toBe(1)
+    const box = getKeyBoundingBox({ x: 0, y: 0 }, { u: 1, h: 1 })
+    const keyH = box.max.y - box.min.y
+    const faceH = keyH / 3
+    const faceY = box.min.y + faceH * 1 + faceH / 2
+    expect(segs[0]?.midY).toBeCloseTo(faceY, 5)
+    expect(segs[0]!.midX).toBeGreaterThan(box.max.x)
   })
 })

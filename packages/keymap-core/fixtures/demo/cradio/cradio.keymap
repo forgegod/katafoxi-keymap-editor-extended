@@ -7,6 +7,45 @@
 #include <dt-bindings/zmk/keys.h>
 
 / {
+        combos {
+                compatible = "zmk,combos";
+                // Gap bead: J+K on Nav (layer 1).
+                combo_l1_esc {
+                        bindings = <&kp ESC>;
+                        key-positions = <16 17>;
+                        layers = <1>;
+                        timeout-ms = <50>;
+                };
+                // Anchor bead: vertical F+V on Nav.
+                combo_l1_tab {
+                        bindings = <&kp TAB>;
+                        key-positions = <13 23>;
+                        layers = <1>;
+                        timeout-ms = <50>;
+                };
+                // Gap bead: U+I on Raise (layer 2).
+                combo_l2_esc {
+                        bindings = <&kp ESC>;
+                        key-positions = <6 7>;
+                        layers = <2>;
+                        timeout-ms = <50>;
+                };
+                // Anchor bead: non-adjacent S+F on Raise.
+                combo_l2_caps {
+                        bindings = <&kp CAPS>;
+                        key-positions = <11 13>;
+                        layers = <2>;
+                        timeout-ms = <50>;
+                };
+                // Anchor bead: J+K+L triple on Raise.
+                combo_l2_bspc {
+                        bindings = <&kp BSPC>;
+                        key-positions = <16 17 18>;
+                        layers = <2>;
+                        timeout-ms = <50>;
+                };
+        };
+
         keymap {
                 compatible = "zmk,keymap";
 
@@ -24,6 +63,15 @@
 &kp N1 &kp N2 &kp N3 &kp N4 &kp N5        &kp N6 &kp N7 &kp N8 &kp N9 &kp N0
 &kp ESC &kp TAB &trans &trans &trans      &kp LEFT &kp DOWN &kp UP &kp RIGHT &kp BSPC
 &kp LCTRL &kp LALT &kp LGUI &trans &trans &kp MINUS &kp EQUAL &kp LBKT &kp RBKT &kp BSLH
+                 &kp SPACE &trans          &trans &kp RET
+                        >;
+                };
+
+                raise_layer {
+                        bindings = <
+&kp EXCL &kp AT &kp HASH &kp DLLR &kp PRCNT        &kp CARET &kp AMPS &kp ASTRK &kp LPAR &kp RPAR
+&trans &trans &trans &trans &trans                 &kp MINUS &kp EQUAL &kp LBKT &kp RBKT &kp GRAVE
+&trans &trans &trans &trans &trans                 &kp UNDER &kp PLUS &kp LBRC &kp RBRC &kp PIPE
                  &kp SPACE &trans          &trans &kp RET
                         >;
                 };
