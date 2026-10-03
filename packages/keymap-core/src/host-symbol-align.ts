@@ -1,7 +1,8 @@
 import { isBasicAlignGlyph } from './host-basic-glyphs.js'
 import type { HostKeyLevels, HostLayout } from './host-layout.js'
 import { hostKeycapLanguages } from './host-legend-view.js'
-import type { HostLanguageId, HostLegendView } from './types.js'
+import type { HostLanguageId } from './host-languages.js'
+import type { HostLegendView } from './types.js'
 
 /** One glyph on one physical key and shift level. */
 export interface GlyphPlace {
