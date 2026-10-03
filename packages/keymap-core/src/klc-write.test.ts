@@ -66,6 +66,47 @@ describe('klc export', () => {
     expect(text).toContain('ENDKBD')
   })
 
+  it('writes French AZERTY virtual keys and the fr-FR locale', () => {
+    const text = hostLayoutToKlc(systemLayout('system-fr'), {
+      name: 'French',
+      locale: windowsLocale('fr')
+    })
+    expect(text).toContain('LOCALENAME\t"fr-FR"')
+    expect(text).toContain('LOCALEID\t"0000040c"')
+    const rows = layoutRows(text)
+    expect(rows.get('10')?.[1]).toBe('A')
+    expect(rows.get('11')?.[1]).toBe('Z')
+    expect(rows.get('1e')?.[1]).toBe('Q')
+    expect(rows.get('0c')?.[1]).toBe('OEM_4')
+    expect(rows.get('32')?.[1]).toBe('OEM_COMMA')
+    expect(rows.get('35')?.[1]).toBe('OEM_8')
+  })
+
+  it('keeps US virtual keys for Polish programmers and uses locale 00000415', () => {
+    const text = hostLayoutToKlc(systemLayout('system-pl'), {
+      name: 'Polish',
+      locale: windowsLocale('pl')
+    })
+    expect(text).toContain('LOCALEID\t"00000415"')
+    const rows = layoutRows(text)
+    expect(rows.get('10')?.[1]).toBe('Q')
+    expect(rows.get('0c')?.[1]).toBe('OEM_MINUS')
+    expect(rows.get('15')?.[1]).toBe('Y')
+  })
+
+  it('writes Spanish punctuation virtual keys and the es-ES locale', () => {
+    const text = hostLayoutToKlc(systemLayout('system-es'), {
+      name: 'Spanish',
+      locale: windowsLocale('es')
+    })
+    expect(text).toContain('LOCALENAME\t"es-ES"')
+    expect(text).toContain('LOCALEID\t"0000040a"')
+    const rows = layoutRows(text)
+    expect(rows.get('0c')?.[1]).toBe('OEM_4')
+    expect(rows.get('0d')?.[1]).toBe('OEM_6')
+    expect(rows.get('35')?.[1]).toBe('OEM_MINUS')
+  })
+
   it('keeps US virtual keys for Cyrillic and uses the ru-RU locale', () => {
     const text = hostLayoutToKlc(systemLayout('system-ru'), {
       name: 'Russian',

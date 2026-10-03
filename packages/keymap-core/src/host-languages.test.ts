@@ -4,7 +4,8 @@ import {
   HOST_LANGUAGES,
   HOST_LANGUAGE_IDS,
   hostLanguageName,
-  preferredAddableHostLanguage
+  preferredAddableHostLanguage,
+  windowsCapsPairingRecommended
 } from './host-languages.js'
 import { catalogLayoutsForLanguage, hostLayoutChoices } from './host-layout-catalog.js'
 import {
@@ -58,8 +59,23 @@ describe('preferredAddableHostLanguage', () => {
     expect(preferredAddableHostLanguage(['en-US', 'ru-RU', 'de'])).toBe('ru')
     expect(preferredAddableHostLanguage(['uk-UA'])).toBe('uk')
     expect(preferredAddableHostLanguage(['de-DE', 'ru'])).toBe('de')
+    expect(preferredAddableHostLanguage(['fr-FR'])).toBe('fr')
+    expect(preferredAddableHostLanguage(['pl-PL', 'es'])).toBe('pl')
+    expect(preferredAddableHostLanguage(['es-ES'])).toBe('es')
     expect(preferredAddableHostLanguage(['en', 'en-GB'])).toBeNull()
-    expect(preferredAddableHostLanguage(['fr-FR', 'es'])).toBeNull()
+    expect(preferredAddableHostLanguage(['ja-JP', 'zh-CN'])).toBeNull()
     expect(preferredAddableHostLanguage([])).toBeNull()
+  })
+})
+
+describe('windowsCapsPairingRecommended', () => {
+  it('recommends Caps pairing for Cyrillic alphabets only', () => {
+    expect(windowsCapsPairingRecommended('ru')).toBe(true)
+    expect(windowsCapsPairingRecommended('uk')).toBe(true)
+    expect(windowsCapsPairingRecommended('en')).toBe(false)
+    expect(windowsCapsPairingRecommended('de')).toBe(false)
+    expect(windowsCapsPairingRecommended('fr')).toBe(false)
+    expect(windowsCapsPairingRecommended('pl')).toBe(false)
+    expect(windowsCapsPairingRecommended('es')).toBe(false)
   })
 })

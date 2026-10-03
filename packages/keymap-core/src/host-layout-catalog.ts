@@ -5,7 +5,10 @@ import {
   type HostLanguageId
 } from './host-languages.js'
 import { SYSTEM_DE_SYMBOLS } from './system-de-symbols.js'
+import { SYSTEM_ES_SYMBOLS } from './system-es-symbols.js'
+import { SYSTEM_FR_SYMBOLS } from './system-fr-symbols.js'
 import { SYSTEM_LATIN_SYMBOLS } from './system-latin-symbols.js'
+import { SYSTEM_PL_SYMBOLS } from './system-pl-symbols.js'
 import { SYSTEM_US_XKB_SYMBOLS } from './system-us-xkb-symbols.js'
 import type { ParseXkbOptions } from './xkb-symbols.js'
 
@@ -41,6 +44,21 @@ const XKB_INCLUDE_FILES: Readonly<Record<string, Readonly<Record<string, string>
     latin: SYSTEM_LATIN_SYMBOLS,
     us: SYSTEM_US_XKB_SYMBOLS,
     de: SYSTEM_DE_SYMBOLS
+  },
+  fr: {
+    latin: SYSTEM_LATIN_SYMBOLS,
+    us: SYSTEM_US_XKB_SYMBOLS,
+    fr: SYSTEM_FR_SYMBOLS
+  },
+  pl: {
+    latin: SYSTEM_LATIN_SYMBOLS,
+    us: SYSTEM_US_XKB_SYMBOLS,
+    pl: SYSTEM_PL_SYMBOLS
+  },
+  es: {
+    latin: SYSTEM_LATIN_SYMBOLS,
+    us: SYSTEM_US_XKB_SYMBOLS,
+    es: SYSTEM_ES_SYMBOLS
   }
 }
 
@@ -98,6 +116,15 @@ export const SYSTEM_UA_LAYOUT_ID = systemLayoutId(hostLanguage('uk'), hostLangua
 
 /** System German group (`de(basic)` over `latin(type4)`). */
 export const SYSTEM_DE_LAYOUT_ID = systemLayoutId(hostLanguage('de'), hostLanguage('de').primarySection)
+
+/** System French group (`fr(basic)` over `latin`). */
+export const SYSTEM_FR_LAYOUT_ID = systemLayoutId(hostLanguage('fr'), hostLanguage('fr').primarySection)
+
+/** System Polish group (`pl(basic)` over `latin`, programmers / AltGr). */
+export const SYSTEM_PL_LAYOUT_ID = systemLayoutId(hostLanguage('pl'), hostLanguage('pl').primarySection)
+
+/** System Spanish group (`es(basic)` over `latin(type4)`). */
+export const SYSTEM_ES_LAYOUT_ID = systemLayoutId(hostLanguage('es'), hostLanguage('es').primarySection)
 
 /** Static catalog rows for one language. Runtime layouts are merged in the registry. */
 export function catalogLayoutsForLanguage(language: HostLanguageId): HostLayoutChoice[] {

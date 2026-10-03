@@ -1,4 +1,7 @@
 import { SYSTEM_DE_SYMBOLS } from './system-de-symbols.js'
+import { SYSTEM_ES_SYMBOLS } from './system-es-symbols.js'
+import { SYSTEM_FR_SYMBOLS } from './system-fr-symbols.js'
+import { SYSTEM_PL_SYMBOLS } from './system-pl-symbols.js'
 import { SYSTEM_RU_SYMBOLS } from './system-ru-symbols.js'
 import { SYSTEM_UA_SYMBOLS } from './system-ua-symbols.js'
 import { SYSTEM_US_SYMBOLS } from './system-us-symbols.js'
@@ -111,6 +114,62 @@ export const HOST_LANGUAGES = [
     primarySection: 'basic',
     addable: true,
     symbols: SYSTEM_DE_SYMBOLS
+  }),
+  language({
+    id: 'fr',
+    name: 'French',
+    flag: '🇫🇷',
+    flagCode: 'fr',
+    xkbModule: 'fr',
+    sections: [
+      'basic',
+      'nodeadkeys',
+      'oss',
+      'oss_latin9',
+      'oss_nodeadkeys',
+      'latin9',
+      'latin9_nodeadkeys',
+      'bepo',
+      'bepo_latin9',
+      'dvorak',
+      'mac',
+      'azerty',
+      'us'
+    ],
+    primarySection: 'basic',
+    addable: true,
+    symbols: SYSTEM_FR_SYMBOLS
+  }),
+  language({
+    id: 'pl',
+    name: 'Polish',
+    flag: '🇵🇱',
+    flagCode: 'pl',
+    xkbModule: 'pl',
+    sections: [
+      'basic',
+      'legacy',
+      'qwertz',
+      'lefty',
+      'dvorak',
+      'dvorak_quotes',
+      'dvorak_altquotes',
+      'intl'
+    ],
+    primarySection: 'basic',
+    addable: true,
+    symbols: SYSTEM_PL_SYMBOLS
+  }),
+  language({
+    id: 'es',
+    name: 'Spanish',
+    flag: '🇪🇸',
+    flagCode: 'es',
+    xkbModule: 'es',
+    sections: ['basic', 'winkeys', 'nodeadkeys', 'deadtilde', 'dvorak', 'cat', 'ast'],
+    primarySection: 'basic',
+    addable: true,
+    symbols: SYSTEM_ES_SYMBOLS
   })
 ] as const
 
@@ -160,4 +219,16 @@ export function preferredAddableHostLanguage(
     if (isAddableHostLanguage(primary)) return primary
   }
   return null
+}
+
+/**
+ * Whether Caps Lock pairing with English is the recommended Windows install.
+ *
+ * Cyrillic alphabets (ru, uk) leave AltGr sparse enough that English letters
+ * on the key and the national alphabet on Caps Lock work as one layout.
+ * Dense Latin layouts (fr, de, es, pl, …) fill all four levels and often use
+ * dead keys — prefer a separate `.klc` per language and Win+Space instead.
+ */
+export function windowsCapsPairingRecommended(language: HostLanguageId): boolean {
+  return language === 'ru' || language === 'uk'
 }

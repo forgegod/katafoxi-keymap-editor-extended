@@ -5,6 +5,9 @@ import {
   missingBasicGlyphs,
   parseKeyBinding,
   SYSTEM_DE_LAYOUT_ID,
+  SYSTEM_ES_LAYOUT_ID,
+  SYSTEM_FR_LAYOUT_ID,
+  SYSTEM_PL_LAYOUT_ID,
   SYSTEM_RU_LAYOUT_ID,
   SYSTEM_UA_LAYOUT_ID,
   SYSTEM_US_LAYOUT_ID,
@@ -35,6 +38,9 @@ describe('missingBasicGlyphs', () => {
     expect(missingBasicGlyphs(ru, 'ru')).toEqual([])
     expect(missingBasicGlyphs(hostLayout(SYSTEM_UA_LAYOUT_ID)!, 'uk')).toEqual([])
     expect(missingBasicGlyphs(hostLayout(SYSTEM_DE_LAYOUT_ID)!, 'de')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(SYSTEM_FR_LAYOUT_ID)!, 'fr')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(SYSTEM_PL_LAYOUT_ID)!, 'pl')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(SYSTEM_ES_LAYOUT_ID)!, 'es')).toEqual([])
   })
 
   it('reports a Russian letter missing in both cases', () => {

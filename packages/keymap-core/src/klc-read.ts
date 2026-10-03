@@ -235,6 +235,9 @@ function guessCapsLanguage(layout: HostLayout): HostLanguageId | null {
   }
   if (/[іїєґІЇЄҐ]/.test(text)) return 'uk'
   if (/[\u0400-\u04FF]/.test(text)) return 'ru'
+  if (/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/.test(text)) return 'pl'
+  if (/[œæŒÆ]/.test(text)) return 'fr'
+  if (/[ñÑ¿¡]/.test(text)) return 'es'
   if (/[äöüÄÖÜß]/.test(text)) return 'de'
   return null
 }

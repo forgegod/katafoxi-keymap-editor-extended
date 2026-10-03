@@ -74,11 +74,15 @@ Click a stacked keycap row. One dialog edits that layer’s ZMK binding:
   - Caps Lock `⇪`. Browser back/forward `←` / `→` (not cursor `⏴` `⏵`). Number-row `-` / `=` (not the words `MINUS` / `EQUAL`). Tooltip keeps the raw code.
   - Keypad (`KP_*`): same glyph as the number row (`7`), boxed. Operators `+ - / *`, plus `KP_ENTER` `⮐`, `KP_DOT` `.`, `KP_EQUAL` `=`. Color is only a light fill. Host composed stays the same glyph.
 - **Composed view**: an N-column `ComposedLegend` in core (visible extras; a hidden base column is kept so the firmware alphabet remains when its glyphs are off the key). The keycap draws at most two languages (`onKeycap`): any pair, so Russian and Ukrainian can sit together while English stays the hidden reference. The table and decode card share the same `hostLevels` / `resolveHostColumns` path. Hold badges come from the binding (`holdRef`), not from the letter.
+- **Keycap face contract** (one fill path — agents must not reinvent this):
+  - **Core** `keycapFace(legend)` is the only board content API: for each on-keycap language (≤2), append non-empty levels in order base → shift → AltGr → AltGr+Shift; if both languages share the same letter pair, the second skips base/shift; drop a language with no glyphs; attach `hold` when present. Never `ˬ`, never `/`. Hover decode stays the full four-level grid when the packed face is unclear.
+  - **UI** (`KeyCap.svelte`): paint that face and **scale-to-fit** if the layer row is too narrow. No second packing step, no fixed equal glyph cells.
+  - **Decode / table**: still use `ˬ` for editable empty levels (decode-only).
 - Host glyphs are editable from an **Alt+click** host-edit session on the decode card (see below). A fuller standalone host-layout editor remains future work. An xkb section writer round-trips layouts for Linux paste/download; the Host chrome lane also writes a `.klc` file for MSKLC (one language per file, plus an English file with another language on Caps Lock when the legend has both).
 
 ## Host layouts
 
-Core domain code (compose, host-layout registry) does **not** know any concrete keyboard. Built-in host data is OS language tables (`HOST_LANGUAGES`: en, ru, uk, de) plus vendored xkb modules. Named boards appear only as fixtures (`packages/keymap-core/fixtures/lark/`, `fixtures/demo/`) and the Demo catalog loader — see [running-locally.md](../running-locally.md) and [AGENTS.md](../AGENTS.md).
+Core domain code (compose, host-layout registry) does **not** know any concrete keyboard. Built-in host data is OS language tables (`HOST_LANGUAGES`: en, ru, uk, de, fr, pl, es) plus vendored xkb modules. Named boards appear only as fixtures (`packages/keymap-core/fixtures/lark/`, `fixtures/demo/`) and the Demo catalog loader — see [running-locally.md](../running-locally.md) and [AGENTS.md](../AGENTS.md).
 
 - **Registry.** `hostLayout(id)` / `hostLayoutMeta(id)` resolve both builtins and layouts registered at runtime. Builtin xkb sections parse on first use. `registerHostLayout` / `unregisterHostLayout` make an imported or copied layout available to the keycap, table, decode card, and profile menu the same way as a system id.
 - **Storage in the layout.** Each `HostLayout` stores four **keysyms** per key and derives glyphs. `'NoSymbol'` is explicit. Non-character bases (`dead_*`, `Multi_key`) stay in the table; composition filters them.

@@ -71,6 +71,48 @@ export const WINDOWS_LOCALES: Record<HostLanguageId, WindowsLocale> = {
       BSLH: 'OEM_2',
       SLASH: 'OEM_MINUS'
     }
+  },
+  fr: {
+    localeName: 'fr-FR',
+    localeId: '0000040c',
+    languageName: 'French (France)',
+    shiftStates: [0, 1, 2, 6],
+    // AZERTY punctuation VKs from stock MSKLC (tmp/mklc/fr.klc). Letter VKs
+    // follow the Latin letter on the key (Q→A, W→Z, …).
+    vkByZmk: {
+      MINUS: 'OEM_4',
+      LBKT: 'OEM_6',
+      RBKT: 'OEM_1',
+      SQT: 'OEM_3',
+      GRAVE: 'OEM_7',
+      M: 'OEM_COMMA',
+      COMMA: 'OEM_PERIOD',
+      DOT: 'OEM_2',
+      SLASH: 'OEM_8'
+    }
+  },
+  pl: {
+    // Polish programmers (AltGr) — matches xkb pl(basic); oracle pl_prog.klc.
+    localeName: 'pl-PL',
+    localeId: '00000415',
+    languageName: 'Polish (Poland)',
+    shiftStates: [0, 1, 2, 6, 7]
+  },
+  es: {
+    localeName: 'es-ES',
+    localeId: '0000040a',
+    languageName: 'Spanish (Spain)',
+    shiftStates: [0, 1, 2, 6],
+    vkByZmk: {
+      MINUS: 'OEM_4',
+      EQUAL: 'OEM_6',
+      LBKT: 'OEM_1',
+      RBKT: 'OEM_PLUS',
+      SEMI: 'OEM_3',
+      GRAVE: 'OEM_5',
+      BSLH: 'OEM_2',
+      SLASH: 'OEM_MINUS'
+    }
   }
 }
 
