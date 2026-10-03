@@ -100,6 +100,10 @@
       : [0]
   )
   const boardCombos = $derived(keymap.combos ?? [])
+  let comboHoverPeek = $state<{
+    positions: ReadonlySet<number>
+    faceLayer: number
+  } | null>(null)
 
   function comboBindingLabel(combo: ZmkCombo): string {
     try {
@@ -254,6 +258,7 @@
             {usedLayerLabels}
             {comboMode}
             comboPositions={activeComboPositions}
+            comboPeek={comboHoverPeek}
             onUpdate={handleUpdateBinding}
             onComboToggle={index => editor.toggleComboPosition(index)}
           />
@@ -269,6 +274,11 @@
               minY={bounds.minY}
               labelFor={comboBindingLabel}
               onSelect={openComboFromBoard}
+              onHover={hover => {
+                comboHoverPeek = hover
+                  ? { positions: new Set(hover.positions), faceLayer: hover.faceLayer }
+                  : null
+              }}
             />
           {/if}
           {#if schemeMode}

@@ -104,6 +104,7 @@ describe('Key click editor', () => {
       layerBindings?: KeyBindingNode[]
       layerView?: { shown: number[]; layer0Raw: boolean }
       hostView?: HostLegendView
+      comboPeekLayer?: number | null
     } = {}
   ) {
     const onUpdate = props.onUpdate ?? vi.fn()
@@ -116,6 +117,7 @@ describe('Key click editor', () => {
         layerBindings: props.layerBindings,
         layerView: props.layerView,
         hostView: props.hostView,
+        comboPeekLayer: props.comboPeekLayer,
         onUpdate
       }
     })
@@ -777,6 +779,22 @@ describe('Key click editor', () => {
     expect(lines[1]).toContain('ыЫ')
     expect(lines[2]).toContain('іІ')
     expect(rows[0].textContent).not.toMatch(/bB|cC/)
+  })
+
+  it('peeks the multilang face for any combo layer, not only L0', () => {
+    editor.hostLegend = addHostLanguage(addHostLanguage(editor.hostLegend, 'ru'), 'uk')
+    editor.multilangView = true
+    open({
+      hostView: editor.hostLegend,
+      layerBindings: [
+        { value: '&kp', params: [{ value: 'A', params: [] }] },
+        { value: '&kp', params: [{ value: 'B', params: [] }] }
+      ],
+      layerView: { shown: [0, 1], layer0Raw: false },
+      comboPeekLayer: 1
+    })
+    const face = document.querySelector('.layer-slot.multilang-face')
+    expect(face?.classList.contains('combo-peek')).toBe(true)
   })
 
   it('keeps a non-character key on one row while languages are stacked', () => {

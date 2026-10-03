@@ -23,6 +23,8 @@
     hidden?: ReadonlySet<number>
     comboMode?: boolean
     comboPositions?: ReadonlySet<number> | null
+    /** Bead hover: highlight these keys' layer strips. */
+    comboPeek?: { positions: ReadonlySet<number>; faceLayer: number } | null
     onComboToggle?: (keyIndex: number) => void
   }
 
@@ -41,6 +43,7 @@
     hidden,
     comboMode = false,
     comboPositions = null,
+    comboPeek = null,
     onComboToggle
   }: Props = $props()
 
@@ -81,7 +84,10 @@
       {legendHover}
       layerBindings={layerStack?.map(layer => layer[i] ?? { value: '&none', params: [] })}
       {comboMode}
-      comboMember={comboPositions?.has(i) ?? false}
+      comboMember={comboMode && (comboPositions?.has(i) ?? false)}
+      comboPeekLayer={
+        !comboMode && comboPeek?.positions.has(i) ? comboPeek.faceLayer : null
+      }
       {onUpdate}
       {onComboToggle}
     />

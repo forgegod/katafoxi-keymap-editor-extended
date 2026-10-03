@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte'
   import type { LayoutKey, ZmkCombo } from '@keymap-editor/keymap-core'
   import { buildComboArcSegs } from '../../combo-arcs'
 
@@ -13,6 +14,7 @@
     minY: number
     labelFor: (combo: ZmkCombo) => string
     onSelect: (comboId: string) => void
+    onHover?: (hover: { positions: readonly number[]; faceLayer: number } | null) => void
   }
 
   let {
@@ -25,7 +27,8 @@
     minX,
     minY,
     labelFor,
-    onSelect
+    onSelect,
+    onHover
   }: Props = $props()
 
   const segs = $derived(
@@ -33,6 +36,21 @@
   )
 
   let hoverId = $state<string | null>(null)
+
+  function setHover(
+    comboId: string | null,
+    positions: readonly number[] | null,
+    faceLayer: number | null
+  ) {
+    hoverId = comboId
+    if (positions && faceLayer != null) {
+      onHover?.({ positions, faceLayer })
+    } else {
+      onHover?.(null)
+    }
+  }
+
+  onDestroy(() => onHover?.(null))
 </script>
 
 {#if segs.length > 0}
@@ -48,6 +66,7 @@
     {#each segs as seg (seg.id)}
       <g
         class="combo-bead"
+        class:anchor={seg.kind === 'anchor'}
         class:hover={hoverId === seg.comboId}
         role="button"
         tabindex="0"
@@ -59,29 +78,31 @@
             onSelect(seg.comboId)
           }
         }}
-        onmouseenter={() => (hoverId = seg.comboId)}
+        onmouseenter={() => setHover(seg.comboId, seg.keyPositions, seg.faceLayer)}
         onmouseleave={() => {
-          if (hoverId === seg.comboId) hoverId = null
+          if (hoverId === seg.comboId) setHover(null, null, null)
         }}
-        onfocus={() => (hoverId = seg.comboId)}
+        onfocus={() => setHover(seg.comboId, seg.keyPositions, seg.faceLayer)}
         onblur={() => {
-          if (hoverId === seg.comboId) hoverId = null
+          if (hoverId === seg.comboId) setHover(null, null, null)
         }}
       >
         <title>{seg.title}</title>
         <circle class="dot-hit" cx={seg.midX} cy={seg.midY} r="11" />
         <circle class="dot" cx={seg.midX} cy={seg.midY} r="4.5" />
         {#if hoverId === seg.comboId}
+          {@const tipBelow = seg.midY - minY < 22}
+          {@const tipW = Math.max(seg.label.length * 6.4, 36)}
           <g class="tip" transform="translate({seg.midX}, {seg.midY})">
             <rect
               class="tip-bg"
-              x={-Math.max(seg.label.length * 3.2, 18)}
-              y="-20"
-              width={Math.max(seg.label.length * 6.4, 36)}
+              x={-tipW / 2}
+              y={tipBelow ? 8 : -20}
+              width={tipW}
               height="16"
               rx="3"
             />
-            <text class="tip-text" y="-12">{seg.label}</text>
+            <text class="tip-text" y={tipBelow ? 16 : -12}>{seg.label}</text>
           </g>
         {/if}
       </g>
@@ -115,10 +136,20 @@
     stroke-width: 1.25;
   }
 
+  .combo-bead.anchor .dot {
+    fill: color-mix(in srgb, var(--combo, #c9a227) 82%, transparent);
+    stroke: color-mix(in srgb, var(--stage-bg, #111) 55%, transparent);
+  }
+
   .combo-bead.hover .dot,
   .combo-bead:focus-visible .dot {
     fill: var(--accent, #3a7);
     stroke-width: 1.5;
+  }
+
+  .combo-bead.anchor.hover .dot,
+  .combo-bead.anchor:focus-visible .dot {
+    fill: var(--combo, #c9a227);
   }
 
   .tip {
@@ -129,6 +160,10 @@
     fill: color-mix(in srgb, var(--stage-bg, #111) 88%, var(--surface, #222));
     stroke: color-mix(in srgb, var(--accent, #3a7) 45%, transparent);
     stroke-width: 1;
+  }
+
+  .combo-bead.anchor .tip-bg {
+    stroke: color-mix(in srgb, var(--combo, #c9a227) 50%, transparent);
   }
 
   .tip-text {

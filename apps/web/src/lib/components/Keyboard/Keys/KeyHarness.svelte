@@ -22,6 +22,7 @@
     layerBindings?: KeyBindingNode[]
     layerView?: LayerView
     hostView?: HostLegendView
+    comboPeekLayer?: number | null
     onUpdate?: (keyIndex: number, layerIndex: number, binding: KeyBindingNode) => void
   }
 
@@ -35,6 +36,7 @@
     layerBindings,
     layerView,
     hostView,
+    comboPeekLayer = null,
     onUpdate = () => {}
   }: Props = $props()
 
@@ -70,6 +72,7 @@
   }
   {layerView}
   {hostView}
+  comboPeekLayer={comboPeekLayer}
   legendHover={editor.legendHover}
   onUpdate={(keyIndex, layerIndex, binding) => onUpdate(keyIndex, layerIndex, binding)}
 />

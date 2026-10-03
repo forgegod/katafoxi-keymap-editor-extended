@@ -22,6 +22,7 @@
     type ZmkCombo
   } from '@keymap-editor/keymap-core'
   import { getDefinitionsContext, getSearchContext } from '../context'
+  import { isEditableFocus } from '../editor-shortcuts'
   import { editor } from '../editor.svelte.js'
   import { createKeyEditSession } from '../key-edit-session.svelte'
   import Modal from './Common/Modal.svelte'
@@ -224,21 +225,58 @@
   function closePanel() {
     editor.tryExitComboMode()
   }
+
+  /** Escape = Done: close binding editor first, blur fields, then leave combo mode. */
+  $effect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape' || event.defaultPrevented || event.repeat) return
+      if (session.editing) {
+        event.preventDefault()
+        // Capture + stop so KeyEditor's window listener does not also run, then
+        // a second handler would see editing=false and exit combo mode.
+        event.stopImmediatePropagation()
+        session.closeEditor()
+        return
+      }
+      if (isEditableFocus(event.target)) {
+        event.preventDefault()
+        if (event.target instanceof HTMLElement) event.target.blur()
+        return
+      }
+      event.preventDefault()
+      editor.tryExitComboMode()
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
+  })
 </script>
 
 <aside class="combo-panel" aria-label="Combos">
   <header class="combo-head">
-    <h2 class="combo-title">Combos</h2>
+    <div class="combo-head-title">
+      <h2 class="combo-title">Combos</h2>
+      <a
+        class="combo-docs"
+        href="https://zmk.dev/docs/keymaps/combos"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="ZMK combo parameters reference"
+      >
+        ZMK docs
+      </a>
+    </div>
     <div class="combo-head-actions">
       <button type="button" class="combo-btn" onclick={addCombo}>New</button>
       <button
         type="button"
-        class="combo-btn"
+        class="combo-btn done"
         aria-label="Done editing combos"
-        title="Done editing combos"
+        aria-keyshortcuts="Escape"
+        title="Done editing combos (Esc)"
         onclick={closePanel}
       >
         Done
+        <kbd class="esc-hint">Esc</kbd>
       </button>
     </div>
   </header>
@@ -514,10 +552,30 @@
     gap: 8px;
   }
 
+  .combo-head-title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+
   .combo-title {
     margin: 0;
     font-size: inherit;
     font-weight: 700;
+  }
+
+  .combo-docs {
+    color: var(--text-muted);
+    font-size: 0.88em;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    white-space: nowrap;
+  }
+
+  .combo-docs:hover,
+  .combo-docs:focus-visible {
+    color: var(--accent, #3a7);
   }
 
   .combo-head-actions {
@@ -556,6 +614,25 @@
     color: var(--text);
     font: inherit;
     cursor: pointer;
+  }
+
+  .combo-btn.done {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .esc-hint {
+    font: inherit;
+    font-size: 0.72em;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    padding: 0 4px;
+    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--stage-bg, #111) 35%, transparent);
+    color: var(--text-disabled, #888);
+    line-height: 1.4;
   }
 
   .combo-btn.quiet {

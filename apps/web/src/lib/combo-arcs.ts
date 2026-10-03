@@ -5,6 +5,8 @@ import {
 } from '@keymap-editor/keymap-core'
 import { getKeyBoundingBox } from './key-units'
 
+type ComboBeadKind = 'gap' | 'anchor'
+
 export type ComboArcSeg = {
   id: string
   comboId: string
@@ -12,16 +14,29 @@ export type ComboArcSeg = {
   title: string
   midX: number
   midY: number
+  kind: ComboBeadKind
+  keyPositions: number[]
+  /** Firmware layer index of the strip this bead sits on (among shown layers). */
+  faceLayer: number
 }
 
 type KeyGeom = {
   index: number
   midX: number
+  minX: number
+  maxX: number
   minY: number
+  maxY: number
   keyH: number
   row: number
   col: number
 }
+
+/** Fallback when the anchor has no right-hand neighbour gutter. */
+export const COMBO_ANCHOR_SIDE_FALLBACK = 2.5
+/** Extra beads that share a gutter stack at most this many steps. */
+const STACK_MAX = 2
+const STACK_STEP = 5
 
 function keyGeoms(layout: LayoutKey[]): KeyGeom[] {
   return layout.map((key, index) => {
@@ -35,7 +50,10 @@ function keyGeoms(layout: LayoutKey[]): KeyGeom[] {
     return {
       index,
       midX: (box.min.x + box.max.x) / 2,
+      minX: box.min.x,
+      maxX: box.max.x,
       minY: box.min.y,
+      maxY: box.max.y,
       keyH: box.max.y - box.min.y,
       row: typeof key.row === 'number' ? key.row : 0,
       col: typeof key.col === 'number' ? key.col : index
@@ -62,9 +80,90 @@ function isAdjacentSameRow(a: KeyGeom, b: KeyGeom): boolean {
   return a.row === b.row && Math.abs(a.col - b.col) === 1
 }
 
+function isAdjacentSameCol(a: KeyGeom, b: KeyGeom): boolean {
+  return a.col === b.col && Math.abs(a.row - b.row) === 1
+}
+
+function faceMidY(key: KeyGeom, slot: number, rowCount: number): number {
+  const faceH = key.keyH / rowCount
+  return key.minY + faceH * slot + faceH / 2
+}
+
 /**
- * Board beads for adjacent horizontal 2-key combos (gap mid only, no lines).
- * Y sits on the shown-layer strip the combo actually applies to.
+ * Vertical neighbours: stay in the physical gutter, spread by shown-layer
+ * slot so L1/L2 beads on the same pair do not sit on top of each other.
+ */
+function verticalGapMidY(
+  top: KeyGeom,
+  bottom: KeyGeom,
+  slot: number,
+  rowCount: number
+): number {
+  const physicalMid = (top.maxY + bottom.minY) / 2
+  if (rowCount <= 1) return physicalMid
+  const faceH = Math.min(top.keyH, bottom.keyH) / rowCount
+  const spread = Math.min(faceH * 0.4, 10)
+  return physicalMid + (slot - (rowCount - 1) / 2) * spread
+}
+
+/** Stable board-space pick: top-most, then left-most, then lowest index. */
+function pickAnchorGeom(geoms: KeyGeom[], positions: readonly number[]): KeyGeom | null {
+  let best: KeyGeom | null = null
+  for (const index of positions) {
+    const g = geoms[index]
+    if (!g) continue
+    if (
+      !best ||
+      g.row < best.row ||
+      (g.row === best.row && g.col < best.col) ||
+      (g.row === best.row && g.col === best.col && g.index < best.index)
+    ) {
+      best = g
+    }
+  }
+  return best
+}
+
+/** Nearest visible key to the right on the same layout row. */
+function rightNeighbor(
+  anchor: KeyGeom,
+  geoms: readonly KeyGeom[],
+  hidden?: ReadonlySet<number>
+): KeyGeom | null {
+  let best: KeyGeom | null = null
+  for (const g of geoms) {
+    if (g.index === anchor.index) continue
+    if (hidden?.has(g.index)) continue
+    if (g.row !== anchor.row) continue
+    if (g.midX <= anchor.midX) continue
+    if (!best || g.midX < best.midX) best = g
+  }
+  return best
+}
+
+/**
+ * Midpoint of the gutter to the right of the anchor — same “center of the
+ * gap” feel as horizontal adjacent beads. Falls back to a tiny outset.
+ */
+function anchorBeadX(
+  anchor: KeyGeom,
+  geoms: readonly KeyGeom[],
+  hidden?: ReadonlySet<number>
+): number {
+  const next = rightNeighbor(anchor, geoms, hidden)
+  if (next && next.minX > anchor.maxX) {
+    return (anchor.maxX + next.minX) / 2
+  }
+  return anchor.maxX + COMBO_ANCHOR_SIDE_FALLBACK
+}
+
+type DraftSeg = ComboArcSeg & { stackKey: string }
+
+/**
+ * Board beads for combos on shown layers.
+ * - Adjacent horizontal 2-key → mid-gap (between keys)
+ * - Adjacent vertical 2-key → mid-gap (between keys)
+ * - Everything else → mid-gap to the right of the geometric first key
  */
 export function buildComboArcSegs(
   layout: LayoutKey[],
@@ -77,32 +176,90 @@ export function buildComboArcSegs(
 ): ComboArcSeg[] {
   const geoms = keyGeoms(layout)
   const rowCount = Math.max(1, options.shownLayers.length)
-  const out: ComboArcSeg[] = []
+  const drafts: DraftSeg[] = []
+
   for (const combo of combos) {
-    if (combo.keyPositions.length !== 2) continue
+    if (combo.keyPositions.length < 2) continue
     if (!comboAppliesToAnyLayer(combo, options.shownLayers)) continue
     const slot = comboFaceSlot(combo, options.shownLayers)
     if (slot < 0) continue
-    const [i, j] = combo.keyPositions
-    if (i == null || j == null) continue
-    if (options.hidden?.has(i) || options.hidden?.has(j)) continue
-    const a = geoms[i]
-    const b = geoms[j]
-    if (!a || !b) continue
-    if (!isAdjacentSameRow(a, b)) continue
-    const left = a.midX <= b.midX ? a : b
-    const right = a.midX <= b.midX ? b : a
-    const faceH = left.keyH / rowCount
-    const midY = left.minY + faceH * slot + faceH / 2
+    if (combo.keyPositions.some(i => options.hidden?.has(i))) continue
+    if (combo.keyPositions.some(i => !geoms[i])) continue
+
     const label = options.labelFor(combo)
-    out.push({
-      id: `${combo.id}:${left.index}-${right.index}`,
+    const keyPositions = [...combo.keyPositions]
+    const positions = combo.keyPositions
+    const faceLayer = options.shownLayers[slot]!
+
+    if (positions.length === 2) {
+      const [i, j] = positions
+      const a = geoms[i!]
+      const b = geoms[j!]
+      if (a && b && isAdjacentSameRow(a, b)) {
+        const left = a.midX <= b.midX ? a : b
+        const right = a.midX <= b.midX ? b : a
+        drafts.push({
+          id: `${combo.id}:${left.index}-${right.index}`,
+          comboId: combo.id,
+          label,
+          title: `${combo.id}: ${label}`,
+          midX: (left.midX + right.midX) / 2,
+          midY: faceMidY(left, slot, rowCount),
+          kind: 'gap',
+          keyPositions,
+          faceLayer,
+          stackKey: `gap-h:${left.index}-${right.index}:${slot}`
+        })
+        continue
+      }
+      if (a && b && isAdjacentSameCol(a, b)) {
+        const top = a.minY <= b.minY ? a : b
+        const bottom = a.minY <= b.minY ? b : a
+        drafts.push({
+          id: `${combo.id}:${top.index}-${bottom.index}`,
+          comboId: combo.id,
+          label,
+          title: `${combo.id}: ${label}`,
+          midX: (top.midX + bottom.midX) / 2,
+          midY: verticalGapMidY(top, bottom, slot, rowCount),
+          kind: 'gap',
+          keyPositions,
+          faceLayer,
+          stackKey: `gap-v:${top.index}-${bottom.index}:${slot}`
+        })
+        continue
+      }
+    }
+
+    const anchor = pickAnchorGeom(geoms, positions)
+    if (!anchor) continue
+    drafts.push({
+      id: `${combo.id}:anchor-${anchor.index}`,
       comboId: combo.id,
       label,
       title: `${combo.id}: ${label}`,
-      midX: (left.midX + right.midX) / 2,
-      midY
+      midX: anchorBeadX(anchor, geoms, options.hidden),
+      midY: faceMidY(anchor, slot, rowCount),
+      kind: 'anchor',
+      keyPositions,
+      faceLayer,
+      stackKey: `anchor:${anchor.index}:${slot}`
     })
+  }
+
+  const stackCounts = new Map<string, number>()
+  const out: ComboArcSeg[] = []
+  for (const draft of drafts) {
+    const n = stackCounts.get(draft.stackKey) ?? 0
+    stackCounts.set(draft.stackKey, n + 1)
+    const { stackKey: _stackKey, ...seg } = draft
+    if (n > 0) {
+      // Cap so deep stacks stay near the gutter instead of drifting onto faces.
+      const step = Math.min(n, STACK_MAX)
+      out.push({ ...seg, midY: seg.midY + step * STACK_STEP })
+    } else {
+      out.push(seg)
+    }
   }
   return out
 }
