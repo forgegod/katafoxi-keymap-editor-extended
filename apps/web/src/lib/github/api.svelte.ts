@@ -1,3 +1,4 @@
+import { inferRectangularLayout } from '@keymap-editor/keymap-core'
 import * as config from '../config'
 
 type Listener = (...args: unknown[]) => void
@@ -244,18 +245,47 @@ export class API extends EventEmitter {
     try {
       const { data } = (await this._request(path)) as {
         data: {
-          info: { layouts: Record<string, { layout: unknown }> }
-          keymap: unknown
+          info: { layouts: Record<string, { layout: unknown }> } | null
+          keymap: { layers?: unknown[] }
           hostSnapshot?: unknown
         }
       }
-      const defaultLayout =
-        data.info.layouts.default ||
-        data.info.layouts[Object.keys(data.info.layouts)[0]]
+      const warnings: string[] = []
+      if (data.info?.layouts && Object.keys(data.info.layouts).length > 0) {
+        const defaultLayout =
+          data.info.layouts.default ||
+          data.info.layouts[Object.keys(data.info.layouts)[0]]
+        return {
+          layout: defaultLayout.layout,
+          keymap: data.keymap,
+          hostSnapshot: data.hostSnapshot ?? null,
+          warnings
+        }
+      }
+
+      const layer0 = Array.isArray(data.keymap?.layers) ? data.keymap.layers[0] : null
+      const keyCount = Array.isArray(layer0) ? layer0.length : 0
+      if (keyCount <= 0) {
+        const err = new Error('Request failed: 400') as RequestError
+        err.response = {
+          status: 400,
+          data: {
+            name: 'MissingRepoFile',
+            path: 'config/info.json',
+            errors: [
+              'Missing file config/info.json and keymap has no bindings to infer a layout from'
+            ]
+          }
+        }
+        throw err
+      }
+
+      warnings.push('github_inferred_layout')
       return {
-        layout: defaultLayout.layout,
+        layout: inferRectangularLayout(keyCount),
         keymap: data.keymap,
-        hostSnapshot: data.hostSnapshot ?? null
+        hostSnapshot: data.hostSnapshot ?? null,
+        warnings
       }
     } catch (err) {
       const requestErr = err as RequestError

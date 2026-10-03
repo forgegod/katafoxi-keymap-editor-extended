@@ -286,6 +286,26 @@ describe('editor publish / draft persistence', () => {
       'No info.json — using a flat rectangular board from the binding count. Paste info.json for the real layout.',
       'Loaded from keymap.json only — Copy .keymap will use the default ZMK template unless you also paste a .keymap under “Export source”.'
     ])
+    expect(editor.saveNotice?.links).toEqual([
+      {
+        href: 'https://shield-wizard.genteure.com/',
+        label: 'Create a physical layout in Shield Wizard'
+      }
+    ])
+  })
+
+  it('surfaces github inferred-layout warnings in saveNotice', async () => {
+    await editor.selectKeyboard({
+      source: 'github',
+      github: { repository: 'acme/lark', branch: 'main' },
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A', 'lark'),
+      warnings: ['github_inferred_layout']
+    })
+
+    expect(editor.saveNotice?.kind).toBe('warning')
+    expect(editor.saveNotice?.messages[0]).toMatch(/No config\/info\.json/)
+    expect(editor.saveNotice?.links?.[0]?.label).toMatch(/Shield Wizard/)
   })
 
   it('clears saveNotice on applyClipboardCopied so the export sheet owns notes', async () => {

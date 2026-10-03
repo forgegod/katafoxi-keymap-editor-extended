@@ -178,6 +178,25 @@ async function fetchHostKeymapSnapshot(
   }
 }
 
+async function fetchInfoJson(
+  installationToken: string,
+  repository: string,
+  branch?: string
+): Promise<unknown | null> {
+  try {
+    const { data: infoRaw } = await fetchFile(
+      installationToken,
+      repository,
+      'config/info.json',
+      { raw: true, branch }
+    )
+    return parseJsonBody(infoRaw)
+  } catch (err) {
+    if (err instanceof MissingRepoFile) return null
+    throw err
+  }
+}
+
 export async function fetchKeyboardFiles(
   installationId: string,
   repository: string,
@@ -185,13 +204,7 @@ export async function fetchKeyboardFiles(
 ) {
   const { data } = await auth.createInstallationToken(installationId)
   const installationToken = (data as { token: string }).token
-  const { data: infoRaw } = await fetchFile(
-    installationToken,
-    repository,
-    'config/info.json',
-    { raw: true, branch }
-  )
-  const info = parseJsonBody(infoRaw)
+  const info = await fetchInfoJson(installationToken, repository, branch)
   const listing = await listConfigDir(installationToken, repository, branch)
   const originalCodeKeymap = findCodeKeymap(listing)
   const keymap = await fetchKeymap(

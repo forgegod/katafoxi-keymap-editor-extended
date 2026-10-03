@@ -41,7 +41,7 @@ Both must be true; the API gates the routes, and the SPA hides Local unless the 
 
 - Enable GitHub with `ENABLE_GITHUB=true` and the GitHub App fields in `.env`. In `apps/web/.env.development`, set `VITE_ENABLE_GITHUB=true` and `VITE_GITHUB_APP_NAME` to the same slug as `GITHUB_APP_NAME`. In dev, `VITE_APP_BASE_URL` must be `http://127.0.0.1:5173`.
 - Login uses an HttpOnly session cookie (`sid`). The browser never gets a GitHub OAuth access token, and there is no `?token=` on the redirect after OAuth.
-- Opening a repository needs `config/info.json` and a user `config/*.keymap`. Bindings come from `config/keymap.json` when that file has non-empty valid layers, and from the `.keymap` otherwise. `*.keymap.template` is read only when committing.
+- Opening a repository needs a user `config/*.keymap`. `config/info.json` is optional: without it the SPA draws a flat rectangular board from the binding count (same as Clipboard). Bindings come from `config/keymap.json` when that file has non-empty valid layers, and from the `.keymap` otherwise. `*.keymap.template` is read only when committing. Commit does not create `info.json`.
 - The ZMK lane shows **Latest** for that branch’s Actions firmware build. The chip stays neutral until a firmware artifact can be downloaded. A successful run with an artifact downloads the zip through the API. A failed, cancelled, or artifact-less run opens the Actions page.
 - In dev, `GITHUB_OAUTH_CALLBACK_URL` must be the **Vite** origin (e.g. `http://127.0.0.1:5173/github/authorize`), not `:8080`, so `Set-Cookie` attaches via the Vite proxy. Production uses same-origin `{APP_BASE_URL}/github/authorize`.
 - Decision record: [docs/adr/0003-github-auth-server-session.md](docs/adr/0003-github-auth-server-session.md).

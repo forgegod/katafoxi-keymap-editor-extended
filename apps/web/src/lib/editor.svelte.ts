@@ -111,7 +111,10 @@ import {
   type UserHostLayoutRecord
 } from './host-layout-store'
 import { defaultHostEditTarget, stepHostEditTarget } from './host-edit-cycle'
-import { formatKeymapSaveWarnings } from './keymap-save-warnings.js'
+import {
+  formatKeymapSaveWarningNotices,
+  formatKeymapSaveWarnings
+} from './keymap-save-warnings.js'
 
 export type HostProfilePrompt =
   | { kind: 'save-as'; language: HostLanguageId }
@@ -144,6 +147,8 @@ export type HostKeyLevelEditResult =
 export type SaveNotice = {
   kind: 'warning' | 'error'
   messages: string[]
+  /** Optional help links for load/save warnings (e.g. Shield Wizard). */
+  links?: Array<{ href: string; label: string }>
 }
 
 export type GithubMeta = { repository: string; branch: string }
@@ -1576,10 +1581,13 @@ export class EditorState {
       }
     }
     this.saveNotice = null
-    if (event.source === 'clipboard') {
-      const warnings = formatKeymapSaveWarnings(event.warnings)
-      if (warnings.length > 0) {
-        this.saveNotice = { kind: 'warning', messages: warnings }
+    const loadNotices = formatKeymapSaveWarningNotices(event.warnings)
+    if (loadNotices.length > 0) {
+      const links = loadNotices.flatMap(notice => (notice.link ? [notice.link] : []))
+      this.saveNotice = {
+        kind: 'warning',
+        messages: loadNotices.map(notice => notice.message),
+        links: links.length > 0 ? links : undefined
       }
     }
 

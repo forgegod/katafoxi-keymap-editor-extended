@@ -357,6 +357,13 @@
           {#each editor.saveNotice.messages as message}
             <p>{message}</p>
           {/each}
+          {#each editor.saveNotice.links ?? [] as link}
+            <p>
+              <a href={link.href} target="_blank" rel="noopener noreferrer"
+                >{link.label}</a
+              >
+            </p>
+          {/each}
         </div>
       {/if}
     </div>
@@ -623,6 +630,12 @@
 
   .save-notice p + p {
     margin-top: 4px;
+  }
+
+  .save-notice a {
+    color: inherit;
+    font-weight: 600;
+    text-decoration: underline;
   }
 
   .save-notice.warning {
