@@ -311,6 +311,11 @@ describe('HostLegendPicker', () => {
       })
     }
     if (!(menuItem instanceof HTMLButtonElement)) throw new Error(`missing language ${label}`)
+    // Real clicks send pointerdown first; the menu's outside-close listener must not
+    // eat the following click (especially Remove language).
+    menuItem.dispatchEvent(
+      new PointerEvent('pointerdown', { bubbles: true, cancelable: true })
+    )
     menuItem.click()
     flushSync()
   }

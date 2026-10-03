@@ -59,7 +59,10 @@
     const open = column ? choosing : pickingNew
     if (!open) return
     function handle(event: PointerEvent) {
-      if (event.target instanceof Node && langMenuEl?.contains(event.target)) return
+      // Prefer closest() over contains(langMenuEl): bind:this can lag one frame, and a
+      // miss closes the menu on pointerdown before the item's click handler runs.
+      const target = event.target
+      if (target instanceof Element && target.closest('.lang-menu') === langMenuEl) return
       if (column) pickingFor = null
       else pickingNew = false
     }
@@ -77,6 +80,11 @@
       document.removeEventListener('keydown', onKey)
     }
   })
+
+  /** Keep the document outside-close listener from seeing presses on menu items. */
+  function holdLangMenu(event: Event) {
+    event.stopPropagation()
+  }
 
   function activeProfileLabel(): string {
     if (!language) return ''
@@ -190,6 +198,7 @@
             role="listbox"
             aria-label="Language"
             use:focusLangList
+            onpointerdown={holdLangMenu}
           >
             {#each addable as option (option)}
               <li role="none">
@@ -247,6 +256,7 @@
                 role="listbox"
                 aria-label="Language"
                 use:focusLangList
+                onpointerdown={holdLangMenu}
               >
                 <li role="none">
                   <button
