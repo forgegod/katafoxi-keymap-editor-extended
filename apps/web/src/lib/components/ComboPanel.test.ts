@@ -54,6 +54,10 @@ describe('ComboPanel', () => {
     mountPanel()
 
     expect(target.querySelector('.combo-id')?.textContent).toBe('combo_esc')
+    const docs = target.querySelector('a.combo-docs')
+    expect(docs).toBeTruthy()
+    expect(docs?.getAttribute('href')).toBe('https://zmk.dev/docs/keymaps/combos')
+    expect(docs?.getAttribute('target')).toBe('_blank')
     expect(target.querySelector('[aria-label="Require prior idle"]')).toBeTruthy()
 
     const off = [

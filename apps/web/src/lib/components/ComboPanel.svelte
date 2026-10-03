@@ -250,7 +250,18 @@
 
 <aside class="combo-panel" aria-label="Combos">
   <header class="combo-head">
-    <h2 class="combo-title">Combos</h2>
+    <div class="combo-head-title">
+      <h2 class="combo-title">Combos</h2>
+      <a
+        class="combo-docs"
+        href="https://zmk.dev/docs/keymaps/combos"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="ZMK combo parameters reference"
+      >
+        ZMK docs
+      </a>
+    </div>
     <div class="combo-head-actions">
       <button type="button" class="combo-btn" onclick={addCombo}>New</button>
       <button
@@ -536,10 +547,30 @@
     gap: 8px;
   }
 
+  .combo-head-title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+
   .combo-title {
     margin: 0;
     font-size: inherit;
     font-weight: 700;
+  }
+
+  .combo-docs {
+    color: var(--text-muted);
+    font-size: 0.88em;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    white-space: nowrap;
+  }
+
+  .combo-docs:hover,
+  .combo-docs:focus-visible {
+    color: var(--accent, #3a7);
   }
 
   .combo-head-actions {
