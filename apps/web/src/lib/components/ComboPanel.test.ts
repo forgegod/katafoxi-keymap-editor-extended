@@ -94,4 +94,55 @@ describe('ComboPanel', () => {
     expect(editor.activeComboId).toBeTruthy()
     expect(editor.comboNotice).toMatch(/2/)
   })
+
+  it('leaves combo mode on Escape when every combo is complete', () => {
+    mountPanel()
+    expect(editor.comboMode).toBe(true)
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    )
+    flushSync()
+    expect(editor.comboMode).toBe(false)
+  })
+
+  it('keeps combo mode on Escape when the active combo is incomplete', () => {
+    mountPanel()
+    const add = [...target.querySelectorAll('.combo-btn')].find(
+      el => el.textContent?.trim() === 'New'
+    )
+    if (!(add instanceof HTMLButtonElement)) throw new Error('missing New')
+    add.click()
+    flushSync()
+    // Empty drafts are dropped on exit; one key is incomplete and blocks.
+    editor.toggleComboPosition(0)
+    flushSync()
+    expect(editor.comboMode).toBe(true)
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    )
+    flushSync()
+    expect(editor.comboMode).toBe(true)
+    expect(editor.comboNotice).toBeTruthy()
+  })
+
+  it('blurs a focused id field on Escape without leaving combo mode', () => {
+    mountPanel()
+    const input = target.querySelector('.combo-props input')
+    if (!(input instanceof HTMLInputElement)) throw new Error('missing id input')
+    input.focus()
+    expect(document.activeElement).toBe(input)
+
+    // Bubble to the window listener with target = input.
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Escape',
+        bubbles: true,
+        cancelable: true
+      })
+    )
+    flushSync()
+    expect(editor.comboMode).toBe(true)
+    expect(document.activeElement).not.toBe(input)
+  })
 })

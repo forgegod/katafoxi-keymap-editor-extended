@@ -22,6 +22,7 @@
     type ZmkCombo
   } from '@keymap-editor/keymap-core'
   import { getDefinitionsContext, getSearchContext } from '../context'
+  import { isEditableFocus } from '../editor-shortcuts'
   import { editor } from '../editor.svelte.js'
   import { createKeyEditSession } from '../key-edit-session.svelte'
   import Modal from './Common/Modal.svelte'
@@ -224,6 +225,27 @@
   function closePanel() {
     editor.tryExitComboMode()
   }
+
+  /** Escape = Done: close binding editor first, blur fields, then leave combo mode. */
+  $effect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape' || event.defaultPrevented || event.repeat) return
+      if (session.editing) {
+        event.preventDefault()
+        session.closeEditor()
+        return
+      }
+      if (isEditableFocus(event.target)) {
+        event.preventDefault()
+        if (event.target instanceof HTMLElement) event.target.blur()
+        return
+      }
+      event.preventDefault()
+      editor.tryExitComboMode()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  })
 </script>
 
 <aside class="combo-panel" aria-label="Combos">
@@ -235,7 +257,7 @@
         type="button"
         class="combo-btn"
         aria-label="Done editing combos"
-        title="Done editing combos"
+        title="Done editing combos (Esc)"
         onclick={closePanel}
       >
         Done
