@@ -43,7 +43,21 @@ describe('HOST_LANGUAGES table', () => {
     }
 
     const view = standardHostLegendView()
-    expect(hostLanguagesAvailable(view)).toEqual([...ADDABLE_HOST_LANGUAGE_IDS])
+    const available = hostLanguagesAvailable(view)
+    expect([...available].sort()).toEqual([...ADDABLE_HOST_LANGUAGE_IDS].sort())
+    expect(available).toEqual(
+      [...ADDABLE_HOST_LANGUAGE_IDS].sort((a, b) =>
+        hostLanguageName(a).localeCompare(hostLanguageName(b), 'en')
+      )
+    )
+    expect(available.map(hostLanguageName)).toEqual([
+      'French',
+      'German',
+      'Polish',
+      'Russian',
+      'Spanish',
+      'Ukrainian'
+    ])
 
     let next = view
     for (const language of ADDABLE_HOST_LANGUAGE_IDS) {
