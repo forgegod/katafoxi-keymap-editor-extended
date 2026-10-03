@@ -3,11 +3,6 @@
   import type { LayoutKey, ZmkCombo } from '@keymap-editor/keymap-core'
   import { buildComboArcSegs } from '../../combo-arcs'
 
-  export type ComboBeadHover = {
-    positions: readonly number[]
-    faceLayer: number
-  }
-
   interface Props {
     layout: LayoutKey[]
     combos: readonly ZmkCombo[]
@@ -19,7 +14,7 @@
     minY: number
     labelFor: (combo: ZmkCombo) => string
     onSelect: (comboId: string) => void
-    onHover?: (hover: ComboBeadHover | null) => void
+    onHover?: (hover: { positions: readonly number[]; faceLayer: number } | null) => void
   }
 
   let {

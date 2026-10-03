@@ -36,7 +36,7 @@
             layers = <1>;
             timeout-ms = <50>;
         };
-        // Anchor bead: vertical I+K on layer 1.
+        // Gap bead: vertical I+K on layer 1.
         combo_l1_tab {
             bindings = <&kp TAB>;
             key-positions = <20 32>;

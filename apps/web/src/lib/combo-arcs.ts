@@ -5,7 +5,7 @@ import {
 } from '@keymap-editor/keymap-core'
 import { getKeyBoundingBox } from './key-units'
 
-export type ComboBeadKind = 'gap' | 'anchor'
+type ComboBeadKind = 'gap' | 'anchor'
 
 export type ComboArcSeg = {
   id: string

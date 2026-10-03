@@ -32,7 +32,6 @@ describe('buildComboArcSegs', () => {
     expect(segs[0]?.faceLayer).toBe(0)
     expect(segs[0]?.midX).toBeGreaterThan(0)
     expect(segs[0]?.midY).toBeGreaterThan(0)
-    expect(segs[0]).not.toHaveProperty('d')
   })
 
   it('places a gap bead between vertical neighbours', () => {

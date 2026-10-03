@@ -16,7 +16,7 @@
                         layers = <1>;
                         timeout-ms = <50>;
                 };
-                // Anchor bead: vertical F+V on Nav.
+                // Gap bead: vertical F+V on Nav.
                 combo_l1_tab {
                         bindings = <&kp TAB>;
                         key-positions = <13 23>;
