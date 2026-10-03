@@ -47,6 +47,7 @@ import {
   summarizeKeymapDiff,
   withHostKey,
   symbolAlign,
+  symbolAlignPairFromView,
   promoteAbsentLayoutKey,
   isBlankLayerBinding,
   buildHostKeymapSnapshot,
@@ -438,12 +439,13 @@ export class EditorState {
     return diffKeymaps(this.baselineKeymap, this.draftKeymap)
   })
 
-  /** Null when the toggle is off or no second language is open. */
+  /** Null when the toggle is off or fewer than two languages are on the key. */
   symbolAlignIndex = $derived.by((): SymbolAlign | null => {
     void this.hostLayoutRevision
     if (!this.symbolAlignOn) return null
     const pair = this.#alignInputs()
-    return pair ? symbolAlign(pair.base, pair.extra, { levels: pair.levels }) : null
+    if (!pair) return null
+    return symbolAlign(pair.left, pair.right, { winMerge: pair.winMerge })
   })
 
   /** Encoded binding before the unpublished edit, keyed by `keyIndex:layer`. */
@@ -966,30 +968,37 @@ export class EditorState {
     return this.hostLegend.columns.find(column => column.language === language)?.layoutId ?? ''
   }
 
-  /** Base column plus the open extra, when that extra is visible. */
+  /**
+   * Two keycap languages for Differences. Position compares those layouts on
+   * every level. Win AltGr marks only when English and `open` are both drawn.
+   */
   #alignInputs(): {
-    base: HostLayout
-    extra: HostLayout
-    levels: (0 | 1 | 2 | 3)[]
-    extraLanguage: HostLanguageId
+    left: HostLayout
+    right: HostLayout
+    winMerge: { base: HostLayout; extra: HostLayout } | null
   } | null {
-    const view = this.hostLegend
-    const open = view.open
-    const baseCol = view.columns[0]
-    const extraCol = open ? view.columns.find(column => column.language === open) : undefined
-    if (!baseCol || !extraCol?.visible) return null
-    const base = hostLayout(baseCol.layoutId)
-    const extra = hostLayout(extraCol.layoutId)
-    if (!base || !extra) return null
-    const levels: (0 | 1 | 2 | 3)[] = [0, 1]
-    if (baseCol.altGr && extraCol.altGr) levels.push(2)
-    if (baseCol.altGrShift && extraCol.altGrShift) levels.push(3)
-    return { base, extra, levels, extraLanguage: extraCol.language }
+    const pair = symbolAlignPairFromView(this.hostLegend)
+    if (!pair) return null
+    const left = hostLayout(pair.leftLayoutId)
+    const right = hostLayout(pair.rightLayoutId)
+    if (!left || !right) return null
+    let winMerge: { base: HostLayout; extra: HostLayout } | null = null
+    if (pair.winMerge) {
+      const base = hostLayout(pair.winMerge.baseLayoutId)
+      const extra = hostLayout(pair.winMerge.extraLayoutId)
+      if (base && extra) winMerge = { base, extra }
+    }
+    return { left, right, winMerge }
   }
 
-  /** True when a second language is open, so Highlight symbol differences applies. */
+  /** True when two languages are drawn on the key, so Differences applies. */
   get canAlignHostSymbols(): boolean {
     return this.#alignInputs() != null
+  }
+
+  /** Win AltGr sample: only for the English × open install pair on the key. */
+  get symbolAlignShowsWinAltGr(): boolean {
+    return this.#alignInputs()?.winMerge != null
   }
 
   /** Stacked language face. Two languages already share the key, so this waits for a third. */

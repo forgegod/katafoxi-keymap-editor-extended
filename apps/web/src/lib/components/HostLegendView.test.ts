@@ -43,7 +43,7 @@ describe('HostLegendView', () => {
     const highlight = button('Highlight symbol differences')
     expect(highlight.disabled).toBe(true)
     expect(highlight.title).toBe(
-      'Highlight symbol differences. Open a second host language first.'
+      'Highlight symbol differences. Draw two host languages on the key first.'
     )
     expect(target.querySelector('.moved')).toBeNull()
     expect(stack.querySelector('.view-label')?.textContent).toBe('Stack')
@@ -57,7 +57,9 @@ describe('HostLegendView', () => {
 
     const highlight = button('Highlight symbol differences')
     expect(highlight.disabled).toBe(false)
-    expect(highlight.title).toBe('Highlight symbol differences')
+    expect(highlight.title).toBe(
+      'Highlight symbol differences between the languages on the key'
+    )
     expect(highlight.querySelector('.view-label')?.textContent).toBe('Differences')
     const slot = highlight.nextElementSibling
     expect(slot).toBeInstanceOf(HTMLElement)
@@ -66,6 +68,9 @@ describe('HostLegendView', () => {
     expect(
       target.querySelector('.sample .moved')?.closest('.sample')?.textContent?.replace(/\s+/g, ' ').trim()
     ).toBe('position')
+    expect(
+      target.querySelector('.sample .basic')?.closest('.sample')?.textContent?.replace(/\s+/g, ' ').trim()
+    ).toBe('basic')
     expect(
       target.querySelector('.sample .win')?.closest('.sample')?.textContent?.replace(/\s+/g, ' ').trim()
     ).toBe('Win AltGr')

@@ -192,6 +192,14 @@
 .key .layer-slot.symbol-moved {
   box-shadow: inset 0 -1px 0 var(--mark-diff);
 }
+.key .layer-slot.symbol-basic {
+  box-shadow: inset 0 -2px 0 var(--mark-basic);
+  background-color: color-mix(in srgb, var(--mark-basic) 14%, var(--key-face));
+}
+.key .layer-slot.symbol-moved.symbol-basic {
+  box-shadow: inset 0 -2px 0 var(--mark-basic);
+  background-color: color-mix(in srgb, var(--mark-basic) 14%, var(--key-face));
+}
 .key .layer-slot.altgr-conflict {
   box-shadow: inset 0 0 0 1px var(--mark-altgr);
 }
@@ -199,6 +207,13 @@
   box-shadow:
     inset 0 0 0 1px var(--mark-altgr),
     inset 0 -1px 0 var(--mark-diff);
+}
+.key .layer-slot.symbol-basic.altgr-conflict,
+.key .layer-slot.symbol-moved.symbol-basic.altgr-conflict {
+  box-shadow:
+    inset 0 0 0 1px var(--mark-altgr),
+    inset 0 -2px 0 var(--mark-basic);
+  background-color: color-mix(in srgb, var(--mark-basic) 14%, var(--key-face));
 }
 .key[data-stacked='true'] .layer-slot:hover,
 .key[data-stacked='true'] .layer-slot:focus-visible {
@@ -288,6 +303,7 @@
 /* Differences marks sit on the whole key. In a language stack they need a gap
    so the line and the ring stay off the glyphs. */
 .key .layer-slot.multilang-face.symbol-moved,
+.key .layer-slot.multilang-face.symbol-basic,
 .key .layer-slot.multilang-face.altgr-conflict {
   padding: 2px 3px 3px;
 }

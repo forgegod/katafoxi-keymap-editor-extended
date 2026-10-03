@@ -15,8 +15,8 @@
   )
   const alignTitle = $derived(
     canAlign
-      ? 'Highlight symbol differences'
-      : 'Highlight symbol differences. Open a second host language first.'
+      ? 'Highlight symbol differences between the languages on the key'
+      : 'Highlight symbol differences. Draw two host languages on the key first.'
   )
   const schemeTitle = $derived(
     editor.schemeMode ? 'Hide matrix scheme' : 'Show matrix scheme'
