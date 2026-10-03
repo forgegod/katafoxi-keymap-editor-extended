@@ -39,13 +39,33 @@ const KEYPAD_GLYPH_BY_CODE: ReadonlyMap<string, string> = new Map([
 
 /**
  * Letters a host language is expected to type. Ukrainian is not Russian:
- * і ї є ґ stand in, and ы э ъ ё do not. German adds ä ö ü ß to Latin.
+ * і ї є ґ stand in, and ы э ъ ё do not. German adds ä ö ü ß; French adds
+ * accented vowels and æ œ ç; Polish adds ą ć ę ł ń ó ś ź ż; Spanish adds ñ
+ * and acute vowels; Greek uses the modern alphabet (including final σ ς);
+ * Bulgarian omits Russian ы э ё. A letter the primary system layout never
+ * produces is not required (`missingBasicGlyphs`).
  */
 const LETTERS: Record<HostLanguageId, string> = {
   en: 'abcdefghijklmnopqrstuvwxyz',
   ru: 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя',
   uk: 'абвгґдеєжзиіїйклмнопрстуфхцчшщьюя',
-  de: 'abcdefghijklmnopqrstuvwxyzäöüß'
+  de: 'abcdefghijklmnopqrstuvwxyzäöüß',
+  fr: 'abcdefghijklmnopqrstuvwxyzàâäæçéèêëîïôœùûüÿ',
+  pl: 'abcdefghijklmnopqrstuvwxyząćęłńóśźż',
+  es: 'abcdefghijklmnopqrstuvwxyzñáéíóúü',
+  it: 'abcdefghijklmnopqrstuvwxyzàèéìíîòóùú',
+  pt: 'abcdefghijklmnopqrstuvwxyzáàâãçéêíóôõú',
+  br: 'abcdefghijklmnopqrstuvwxyzáàâãçéêíóôõú',
+  cs: 'aábcčdďeéěfghiíjklmnňoópqrřsštťuúůvwxyýzž',
+  da: 'abcdefghijklmnopqrstuvwxyzæøå',
+  sv: 'abcdefghijklmnopqrstuvwxyzåäö',
+  hu: 'aábcdeéfghiíjklmnoóöőpqrstuúüűvwxyz',
+  tr: 'abcçdefgğhıijklmnoöprsştuüvyz',
+  ro: 'aăâbcdefghiîjklmnopqrsștțuvwxyz',
+  fi: 'abcdefghijklmnopqrstuvwxyzåäö',
+  no: 'abcdefghijklmnopqrstuvwxyzæøå',
+  el: 'αβγδεζηθικλμνξοπρσςτυφχψω',
+  bg: 'абвгдежзийклмнопрстуфхцчшщъьюя'
 }
 
 /** Digits plus typewriter punctuation and the shifted partner of each mark. */
@@ -81,6 +101,40 @@ const MARKS = [
   '.',
   '>'
 ] as const
+
+/**
+ * Typewriter punctuation Differences treats as serious (Linux split / per-key gap).
+ * Digits stay out; national marks (`№`, …) stay ornament. Grave and tilde join the
+ * punct half of `MARKS`.
+ */
+export const BASIC_ALIGN_GLYPHS: ReadonlySet<string> = new Set([
+  ';',
+  ':',
+  '/',
+  '?',
+  '\\',
+  '|',
+  "'",
+  '"',
+  '-',
+  '_',
+  '=',
+  '+',
+  '[',
+  '{',
+  ']',
+  '}',
+  ',',
+  '<',
+  '.',
+  '>',
+  '`',
+  '~'
+])
+
+export function isBasicAlignGlyph(glyph: string): boolean {
+  return BASIC_ALIGN_GLYPHS.has(glyph)
+}
 
 const stockGlyphs = new Map<HostLanguageId, Set<string>>()
 

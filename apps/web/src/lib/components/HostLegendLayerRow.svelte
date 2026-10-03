@@ -154,18 +154,20 @@
     </div>
   </th>
   {#each columns as column, index (column.language)}
+    {@const cell = cells.find(item => item.language === column.language)}
     <td
       class:second={column.language !== 'en'}
       class:off={!column.shown}
       class:narrow={!column.wide}
       class:lang-start={index > 0}
+      class:dead={cell?.pairDead}
     >
-      {cells.find(item => item.language === column.language)?.pair ?? ''}
+      {cell?.pair ?? ''}
     </td>
     {#if column.wide}
-      <td class="alt" class:off={!column.altGr}>{cells.find(item => item.language === column.language)?.altGr ?? ''}</td>
-      <td class="alt" class:off={!column.altGrShift}>
-        {cells.find(item => item.language === column.language)?.altGrShift ?? ''}
+      <td class="alt" class:off={!column.altGr} class:dead={cell?.altGrDead}>{cell?.altGr ?? ''}</td>
+      <td class="alt" class:off={!column.altGrShift} class:dead={cell?.altGrShiftDead}>
+        {cell?.altGrShift ?? ''}
       </td>
     {/if}
   {/each}
@@ -208,6 +210,12 @@
 
   .alt {
     opacity: 0.75;
+  }
+
+  td.dead {
+    color: var(--warn-ink);
+    background: var(--warn-wash);
+    box-shadow: inset 0 0 0 1px var(--warn-border);
   }
 
   .off {

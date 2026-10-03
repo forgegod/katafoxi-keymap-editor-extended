@@ -2,6 +2,7 @@ import { primarySystemLayoutId } from './host-layout-catalog.js'
 import { STANDARD_HOST_LEGEND_VIEW } from './host-legend-presets.js'
 import {
   ADDABLE_HOST_LANGUAGE_IDS,
+  hostLanguageName,
   isAddableHostLanguage,
   type HostLanguageId
 } from './host-languages.js'
@@ -16,10 +17,14 @@ function cloneView(view: HostLegendView): HostLegendView {
 }
 
 /** Languages drawn on the keycap, oldest first. At most two, and only visible columns. */
-function shownKeycap(view: HostLegendView): HostLanguageId[] {
+export function hostKeycapLanguages(view: HostLegendView): HostLanguageId[] {
   const columns = new Map(view.columns.map(column => [column.language, column]))
   const raw = view.keycap ?? derivedKeycap(view)
   return raw.filter(language => columns.get(language)?.visible === true).slice(-2)
+}
+
+function shownKeycap(view: HostLegendView): HostLanguageId[] {
+  return hostKeycapLanguages(view)
 }
 
 /** Legacy pair: the visible base, then the open language when that column is visible. */
@@ -91,10 +96,12 @@ export function hostLegendColumns(view: HostLegendView): HostLegendColumn[] {
   })
 }
 
-/** Languages that can still be added after the open columns. */
+/** Languages that can still be added after the open columns, A–Z by English name. */
 export function hostLanguagesAvailable(view: HostLegendView): HostLanguageId[] {
   const used = new Set(view.columns.map(column => column.language))
-  return ADDABLE_HOST_LANGUAGE_IDS.filter(language => !used.has(language))
+  return ADDABLE_HOST_LANGUAGE_IDS.filter(language => !used.has(language)).sort((a, b) =>
+    hostLanguageName(a).localeCompare(hostLanguageName(b), 'en')
+  )
 }
 
 /** Swap an extra language for another unused one. Keeps the slot order. */

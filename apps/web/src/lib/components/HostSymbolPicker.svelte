@@ -385,6 +385,7 @@
   }
 
   function entryLabel(entry: HostSymbolShelfEntry): string {
+    if (entry.dead) return `Dead key ${entry.glyph} ${entry.keysym}`
     return entry.glyph ? `${entry.glyph} ${entry.keysym}` : entry.keysym
   }
 
@@ -397,7 +398,7 @@
   } | null>(null)
 
   function showLoupe(event: Event, entry: HostSymbolShelfEntry) {
-    if (!entry.glyph || isUninkedHostGlyph(entry.glyph)) {
+    if (!entry.glyph || (!entry.dead && isUninkedHostGlyph(entry.glyph))) {
       loupe = null
       return
     }
@@ -416,8 +417,10 @@
     loupe = null
   }
 
+  /** Dead accents must store the keysym; spacing `^` is not `asciicircum`. */
   function entryValue(entry: HostSymbolShelfEntry): string {
-    return entry.glyph || entry.keysym
+    if (entry.dead || !entry.glyph) return entry.keysym
+    return entry.glyph
   }
 
   function pick(entry: HostSymbolShelfEntry) {
@@ -495,7 +498,8 @@
               <button
                 type="button"
                 class="glyph"
-                class:modifier={!entry.glyph}
+                class:modifier={!entry.glyph && !entry.dead}
+                class:dead={entry.dead}
                 class:idle={disabled}
                 aria-disabled={disabled}
                 aria-label={entryLabel(entry)}
@@ -524,7 +528,8 @@
                 <button
                   type="button"
                   class="glyph"
-                  class:modifier={!entry.glyph}
+                  class:modifier={!entry.glyph && !entry.dead}
+                  class:dead={entry.dead}
                   class:idle={disabled}
                   aria-disabled={disabled}
                   aria-label={entryLabel(entry)}
@@ -737,6 +742,16 @@
   .glyph.modifier {
     font-size: 10px;
     color: var(--paper-ink);
+  }
+
+  .glyph.dead {
+    color: var(--warn-ink);
+    background: var(--warn-wash);
+    box-shadow: inset 0 0 0 1px var(--warn-border);
+  }
+
+  .glyph.dead:hover {
+    background: color-mix(in srgb, var(--warn-wash) 70%, var(--paper-deep));
   }
 
   .loupe {

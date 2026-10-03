@@ -4,8 +4,24 @@ import {
   keypadCoveredGlyphs,
   missingBasicGlyphs,
   parseKeyBinding,
+  SYSTEM_BG_LAYOUT_ID,
+  SYSTEM_BR_LAYOUT_ID,
+  SYSTEM_CS_LAYOUT_ID,
+  SYSTEM_DA_LAYOUT_ID,
   SYSTEM_DE_LAYOUT_ID,
+  SYSTEM_EL_LAYOUT_ID,
+  SYSTEM_ES_LAYOUT_ID,
+  SYSTEM_FI_LAYOUT_ID,
+  SYSTEM_FR_LAYOUT_ID,
+  SYSTEM_HU_LAYOUT_ID,
+  SYSTEM_IT_LAYOUT_ID,
+  SYSTEM_NO_LAYOUT_ID,
+  SYSTEM_PL_LAYOUT_ID,
+  SYSTEM_PT_LAYOUT_ID,
+  SYSTEM_RO_LAYOUT_ID,
   SYSTEM_RU_LAYOUT_ID,
+  SYSTEM_SV_LAYOUT_ID,
+  SYSTEM_TR_LAYOUT_ID,
   SYSTEM_UA_LAYOUT_ID,
   SYSTEM_US_LAYOUT_ID,
   withHostKey,
@@ -35,6 +51,22 @@ describe('missingBasicGlyphs', () => {
     expect(missingBasicGlyphs(ru, 'ru')).toEqual([])
     expect(missingBasicGlyphs(hostLayout(SYSTEM_UA_LAYOUT_ID)!, 'uk')).toEqual([])
     expect(missingBasicGlyphs(hostLayout(SYSTEM_DE_LAYOUT_ID)!, 'de')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(SYSTEM_FR_LAYOUT_ID)!, 'fr')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(SYSTEM_PL_LAYOUT_ID)!, 'pl')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(SYSTEM_ES_LAYOUT_ID)!, 'es')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(SYSTEM_IT_LAYOUT_ID)!, 'it')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(SYSTEM_PT_LAYOUT_ID)!, 'pt')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(SYSTEM_BR_LAYOUT_ID)!, 'br')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(SYSTEM_CS_LAYOUT_ID)!, 'cs')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(SYSTEM_DA_LAYOUT_ID)!, 'da')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(SYSTEM_SV_LAYOUT_ID)!, 'sv')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(SYSTEM_HU_LAYOUT_ID)!, 'hu')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(SYSTEM_TR_LAYOUT_ID)!, 'tr')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(SYSTEM_RO_LAYOUT_ID)!, 'ro')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(SYSTEM_FI_LAYOUT_ID)!, 'fi')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(SYSTEM_NO_LAYOUT_ID)!, 'no')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(SYSTEM_EL_LAYOUT_ID)!, 'el')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(SYSTEM_BG_LAYOUT_ID)!, 'bg')).toEqual([])
   })
 
   it('reports a Russian letter missing in both cases', () => {

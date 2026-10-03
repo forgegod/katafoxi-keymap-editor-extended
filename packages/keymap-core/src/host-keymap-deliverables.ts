@@ -4,7 +4,11 @@
  * @see docs/adr/0005-host-keymap-github-snapshot.md
  */
 
-import { hostLanguage, type HostLanguageId } from './host-languages.js'
+import {
+  hostLanguage,
+  windowsCapsPairingRecommended,
+  type HostLanguageId
+} from './host-languages.js'
 import type { HostLayout } from './host-layout.js'
 import { hostLayoutToKlc, hostLayoutsToCapsKlc, pairedKbdId } from './klc-write.js'
 import { windowsLocale } from './klc-locale.js'
@@ -85,6 +89,7 @@ export function buildHostKeymapDeliverableFiles(
     const baseName = hostLanguage('en').name
     for (const column of view.columns) {
       if (column.language === 'en') continue
+      if (!windowsCapsPairingRecommended(column.language)) continue
       const capsRecord = layoutsById.get(column.layoutId)
       if (!capsRecord) continue
       const capsName = hostLanguage(column.language).name

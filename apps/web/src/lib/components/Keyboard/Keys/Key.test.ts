@@ -1,6 +1,7 @@
 import {
   encodeKeyBinding,
   addHostLanguage,
+  toggleHostLanguage,
   type HostLegendView,
   type KeyBindingNode
 } from '@keymap-editor/keymap-core'
@@ -748,8 +749,21 @@ describe('Key click editor', () => {
     editor.hostLegend = addHostLanguage(editor.hostLegend, 'ru')
     open({ params: [{ value: 'COMMA', params: [] }] })
     const slot = document.querySelector('.layer-slot')
-    expect(slot?.classList.contains('symbol-moved')).toBe(true)
-    expect(slot?.getAttribute('title')).toMatch(/Different position/)
+    expect(slot?.classList.contains('symbol-basic')).toBe(true)
+    expect(slot?.getAttribute('title')).toMatch(/Different position|Linux split|On this key/)
+  })
+
+  it('compares two national keycap languages without English', () => {
+    let view = addHostLanguage(addHostLanguage(editor.hostLegend, 'ru'), 'fr')
+    view = toggleHostLanguage(view, 'en')
+    view = toggleHostLanguage(view, 'ru')
+    editor.hostLegend = view
+    editor.symbolAlignOn = true
+    open({ params: [{ value: 'DOT', params: [] }] })
+    const slot = document.querySelector('.layer-slot')
+    expect(slot?.classList.contains('symbol-basic')).toBe(true)
+    expect(slot?.classList.contains('altgr-conflict')).toBe(false)
+    expect(slot?.getAttribute('title') ?? '').not.toMatch(/Windows/)
   })
 
   it('stacks every host language on layer 0 and hides the other layers', () => {
@@ -819,6 +833,7 @@ describe('Key click editor', () => {
     open()
     const slot = document.querySelector('.layer-slot')
     expect(slot?.classList.contains('symbol-moved')).toBe(false)
+    expect(slot?.classList.contains('symbol-basic')).toBe(false)
     expect(slot?.classList.contains('altgr-conflict')).toBe(false)
     expect(slot?.getAttribute('title')).toBeNull()
   })

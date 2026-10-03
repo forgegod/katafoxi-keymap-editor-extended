@@ -86,15 +86,24 @@ export interface ComposedLegendColumn {
   language: HostLanguageId
   /** Keycap color. Base column is `base`; extras are `second`. */
   tone: 'base' | 'second'
-  /** Level 1 + Shift (`eE`). */
+  /** Level 1 + Shift (`eE`). Dead accents use their spacing marks. */
   pair: [string, string]
+  /** True when the matching `pair` slot is a `dead_*` spacing mark. */
+  pairDead: [boolean, boolean]
   /** AltGr glyph; empty when the column is off or the level is NoSymbol. */
   altGr: string
+  /** True when `altGr` is a dead-key spacing mark. */
+  altGrDead: boolean
   /** AltGr+Shift glyph; empty when the column is off or the level is NoSymbol. */
   altGrShift: string
-  /** AltGr column toggle. False hides that slot; an empty glyph still shows ˬ when true. */
+  /** True when `altGrShift` is a dead-key spacing mark. */
+  altGrShiftDead: boolean
+  /**
+   * AltGr column toggle. On the keycap face the level is always a slot:
+   * on + glyph, on + empty → `ˬ`, off → `ˬ` (hides content, slot stays).
+   */
   showAltGr: boolean
-  /** AltGr+Shift column toggle. False hides that slot. */
+  /** AltGr+Shift column toggle. Same face rule as `showAltGr`. */
   showAltGrShift: boolean
   /** D9: this column's letter pair is drawn on the keycap. */
   onKeycap: boolean
@@ -138,9 +147,10 @@ export interface HostColumn {
 /**
  * Which host layouts fill the composed legend.
  * `columns[0]` is the base column: the firmware alphabet, kept even when its
- * glyphs are hidden. `open` is the national language paired with that base
- * for Highlight symbol differences and the combined Windows file.
- * `keycap` is the languages drawn on the key, oldest first, at most two.
+ * glyphs are hidden. `open` is the national language paired with that base for
+ * the combined Windows file. Highlight symbol differences compares the two
+ * languages on `keycap` (position marks); Win AltGr marks only when English
+ * and `open` are both drawn. `keycap` is oldest first, at most two.
  * Omitted on older saves: the visible base, plus `open` when that column is visible.
  */
 export interface HostLegendView {

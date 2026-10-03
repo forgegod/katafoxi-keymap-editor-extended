@@ -250,7 +250,11 @@
           {#each displayCard.system as column (column.language)}
             <div class="lang" data-language={column.language} role="rowgroup">
               {#each column.slots as slot, index (`${column.language}-sys-${index}`)}
-                <span class="slot" class:empty={slot.text === ALT_LEVEL_EMPTY} role="cell"
+                <span
+                  class="slot"
+                  class:empty={slot.text === ALT_LEVEL_EMPTY && !slot.dead}
+                  class:dead={slot.dead}
+                  role="cell"
                   >{slot.text}</span
                 >
               {/each}
@@ -271,14 +275,18 @@
                   <button
                     type="button"
                     class="slot"
-                    class:empty={slot.text === ALT_LEVEL_EMPTY}
+                    class:empty={slot.text === ALT_LEVEL_EMPTY && !slot.dead}
+                    class:dead={slot.dead}
                     class:diff={slot.differs}
                     data-host-edit
                     data-language={column.language}
                     data-level={index}
                     data-text={slot.text}
+                    data-dead={slot.dead ? '1' : undefined}
                     disabled={!zmk}
-                    aria-label={`Edit ${column.language} level ${index}`}
+                    aria-label={slot.dead
+                      ? `Edit ${column.language} level ${index} dead key ${slot.text}`
+                      : `Edit ${column.language} level ${index}`}
                     aria-expanded={isEditing}
                     aria-haspopup="dialog"
                   >
@@ -287,7 +295,8 @@
                 {:else}
                   <span
                     class="slot"
-                    class:empty={slot.text === ALT_LEVEL_EMPTY}
+                    class:empty={slot.text === ALT_LEVEL_EMPTY && !slot.dead}
+                    class:dead={slot.dead}
                     class:diff={slot.differs}
                     >{slot.text}</span
                   >
@@ -556,15 +565,28 @@
     color: var(--text-disabled);
   }
 
+  .slot.dead {
+    color: var(--warn-ink);
+    background: var(--warn-wash);
+    box-shadow: inset 0 0 0 1px var(--warn-border);
+  }
+
   .slot.diff {
     color: var(--warn-ink);
     background: var(--highlight);
     border-radius: 3px;
   }
 
+  .slot.dead.diff {
+    background: color-mix(in srgb, var(--warn-wash) 55%, var(--highlight));
+  }
+
   .lang[data-language='ru'] .slot.diff,
   .lang[data-language='uk'] .slot.diff,
-  .lang[data-language='de'] .slot.diff {
+  .lang[data-language='de'] .slot.diff,
+  .lang[data-language='fr'] .slot.diff,
+  .lang[data-language='pl'] .slot.diff,
+  .lang[data-language='es'] .slot.diff {
     color: var(--accent-strong);
   }
 

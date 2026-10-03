@@ -2,24 +2,34 @@
   import { editor } from '../editor.svelte.js'
 
   const marksOn = $derived(editor.canAlignHostSymbols && editor.symbolAlignOn)
+  const showWin = $derived(marksOn && editor.symbolAlignShowsWinAltGr)
 </script>
 
 {#if marksOn}
   <div class="align-key" aria-label="Symbol difference marks">
     <span
       class="sample"
-      title="No shared key for this symbol, or it is missing from one language."
+      title="National or other non-basic mark with no shared key, or missing from one language."
     >
       <span class="swatch moved" aria-hidden="true"></span>
       position
     </span>
     <span
       class="sample"
-      title="Windows keeps AltGr or AltGr+Shift from the other language and drops this one."
+      title="Typewriter basic mark differs or sits on this key in only one language. Linux split layouts cannot reach it from the other language."
     >
-      <span class="swatch win" aria-hidden="true"></span>
-      Win AltGr
+      <span class="swatch basic" aria-hidden="true"></span>
+      basic
     </span>
+    {#if showWin}
+      <span
+        class="sample"
+        title="Windows keeps AltGr or AltGr+Shift from the other language and drops this one."
+      >
+        <span class="swatch win" aria-hidden="true"></span>
+        Win AltGr
+      </span>
+    {/if}
   </div>
 {/if}
 
@@ -54,6 +64,12 @@
   .swatch.moved {
     border-radius: 0;
     border-bottom: 2px solid var(--mark-diff);
+  }
+
+  .swatch.basic {
+    border-radius: 0;
+    border-bottom: 2px solid var(--mark-basic);
+    background: color-mix(in srgb, var(--mark-basic) 28%, transparent);
   }
 
   .swatch.win {

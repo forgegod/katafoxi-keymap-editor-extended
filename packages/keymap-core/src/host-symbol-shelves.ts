@@ -13,13 +13,22 @@
 
 import records from '../data/host-symbols.json' with { type: 'json' }
 import type { HostLanguageId } from './host-languages.js'
+import { primarySystemLayoutId } from './host-layout-catalog.js'
+import { hostLayout } from './host-layout-registry.js'
 import { hostSymbolByCodepoint } from './host-symbols.js'
+import { deadKeySpacingGlyph } from './klc-dead.js'
 import { keysymToGlyph } from './xkb-keysyms.js'
 
 export interface HostSymbolShelfEntry {
-  /** Dictionary glyph, or empty for non-character modifiers. */
+  /**
+   * Dictionary glyph, dead-key spacing mark, or empty for non-character
+   * modifiers (`NoSymbol`, `Multi_key`, …). Pick still stores `keysym` when
+   * `dead` is set, so spacing `^` does not become `asciicircum`.
+   */
   glyph: string
   keysym: string
+  /** Spacing mark for a `dead_*` keysym. */
+  dead?: boolean
 }
 
 export interface HostSymbolShelf {
@@ -85,15 +94,22 @@ const EMOJI_RANGES: readonly Range[] = [
   [0x1f300, 0x1faff]
 ]
 
-/**
- * Non-glyph keysyms shown in the Modifiers shelf. `dead_*` names are the set
- * used by vendored xkb layouts in this package; they are not dictionary rows.
- */
-export const HOST_SYMBOL_MODIFIER_KEYSYMS: readonly string[] = [
+/** Structural modifiers always listed first on the open Modifiers shelf. */
+const STRUCTURAL_MODIFIER_KEYSYMS = [
   'NoSymbol',
   'Multi_key',
   'ISO_Level3_Shift',
-  'ISO_Level5_Shift',
+  'ISO_Level5_Shift'
+] as const
+
+/**
+ * Non-glyph keysyms shown in the Modifiers shelves. `dead_*` names are the set
+ * used by vendored xkb layouts in this package; they are not dictionary rows.
+ * Language-typical dead keys (from the primary system layout) sit on the open
+ * Modifiers shelf; the rest are under collapsed "More dead keys".
+ */
+export const HOST_SYMBOL_MODIFIER_KEYSYMS: readonly string[] = [
+  ...STRUCTURAL_MODIFIER_KEYSYMS,
   'dead_grave',
   'dead_acute',
   'dead_circumflex',
@@ -186,11 +202,44 @@ function sortEntries(entries: HostSymbolShelfEntry[]): HostSymbolShelfEntry[] {
   })
 }
 
-function modifierEntries(): HostSymbolShelfEntry[] {
-  return HOST_SYMBOL_MODIFIER_KEYSYMS.map(keysym => {
-    const glyph = keysymToGlyph(keysym)
-    return { glyph: glyph ?? '', keysym }
-  })
+function modifierEntry(keysym: string): HostSymbolShelfEntry {
+  const deadGlyph = deadKeySpacingGlyph(keysym)
+  if (deadGlyph != null) return { glyph: deadGlyph, keysym, dead: true }
+  const glyph = keysymToGlyph(keysym)
+  return { glyph: glyph ?? '', keysym }
+}
+
+/** Dead accents that appear on the language's primary system layout, layout order. */
+export function primaryLayoutDeadKeysyms(language: HostLanguageId): string[] {
+  const layoutId = primarySystemLayoutId(language)
+  const layout = layoutId ? hostLayout(layoutId) : undefined
+  if (!layout) return []
+  const seen = new Set<string>()
+  const ordered: string[] = []
+  for (const row of layout.byZmk.values()) {
+    for (const keysym of row.keysyms) {
+      if (!keysym.startsWith('dead_') || seen.has(keysym)) continue
+      seen.add(keysym)
+      ordered.push(keysym)
+    }
+  }
+  return ordered
+}
+
+function modifierShelfEntries(language: HostLanguageId): {
+  primary: HostSymbolShelfEntry[]
+  moreDead: HostSymbolShelfEntry[]
+} {
+  const typicalDead = primaryLayoutDeadKeysyms(language)
+  const typicalSet = new Set<string>([...STRUCTURAL_MODIFIER_KEYSYMS, ...typicalDead])
+  const primary = [
+    ...STRUCTURAL_MODIFIER_KEYSYMS.map(modifierEntry),
+    ...typicalDead.map(modifierEntry)
+  ]
+  const moreDead = HOST_SYMBOL_MODIFIER_KEYSYMS.filter(
+    keysym => keysym.startsWith('dead_') && !typicalSet.has(keysym)
+  ).map(modifierEntry)
+  return { primary, moreDead }
 }
 
 interface Bucket {
@@ -210,11 +259,18 @@ function buildShelves(language: HostLanguageId): HostSymbolShelf[] {
     entries: []
   }
   const signsBucket: Bucket = { id: 'signs', title: 'Signs', open: true, entries: [] }
+  const { primary: modifierPrimary, moreDead } = modifierShelfEntries(language)
   const modifiersBucket: Bucket = {
     id: 'modifiers',
     title: 'Modifiers',
     open: true,
-    entries: modifierEntries()
+    entries: modifierPrimary
+  }
+  const moreDeadBucket: Bucket = {
+    id: 'more-dead-keys',
+    title: 'More dead keys',
+    open: false,
+    entries: moreDead
   }
 
   const latinCollapsed: Bucket = { id: 'latin', title: 'Latin', open: false, entries: [] }
@@ -299,6 +355,7 @@ function buildShelves(language: HostLanguageId): HostSymbolShelf[] {
     { ...languageBucket, entries: sortEntries(languageBucket.entries) },
     modifiersBucket
   ]
+  if (moreDeadBucket.entries.length > 0) shelves.push(moreDeadBucket)
 
   if (family === 'latin') {
     if (cyrillicCollapsed.entries.length > 0) {

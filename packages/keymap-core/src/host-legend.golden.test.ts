@@ -9,7 +9,7 @@ import {
   composeLegendDecode,
   HOST_KEY_IDS,
   hostLegendTableRow,
-  keycapColumns,
+  keycapFace,
   parseKeyBinding,
   setHostColumnAlt,
   standardHostLegendView,
@@ -17,7 +17,7 @@ import {
   SYSTEM_US_LAYOUT_ID,
   toggleHostLanguage,
   type HostLegendView,
-  type KeycapColumn,
+  type KeycapFace,
   type LegendDecodeCard
 } from './index.js'
 import { registerLarkHostFixture } from './testing/lark-host.js'
@@ -72,7 +72,7 @@ interface GoldenRecord {
   view: string
   key: string
   binding: string
-  keycap: KeycapColumn[] | null
+  keycap: KeycapFace | null
   hold: string | null
   decode: LegendDecodeCard
   table: ReturnType<typeof hostLegendTableRow>
@@ -102,7 +102,7 @@ function captureSnapshot(): GoldenSnapshot {
           view: viewSpec.id,
           key: key.zmk,
           binding: bindingCode,
-          keycap: legend ? keycapColumns(legend) : null,
+          keycap: legend ? keycapFace(legend) : null,
           hold: legend?.hold ?? null,
           decode: composeLegendDecode(binding, view),
           table: hostLegendTableRow(binding, view)

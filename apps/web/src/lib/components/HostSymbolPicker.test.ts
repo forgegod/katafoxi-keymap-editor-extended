@@ -107,7 +107,11 @@ describe('HostSymbolPicker', () => {
 
     const sample = collapsed.entries[0]
     expect(sample).toBeDefined()
-    const label = sample.glyph ? `${sample.glyph} ${sample.keysym}` : sample.keysym
+    const label = sample.dead
+      ? `Dead key ${sample.glyph} ${sample.keysym}`
+      : sample.glyph
+        ? `${sample.glyph} ${sample.keysym}`
+        : sample.keysym
     expect(
       dialog?.querySelector(`button.glyph[aria-label="${CSS.escape(label)}"]`)
     ).toBeNull()

@@ -193,6 +193,28 @@ describe('HostPipeline', () => {
     expect(dialog?.querySelector('#windows-paired-title')).toBeNull()
   })
 
+  it('does not offer Caps Lock pairing for French and explains separate layouts', async () => {
+    mountPipeline()
+    await editor.commitHostMap(addHostLanguage(editor.hostLegend, 'fr'))
+    await editor.setHostKeyLevel('en', 'A', 0, 'b')
+    flushSync()
+
+    const windows = target.querySelector(
+      'button.download[aria-label="Install host layout on Windows"]'
+    ) as HTMLButtonElement
+    windows.click()
+    flushSync()
+    const dialog = document.querySelector('[aria-labelledby="windows-install-title"]')
+    expect(dialog?.querySelector('#windows-paired-title')).toBeNull()
+    expect(dialog?.textContent).toMatch(/Caps Lock pairing with English does not fit/)
+    expect(dialog?.textContent).toMatch(/Win\+Space/)
+    expect(dialog?.textContent).toMatch(/One language per file/)
+    const combined = [...(dialog?.querySelectorAll('button') ?? [])].find(button =>
+      button.textContent?.includes('English + French')
+    )
+    expect(combined).toBeUndefined()
+  })
+
   it('explains a Caps Lock alphabet and downloads that .klc when another language is shown', async () => {
     const createObjectURL = vi.fn((_blob: Blob) => 'blob:caps-klc')
     const revokeObjectURL = vi.fn()
@@ -232,7 +254,7 @@ describe('HostPipeline', () => {
     expect(dialog?.textContent).toMatch(/GIMP/)
     expect(dialog?.textContent).toMatch(/Caps Lock switches alphabet/)
     expect(dialog?.textContent).toMatch(/AltGr and AltGr\+Shift come from the other language/)
-    expect(dialog?.textContent).toMatch(/German @/)
+    expect(dialog?.textContent).toMatch(/Russian, Ukrainian, or Bulgarian/)
     expect(dialog?.textContent).toMatch(/One language per file/)
     const separate = [...(dialog?.querySelectorAll('button') ?? [])].find(
       button => button.textContent?.trim() === 'Download .klc'

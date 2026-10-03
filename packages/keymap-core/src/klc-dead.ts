@@ -27,10 +27,34 @@ export const WINDOWS_DEAD_KEYS: readonly WindowsDeadKey[] = [
   { keysym: 'dead_abovedot', id: 0x02d9, pairs: [[0x0065, 0x0117], [0x0069, 0x0131], [0x007a, 0x017c], [0x0045, 0x0116], [0x0049, 0x0130], [0x005a, 0x017b], [0x0020, 0x00b7]] },
   { keysym: 'dead_doubleacute', id: 0x02dd, pairs: [[0x0075, 0x0171], [0x006f, 0x0151], [0x0055, 0x0170], [0x004f, 0x0150], [0x0020, 0x02dd]] },
   { keysym: 'dead_cedilla', id: 0x00b8, pairs: [[0x006e, 0x0146], [0x0063, 0x00e7], [0x0067, 0x0123], [0x0073, 0x015f], [0x006c, 0x013c], [0x006b, 0x0137], [0x0072, 0x0157], [0x0074, 0x0163], [0x004e, 0x0145], [0x0043, 0x00c7], [0x0047, 0x0122], [0x0053, 0x015e], [0x004c, 0x013b], [0x004b, 0x0136], [0x0052, 0x0156], [0x0054, 0x0162], [0x0020, 0x00b8]] },
+  // Spacing ids for accents common on FR/DE AltGr (latin include). Pairs are
+  // the usual space → spacing character plus a few vowels where MSKLC expects them.
+  { keysym: 'dead_macron', id: 0x00af, pairs: [[0x0020, 0x00af], [0x0061, 0x0101], [0x0065, 0x0113], [0x0069, 0x012b], [0x006f, 0x014d], [0x0075, 0x016b], [0x0041, 0x0100], [0x0045, 0x0112], [0x0049, 0x012a], [0x004f, 0x014c], [0x0055, 0x016a]] },
+  { keysym: 'dead_belowdot', id: 0x0323, pairs: [[0x0020, 0x0323]] },
+  { keysym: 'dead_hook', id: 0x0309, pairs: [[0x0020, 0x0309]] },
+  { keysym: 'dead_horn', id: 0x031b, pairs: [[0x0020, 0x031b]] },
+  { keysym: 'dead_belowmacron', id: 0x0331, pairs: [[0x0020, 0x0331]] },
+  { keysym: 'dead_currency', id: 0x00a4, pairs: [[0x0020, 0x00a4]] },
+  { keysym: 'dead_stroke', id: 0x002f, pairs: [[0x0020, 0x002f]] },
+  { keysym: 'dead_greek', id: 0x037e, pairs: [[0x0020, 0x037e]] }
 ]
 
 const BY_KEYSYM = new Map(WINDOWS_DEAD_KEYS.map(item => [item.keysym, item]))
 
 export function windowsDeadKey(keysym: string): WindowsDeadKey | undefined {
   return BY_KEYSYM.get(keysym)
+}
+
+/**
+ * Spacing character for a `dead_*` keysym (what MSKLC shows on the key).
+ * A combining mark is shown on a dotted circle. Unknown accents fall back to
+ * a dotted circle alone so the decode cell is not blank.
+ */
+export function deadKeySpacingGlyph(keysym: string): string | null {
+  if (!keysym.startsWith('dead_')) return null
+  const known = BY_KEYSYM.get(keysym)
+  if (!known) return '\u25cc'
+  const mark = String.fromCodePoint(known.id)
+  if (/^\p{M}$/u.test(mark)) return `\u25cc${mark}`
+  return mark
 }

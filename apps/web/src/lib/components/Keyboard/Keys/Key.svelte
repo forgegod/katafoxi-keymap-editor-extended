@@ -13,6 +13,8 @@
     legendHoverHit,
     resolveBinding,
     symbolAlignCaption,
+    symbolAlignHasBasic,
+    symbolAlignHasOrnament,
     type HostLegendView,
     type KeyBindingNode,
     type LayerView,
@@ -312,15 +314,25 @@
     return String(binding.value) === '&trans' ? '↓' : '∅'
   }
 
-  function slotAlign(binding: KeyBindingNode): { moved: boolean; conflict: boolean; title: string } {
+  function slotAlign(binding: KeyBindingNode): {
+    moved: boolean
+    basic: boolean
+    conflict: boolean
+    title: string
+  } {
     const align = editor.symbolAlignIndex
     const tap = resolveBinding(binding).tap
     if (!align || tap == null || !hostKeyByZmk(tap)) {
-      return { moved: false, conflict: false, title: '' }
+      return { moved: false, basic: false, conflict: false, title: '' }
     }
-    const moved = align.byZmk.has(tap)
+    const basic = symbolAlignHasBasic(tap, align)
+    const moved = symbolAlignHasOrnament(tap, align)
     const conflict = align.conflictByZmk.has(tap)
-    return { moved, conflict, title: moved || conflict ? symbolAlignCaption(tap, align) : '' }
+    const title =
+      basic || moved || conflict || align.keyGapByZmk.has(tap)
+        ? symbolAlignCaption(tap, align)
+        : ''
+    return { moved, basic, conflict, title }
   }
 
   function isUnpublished(layer: number): boolean {
@@ -370,6 +382,7 @@
         class:combo-peek={comboPeekLayer != null}
         class:unpublished={isUnpublished(0)}
         class:symbol-moved={marks.moved}
+        class:symbol-basic={marks.basic}
         class:altgr-conflict={marks.conflict}
         data-layer="0"
         style={
@@ -408,6 +421,7 @@
         class:combo-peek={comboPeekLayer === row.layer}
         class:unpublished={isUnpublished(row.layer)}
         class:symbol-moved={marks.moved}
+        class:symbol-basic={marks.basic}
         class:altgr-conflict={marks.conflict}
         data-layer={row.layer}
         style={editor.layerTonesOn ? layerToneStyle(row.layer) : undefined}

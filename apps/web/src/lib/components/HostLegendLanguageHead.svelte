@@ -52,6 +52,39 @@
   const languageName = $derived(choice?.languageName ?? language ?? '')
   const choosing = $derived(language != null && pickingFor === language)
   const addable = $derived(hostLanguagesAvailable(editor.hostLegend))
+  let langMenuEl = $state<HTMLDivElement | undefined>()
+
+  $effect(() => {
+    // Only this head owns the open menu: column heads watch replace, the add cell watches add.
+    const open = column ? choosing : pickingNew
+    if (!open) return
+    function handle(event: PointerEvent) {
+      // Prefer closest() over contains(langMenuEl): bind:this can lag one frame, and a
+      // miss closes the menu on pointerdown before the item's click handler runs.
+      const target = event.target
+      if (target instanceof Element && target.closest('.lang-menu') === langMenuEl) return
+      if (column) pickingFor = null
+      else pickingNew = false
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        if (column) pickingFor = null
+        else pickingNew = false
+        event.stopPropagation()
+      }
+    }
+    document.addEventListener('pointerdown', handle)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', handle)
+      document.removeEventListener('keydown', onKey)
+    }
+  })
+
+  /** Keep the document outside-close listener from seeing presses on menu items. */
+  function holdLangMenu(event: Event) {
+    event.stopPropagation()
+  }
 
   function activeProfileLabel(): string {
     if (!language) return ''
@@ -72,13 +105,9 @@
     void editor.commitHostMap(toggleHostLanguage(editor.hostLegend, language))
   }
 
-  function languageChoices(): HostLanguageId[] {
-    return hostLanguagesAvailable(editor.hostLegend)
-  }
-
-  function startAddLanguage() {
+  function toggleAddLanguage() {
     if (addable.length === 0) return
-    pickingNew = true
+    pickingNew = !pickingNew
     pickingFor = null
     openProfile = null
   }
@@ -128,112 +157,159 @@
     editor.legendHover = null
   }
 
-  function focusSelect(node: HTMLSelectElement) {
-    node.focus()
+  function focusLangList(node: HTMLUListElement) {
+    const first = node.querySelector('button.lang-item:not(:disabled)')
+    if (first instanceof HTMLButtonElement) first.focus()
   }
 </script>
 
 {#if !column}
   <th class="add-language-cell lang-start" class:prompt={needsHostLanguage}>
-    {#if pickingNew}
-      <div class="lang-head">
-        <select
-          use:focusSelect
-          class="language-select"
-          aria-label="Language"
-          value=""
-          onchange={event => pickNewLanguage(event.currentTarget.value)}
-        >
-          <option value="" disabled>Language</option>
-          {#each addable as option (option)}
-            <option value={option}>{hostLanguageName(option)}</option>
-          {/each}
-        </select>
-      </div>
-    {:else if needsHostLanguage}
-      <div class="lang-head host-prompt">
+    <div class="lang-head" class:host-prompt={needsHostLanguage}>
+      {#if needsHostLanguage}
         <span class="prompt-label">Computer language</span>
-        <select
-          class="language-select"
-          aria-label="Computer language"
-          value=""
-          onchange={event => pickNewLanguage(event.currentTarget.value)}
+      {/if}
+      <div class="lang-menu" bind:this={langMenuEl}>
+        <button
+          type="button"
+          class="add-language"
+          aria-label={needsHostLanguage ? 'Computer language' : 'Add language'}
+          title={needsHostLanguage ? 'Computer language' : 'Add language'}
+          aria-haspopup="listbox"
+          aria-expanded={pickingNew}
+          disabled={addable.length === 0}
+          onclick={toggleAddLanguage}
         >
-          <option value="" disabled>Choose</option>
-          {#each addable as option (option)}
-            <option value={option}>{hostLanguageName(option)}</option>
-          {/each}
-        </select>
+          {#if needsHostLanguage}
+            <span class="add-label">Choose</span>
+          {:else}
+            <span class="add-mark" aria-hidden="true">+</span>
+            <span class="add-label">Lang</span>
+          {/if}
+          <span class="caret" aria-hidden="true"></span>
+        </button>
+        {#if pickingNew}
+          <ul
+            class="lang-list"
+            role="listbox"
+            aria-label="Language"
+            use:focusLangList
+            onpointerdown={holdLangMenu}
+          >
+            {#each addable as option (option)}
+              <li role="none">
+                <button
+                  type="button"
+                  class="lang-item"
+                  role="option"
+                  aria-selected="false"
+                  onclick={() => pickNewLanguage(option)}
+                >
+                  <LangFlag language={option} />
+                  <span>{hostLanguageName(option)}</span>
+                </button>
+              </li>
+            {/each}
+          </ul>
+        {/if}
       </div>
-    {:else}
-      <button
-        type="button"
-        class="add-language"
-        aria-label="Add language"
-        title="Add language"
-        onclick={startAddLanguage}
-      >
-        <span class="add-mark" aria-hidden="true">+</span>
-        <span class="add-label">Language</span>
-      </button>
-    {/if}
+    </div>
   </th>
 {:else}
   <th class:off={!column.shown} class:narrow={!column.wide} class:lang-start={groupStart}>
-    <div class="lang-head" class:narrow={!column.wide && !choosing}>
+    <div class="lang-head" class:narrow={!column.wide}>
       {#if interactive}
-        <EyeToggle
-          on={languagesStacked || column.shown}
-          disabled={languagesStacked}
-          label={
-            languagesStacked
-              ? `${choice?.languageName ?? language} stays on the key while languages are stacked`
-              : column.shown
-                ? `Hide ${choice?.languageName ?? language}`
-                : `Show ${choice?.languageName ?? language}`
-          }
-          dataTour="language-eye"
-          onclick={toggleLanguage}
-        />
-        {#if extra}
-          <button
-            type="button"
-            class="lang-flag"
-            title={choice?.languageName ?? language}
-            aria-label={`Language ${choice?.languageName ?? language}`}
-            aria-expanded={choosing}
-            onclick={toggleLanguagePicker}
-          >
-            {#if language}<LangFlag {language} />{/if}
-            <span class="caret" aria-hidden="true"></span>
-          </button>
-        {:else}
-          <span class="lang-flag" title={extra ? languageName : 'Firmware key codes (US)'}>
-            {#if language}<LangFlag {language} alt={extra ? languageName : 'English, firmware key codes'} />{/if}
-          </span>
-        {/if}
-        <div class="lang-tools" hidden={!column.wide && !choosing}>
-          {#if choosing}
-            <select
-              use:focusSelect
-              class="language-select"
-              aria-label="Language"
-              value=""
-              onchange={event => changeLanguage(event.currentTarget.value)}
-            >
-              <option value="" disabled hidden></option>
-              <option value={REMOVE_LANGUAGE}>Remove language</option>
-              {#each languageChoices() as option (option)}
-                <option value={option}>{hostLanguageName(option)}</option>
-              {/each}
-            </select>
+        <div class="lang-row">
+          <EyeToggle
+            on={languagesStacked || column.shown}
+            disabled={languagesStacked}
+            label={
+              languagesStacked
+                ? `${choice?.languageName ?? language} stays on the key while languages are stacked`
+                : column.shown
+                  ? `Hide ${choice?.languageName ?? language}`
+                  : `Show ${choice?.languageName ?? language}`
+            }
+            dataTour="language-eye"
+            onclick={toggleLanguage}
+          />
+          {#if extra && language}
+            <div class="lang-menu" bind:this={langMenuEl}>
+              <button
+                type="button"
+                class="lang-flag"
+                title={choice?.languageName ?? language}
+                aria-label={`Language ${choice?.languageName ?? language}`}
+                aria-haspopup="listbox"
+                aria-expanded={choosing}
+                onclick={toggleLanguagePicker}
+              >
+                <LangFlag {language} />
+                <span class="caret" aria-hidden="true"></span>
+              </button>
+              {#if choosing}
+                <ul
+                  class="lang-list"
+                  role="listbox"
+                  aria-label="Language"
+                  use:focusLangList
+                  onpointerdown={holdLangMenu}
+                >
+                  <li role="none">
+                    <button
+                      type="button"
+                      class="lang-item selected"
+                      role="option"
+                      aria-selected="true"
+                      disabled
+                    >
+                      <LangFlag {language} />
+                      <span>{hostLanguageName(language)}</span>
+                    </button>
+                  </li>
+                  {#each addable as option (option)}
+                    <li role="none">
+                      <button
+                        type="button"
+                        class="lang-item"
+                        role="option"
+                        aria-selected="false"
+                        onclick={() => changeLanguage(option)}
+                      >
+                        <LangFlag language={option} />
+                        <span>{hostLanguageName(option)}</span>
+                      </button>
+                    </li>
+                  {/each}
+                  <li class="lang-sep" aria-hidden="true"></li>
+                  <li role="none">
+                    <button
+                      type="button"
+                      class="lang-item danger"
+                      role="option"
+                      aria-selected="false"
+                      onclick={() => changeLanguage(REMOVE_LANGUAGE)}
+                    >
+                      Remove language
+                    </button>
+                  </li>
+                </ul>
+              {/if}
+            </div>
+          {:else}
+            <span class="lang-flag" title={extra ? languageName : 'Firmware key codes (US)'}>
+              {#if language}<LangFlag {language} alt={extra ? languageName : 'English, firmware key codes'} />{/if}
+            </span>
           {/if}
+        </div>
+        <div class="lang-tools" hidden={!column.wide}>
           {#if column.wide}
             <HostProfileMenu
               language={column.language}
               languageName={choice?.languageName ?? column.language}
               open={openProfile === column.language}
               onToggle={() => {
+                pickingFor = null
                 openProfile = openProfile === column.language ? null : column.language
               }}
               onClose={() => {
@@ -243,10 +319,12 @@
           {/if}
         </div>
       {:else}
-        <span class="eye-spacer"></span>
-        <span class="lang-flag" title={extra ? languageName : 'Firmware key codes (US)'}>
-          {#if language}<LangFlag {language} alt={extra ? languageName : 'English, firmware key codes'} />{/if}
-        </span>
+        <div class="lang-row">
+          <span class="eye-spacer"></span>
+          <span class="lang-flag" title={extra ? languageName : 'Firmware key codes (US)'}>
+            {#if language}<LangFlag {language} alt={extra ? languageName : 'English, firmware key codes'} />{/if}
+          </span>
+        </div>
         {#if column.wide}
           <span class="profile-name">{activeProfileLabel()}</span>
         {/if}
@@ -255,44 +333,50 @@
   </th>
   {#if column.wide}
     <th
+      class="alt-head"
       class:off={!column.altGr}
       onmouseenter={interactive ? () => hoverAlt('altGr') : undefined}
       onmouseleave={interactive ? clearHover : undefined}
     >
-      {#if interactive}
-        <PressToggle
-          class="col-toggle"
-          density="pill"
-          pressed={column.altGr}
-          aria-label="AltGr"
-          title="AltGr"
-          onclick={() => toggleAlt('altGr', column.altGr)}
-        >
-          {ALT_GR_COLUMN_LABEL}
-        </PressToggle>
-      {:else}
-        {ALT_GR_COLUMN_LABEL}
-      {/if}
+      <div class="alt-turn">
+        {#if interactive}
+          <PressToggle
+            class="col-toggle"
+            density="pill"
+            pressed={column.altGr}
+            aria-label="AltGr"
+            title="AltGr"
+            onclick={() => toggleAlt('altGr', column.altGr)}
+          >
+            {ALT_GR_COLUMN_LABEL}
+          </PressToggle>
+        {:else}
+          <span class="alt-label">{ALT_GR_COLUMN_LABEL}</span>
+        {/if}
+      </div>
     </th>
     <th
+      class="alt-head"
       class:off={!column.altGrShift}
       onmouseenter={interactive ? () => hoverAlt('altGrShift') : undefined}
       onmouseleave={interactive ? clearHover : undefined}
     >
-      {#if interactive}
-        <PressToggle
-          class="col-toggle"
-          density="pill"
-          pressed={column.altGrShift}
-          aria-label="AltGr+Shift"
-          title="AltGr+Shift"
-          onclick={() => toggleAlt('altGrShift', column.altGrShift)}
-        >
-          {ALT_GR_SHIFT_COLUMN_LABEL}
-        </PressToggle>
-      {:else}
-        {ALT_GR_SHIFT_COLUMN_LABEL}
-      {/if}
+      <div class="alt-turn">
+        {#if interactive}
+          <PressToggle
+            class="col-toggle"
+            density="pill"
+            pressed={column.altGrShift}
+            aria-label="AltGr+Shift"
+            title="AltGr+Shift"
+            onclick={() => toggleAlt('altGrShift', column.altGrShift)}
+          >
+            {ALT_GR_SHIFT_COLUMN_LABEL}
+          </PressToggle>
+        {:else}
+          <span class="alt-label">{ALT_GR_SHIFT_COLUMN_LABEL}</span>
+        {/if}
+      </div>
     </th>
   {/if}
 {/if}
@@ -321,10 +405,44 @@
     border-left: 2px solid color-mix(in srgb, var(--shade) 28%, transparent);
   }
 
-  .lang-head {
+  th.alt-head {
+    width: 1%;
+    padding: 4px 3px;
+    vertical-align: middle;
+    text-align: center;
+  }
+
+  /*
+   * Rotate the whole chip −90° so glyph relative orientation stays (⎇ stays upright
+   * vs R/⇧). writing-mode reorients each codepoint and misdraws ⎇.
+   */
+  .alt-turn {
     display: flex;
     align-items: center;
-    gap: 4px;
+    justify-content: center;
+    width: 1.55rem;
+    height: 3.35rem;
+    margin: 0 auto;
+  }
+
+  .alt-turn :global(.col-toggle),
+  .alt-turn .alt-label {
+    flex: none;
+    transform: rotate(-90deg);
+    white-space: nowrap;
+  }
+
+  .alt-turn .alt-label {
+    display: inline-block;
+    padding: 1px 6px;
+  }
+
+  .lang-head {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    min-width: 0;
   }
 
   .lang-head.narrow {
@@ -332,22 +450,102 @@
     width: 1%;
   }
 
-  .lang-tools {
+  .lang-row {
     display: flex;
     align-items: center;
     gap: 4px;
+    min-width: 0;
+  }
+
+  .lang-tools {
+    display: flex;
+    align-items: stretch;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .lang-tools :global(.profile-menu) {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .lang-tools :global(.profile-trigger) {
+    width: 100%;
+    max-width: none;
   }
 
   .lang-tools[hidden] {
     display: none;
   }
 
-  .language-select {
-    max-width: 7.5rem;
-    min-height: 24px;
-    padding: 1px 4px;
+  .lang-menu {
+    position: relative;
+  }
+
+  .lang-list {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    z-index: 9;
+    min-width: 10rem;
+    max-height: min(20rem, 70vh);
+    margin: 0;
+    padding: 4px 0;
+    overflow: auto;
+    list-style: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+  }
+
+  .lang-list li {
+    margin: 0;
+    padding: 0 4px;
+  }
+
+  .lang-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    margin: 0;
+    padding: 4px 8px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
     font: inherit;
     font-size: var(--font-sm);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .lang-item.selected {
+    font-weight: 600;
+  }
+
+  .lang-item:disabled {
+    cursor: default;
+    opacity: 0.85;
+  }
+
+  .lang-item:hover:not(:disabled),
+  .lang-item:focus-visible {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    outline: none;
+  }
+
+  .lang-item.danger {
+    color: var(--danger, #b42318);
+  }
+
+  .lang-sep {
+    height: 1px;
+    margin: 4px 8px;
+    padding: 0;
+    background: var(--border);
   }
 
   .add-language-cell {
@@ -371,8 +569,19 @@
     cursor: pointer;
   }
 
-  .add-language:hover {
+  .add-language:hover,
+  .add-language[aria-expanded='true'] {
     background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+
+  .add-language:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .add-language:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
   }
 
   .add-mark {
@@ -382,6 +591,18 @@
 
   .add-label {
     letter-spacing: 0.02em;
+  }
+
+  .add-language .caret {
+    width: 0;
+    height: 0;
+    border-left: 3px solid transparent;
+    border-right: 3px solid transparent;
+    border-top: 4px solid currentColor;
+  }
+
+  .add-language[aria-expanded='true'] .caret {
+    transform: rotate(180deg);
   }
 
   .host-prompt {
@@ -438,6 +659,12 @@
   }
 
   .profile-name {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: var(--font-sm);
     color: var(--text-muted);
   }

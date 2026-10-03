@@ -1,4 +1,5 @@
 import { hostKeyByXkb, hostKeyByZmk } from './host-key-id.js'
+import { deadKeySpacingGlyph } from './klc-dead.js'
 import { parseXkbSymbolsSection, type ParseXkbOptions } from './xkb-symbols.js'
 import { keysymToGlyph } from './xkb-keysyms.js'
 
@@ -127,5 +128,40 @@ export function hostComposeGlyphs(levels: HostKeyLevels | undefined): HostLevels
   if (!levels) return undefined
   if (keysymToGlyph(levels.keysyms[0]) == null) return undefined
   return levels.glyphs
+}
+
+/** One level for keycap / decode display (spacing mark for `dead_*`). */
+export interface HostLevelDisplay {
+  text: string
+  dead: boolean
+}
+
+/**
+ * Display glyph for one keysym. Dead accents use the MSKLC spacing character.
+ * Composition still uses `hostComposeGlyphs` / `keysymToGlyph`, which omit dead.
+ */
+export function hostLevelDisplay(keysym: string): HostLevelDisplay {
+  const deadGlyph = deadKeySpacingGlyph(keysym)
+  if (deadGlyph != null) return { text: deadGlyph, dead: true }
+  const glyph = keysymToGlyph(keysym)
+  return { text: glyph && glyph.length > 0 ? glyph : '', dead: false }
+}
+
+/**
+ * Four display levels for the board and decode. Undefined when the key has no
+ * character and no dead accent on the base level (pure modifiers stay out).
+ */
+export function hostDisplayLevels(
+  levels: HostKeyLevels | undefined
+): readonly [HostLevelDisplay, HostLevelDisplay, HostLevelDisplay, HostLevelDisplay] | undefined {
+  if (!levels) return undefined
+  const row: [HostLevelDisplay, HostLevelDisplay, HostLevelDisplay, HostLevelDisplay] = [
+    hostLevelDisplay(levels.keysyms[0]),
+    hostLevelDisplay(levels.keysyms[1]),
+    hostLevelDisplay(levels.keysyms[2]),
+    hostLevelDisplay(levels.keysyms[3])
+  ]
+  if (!row[0].text) return undefined
+  return row
 }
 

@@ -59,6 +59,7 @@
 
   /* Symbol-difference marks on keys; the stage samples reuse them. */
   --mark-diff: #c47b00;
+  --mark-basic: #a84800;
   --mark-altgr: #b42318;
   --conflict-ink: #9a3412;
 
@@ -172,6 +173,7 @@
   --danger-border: #6a3a40;
 
   --mark-diff: #e0a040;
+  --mark-basic: #f0a060;
   --mark-altgr: #e05555;
   --conflict-ink: #f0a080;
 

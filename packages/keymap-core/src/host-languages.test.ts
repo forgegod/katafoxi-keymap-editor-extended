@@ -4,7 +4,8 @@ import {
   HOST_LANGUAGES,
   HOST_LANGUAGE_IDS,
   hostLanguageName,
-  preferredAddableHostLanguage
+  preferredAddableHostLanguage,
+  windowsCapsPairingRecommended
 } from './host-languages.js'
 import { catalogLayoutsForLanguage, hostLayoutChoices } from './host-layout-catalog.js'
 import {
@@ -42,7 +43,18 @@ describe('HOST_LANGUAGES table', () => {
     }
 
     const view = standardHostLegendView()
-    expect(hostLanguagesAvailable(view)).toEqual([...ADDABLE_HOST_LANGUAGE_IDS])
+    const available = hostLanguagesAvailable(view)
+    expect([...available].sort()).toEqual([...ADDABLE_HOST_LANGUAGE_IDS].sort())
+    expect(available).toEqual(
+      [...ADDABLE_HOST_LANGUAGE_IDS].sort((a, b) =>
+        hostLanguageName(a).localeCompare(hostLanguageName(b), 'en')
+      )
+    )
+    expect(available.map(hostLanguageName)).toEqual(
+      [...ADDABLE_HOST_LANGUAGE_IDS]
+        .sort((a, b) => hostLanguageName(a).localeCompare(hostLanguageName(b), 'en'))
+        .map(hostLanguageName)
+    )
 
     let next = view
     for (const language of ADDABLE_HOST_LANGUAGE_IDS) {
@@ -58,8 +70,34 @@ describe('preferredAddableHostLanguage', () => {
     expect(preferredAddableHostLanguage(['en-US', 'ru-RU', 'de'])).toBe('ru')
     expect(preferredAddableHostLanguage(['uk-UA'])).toBe('uk')
     expect(preferredAddableHostLanguage(['de-DE', 'ru'])).toBe('de')
+    expect(preferredAddableHostLanguage(['fr-FR'])).toBe('fr')
+    expect(preferredAddableHostLanguage(['pl-PL', 'es'])).toBe('pl')
+    expect(preferredAddableHostLanguage(['es-ES'])).toBe('es')
+    expect(preferredAddableHostLanguage(['cs-CZ', 'hu'])).toBe('cs')
+    expect(preferredAddableHostLanguage(['sv-SE'])).toBe('sv')
+    expect(preferredAddableHostLanguage(['pt-BR'])).toBe('br')
+    expect(preferredAddableHostLanguage(['pt-PT'])).toBe('pt')
+    expect(preferredAddableHostLanguage(['nb-NO'])).toBe('no')
+    expect(preferredAddableHostLanguage(['nn-NO'])).toBe('no')
+    expect(preferredAddableHostLanguage(['fi-FI'])).toBe('fi')
+    expect(preferredAddableHostLanguage(['el-GR'])).toBe('el')
+    expect(preferredAddableHostLanguage(['bg-BG'])).toBe('bg')
     expect(preferredAddableHostLanguage(['en', 'en-GB'])).toBeNull()
-    expect(preferredAddableHostLanguage(['fr-FR', 'es'])).toBeNull()
+    expect(preferredAddableHostLanguage(['ja-JP', 'zh-CN'])).toBeNull()
     expect(preferredAddableHostLanguage([])).toBeNull()
+  })
+})
+
+describe('windowsCapsPairingRecommended', () => {
+  it('recommends Caps pairing for Cyrillic alphabets only', () => {
+    expect(windowsCapsPairingRecommended('ru')).toBe(true)
+    expect(windowsCapsPairingRecommended('uk')).toBe(true)
+    expect(windowsCapsPairingRecommended('bg')).toBe(true)
+    expect(windowsCapsPairingRecommended('en')).toBe(false)
+    expect(windowsCapsPairingRecommended('de')).toBe(false)
+    expect(windowsCapsPairingRecommended('fr')).toBe(false)
+    expect(windowsCapsPairingRecommended('pl')).toBe(false)
+    expect(windowsCapsPairingRecommended('es')).toBe(false)
+    expect(windowsCapsPairingRecommended('el')).toBe(false)
   })
 })

@@ -71,6 +71,238 @@ export const WINDOWS_LOCALES: Record<HostLanguageId, WindowsLocale> = {
       BSLH: 'OEM_2',
       SLASH: 'OEM_MINUS'
     }
+  },
+  fr: {
+    localeName: 'fr-FR',
+    localeId: '0000040c',
+    languageName: 'French (France)',
+    shiftStates: [0, 1, 2, 6],
+    // AZERTY punctuation VKs from stock MSKLC (tmp/mklc/fr.klc). Letter VKs
+    // follow the Latin letter on the key (Q→A, W→Z, …).
+    vkByZmk: {
+      MINUS: 'OEM_4',
+      LBKT: 'OEM_6',
+      RBKT: 'OEM_1',
+      SQT: 'OEM_3',
+      GRAVE: 'OEM_7',
+      M: 'OEM_COMMA',
+      COMMA: 'OEM_PERIOD',
+      DOT: 'OEM_2',
+      SLASH: 'OEM_8'
+    }
+  },
+  pl: {
+    // Polish programmers (AltGr) — matches xkb pl(basic); oracle pl_prog.klc.
+    localeName: 'pl-PL',
+    localeId: '00000415',
+    languageName: 'Polish (Poland)',
+    shiftStates: [0, 1, 2, 6, 7]
+  },
+  es: {
+    localeName: 'es-ES',
+    localeId: '0000040a',
+    languageName: 'Spanish (Spain)',
+    shiftStates: [0, 1, 2, 6],
+    vkByZmk: {
+      MINUS: 'OEM_4',
+      EQUAL: 'OEM_6',
+      LBKT: 'OEM_1',
+      RBKT: 'OEM_PLUS',
+      SEMI: 'OEM_3',
+      GRAVE: 'OEM_5',
+      BSLH: 'OEM_2',
+      SLASH: 'OEM_MINUS'
+    }
+  },
+  it: {
+    // Primary Italian; oracle tmp/mklc/it.klc (it_142.klc is 00010410).
+    localeName: 'it-IT',
+    localeId: '00000410',
+    languageName: 'Italian (Italy)',
+    shiftStates: [0, 1, 2, 6, 7],
+    vkByZmk: {
+      MINUS: 'OEM_4',
+      EQUAL: 'OEM_6',
+      LBKT: 'OEM_1',
+      RBKT: 'OEM_PLUS',
+      SEMI: 'OEM_3',
+      GRAVE: 'OEM_5',
+      BSLH: 'OEM_2',
+      SLASH: 'OEM_MINUS'
+    }
+  },
+  pt: {
+    // Portugal (xkb `pt`); oracle tmp/mklc/pt.klc.
+    localeName: 'pt-PT',
+    localeId: '00000816',
+    languageName: 'Portuguese (Portugal)',
+    shiftStates: [0, 1, 2, 6],
+    vkByZmk: {
+      MINUS: 'OEM_4',
+      EQUAL: 'OEM_6',
+      LBKT: 'OEM_PLUS',
+      RBKT: 'OEM_1',
+      SEMI: 'OEM_3',
+      GRAVE: 'OEM_5',
+      BSLH: 'OEM_2',
+      SLASH: 'OEM_MINUS'
+    }
+  },
+  br: {
+    // ABNT2; oracle tmp/mklc/pt_ABNT2.klc (pt_ABNT.klc is older 00000416).
+    localeName: 'pt-BR',
+    localeId: '00010416',
+    languageName: 'Portuguese (Brazil)',
+    shiftStates: [0, 1, 2, 6]
+  },
+  cs: {
+    localeName: 'cs-CZ',
+    localeId: '00000405',
+    languageName: 'Czech (Czech Republic)',
+    shiftStates: [0, 1, 2, 6],
+    vkByZmk: {
+      MINUS: 'OEM_PLUS',
+      EQUAL: 'OEM_2',
+      SLASH: 'OEM_MINUS'
+    },
+    // Caps Lock letters on the number row / punctuation (tmp/mklc/cs.klc).
+    sgcapByZmk: {
+      N2: 0x011a,
+      N3: 0x0160,
+      N4: 0x010c,
+      N5: 0x0158,
+      N6: 0x017d,
+      N7: 0x00dd,
+      N8: 0x00c1,
+      N9: 0x00cd,
+      N0: 0x00c9,
+      LBKT: 0x00da,
+      SEMI: 0x016e
+    }
+  },
+  da: {
+    localeName: 'da-DK',
+    localeId: '00000406',
+    languageName: 'Danish (Denmark)',
+    shiftStates: [0, 1, 2, 6],
+    vkByZmk: {
+      MINUS: 'OEM_PLUS',
+      EQUAL: 'OEM_4',
+      LBKT: 'OEM_6',
+      RBKT: 'OEM_1',
+      SEMI: 'OEM_3',
+      GRAVE: 'OEM_5',
+      BSLH: 'OEM_2',
+      SLASH: 'OEM_MINUS'
+    }
+  },
+  sv: {
+    localeName: 'sv-SE',
+    localeId: '0000041d',
+    languageName: 'Swedish (Sweden)',
+    shiftStates: [0, 1, 2, 6],
+    vkByZmk: {
+      MINUS: 'OEM_PLUS',
+      EQUAL: 'OEM_4',
+      LBKT: 'OEM_6',
+      RBKT: 'OEM_1',
+      SEMI: 'OEM_3',
+      GRAVE: 'OEM_5',
+      BSLH: 'OEM_2',
+      SLASH: 'OEM_MINUS'
+    }
+  },
+  hu: {
+    localeName: 'hu-HU',
+    localeId: '0000040e',
+    languageName: 'Hungarian (Hungary)',
+    shiftStates: [0, 1, 2, 6],
+    vkByZmk: {
+      N0: 'OEM_3',
+      MINUS: 'OEM_2',
+      GRAVE: '0',
+      SLASH: 'OEM_MINUS'
+    }
+  },
+  tr: {
+    localeName: 'tr-TR',
+    localeId: '0000041f',
+    languageName: 'Turkish (Turkey)',
+    shiftStates: [0, 1, 2, 6, 7],
+    vkByZmk: {
+      MINUS: 'OEM_8',
+      EQUAL: 'OEM_MINUS',
+      BSLH: 'OEM_COMMA',
+      COMMA: 'OEM_2',
+      DOT: 'OEM_5',
+      SLASH: 'OEM_PERIOD'
+    }
+  },
+  ro: {
+    // xkb ro(basic) is programmers; Windows KLID 00020418.
+    localeName: 'ro-RO',
+    localeId: '00020418',
+    languageName: 'Romanian (Romania)',
+    shiftStates: [0, 1, 2, 6, 7]
+  },
+  fi: {
+    // Oracle tmp/mklc/fi.klc — Nordic OEM map like da/sv/no.
+    localeName: 'fi-FI',
+    localeId: '0000040b',
+    languageName: 'Finnish (Finland)',
+    shiftStates: [0, 1, 2, 6],
+    vkByZmk: {
+      MINUS: 'OEM_PLUS',
+      EQUAL: 'OEM_4',
+      LBKT: 'OEM_6',
+      RBKT: 'OEM_1',
+      SEMI: 'OEM_3',
+      GRAVE: 'OEM_5',
+      BSLH: 'OEM_2',
+      SLASH: 'OEM_MINUS'
+    }
+  },
+  no: {
+    // Oracle tmp/mklc/no.klc (nb-NO).
+    localeName: 'nb-NO',
+    localeId: '00000414',
+    languageName: 'Norwegian (Bokmål)',
+    shiftStates: [0, 1, 2, 6],
+    vkByZmk: {
+      MINUS: 'OEM_PLUS',
+      EQUAL: 'OEM_4',
+      LBKT: 'OEM_6',
+      RBKT: 'OEM_1',
+      SEMI: 'OEM_3',
+      GRAVE: 'OEM_5',
+      BSLH: 'OEM_2',
+      SLASH: 'OEM_MINUS'
+    }
+  },
+  el: {
+    // Oracle tmp/mklc/gr.klc — US-like VKs; no punctuation remap needed.
+    localeName: 'el-GR',
+    localeId: '00000408',
+    languageName: 'Greek (Greece)',
+    shiftStates: [0, 1, 2, 6]
+  },
+  bg: {
+    // Oracle tmp/mklc/bg.klc — BDS (KLID 00030402); Q/DOT VKs differ from US.
+    localeName: 'bg-BG',
+    localeId: '00030402',
+    languageName: 'Bulgarian (Bulgaria)',
+    shiftStates: [0, 1, 2],
+    vkByZmk: {
+      EQUAL: 'OEM_PERIOD',
+      Q: 'OEM_COMMA',
+      COMMA: 'OEM_8',
+      DOT: 'Q',
+      SLASH: 'OEM_2'
+    },
+    sgcapByZmk: {
+      Q: 0x042b,
+      A: 0x042c
+    }
   }
 }
 
