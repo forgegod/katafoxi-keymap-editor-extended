@@ -450,20 +450,6 @@ export function composeLayerRows(
   })
 }
 
-/**
- * AltGr and AltGr+Shift sit in one token, with no space.
- * A shown column with no glyph is `ˬ`, including `ˬˬ` when both columns are on.
- * The pair is omitted only when both column toggles are off.
- */
-export function formatAltGrPair(
-  column: Pick<ComposedLegendColumn, 'altGr' | 'altGrShift' | 'showAltGr' | 'showAltGrShift'>
-): string | null {
-  if (!column.showAltGr && !column.showAltGrShift) return null
-  const alt = column.showAltGr ? column.altGr || ALT_LEVEL_EMPTY : ''
-  const shift = column.showAltGrShift ? column.altGrShift || ALT_LEVEL_EMPTY : ''
-  return `${alt}${shift}`
-}
-
 export type KeycapTone = 'base' | 'second'
 
 export interface KeycapFaceGlyph {
@@ -472,18 +458,26 @@ export interface KeycapFaceGlyph {
   dead?: boolean
   /** AltGr or AltGr+Shift level. */
   alt: boolean
-}
-
-/** One language’s packed glyphs on the keycap face (empty levels omitted). */
-export interface KeycapFacePack {
-  tone: KeycapTone
-  glyphs: KeycapFaceGlyph[]
+  /**
+   * Level placeholder (`ˬ`): NoSymbol, or AltGr column toggle off.
+   * Always present in the face; SPA shows it on hover only.
+   */
+  empty?: boolean
 }
 
 /**
- * What the composed keycap face shows. Single fill algorithm for agents and UI:
- * non-empty glyphs per on-keycap language, then optional hold. No `ˬ`, no `/`.
- * Decode/table still use `ˬ` for empty editable levels — that is a different surface.
+ * One on-keycap language: exactly four glyphs (base, shift, AltGr, AltGr+Shift).
+ * Empty / toggle-off levels are `ˬ` (`empty: true`). Never collapsed or omitted.
+ */
+export interface KeycapFacePack {
+  tone: KeycapTone
+  glyphs: readonly [KeycapFaceGlyph, KeycapFaceGlyph, KeycapFaceGlyph, KeycapFaceGlyph]
+}
+
+/**
+ * Board face only. Agents and UI use this — not a second packing helper.
+ * Four slots per on-keycap language (≤2), then optional hold. Empty = `ˬ`.
+ * No `/`, no collapsing shared letters, no dropping empty languages on the key.
  */
 export interface KeycapFace {
   packs: KeycapFacePack[]
@@ -496,129 +490,55 @@ function keycapTone(column: ComposedLegendColumn, drawn: readonly ComposedLegend
   return drawn[0] === column ? 'base' : 'second'
 }
 
-function pushGlyph(
-  glyphs: KeycapFaceGlyph[],
-  text: string,
-  alt: boolean,
-  dead?: boolean
-) {
-  if (!text) return
-  glyphs.push(dead ? { text, alt, dead: true } : { text, alt })
+function faceGlyph(text: string, alt: boolean, dead?: boolean): KeycapFaceGlyph {
+  if (!text) return { text: ALT_LEVEL_EMPTY, alt, empty: true }
+  return dead ? { text, alt, dead: true } : { text, alt }
 }
 
 /**
- * Pack one on-keycap language: base, shift, AltGr, AltGr+Shift — skip empties.
- * When `letters` is false (matching pair on the earlier language), only AltGr levels.
+ * Four levels for one on-keycap language.
+ * `showAltGr` / `showAltGrShift` false → `ˬ` even when the layout has a glyph
+ * (column toggle hides the level; the slot stays).
  */
 function packLanguage(
   column: ComposedLegendColumn,
-  drawn: readonly ComposedLegendColumn[],
-  letters: boolean
-): KeycapFacePack | null {
-  const glyphs: KeycapFaceGlyph[] = []
-  if (letters) {
-    pushGlyph(glyphs, column.pair[0] ?? '', false, column.pairDead[0])
-    pushGlyph(glyphs, column.pair[1] ?? '', false, column.pairDead[1])
+  drawn: readonly ComposedLegendColumn[]
+): KeycapFacePack {
+  return {
+    tone: keycapTone(column, drawn),
+    glyphs: [
+      faceGlyph(column.pair[0] ?? '', false, column.pairDead[0]),
+      faceGlyph(column.pair[1] ?? '', false, column.pairDead[1]),
+      faceGlyph(column.showAltGr ? column.altGr : '', true, Boolean(column.showAltGr && column.altGrDead)),
+      faceGlyph(
+        column.showAltGrShift ? column.altGrShift : '',
+        true,
+        Boolean(column.showAltGrShift && column.altGrShiftDead)
+      )
+    ]
   }
-  if (column.showAltGr) {
-    pushGlyph(glyphs, column.altGr, true, column.altGrDead)
-  }
-  if (column.showAltGrShift) {
-    pushGlyph(glyphs, column.altGrShift, true, column.altGrShiftDead)
-  }
-  if (glyphs.length === 0) return null
-  return { tone: keycapTone(column, drawn), glyphs }
 }
 
 /**
- * Fill the composed keycap face.
+ * Fill the composed keycap face — the only board content API.
  *
  * 1. Take on-keycap languages (at most two), left to right.
- * 2. For each, append non-empty levels in order: base, shift, AltGr, AltGr+Shift.
- *    If both languages share the same letter pair, the second skips base/shift.
- * 3. Drop a language that contributed no glyphs.
- * 4. Attach `legend.hold` when present (`⧗⌃`, …) — behavior chrome, not a host level.
+ * 2. For each, emit exactly four levels: base, shift, AltGr, AltGr+Shift.
+ *    Empty or toggle-off levels are `ˬ`. Shared letter pairs are not collapsed.
+ * 3. Attach `legend.hold` when present (`⧗⌃`, …) — behavior chrome, not a host level.
  *
- * Never emit `ˬ` or `/`. The SPA only paints this face and scale-to-fits.
+ * The SPA paints this face, scale-to-fits, and shows `ˬ` only on layer hover.
  */
 export function keycapFace(legend: ComposedLegend): KeycapFace {
   const drawn = legend.columns.filter(column => column.onKeycap)
-  const packs: KeycapFacePack[] = []
-  if (drawn.length === 0) {
-    return legend.hold ? { packs, hold: legend.hold } : { packs }
-  }
-
-  const left = drawn[0]!
-  const right = drawn[1]
-  const leftPair = `${left.pair[0]}${left.pair[1]}`
-  const rightPair = right ? `${right.pair[0]}${right.pair[1]}` : ''
-  const lettersMatch = Boolean(right && leftPair && leftPair === rightPair)
-
-  const leftPack = packLanguage(left, drawn, true)
-  if (leftPack) packs.push(leftPack)
-  if (right) {
-    const rightPack = packLanguage(right, drawn, !lettersMatch)
-    if (rightPack) packs.push(rightPack)
-  }
-
+  const packs = drawn.map(column => packLanguage(column, drawn))
   return legend.hold ? { packs, hold: legend.hold } : { packs }
 }
 
-/** Compact face string for tests and debug (`5% (5[⅜`, `kK ĸ& ⧗⇧`). */
+/** Compact face string for tests and debug (`bBˬˬиИˬˬ`, `kK]}лЛ]} ⧗⌃`). */
 export function formatKeycapFace(face: KeycapFace): string {
-  const body = face.packs.map(pack => pack.glyphs.map(glyph => glyph.text).join('')).join(' ')
+  const body = face.packs.map(pack => pack.glyphs.map(glyph => glyph.text).join('')).join('')
   return face.hold ? `${body} ${face.hold}`.trim() : body
-}
-
-/** @deprecated Prefer `keycapFace`. Level-shaped blocks kept for golden snapshots. */
-export interface KeycapSlot {
-  text: string
-  dead?: boolean
-}
-
-/** @deprecated Prefer `keycapFace`. */
-export interface KeycapColumn {
-  tone: KeycapTone
-  slots: readonly [KeycapSlot, KeycapSlot, KeycapSlot, KeycapSlot]
-}
-
-function keycapSlot(text: string, dead?: boolean): KeycapSlot {
-  if (!text) return { text: '' }
-  return dead ? { text, dead: true } : { text }
-}
-
-/**
- * @deprecated Prefer `keycapFace` for anything painted on the board.
- * Level-aligned blocks (empty levels as `''`) for golden / migration only.
- */
-export function keycapColumns(legend: ComposedLegend): KeycapColumn[] {
-  const drawn = legend.columns.filter(column => column.onKeycap)
-  if (drawn.length === 0) return []
-
-  const left = drawn[0]!
-  const right = drawn[1]
-  const leftPair = `${left.pair[0]}${left.pair[1]}`
-  const rightPair = right ? `${right.pair[0]}${right.pair[1]}` : ''
-  const lettersMatch = Boolean(right && leftPair && leftPair === rightPair)
-
-  const block = (
-    column: ComposedLegendColumn,
-    letters: boolean
-  ): KeycapColumn => ({
-    tone: keycapTone(column, drawn),
-    slots: [
-      keycapSlot(letters ? column.pair[0] ?? '' : '', letters && column.pairDead[0]),
-      keycapSlot(letters ? column.pair[1] ?? '' : '', letters && column.pairDead[1]),
-      keycapSlot(column.showAltGr ? column.altGr || '' : '', Boolean(column.altGr && column.altGrDead)),
-      keycapSlot(
-        column.showAltGrShift ? column.altGrShift || '' : '',
-        Boolean(column.altGrShift && column.altGrShiftDead)
-      )
-    ]
-  })
-
-  if (!right) return [block(left, true)]
-  return [block(left, true), block(right, !lettersMatch)]
 }
 
 export interface MultilangKeycapLine {

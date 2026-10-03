@@ -39,7 +39,9 @@ function extraPair(legend: NonNullable<ReturnType<typeof hostLegendFor>>) {
 
 function altNote(legend: NonNullable<ReturnType<typeof hostLegendFor>>): string | undefined {
   const text = keycapFace(legend)
-    .packs.flatMap(pack => pack.glyphs.filter(glyph => glyph.alt).map(glyph => glyph.text))
+    .packs.flatMap(pack =>
+      pack.glyphs.filter(glyph => glyph.alt && !glyph.empty).map(glyph => glyph.text)
+    )
     .join('')
   return text || undefined
 }

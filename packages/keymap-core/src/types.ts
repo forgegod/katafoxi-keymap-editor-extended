@@ -98,9 +98,12 @@ export interface ComposedLegendColumn {
   altGrShift: string
   /** True when `altGrShift` is a dead-key spacing mark. */
   altGrShiftDead: boolean
-  /** AltGr column toggle. False hides that slot; an empty glyph still shows ˬ when true. */
+  /**
+   * AltGr column toggle. On the keycap face the level is always a slot:
+   * on + glyph, on + empty → `ˬ`, off → `ˬ` (hides content, slot stays).
+   */
   showAltGr: boolean
-  /** AltGr+Shift column toggle. False hides that slot. */
+  /** AltGr+Shift column toggle. Same face rule as `showAltGr`. */
   showAltGrShift: boolean
   /** D9: this column's letter pair is drawn on the keycap. */
   onKeycap: boolean

@@ -23,7 +23,8 @@ export interface HostLegendTableCell {
 /**
  * Pair and AltGr cells for every column in the view.
  * Collapsed extras stay in the row with empty glyphs; wide columns
- * always show the layout's own levels (not the keycap collapse).
+ * show the layout's own levels. Off AltGr toggles leave those cells blank
+ * in the table (the keycap face still keeps four `ˬ` slots via `keycapFace`).
  * Dead accents use spacing marks (same as the keycap / decode).
  */
 export function hostLegendTableRow(

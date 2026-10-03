@@ -24,7 +24,6 @@ import {
   compactBehaviorLegend,
   prefixedCommandLegend,
   layerLegendSymbol,
-  formatAltGrPair,
   getBehaviorCatalog,
   getKeycodeCatalog,
   hostLegendFor,
@@ -74,7 +73,9 @@ function extraColumn(legend: NonNullable<ReturnType<typeof composeKey>>) {
 
 function altText(legend: NonNullable<ReturnType<typeof composeKey>>): string | undefined {
   const text = keycapFace(legend)
-    .packs.flatMap(pack => pack.glyphs.filter(glyph => glyph.alt).map(glyph => glyph.text))
+    .packs.flatMap(pack =>
+      pack.glyphs.filter(glyph => glyph.alt && !glyph.empty).map(glyph => glyph.text)
+    )
     .join('')
   return text || undefined
 }
@@ -174,7 +175,7 @@ describe('resolveBinding / composeKey', () => {
     expect(extraColumn(legend!)?.pair).toEqual(['ф', 'Ф'])
     expect(legend?.hold).toBeUndefined()
     expect(legend?.holdRef).toBeUndefined()
-    expect(compactKeycap(legend!)).toBe('aA@× фФ@×')
+    expect(compactKeycap(legend!)).toBe('aA@×фФ@×')
     expect(altText(legend!)).toBe('@×@×')
   })
 
@@ -200,52 +201,61 @@ describe('resolveBinding / composeKey', () => {
     expect(baseColumn(tee!)?.altGr).toBe('')
     expect(baseColumn(tee!)?.altGrShift).toBe('')
     expect(altText(tee!)).toBe('ёЁ')
-    expect(compactKeycap(tee!)).toBe('tT еЕёЁ')
+    expect(compactKeycap(tee!)).toBe(`tT${ALT_LEVEL_EMPTY}${ALT_LEVEL_EMPTY}еЕёЁ`)
 
     const em = composeKey({ binding: parseKeyBinding('&kp M'), hostView: larkView() })
     expect(baseColumn(em!)?.pair).toEqual(['m', 'M'])
     expect(extraColumn(em!)?.pair).toEqual(['ь', 'Ь'])
     expect(altText(em!)).toBe('ъЪ')
-    expect(compactKeycap(em!)).toBe('mM ьЬъЪ')
+    expect(compactKeycap(em!)).toBe(`mM${ALT_LEVEL_EMPTY}${ALT_LEVEL_EMPTY}ьЬъЪ`)
 
     const grave = composeKey({ binding: parseKeyBinding('&kp GRAVE'), hostView: larkView() })
     expect(baseColumn(grave!)?.pair).toEqual(['`', '~'])
     expect(extraColumn(grave!)?.pair).toEqual(['`', '~'])
     expect(altText(grave!)).toBeUndefined()
-    expect(facePacks(grave!)).toEqual([{ tone: 'base', glyphs: ['`', '~'] }])
+    expect(facePacks(grave!)).toEqual([
+      {
+        tone: 'base',
+        glyphs: ['`', '~', ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY]
+      },
+      {
+        tone: 'second',
+        glyphs: ['`', '~', ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY]
+      }
+    ])
   })
 
-  it('draws a second-language pair once when it matches the first', () => {
+  it('keeps matching letter pairs on both packs with four slots each', () => {
     const hostView = addHostLanguage(larkView(), 'de')
     const gee = composeKey({ binding: parseKeyBinding('&kp G'), hostView })
     expect(baseColumn(gee!)?.pair).toEqual(['g', 'G'])
     expect(extraColumn(gee!)?.pair).toEqual(['g', 'G'])
     expect(facePacks(gee!)).toEqual([
       { tone: 'base', glyphs: ['g', 'G', 'Σ', '±'] },
-      { tone: 'second', glyphs: ['ŋ', 'Ŋ'] }
+      { tone: 'second', glyphs: ['g', 'G', 'ŋ', 'Ŋ'] }
     ])
-    expect(compactKeycap(gee!)).toBe('gGΣ± ŋŊ')
+    expect(compactKeycap(gee!)).toBe('gGΣ±gGŋŊ')
   })
 
-  it('packs each language without slash or empty marks', () => {
+  it('fills four slots per language with ˬ for empty levels', () => {
     const tee = composeKey({ binding: parseKeyBinding('&kp T'), hostView: larkView() })
     expect(facePacks(tee!)).toEqual([
-      { tone: 'base', glyphs: ['t', 'T'] },
+      { tone: 'base', glyphs: ['t', 'T', ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY] },
       { tone: 'second', glyphs: ['е', 'Е', 'ё', 'Ё'] }
     ])
     const em = composeKey({ binding: parseKeyBinding('&kp M'), hostView: larkView() })
     expect(facePacks(em!)).toEqual([
-      { tone: 'base', glyphs: ['m', 'M'] },
+      { tone: 'base', glyphs: ['m', 'M', ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY] },
       { tone: 'second', glyphs: ['ь', 'Ь', 'ъ', 'Ъ'] }
     ])
   })
 
-  it('omits matching letters on the second pack when AltGr diverges', () => {
+  it('keeps matching letters on the second pack when AltGr diverges', () => {
     const hostView = addHostLanguage(standardHostLegendView(), 'de')
     const five = composeKey({ binding: parseKeyBinding('&kp N5'), hostView })
     expect(facePacks(five!)).toEqual([
-      { tone: 'base', glyphs: ['5', '%'] },
-      { tone: 'second', glyphs: ['½', '⅜'] }
+      { tone: 'base', glyphs: ['5', '%', ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY] },
+      { tone: 'second', glyphs: ['5', '%', '½', '⅜'] }
     ])
   })
 
@@ -255,7 +265,7 @@ describe('resolveBinding / composeKey', () => {
     expect(extraColumn(legend!)?.pair).toEqual(['у', 'У'])
     expect(baseColumn(legend!)?.altGr).toBe('№')
     expect(baseColumn(legend!)?.altGrShift).toBe('{')
-    expect(compactKeycap(legend!)).toBe('eE№{ уУ№{')
+    expect(compactKeycap(legend!)).toBe('eE№{уУ№{')
   })
 
   it('puts hold badge only on &mt, not on bare &kp J', () => {
@@ -348,10 +358,10 @@ describe('resolveBinding / composeKey', () => {
       )
     ).toEqual(legend?.columns.map(column => `${column.pair[0]}${column.pair[1]}`))
     expect(
-      lines?.every(line =>
-        formatKeycapFace(keycapFace(line.legend)).includes('/') === false &&
-        formatKeycapFace(keycapFace(line.legend)).includes(ALT_LEVEL_EMPTY) === false
-      )
+      lines?.every(line => formatKeycapFace(keycapFace(line.legend)).includes('/') === false)
+    ).toBe(true)
+    expect(
+      lines?.some(line => formatKeycapFace(keycapFace(line.legend)).includes(ALT_LEVEL_EMPTY))
     ).toBe(true)
 
     const hidden = toggleHostLanguage(hostView, 'en')
@@ -375,7 +385,7 @@ describe('resolveBinding / composeKey', () => {
     expect(legend?.columns.map(column => column.onKeycap)).toEqual([true, false, true])
     expect(facePacks(legend!)).toEqual([
       { tone: 'base', glyphs: ['a', 'A', '@', '×'] },
-      { tone: 'second', glyphs: ['ф', 'Ф'] }
+      { tone: 'second', glyphs: ['ф', 'Ф', ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY] }
     ])
   })
 
@@ -471,17 +481,20 @@ describe('resolveBinding / composeKey', () => {
     expect(extraColumn(englishOnly!)).toBeNull()
     expect(baseColumn(englishOnly!)?.altGr).toBe('')
     expect(baseColumn(englishOnly!)?.altGrShift).toBe('')
-    expect(compactKeycap(englishOnly!)).toBe('aA')
-    expect(formatAltGrPair(baseColumn(englishOnly!)!)).toBeNull()
+    expect(compactKeycap(englishOnly!)).toBe(`aA${ALT_LEVEL_EMPTY}${ALT_LEVEL_EMPTY}`)
+    expect(facePacks(englishOnly!)).toEqual([
+      { tone: 'base', glyphs: ['a', 'A', ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY] }
+    ])
   })
 
-  it('keeps an AltGr pair of empty marks while either column is on', () => {
+  it('keeps AltGr face slots as ˬ when empty or when the column toggle is off', () => {
     const both = composeKey({ binding: parseKeyBinding('&kp GRAVE'), hostView: larkView() })
     expect(baseColumn(both!)?.altGr).toBe('')
     expect(baseColumn(both!)?.altGrShift).toBe('')
-    expect(formatAltGrPair(baseColumn(both!)!)).toBe('ˬˬ')
+    expect(facePacks(both!)[0]?.glyphs.slice(2)).toEqual([ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY])
+    expect(facePacks(both!)[1]?.glyphs.slice(2)).toEqual([ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY])
 
-    const shiftOnly = composeKey({
+    const altGrOff = composeKey({
       binding: parseKeyBinding('&kp GRAVE'),
       hostView: setHostColumnAlt(
         setHostColumnAlt(larkView(), 'en', 'altGr', false),
@@ -490,7 +503,7 @@ describe('resolveBinding / composeKey', () => {
         false
       )
     })
-    expect(formatAltGrPair(baseColumn(shiftOnly!)!)).toBe('ˬ')
+    expect(facePacks(altGrOff!)[0]?.glyphs.slice(2)).toEqual([ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY])
 
     const hidden = composeKey({
       binding: parseKeyBinding('&kp E'),
@@ -506,15 +519,21 @@ describe('resolveBinding / composeKey', () => {
         false
       )
     })
-    expect(formatAltGrPair(baseColumn(hidden!)!)).toBeNull()
+    expect(facePacks(hidden!)).toEqual([
+      { tone: 'base', glyphs: ['e', 'E', ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY] },
+      { tone: 'second', glyphs: ['у', 'У', ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY] }
+    ])
+    // Composed column already clears glyphs when the toggle is off; face keeps ˬ slots.
+    expect(baseColumn(hidden!)?.altGr).toBe('')
+    expect(baseColumn(hidden!)?.showAltGr).toBe(false)
   })
 
   it('shares bracket AltGr on K', () => {
     const both = composeKey({ binding: parseKeyBinding('&kp K'), hostView: larkView() })
     expect(baseColumn(both!)?.altGr).toBe(']')
     expect(baseColumn(both!)?.altGrShift).toBe('}')
-    expect(formatAltGrPair(baseColumn(both!)!)).toBe(']}')
-    expect(compactKeycap(both!)).toBe('kK]} лЛ]}')
+    expect(facePacks(both!)[0]?.glyphs.slice(2)).toEqual([']', '}'])
+    expect(compactKeycap(both!)).toBe('kK]}лЛ]}')
   })
 
   it('detects layer references on &mo / &lt / &to', () => {
@@ -875,7 +894,9 @@ describe('composeLegendDecode', () => {
           tone: 'base',
           glyphs: [
             { text: '[', alt: false },
-            { text: '{', alt: false }
+            { text: '{', alt: false },
+            { text: ALT_LEVEL_EMPTY, alt: true, empty: true },
+            { text: ALT_LEVEL_EMPTY, alt: true, empty: true }
           ]
         },
         {
