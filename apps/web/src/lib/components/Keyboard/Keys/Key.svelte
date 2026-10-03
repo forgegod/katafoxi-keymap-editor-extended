@@ -367,7 +367,7 @@
       <button
         type="button"
         class="layer-slot multilang-face"
-        class:combo-peek={comboPeekLayer === 0}
+        class:combo-peek={comboPeekLayer != null}
         class:unpublished={isUnpublished(0)}
         class:symbol-moved={marks.moved}
         class:altgr-conflict={marks.conflict}

@@ -36,12 +36,16 @@ describe('ComboPanel', () => {
     editor.activeComboId = 'combo_esc'
     target = document.createElement('div')
     document.body.appendChild(target)
+    const modalRoot = document.createElement('div')
+    modalRoot.id = 'modal-root'
+    document.body.appendChild(modalRoot)
   })
 
   afterEach(() => {
     if (view) unmount(view)
     view = undefined
     target.remove()
+    document.getElementById('modal-root')?.remove()
     editor.resetForTests()
   })
 
@@ -101,6 +105,9 @@ describe('ComboPanel', () => {
 
   it('leaves combo mode on Escape when every combo is complete', () => {
     mountPanel()
+    const done = target.querySelector('.combo-btn.done')
+    expect(done?.getAttribute('aria-keyshortcuts')).toBe('Escape')
+    expect(done?.querySelector('.esc-hint')?.textContent).toBe('Esc')
     expect(editor.comboMode).toBe(true)
     window.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
@@ -130,6 +137,25 @@ describe('ComboPanel', () => {
     expect(editor.comboNotice).toBeTruthy()
   })
 
+  it('closes the binding editor on Escape without leaving combo mode', () => {
+    mountPanel()
+    const binding = [...target.querySelectorAll('.combo-btn')].find(
+      el => el.textContent?.trim() === 'Binding'
+    )
+    if (!(binding instanceof HTMLButtonElement)) throw new Error('missing Binding')
+    binding.click()
+    flushSync()
+    expect(document.querySelector('[role=dialog][aria-label="Edit key"]')).toBeTruthy()
+    expect(editor.comboMode).toBe(true)
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    )
+    flushSync()
+    expect(document.querySelector('[role=dialog][aria-label="Edit key"]')).toBeNull()
+    expect(editor.comboMode).toBe(true)
+  })
+
   it('blurs a focused id field on Escape without leaving combo mode', () => {
     mountPanel()
     const input = target.querySelector('.combo-props input')
@@ -137,7 +163,7 @@ describe('ComboPanel', () => {
     input.focus()
     expect(document.activeElement).toBe(input)
 
-    // Bubble to the window listener with target = input.
+    // Capture listener on window still sees target = input.
     input.dispatchEvent(
       new KeyboardEvent('keydown', {
         key: 'Escape',

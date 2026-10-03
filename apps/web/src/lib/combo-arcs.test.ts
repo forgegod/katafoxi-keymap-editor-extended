@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { buildComboArcSegs } from './combo-arcs'
+import {
+  buildComboArcSegs,
+  COMBO_ANCHOR_SIDE_FALLBACK
+} from './combo-arcs'
 import { getKeyBoundingBox } from './key-units'
 import type { LayoutKey, ZmkCombo } from '@keymap-editor/keymap-core'
 
@@ -49,6 +52,20 @@ describe('buildComboArcSegs', () => {
     expect(segs[0]!.midY).toBeLessThan(bottom.min.y)
   })
 
+  it('spreads vertical beads by shown-layer slot so L1/L2 do not overlap', () => {
+    const v1: ZmkCombo = { ...esc, id: 'combo_v1', keyPositions: [0, 3], layers: [1] }
+    const v2: ZmkCombo = { ...esc, id: 'combo_v2', keyPositions: [0, 3], layers: [2] }
+    const segs = buildComboArcSegs(layout, [v1, v2], {
+      shownLayers: [0, 1, 2],
+      labelFor: c => c.id
+    })
+    expect(segs).toHaveLength(2)
+    expect(segs[0]?.faceLayer).toBe(1)
+    expect(segs[1]?.faceLayer).toBe(2)
+    expect(segs[0]!.midY).not.toBeCloseTo(segs[1]!.midY, 5)
+    expect(segs[0]!.midY).toBeLessThan(segs[1]!.midY)
+  })
+
   it('places an anchor bead in the mid-gap to the right of the first key', () => {
     const skip: ZmkCombo = { ...esc, id: 'combo_skip', keyPositions: [0, 2] }
     const triple: ZmkCombo = { ...esc, id: 'combo_3', keyPositions: [0, 1, 2] }
@@ -68,6 +85,33 @@ describe('buildComboArcSegs', () => {
     // Same anchor gutter → stacked along the strip, not sideways into the neighbour.
     expect(segs[1]!.midX).toBeCloseTo(segs[0]!.midX, 5)
     expect(segs[1]!.midY).toBeGreaterThan(segs[0]!.midY)
+  })
+
+  it('uses a tiny side fallback when the anchor has no right-hand neighbour', () => {
+    const loneRow: LayoutKey[] = [
+      { x: 0, y: 0, row: 0, col: 0 },
+      { x: 0, y: 1, row: 1, col: 0 },
+      { x: 1, y: 1, row: 1, col: 1 }
+    ]
+    // Geometric first key is (0,0); that row has no neighbour to the right.
+    const odd: ZmkCombo = { ...esc, id: 'combo_odd', keyPositions: [0, 2] }
+    const segs = buildComboArcSegs(loneRow, [odd], {
+      shownLayers: [0],
+      labelFor: () => '&kp ESC'
+    })
+    expect(segs).toHaveLength(1)
+    const box = getKeyBoundingBox({ x: 0, y: 0 }, { u: 1, h: 1 })
+    expect(segs[0]!.midX).toBeCloseTo(box.max.x + COMBO_ANCHOR_SIDE_FALLBACK, 5)
+  })
+
+  it('skips combos that touch a hidden key', () => {
+    expect(
+      buildComboArcSegs(layout, [esc], {
+        shownLayers: [0],
+        hidden: new Set([1]),
+        labelFor: () => '&kp ESC'
+      })
+    ).toHaveLength(0)
   })
 
   it('hides combos restricted to other layers', () => {

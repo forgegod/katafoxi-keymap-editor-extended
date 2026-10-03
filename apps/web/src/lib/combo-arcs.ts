@@ -33,7 +33,10 @@ type KeyGeom = {
 }
 
 /** Fallback when the anchor has no right-hand neighbour gutter. */
-const SIDE_FALLBACK = 2.5
+export const COMBO_ANCHOR_SIDE_FALLBACK = 2.5
+/** Extra beads that share a gutter stack at most this many steps. */
+const STACK_MAX = 2
+const STACK_STEP = 5
 
 function keyGeoms(layout: LayoutKey[]): KeyGeom[] {
   return layout.map((key, index) => {
@@ -86,6 +89,23 @@ function faceMidY(key: KeyGeom, slot: number, rowCount: number): number {
   return key.minY + faceH * slot + faceH / 2
 }
 
+/**
+ * Vertical neighbours: stay in the physical gutter, spread by shown-layer
+ * slot so L1/L2 beads on the same pair do not sit on top of each other.
+ */
+function verticalGapMidY(
+  top: KeyGeom,
+  bottom: KeyGeom,
+  slot: number,
+  rowCount: number
+): number {
+  const physicalMid = (top.maxY + bottom.minY) / 2
+  if (rowCount <= 1) return physicalMid
+  const faceH = Math.min(top.keyH, bottom.keyH) / rowCount
+  const spread = Math.min(faceH * 0.4, 10)
+  return physicalMid + (slot - (rowCount - 1) / 2) * spread
+}
+
 /** Stable board-space pick: top-most, then left-most, then lowest index. */
 function pickAnchorGeom(geoms: KeyGeom[], positions: readonly number[]): KeyGeom | null {
   let best: KeyGeom | null = null
@@ -134,7 +154,7 @@ function anchorBeadX(
   if (next && next.minX > anchor.maxX) {
     return (anchor.maxX + next.minX) / 2
   }
-  return anchor.maxX + SIDE_FALLBACK
+  return anchor.maxX + COMBO_ANCHOR_SIDE_FALLBACK
 }
 
 type DraftSeg = ComboArcSeg & { stackKey: string }
@@ -201,8 +221,7 @@ export function buildComboArcSegs(
           label,
           title: `${combo.id}: ${label}`,
           midX: (top.midX + bottom.midX) / 2,
-          // Physical gutter between the two key bodies.
-          midY: (top.maxY + bottom.minY) / 2,
+          midY: verticalGapMidY(top, bottom, slot, rowCount),
           kind: 'gap',
           keyPositions,
           faceLayer,
@@ -235,8 +254,9 @@ export function buildComboArcSegs(
     stackCounts.set(draft.stackKey, n + 1)
     const { stackKey: _stackKey, ...seg } = draft
     if (n > 0) {
-      // Narrow gutters: stack along the strip, not into the neighbour key.
-      out.push({ ...seg, midY: seg.midY + n * 7 })
+      // Cap so deep stacks stay near the gutter instead of drifting onto faces.
+      const step = Math.min(n, STACK_MAX)
+      out.push({ ...seg, midY: seg.midY + step * STACK_STEP })
     } else {
       out.push(seg)
     }

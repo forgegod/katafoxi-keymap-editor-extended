@@ -232,6 +232,9 @@
       if (event.key !== 'Escape' || event.defaultPrevented || event.repeat) return
       if (session.editing) {
         event.preventDefault()
+        // Capture + stop so KeyEditor's window listener does not also run, then
+        // a second handler would see editing=false and exit combo mode.
+        event.stopImmediatePropagation()
         session.closeEditor()
         return
       }
@@ -243,8 +246,8 @@
       event.preventDefault()
       editor.tryExitComboMode()
     }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
   })
 </script>
 
@@ -266,12 +269,14 @@
       <button type="button" class="combo-btn" onclick={addCombo}>New</button>
       <button
         type="button"
-        class="combo-btn"
+        class="combo-btn done"
         aria-label="Done editing combos"
+        aria-keyshortcuts="Escape"
         title="Done editing combos (Esc)"
         onclick={closePanel}
       >
         Done
+        <kbd class="esc-hint">Esc</kbd>
       </button>
     </div>
   </header>
@@ -609,6 +614,25 @@
     color: var(--text);
     font: inherit;
     cursor: pointer;
+  }
+
+  .combo-btn.done {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .esc-hint {
+    font: inherit;
+    font-size: 0.72em;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    padding: 0 4px;
+    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--stage-bg, #111) 35%, transparent);
+    color: var(--text-disabled, #888);
+    line-height: 1.4;
   }
 
   .combo-btn.quiet {

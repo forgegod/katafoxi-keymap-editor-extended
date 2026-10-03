@@ -96,16 +96,18 @@
         <circle class="dot-hit" cx={seg.midX} cy={seg.midY} r="11" />
         <circle class="dot" cx={seg.midX} cy={seg.midY} r="4.5" />
         {#if hoverId === seg.comboId}
+          {@const tipBelow = seg.midY - minY < 22}
+          {@const tipW = Math.max(seg.label.length * 6.4, 36)}
           <g class="tip" transform="translate({seg.midX}, {seg.midY})">
             <rect
               class="tip-bg"
-              x={-Math.max(seg.label.length * 3.2, 18)}
-              y="-20"
-              width={Math.max(seg.label.length * 6.4, 36)}
+              x={-tipW / 2}
+              y={tipBelow ? 8 : -20}
+              width={tipW}
               height="16"
               rx="3"
             />
-            <text class="tip-text" y="-12">{seg.label}</text>
+            <text class="tip-text" y={tipBelow ? 16 : -12}>{seg.label}</text>
           </g>
         {/if}
       </g>
