@@ -205,8 +205,8 @@
   background-color: var(--hover-selection);
   color: var(--on-accent);
 }
-.key[data-stacked='true'] .layer-slot:hover :is(.zmk-row, .col, .hold, .code, .layer-empty),
-.key[data-stacked='true'] .layer-slot:focus-visible :is(.zmk-row, .col, .hold, .code, .layer-empty) {
+.key[data-stacked='true'] .layer-slot:hover :is(.zmk-row, .col, .hold, .code, .layer-empty, .lang, .slot, .face, .glyph, .pack),
+.key[data-stacked='true'] .layer-slot:focus-visible :is(.zmk-row, .col, .hold, .code, .layer-empty, .lang, .slot, .face, .glyph, .pack) {
   color: var(--on-accent);
 }
 
@@ -263,10 +263,8 @@
   font-size: inherit;
 }
 
-.key .layer-stack .line {
-  gap: 0.1em;
-  min-width: 0;
-  max-width: 100%;
+.key .layer-stack .face {
+  /* Comfortable stacked size; KeyCap scale-to-fit handles overflow. */
   font-size: min(1em, 18cqw);
 }
 

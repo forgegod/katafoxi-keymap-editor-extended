@@ -1,10 +1,6 @@
 <script lang="ts">
-  import {
-    ALT_LEVEL_EMPTY,
-    keycapColumns,
-    type ComposedLegend,
-    type LegendHoverHit
-  } from '@keymap-editor/keymap-core'
+  import { tick } from 'svelte'
+  import { keycapFace, type ComposedLegend, type LegendHoverHit } from '@keymap-editor/keymap-core'
 
   interface Props {
     legend: ComposedLegend
@@ -16,51 +12,81 @@
 
   let { legend, stacked = false, hit = 'none', conflict = false }: Props = $props()
 
-  const columns = $derived(keycapColumns(legend))
+  /** Face content comes only from core `keycapFace` — UI paints and scale-to-fits. */
+  const face = $derived(keycapFace(legend))
+  const bilingual = $derived(face.packs.length >= 2)
 
-  /** Split ˬ placeholders from real glyphs so empty AltGr slots can hide until hover. */
-  function markParts(text: string): { empty: boolean; text: string }[] {
-    if (!text) return []
-    const parts: { empty: boolean; text: string }[] = []
-    let buf = ''
-    let empty = text[0] === ALT_LEVEL_EMPTY
-    for (const ch of text) {
-      const isEmpty = ch === ALT_LEVEL_EMPTY
-      if (buf && isEmpty !== empty) {
-        parts.push({ empty, text: buf })
-        buf = ''
-        empty = isEmpty
-      }
-      buf += ch
-    }
-    if (buf) parts.push({ empty, text: buf })
-    return parts
+  let keycapEl: HTMLDivElement | undefined = $state()
+  let faceEl: HTMLSpanElement | undefined = $state()
+  let scale = $state(1)
+
+  function fitFace() {
+    const box = keycapEl
+    const el = faceEl
+    if (!box || !el) return
+    const prevTransform = el.style.transform
+    const prevWidth = el.style.width
+    el.style.transform = 'scale(1)'
+    el.style.width = 'max-content'
+    const have = box.clientWidth
+    const need = el.scrollWidth
+    scale = have > 0 && need > have ? have / need : 1
+    el.style.transform = prevTransform
+    el.style.width = prevWidth
   }
+
+  $effect(() => {
+    void face.packs
+    void face.hold
+    void stacked
+    const box = keycapEl
+    if (!box) return
+    let cancelled = false
+    void tick().then(() => {
+      if (!cancelled) fitFace()
+    })
+    const ro = new ResizeObserver(() => {
+      if (!cancelled) fitFace()
+    })
+    ro.observe(box)
+    return () => {
+      cancelled = true
+      ro.disconnect()
+    }
+  })
 </script>
 
 <div
   class="keycap"
   class:keypad={legend.keypad}
   class:stacked
+  class:bilingual
+  class:scaled={scale < 0.999}
+  bind:this={keycapEl}
 >
-  <span class="line" class:legend-hit={hit === 'combo'}>
-    {#each columns as column, index (index)}
-      <span class="col" class:alt={column.kind === 'alt'} class:os-conflict={conflict && column.kind === 'alt'}>
-        {#each column.pieces as piece, pieceIndex (pieceIndex)}
-          <span class:second={piece.tone === 'second'}>
-            {#each markParts(piece.text) as part, partIndex (partIndex)}
-              {#if part.empty}
-                <span class="empty-mark">{part.text}</span>
-              {:else}
-                {part.text}
-              {/if}
-            {/each}
-          </span>
-        {/each}
-      </span>
-    {/each}
-    {#if legend.hold}
-      <span class="hold" class:legend-hit={hit === 'hold'}>{legend.hold}</span>
+  <span
+    class="face"
+    class:legend-hit={hit === 'combo'}
+    class:has-hold={Boolean(face.hold)}
+    style="transform: scale({scale})"
+    bind:this={faceEl}
+  >
+    <span class="langs" class:bilingual>
+      {#each face.packs as pack, packIndex (packIndex)}
+        <span class="pack" class:second={pack.tone === 'second'}>
+          {#each pack.glyphs as glyph, glyphIndex (`${packIndex}-${glyphIndex}-${glyph.text}`)}
+            <span
+              class="glyph"
+              class:alt={glyph.alt}
+              class:dead={Boolean(glyph.dead)}
+              class:os-conflict={conflict && glyph.alt}
+            >{glyph.text}</span>
+          {/each}
+        </span>
+      {/each}
+    </span>
+    {#if face.hold}
+      <span class="hold" class:legend-hit={hit === 'hold'}>{face.hold}</span>
     {/if}
   </span>
 </div>
@@ -69,7 +95,6 @@
   .keycap {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
     width: 100%;
     height: 100%;
     padding: 2px;
@@ -85,32 +110,80 @@
   .keycap.stacked {
     height: 100%;
     font-size: 11px;
-    padding: 0;
+    padding: 0 1px;
   }
 
-  .line {
-    display: flex;
+  /* Paint `keycapFace` only; scale when the layer row is too narrow. */
+  .face {
+    display: inline-flex;
     align-items: baseline;
-    justify-content: flex-start;
-    gap: 0.3em;
-    max-width: 100%;
+    gap: 0.2em;
     white-space: nowrap;
+    transform-origin: left center;
   }
 
-  .col .second {
+  .keycap.bilingual:not(.scaled) .face {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .keycap.bilingual:not(.scaled) .langs {
+    flex: 1 1 auto;
+    display: flex;
+    justify-content: space-between;
+    min-width: 0;
+  }
+
+  .langs {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35em;
+  }
+
+  .pack {
+    display: inline-flex;
+    align-items: baseline;
+    flex: 0 0 auto;
+  }
+
+  .pack.second {
     color: var(--accent);
   }
 
-  .col.alt {
+  .glyph {
+    display: inline-block;
+    line-height: 1;
+  }
+
+  .glyph.alt {
     opacity: 0.7;
   }
 
-  .col.alt.os-conflict {
+  .glyph.alt.os-conflict {
     opacity: 1;
     color: var(--conflict-ink);
   }
 
-  .line.legend-hit,
+  .glyph.dead {
+    color: var(--warn-ink);
+    background: var(--warn-wash);
+    border-radius: 2px;
+    box-shadow: inset 0 0 0 1px var(--warn-border);
+    padding: 0 1px;
+  }
+
+  .hold {
+    flex: 0 0 auto;
+    font-size: 0.78em;
+    line-height: 1;
+    padding: 1px 2px;
+    border-radius: 3px;
+    background: var(--shade-wash-mid);
+    color: var(--text-muted);
+  }
+
+  .face.legend-hit,
   .hold.legend-hit {
     background: var(--highlight);
     border-radius: 3px;
@@ -118,11 +191,6 @@
     opacity: 1;
   }
 
-  .line.legend-hit {
-    padding: 0 2px;
-  }
-
-  /* Same wash as `.code.keypad` / `.key-editor-choice.keypad` — no stroke. */
   .keycap.keypad {
     background: var(--keypad-wash);
     border-radius: 3px;
@@ -132,14 +200,5 @@
   .keycap.stacked.keypad {
     background: var(--keypad-wash);
     padding-inline: 2px;
-  }
-
-  .hold {
-    font-size: 9px;
-    line-height: 1;
-    padding: 1px 3px;
-    border-radius: 3px;
-    background: var(--shade-wash-mid);
-    color: var(--text-muted);
   }
 </style>
