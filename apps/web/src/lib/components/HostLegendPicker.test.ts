@@ -280,29 +280,38 @@ describe('HostLegendPicker', () => {
     expect(editor.activeProfileId('ru')).toBe('system-ru-phonetic')
   })
 
-  function chooseLanguage(value: string) {
-    const menuItem = [...target.querySelectorAll('.legend-panel .lang-item')].find(el => {
-      if (!(el instanceof HTMLButtonElement) || el.disabled) return false
-      if (value === '__remove__') return el.textContent?.trim() === 'Remove language'
-      return el.textContent?.trim() === (
-        value === 'ru'
-          ? 'Russian'
-          : value === 'uk'
-            ? 'Ukrainian'
-            : value === 'de'
-              ? 'German'
-              : value
-      )
-    })
-    if (menuItem instanceof HTMLButtonElement) {
-      menuItem.click()
+  function languageLabel(value: string): string {
+    if (value === '__remove__') return 'Remove language'
+    if (value === 'ru') return 'Russian'
+    if (value === 'uk') return 'Ukrainian'
+    if (value === 'de') return 'German'
+    return value
+  }
+
+  function openAddLanguageMenu() {
+    const add = target.querySelector('.legend-panel .add-language')
+    if (!(add instanceof HTMLButtonElement)) throw new Error('missing add language')
+    if (add.getAttribute('aria-expanded') !== 'true') {
+      add.click()
       flushSync()
-      return
     }
-    const select = target.querySelector('.legend-panel .language-select')
-    if (!(select instanceof HTMLSelectElement)) throw new Error('missing language select')
-    select.value = value
-    select.dispatchEvent(new Event('change', { bubbles: true }))
+  }
+
+  function chooseLanguage(value: string) {
+    const label = languageLabel(value)
+    let menuItem = [...target.querySelectorAll('.legend-panel .lang-item')].find(el => {
+      if (!(el instanceof HTMLButtonElement) || el.disabled) return false
+      return el.textContent?.replace(/\s+/g, ' ').trim() === label
+    })
+    if (!(menuItem instanceof HTMLButtonElement)) {
+      openAddLanguageMenu()
+      menuItem = [...target.querySelectorAll('.legend-panel .lang-item')].find(el => {
+        if (!(el instanceof HTMLButtonElement) || el.disabled) return false
+        return el.textContent?.replace(/\s+/g, ' ').trim() === label
+      })
+    }
+    if (!(menuItem instanceof HTMLButtonElement)) throw new Error(`missing language ${label}`)
+    menuItem.click()
     flushSync()
   }
 
@@ -314,11 +323,8 @@ describe('HostLegendPicker', () => {
 
   it('adds Ukrainian after the language is chosen', async () => {
     await open(keymapOf(['default']))
-    const options = [...target.querySelectorAll('.legend-panel .language-select option')].map(
-      el => el.textContent?.trim()
-    )
-    expect(options).toEqual([
-      'Choose',
+    openAddLanguageMenu()
+    expect(languageMenuLabels()).toEqual([
       'Russian',
       'Ukrainian',
       'German',
@@ -382,11 +388,13 @@ describe('HostLegendPicker', () => {
     if (!(addAgain instanceof HTMLButtonElement)) throw new Error('missing second add language')
     addAgain.click()
     flushSync()
-    expect(
-      [...target.querySelectorAll('.legend-panel .language-select option')].map(el =>
-        el.textContent?.trim()
-      )
-    ).toEqual(['Language', 'Russian', 'German', 'French', 'Polish', 'Spanish'])
+    expect(languageMenuLabels()).toEqual([
+      'Russian',
+      'German',
+      'French',
+      'Polish',
+      'Spanish'
+    ])
     chooseLanguage('de')
     expect(openLayoutId(editor.hostLegend)).toBe('system-de')
     const flags = [...target.querySelectorAll('.legend-panel .lang-flag img')].map(el =>

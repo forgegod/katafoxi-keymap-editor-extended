@@ -55,14 +55,18 @@
   let langMenuEl = $state<HTMLDivElement | undefined>()
 
   $effect(() => {
-    if (!choosing) return
+    // Only this head owns the open menu: column heads watch replace, the add cell watches add.
+    const open = column ? choosing : pickingNew
+    if (!open) return
     function handle(event: PointerEvent) {
       if (event.target instanceof Node && langMenuEl?.contains(event.target)) return
-      pickingFor = null
+      if (column) pickingFor = null
+      else pickingNew = false
     }
     function onKey(event: KeyboardEvent) {
       if (event.key === 'Escape') {
-        pickingFor = null
+        if (column) pickingFor = null
+        else pickingNew = false
         event.stopPropagation()
       }
     }
@@ -97,9 +101,9 @@
     return hostLanguagesAvailable(editor.hostLegend)
   }
 
-  function startAddLanguage() {
+  function toggleAddLanguage() {
     if (addable.length === 0) return
-    pickingNew = true
+    pickingNew = !pickingNew
     pickingFor = null
     openProfile = null
   }
@@ -149,60 +153,62 @@
     editor.legendHover = null
   }
 
-  function focusSelect(node: HTMLSelectElement) {
-    node.focus()
-  }
-
   function focusLangList(node: HTMLUListElement) {
-    const first = node.querySelector('button.lang-item')
+    const first = node.querySelector('button.lang-item:not(:disabled)')
     if (first instanceof HTMLButtonElement) first.focus()
   }
 </script>
 
 {#if !column}
   <th class="add-language-cell lang-start" class:prompt={needsHostLanguage}>
-    {#if pickingNew}
-      <div class="lang-head">
-        <select
-          use:focusSelect
-          class="language-select"
-          aria-label="Language"
-          value=""
-          onchange={event => pickNewLanguage(event.currentTarget.value)}
-        >
-          <option value="" disabled>Language</option>
-          {#each addable as option (option)}
-            <option value={option}>{hostLanguageName(option)}</option>
-          {/each}
-        </select>
-      </div>
-    {:else if needsHostLanguage}
-      <div class="lang-head host-prompt">
+    <div class="lang-head" class:host-prompt={needsHostLanguage}>
+      {#if needsHostLanguage}
         <span class="prompt-label">Computer language</span>
-        <select
-          class="language-select"
-          aria-label="Computer language"
-          value=""
-          onchange={event => pickNewLanguage(event.currentTarget.value)}
+      {/if}
+      <div class="lang-menu" bind:this={langMenuEl}>
+        <button
+          type="button"
+          class="add-language"
+          aria-label={needsHostLanguage ? 'Computer language' : 'Add language'}
+          title={needsHostLanguage ? 'Computer language' : 'Add language'}
+          aria-haspopup="listbox"
+          aria-expanded={pickingNew}
+          disabled={addable.length === 0}
+          onclick={toggleAddLanguage}
         >
-          <option value="" disabled>Choose</option>
-          {#each addable as option (option)}
-            <option value={option}>{hostLanguageName(option)}</option>
-          {/each}
-        </select>
+          {#if needsHostLanguage}
+            <span class="add-label">Choose</span>
+          {:else}
+            <span class="add-mark" aria-hidden="true">+</span>
+            <span class="add-label">Language</span>
+          {/if}
+          <span class="caret" aria-hidden="true"></span>
+        </button>
+        {#if pickingNew}
+          <ul
+            class="lang-list"
+            role="listbox"
+            aria-label="Language"
+            use:focusLangList
+          >
+            {#each addable as option (option)}
+              <li role="none">
+                <button
+                  type="button"
+                  class="lang-item"
+                  role="option"
+                  aria-selected="false"
+                  onclick={() => pickNewLanguage(option)}
+                >
+                  <LangFlag language={option} />
+                  <span>{hostLanguageName(option)}</span>
+                </button>
+              </li>
+            {/each}
+          </ul>
+        {/if}
       </div>
-    {:else}
-      <button
-        type="button"
-        class="add-language"
-        aria-label="Add language"
-        title="Add language"
-        onclick={startAddLanguage}
-      >
-        <span class="add-mark" aria-hidden="true">+</span>
-        <span class="add-label">Language</span>
-      </button>
-    {/if}
+    </div>
   </th>
 {:else}
   <th class:off={!column.shown} class:narrow={!column.wide} class:lang-start={groupStart}>
@@ -473,14 +479,6 @@
     background: var(--border);
   }
 
-  .language-select {
-    max-width: 7.5rem;
-    min-height: 24px;
-    padding: 1px 4px;
-    font: inherit;
-    font-size: var(--font-sm);
-  }
-
   .add-language-cell {
     width: 1%;
   }
@@ -502,8 +500,19 @@
     cursor: pointer;
   }
 
-  .add-language:hover {
+  .add-language:hover,
+  .add-language[aria-expanded='true'] {
     background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+
+  .add-language:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .add-language:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
   }
 
   .add-mark {
@@ -513,6 +522,18 @@
 
   .add-label {
     letter-spacing: 0.02em;
+  }
+
+  .add-language .caret {
+    width: 0;
+    height: 0;
+    border-left: 3px solid transparent;
+    border-right: 3px solid transparent;
+    border-top: 4px solid currentColor;
+  }
+
+  .add-language[aria-expanded='true'] .caret {
+    transform: rotate(180deg);
   }
 
   .host-prompt {
