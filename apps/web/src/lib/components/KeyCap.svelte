@@ -74,12 +74,13 @@
     <span class="langs" class:bilingual>
       {#each face.packs as pack, packIndex (packIndex)}
         <span class="pack" class:second={pack.tone === 'second'}>
-          {#each pack.glyphs as glyph, glyphIndex (`${packIndex}-${glyphIndex}-${glyph.text}`)}
+          {#each pack.glyphs as glyph, glyphIndex (`${packIndex}-${glyphIndex}`)}
             <span
               class="glyph"
               class:alt={glyph.alt}
+              class:empty={Boolean(glyph.empty)}
               class:dead={Boolean(glyph.dead)}
-              class:os-conflict={conflict && glyph.alt}
+              class:os-conflict={conflict && glyph.alt && !glyph.empty}
             >{glyph.text}</span>
           {/each}
         </span>
@@ -156,7 +157,17 @@
     line-height: 1;
   }
 
-  .glyph.alt {
+  /* Placeholders stay in the layout; visible only while the layer row is hovered. */
+  .glyph.empty {
+    opacity: 0;
+  }
+
+  :global(.layer-slot:hover) .glyph.empty,
+  :global(.layer-slot:focus-visible) .glyph.empty {
+    opacity: 0.45;
+  }
+
+  .glyph.alt:not(.empty) {
     opacity: 0.7;
   }
 
