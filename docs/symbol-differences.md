@@ -1,6 +1,6 @@
 # Highlight symbol differences
 
-Intent and contract for the **Differences** legend mode. Implementation: `symbolAlign` / `symbolAlignPairFromView` in `packages/keymap-core`, marks on the board in `apps/web`. Decision summary also lives in [ADR 0004](adr/0004-host-edit-and-os-deliverables.md) (Symbol differences).
+Intent and contract for the **Differences** legend mode. Implementation: `symbolAlign` / `symbolAlignPairFromView` in `packages/keymap-core`, marks on the board in `apps/web`. Decision summary also lives in [ADR 0004](adr/0004-host-edit-and-os-deliverables.md) (Differences).
 
 ## Purpose
 

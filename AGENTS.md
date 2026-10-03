@@ -54,7 +54,7 @@ Before committing, the subject should complete “This commit will ___”, say w
 - Add non-English UI strings; the SPA chrome is English-only for now (see invariant 8).
 - Reintroduce hover-to-edit / pin-without-Alt on the decode card, or treat Export xkb as the only host install path (see ADR 0004).
 - Put **Show empty row** or blank-top-row auto-hide back; default view hides only `absent` slots, and **Scheme** is the board disclosure for the full matrix.
-- Put **Stack languages** or **Highlight symbol differences** back in the Host lane. They sit on the assembly line, left of the remembered chips.
+- Put **Stack** or **Differences** back in the Host lane. They sit on the assembly line, left of the remembered chips.
 
 ## Docs map
 

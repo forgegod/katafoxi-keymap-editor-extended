@@ -330,11 +330,20 @@ describe('HostLegendPicker', () => {
     await open(keymapOf(['default']))
     openAddLanguageMenu()
     expect(languageMenuLabels()).toEqual([
+      'Czech',
+      'Danish',
       'French',
       'German',
+      'Hungarian',
+      'Italian',
       'Polish',
+      'Portuguese',
+      'Portuguese (Brazil)',
+      'Romanian',
       'Russian',
       'Spanish',
+      'Swedish',
+      'Turkish',
       'Ukrainian'
     ])
     chooseLanguage('uk')
@@ -377,11 +386,20 @@ describe('HostLegendPicker', () => {
     flushSync()
     expect(languageMenuLabels()).toEqual([
       'Ukrainian',
+      'Czech',
+      'Danish',
       'French',
       'German',
+      'Hungarian',
+      'Italian',
       'Polish',
+      'Portuguese',
+      'Portuguese (Brazil)',
+      'Romanian',
       'Russian',
       'Spanish',
+      'Swedish',
+      'Turkish',
       'Remove language'
     ])
   })
@@ -394,11 +412,20 @@ describe('HostLegendPicker', () => {
     addAgain.click()
     flushSync()
     expect(languageMenuLabels()).toEqual([
+      'Czech',
+      'Danish',
       'French',
       'German',
+      'Hungarian',
+      'Italian',
       'Polish',
+      'Portuguese',
+      'Portuguese (Brazil)',
+      'Romanian',
       'Russian',
-      'Spanish'
+      'Spanish',
+      'Swedish',
+      'Turkish'
     ])
     chooseLanguage('de')
     expect(openLayoutId(editor.hostLegend)).toBe('system-de')
@@ -431,10 +458,19 @@ describe('HostLegendPicker', () => {
     flushSync()
     expect(languageMenuLabels()).toEqual([
       'German',
+      'Czech',
+      'Danish',
       'French',
+      'Hungarian',
+      'Italian',
       'Polish',
+      'Portuguese',
+      'Portuguese (Brazil)',
+      'Romanian',
       'Russian',
       'Spanish',
+      'Swedish',
+      'Turkish',
       'Remove language'
     ])
     chooseLanguage('__remove__')

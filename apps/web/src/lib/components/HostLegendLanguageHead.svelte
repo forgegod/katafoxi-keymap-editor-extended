@@ -105,10 +105,6 @@
     void editor.commitHostMap(toggleHostLanguage(editor.hostLegend, language))
   }
 
-  function languageChoices(): HostLanguageId[] {
-    return hostLanguagesAvailable(editor.hostLegend)
-  }
-
   function toggleAddLanguage() {
     if (addable.length === 0) return
     pickingNew = !pickingNew
@@ -271,7 +267,7 @@
                       <span>{hostLanguageName(language)}</span>
                     </button>
                   </li>
-                  {#each languageChoices() as option (option)}
+                  {#each addable as option (option)}
                     <li role="none">
                       <button
                         type="button"
