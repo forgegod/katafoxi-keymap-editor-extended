@@ -281,6 +281,24 @@ describe('HostLegendPicker', () => {
   })
 
   function chooseLanguage(value: string) {
+    const menuItem = [...target.querySelectorAll('.legend-panel .lang-item')].find(el => {
+      if (!(el instanceof HTMLButtonElement) || el.disabled) return false
+      if (value === '__remove__') return el.textContent?.trim() === 'Remove language'
+      return el.textContent?.trim() === (
+        value === 'ru'
+          ? 'Russian'
+          : value === 'uk'
+            ? 'Ukrainian'
+            : value === 'de'
+              ? 'German'
+              : value
+      )
+    })
+    if (menuItem instanceof HTMLButtonElement) {
+      menuItem.click()
+      flushSync()
+      return
+    }
     const select = target.querySelector('.legend-panel .language-select')
     if (!(select instanceof HTMLSelectElement)) throw new Error('missing language select')
     select.value = value
@@ -288,12 +306,26 @@ describe('HostLegendPicker', () => {
     flushSync()
   }
 
+  function languageMenuLabels(): string[] {
+    return [...target.querySelectorAll('.legend-panel .lang-item')]
+      .map(el => el.textContent?.replace(/\s+/g, ' ').trim())
+      .filter((text): text is string => Boolean(text))
+  }
+
   it('adds Ukrainian after the language is chosen', async () => {
     await open(keymapOf(['default']))
     const options = [...target.querySelectorAll('.legend-panel .language-select option')].map(
       el => el.textContent?.trim()
     )
-    expect(options).toEqual(['Choose', 'Russian', 'Ukrainian', 'German'])
+    expect(options).toEqual([
+      'Choose',
+      'Russian',
+      'Ukrainian',
+      'German',
+      'French',
+      'Polish',
+      'Spanish'
+    ])
     chooseLanguage('uk')
     expect(openLayoutId(editor.hostLegend)).toBe('system-ua')
     const flags = [...target.querySelectorAll('.legend-panel .lang-flag img')].map(el =>
@@ -327,16 +359,20 @@ describe('HostLegendPicker', () => {
       el => el.getAttribute('title') === 'Copy profile'
     )
     expect(copies).toHaveLength(items.length)
-    expect(target.querySelector('.legend-panel .language-select')).toBeNull()
+    expect(target.querySelector('.legend-panel .lang-list')).toBeNull()
     const flag = target.querySelector('.legend-panel button.lang-flag')
     if (!(flag instanceof HTMLButtonElement)) throw new Error('missing language flag')
     flag.click()
     flushSync()
-    expect(
-      [...target.querySelectorAll('.legend-panel .language-select option')]
-        .map(el => el.textContent?.trim())
-        .filter(Boolean)
-    ).toEqual(['Remove language', 'Russian', 'German'])
+    expect(languageMenuLabels()).toEqual([
+      'Ukrainian',
+      'Russian',
+      'German',
+      'French',
+      'Polish',
+      'Spanish',
+      'Remove language'
+    ])
   })
 
   it('adds German after Ukrainian and lists its system variants', async () => {
@@ -350,7 +386,7 @@ describe('HostLegendPicker', () => {
       [...target.querySelectorAll('.legend-panel .language-select option')].map(el =>
         el.textContent?.trim()
       )
-    ).toEqual(['Language', 'Russian', 'German'])
+    ).toEqual(['Language', 'Russian', 'German', 'French', 'Polish', 'Spanish'])
     chooseLanguage('de')
     expect(openLayoutId(editor.hostLegend)).toBe('system-de')
     const flags = [...target.querySelectorAll('.legend-panel .lang-flag img')].map(el =>
@@ -380,11 +416,14 @@ describe('HostLegendPicker', () => {
     if (!(germanFlag instanceof HTMLButtonElement)) throw new Error('missing German flag')
     germanFlag.click()
     flushSync()
-    expect(
-      [...target.querySelectorAll('.legend-panel .language-select option')]
-        .map(el => el.textContent?.trim())
-        .filter(Boolean)
-    ).toEqual(['Remove language', 'Russian'])
+    expect(languageMenuLabels()).toEqual([
+      'German',
+      'Russian',
+      'French',
+      'Polish',
+      'Spanish',
+      'Remove language'
+    ])
     chooseLanguage('__remove__')
     expect(
       [...target.querySelectorAll('.legend-panel .lang-flag img')].map(el => el.getAttribute('src'))
