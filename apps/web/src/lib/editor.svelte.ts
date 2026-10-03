@@ -17,6 +17,7 @@ import {
   hostLanguageName,
   hostLanguagesAvailable,
   preferredAddableHostLanguage,
+  windowsCapsPairingRecommended,
   hostLayout,
   hostLayoutChoice,
   hostLayoutChoiceLabel,
@@ -1279,6 +1280,7 @@ export class EditorState {
     }> = []
     for (const column of columns) {
       if (column.language === 'en') continue
+      if (!windowsCapsPairingRecommended(column.language)) continue
       if (!hostLayout(column.layoutId)) continue
       const capsLanguageName = hostLanguage(column.language).name
       out.push({
@@ -1305,6 +1307,7 @@ export class EditorState {
     const base = columns.find(column => column.language === 'en')
     const caps = columns.find(column => column.language === capsLanguage)
     if (!base || !caps || caps.language === 'en') return null
+    if (!windowsCapsPairingRecommended(capsLanguage)) return null
     const baseLayout = hostLayout(base.layoutId)
     const capsLayout = hostLayout(caps.layoutId)
     if (!baseLayout || !capsLayout) return null

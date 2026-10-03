@@ -1,6 +1,10 @@
 <script lang="ts">
   import { editor } from '../editor.svelte.js'
-  import { pairedKbdId } from '@keymap-editor/keymap-core'
+  import {
+    hostLegendColumns,
+    pairedKbdId,
+    windowsCapsPairingRecommended
+  } from '@keymap-editor/keymap-core'
   import logoLinux from '../assets/logo-linux.png'
   import logoWindows from '../assets/logo-windows.png'
   import Modal from './Common/Modal.svelte'
@@ -68,6 +72,13 @@
     void editor.hostLayoutRevision
     void editor.hostLegend
     return editor.listCapsAlphabetKlcExports()
+  })
+  /** Dense Latin on the board — Caps pairing is not offered; explain separate files. */
+  const separateLayoutsNote = $derived.by(() => {
+    void editor.hostLegend
+    return hostLegendColumns(editor.hostLegend).some(
+      column => column.language !== 'en' && !windowsCapsPairingRecommended(column.language)
+    )
   })
   $effect(() => {
     if (editor.hostLegend.columns.length < 3 && editor.multilangView) {
@@ -396,8 +407,8 @@
         <section class="paired" aria-labelledby="windows-paired-title">
           <h3 id="windows-paired-title">Two alphabets in one layout</h3>
           <p>
-            This file stays an English keyboard in Windows. Caps Lock types the other language, so
-            one English entry in the language list covers both alphabets.
+            For Russian or Ukrainian, this file stays an English keyboard in Windows. Caps Lock
+            types the other alphabet, so one English entry in the language list covers both.
           </p>
           <p>
             Some programs follow the active Windows language when they handle shortcuts. GIMP is a
@@ -419,12 +430,12 @@
           <p>Shift is how you get capitals. Caps Lock switches alphabet.</p>
           <p>
             AltGr and AltGr+Shift come from the other language. A plain US layout leaves those keys
-            empty, so the national layout is where those characters live — German @, €, and brackets
-            are typical. This file writes that national AltGr. When both columns show an AltGr
-            symbol on the same key, the file uses the other language’s symbol. An English symbol
-            remains where the other language’s AltGr level is empty.
+            empty, so the national layout is where those characters live. This file writes that
+            national AltGr. When both columns show an AltGr symbol on the same key, the file uses
+            the other language’s symbol. An English symbol remains where the other language’s AltGr
+            level is empty.
           </p>
-          <p>Each combined download pairs English with one other language on the board.</p>
+          <p>Each combined download pairs English with one Cyrillic language on the board.</p>
           <p>
             The file’s layout name looks like EngRus01: three letters from each language and a
             two-digit version. The next download of the same pair uses the next number. Remove the
@@ -442,6 +453,13 @@
             </div>
           {/each}
         </section>
+        <h3 class="files-heading">One language per file</h3>
+      {:else if separateLayoutsNote && exports.length > 0}
+        <p class="separate-note" role="note">
+          French, German, Polish, Spanish, and similar layouts fill every shift level (often with
+          dead keys). Caps Lock pairing with English does not fit those. Download a separate
+          <code>.klc</code> for each language below and switch with Win+Space.
+        </p>
         <h3 class="files-heading">One language per file</h3>
       {/if}
 
@@ -600,6 +618,13 @@
   }
 
   .paired-source {
+    color: var(--text-muted);
+  }
+
+  .separate-note {
+    margin: 0 0 0.75rem;
+    font-size: var(--font-sm);
+    line-height: 1.35;
     color: var(--text-muted);
   }
 

@@ -86,6 +86,59 @@ describe('host-keymap-deliverables', () => {
     expect(klc.includes('\r\n')).toBe(true)
   })
 
+  it('does not write a Caps Lock paired file for dense Latin languages', () => {
+    const view: HostLegendView = {
+      columns: [
+        {
+          language: 'en',
+          layoutId: 'system-us',
+          visible: true,
+          altGr: true,
+          altGrShift: true
+        },
+        {
+          language: 'fr',
+          layoutId: 'user:fr-1',
+          visible: true,
+          altGr: true,
+          altGrShift: true
+        }
+      ],
+      open: 'fr'
+    }
+    const files = buildHostKeymapDeliverableFiles(
+      view,
+      new Map([
+        [
+          'system-us',
+          {
+            id: 'system-us',
+            name: 'US',
+            language: 'en',
+            layout: layout('system-us', 'q'),
+            user: false
+          }
+        ],
+        [
+          'user:fr-1',
+          {
+            id: 'user:fr-1',
+            name: 'AZERTY',
+            language: 'fr',
+            layout: layout('user:fr-1', 'a'),
+            user: true
+          }
+        ]
+      ])
+    )
+    const paths = files.map(file => file.path).sort()
+    expect(paths).toEqual([
+      `${HOST_KEYMAP_DIR}/linux/fr.xkb`,
+      `${HOST_KEYMAP_DIR}/windows/fr.klc`
+    ])
+    expect(paths.some(path => path.includes('en-fr'))).toBe(false)
+  })
+
   it('skips deliverables when every column is a system layout', () => {
     const view: HostLegendView = {
       columns: [
