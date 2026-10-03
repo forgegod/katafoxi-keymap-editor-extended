@@ -159,10 +159,10 @@ githubRoutes.get('/keyboard-files/:installationId/:repository', async c => {
       repository,
       branch
     )
-    validateInfoJson(info)
+    if (info != null) validateInfoJson(info)
     validateKeymapJson(keymap)
     return c.json({
-      info,
+      info: info ?? null,
       keymap: parseKeymap(keymap as { layers: string[][] }),
       hostSnapshot: hostSnapshot ?? null
     })

@@ -237,13 +237,31 @@ describe('session and errors', () => {
   })
 
   it('GET /github/keyboard-files returns 400 JSON for MissingRepoFile', async () => {
-    vi.mocked(files.fetchKeyboardFiles).mockRejectedValue(new MissingRepoFile('config/info.json'))
+    vi.mocked(files.fetchKeyboardFiles).mockRejectedValue(
+      new MissingRepoFile('config/*.keymap')
+    )
     const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark')
     expect(res.status).toBe(400)
     expect(await res.json()).toEqual({
       name: 'MissingRepoFile',
-      path: 'config/info.json',
-      errors: ['Missing file config/info.json']
+      path: 'config/*.keymap',
+      errors: ['Missing file config/*.keymap']
+    })
+  })
+
+  it('GET /github/keyboard-files allows a missing info.json', async () => {
+    vi.mocked(files.fetchKeyboardFiles).mockResolvedValue({
+      info: null,
+      keymap: VALID_KEYMAP,
+      originalCodeKeymap: { name: 'lark.keymap', path: 'config/lark.keymap' },
+      hostSnapshot: null
+    })
+    const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark')
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      info: null,
+      keymap: parseKeymap(VALID_KEYMAP),
+      hostSnapshot: null
     })
   })
 

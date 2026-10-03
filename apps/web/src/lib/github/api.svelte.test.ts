@@ -89,6 +89,47 @@ describe('API', () => {
     expect(onValidation).toHaveBeenCalledWith(body)
   })
 
+  it('fetchLayoutAndKeymap infers a rectangular layout when info.json is null', async () => {
+    const api = new API()
+    api.repoInstallationMap = { 'acme/lark': '42' }
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        info: null,
+        keymap: {
+          layers: [['&kp A', '&kp B', '&kp C', '&kp D']],
+          layer_names: ['default']
+        },
+        hostSnapshot: null
+      })
+    )
+
+    const result = await api.fetchLayoutAndKeymap('acme/lark', 'main')
+
+    expect(result.warnings).toEqual(['github_inferred_layout'])
+    expect(result.layout).toHaveLength(4)
+    expect(result.layout[0]).toMatchObject({ row: 0, col: 0, x: 0, y: 0 })
+    expect(result.layout[3]).toMatchObject({ row: 0, col: 3, x: 3, y: 0 })
+  })
+
+  it('fetchLayoutAndKeymap rejects when info.json is null and keymap is empty', async () => {
+    const api = new API()
+    const onValidation = vi.fn()
+    api.on('repo-validation-error', onValidation)
+    api.repoInstallationMap = { 'acme/lark': '42' }
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        info: null,
+        keymap: { layers: [[]], layer_names: ['default'] },
+        hostSnapshot: null
+      })
+    )
+
+    await expect(api.fetchLayoutAndKeymap('acme/lark', 'main')).rejects.toMatchObject({
+      response: { status: 400 }
+    })
+    expect(onValidation).toHaveBeenCalledTimes(1)
+  })
+
   it('commitChanges POSTs encoded branch URL with layout/keymap and credentials', async () => {
     const api = new API()
     api.repoInstallationMap = { 'acme/lark': '42' }

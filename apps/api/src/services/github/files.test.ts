@@ -343,18 +343,23 @@ describe('fetchKeyboardFiles', () => {
     expect(requestUrls(request).some(url => url.endsWith(`/${KEYMAP_PATH}`))).toBe(false)
   })
 
-  it('rejects with MissingRepoFile when info.json is missing', async () => {
+  it('returns null info when info.json is missing', async () => {
+    const listing = [
+      { name: 'lark.keymap', path: KEYMAP_PATH },
+      { name: 'keymap.json', path: 'config/keymap.json' }
+    ]
     mockGithub(
       {
-        config: LISTING,
+        config: listing,
         'config/keymap.json': JSON.stringify(KEYMAP_JSON)
       },
       { missing: ['config/info.json', HOST_KEYMAP_SNAPSHOT_PATH] }
     )
 
-    const err = await fetchKeyboardFiles('1', REPO).catch(e => e)
-    expect(err).toBeInstanceOf(MissingRepoFile)
-    expect((err as MissingRepoFile).path).toBe('config/info.json')
+    const result = await fetchKeyboardFiles('1', REPO)
+    expect(result.info).toBeNull()
+    expect(result.keymap).toEqual(KEYMAP_JSON)
+    expect(result.originalCodeKeymap.path).toBe(KEYMAP_PATH)
   })
 
   it('returns a parsed host snapshot when host_keymap/snapshot.json exists', async () => {
