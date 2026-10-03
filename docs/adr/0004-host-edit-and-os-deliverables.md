@@ -23,7 +23,7 @@ ZMK already has a visible chrome pipeline (Source → draft → Write files / Gi
 
 1. **ZMK** lane: Source, then draft status (**Draft**, or a dot whose tooltip is **Up to date with repo** / **disk**), undo/redo, then Write files / Commit and **Latest** in that same cluster. Spare width stays after that cluster, before the Host divider. **Discard draft** sits beside **Draft** and restores the last loaded keymap. On GitHub, **Latest** is the branch’s Actions firmware build: neutral until a firmware artifact can be downloaded, then filled, with no commit hash in the label. A successful run with a firmware artifact downloads the zip through the API; the browser never sees the installation token. Any other finished state opens the Actions page. An unpublished binding washes that layer’s row until publish. The decode card’s first line is `Was …`, and the ZMK / Windows / Linux identifiers stay on the next line. Layer add, rename, and remove stay **Draft** without a per-key mark. Undo only walks the in-memory stack.
 2. **Host** lane: shown once a keymap is loaded. Status is **Ready** (no custom user layout yet), **Changed** (user layout waiting to install), or **Saved** (deliverable layouts, nothing pending); **Linux** / **Windows** open install dialogs (not instant blob downloads). While a user layout is waiting to install, those buttons take a light green outline. With nothing pending, those buttons stay enabled for reinstall; the tooltip explains Ready vs Saved. The keycap draws at most two languages, any pair (`keycap`). English stays column 0 when its eye is off. The combined Windows file uses that base and `open`, not whichever pair is drawn.
-3. **Legend modes** sit on the assembly line, left of the remembered chips: **Stack languages** and **Symbol differences** are labeled mode buttons in one row. Stack stays pale until three host columns exist (two languages already share the key). **Highlight symbol differences** is on when a second language is open. While it is on, the samples `position` and `Win AltGr` sit on the keyboard stage, just above the board. Beside those modes, **Colors** and **Scheme** are board disclosures (not legend modes): Colors washes firmware layers on the keycap and in the table; Scheme shows the full matrix with row/col rails, including absent slots. Default board view omits only `absent` matrix slots. The host symbol catalog (Ω) sits at the end of the language header row.
+3. **Legend modes** sit on the assembly line, left of the remembered chips: **Stack languages** and **Symbol differences** are labeled mode buttons in one row. Stack stays pale until three host columns exist (two languages already share the key). **Highlight symbol differences** is on when two languages are on the key. While it is on, the samples `position`, `basic` (and `Win AltGr` when English and `open` share the key) sit on the keyboard stage, just above the board. Beside those modes, **Colors** and **Scheme** are board disclosures (not legend modes): Colors washes firmware layers on the keycap and in the table; Scheme shows the full matrix with row/col rails, including absent slots. Default board view omits only `absent` matrix slots. The host symbol catalog (Ω) sits at the end of the language header row.
 4. Tiny ⓘ tooltips are not the install channel — the OS button opens the sheet.
 
 ### Linux / Windows deliverables
@@ -34,10 +34,13 @@ ZMK already has a visible chrome pipeline (Source → draft → Write files / Gi
 
 ### Symbol differences
 
-When a second language is open, **Highlight symbol differences** paints two marks. Neither is stored in the legend view.
+Intent, north star, and product desires: [symbol-differences.md](../symbol-differences.md).
 
-1. **Position** (amber underline): a punctuation mark or other non-letter glyph with no key and level shared by both languages. That is a glyph both languages produce only on different keys (`Different position`), or a glyph only one language produces (`Only in one language`). Extra copies stay quiet once any one key and level produces the glyph in both languages. Letters are not marked.
-2. **Win AltGr** (red outline): AltGr or AltGr+Shift is non-empty in both languages and the glyphs differ. That is the combined Windows file (`mergedAltGr` / `hostLayoutsToCapsKlc`): the open language wins, and an English symbol is written only where that language’s AltGr cell is empty. Two separate Windows layouts, switched with Win+Space, each keep their own AltGr; the outline is about the combined file. There is no command that copies AltGr from one layout onto the other.
+When two languages are drawn on the keycap, **Highlight symbol differences** paints marks. Neither is stored in the legend view. The compared pair is the keycap pair (`hostKeycapLanguages` / `symbolAlignPairFromView`), not English × `open` alone — so a ru–fr keycap compares those two layouts.
+
+1. **Position** (amber underline): a non-basic non-letter (national ornament such as `№`) with no key and level shared by both keycap languages (`Different position` / `Only in one language`). Letters are not marked. All four levels count; AltGr column toggles do not hide these marks.
+2. **Basic** (stronger wash): typewriter punctuation from `BASIC_ALIGN_GLYPHS` (`isBasicAlignGlyph`: punct half of `MARKS` plus `` ` `` and `~`; digits stay out). Serious when the mark has no shared place, exists in only one layout (`Only in one language (Linux split)`), or sits on this key in only one language even when a shared place exists elsewhere (`On this key only in one language`) — the Linux two-file install cannot reach that chord from the other language, while a paired Windows file often still can.
+3. **Win AltGr** (red outline): only when English and `open` are both on the keycap. AltGr or AltGr+Shift is non-empty in both and the glyphs differ. That is the combined Windows file (`mergedAltGr` / `hostLayoutsToCapsKlc`): the open language wins, and an English symbol is written only where that language’s AltGr cell is empty. A national–national keycap (ru–fr) shows position/basic only. Two separate Windows layouts, switched with Win+Space, each keep their own AltGr; the outline is about the combined file. There is no command that copies AltGr from one layout onto the other.
 
 ### Missing basics
 
@@ -85,6 +88,7 @@ IndexedDB already persists user layouts. Host **Changed** means “there is an a
 
 ## Related
 
+- [symbol-differences.md](../symbol-differences.md) — Differences mode intent and contract
 - [TARGET_SYSTEM.md](../TARGET_SYSTEM.md) — product UX summary
 - [0001](0001-persistence-github-first.md) — GitHub-first persistence
 - [0002](0002-keymap-file-contract.md) — ZMK `#define` expansion vs host deliverables

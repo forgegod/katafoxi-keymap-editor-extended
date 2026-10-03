@@ -59,5 +59,6 @@ Before committing, the subject should complete “This commit will ___”, say w
 ## Docs map
 
 - Vision: `docs/TARGET_SYSTEM.md` (key editor, host-layout registry, composed legends)
+- Differences mode intent: [docs/symbol-differences.md](docs/symbol-differences.md) (keycap pair, basic vs ornament, Linux split vs Win merge)
 - ADRs: `docs/adr/` (0001 persistence, 0002 keymap file contract, 0003 GitHub auth session, 0004 host-edit + OS deliverables, 0005 host keymap GitHub snapshot)
 - Local run and tests: `running-locally.md`
