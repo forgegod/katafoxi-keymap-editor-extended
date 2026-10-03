@@ -236,8 +236,17 @@ function guessCapsLanguage(layout: HostLayout): HostLanguageId | null {
   if (/[іїєґІЇЄҐ]/.test(text)) return 'uk'
   if (/[\u0400-\u04FF]/.test(text)) return 'ru'
   if (/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/.test(text)) return 'pl'
-  if (/[œæŒÆ]/.test(text)) return 'fr'
+  if (/[ěščřžýáíéďťňúůĚŠČŘŽÝÁÍÉĎŤŇÚŮ]/.test(text)) return 'cs'
+  if (/[șțăîâȘȚĂÎÂ]/.test(text)) return 'ro'
+  if (/[őűŐŰ]/.test(text)) return 'hu'
+  if (/[ıİğĞşŞ]/.test(text)) return 'tr'
+  if (/[œæŒÆçÇ]/.test(text)) return 'fr'
+  if (/[ãõÃÕ]/.test(text)) return 'pt'
   if (/[ñÑ¿¡]/.test(text)) return 'es'
+  // æ/ø → Danish; å without æ/ø → Swedish; ü/ß → German (äö alone are ambiguous).
+  if (/[æøÆØ]/.test(text)) return 'da'
+  if (/[åÅ]/.test(text)) return 'sv'
+  if (/[àèéìòùÀÈÉÌÒÙ]/.test(text)) return 'it'
   if (/[äöüÄÖÜß]/.test(text)) return 'de'
   return null
 }

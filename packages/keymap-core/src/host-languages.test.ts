@@ -50,14 +50,11 @@ describe('HOST_LANGUAGES table', () => {
         hostLanguageName(a).localeCompare(hostLanguageName(b), 'en')
       )
     )
-    expect(available.map(hostLanguageName)).toEqual([
-      'French',
-      'German',
-      'Polish',
-      'Russian',
-      'Spanish',
-      'Ukrainian'
-    ])
+    expect(available.map(hostLanguageName)).toEqual(
+      [...ADDABLE_HOST_LANGUAGE_IDS]
+        .sort((a, b) => hostLanguageName(a).localeCompare(hostLanguageName(b), 'en'))
+        .map(hostLanguageName)
+    )
 
     let next = view
     for (const language of ADDABLE_HOST_LANGUAGE_IDS) {
@@ -76,6 +73,10 @@ describe('preferredAddableHostLanguage', () => {
     expect(preferredAddableHostLanguage(['fr-FR'])).toBe('fr')
     expect(preferredAddableHostLanguage(['pl-PL', 'es'])).toBe('pl')
     expect(preferredAddableHostLanguage(['es-ES'])).toBe('es')
+    expect(preferredAddableHostLanguage(['cs-CZ', 'hu'])).toBe('cs')
+    expect(preferredAddableHostLanguage(['sv-SE'])).toBe('sv')
+    expect(preferredAddableHostLanguage(['pt-BR'])).toBe('br')
+    expect(preferredAddableHostLanguage(['pt-PT'])).toBe('pt')
     expect(preferredAddableHostLanguage(['en', 'en-GB'])).toBeNull()
     expect(preferredAddableHostLanguage(['ja-JP', 'zh-CN'])).toBeNull()
     expect(preferredAddableHostLanguage([])).toBeNull()

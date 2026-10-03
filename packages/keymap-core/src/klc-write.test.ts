@@ -107,6 +107,63 @@ describe('klc export', () => {
     expect(rows.get('35')?.[1]).toBe('OEM_MINUS')
   })
 
+  it('writes Italian punctuation virtual keys from it.klc', () => {
+    const text = hostLayoutToKlc(systemLayout('system-it'), {
+      name: 'Italian',
+      locale: windowsLocale('it')
+    })
+    expect(text).toContain('LOCALEID\t"00000410"')
+    const rows = layoutRows(text)
+    expect(rows.get('0c')?.[1]).toBe('OEM_4')
+    expect(rows.get('1a')?.[1]).toBe('OEM_1')
+    expect(rows.get('35')?.[1]).toBe('OEM_MINUS')
+  })
+
+  it('writes Brazilian ABNT2 locale 00010416', () => {
+    const text = hostLayoutToKlc(systemLayout('system-br'), {
+      name: 'Portuguese (Brazil)',
+      locale: windowsLocale('br')
+    })
+    expect(text).toContain('LOCALENAME\t"pt-BR"')
+    expect(text).toContain('LOCALEID\t"00010416"')
+    expect(layoutRows(text).get('10')?.[1]).toBe('Q')
+  })
+
+  it('writes Portuguese (Portugal) punctuation virtual keys from pt.klc', () => {
+    const text = hostLayoutToKlc(systemLayout('system-pt'), {
+      name: 'Portuguese',
+      locale: windowsLocale('pt')
+    })
+    expect(text).toContain('LOCALEID\t"00000816"')
+    const rows = layoutRows(text)
+    expect(rows.get('1a')?.[1]).toBe('OEM_PLUS')
+    expect(rows.get('1b')?.[1]).toBe('OEM_1')
+  })
+
+  it('writes Czech SGCap on the number row and locale 00000405', () => {
+    const text = hostLayoutToKlc(systemLayout('system-cz'), {
+      name: 'Czech',
+      locale: windowsLocale('cs')
+    })
+    expect(text).toContain('LOCALEID\t"00000405"')
+    const lines = text.split(/\r?\n/)
+    const n2 = lines.findIndex(line => line.startsWith('03\t'))
+    expect(lines[n2]?.split('\t')[2]).toBe('SGCap')
+    expect(lines[n2 + 1]).toBe('-1\t-1\t0\t011a')
+    expect(layoutRows(text).get('0c')?.[1]).toBe('OEM_PLUS')
+  })
+
+  it('writes Hungarian zero-on-grave virtual keys', () => {
+    const text = hostLayoutToKlc(systemLayout('system-hu'), {
+      name: 'Hungarian',
+      locale: windowsLocale('hu')
+    })
+    expect(text).toContain('LOCALEID\t"0000040e"')
+    const rows = layoutRows(text)
+    expect(rows.get('29')?.[1]).toBe('0')
+    expect(rows.get('0b')?.[1]).toBe('OEM_3')
+  })
+
   it('keeps US virtual keys for Cyrillic and uses the ru-RU locale', () => {
     const text = hostLayoutToKlc(systemLayout('system-ru'), {
       name: 'Russian',

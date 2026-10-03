@@ -4,13 +4,27 @@ import {
   type HostLanguage,
   type HostLanguageId
 } from './host-languages.js'
+import { SYSTEM_BR_SYMBOLS } from './system-br-symbols.js'
+import { SYSTEM_CZ_SYMBOLS } from './system-cz-symbols.js'
 import { SYSTEM_DE_SYMBOLS } from './system-de-symbols.js'
+import { SYSTEM_DK_SYMBOLS } from './system-dk-symbols.js'
 import { SYSTEM_ES_SYMBOLS } from './system-es-symbols.js'
 import { SYSTEM_FR_SYMBOLS } from './system-fr-symbols.js'
+import { SYSTEM_HU_SYMBOLS } from './system-hu-symbols.js'
+import { SYSTEM_IT_SYMBOLS } from './system-it-symbols.js'
 import { SYSTEM_LATIN_SYMBOLS } from './system-latin-symbols.js'
 import { SYSTEM_PL_SYMBOLS } from './system-pl-symbols.js'
+import { SYSTEM_PT_SYMBOLS } from './system-pt-symbols.js'
+import { SYSTEM_RO_SYMBOLS } from './system-ro-symbols.js'
+import { SYSTEM_SE_SYMBOLS } from './system-se-symbols.js'
+import { SYSTEM_TR_SYMBOLS } from './system-tr-symbols.js'
 import { SYSTEM_US_XKB_SYMBOLS } from './system-us-xkb-symbols.js'
 import type { ParseXkbOptions } from './xkb-symbols.js'
+
+const LATIN_US = {
+  latin: SYSTEM_LATIN_SYMBOLS,
+  us: SYSTEM_US_XKB_SYMBOLS
+} as const
 
 export type HostLayoutKind = 'system' | 'user'
 
@@ -40,26 +54,19 @@ export interface BuiltinHostLayoutSpec {
 
 /** Include map for xkb modules that pull in another file (`de` → `latin`). */
 const XKB_INCLUDE_FILES: Readonly<Record<string, Readonly<Record<string, string>>>> = {
-  de: {
-    latin: SYSTEM_LATIN_SYMBOLS,
-    us: SYSTEM_US_XKB_SYMBOLS,
-    de: SYSTEM_DE_SYMBOLS
-  },
-  fr: {
-    latin: SYSTEM_LATIN_SYMBOLS,
-    us: SYSTEM_US_XKB_SYMBOLS,
-    fr: SYSTEM_FR_SYMBOLS
-  },
-  pl: {
-    latin: SYSTEM_LATIN_SYMBOLS,
-    us: SYSTEM_US_XKB_SYMBOLS,
-    pl: SYSTEM_PL_SYMBOLS
-  },
-  es: {
-    latin: SYSTEM_LATIN_SYMBOLS,
-    us: SYSTEM_US_XKB_SYMBOLS,
-    es: SYSTEM_ES_SYMBOLS
-  }
+  de: { ...LATIN_US, de: SYSTEM_DE_SYMBOLS },
+  fr: { ...LATIN_US, fr: SYSTEM_FR_SYMBOLS },
+  pl: { ...LATIN_US, pl: SYSTEM_PL_SYMBOLS },
+  es: { ...LATIN_US, es: SYSTEM_ES_SYMBOLS },
+  it: { ...LATIN_US, it: SYSTEM_IT_SYMBOLS },
+  pt: { ...LATIN_US, pt: SYSTEM_PT_SYMBOLS },
+  br: { ...LATIN_US, br: SYSTEM_BR_SYMBOLS },
+  cz: { ...LATIN_US, cz: SYSTEM_CZ_SYMBOLS },
+  dk: { ...LATIN_US, dk: SYSTEM_DK_SYMBOLS },
+  se: { ...LATIN_US, se: SYSTEM_SE_SYMBOLS },
+  hu: { ...LATIN_US, hu: SYSTEM_HU_SYMBOLS },
+  tr: { ...LATIN_US, tr: SYSTEM_TR_SYMBOLS },
+  ro: { ...LATIN_US, ro: SYSTEM_RO_SYMBOLS }
 }
 
 function systemLayoutId(language: HostLanguage, section: string): string {
@@ -125,6 +132,16 @@ export const SYSTEM_PL_LAYOUT_ID = systemLayoutId(hostLanguage('pl'), hostLangua
 
 /** System Spanish group (`es(basic)` over `latin(type4)`). */
 export const SYSTEM_ES_LAYOUT_ID = systemLayoutId(hostLanguage('es'), hostLanguage('es').primarySection)
+
+export const SYSTEM_IT_LAYOUT_ID = systemLayoutId(hostLanguage('it'), hostLanguage('it').primarySection)
+export const SYSTEM_PT_LAYOUT_ID = systemLayoutId(hostLanguage('pt'), hostLanguage('pt').primarySection)
+export const SYSTEM_BR_LAYOUT_ID = systemLayoutId(hostLanguage('br'), hostLanguage('br').primarySection)
+export const SYSTEM_CS_LAYOUT_ID = systemLayoutId(hostLanguage('cs'), hostLanguage('cs').primarySection)
+export const SYSTEM_DA_LAYOUT_ID = systemLayoutId(hostLanguage('da'), hostLanguage('da').primarySection)
+export const SYSTEM_SV_LAYOUT_ID = systemLayoutId(hostLanguage('sv'), hostLanguage('sv').primarySection)
+export const SYSTEM_HU_LAYOUT_ID = systemLayoutId(hostLanguage('hu'), hostLanguage('hu').primarySection)
+export const SYSTEM_TR_LAYOUT_ID = systemLayoutId(hostLanguage('tr'), hostLanguage('tr').primarySection)
+export const SYSTEM_RO_LAYOUT_ID = systemLayoutId(hostLanguage('ro'), hostLanguage('ro').primarySection)
 
 /** Static catalog rows for one language. Runtime layouts are merged in the registry. */
 export function catalogLayoutsForLanguage(language: HostLanguageId): HostLayoutChoice[] {

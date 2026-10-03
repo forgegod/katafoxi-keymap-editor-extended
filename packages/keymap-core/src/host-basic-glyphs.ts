@@ -51,7 +51,16 @@ const LETTERS: Record<HostLanguageId, string> = {
   de: 'abcdefghijklmnopqrstuvwxyzäöüß',
   fr: 'abcdefghijklmnopqrstuvwxyzàâäæçéèêëîïôœùûüÿ',
   pl: 'abcdefghijklmnopqrstuvwxyząćęłńóśźż',
-  es: 'abcdefghijklmnopqrstuvwxyzñáéíóúü'
+  es: 'abcdefghijklmnopqrstuvwxyzñáéíóúü',
+  it: 'abcdefghijklmnopqrstuvwxyzàèéìíîòóùú',
+  pt: 'abcdefghijklmnopqrstuvwxyzáàâãçéêíóôõú',
+  br: 'abcdefghijklmnopqrstuvwxyzáàâãçéêíóôõú',
+  cs: 'aábcčdďeéěfghiíjklmnňoópqrřsštťuúůvwxyýzž',
+  da: 'abcdefghijklmnopqrstuvwxyzæøå',
+  sv: 'abcdefghijklmnopqrstuvwxyzåäö',
+  hu: 'aábcdeéfghiíjklmnoóöőpqrstuúüűvwxyz',
+  tr: 'abcçdefgğhıijklmnoöprsştuüvyz',
+  ro: 'aăâbcdefghiîjklmnopqrsștțuvwxyz'
 }
 
 /** Digits plus typewriter punctuation and the shifted partner of each mark. */

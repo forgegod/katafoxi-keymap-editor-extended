@@ -82,7 +82,7 @@ Click a stacked keycap row. One dialog edits that layer’s ZMK binding:
 
 ## Host layouts
 
-Core domain code (compose, host-layout registry) does **not** know any concrete keyboard. Built-in host data is OS language tables (`HOST_LANGUAGES`: en, ru, uk, de, fr, pl, es) plus vendored xkb modules. Named boards appear only as fixtures (`packages/keymap-core/fixtures/lark/`, `fixtures/demo/`) and the Demo catalog loader — see [running-locally.md](../running-locally.md) and [AGENTS.md](../AGENTS.md).
+Core domain code (compose, host-layout registry) does **not** know any concrete keyboard. Built-in host data is OS language tables (`HOST_LANGUAGES`: en, ru, uk, de, fr, pl, es, it, pt, br, cs, da, sv, hu, tr, ro) plus vendored xkb modules. Named boards appear only as fixtures (`packages/keymap-core/fixtures/lark/`, `fixtures/demo/`) and the Demo catalog loader — see [running-locally.md](../running-locally.md) and [AGENTS.md](../AGENTS.md).
 
 - **Registry.** `hostLayout(id)` / `hostLayoutMeta(id)` resolve both builtins and layouts registered at runtime. Builtin xkb sections parse on first use. `registerHostLayout` / `unregisterHostLayout` make an imported or copied layout available to the keycap, table, decode card, and profile menu the same way as a system id.
 - **Storage in the layout.** Each `HostLayout` stores four **keysyms** per key and derives glyphs. `'NoSymbol'` is explicit. Non-character bases (`dead_*`, `Multi_key`) stay in the table; composition filters them.
