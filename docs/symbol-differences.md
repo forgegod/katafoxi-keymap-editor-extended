@@ -75,7 +75,7 @@ Keep these when changing the mode; do not collapse them back into “en × open 
 
 ## Out of scope (for now)
 
-- Collapsing the keycap face when AltGr matches (`vV#]   мМ`) — compose / `keycapFace`, not this mode’s marks.
+- Auto-collapsing matching AltGr in the face string (the face already shows four slots per language with `ˬ`; shared AltGr reads as the same trailing pair).
 - Expanding `missingBasicGlyphs` (legend strip gaps) to match `BASIC_ALIGN_GLYPHS`; that list still includes digits and language letters for “layout incomplete.”
 - Auto-fix or “copy AltGr from the other language.”
 
