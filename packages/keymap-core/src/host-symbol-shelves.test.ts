@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import records from '../data/host-symbols.json' with { type: 'json' }
 import { hostSymbolByGlyph } from './host-symbols.js'
-import { hostSymbolShelves, type HostSymbolShelf } from './host-symbol-shelves.js'
+import {
+  hostSymbolShelves,
+  primaryLayoutDeadKeysyms,
+  type HostSymbolShelf
+} from './host-symbol-shelves.js'
 
 function openShelves(shelves: HostSymbolShelf[]): HostSymbolShelf[] {
   return shelves.filter(shelf => shelf.open)
@@ -60,15 +64,35 @@ describe('hostSymbolShelves', () => {
     }
   })
 
-  it('lists NoSymbol and dead_acute in the Modifiers section', () => {
+  it('lists structural modifiers on the open Modifiers shelf', () => {
     const modifiers = shelfById(hostSymbolShelves('en'), 'modifiers')
     expect(modifiers.open).toBe(true)
     const keysyms = new Set(modifiers.entries.map(entry => entry.keysym))
     expect(keysyms.has('NoSymbol')).toBe(true)
-    expect(keysyms.has('dead_acute')).toBe(true)
     expect(keysyms.has('Multi_key')).toBe(true)
     expect(keysyms.has('ISO_Level3_Shift')).toBe(true)
     expect(keysyms.has('ISO_Level5_Shift')).toBe(true)
+  })
+
+  it('surfaces French primary dead keys with spacing glyphs on Modifiers', () => {
+    const typical = primaryLayoutDeadKeysyms('fr')
+    expect(typical).toContain('dead_circumflex')
+    expect(typical).toContain('dead_acute')
+    const modifiers = shelfById(hostSymbolShelves('fr'), 'modifiers')
+    const byKeysym = new Map(modifiers.entries.map(entry => [entry.keysym, entry]))
+    expect(byKeysym.get('dead_circumflex')).toMatchObject({ glyph: '^', dead: true })
+    expect(byKeysym.get('dead_diaeresis')).toMatchObject({ glyph: '¨', dead: true })
+    const more = shelfById(hostSymbolShelves('fr'), 'more-dead-keys')
+    expect(more.open).toBe(false)
+    expect(more.entries.some(entry => entry.keysym === 'dead_circumflex')).toBe(false)
+    expect(more.entries.some(entry => entry.keysym === 'dead_iota')).toBe(true)
+  })
+
+  it('keeps German cedilla on Modifiers and not only under More dead keys', () => {
+    const modifiers = shelfById(hostSymbolShelves('de'), 'modifiers')
+    expect(modifiers.entries.some(entry => entry.keysym === 'dead_cedilla' && entry.dead)).toBe(
+      true
+    )
   })
 
   it('keeps unique glyphs across shelves within the dictionary size and open shelves filled', () => {
@@ -90,13 +114,14 @@ describe('hostSymbolShelves', () => {
 
   it('gives open language shelves priority over Signs so letters are not duplicated', () => {
     // Priority: language letter ranges claim letters first; Signs only takes
-    // non-letters in its ranges. Open shelves must not share a glyph.
+    // non-letters in its ranges. Open dictionary shelves must not share a
+    // glyph. Dead spacing marks on Modifiers may match a Signs character (`^`).
     for (const language of ['en', 'ru'] as const) {
       const open = openShelves(hostSymbolShelves(language))
       const seen = new Set<string>()
       for (const shelf of open) {
         for (const entry of shelf.entries) {
-          if (entry.glyph === '') continue
+          if (entry.glyph === '' || entry.dead) continue
           expect(seen.has(entry.glyph), `${language} duplicate ${entry.glyph}`).toBe(false)
           seen.add(entry.glyph)
         }

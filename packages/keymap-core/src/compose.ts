@@ -9,7 +9,12 @@ import {
 import { keycodeGlyphLabel, keypadGlyphLabel } from './keycode-labels.js'
 import { encodeKeyBinding } from './keymap.js'
 import { hostKeyByZmk } from './host-key-id.js'
-import { ALT_LEVEL_EMPTY, hostComposeGlyphs, type HostLevels } from './host-layout.js'
+import {
+  ALT_LEVEL_EMPTY,
+  hostDisplayLevels,
+  hostLevelDisplay,
+  type HostKeyLevels
+} from './host-layout.js'
 import { hostLayoutShelves } from './host-layout-registry.js'
 import { hostLayoutMeta, hostLevels } from './host-layout-registry.js'
 import {
@@ -348,14 +353,17 @@ function composeColumn(
   resolved: ResolvedHostColumn,
   zmk: string
 ): ComposedLegendColumn | null {
-  const levels = hostComposeGlyphs(hostLevels(resolved.layoutId, zmk))
-  if (!levels || levels[0] === '') return null
+  const levels = hostDisplayLevels(hostLevels(resolved.layoutId, zmk))
+  if (!levels) return null
   return {
     language: resolved.language,
     tone: resolved.tone,
-    pair: [levels[0], levels[1]],
-    altGr: resolved.altGr ? levels[2] : '',
-    altGrShift: resolved.altGrShift ? levels[3] : '',
+    pair: [levels[0].text, levels[1].text],
+    pairDead: [levels[0].dead, levels[1].dead],
+    altGr: resolved.altGr ? levels[2].text : '',
+    altGrDead: resolved.altGr ? levels[2].dead : false,
+    altGrShift: resolved.altGrShift ? levels[3].text : '',
+    altGrShiftDead: resolved.altGrShift ? levels[3].dead : false,
     showAltGr: resolved.altGr,
     showAltGrShift: resolved.altGrShift,
     onKeycap: resolved.shown
@@ -456,29 +464,30 @@ export function formatAltGrPair(
   return `${alt}${shift}`
 }
 
-/** AltGr pair used to decide bilingual collapse. Empty glyphs stay empty. */
-function shownAltPair(
-  column: Pick<ComposedLegendColumn, 'altGr' | 'altGrShift' | 'showAltGr' | 'showAltGrShift'>
-): string {
-  const left = column.showAltGr ? column.altGr : ''
-  const right = column.showAltGrShift ? column.altGrShift : ''
-  if (!left && !right) return ''
-  return `${column.showAltGr ? left || ALT_LEVEL_EMPTY : ''}${
-    column.showAltGrShift ? right || ALT_LEVEL_EMPTY : ''
-  }`
-}
-
 export type KeycapTone = 'base' | 'second'
 
-export interface KeycapPiece {
+export interface KeycapFaceGlyph {
   text: string
-  /** Language color. `null` is shared by both languages, or the `/` between them. */
-  tone: KeycapTone | null
+  /** Spacing mark for a `dead_*` keysym. */
+  dead?: boolean
+  /** AltGr or AltGr+Shift level. */
+  alt: boolean
 }
 
-export interface KeycapColumn {
-  kind: 'letters' | 'alt'
-  pieces: KeycapPiece[]
+/** One language’s packed glyphs on the keycap face (empty levels omitted). */
+export interface KeycapFacePack {
+  tone: KeycapTone
+  glyphs: KeycapFaceGlyph[]
+}
+
+/**
+ * What the composed keycap face shows. Single fill algorithm for agents and UI:
+ * non-empty glyphs per on-keycap language, then optional hold. No `ˬ`, no `/`.
+ * Decode/table still use `ˬ` for empty editable levels — that is a different surface.
+ */
+export interface KeycapFace {
+  packs: KeycapFacePack[]
+  hold?: string
 }
 
 /** Left slot keeps its own tone. Two drawn languages use base then second so the pair can be told apart. */
@@ -487,48 +496,129 @@ function keycapTone(column: ComposedLegendColumn, drawn: readonly ComposedLegend
   return drawn[0] === column ? 'base' : 'second'
 }
 
+function pushGlyph(
+  glyphs: KeycapFaceGlyph[],
+  text: string,
+  alt: boolean,
+  dead?: boolean
+) {
+  if (!text) return
+  glyphs.push(dead ? { text, alt, dead: true } : { text, alt })
+}
+
 /**
- * What one keycap line shows, left to right.
- * At most two on-keycap languages. A case pair equal to the earlier one is drawn once.
- * Diverging AltGr pairs stay one column, each half in its language color.
- * A language that is not on the keycap does not contribute glyphs, including AltGr.
+ * Pack one on-keycap language: base, shift, AltGr, AltGr+Shift — skip empties.
+ * When `letters` is false (matching pair on the earlier language), only AltGr levels.
  */
-export function keycapColumns(legend: ComposedLegend): KeycapColumn[] {
-  const columns: KeycapColumn[] = []
-  const letters = legend.columns.filter(column => column.onKeycap)
-  let firstPair = ''
-  for (const column of letters) {
-    const text = `${column.pair[0]}${column.pair[1]}`
-    if (!text || text === firstPair) continue
-    if (!firstPair) firstPair = text
-    columns.push({ kind: 'letters', pieces: [{ text, tone: keycapTone(column, letters) }] })
+function packLanguage(
+  column: ComposedLegendColumn,
+  drawn: readonly ComposedLegendColumn[],
+  letters: boolean
+): KeycapFacePack | null {
+  const glyphs: KeycapFaceGlyph[] = []
+  if (letters) {
+    pushGlyph(glyphs, column.pair[0] ?? '', false, column.pairDead[0])
+    pushGlyph(glyphs, column.pair[1] ?? '', false, column.pairDead[1])
+  }
+  if (column.showAltGr) {
+    pushGlyph(glyphs, column.altGr, true, column.altGrDead)
+  }
+  if (column.showAltGrShift) {
+    pushGlyph(glyphs, column.altGrShift, true, column.altGrShiftDead)
+  }
+  if (glyphs.length === 0) return null
+  return { tone: keycapTone(column, drawn), glyphs }
+}
+
+/**
+ * Fill the composed keycap face.
+ *
+ * 1. Take on-keycap languages (at most two), left to right.
+ * 2. For each, append non-empty levels in order: base, shift, AltGr, AltGr+Shift.
+ *    If both languages share the same letter pair, the second skips base/shift.
+ * 3. Drop a language that contributed no glyphs.
+ * 4. Attach `legend.hold` when present (`⧗⌃`, …) — behavior chrome, not a host level.
+ *
+ * Never emit `ˬ` or `/`. The SPA only paints this face and scale-to-fits.
+ */
+export function keycapFace(legend: ComposedLegend): KeycapFace {
+  const drawn = legend.columns.filter(column => column.onKeycap)
+  const packs: KeycapFacePack[] = []
+  if (drawn.length === 0) {
+    return legend.hold ? { packs, hold: legend.hold } : { packs }
   }
 
-  const altColumns = letters.filter(column => column.showAltGr || column.showAltGrShift)
-  if (altColumns.length >= 2) {
-    const left = altColumns[0]!
-    const right = altColumns[1]!
-    const leftAlt = shownAltPair(left)
-    const rightAlt = shownAltPair(right)
-    if (leftAlt !== rightAlt) {
-      const pieces: KeycapPiece[] = [
-        { text: leftAlt, tone: keycapTone(left, letters) },
-        { text: '/', tone: null },
-        { text: rightAlt, tone: keycapTone(right, letters) }
-      ]
-      columns.push({ kind: 'alt', pieces: pieces.filter(piece => piece.text !== '') })
-      return columns
-    }
-    const shared = formatAltGrPair(left)
-    if (shared) columns.push({ kind: 'alt', pieces: [{ text: shared, tone: null }] })
-    return columns
+  const left = drawn[0]!
+  const right = drawn[1]
+  const leftPair = `${left.pair[0]}${left.pair[1]}`
+  const rightPair = right ? `${right.pair[0]}${right.pair[1]}` : ''
+  const lettersMatch = Boolean(right && leftPair && leftPair === rightPair)
+
+  const leftPack = packLanguage(left, drawn, true)
+  if (leftPack) packs.push(leftPack)
+  if (right) {
+    const rightPack = packLanguage(right, drawn, !lettersMatch)
+    if (rightPack) packs.push(rightPack)
   }
-  const altSource = altColumns[0]
-  if (altSource) {
-    const alt = formatAltGrPair(altSource)
-    if (alt) columns.push({ kind: 'alt', pieces: [{ text: alt, tone: null }] })
-  }
-  return columns
+
+  return legend.hold ? { packs, hold: legend.hold } : { packs }
+}
+
+/** Compact face string for tests and debug (`5% (5[⅜`, `kK ĸ& ⧗⇧`). */
+export function formatKeycapFace(face: KeycapFace): string {
+  const body = face.packs.map(pack => pack.glyphs.map(glyph => glyph.text).join('')).join(' ')
+  return face.hold ? `${body} ${face.hold}`.trim() : body
+}
+
+/** @deprecated Prefer `keycapFace`. Level-shaped blocks kept for golden snapshots. */
+export interface KeycapSlot {
+  text: string
+  dead?: boolean
+}
+
+/** @deprecated Prefer `keycapFace`. */
+export interface KeycapColumn {
+  tone: KeycapTone
+  slots: readonly [KeycapSlot, KeycapSlot, KeycapSlot, KeycapSlot]
+}
+
+function keycapSlot(text: string, dead?: boolean): KeycapSlot {
+  if (!text) return { text: '' }
+  return dead ? { text, dead: true } : { text }
+}
+
+/**
+ * @deprecated Prefer `keycapFace` for anything painted on the board.
+ * Level-aligned blocks (empty levels as `''`) for golden / migration only.
+ */
+export function keycapColumns(legend: ComposedLegend): KeycapColumn[] {
+  const drawn = legend.columns.filter(column => column.onKeycap)
+  if (drawn.length === 0) return []
+
+  const left = drawn[0]!
+  const right = drawn[1]
+  const leftPair = `${left.pair[0]}${left.pair[1]}`
+  const rightPair = right ? `${right.pair[0]}${right.pair[1]}` : ''
+  const lettersMatch = Boolean(right && leftPair && leftPair === rightPair)
+
+  const block = (
+    column: ComposedLegendColumn,
+    letters: boolean
+  ): KeycapColumn => ({
+    tone: keycapTone(column, drawn),
+    slots: [
+      keycapSlot(letters ? column.pair[0] ?? '' : '', letters && column.pairDead[0]),
+      keycapSlot(letters ? column.pair[1] ?? '' : '', letters && column.pairDead[1]),
+      keycapSlot(column.showAltGr ? column.altGr || '' : '', Boolean(column.altGr && column.altGrDead)),
+      keycapSlot(
+        column.showAltGrShift ? column.altGrShift || '' : '',
+        Boolean(column.altGrShift && column.altGrShiftDead)
+      )
+    ]
+  })
+
+  if (!right) return [block(left, true)]
+  return [block(left, true), block(right, !lettersMatch)]
 }
 
 export interface MultilangKeycapLine {
@@ -571,6 +661,8 @@ export interface LegendDecodeSlot {
   text: string
   /** True when this current-row cell differs from the language's primary system. */
   differs: boolean
+  /** Spacing glyph for a `dead_*` keysym (not a composed character). */
+  dead: boolean
 }
 
 export interface LegendDecodeColumn {
@@ -596,21 +688,36 @@ export function formatDecodeWord(column: Pick<LegendDecodeColumn, 'slots'>): str
   return column.slots.map(slot => slot.text).join('')
 }
 
-function slotsFromLevels(levels: HostLevels): LegendDecodeColumn['slots'] {
+function decodeSlot(keysym: string): LegendDecodeSlot {
+  const display = hostLevelDisplay(keysym)
+  return {
+    text: display.text || ALT_LEVEL_EMPTY,
+    differs: false,
+    dead: display.dead
+  }
+}
+
+/** Decode grid from stored keysyms so `dead_*` shows its spacing mark. */
+function slotsFromKeyLevels(levels: HostKeyLevels): LegendDecodeColumn['slots'] {
   return [
-    { text: levels[0] || ALT_LEVEL_EMPTY, differs: false },
-    { text: levels[1] || ALT_LEVEL_EMPTY, differs: false },
-    { text: levels[2] || ALT_LEVEL_EMPTY, differs: false },
-    { text: levels[3] || ALT_LEVEL_EMPTY, differs: false }
+    decodeSlot(levels.keysyms[0]),
+    decodeSlot(levels.keysyms[1]),
+    decodeSlot(levels.keysyms[2]),
+    decodeSlot(levels.keysyms[3])
   ]
+}
+
+/** Character keys and dead-key keys; skip pure modifiers (`Multi_key`, level3). */
+function levelsBelongInDecode(levels: HostKeyLevels): boolean {
+  return hostDisplayLevels(levels) != null
 }
 
 function emptySlots(): LegendDecodeColumn['slots'] {
   return [
-    { text: ALT_LEVEL_EMPTY, differs: false },
-    { text: ALT_LEVEL_EMPTY, differs: false },
-    { text: ALT_LEVEL_EMPTY, differs: false },
-    { text: ALT_LEVEL_EMPTY, differs: false }
+    { text: ALT_LEVEL_EMPTY, differs: false, dead: false },
+    { text: ALT_LEVEL_EMPTY, differs: false, dead: false },
+    { text: ALT_LEVEL_EMPTY, differs: false, dead: false },
+    { text: ALT_LEVEL_EMPTY, differs: false, dead: false }
   ]
 }
 
@@ -623,7 +730,8 @@ function markDiffs(
     const baseline = system.find(item => item.language === column.language)
     if (!baseline) return column
     const slots = column.slots.map((slot, index) => {
-      const differs = slot.text !== baseline.slots[index].text
+      const base = baseline.slots[index]
+      const differs = slot.text !== base.text || slot.dead !== base.dead
       if (differs) any = true
       return { ...slot, differs }
     }) as LegendDecodeColumn['slots']
@@ -657,15 +765,22 @@ export function composeLegendDecode(
   const current: LegendDecodeColumn[] = []
   const system: LegendDecodeColumn[] = []
   for (const column of resolveHostColumns(hostView).filter(item => item.shown)) {
-    const levels = hostComposeGlyphs(hostLevels(column.layoutId, host.zmk))
-    if (!levels) continue
-    current.push({ language: column.language, flag: column.flag, slots: slotsFromLevels(levels) })
+    const levels = hostLevels(column.layoutId, host.zmk)
+    if (!levels || !levelsBelongInDecode(levels)) continue
+    current.push({
+      language: column.language,
+      flag: column.flag,
+      slots: slotsFromKeyLevels(levels)
+    })
     const primary = hostLayoutShelves(column.language).primary
-    const sysLevels = primary ? hostComposeGlyphs(hostLevels(primary.id, host.zmk)) : undefined
+    const sysLevels = primary ? hostLevels(primary.id, host.zmk) : undefined
     system.push({
       language: column.language,
       flag: column.flag,
-      slots: sysLevels ? slotsFromLevels(sysLevels) : emptySlots()
+      slots:
+        sysLevels && levelsBelongInDecode(sysLevels)
+          ? slotsFromKeyLevels(sysLevels)
+          : emptySlots()
     })
   }
   const compared = markDiffs(current, system)
@@ -695,14 +810,14 @@ export function withEditableLegendDecodeGaps(
     if (current.some(item => item.language === column.language)) continue
     if (hostLevels(column.layoutId, zmk)) continue
     const primary = hostLayoutShelves(column.language).primary
-    const sysLevels = primary ? hostComposeGlyphs(hostLevels(primary.id, zmk)) : undefined
+    const sysLevels = primary ? hostLevels(primary.id, zmk) : undefined
     if (!sysLevels) continue
     current.push({ language: column.language, flag: column.flag, slots: emptySlots() })
     if (!system.some(item => item.language === column.language)) {
       system.push({
         language: column.language,
         flag: column.flag,
-        slots: slotsFromLevels(sysLevels)
+        slots: slotsFromKeyLevels(sysLevels)
       })
     }
     changed = true

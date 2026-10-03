@@ -9,7 +9,7 @@ import {
   type HostLayout
 } from './host-layout.js'
 import { registerLarkHostFixture } from './testing/lark-host.js'
-import { hostLegendFor, keycapColumns } from './compose.js'
+import { hostLegendFor, keycapFace } from './compose.js'
 import {
   catalogLayoutsForLanguage,
   SYSTEM_DE_LAYOUT_ID,
@@ -38,8 +38,10 @@ function extraPair(legend: NonNullable<ReturnType<typeof hostLegendFor>>) {
 }
 
 function altNote(legend: NonNullable<ReturnType<typeof hostLegendFor>>): string | undefined {
-  const alt = keycapColumns(legend).find(column => column.kind === 'alt')
-  return alt?.pieces.map(piece => piece.text).join('')
+  const text = keycapFace(legend)
+    .packs.flatMap(pack => pack.glyphs.filter(glyph => glyph.alt).map(glyph => glyph.text))
+    .join('')
+  return text || undefined
 }
 
 const xkbSymbolsDir = path.resolve(
@@ -117,8 +119,11 @@ describe('lark host layouts', () => {
           language: 'en',
           tone: 'base',
           pair: ['a', 'A'],
+          pairDead: [false, false],
           altGr: '@',
+          altGrDead: false,
           altGrShift: '×',
+          altGrShiftDead: false,
           showAltGr: true,
           showAltGrShift: true,
           onKeycap: true
@@ -127,8 +132,11 @@ describe('lark host layouts', () => {
           language: 'ru',
           tone: 'second',
           pair: ['ф', 'Ф'],
+          pairDead: [false, false],
           altGr: '@',
+          altGrDead: false,
           altGrShift: '×',
+          altGrShiftDead: false,
           showAltGr: true,
           showAltGrShift: true,
           onKeycap: true
@@ -148,8 +156,8 @@ describe('lark host layouts', () => {
   })
 
   it('records LARK divergences on T, M, and O', () => {
-    expect(altNote(hostLegendFor('T', larkView())!)).toBe('/ёЁ')
-    expect(altNote(hostLegendFor('M', larkView())!)).toBe('/ъЪ')
+    expect(altNote(hostLegendFor('T', larkView())!)).toBe('ёЁ')
+    expect(altNote(hostLegendFor('M', larkView())!)).toBe('ъЪ')
     expect(extraPair(hostLegendFor('O', larkView())!)).toEqual(['щ', 'Щ'])
   })
 
@@ -311,8 +319,8 @@ describe('system Russian winkeys', () => {
     )
     expect(hostLegendFor('A', withAlt)?.columns[0]?.pair).toEqual(['a', 'A'])
     expect(extraPair(hostLegendFor('A', withAlt)!)).toEqual(['ф', 'Ф'])
-    expect(altNote(hostLegendFor('A', withAlt)!)).toBe('@×/')
-    expect(altNote(hostLegendFor('Q', withAlt)!)).toBe('ø÷/')
+    expect(altNote(hostLegendFor('A', withAlt)!)).toBe('@×')
+    expect(altNote(hostLegendFor('Q', withAlt)!)).toBe('ø÷')
     expect(altNote(hostLegendFor('N8', withAlt)!)).toContain('₽')
   })
 })
@@ -387,9 +395,9 @@ describe('Ukrainian system layout', () => {
     ])
     expect(legend.columns[0]?.pair).toEqual(['s', 'S'])
     expect(
-      keycapColumns(legend)
-        .filter(column => column.kind === 'letters')
-        .map(column => column.pieces[0]?.text)
+      keycapFace(legend).packs.map(pack =>
+        pack.glyphs.filter(glyph => !glyph.alt).map(glyph => glyph.text).join('')
+      )
     ).toEqual(['ыЫ', 'іІ'])
   })
 })
@@ -430,8 +438,15 @@ describe('German system layout', () => {
       ],
       open: null
     }
-    expect(hostLegendFor('GRAVE', deOnly)).toBeNull()
-    expect(hostLegendFor('EQUAL', deOnly)).toBeNull()
+    // Stored glyphs stay empty for composition; the board shows spacing marks.
+    expect(hostComposeGlyphs(grave)).toBeUndefined()
+    expect(hostComposeGlyphs(equal)).toBeUndefined()
+    expect(hostLegendFor('GRAVE', deOnly)).toMatchObject({
+      columns: [{ language: 'de', pair: ['^', '°'], pairDead: [true, false] }]
+    })
+    expect(hostLegendFor('EQUAL', deOnly)).toMatchObject({
+      columns: [{ language: 'de', pair: ['´', '`'], pairDead: [true, true] }]
+    })
   })
 
   it('lists German system variants and maps nodeadkeys caret', () => {

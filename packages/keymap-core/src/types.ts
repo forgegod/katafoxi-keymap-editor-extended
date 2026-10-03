@@ -86,12 +86,18 @@ export interface ComposedLegendColumn {
   language: HostLanguageId
   /** Keycap color. Base column is `base`; extras are `second`. */
   tone: 'base' | 'second'
-  /** Level 1 + Shift (`eE`). */
+  /** Level 1 + Shift (`eE`). Dead accents use their spacing marks. */
   pair: [string, string]
+  /** True when the matching `pair` slot is a `dead_*` spacing mark. */
+  pairDead: [boolean, boolean]
   /** AltGr glyph; empty when the column is off or the level is NoSymbol. */
   altGr: string
+  /** True when `altGr` is a dead-key spacing mark. */
+  altGrDead: boolean
   /** AltGr+Shift glyph; empty when the column is off or the level is NoSymbol. */
   altGrShift: string
+  /** True when `altGrShift` is a dead-key spacing mark. */
+  altGrShiftDead: boolean
   /** AltGr column toggle. False hides that slot; an empty glyph still shows ˬ when true. */
   showAltGr: boolean
   /** AltGr+Shift column toggle. False hides that slot. */
