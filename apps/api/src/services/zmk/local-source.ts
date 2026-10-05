@@ -72,9 +72,14 @@ export function loadKeymap(): ParsedKeymap {
       const parsed = JSON.parse(fs.readFileSync(keymapPath, 'utf8'))
       if (isPrimaryKeymapJson(parsed)) {
         const keymap = parseKeymap(parsed)
-        if (keymap.holdTaps === undefined) {
+        if (keymap.holdTaps === undefined || keymap.sensorBindings === undefined) {
           const fromDts = loadKeymapFromDts()
-          keymap.holdTaps = fromDts?.holdTaps ?? []
+          if (keymap.holdTaps === undefined) {
+            keymap.holdTaps = fromDts?.holdTaps ?? []
+          }
+          if (keymap.sensorBindings === undefined) {
+            keymap.sensorBindings = fromDts?.sensorBindings ?? []
+          }
         }
         return keymap
       }

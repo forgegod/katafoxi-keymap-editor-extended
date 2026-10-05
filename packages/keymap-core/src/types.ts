@@ -73,6 +73,13 @@ export interface ParsedKeymap {
    * An array, including empty, is the editor's list and Save rewrites it.
    */
   holdTaps?: ZmkHoldTap[]
+  /**
+   * Encoder turns, one list per layer (`sensor-bindings`).
+   * Absent when the keymap has none and Save should leave those lines alone.
+   * An array, including empty inner lists, is the editor's list and Save writes it.
+   * A new layer copies the previous layer's list.
+   */
+  sensorBindings?: KeyBindingNode[][]
   [key: string]: unknown
 }
 

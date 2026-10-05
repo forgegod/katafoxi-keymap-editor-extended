@@ -5,6 +5,7 @@
  * Combos are parsed separately into `combos` (never as layers).
  * Conditional layers are parsed into `conditionalLayers`.
  * Hold-tap nodes are parsed into `holdTaps`. Save rewrites them when the field is set.
+ * Per-layer `sensor-bindings` are parsed into `sensorBindings` (encoders).
  */
 
 import { parseDtsCombos, type DtsComboJson } from './dts-combos.js'
@@ -60,14 +61,18 @@ export function findZmkKeymapBlock(source: string): {
   return null
 }
 
-/** Absolute range of `bindings = <...>` interior (content between `<` and `>`). */
+/**
+ * Absolute range of `bindings = <...>` interior (content between `<` and `>`).
+ * `sensor-bindings` is a different property; the token before `bindings` must
+ * not be a word character or a hyphen.
+ */
 export function findBindingsInterior(
   source: string,
   from: number,
   to: number
 ): { start: number; end: number } | null {
   const slice = source.slice(from, to)
-  const m = /bindings\s*=\s*</.exec(slice)
+  const m = /(?<![\w-])bindings\s*=\s*</.exec(slice)
   if (!m) return null
   const contentStart = from + m.index + m[0].length
   let depth = 1
@@ -167,6 +172,23 @@ export function keymapBindingsText(source: string): string | null {
   return layers.map(n => source.slice(n.bindingsInterior.start, n.bindingsInterior.end)).join('\n')
 }
 
+const SENSOR_STATEMENT = /sensor-bindings\s*=\s*<[\s\S]*?>\s*;/
+
+/** Bind strings inside one layer's `sensor-bindings`, or null when the property is absent. */
+function readSensorBindingStrings(
+  source: string,
+  openBrace: number,
+  closeBrace: number
+): string[] | null {
+  const body = source.slice(openBrace + 1, closeBrace)
+  const match = SENSOR_STATEMENT.exec(body)
+  if (!match) return null
+  const open = match[0].indexOf('<')
+  const close = match[0].lastIndexOf('>')
+  if (open < 0 || close < 0 || close < open) return []
+  return tokenizeBindings(match[0].slice(open + 1, close))
+}
+
 /** Split a bindings block into individual bind strings (each starts with &). */
 export function tokenizeBindings(block: string): string[] {
   const normalized = block.replace(/\r\n/g, '\n').replace(/\n/g, ' ')
@@ -198,6 +220,11 @@ export interface DtsKeymapJson {
   conditionalLayers?: ZmkConditionalLayer[]
   /** Omitted when the file has no hold-tap nodes or timing blocks. */
   holdTaps?: ZmkHoldTap[]
+  /**
+   * One string array per layer. Omitted when no layer has `sensor-bindings`.
+   * An empty inner array means that layer has no encoder property.
+   */
+  sensorBindings?: string[][]
   warnings: string[]
   [key: string]: unknown
 }
@@ -218,6 +245,8 @@ export function parseDtsKeymap(
 
   const layerNodes = findKeymapLayerNodes(source, block)
   let anyMacroExpanded = false
+  const sensorRows: string[][] = []
+  let anySensor = false
 
   for (const node of layerNodes) {
     const rawBlock = source.slice(node.bindingsInterior.start, node.bindingsInterior.end)
@@ -228,6 +257,15 @@ export function parseDtsKeymap(
     const binds = tokenizeBindings(blockExpanded).map(b => expandMacros(b, macros))
     layers.push(binds)
     layer_names.push(node.name === 'default_layer' ? 'default' : node.name)
+
+    const sensorRaw = readSensorBindingStrings(source, node.openBrace, node.closeBrace)
+    if (!sensorRaw) {
+      sensorRows.push([])
+      continue
+    }
+    anySensor = true
+    if (macrosAppearInText(sensorRaw.join(' '), macros)) anyMacroExpanded = true
+    sensorRows.push(sensorRaw.map(binding => expandMacros(binding, macros)))
   }
 
   if (layers.length === 0) {
@@ -261,6 +299,7 @@ export function parseDtsKeymap(
     combos,
     ...(conditionalLayers.length > 0 ? { conditionalLayers } : {}),
     ...(holdTaps.length > 0 ? { holdTaps } : {}),
+    ...(anySensor ? { sensorBindings: sensorRows } : {}),
     warnings
   }
 }

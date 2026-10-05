@@ -5,7 +5,10 @@ import {
   spliceConditionalLayersIntoDts
 } from './dts-conditional-layers.js'
 import { normalizeHoldTaps, spliceHoldTapsIntoDts } from './dts-behaviors.js'
+import { spliceSensorBindingsIntoDts } from './dts-sensors.js'
 import {
+  findKeymapLayerNodes,
+  findZmkKeymapBlock,
   keymapBindingsText,
   macrosAppearInText,
   parseDefines
@@ -74,10 +77,14 @@ export function encodeKeyBinding(parsed: KeyBindingNode): string {
 
 export function encodeKeymap(parsedKeymap: ParsedKeymap) {
   const combos = parsedKeymap.combos?.map(encodeComboToJson)
+  const sensorBindings = parsedKeymap.sensorBindings?.map(layer =>
+    layer.map(encodeKeyBinding)
+  )
   return {
     ...parsedKeymap,
     layers: parsedKeymap.layers.map(layer => layer.map(encodeKeyBinding)),
-    ...(combos ? { combos } : {})
+    ...(combos ? { combos } : {}),
+    ...(sensorBindings ? { sensorBindings } : {})
   }
 }
 
@@ -157,6 +164,7 @@ export function parseKeymap(keymap: {
   combos?: Array<DtsComboJson | ZmkCombo>
   conditionalLayers?: unknown
   holdTaps?: unknown
+  sensorBindings?: unknown
   [key: string]: unknown
 }): ParsedKeymap {
   const combos = Array.isArray(keymap.combos)
@@ -164,10 +172,12 @@ export function parseKeymap(keymap: {
     : undefined
   const conditionalLayers = normalizeConditionalLayers(keymap.conditionalLayers)
   const holdTaps = normalizeHoldTaps(keymap.holdTaps)
+  const sensorBindings = normalizeSensorBindings(keymap.sensorBindings)
   const {
     combos: _rawCombos,
     conditionalLayers: _rawRules,
     holdTaps: _rawHoldTaps,
+    sensorBindings: _rawSensors,
     layers: _rawLayers,
     ...rest
   } = keymap
@@ -181,7 +191,24 @@ export function parseKeymap(keymap: {
   else delete out.conditionalLayers
   if (holdTaps) out.holdTaps = holdTaps
   else delete out.holdTaps
+  if (sensorBindings) out.sensorBindings = sensorBindings
+  else delete out.sensorBindings
   return out
+}
+
+/** JSON `string[][]` or already-parsed nodes. Undefined when the field is absent. */
+function normalizeSensorBindings(raw: unknown): KeyBindingNode[][] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  return raw.map(layer => {
+    if (!Array.isArray(layer)) return []
+    return layer.map(item => {
+      if (typeof item === 'string') return parseKeyBinding(item)
+      if (item && typeof item === 'object' && 'value' in item) {
+        return item as KeyBindingNode
+      }
+      throw new Error('sensorBindings entries must be bind strings')
+    })
+  })
 }
 
 function renderTemplate(
@@ -296,7 +323,10 @@ export function buildKeymapCode(
   if (typeof template === 'string' && template.length > 0) {
     return {
       code: applyHoldTaps(
-        applyConditionalLayers(generateKeymapCode(layout, keymap, encoded, template), keymap),
+        applyConditionalLayers(
+          applySensorBindings(generateKeymapCode(layout, keymap, encoded, template), keymap),
+          keymap
+        ),
         keymap
       ),
       json: generateKeymapJSON(layout, encoded),
@@ -316,6 +346,7 @@ export function buildKeymapCode(
       layers,
       layerNames
     })
+    code = applySensorBindings(code, keymap)
     // Always rewrite combos from the model when present (including empty → drop block).
     if (keymap.combos !== undefined) {
       code = spliceCombosIntoDts(code, (keymap.combos ?? []).map(encodeComboToJson))
@@ -332,7 +363,10 @@ export function buildKeymapCode(
   return {
     code: applyHoldTaps(
       applyConditionalLayers(
-        generateKeymapCode(layout, keymap, encoded, keymapTemplate),
+        applySensorBindings(
+          generateKeymapCode(layout, keymap, encoded, keymapTemplate),
+          keymap
+        ),
         keymap
       ),
       keymap
@@ -341,6 +375,15 @@ export function buildKeymapCode(
     mode: 'default_template',
     warnings
   }
+}
+
+function applySensorBindings(code: string, keymap: ParsedKeymap): string {
+  if (keymap.sensorBindings === undefined) return code
+  const block = findZmkKeymapBlock(code)
+  if (!block) return code
+  const nodes = findKeymapLayerNodes(code, block)
+  const encoded = keymap.sensorBindings.map(layer => layer.map(encodeKeyBinding))
+  return spliceSensorBindingsIntoDts(code, nodes, encoded)
 }
 
 function applyConditionalLayers(code: string, keymap: ParsedKeymap): string {

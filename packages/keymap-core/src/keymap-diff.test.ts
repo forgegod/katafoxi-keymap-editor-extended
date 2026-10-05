@@ -234,4 +234,28 @@ describe('summarizeKeymapDiff', () => {
       ])
     ).toBe('1 combo')
   })
+
+  it('reports an encoder turn change', () => {
+    const before = parseKeymap({
+      layer_names: ['Base'],
+      layers: [['&kp A']],
+      sensorBindings: [['&inc_dec_kp C_VOL_UP C_VOL_DN']]
+    })
+    const after = parseKeymap({
+      layer_names: ['Base'],
+      layers: [['&kp A']],
+      sensorBindings: [['&inc_dec_kp PG_UP PG_DN']]
+    })
+    const changes = diffKeymaps(before, after)
+    expect(changes).toEqual([
+      {
+        type: 'sensor',
+        layer: 0,
+        index: 0,
+        before: '&inc_dec_kp C_VOL_UP C_VOL_DN',
+        after: '&inc_dec_kp PG_UP PG_DN'
+      }
+    ])
+    expect(summarizeKeymapDiff(changes)).toBe('1 encoder')
+  })
 })

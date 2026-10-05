@@ -259,6 +259,61 @@ describe('Keyboard layers', () => {
     return view
   }
 
+  it('shows the hovered legend layer on the encoder strip and the base layer at rest', () => {
+    open({
+      layer_names: ['Base', 'Raise'],
+      layers: [
+        [
+          { value: '&kp', params: [{ value: 'A', params: [] }] },
+          { value: '&kp', params: [{ value: 'B', params: [] }] }
+        ],
+        [
+          { value: '&trans', params: [] },
+          { value: '&trans', params: [] }
+        ]
+      ],
+      sensorBindings: [
+        [
+          {
+            value: '&inc_dec_kp',
+            params: [
+              { value: 'C_VOL_UP', params: [] },
+              { value: 'C_VOL_DN', params: [] }
+            ]
+          }
+        ],
+        [
+          {
+            value: '&inc_dec_kp',
+            params: [
+              { value: 'C_MUTE', params: [] },
+              { value: 'C_VOL_DN', params: [] }
+            ]
+          }
+        ]
+      ]
+    })
+
+    const clockwise = () =>
+      target.querySelector('[data-encoder-turn="cw"]')?.getAttribute('aria-label')
+
+    expect(target.querySelector('[aria-label="Encoder layer"]')).toBeNull()
+    expect(clockwise()).toBe('Clockwise 🔊')
+
+    hoverLegend(target)
+    layerItem(target, 1).dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    expect(clockwise()).toBe('Clockwise 🔇')
+
+    layerItem(target, 1).dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }))
+    flushSync()
+    expect(clockwise()).toBe('Clockwise 🔊')
+
+    editor.legendHover = { kind: 'layers', layers: [0], source: 1 }
+    flushSync()
+    expect(clockwise()).toBe('Clockwise 🔇')
+  })
+
   it('adds a transparent Layer #2 when Add Layer is clicked', () => {
     const harness = open()
     clickAddLayer(target)
