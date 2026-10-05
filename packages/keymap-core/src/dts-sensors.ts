@@ -56,8 +56,8 @@ function writeLayerSensorBindings(
 }
 
 /**
- * Write each layer's encoder list. Walks from the last layer so earlier
- * brace indexes stay valid. An empty list drops an existing property.
+ * Write each layer's encoder list. Walks every layer node from the end so
+ * earlier brace indexes stay valid. A missing or empty row drops the property.
  */
 export function spliceSensorBindingsIntoDts(
   source: string,
@@ -65,8 +65,7 @@ export function spliceSensorBindingsIntoDts(
   layers: string[][]
 ): string {
   let result = source
-  const count = Math.min(nodes.length, layers.length)
-  for (let i = count - 1; i >= 0; i--) {
+  for (let i = nodes.length - 1; i >= 0; i--) {
     const node = nodes[i]
     result = writeLayerSensorBindings(result, node.openBrace, node.closeBrace, layers[i] ?? [])
   }

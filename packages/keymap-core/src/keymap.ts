@@ -393,6 +393,9 @@ function applySensorBindings(code: string, keymap: ParsedKeymap): string {
   if (!block) return code
   const nodes = findKeymapLayerNodes(code, block)
   const encoded = keymap.sensorBindings.map(layer => layer.map(encodeKeyBinding))
+  // Pad or truncate to the layer-node count so every layer is rewritten.
+  while (encoded.length < nodes.length) encoded.push([])
+  if (encoded.length > nodes.length) encoded.length = nodes.length
   return spliceSensorBindingsIntoDts(code, nodes, encoded)
 }
 

@@ -107,6 +107,23 @@ describe('sensor-bindings', () => {
     expect(built.code).toContain('&trans')
   })
 
+  it('clears sensor-bindings on trailing layers when the model lists fewer rows', () => {
+    const parsed = parseKeymap(parseDtsKeymap(WITH_SENSORS))
+    expect(parsed.sensorBindings).toHaveLength(2)
+
+    const shorter = {
+      ...parsed,
+      sensorBindings: [parsed.sensorBindings![0]]
+    }
+    const built = buildKeymapCode(TWO, shorter, { originalSource: WITH_SENSORS })
+    const turns = built.code.match(/sensor-bindings = <[^;]*>;/g) ?? []
+    expect(turns).toEqual(['sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN>;'])
+    expect(built.code).not.toContain('PG_UP')
+
+    const again = parseDtsKeymap(built.code)
+    expect(again.sensorBindings).toEqual([['&inc_dec_kp C_VOL_UP C_VOL_DN'], []])
+  })
+
   it('keeps Lily58 volume turns on every layer', () => {
     const source = readFileSync(
       new URL('../fixtures/demo/lily58/lily58.keymap', import.meta.url),
