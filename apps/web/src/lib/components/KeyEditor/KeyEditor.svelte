@@ -446,8 +446,7 @@
         type="button"
         class="key-editor-ok"
         class:blocked={!canConfirm}
-        aria-disabled={!canConfirm}
-        aria-label="Apply"
+        aria-label={canConfirm ? 'Apply' : 'Pick a key to finish the combo'}
         title={canConfirm ? 'Apply (Enter)' : 'Pick a key to finish the combo'}
         onclick={handleApply}
       >

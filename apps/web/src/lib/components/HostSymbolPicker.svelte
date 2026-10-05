@@ -501,7 +501,7 @@
                 class:modifier={!entry.glyph && !entry.dead}
                 class:dead={entry.dead}
                 class:idle={disabled}
-                aria-disabled={disabled}
+                disabled={disabled}
                 aria-label={entryLabel(entry)}
                 onmouseover={event => showLoupe(event, entry)}
                 onmouseout={hideLoupe}
@@ -531,7 +531,7 @@
                   class:modifier={!entry.glyph && !entry.dead}
                   class:dead={entry.dead}
                   class:idle={disabled}
-                  aria-disabled={disabled}
+                  disabled={disabled}
                   aria-label={entryLabel(entry)}
                   onmouseover={event => showLoupe(event, entry)}
                   onmouseout={hideLoupe}
