@@ -115,6 +115,73 @@
     flex-direction: column;
     gap: 8px;
     padding: 10px 14px 12px;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  /* Stable behaviour pick. The rows below change with the chosen code. */
+  .key-editor-choice-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: -10px -14px 2px;
+    padding: 10px 14px 12px;
+    background: color-mix(in srgb, var(--text) 5%, var(--surface));
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .key-editor-behavior {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+
+  .key-editor-behavior .key-editor-row {
+    align-items: flex-start;
+  }
+
+  .key-editor-behavior .key-editor-section-label {
+    padding-top: 8px;
+  }
+
+  .key-editor-behavior .key-editor-note {
+    margin-left: calc(5.6em + 20px);
+  }
+
+  .key-editor-behavior-fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin: 0;
+  }
+
+  .key-editor-behavior-fields label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-muted);
+    font-size: var(--font-sm);
+  }
+
+  /* Beat the global #app-root select rule so term and flavor share one height. */
+  #app-root .key-editor-behavior-fields input,
+  #app-root .key-editor-behavior-fields select {
+    box-sizing: border-box;
+    height: var(--chrome-h);
+    min-height: var(--chrome-h);
+    font: inherit;
+    line-height: 1.2;
+    color: var(--text);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--text) 22%, transparent);
+    border-radius: 6px;
+    padding: 0 8px;
+  }
+
+  .key-editor-behavior-fields input[type='number'] {
+    width: 5.5rem;
   }
 
   .key-editor-row {
@@ -122,6 +189,14 @@
     align-items: center;
     gap: 10px;
     min-width: 0;
+  }
+
+  .key-editor-row[data-slot-values] {
+    align-items: flex-start;
+  }
+
+  .key-editor-row[data-slot-values] .key-editor-section-label {
+    padding-top: 3px;
   }
 
   .key-editor-section-label {

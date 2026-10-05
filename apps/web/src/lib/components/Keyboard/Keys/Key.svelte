@@ -8,7 +8,7 @@
     isBlankLayerBinding,
     isComplex,
     multilangKeycapLines,
-    isHoldTapBehavior,
+    isHoldTapBinding,
     isSimple,
     CONDITIONAL_OCCUPIED_NOTE,
     conditionalOccupiedLayers,
@@ -131,9 +131,7 @@
     conditionalOccupiedLayers(stackBindings, editor.draftKeymap?.conditionalLayers ?? [])
   )
   const positioningStyle = $derived(getKeyStyles(position, size, rotation))
-  const holdTapVisible = $derived(
-    isHoldTapBehavior(value) && session.normalized.params.length === 2
-  )
+  const holdTapVisible = $derived(isHoldTapBinding(session.normalized))
   const behaviorRole = $derived(
     behaviorKeycapRole(value, {
       paramCount: session.normalized.params.length,
@@ -494,8 +492,13 @@
         onSelectValue={session.selectValue}
         onToggleHold={session.toggleHold}
         onActivateSlot={openEditor}
-        onConfirm={session.confirm}
+        onConfirm={staged => {
+          if (staged?.length) editor.armHoldTapsForNextUpdate(staged)
+          session.confirm()
+        }}
         onCancel={session.closeEditor}
+        holdTaps={editor.draftKeymap?.holdTaps ?? editor.baselineKeymap?.holdTaps}
+        onChangeHoldTaps={next => editor.updateHoldTaps(next)}
       />
     </Modal>
   {/if}

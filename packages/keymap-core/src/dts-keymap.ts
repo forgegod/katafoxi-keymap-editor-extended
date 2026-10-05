@@ -4,11 +4,13 @@
  * Only layer nodes inside `keymap { compatible = "zmk,keymap"; ... }` become layers.
  * Combos are parsed separately into `combos` (never as layers).
  * Conditional layers are parsed into `conditionalLayers`.
+ * Hold-tap nodes are parsed into `holdTaps`. Save rewrites them when the field is set.
  */
 
 import { parseDtsCombos, type DtsComboJson } from './dts-combos.js'
 import { parseDtsConditionalLayers } from './dts-conditional-layers.js'
-import type { ZmkConditionalLayer } from './types.js'
+import { parseDtsHoldTaps } from './dts-behaviors.js'
+import type { ZmkConditionalLayer, ZmkHoldTap } from './types.js'
 
 const DEFINE_RE = /^#define\s+(\w+)\s+(.+)$/gm
 
@@ -194,6 +196,8 @@ export interface DtsKeymapJson {
   combos?: DtsComboJson[]
   /** Omitted when the file has no conditional-layer rules. */
   conditionalLayers?: ZmkConditionalLayer[]
+  /** Omitted when the file has no hold-tap nodes or timing blocks. */
+  holdTaps?: ZmkHoldTap[]
   warnings: string[]
   [key: string]: unknown
 }
@@ -246,6 +250,7 @@ export function parseDtsKeymap(
   }
 
   const conditionalLayers = parseDtsConditionalLayers(source)
+  const holdTaps = parseDtsHoldTaps(source)
 
   return {
     keyboard: meta.keyboard ?? 'unknown',
@@ -255,6 +260,7 @@ export function parseDtsKeymap(
     layers,
     combos,
     ...(conditionalLayers.length > 0 ? { conditionalLayers } : {}),
+    ...(holdTaps.length > 0 ? { holdTaps } : {}),
     warnings
   }
 }

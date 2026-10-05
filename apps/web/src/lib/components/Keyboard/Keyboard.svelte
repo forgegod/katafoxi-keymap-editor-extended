@@ -3,6 +3,7 @@
     absentLayoutIndexes,
     collectUsedKeycodes,
     encodeKeyBinding,
+    mergeHoldTapCatalog,
     effectiveShownLayers,
     isBlankLayerBinding,
     layerLegendSymbol,
@@ -72,8 +73,15 @@
   )
   const usedLayerLabels = $derived(availableLayers.map(layer => layer.symbol))
 
+  const holdTaps = $derived(keymap.holdTaps ?? editor.baselineKeymap?.holdTaps)
+  const behaviours = $derived(
+    definitions ? mergeHoldTapCatalog(definitions.behaviours, holdTaps) : null
+  )
   const search = $derived.by((): SearchContextValue =>
-    buildSearchContext(definitions, availableLayers)
+    buildSearchContext(
+      definitions && behaviours ? { ...definitions, behaviours } : definitions,
+      availableLayers
+    )
   )
 
   setSearchContext({

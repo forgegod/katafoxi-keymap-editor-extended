@@ -69,6 +69,7 @@ import {
   type ParsedKeymap,
   type ZmkCombo,
   type ZmkConditionalLayer,
+  type ZmkHoldTap,
   COMBO_MAX_KEYS,
   comboChordOverlap,
   comboChordOverlapPartners,
@@ -259,7 +260,31 @@ export function cloneParsedKeymap(km: ParsedKeymap): ParsedKeymap {
       thenLayer: rule.thenLayer
     }))
   }
+  if (km.holdTaps) {
+    out.holdTaps = km.holdTaps.map(holdTap => {
+      const copy: ZmkHoldTap = { code: holdTap.code }
+      if (holdTap.override) copy.override = true
+      if (holdTap.nodeName) copy.nodeName = holdTap.nodeName
+      if (holdTap.tappingTermMs != null) copy.tappingTermMs = holdTap.tappingTermMs
+      if (holdTap.quickTapMs != null) copy.quickTapMs = holdTap.quickTapMs
+      if (holdTap.requirePriorIdleMs != null) copy.requirePriorIdleMs = holdTap.requirePriorIdleMs
+      if (holdTap.flavor) copy.flavor = holdTap.flavor
+      if (holdTap.bindings) copy.bindings = [...holdTap.bindings]
+      if (holdTap.params) copy.params = [...holdTap.params]
+      return copy
+    })
+  }
   return out
+}
+
+/**
+ * Hold-tap timings come from the keymap file. A draft saved before that load
+ * keeps its bindings and takes the timings from the loaded keymap.
+ * An explicit list on the draft, including empty, stays as saved.
+ */
+export function adoptHoldTaps(draft: ParsedKeymap, loaded: ParsedKeymap | null): ParsedKeymap {
+  if (draft.holdTaps != null || !loaded?.holdTaps) return draft
+  return cloneParsedKeymap({ ...draft, holdTaps: loaded.holdTaps })
 }
 
 export type KeyboardSelection = {
@@ -299,6 +324,11 @@ export class EditorState {
   draftKeymap = $state<ParsedKeymap | null>(null)
   /** Plain draft snapshots for step undo (not vs baseline). */
   undoStack = $state<ParsedKeymap[]>([])
+  /**
+   * Hold-tap list staged by the key dialog. The next keymap update absorbs it
+   * so Apply writes the new node and the key in one step. Cancel never sets it.
+   */
+  #holdTapsOnNextUpdate: ZmkHoldTap[] | null = null
   redoStack = $state<ParsedKeymap[]>([])
   saving = $state(false)
   /** View over the host profile. It does not edit the keymap. */
@@ -1602,6 +1632,9 @@ export class EditorState {
       if (!keepLiveDraft) {
         this.draftKeymap = cloneParsedKeymap(baseline)
         this.clearHistory()
+      } else if (this.draftKeymap) {
+        const adopted = adoptHoldTaps(this.draftKeymap, baseline)
+        if (adopted !== this.draftKeymap) this.draftKeymap = adopted
       }
     }
     this.saveNotice = null
@@ -1662,6 +1695,8 @@ export class EditorState {
     this.githubMeta = github
     if (event.layout) this.layout = event.layout
     this.baselineKeymap = cloneParsedKeymap(km)
+    const adopted = adoptHoldTaps(this.draftKeymap, this.baselineKeymap)
+    if (adopted !== this.draftKeymap) this.draftKeymap = adopted
     this.schemeMode = false
     this.comboMode = false
     this.activeComboId = null
@@ -1823,7 +1858,10 @@ export class EditorState {
     this.#handledDraftIdentityKey = draftIdentityKey(identity)
 
     if (restore) {
-      this.draftKeymap = cloneParsedKeymap(stored.draftKeymap)
+      this.draftKeymap = adoptHoldTaps(
+        cloneParsedKeymap(stored.draftKeymap),
+        this.baselineKeymap
+      )
       this.clearHistory()
     } else {
       try {
@@ -1874,6 +1912,21 @@ export class EditorState {
     this.layerView = remapShownLayersAfterDelete(this.layerView, index, layers.length)
   }
 
+  /**
+   * Remember a hold-tap list for the keymap update that applies the open key.
+   * A new preset stays out of the draft until that update.
+   */
+  armHoldTapsForNextUpdate(holdTaps: ZmkHoldTap[] | null) {
+    this.#holdTapsOnNextUpdate = holdTaps
+  }
+
+  /** Replace hold-tap nodes on the draft. Save rewrites those nodes in the keymap. */
+  updateHoldTaps(holdTaps: ZmkHoldTap[]) {
+    const km = this.draftKeymap
+    if (!km) return
+    this.updateKeymap({ ...km, holdTaps })
+  }
+
   /** Replace conditional-layer rules on the draft. An empty list drops the block on save. */
   updateConditionalLayers(conditionalLayers: ZmkConditionalLayer[]) {
     const km = this.draftKeymap
@@ -1882,6 +1935,9 @@ export class EditorState {
   }
 
   updateKeymap(next: ParsedKeymap) {
+    const stagedHoldTaps = this.#holdTapsOnNextUpdate
+    this.#holdTapsOnNextUpdate = null
+    if (stagedHoldTaps) next = { ...next, holdTaps: stagedHoldTaps }
     if (this.draftKeymap) {
       const prev = cloneParsedKeymap(this.draftKeymap)
       const stack = [...this.undoStack, prev]
@@ -2120,6 +2176,7 @@ export class EditorState {
     this.layout = null
     this.baselineKeymap = null
     this.draftKeymap = null
+    this.#holdTapsOnNextUpdate = null
     this.clearHistory()
     this.saving = false
     resetHostLayoutRegistry()

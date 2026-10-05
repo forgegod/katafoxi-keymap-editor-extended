@@ -1,4 +1,5 @@
 import {
+  autoshiftBindingParams,
   encodeKeyBinding,
   getBehaviorCatalog,
   type KeyBindingNode
@@ -182,10 +183,13 @@ export function createKeyEditSession(input: KeyEditSessionInput) {
     return Array.from({ length: count }, () => ({ value: undefined, params: [] }))
   }
 
-  function selectBehaviour(choice: { code?: string | number }) {
+  function selectBehaviour(choice: { code?: string | number; params?: unknown[] }) {
     const nextValue = choice.code
     if (nextValue == null) return
-    const nextBehaviour = lookupBehaviour(nextValue)
+    const lookedUp = lookupBehaviour(nextValue)
+    const nextBehaviour =
+      lookedUp ??
+      (Array.isArray(choice.params) ? { params: choice.params } : undefined)
     const nextParams = getBehaviourParams([], nextBehaviour as never)
     setDraft(
       { value: nextValue, params: emptyParamNodes(nextParams.length) },
@@ -196,6 +200,13 @@ export function createKeyEditSession(input: KeyEditSessionInput) {
   function selectValue(choice: { code?: string | number }) {
     const current = readDraft()
     if (!editing || !activeSlot || !current || choice.code == null) return
+    if (String(current.value) === '&as') {
+      setDraft(
+        { value: '&as', params: autoshiftBindingParams(String(choice.code)) },
+        1
+      )
+      return
+    }
     const updated = cloneBindTree(current)
     const root = keycodeChainRootSlot(slots, editing.slotCodeIndex)
     if (root && (activeSlot.param === 'code' || activeSlot.param === 'keycode')) {

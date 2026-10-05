@@ -3,7 +3,7 @@
     behaviorKeycapRole,
     compactBehaviorLegend,
     getBehaviorCatalog,
-    isHoldTapBehavior,
+    isHoldTapBinding,
     type KeyBindingNode,
     type LegendHoverHit
   } from '@keymap-editor/keymap-core'
@@ -35,7 +35,7 @@
   const rowParams = $derived(
     getBehaviourParams(hydrated.params, lookupBehaviour(binding.value) as never)
   )
-  const holdTap = $derived(isHoldTapBehavior(binding.value) && hydrated.params.length === 2)
+  const holdTap = $derived(isHoldTapBinding(hydrated))
   const behaviorRole = $derived(
     behaviorKeycapRole(binding.value, {
       paramCount: hydrated.params.length,

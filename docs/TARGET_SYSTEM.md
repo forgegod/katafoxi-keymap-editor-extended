@@ -57,10 +57,11 @@ Click a stacked keycap row. One dialog edits that layer’s ZMK binding:
 - Behaviour chips, then the value list for the active slot. `code` is Keyboard/Keypad, `command` is that behaviour's commands (`&mkp`, `&msc`, `&mmv`, `&bt`, `&out`, …), `layer` and `mod` are the layer or modifier slot (`&mo`, `&mt`, `&lt`).
 - Enter applies a complete binding. Esc cancels. An unfinished hold-tap stays open.
 - Pointing behaviours remind that firmware needs `CONFIG_ZMK_POINTING=y`. The editor only adds `#include <dt-bindings/zmk/pointing.h>`.
+- Hold-tap nodes are read into the keymap. Edit key changes tapping term and flavor for every key that uses `&mt` or `&lt`. The next row offers two presets: Homerow (`&hm`, modifier + key, with term, flavor, quick-tap, and prior-idle) and Autoshift (`&as`, one key — hold sends that key shifted, tap sends it — with a shared term). Apply adds its node when the keymap does not have it. Cancel leaves the hold-tap list unchanged. A hold-tap already in the file keeps its name and can still be assigned; there is no form to invent another behaviour. Save rewrites those timing lines and inserts missing preset nodes when `holdTaps` is set.
 
 ## Conditional layers
 
-A then-layer is on only while every if-layer is active (Lower + Raise → Adjust). The rule lives on the layer strip, beside the layer it turns on: that row reads `when Lower + Raise`. Hovering it highlights the held layers in the table and the keys that activate them; hovering a held layer highlights the then-layer row. On a key that holds an if-layer (`&mo` or `&lt`), the then-layer row is struck through: that binding does not fire while the key stays down. `&to`, `&tog`, and `&sl` leave the key free and stay unmarked. Add and remove sit under Add Layer. Parse/splice live in `keymap-core` (`dts-conditional-layers`); Save rewrites the `conditional_layers { … }` block with the keymap contract ([ADR 0002](adr/0002-keymap-file-contract.md)). Deleting a layer renumbers the rules and drops one that loses its then-layer or no longer has two held layers. A then-layer numbered at or below a held layer stays valid and warns that the held layer can cover it.
+A then-layer is on only while every if-layer is active (Lower + Raise → Adjust). The rule lives on the layer strip, beside the layer it turns on: that row keeps an accent rail, and its name tooltip reads `When Lower and Raise are held, show Adjust`. Hovering it highlights the held layers in the table and the keys that activate them; hovering a held layer highlights the then-layer row. On a key that holds an if-layer (`&mo` or `&lt`), the then-layer row is struck through: that binding does not fire while the key stays down. `&to`, `&tog`, and `&sl` leave the key free and stay unmarked. Add and remove sit under Add Layer. Parse/splice live in `keymap-core` (`dts-conditional-layers`); Save rewrites the `conditional_layers { … }` block with the keymap contract ([ADR 0002](adr/0002-keymap-file-contract.md)). Deleting a layer renumbers the rules and drops one that loses its then-layer or no longer has two held layers. A then-layer numbered at or below a held layer stays valid and warns that the held layer can cover it.
 
 ## Combos
 
@@ -68,13 +69,13 @@ A then-layer is on only while every if-layer is active (Lower + Raise → Adjust
 
 ## Keycap / compose (target UX)
 
-- **ZMK legends** (compact codes on a raw layer0 row, and inside KeyEditor): helpers in `packages/keymap-core` `compose.ts` (`layerLegendSymbol`, `keycapLegend`, `isHoldTapBehavior`). Binding tokens stay ZMK (`1`, `LCTRL`, `LC(DEL)`).
+- **ZMK legends** (compact codes on a raw layer0 row, and inside KeyEditor): helpers in `packages/keymap-core` `compose.ts` (`layerLegendSymbol`, `keycapLegend`, `isHoldTapBehavior`, `isHoldTapBinding`). Binding tokens stay ZMK (`1`, `LCTRL`, `LC(DEL)`).
   - Layers: `L1` (index, not the layer name).
   - Left modifiers unmarked (`⌃ ⎇ ⌘ ⇧`); right side `R⌃` / `R⎇` / `R⌘` / `R⇧`. Alt is the ISO alternative-key symbol.
   - Compact chords drop parens: `LC(DEL)` → `⌃⌦`, `LS(CAPS)` → `⇧⇪`, and a short token `LA(F4)` → `⎇F4`, `LA(TAB)` → `⎇TAB`, `LA(ESC)` → `⎇ESC` (`F1`–`F12`).
   - Host-legend AltGr columns use the same mark: `R⎇` and `⇧R⎇`.
   - Mouse scroll keeps the family prefix: `SCRL⬆` `SCRL⬇` `SCRL⬅` `SCRL➡`. Pause/Break is `⏸`. Volume up / down / mute are `🔊` `🔉` `🔇`. Tooltip keeps the raw code.
-  - Behaviour on the cap: hide `&kp`; hide `&mt`/`&lt` when the hold-tap pill is shown; `&none` / `&trans` / instant binds are the center legend; other behaviours stay a small corner mark.
+  - Behaviour on the cap: hide `&kp`; hide the behaviour token when the hold-tap pill is shown (`&mt`, `&lt`, and a named hold-tap such as `&hm`); `&none` / `&trans` / instant binds are the center legend; other behaviours stay a small corner mark.
   - Caps Lock `⇪`. Browser back/forward `←` / `→` (not cursor `⏴` `⏵`). Number-row `-` / `=` (not the words `MINUS` / `EQUAL`). Tooltip keeps the raw code.
   - Keypad (`KP_*`): same glyph as the number row (`7`), boxed. Operators `+ - / *`, plus `KP_ENTER` `⮐`, `KP_DOT` `.`, `KP_EQUAL` `=`. Color is only a light fill. Host composed stays the same glyph.
 - **Composed view**: an N-column `ComposedLegend` in core (visible extras; a hidden base column is kept so the firmware alphabet remains when its glyphs are off the key). The keycap draws at most two languages (`onKeycap`): any pair, so Russian and Ukrainian can sit together while English stays the hidden reference. The table and decode card share the same `hostLevels` / `resolveHostColumns` path. Hold badges come from the binding (`holdRef`), not from the letter.

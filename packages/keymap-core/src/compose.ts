@@ -8,6 +8,7 @@ import {
 } from './modifiers.js'
 import { keycodeGlyphLabel, keypadGlyphLabel } from './keycode-labels.js'
 import { encodeKeyBinding } from './keymap.js'
+import { getBehaviorCatalog } from './catalog.js'
 import { hostKeyByZmk } from './host-key-id.js'
 import {
   ALT_LEVEL_EMPTY,
@@ -53,12 +54,24 @@ function isLayerParam(value: string | number | undefined | null, layer: number):
   return raw === `L${layer}` || raw === layerLegendSymbol(layer).toUpperCase()
 }
 
+/**
+ * A two-argument behaviour the stock catalog does not know.
+ * Named hold-taps (`&hm LCTRL A`) are this shape until they are edited.
+ */
+function isUnknownHoldTap(node: KeyBindingNode): boolean {
+  const behavior = String(node.value ?? '')
+  if (!behavior.startsWith('&') || isHoldTapBehavior(behavior)) return false
+  if (getBehaviorCatalog().byCode[behavior]) return false
+  return (node.params?.length ?? 0) === 2
+}
+
 /** True when the bind names layer N (`&mo 1`, `&lt 1 A`, `&to 0`). */
 export function bindingReferencesLayer(node: KeyBindingNode, layer: number): boolean {
   const behavior = String(node.value)
   if (LAYER_REF_BEHAVIORS.has(behavior) && isLayerParam(node.params[0]?.value, layer)) {
     return true
   }
+  if (isUnknownHoldTap(node) && isLayerParam(node.params[0]?.value, layer)) return true
   return (node.params ?? []).some(child => bindingReferencesLayer(child, layer))
 }
 
@@ -79,7 +92,7 @@ function isShiftKeyCode(value: string | number | undefined | null): boolean {
 export function bindingSendsAltGr(node: KeyBindingNode): boolean {
   const behavior = String(node.value)
   if (behavior === '&kp') return isRAltCode(node.params[0]?.value)
-  if (behavior === '&mt') return isRAltCode(node.params[0]?.value)
+  if (behavior === '&mt' || isUnknownHoldTap(node)) return isRAltCode(node.params[0]?.value)
   if (isRAltCode(behavior)) return true
   return (node.params ?? []).some(bindingSendsAltGr)
 }
@@ -88,7 +101,7 @@ export function bindingSendsAltGr(node: KeyBindingNode): boolean {
 export function bindingSendsShift(node: KeyBindingNode): boolean {
   const behavior = String(node.value)
   if (behavior === '&kp') return isShiftKeyCode(node.params[0]?.value)
-  if (behavior === '&mt') return isShiftKeyCode(node.params[0]?.value)
+  if (behavior === '&mt' || isUnknownHoldTap(node)) return isShiftKeyCode(node.params[0]?.value)
   return (node.params ?? []).some(bindingSendsShift)
 }
 
@@ -268,6 +281,15 @@ export function isHoldTapBehavior(code: string | number | undefined | null): boo
   return value === '&mt' || value === '&lt'
 }
 
+/** Stock hold-tap, or an unknown two-argument behaviour such as `&hm`. */
+export function isHoldTapBinding(node: {
+  value?: string | number
+  params?: unknown[]
+}): boolean {
+  if (isHoldTapBehavior(node.value) && (node.params?.length ?? 0) === 2) return true
+  return isUnknownHoldTap(node as KeyBindingNode)
+}
+
 /**
  * Where the behaviour token belongs on a ZMK-mode key.
  * `&kp` is the default and stays off the cap; hold-tap is the pill;
@@ -283,7 +305,7 @@ export function behaviorKeycapRole(
   if (!value) return 'hidden'
   if (value === '&kp') return 'hidden'
   if ((value === '&bt' || value === '&out') && (opts?.paramCount ?? 0) > 0) return 'hidden'
-  if (isHoldTapBehavior(value) && opts?.holdTapVisible) return 'hidden'
+  if (opts?.holdTapVisible) return 'hidden'
   if ((opts?.paramCount ?? 0) === 0) return 'center'
   return 'corner'
 }
@@ -308,8 +330,9 @@ export function resolveBinding(node: KeyBindingNode): ResolvedBinding {
     return { tap: tap != null ? String(tap) : null }
   }
 
-  // &mt hold_mod tap_keycode
-  if (behavior === '&mt') {
+  // &mt hold_mod tap_keycode. A named hold-tap uses the same split
+  // unless its first argument is a bare layer index.
+  if (behavior === '&mt' || (isUnknownHoldTap(node) && parseHoldLayer(node.params[0]?.value) == null)) {
     const hold = node.params[0]?.value
     const tap = node.params[1]?.value
     return {
@@ -318,8 +341,8 @@ export function resolveBinding(node: KeyBindingNode): ResolvedBinding {
     }
   }
 
-  // &lt layer tap_keycode
-  if (behavior === '&lt') {
+  // &lt layer tap_keycode. A named hold-tap with a numeric first argument too.
+  if (behavior === '&lt' || isUnknownHoldTap(node)) {
     const layer = parseHoldLayer(node.params[0]?.value)
     const tap = node.params[1]?.value
     return {

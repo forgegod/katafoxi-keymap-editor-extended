@@ -1,5 +1,7 @@
-import { getBehaviorCatalog } from './catalog.js'
+import { getBehaviorCatalog, type BehaviorCatalog } from './catalog.js'
 import type { CatalogChoice } from './catalog-choices.js'
+import { holdTapPresetFor, holdTapTimingNote } from './dts-behaviors.js'
+import type { BehaviorDef, ZmkHoldTap } from './types.js'
 
 /**
  * Role order for the behaviour row: key input, layers, device, then
@@ -139,4 +141,61 @@ export function sortBehaviorsByRole<T extends { code?: string | number; params?:
     if (aInstant !== bInstant) return aInstant ? 1 : -1
     return String(a.code ?? '').localeCompare(String(b.code ?? ''))
   })
+}
+
+/**
+ * Stock catalog plus hold-tap nodes from this keymap.
+ * Named nodes become chips. Timing blocks annotate the behaviour they name.
+ * Does not mutate the shared catalog.
+ */
+export function mergeHoldTapCatalog(
+  catalog: BehaviorCatalog,
+  holdTaps: ZmkHoldTap[] | undefined
+): BehaviorCatalog {
+  if (!holdTaps?.length) return catalog
+  const list = catalog.list.map(behavior => ({ ...behavior }))
+  const byCode: Record<string, BehaviorDef> = Object.fromEntries(list.map(behavior => [behavior.code, behavior]))
+  for (const holdTap of holdTaps) {
+    const summary = holdTapTimingNote(holdTap)
+    const existing = byCode[holdTap.code]
+    if (holdTap.override) {
+      if (!existing || !summary) continue
+      const name = String(existing.name ?? existing.code)
+      existing.description = `${name}, ${summary}`
+      if (holdTap.tappingTermMs != null) existing.tappingTermMs = holdTap.tappingTermMs
+      if (holdTap.quickTapMs != null) existing.quickTapMs = holdTap.quickTapMs
+      if (holdTap.requirePriorIdleMs != null) {
+        existing.requirePriorIdleMs = holdTap.requirePriorIdleMs
+      }
+      if (holdTap.flavor) existing.flavor = holdTap.flavor
+      continue
+    }
+    const preset = holdTapPresetFor(holdTap.code)
+    const params = preset
+      ? [...preset.params]
+      : holdTap.params?.length
+        ? [...holdTap.params]
+        : ['code', 'code']
+    const name = preset?.name ?? 'Hold-tap'
+    const created: BehaviorDef = {
+      code: holdTap.code,
+      name,
+      description: summary ? `${name}, ${summary}` : (preset?.description ?? 'Hold-tap'),
+      params,
+      holdTap: true,
+      ...(holdTap.tappingTermMs != null ? { tappingTermMs: holdTap.tappingTermMs } : {}),
+      ...(holdTap.quickTapMs != null ? { quickTapMs: holdTap.quickTapMs } : {}),
+      ...(holdTap.requirePriorIdleMs != null
+        ? { requirePriorIdleMs: holdTap.requirePriorIdleMs }
+        : {}),
+      ...(holdTap.flavor ? { flavor: holdTap.flavor } : {})
+    }
+    if (existing) {
+      Object.assign(existing, created)
+    } else {
+      list.push(created)
+      byCode[created.code] = created
+    }
+  }
+  return { list, byCode }
 }

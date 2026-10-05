@@ -240,12 +240,14 @@ describe('fetchKeyboardFiles', () => {
     } as Awaited<ReturnType<typeof auth.createInstallationToken>>)
   })
 
-  it('lists config once and does not download .keymap when keymap.json is valid', async () => {
+  it('reads hold-tap nodes from .keymap when keymap.json does not list them', async () => {
+    const dts = `&mt {\n    flavor = "tap-preferred";\n    tapping-term-ms = <300>;\n};\n${DTS}`
     const request = mockGithub(
       {
         'config/info.json': JSON.stringify(INFO),
         config: LISTING,
-        'config/keymap.json': JSON.stringify(KEYMAP_JSON)
+        'config/keymap.json': JSON.stringify(KEYMAP_JSON),
+        [KEYMAP_PATH]: dts
       },
       { missing: [HOST_KEYMAP_SNAPSHOT_PATH] }
     )
@@ -253,11 +255,32 @@ describe('fetchKeyboardFiles', () => {
     const result = await fetchKeyboardFiles('1', REPO, 'main')
 
     expect(result.originalCodeKeymap.path).toBe(KEYMAP_PATH)
-    expect(result.keymap).toEqual(KEYMAP_JSON)
+    expect(result.keymap).toMatchObject({
+      ...KEYMAP_JSON,
+      holdTaps: [
+        { code: '&mt', override: true, flavor: 'tap-preferred', tappingTermMs: 300 }
+      ]
+    })
     expect(result.hostSnapshot).toBeNull()
     expect(requestUrls(request).filter(url => url.endsWith('/contents/config'))).toHaveLength(
       1
     )
+    expect(requestUrls(request).some(url => url.endsWith(`/${KEYMAP_PATH}`))).toBe(true)
+  })
+
+  it('does not download .keymap when keymap.json already lists holdTaps', async () => {
+    const request = mockGithub(
+      {
+        'config/info.json': JSON.stringify(INFO),
+        config: LISTING,
+        'config/keymap.json': JSON.stringify({ ...KEYMAP_JSON, holdTaps: [] })
+      },
+      { missing: [HOST_KEYMAP_SNAPSHOT_PATH] }
+    )
+
+    const result = await fetchKeyboardFiles('1', REPO, 'main')
+
+    expect(result.keymap).toEqual({ ...KEYMAP_JSON, holdTaps: [] })
     expect(requestUrls(request).some(url => url.endsWith(`/${KEYMAP_PATH}`))).toBe(false)
   })
 

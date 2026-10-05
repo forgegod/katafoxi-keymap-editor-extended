@@ -2,7 +2,7 @@ import {
   behaviorKeycapRole,
   isCompactKeycapLegend,
   isCompactModifierChord,
-  isHoldTapBehavior,
+  isHoldTapBinding,
   keycapLegend
 } from './compose.js'
 
@@ -49,10 +49,10 @@ function sideIsCompact(node: KeycapNode | undefined): boolean {
   return isCompactKeycapLegend(keycapNodeLegend(node))
 }
 
-/** `&mt` / `&lt` with two short legends — keep in-row, do not shrink the key. */
+/** Hold-tap with two short legends — keep in-row, do not shrink the key. */
 export function isCompactHoldTap(normalized: KeycapNode): boolean {
   const params = normalized.params ?? []
-  if (!isHoldTapBehavior(normalized.value)) return false
+  if (!isHoldTapBinding(normalized)) return false
   if (params.length !== 2) return false
   return sideIsCompact(params[0]) && sideIsCompact(params[1])
 }

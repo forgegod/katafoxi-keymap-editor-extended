@@ -124,6 +124,52 @@ describe('editor publish / draft persistence', () => {
     confirm.mockRestore()
   })
 
+  it('folds a staged hold-tap into the keymap update that applies the key', async () => {
+    await editor.selectKeyboard({
+      source: 'local',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A')
+    })
+    const staged = [
+      {
+        code: '&hm',
+        tappingTermMs: 280,
+        flavor: 'balanced',
+        quickTapMs: 175,
+        requirePriorIdleMs: 150
+      }
+    ]
+    editor.armHoldTapsForNextUpdate(staged)
+    editor.updateKeymap(km('Q'))
+    expect(editor.draftKeymap?.layers[0][0].params[0].value).toBe('Q')
+    expect(editor.draftKeymap?.holdTaps).toEqual(staged)
+    editor.undo()
+    expect(editor.draftKeymap?.layers[0][0].params[0].value).toBe('A')
+    expect(editor.draftKeymap?.holdTaps).toBeUndefined()
+  })
+
+  it('keeps file hold-tap timings when a draft saved without them is restored', async () => {
+    const identity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
+    await saveStoredDraft(identity, km('Z'))
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const loaded = km('A')
+    loaded.holdTaps = [
+      { code: '&mt', override: true, tappingTermMs: 300, flavor: 'tap-preferred' }
+    ]
+
+    await editor.selectKeyboard({
+      source: 'local',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: loaded
+    })
+
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('Z')
+    expect(editor.draftKeymap!.holdTaps).toEqual(loaded.holdTaps)
+    expect(editor.baselineKeymap!.holdTaps).toEqual(loaded.holdTaps)
+
+    confirm.mockRestore()
+  })
+
   it('discards stored draft when confirm is cancelled', async () => {
     const identity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
     await saveStoredDraft(identity, km('Z'))
