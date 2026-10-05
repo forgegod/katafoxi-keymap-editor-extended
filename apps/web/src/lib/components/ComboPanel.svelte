@@ -28,8 +28,7 @@
   import { isEditableFocus } from '../editor-shortcuts'
   import { editor } from '../editor.svelte.js'
   import { createKeyEditSession } from '../key-edit-session.svelte'
-  import Modal from './Common/Modal.svelte'
-  import KeyEditor from './KeyEditor/KeyEditor.svelte'
+  import KeyEditorHost from './KeyEditorHost.svelte'
 
   const definitionsBox = getDefinitionsContext()
   const searchBox = getSearchContext()
@@ -528,28 +527,20 @@
   {/if}
 </aside>
 
-{#if session.editing && session.canEdit && session.activeSlot}
-  <Modal onBackdrop={session.closeEditor}>
-    <KeyEditor
-      bindingLabel={session.bindingLabel}
-      behaviours={session.behaviours}
-      editorSlots={session.slots}
-      activeCodeIndex={session.activeSlot.codeIndex}
-      choices={session.choices}
-      onSelectBehaviour={session.selectBehaviour}
-      onSelectValue={session.selectValue}
-      onToggleHold={session.toggleHold}
-      onActivateSlot={openEditor}
-      onConfirm={staged => {
-        if (staged?.length) editor.armHoldTapsForNextUpdate(staged)
-        session.confirm()
-      }}
-      onCancel={session.closeEditor}
-      holdTaps={editor.draftKeymap?.holdTaps ?? editor.baselineKeymap?.holdTaps}
-      onChangeHoldTaps={next => editor.updateHoldTaps(next)}
-    />
-  </Modal>
-{/if}
+<KeyEditorHost
+  open={!!(session.editing && session.canEdit && session.activeSlot)}
+  bindingLabel={session.bindingLabel}
+  behaviours={session.behaviours}
+  editorSlots={session.slots}
+  activeCodeIndex={session.activeSlot?.codeIndex ?? 0}
+  choices={session.choices}
+  onSelectBehaviour={session.selectBehaviour}
+  onSelectValue={session.selectValue}
+  onToggleHold={session.toggleHold}
+  onActivateSlot={openEditor}
+  onConfirm={session.confirm}
+  onCancel={session.closeEditor}
+/>
 
 <style>
   .combo-panel {

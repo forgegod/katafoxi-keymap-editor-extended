@@ -16,6 +16,7 @@
     type HostLegendColumn
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
+  import { clickOutside } from '../actions/click-outside'
   import EyeToggle from './EyeToggle.svelte'
   import PressToggle from './Common/PressToggle.svelte'
   import HostProfileMenu from './HostProfileMenu.svelte'
@@ -52,20 +53,11 @@
   const languageName = $derived(choice?.languageName ?? language ?? '')
   const choosing = $derived(language != null && pickingFor === language)
   const addable = $derived(hostLanguagesAvailable(editor.hostLegend))
-  let langMenuEl = $state<HTMLDivElement | undefined>()
 
   $effect(() => {
     // Only this head owns the open menu: column heads watch replace, the add cell watches add.
     const open = column ? choosing : pickingNew
     if (!open) return
-    function handle(event: PointerEvent) {
-      // Prefer closest() over contains(langMenuEl): bind:this can lag one frame, and a
-      // miss closes the menu on pointerdown before the item's click handler runs.
-      const target = event.target
-      if (target instanceof Element && target.closest('.lang-menu') === langMenuEl) return
-      if (column) pickingFor = null
-      else pickingNew = false
-    }
     function onKey(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         if (column) pickingFor = null
@@ -73,17 +65,18 @@
         event.stopPropagation()
       }
     }
-    document.addEventListener('pointerdown', handle)
     document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('pointerdown', handle)
-      document.removeEventListener('keydown', onKey)
-    }
+    return () => document.removeEventListener('keydown', onKey)
   })
 
   /** Keep the document outside-close listener from seeing presses on menu items. */
   function holdLangMenu(event: Event) {
     event.stopPropagation()
+  }
+
+  function closeLangMenu() {
+    if (column) pickingFor = null
+    else pickingNew = false
   }
 
   function activeProfileLabel(): string {
@@ -169,7 +162,14 @@
       {#if needsHostLanguage}
         <span class="prompt-label">Computer language</span>
       {/if}
-      <div class="lang-menu" bind:this={langMenuEl}>
+      <div
+        class="lang-menu"
+        use:clickOutside={{
+          enabled: pickingNew,
+          closestSelector: '.lang-menu',
+          handler: closeLangMenu
+        }}
+      >
         <button
           type="button"
           class="add-language"
@@ -234,7 +234,14 @@
             onclick={toggleLanguage}
           />
           {#if extra && language}
-            <div class="lang-menu" bind:this={langMenuEl}>
+            <div
+              class="lang-menu"
+              use:clickOutside={{
+                enabled: choosing,
+                closestSelector: '.lang-menu',
+                handler: closeLangMenu
+              }}
+            >
               <button
                 type="button"
                 class="lang-flag"

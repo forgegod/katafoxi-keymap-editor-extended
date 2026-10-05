@@ -7,6 +7,7 @@
     type HostLanguageId
   } from '@keymap-editor/keymap-core'
   import { editor, hostLegendAnchorIndex } from '../editor.svelte.js'
+  import { clickOutside } from '../actions/click-outside'
   import HostAssemblyBar from './HostAssemblyBar.svelte'
   import HostLegendLanguageHead from './HostLegendLanguageHead.svelte'
   import HostSymbolCatalog from './HostSymbolCatalog.svelte'
@@ -152,20 +153,11 @@
     hovered = false
   }
 
-  $effect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      const target = event.target
-      // A control that replaces itself (Add conditional layer) is already
-      // detached by the time this click reaches the document.
-      if (!(target instanceof Node) || !target.isConnected) return
-      if (!stripEl || stripEl.contains(target)) return
-      cancelRename()
-      cancelDelete()
-      editingWhen = false
-    }
-    document.addEventListener('click', handleClickOutside)
-    return () => document.removeEventListener('click', handleClickOutside)
-  })
+  function dismissStripChrome() {
+    cancelRename()
+    cancelDelete()
+    editingWhen = false
+  }
 
   /** Keep the empty sizer in sync with the in-flow panel while collapsed. */
   $effect(() => {
@@ -261,6 +253,7 @@
   class:expanded={open}
   role="region"
   aria-label="Host legend"
+  use:clickOutside={{ event: 'click', handler: dismissStripChrome }}
   onmouseenter={() => {
     captureRestingSize()
     hovered = true

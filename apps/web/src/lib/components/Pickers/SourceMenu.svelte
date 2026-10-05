@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
+  import { clickOutside } from '../../actions/click-outside'
   import Button from '../Common/Button.svelte'
   import Spinner from '../Common/Spinner.svelte'
 
@@ -26,21 +27,12 @@
     onActivate,
     children
   }: Props = $props()
-
-  let menuEl = $state<HTMLDivElement | undefined>()
-
-  $effect(() => {
-    if (!open) return
-    function handle(event: PointerEvent) {
-      if (event.target instanceof Node && menuEl?.contains(event.target)) return
-      open = false
-    }
-    document.addEventListener('pointerdown', handle)
-    return () => document.removeEventListener('pointerdown', handle)
-  })
 </script>
 
-<div class="source-menu" bind:this={menuEl}>
+<div
+  class="source-menu"
+  use:clickOutside={{ enabled: open, handler: () => { open = false } }}
+>
   <Button
     variant="outline"
     class="source-trigger{accent ? ' source-trigger-accent' : ''}"

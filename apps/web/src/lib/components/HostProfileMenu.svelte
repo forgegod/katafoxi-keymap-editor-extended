@@ -9,6 +9,7 @@
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
   import { isUserHostLayoutId } from '../host-layout-store.js'
+  import { clickOutside } from '../actions/click-outside'
   import Button from './Common/Button.svelte'
 
   interface Props {
@@ -257,20 +258,12 @@
     exportLayout(activeId)
   }
 
-  let menuEl = $state<HTMLDivElement | undefined>()
-
-  $effect(() => {
-    if (!open) return
-    function handle(event: PointerEvent) {
-      if (event.target instanceof Node && menuEl?.contains(event.target)) return
-      onClose()
-    }
-    document.addEventListener('pointerdown', handle)
-    return () => document.removeEventListener('pointerdown', handle)
-  })
 </script>
 
-<div class="profile-menu" bind:this={menuEl}>
+<div
+  class="profile-menu"
+  use:clickOutside={{ enabled: open, handler: onClose }}
+>
   <button
     type="button"
     class="profile-trigger"
