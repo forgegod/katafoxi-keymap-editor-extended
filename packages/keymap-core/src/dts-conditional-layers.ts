@@ -124,7 +124,7 @@ function formatRuleNode(rule: ZmkConditionalLayer, indent = '        '): string 
   ].join('\n')
 }
 
-export function formatConditionalLayersBlock(
+function formatConditionalLayersBlock(
   rules: readonly ZmkConditionalLayer[],
   indent = '    '
 ): string {

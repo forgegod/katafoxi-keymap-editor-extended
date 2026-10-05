@@ -344,7 +344,7 @@ function parseHoldLayer(value: string | number | undefined | null): number | und
  * Layer that stays active only while this key is down.
  * `&mo` and `&lt` qualify. `&to`, `&tog`, and `&sl` release the key.
  */
-export function physicallyHeldLayer(node: KeyBindingNode): number | null {
+function physicallyHeldLayer(node: KeyBindingNode): number | null {
   const behavior = String(node.value)
   if (behavior !== '&mo' && behavior !== '&lt') return null
   return parseHoldLayer(node.params[0]?.value) ?? null
