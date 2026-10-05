@@ -46,7 +46,7 @@ Both must be true; the API gates the routes, and the SPA hides Local unless the 
 - In dev, `GITHUB_OAUTH_CALLBACK_URL` must be the **Vite** origin (e.g. `http://127.0.0.1:5173/github/authorize`), not `:8080`, so `Set-Cookie` attaches via the Vite proxy. Production uses same-origin `{APP_BASE_URL}/github/authorize`.
 - Decision record: [docs/adr/0003-github-auth-server-session.md](docs/adr/0003-github-auth-server-session.md).
 
-Set `PORT` if the API port must change. Set `APP_BASE_URL` to the browser-facing app origin.
+Set `PORT` if the API port must change. Set `HOST` to override the bind address (default `127.0.0.1` locally, `0.0.0.0` when `NODE_ENV=production`). Set `APP_BASE_URL` to the browser-facing app origin.
 
 ## Using the editor
 

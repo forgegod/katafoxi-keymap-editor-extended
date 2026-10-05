@@ -38,7 +38,11 @@ function parseBoolean(val: string | undefined): boolean {
   return !!val && ['1', 'on', 'yes', 'true'].includes(val.toLowerCase())
 }
 
+const isProduction = process.env.NODE_ENV === 'production'
+
 export const config = {
+  /** Bind address. Override with HOST; default loopback locally, all interfaces in production. */
+  HOST: env('HOST', isProduction ? '0.0.0.0' : '127.0.0.1'),
   PORT: Number(env('PORT', '8080')),
   ENABLE_DEV_SERVER: parseBoolean(process.env.ENABLE_DEV_SERVER),
   ENABLE_GITHUB: parseBoolean(process.env.ENABLE_GITHUB),

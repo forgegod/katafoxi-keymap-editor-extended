@@ -54,10 +54,10 @@ if (fs.existsSync(config.WEB_DIST)) {
 }
 
 console.log(
-  `API listening on :${config.PORT} (github=${config.ENABLE_GITHUB}, local=${config.ENABLE_LOCAL})`
+  `API listening on ${config.HOST}:${config.PORT} (github=${config.ENABLE_GITHUB}, local=${config.ENABLE_LOCAL})`
 )
 serve({
   fetch: app.fetch,
   port: config.PORT,
-  hostname: '127.0.0.1'
+  hostname: config.HOST
 })
