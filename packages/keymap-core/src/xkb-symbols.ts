@@ -9,8 +9,16 @@
 const KEYSYM =
   /^(?:[A-Za-z_][A-Za-z0-9_]*|[0-9]|U[0-9A-Fa-f]{4,6}|0x[0-9A-Fa-f]+)$/
 
-export function stripXkbComments(source: string): string {
+function stripXkbComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function sectionHeader(section: string): RegExp {
+  return new RegExp(`xkb_symbols\\s*"${escapeRegExp(section)}"`)
 }
 
 function sliceBrace(text: string, open: number): string {
@@ -44,6 +52,8 @@ export interface ParseXkbOptions {
   fileId?: string
   /** When set, a missing include throws and names the include spec. */
   strictIncludes?: boolean
+  /** Append-only bag for include cycles and multi-group keys. */
+  warnings?: string[]
 }
 
 export interface XkbSectionInfo {
@@ -81,7 +91,14 @@ function includedSpec(spec: string): { file: string; section: string } | null {
 }
 
 function hasSection(source: string, section: string): boolean {
-  return new RegExp(`xkb_symbols\\s*"${section}"`).test(stripXkbComments(source))
+  return sectionHeader(section).test(stripXkbComments(source))
+}
+
+function reportCycle(path: string, options: ParseXkbOptions): void {
+  const message = `Cyclic xkb include: ${path}`
+  if (options.strictIncludes) throw new Error(message)
+  if (options.warnings) options.warnings.push(message)
+  else console.warn(message)
 }
 
 /**
@@ -96,10 +113,12 @@ export function parseXkbSymbolsSection(
 ): Map<string, string[]> {
   const fileId = options.fileId ?? ''
   const frame = `${fileId}:${section}`
-  if (stack.includes(frame)) return new Map()
+  if (stack.includes(frame)) {
+    reportCycle([...stack, frame].join(' → '), options)
+    return new Map()
+  }
   const text = stripXkbComments(source)
-  const header = new RegExp(`xkb_symbols\\s*"${section}"`)
-  const found = header.exec(text)
+  const found = sectionHeader(section).exec(text)
   if (!found) throw new Error(`xkb symbols section "${section}" not found`)
   const open = text.indexOf('{', found.index)
   if (open < 0) throw new Error(`xkb symbols section "${section}" has no body`)
@@ -118,9 +137,9 @@ export function parseXkbSymbolsSection(
       }
       const fromFiles = options.files?.[spec.file]
       const fromVendored = !!(fromFiles && hasSection(fromFiles, spec.section))
-      const nestedSource =
-        (fromVendored ? fromFiles : null) ??
-        (hasSection(source, spec.section) ? source : null)
+      const sameFile =
+        hasSection(source, spec.section) && (fileId === '' || spec.file === fileId)
+      const nestedSource = (fromVendored ? fromFiles : null) ?? (sameFile ? source : null)
       if (!nestedSource) {
         if (options.strictIncludes) {
           throw new Error(`Unresolved xkb include "${match[1]}"`)
@@ -145,7 +164,13 @@ export function parseXkbSymbolsSection(
     }
     const lists = symbolLists(match[3])
     if (lists.length === 0) continue
-    keys.set(match[2].toUpperCase(), lists[0])
+    const keyName = match[2].toUpperCase()
+    if (lists.length > 1) {
+      options.warnings?.push(
+        `Key <${keyName}> has ${lists.length} keysym groups; using the first.`
+      )
+    }
+    keys.set(keyName, lists[0])
   }
   return keys
 }

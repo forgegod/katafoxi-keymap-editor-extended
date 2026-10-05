@@ -87,4 +87,20 @@ describe('hostLayoutFromXkb', () => {
       'Unresolved xkb include "level3(ralt_switch)"'
     )
   })
+
+  it('throws on cyclic includes with the cycle path', () => {
+    const text = `
+      xkb_symbols "a" {
+        include "cycle(b)"
+        key <AC01> {[ a, A ]};
+      };
+      xkb_symbols "b" {
+        include "cycle(a)"
+        key <AC02> {[ s, S ]};
+      };
+    `
+    expect(() => hostLayoutFromXkb(text, 'a', { fileName: 'cycle' })).toThrow(
+      'Cyclic xkb include: cycle:a → cycle:b → cycle:a'
+    )
+  })
 })

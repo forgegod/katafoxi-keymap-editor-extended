@@ -47,6 +47,8 @@ export interface HostLayoutFromSymbolsOptions {
   fileId?: string
   /** When set, a missing include throws and names the include spec. */
   strictIncludes?: boolean
+  /** Append-only bag for include cycles and multi-group keys. */
+  warnings?: string[]
 }
 
 /**
@@ -67,7 +69,8 @@ export function hostLayoutFromSymbols(
   for (const [xkb, keysyms] of parseXkbSymbolsSection(source, section, [], {
     files,
     fileId,
-    strictIncludes: options.strictIncludes
+    strictIncludes: options.strictIncludes,
+    warnings: options.warnings
   })) {
     const host = hostKeyByXkb(xkb)
     if (!host) continue

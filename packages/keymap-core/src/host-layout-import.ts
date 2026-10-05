@@ -10,9 +10,14 @@ import { SYSTEM_US_XKB_SYMBOLS } from './system-us-xkb-symbols.js'
 
 export interface HostLayoutFromXkbOptions {
   fileName: string
+  /** Append-only bag for multi-group keys (cycles throw under strictIncludes). */
+  warnings?: string[]
 }
 
+let vendoredXkbFilesCache: Record<string, string> | undefined
+
 function vendoredXkbFiles(): Record<string, string> {
+  if (vendoredXkbFilesCache) return vendoredXkbFilesCache
   const files: Record<string, string> = {
     latin: SYSTEM_LATIN_SYMBOLS,
     us: SYSTEM_US_XKB_SYMBOLS
@@ -20,6 +25,7 @@ function vendoredXkbFiles(): Record<string, string> {
   for (const language of HOST_LANGUAGES) {
     if (files[language.xkbModule] == null) files[language.xkbModule] = language.symbols
   }
+  vendoredXkbFilesCache = files
   return files
 }
 
@@ -40,6 +46,7 @@ export function hostLayoutFromXkb(
   const fileId = fileIdFromName(options.fileName)
   return hostLayoutFromSymbols(text, section, `xkb:${fileId}:${section}`, files, {
     fileId,
-    strictIncludes: true
+    strictIncludes: true,
+    warnings: options.warnings
   })
 }

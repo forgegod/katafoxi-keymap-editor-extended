@@ -79,6 +79,62 @@ describe('parseXkbSymbolsSection', () => {
       'NoSymbol'
     ])
   })
+
+  it('throws on cyclic includes when strictIncludes is set', () => {
+    const source = `
+      xkb_symbols "a" {
+        include "cycle(b)"
+        key <AC01> {[ a, A ]};
+      };
+      xkb_symbols "b" {
+        include "cycle(a)"
+        key <AC02> {[ s, S ]};
+      };
+    `
+    expect(() =>
+      parseXkbSymbolsSection(source, 'a', [], { fileId: 'cycle', strictIncludes: true })
+    ).toThrow('Cyclic xkb include: cycle:a → cycle:b → cycle:a')
+  })
+
+  it('warns on cyclic includes without strictIncludes', () => {
+    const source = `
+      xkb_symbols "loop" {
+        include "self(loop)"
+        key <AC01> {[ a, A ]};
+      };
+    `
+    const warnings: string[] = []
+    const keys = parseXkbSymbolsSection(source, 'loop', [], {
+      fileId: 'self',
+      warnings
+    })
+    expect(keys.get('AC01')).toEqual(['a', 'A'])
+    expect(warnings).toEqual(['Cyclic xkb include: self:loop → self:loop'])
+  })
+
+  it('escapes section names used in RegExp lookup', () => {
+    const source = `
+      xkb_symbols "basic+extra" {
+        key <AC01> {[ a, A ]};
+      };
+    `
+    expect(parseXkbSymbolsSection(source, 'basic+extra').get('AC01')).toEqual(['a', 'A'])
+  })
+
+  it('warns when a key keeps only the first of several keysym groups', () => {
+    const source = `
+      xkb_symbols "basic" {
+        key <AC01> {
+          [ a, A ],
+          [ b, B ]
+        };
+      };
+    `
+    const warnings: string[] = []
+    const keys = parseXkbSymbolsSection(source, 'basic', [], { warnings })
+    expect(keys.get('AC01')).toEqual(['a', 'A'])
+    expect(warnings).toEqual(['Key <AC01> has 2 keysym groups; using the first.'])
+  })
 })
 
 describe('keysymToGlyph', () => {
