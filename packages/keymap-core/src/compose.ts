@@ -33,7 +33,8 @@ import type {
   KeyBindingNode,
   LayerView,
   LegendHover,
-  ResolvedBinding
+  ResolvedBinding,
+  ZmkConditionalLayer
 } from './types.js'
 
 export { ALT_LEVEL_EMPTY } from './host-layout.js'
@@ -337,6 +338,46 @@ function parseHoldLayer(value: string | number | undefined | null): number | und
   if (Number.isInteger(numeric)) return numeric
   const match = /^L(\d+)$/i.exec(String(value))
   return match ? Number(match[1]) : undefined
+}
+
+/**
+ * Layer that stays active only while this key is down.
+ * `&mo` and `&lt` qualify. `&to`, `&tog`, and `&sl` release the key.
+ */
+export function physicallyHeldLayer(node: KeyBindingNode): number | null {
+  const behavior = String(node.value)
+  if (behavior !== '&mo' && behavior !== '&lt') return null
+  return parseHoldLayer(node.params[0]?.value) ?? null
+}
+
+/** Title for a then-layer face that cannot fire because this key is already held. */
+export const CONDITIONAL_OCCUPIED_NOTE = 'Already held, so this binding does not fire'
+
+/**
+ * Then-layer rows on this key that do not fire while a conditional layer is
+ * showing: another row on the same key is held to keep an if-layer active.
+ * The hold's own row is left alone. A second activator elsewhere can still
+ * reach the marked binding; the mark is about this key's hold.
+ */
+export function conditionalOccupiedLayers(
+  bindings: readonly KeyBindingNode[],
+  rules: readonly Pick<ZmkConditionalLayer, 'ifLayers' | 'thenLayer'>[]
+): Set<number> {
+  const occupied = new Set<number>()
+  if (rules.length === 0) return occupied
+  for (let layer = 0; layer < bindings.length; layer++) {
+    const binding = bindings[layer]
+    if (!binding) continue
+    const held = physicallyHeldLayer(binding)
+    if (held == null) continue
+    for (const rule of rules) {
+      if (!rule.ifLayers.includes(held)) continue
+      if (rule.thenLayer === layer) continue
+      if (rule.thenLayer < 0 || rule.thenLayer >= bindings.length) continue
+      occupied.add(rule.thenLayer)
+    }
+  }
+  return occupied
 }
 
 function formatHoldBadge(hold: HoldRef): string {
