@@ -144,6 +144,18 @@ describe('HostSymbolPicker', () => {
     expect(onPick).toHaveBeenCalledWith('NoSymbol')
   })
 
+  it('picks dead accents by keysym, not the spacing glyph', () => {
+    const { onPick } = mountPicker('fr')
+    const dialog = catalog()
+    const dead = dialog?.querySelector(
+      'button.glyph[aria-label="Dead key ^ dead_circumflex"]'
+    )
+    expect(dead).toBeInstanceOf(HTMLButtonElement)
+    ;(dead as HTMLButtonElement).click()
+    flushSync()
+    expect(onPick).toHaveBeenCalledWith('dead_circumflex')
+  })
+
   it('keeps an expanded collapsed shelf after remount', () => {
     mountPicker('en')
     const collapsed = hostSymbolShelves('en').find(shelf => !shelf.open)

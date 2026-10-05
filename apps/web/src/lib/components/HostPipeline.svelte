@@ -3,6 +3,7 @@
   import {
     hostLegendColumns,
     pairedKbdId,
+    recommendedXkbInstallTarget,
     windowsCapsPairingRecommended
   } from '@keymap-editor/keymap-core'
   import logoLinux from '../assets/logo-linux.png'
@@ -80,38 +81,9 @@
       column => column.language !== 'en' && !windowsCapsPairingRecommended(column.language)
     )
   })
-  $effect(() => {
-    if (editor.hostLegend.columns.length < 3 && editor.multilangView) {
-      editor.multilangView = false
-    }
-  })
   /** Prefer small / easy-to-pick XKB modules over the huge defaults (us, winkeys, …). */
   function installTarget(item: (typeof exports)[number]) {
-    if (item.language === 'en') {
-      return {
-        module: 'au',
-        systemPath: '/usr/share/X11/xkb/symbols/au',
-        userPath: '~/.xkb/symbols/au',
-        variant: 'Australia (au)',
-        tip: 'Prefer symbols/au (Australia), not us: the file is short and near the top of the symbols list, there is less layout-picker clutter across distros, and the Australian flag makes it obvious you are on your custom layout.'
-      }
-    }
-    if (item.language === 'ru') {
-      return {
-        module: 'ru',
-        systemPath: '/usr/share/X11/xkb/symbols/ru',
-        userPath: '~/.xkb/symbols/ru',
-        variant: 'legacy',
-        tip: 'Prefer the legacy section at the top of symbols/ru — it is nearly empty and easy to select in the layout list.'
-      }
-    }
-    return {
-      module: item.xkbModule,
-      systemPath: item.exampleSystemPath,
-      userPath: item.exampleUserPath,
-      variant: null as string | null,
-      tip: null as string | null
-    }
+    return recommendedXkbInstallTarget(item.language)
   }
 
   function pairedVersionKey(language: string): string {
@@ -258,9 +230,8 @@
           the recommended symbols file for that language.
         </li>
         <li>
-          For English, prefer <code>symbols/au</code> (Australia) over <code>us</code>: the file is
-          small, sits near the top of the list, avoids a huge US layout menu, and the AU flag shows
-          you are on your custom layout.
+          Prefer the symbols module and variant shown on each card — short files near the top of the
+          list are easier to find and keep the layout picker uncluttered.
         </li>
         <li>
           Saving under <code>/usr/share/X11/xkb/symbols/</code> usually needs

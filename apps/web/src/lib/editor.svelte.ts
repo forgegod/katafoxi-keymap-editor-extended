@@ -356,7 +356,15 @@ export class EditorState {
   redoStack = $state<ParsedKeymap[]>([])
   saving = $state(false)
   /** View over the host profile. It does not edit the keymap. */
-  hostLegend = $state<HostLegendView>(standardHostLegendView())
+  #hostLegend = $state<HostLegendView>(standardHostLegendView())
+  get hostLegend(): HostLegendView {
+    return this.#hostLegend
+  }
+  set hostLegend(view: HostLegendView) {
+    this.#hostLegend = view
+    // Stack needs three columns; drop the preference when the board no longer qualifies.
+    if (view.columns.length < 3) this.multilangView = false
+  }
   /** Column sets remembered for this keyboard. Each one points at layouts. */
   hostAssemblies = $state<StoredHostAssembly[]>([])
   /**

@@ -155,6 +155,7 @@
 
 <script lang="ts">
   import {
+    hostSymbolPickValue,
     hostSymbolShelves,
     isUninkedHostGlyph,
     type HostLanguageId,
@@ -417,15 +418,9 @@
     loupe = null
   }
 
-  /** Dead accents must store the keysym; spacing `^` is not `asciicircum`. */
-  function entryValue(entry: HostSymbolShelfEntry): string {
-    if (entry.dead || !entry.glyph) return entry.keysym
-    return entry.glyph
-  }
-
   function pick(entry: HostSymbolShelfEntry) {
     if (disabled) return
-    const value = entryValue(entry)
+    const value = hostSymbolPickValue(entry)
     if (onPick) {
       onPick(value)
       return

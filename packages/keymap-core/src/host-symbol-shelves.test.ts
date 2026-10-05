@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import records from '../data/host-symbols.json' with { type: 'json' }
 import { hostSymbolByGlyph } from './host-symbols.js'
 import {
+  hostSymbolPickValue,
   hostSymbolShelves,
   primaryLayoutDeadKeysyms,
   type HostSymbolShelf
@@ -238,5 +239,14 @@ describe('hostSymbolShelves', () => {
         entries: []
       })
     }).toThrow()
+  })
+
+  it('picks keysym for dead accents and empty glyphs, glyph otherwise', () => {
+    expect(
+      hostSymbolPickValue({ glyph: '^', keysym: 'dead_circumflex', dead: true })
+    ).toBe('dead_circumflex')
+    expect(hostSymbolPickValue({ glyph: '', keysym: 'NoSymbol' })).toBe('NoSymbol')
+    expect(hostSymbolPickValue({ glyph: 'a', keysym: 'a' })).toBe('a')
+    expect(hostSymbolPickValue({ glyph: '^', keysym: 'asciicircum' })).toBe('^')
   })
 })

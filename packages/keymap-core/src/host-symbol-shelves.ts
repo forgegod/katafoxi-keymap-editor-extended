@@ -35,6 +35,16 @@ export interface HostSymbolShelfEntry {
   dead?: boolean
 }
 
+/**
+ * Value written when the picker selects an entry.
+ * Dead accents and non-character modifiers store the keysym; ordinary glyphs
+ * store the Unicode scalar so spacing `^` is never mistaken for `asciicircum`.
+ */
+export function hostSymbolPickValue(entry: HostSymbolShelfEntry): string {
+  if (entry.dead || !entry.glyph) return entry.keysym
+  return entry.glyph
+}
+
 export interface HostSymbolShelf {
   id: string
   title: string

@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import type { ParsedKeymap } from '@keymap-editor/keymap-core'
+import {
+  addHostLanguage,
+  removeHostLanguage,
+  type ParsedKeymap
+} from '@keymap-editor/keymap-core'
 import { editor } from './editor.svelte.js'
 
 function km(code: string, keyboard = 'board-a'): ParsedKeymap {
@@ -59,5 +63,22 @@ describe('editor host-edit session clear', () => {
     expect(editor.hostSymbolCatalogOpen).toBe(false)
     expect(editor.legendHover).toBeNull()
     expect(editor.draftKeymap).toBeNull()
+  })
+})
+
+describe('editor multilangView host-legend invariant', () => {
+  beforeEach(() => {
+    editor.resetForTests()
+  })
+
+  it('clears multilangView when host columns drop below three', () => {
+    editor.hostLegend = addHostLanguage(addHostLanguage(editor.hostLegend, 'ru'), 'uk')
+    editor.multilangView = true
+    expect(editor.multilangViewOn).toBe(true)
+
+    editor.hostLegend = removeHostLanguage(editor.hostLegend, 'uk')
+    expect(editor.hostLegend.columns).toHaveLength(2)
+    expect(editor.multilangView).toBe(false)
+    expect(editor.multilangViewOn).toBe(false)
   })
 })
