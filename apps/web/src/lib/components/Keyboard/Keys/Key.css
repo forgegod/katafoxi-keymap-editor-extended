@@ -183,6 +183,17 @@
 .key .layer-slot.unpublished {
   background-color: color-mix(in srgb, var(--highlight) 28%, transparent);
 }
+.key .layer-slot.when-held {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--text-disabled);
+  text-decoration-skip-ink: none;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 3px,
+    color-mix(in srgb, var(--text-disabled) 70%, transparent) 3px 4px
+  );
+}
 .key .layer-slot.combo-peek {
   outline: 2px solid var(--combo, #c9a227);
   outline-offset: -2px;

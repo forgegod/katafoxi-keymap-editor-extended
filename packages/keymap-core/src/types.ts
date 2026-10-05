@@ -21,6 +21,16 @@ export interface ZmkCombo {
   layers?: number[]
 }
 
+/**
+ * One ZMK conditional-layer rule.
+ * `thenLayer` is active exactly while every `ifLayers` entry is active.
+ */
+export interface ZmkConditionalLayer {
+  id: string
+  ifLayers: number[]
+  thenLayer: number
+}
+
 export interface ParsedKeymap {
   keyboard?: string
   keymap?: string
@@ -29,6 +39,11 @@ export interface ParsedKeymap {
   layers: KeyBindingNode[][]
   /** ZMK combos from the .keymap; absent when the source had none. */
   combos?: ZmkCombo[]
+  /**
+   * ZMK conditional layers. Absent when the source had none.
+   * An empty array means the user removed them and Save should drop the block.
+   */
+  conditionalLayers?: ZmkConditionalLayer[]
   [key: string]: unknown
 }
 
@@ -176,5 +191,12 @@ export interface ComposeKeyInput {
 /** Hover target on the host legend strip. Preview only. */
 export type LegendHover =
   | { kind: 'layer'; layer: number }
+  | {
+      kind: 'layers'
+      /** Held layers whose activator keys should light up. */
+      layers: number[]
+      /** Then-layer under the pointer. Its own bindings light up too. */
+      source?: number
+    }
   | { kind: 'altGr' }
   | { kind: 'altGrShift' }

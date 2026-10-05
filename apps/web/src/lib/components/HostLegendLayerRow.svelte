@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    conditionalLayerHover,
     hostLegendTableRow,
     toggleShownLayer,
     type HostLegendColumn,
@@ -15,6 +16,11 @@
     name: string
     marked: boolean
     binding: KeyBindingNode | undefined
+    /** `when Lower + Raise` on the layer this rule turns on. */
+    whenLabel?: string | null
+    whenTitle?: string | null
+    /** Partner row while the other side of a conditional layer is hovered. */
+    peer?: boolean
   }
 
   interface Props {
@@ -55,7 +61,10 @@
   }
 
   function hoverLayer() {
-    editor.legendHover = { kind: 'layer', layer: row.index }
+    editor.legendHover = conditionalLayerHover(
+      row.index,
+      editor.draftKeymap?.conditionalLayers ?? []
+    )
   }
 
   function clearHover() {
@@ -105,6 +114,7 @@
   data-layer={row.index}
   class:off={!row.marked}
   class:raw={row.index === 0 && layer0Raw}
+  class:when-peer={row.peer === true}
   style={editor.layerTonesOn ? layerToneStyle(row.index) : undefined}
   onmouseenter={interactive ? hoverLayer : undefined}
   onmouseleave={interactive ? clearHover : undefined}
@@ -138,6 +148,9 @@
           >
             {row.name}
           </button>
+        {/if}
+        {#if row.whenLabel && renamingIndex !== row.index}
+          <span class="when" title={row.whenTitle ?? undefined}>{row.whenLabel}</span>
         {/if}
         {#if canDelete}
           <Icon
@@ -224,6 +237,15 @@
 
   tr.raw td {
     opacity: 0.4;
+  }
+
+  tr.when-peer {
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+
+  .when {
+    color: var(--accent);
+    font-size: var(--font-xs);
   }
 
   .row-head {

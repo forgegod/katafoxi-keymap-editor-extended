@@ -63,6 +63,7 @@ Product persistence is **GitHub-first**; Local is for iterating against a cloned
 - One **KeyEditor**: behaviour chips, then the value grid (keys, layers, mods, mouse/BT commands). Enter applies; Esc cancels.
 - Compact ZMK legends (`L1`, `⌃`, hold-tap pills) in `keymap-core`.
 - Visual **Combos**: list + board key-positions, binding via KeyEditor, timeout / layers / slow-release / prior-idle props; gap beads for adjacent pairs (row or column), anchor beads for non-adjacent/multi-key chords, with layer-aware placement and hover peek.
+- **Conditional layers** on the layer strip: the shown layer reads `when Lower + Raise`, and hovering it highlights the keys that hold those layers.
 - Undo / redo, **Draft** / Ready status, Discard draft.
 - Host lane: Ready / Changed / Saved, Linux and Windows install dialogs, assemblies (remembered legend sets). On GitHub, Commit/Load round-trip the host snapshot with ZMK.
 - Light / dark theme (default dark).
@@ -70,7 +71,7 @@ Product persistence is **GitHub-first**; Local is for iterating against a cloned
 
 ## Not in this tree (yet)
 
-Upstream or planned: browser **File System Access**, visual **macro** / custom **behavior** editors, rotary encoders, conditional layers, auto-generated layouts from ZMK DTS. See [upstream README](https://github.com/nickcoutsos/keymap-editor/blob/master/README.md) for the classic feature list.
+Upstream or planned: browser **File System Access**, visual **macro** / custom **behavior** editors, rotary encoders, auto-generated layouts from ZMK DTS. See [upstream README](https://github.com/nickcoutsos/keymap-editor/blob/master/README.md) for the classic feature list.
 
 Vision and contracts: [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md).
 

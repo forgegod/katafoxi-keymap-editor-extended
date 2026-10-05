@@ -732,6 +732,32 @@ describe('Key click editor', () => {
     expect(layer0?.querySelector('.zmk-row')?.classList.contains('legend-hit')).toBe(false)
   })
 
+  it('strikes the then-layer row on a key that holds the conditional layer', () => {
+    editor.draftKeymap = {
+      layer_names: ['base', 'lower', 'raise', 'adjust'],
+      layers: [[{ value: '&none', params: [] }]],
+      conditionalLayers: [{ id: 'when_lower_raise', ifLayers: [1, 2], thenLayer: 3 }]
+    }
+    open({
+      layerBindings: [
+        { value: '&mo', params: [{ value: '1', params: [] }] },
+        { value: '&kp', params: [{ value: 'B', params: [] }] },
+        { value: '&kp', params: [{ value: 'C', params: [] }] },
+        { value: '&kp', params: [{ value: 'D', params: [] }] }
+      ],
+      layerView: { shown: [0, 1, 2, 3], layer0Raw: true }
+    })
+    const rows = stackRows()
+    const held = rows.find(row => row.dataset.layer === '0')
+    const shown = rows.find(row => row.dataset.layer === '3')
+    const other = rows.find(row => row.dataset.layer === '1')
+    expect(shown?.classList.contains('when-held')).toBe(true)
+    expect(shown?.getAttribute('title')).toMatch(/Already held/)
+    expect(shown?.getAttribute('aria-label')).toMatch(/already held/)
+    expect(held?.classList.contains('when-held')).toBe(false)
+    expect(other?.classList.contains('when-held')).toBe(false)
+  })
+
   it('renders layer0 as a raw ZMK row when layer0Raw is set', () => {
     open({
       layerBindings: [

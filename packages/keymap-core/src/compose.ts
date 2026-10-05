@@ -33,7 +33,8 @@ import type {
   KeyBindingNode,
   LayerView,
   LegendHover,
-  ResolvedBinding
+  ResolvedBinding,
+  ZmkConditionalLayer
 } from './types.js'
 
 export { ALT_LEVEL_EMPTY } from './host-layout.js'
@@ -117,9 +118,16 @@ function collectAltGrShiftParts(
 /** What the hover preview should mark: the whole combo, or only the hold badge. */
 export type LegendHoverHit = 'none' | 'combo' | 'hold'
 
+function hoverLayerTargets(hover: Extract<LegendHover, { kind: 'layers' }>): number[] {
+  return hover.source == null ? hover.layers : [...hover.layers, hover.source]
+}
+
 function holdRefMatchesHover(hold: HoldRef | undefined, hover: LegendHover): boolean {
   if (!hold) return false
   if (hover.kind === 'layer') return hold.kind === 'layer' && hold.layer === hover.layer
+  if (hover.kind === 'layers') {
+    return hold.kind === 'layer' && hoverLayerTargets(hover).includes(hold.layer)
+  }
   if (hover.kind === 'altGr') return hold.kind === 'mod' && isRAltCode(hold.code)
   return hold.kind === 'mod' && isShiftKeyCode(hold.code)
 }
@@ -130,8 +138,12 @@ export function legendHoverHit(
 ): LegendHoverHit {
   if (!hover) return 'none'
   const resolved = resolveBinding(binding)
-  if (hover.kind === 'layer') {
-    if (!bindingReferencesLayer(binding, hover.layer)) return 'none'
+  if (hover.kind === 'layer' || hover.kind === 'layers') {
+    const named =
+      hover.kind === 'layer'
+        ? bindingReferencesLayer(binding, hover.layer)
+        : hoverLayerTargets(hover).some(layer => bindingReferencesLayer(binding, layer))
+    if (!named) return 'none'
     return holdRefMatchesHover(resolved.hold, hover) &&
       resolved.tap != null &&
       hostKeyByZmk(resolved.tap)
@@ -326,6 +338,46 @@ function parseHoldLayer(value: string | number | undefined | null): number | und
   if (Number.isInteger(numeric)) return numeric
   const match = /^L(\d+)$/i.exec(String(value))
   return match ? Number(match[1]) : undefined
+}
+
+/**
+ * Layer that stays active only while this key is down.
+ * `&mo` and `&lt` qualify. `&to`, `&tog`, and `&sl` release the key.
+ */
+function physicallyHeldLayer(node: KeyBindingNode): number | null {
+  const behavior = String(node.value)
+  if (behavior !== '&mo' && behavior !== '&lt') return null
+  return parseHoldLayer(node.params[0]?.value) ?? null
+}
+
+/** Title for a then-layer face that cannot fire because this key is already held. */
+export const CONDITIONAL_OCCUPIED_NOTE = 'Already held, so this binding does not fire'
+
+/**
+ * Then-layer rows on this key that do not fire while a conditional layer is
+ * showing: another row on the same key is held to keep an if-layer active.
+ * The hold's own row is left alone. A second activator elsewhere can still
+ * reach the marked binding; the mark is about this key's hold.
+ */
+export function conditionalOccupiedLayers(
+  bindings: readonly KeyBindingNode[],
+  rules: readonly Pick<ZmkConditionalLayer, 'ifLayers' | 'thenLayer'>[]
+): Set<number> {
+  const occupied = new Set<number>()
+  if (rules.length === 0) return occupied
+  for (let layer = 0; layer < bindings.length; layer++) {
+    const binding = bindings[layer]
+    if (!binding) continue
+    const held = physicallyHeldLayer(binding)
+    if (held == null) continue
+    for (const rule of rules) {
+      if (!rule.ifLayers.includes(held)) continue
+      if (rule.thenLayer === layer) continue
+      if (rule.thenLayer < 0 || rule.thenLayer >= bindings.length) continue
+      occupied.add(rule.thenLayer)
+    }
+  }
+  return occupied
 }
 
 function formatHoldBadge(hold: HoldRef): string {

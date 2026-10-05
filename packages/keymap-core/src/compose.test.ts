@@ -13,6 +13,7 @@ import {
   hostComposeGlyphs,
   hostLevels,
   legendHoverHit,
+  conditionalOccupiedLayers,
   isCompactKeycapLegend,
   isCompactModifierChord,
   isHoldTapBehavior,
@@ -567,6 +568,59 @@ describe('resolveBinding / composeKey', () => {
       'hold'
     )
     expect(legendHoverHit(parseKeyBinding('&kp E'), { kind: 'layer', layer: 0 })).toBe('none')
+  })
+
+  it('highlights held-layer keys and the then-layer when a conditional layer is hovered', () => {
+    const hover = { kind: 'layers' as const, layers: [1, 2], source: 3 }
+    expect(legendHoverHit(parseKeyBinding('&mo 1'), hover)).toBe('combo')
+    expect(legendHoverHit(parseKeyBinding('&lt 2 A'), hover)).toBe('hold')
+    expect(legendHoverHit(parseKeyBinding('&mo 3'), hover)).toBe('combo')
+    expect(legendHoverHit(parseKeyBinding('&kp E'), hover)).toBe('none')
+  })
+
+  it('marks the then-layer on a key already held for that conditional layer', () => {
+    const rules = [{ ifLayers: [1, 2], thenLayer: 3 }]
+    const hold = [
+      parseKeyBinding('&mo 1'),
+      parseKeyBinding('&kp B'),
+      parseKeyBinding('&kp C'),
+      parseKeyBinding('&kp D')
+    ]
+    expect([...conditionalOccupiedLayers(hold, rules)]).toEqual([3])
+    expect([
+      ...conditionalOccupiedLayers(
+        [
+          parseKeyBinding('&lt 2 A'),
+          parseKeyBinding('&kp B'),
+          parseKeyBinding('&kp C'),
+          parseKeyBinding('&kp D')
+        ],
+        rules
+      )
+    ]).toEqual([3])
+    expect([
+      ...conditionalOccupiedLayers(
+        [
+          parseKeyBinding('&to 1'),
+          parseKeyBinding('&kp B'),
+          parseKeyBinding('&kp C'),
+          parseKeyBinding('&kp D')
+        ],
+        rules
+      )
+    ]).toEqual([])
+    expect([
+      ...conditionalOccupiedLayers(
+        [
+          parseKeyBinding('&kp A'),
+          parseKeyBinding('&kp B'),
+          parseKeyBinding('&kp C'),
+          parseKeyBinding('&mo 1')
+        ],
+        rules
+      )
+    ]).toEqual([])
+    expect([...conditionalOccupiedLayers(hold, [])]).toEqual([])
   })
 
   it('highlights RAlt for AltGr and RAlt plus Shift for AltGr+Shift', () => {

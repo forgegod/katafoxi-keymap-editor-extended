@@ -227,6 +227,94 @@ describe('HostLegendPicker', () => {
     expect(editor.draftKeymap?.layers[2]).toEqual([{ value: '&trans', params: [] }])
   })
 
+  it('shows a conditional layer on the then-layer row and adds one from the footer', async () => {
+    await open({
+      ...keymapOf(['Base', 'Lower', 'Raise', 'Adjust']),
+      conditionalLayers: [
+        { id: 'when_lower_raise', ifLayers: [1, 2], thenLayer: 3 }
+      ]
+    })
+    hoverStrip()
+
+    const adjust = target.querySelector('.legend-panel tr[data-layer="3"]')
+    expect(adjust?.querySelector('.when')?.textContent).toBe('when Lower + Raise')
+    adjust?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    expect(editor.legendHover).toEqual({ kind: 'layers', layers: [1, 2], source: 3 })
+    expect(
+      target.querySelector('.legend-panel tr[data-layer="1"]')?.classList.contains('when-peer')
+    ).toBe(true)
+    expect(adjust?.classList.contains('when-peer')).toBe(false)
+
+    const lower = target.querySelector('.legend-panel tr[data-layer="1"]')
+    lower?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    flushSync()
+    expect(editor.legendHover).toEqual({ kind: 'layer', layer: 1 })
+    expect(adjust?.classList.contains('when-peer')).toBe(true)
+
+    const addWhen = target.querySelector('.legend-panel .add-when')
+    if (!(addWhen instanceof HTMLButtonElement)) throw new Error('missing Add conditional layer')
+    addWhen.click()
+    flushSync()
+    const draft = target.querySelector('.legend-panel .when-draft')
+    if (!(draft instanceof HTMLElement)) throw new Error('missing conditional-layer draft')
+    expect(target.querySelector('.legend-panel .when-hint')?.textContent).toMatch(/Hold two or more/)
+    const holdBase = draft.querySelector('[aria-label="Hold Base"]')
+    const holdLower = draft.querySelector('[aria-label="Hold Lower"]')
+    const showRaise = draft.querySelector('[aria-label="Show Raise"]')
+    if (
+      !(holdBase instanceof HTMLButtonElement) ||
+      !(holdLower instanceof HTMLButtonElement) ||
+      !(showRaise instanceof HTMLButtonElement)
+    ) {
+      throw new Error('missing conditional-layer chips')
+    }
+    holdBase.click()
+    holdLower.click()
+    showRaise.click()
+    flushSync()
+    const commit = [...target.querySelectorAll('.legend-panel .when-commit')].find(
+      el => el instanceof HTMLButtonElement
+    )
+    if (!(commit instanceof HTMLButtonElement)) throw new Error('missing Add')
+    commit.click()
+    flushSync()
+    expect(editor.draftKeymap?.conditionalLayers?.map(rule => rule.id)).toEqual([
+      'when_lower_raise',
+      'when_base_lower'
+    ])
+    expect(editor.draftKeymap?.conditionalLayers?.[1]).toMatchObject({
+      ifLayers: [0, 1],
+      thenLayer: 2
+    })
+
+    editor.undo()
+    flushSync()
+    expect(editor.draftKeymap?.conditionalLayers?.map(rule => rule.id)).toEqual([
+      'when_lower_raise'
+    ])
+  })
+
+  it('drops a conditional layer when deleting its shown layer', async () => {
+    await open({
+      ...keymapOf(['Base', 'Lower', 'Raise', 'Adjust']),
+      conditionalLayers: [
+        { id: 'when_lower_raise', ifLayers: [1, 2], thenLayer: 3 }
+      ]
+    })
+    hoverStrip()
+    const remove = target.querySelector('.legend-panel [aria-label="Delete layer Adjust"]')
+    if (!(remove instanceof SVGElement)) throw new Error('missing delete')
+    remove.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    flushSync()
+    const confirm = target.querySelector('.legend-panel .confirm-delete')
+    if (!(confirm instanceof HTMLButtonElement)) throw new Error('missing confirm')
+    confirm.click()
+    flushSync()
+    expect(editor.draftKeymap?.layer_names).toEqual(['Base', 'Lower', 'Raise'])
+    expect(editor.draftKeymap?.conditionalLayers).toEqual([])
+  })
+
   it('puts a profile menu after each language flag', async () => {
     await open(keymapOf(['default']))
     const triggers = [...target.querySelectorAll('.legend-panel .profile-trigger')]

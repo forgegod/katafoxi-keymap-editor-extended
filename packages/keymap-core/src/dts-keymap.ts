@@ -3,9 +3,12 @@
  * Expands simple #define macros and extracts layer bindings arrays.
  * Only layer nodes inside `keymap { compatible = "zmk,keymap"; ... }` become layers.
  * Combos are parsed separately into `combos` (never as layers).
+ * Conditional layers are parsed into `conditionalLayers`.
  */
 
 import { parseDtsCombos, type DtsComboJson } from './dts-combos.js'
+import { parseDtsConditionalLayers } from './dts-conditional-layers.js'
+import type { ZmkConditionalLayer } from './types.js'
 
 const DEFINE_RE = /^#define\s+(\w+)\s+(.+)$/gm
 
@@ -189,6 +192,8 @@ export interface DtsKeymapJson {
   layers: string[][]
   /** Raw combo nodes (string bindings); converted in parseKeymap. */
   combos?: DtsComboJson[]
+  /** Omitted when the file has no conditional-layer rules. */
+  conditionalLayers?: ZmkConditionalLayer[]
   warnings: string[]
   [key: string]: unknown
 }
@@ -240,6 +245,8 @@ export function parseDtsKeymap(
     warnings.push('macros_expanded')
   }
 
+  const conditionalLayers = parseDtsConditionalLayers(source)
+
   return {
     keyboard: meta.keyboard ?? 'unknown',
     keymap: meta.keymap ?? 'unknown',
@@ -247,6 +254,7 @@ export function parseDtsKeymap(
     layer_names,
     layers,
     combos,
+    ...(conditionalLayers.length > 0 ? { conditionalLayers } : {}),
     warnings
   }
 }

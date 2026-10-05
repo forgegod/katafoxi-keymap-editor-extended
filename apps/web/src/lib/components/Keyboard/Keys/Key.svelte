@@ -10,6 +10,8 @@
     multilangKeycapLines,
     isHoldTapBehavior,
     isSimple,
+    CONDITIONAL_OCCUPIED_NOTE,
+    conditionalOccupiedLayers,
     legendHoverHit,
     resolveBinding,
     symbolAlignCaption,
@@ -124,6 +126,9 @@
   })
   const faceRows = $derived(
     multilangOn ? composedRows.filter(row => row.layer === 0) : composedRows
+  )
+  const occupiedLayers = $derived(
+    conditionalOccupiedLayers(stackBindings, editor.draftKeymap?.conditionalLayers ?? [])
   )
   const positioningStyle = $derived(getKeyStyles(position, size, rotation))
   const holdTapVisible = $derived(
@@ -302,12 +307,19 @@
     return row.title || encodeKeyBinding(row.binding)
   }
 
-  function rowAriaLabel(row: { layer: number; title: string; binding: KeyBindingNode }): string {
+  function rowAriaLabel(
+    row: { layer: number; title: string; binding: KeyBindingNode },
+    occupied: boolean
+  ): string {
     const title = rowTitle(row)
     const code = String(row.binding.value)
-    if (code === '&trans') return `${title}, layer ${row.layer}, passes through`
-    if (code === '&none') return `${title}, layer ${row.layer}, silent`
-    return `${title}, layer ${row.layer}`
+    const base =
+      code === '&trans'
+        ? `${title}, layer ${row.layer}, passes through`
+        : code === '&none'
+          ? `${title}, layer ${row.layer}, silent`
+          : `${title}, layer ${row.layer}`
+    return occupied ? `${base}, already held` : base
   }
 
   function blankRowMark(binding: KeyBindingNode): string {
@@ -339,11 +351,12 @@
     return editor.unpublishedBefore.has(`${keyIndex}:${layer}`)
   }
 
-  function rowHint(layer: number, alignTitle: string): string | undefined {
+  function rowHint(layer: number, alignTitle: string, occupied: boolean): string | undefined {
     const before = editor.unpublishedBefore.get(`${keyIndex}:${layer}`)
     const parts: string[] = []
     if (before !== undefined) parts.push(before ? `Was ${before}` : 'Was empty')
     if (alignTitle) parts.push(alignTitle)
+    if (occupied) parts.push(CONDITIONAL_OCCUPIED_NOTE)
     return parts.length ? parts.join('. ') : undefined
   }
 </script>
@@ -384,19 +397,23 @@
         class:symbol-moved={marks.moved}
         class:symbol-basic={marks.basic}
         class:altgr-conflict={marks.conflict}
+        class:when-held={occupiedLayers.has(0)}
         data-layer="0"
         style={
           editor.layerTonesOn
             ? `grid-row: 1 / -1; ${layerToneStyle(0)}`
             : 'grid-row: 1 / -1'
         }
-        aria-label={rowAriaLabel({
-          layer: 0,
-          title: encodeKeyBinding(multilangFace.binding),
-          binding: multilangFace.binding
-        })}
+        aria-label={rowAriaLabel(
+          {
+            layer: 0,
+            title: encodeKeyBinding(multilangFace.binding),
+            binding: multilangFace.binding
+          },
+          occupiedLayers.has(0)
+        )}
         aria-describedby={decode?.layer === 0 && !inHostSession ? decodeTooltipId : undefined}
-        title={rowHint(0, marks.title)}
+        title={rowHint(0, marks.title, occupiedLayers.has(0))}
         onclick={event => handleRowClick(event, 0)}
         onmouseenter={event => openDecode(0, event.currentTarget)}
         onmouseleave={handleRowLeave}
@@ -415,6 +432,7 @@
     {#each faceRows as row (row.layer)}
       {@const hit = legendHoverHit(row.binding, legendHover)}
       {@const marks = slotAlign(row.binding)}
+      {@const occupied = occupiedLayers.has(row.layer)}
       <button
         type="button"
         class="layer-slot"
@@ -423,13 +441,14 @@
         class:symbol-moved={marks.moved}
         class:symbol-basic={marks.basic}
         class:altgr-conflict={marks.conflict}
+        class:when-held={occupied}
         data-layer={row.layer}
         style={editor.layerTonesOn ? layerToneStyle(row.layer) : undefined}
-        aria-label={rowAriaLabel(row)}
+        aria-label={rowAriaLabel(row, occupied)}
         aria-describedby={
           decode?.layer === row.layer && !inHostSession ? decodeTooltipId : undefined
         }
-        title={rowHint(row.layer, marks.title)}
+        title={rowHint(row.layer, marks.title, occupied)}
         onclick={event => handleRowClick(event, row.layer)}
         onmouseenter={event => openDecode(row.layer, event.currentTarget)}
         onmouseleave={handleRowLeave}
