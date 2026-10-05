@@ -25,6 +25,7 @@ Without a fixed contract, Save can silently overwrite a hand-maintained `.keymap
 - Splice must not treat combo/other `bindings =` outside the ZMK keymap block as layers.
 - Existing layer **node ids** are kept by index; UI `layer_names` do not rename DTS nodes. New layers use `layer_N`.
 - When `conditionalLayers` is present, every save path rewrites the root `conditional_layers` node from that list. An empty list removes the node. When the field is absent, an existing node is left unchanged.
+- When `holdTaps` is present, every save path rewrites hold-tap timing from that list and inserts missing nodes. When the field is absent, existing hold-tap nodes are left unchanged.
 
 Local, GitHub, and Clipboard adapters all call the same `buildKeymapCode` helper.
 
@@ -65,7 +66,7 @@ This does not remove the original editor’s `keymap.json` workflow; it document
 - Round-trip of alias names in bindings is lossy until reverse-sub exists.
 - After Save, reload from `keymap.json` shows expanded codes even if the `.keymap` preamble still lists `#define`.
 - Path 1 (template) fully controls the file; path 3 is a last resort and must stay noisy (warning).
-- Splice does not sync `{{behaviour_includes}}` or rewrite `&mt` / `&lt` node bodies. Besides layer binding interiors, it rewrites `combos` and `conditional_layers` when those fields are set.
+- Splice does not sync `{{behaviour_includes}}`. Besides layer binding interiors, it rewrites `combos` and `conditional_layers` when those fields are set. When `holdTaps` is set, it also rewrites tapping term, flavor, quick-tap, and prior-idle inside existing hold-tap nodes and `&code { … }` timing blocks, inserts missing nodes, and drops a timing block the list no longer has. When `holdTaps` is absent, those nodes stay untouched.
 
 ## References
 

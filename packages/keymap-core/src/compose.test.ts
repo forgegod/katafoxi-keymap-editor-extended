@@ -193,6 +193,10 @@ describe('resolveBinding / composeKey', () => {
       tap: 'LBKT',
       hold: { kind: 'mod', code: 'RALT' }
     })
+    expect(resolveBinding(parseKeyBinding('&hm LCTRL A'))).toEqual({
+      tap: 'A',
+      hold: { kind: 'mod', code: 'LCTRL' }
+    })
   })
 
   it('marks host levels that differ between English and Russian', () => {
@@ -717,6 +721,9 @@ describe('behaviorKeycapRole', () => {
     expect(
       behaviorKeycapRole('&lt', { paramCount: 2, holdTapVisible: true })
     ).toBe('hidden')
+    expect(
+      behaviorKeycapRole('&hm', { paramCount: 2, holdTapVisible: true })
+    ).toBe('hidden')
   })
 
   it('puts parameterless binds in the center and the rest in the corner', () => {
@@ -736,6 +743,7 @@ describe('isHoldTapBehavior', () => {
     expect(isHoldTapBehavior('&mt')).toBe(true)
     expect(isHoldTapBehavior('&lt')).toBe(true)
     expect(isHoldTapBehavior('&kp')).toBe(false)
+    expect(isHoldTapBehavior('&hm')).toBe(false)
     expect(isHoldTapParam('mod')).toBe(true)
     expect(isHoldTapParam('layer')).toBe(true)
     expect(isHoldTapParam('code')).toBe(false)

@@ -1,6 +1,6 @@
 import { encodeConditionalLayerFingerprint } from './dts-conditional-layers.js'
 import { encodeKeyBinding } from './keymap.js'
-import type { KeyBindingNode, ParsedKeymap, ZmkCombo } from './types.js'
+import type { KeyBindingNode, ParsedKeymap, ZmkCombo, ZmkHoldTap } from './types.js'
 
 export type KeymapChange =
   | {
@@ -40,6 +40,14 @@ export type KeymapChange =
       /** Empty when the rule was added. */
       before: string
       /** Empty when the rule was removed. */
+      after: string
+    }
+  | {
+      type: 'hold_tap'
+      id: string
+      /** Empty when the behaviour was added. */
+      before: string
+      /** Empty when the behaviour was removed. */
       after: string
     }
 
@@ -83,6 +91,27 @@ function conditionalLayerMap(keymap: ParsedKeymap): Map<string, string> {
   const map = new Map<string, string>()
   for (const rule of keymap.conditionalLayers ?? []) {
     map.set(rule.id, encodeConditionalLayerFingerprint(rule))
+  }
+  return map
+}
+
+function holdTapFingerprint(node: ZmkHoldTap): string {
+  return [
+    node.override ? 'override' : 'node',
+    node.nodeName ?? '',
+    node.tappingTermMs ?? '',
+    node.quickTapMs ?? '',
+    node.requirePriorIdleMs ?? '',
+    node.flavor ?? '',
+    (node.bindings ?? []).join(','),
+    (node.params ?? []).join(',')
+  ].join('|')
+}
+
+function holdTapMap(keymap: ParsedKeymap): Map<string, string> {
+  const map = new Map<string, string>()
+  for (const node of keymap.holdTaps ?? []) {
+    map.set(node.code, holdTapFingerprint(node))
   }
   return map
 }
@@ -162,6 +191,17 @@ export function diffKeymaps(
     }
   }
 
+  const beforeTaps = holdTapMap(baseline)
+  const afterTaps = holdTapMap(draft)
+  const tapIds = new Set([...beforeTaps.keys(), ...afterTaps.keys()])
+  for (const id of [...tapIds].sort()) {
+    const before = beforeTaps.get(id) ?? ''
+    const after = afterTaps.get(id) ?? ''
+    if (before !== after) {
+      changes.push({ type: 'hold_tap', id, before, after })
+    }
+  }
+
   return changes
 }
 
@@ -188,6 +228,10 @@ export function formatKeymapChange(change: KeymapChange): string {
       if (!change.before) return `${change.id} added: ${change.after}`
       if (!change.after) return `${change.id} removed: ${change.before}`
       return `${change.id}: ${change.before} → ${change.after}`
+    case 'hold_tap':
+      if (!change.before) return `${change.id} added: ${change.after}`
+      if (!change.after) return `${change.id} removed: ${change.before}`
+      return `${change.id}: ${change.before} → ${change.after}`
   }
 }
 
@@ -199,6 +243,7 @@ export function summarizeKeymapDiff(changes: KeymapChange[]): string {
   let removes = 0
   let combos = 0
   let conditionalLayers = 0
+  let holdTaps = 0
   for (const change of changes) {
     switch (change.type) {
       case 'binding':
@@ -219,6 +264,9 @@ export function summarizeKeymapDiff(changes: KeymapChange[]): string {
       case 'conditional_layer':
         conditionalLayers++
         break
+      case 'hold_tap':
+        holdTaps++
+        break
     }
   }
 
@@ -235,6 +283,7 @@ export function summarizeKeymapDiff(changes: KeymapChange[]): string {
   if (conditionalLayers > 0) {
     parts.push(countLabel(conditionalLayers, 'conditional layer', 'conditional layers'))
   }
+  if (holdTaps > 0) parts.push(countLabel(holdTaps, 'behavior', 'behaviors'))
   return parts.join(', ')
 }
 

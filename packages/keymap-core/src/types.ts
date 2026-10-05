@@ -31,6 +31,29 @@ export interface ZmkConditionalLayer {
   thenLayer: number
 }
 
+/**
+ * One ZMK hold-tap read from the keymap.
+ * A named node (`hm: hm { compatible = "zmk,behavior-hold-tap" }`) is a new
+ * behaviour code. `override` is an `&mt { … }` / `&lt { … }` timing block
+ * for a behaviour that already exists. Save rewrites this list when it is set.
+ */
+export interface ZmkHoldTap {
+  /** Reference including `&`, e.g. `&hm` or `&mt`. */
+  code: string
+  /** Timing block for an existing behaviour, not a new node. */
+  override?: boolean
+  /** Devicetree node name after the label colon. */
+  nodeName?: string
+  tappingTermMs?: number
+  quickTapMs?: number
+  requirePriorIdleMs?: number
+  flavor?: string
+  /** `bindings = <&kp>, <&kp>` refs, in order. */
+  bindings?: string[]
+  /** Key-editor slot types derived from `bindings`. */
+  params?: string[]
+}
+
 export interface ParsedKeymap {
   keyboard?: string
   keymap?: string
@@ -44,6 +67,12 @@ export interface ParsedKeymap {
    * An empty array means the user removed them and Save should drop the block.
    */
   conditionalLayers?: ZmkConditionalLayer[]
+  /**
+   * Hold-tap nodes and `&mt` / `&lt` timing blocks.
+   * Absent when the source had none and Save should leave those nodes alone.
+   * An array, including empty, is the editor's list and Save rewrites it.
+   */
+  holdTaps?: ZmkHoldTap[]
   [key: string]: unknown
 }
 

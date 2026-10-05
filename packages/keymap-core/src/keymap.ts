@@ -4,6 +4,7 @@ import {
   normalizeConditionalLayers,
   spliceConditionalLayersIntoDts
 } from './dts-conditional-layers.js'
+import { normalizeHoldTaps, spliceHoldTapsIntoDts } from './dts-behaviors.js'
 import {
   keymapBindingsText,
   macrosAppearInText,
@@ -155,15 +156,18 @@ export function parseKeymap(keymap: {
   layers: string[][]
   combos?: Array<DtsComboJson | ZmkCombo>
   conditionalLayers?: unknown
+  holdTaps?: unknown
   [key: string]: unknown
 }): ParsedKeymap {
   const combos = Array.isArray(keymap.combos)
     ? keymap.combos.map(parseComboFromJson)
     : undefined
   const conditionalLayers = normalizeConditionalLayers(keymap.conditionalLayers)
+  const holdTaps = normalizeHoldTaps(keymap.holdTaps)
   const {
     combos: _rawCombos,
     conditionalLayers: _rawRules,
+    holdTaps: _rawHoldTaps,
     layers: _rawLayers,
     ...rest
   } = keymap
@@ -175,6 +179,8 @@ export function parseKeymap(keymap: {
   else delete out.combos
   if (conditionalLayers) out.conditionalLayers = conditionalLayers
   else delete out.conditionalLayers
+  if (holdTaps) out.holdTaps = holdTaps
+  else delete out.holdTaps
   return out
 }
 
@@ -289,8 +295,8 @@ export function buildKeymapCode(
 
   if (typeof template === 'string' && template.length > 0) {
     return {
-      code: applyConditionalLayers(
-        generateKeymapCode(layout, keymap, encoded, template),
+      code: applyHoldTaps(
+        applyConditionalLayers(generateKeymapCode(layout, keymap, encoded, template), keymap),
         keymap
       ),
       json: generateKeymapJSON(layout, encoded),
@@ -315,7 +321,7 @@ export function buildKeymapCode(
       code = spliceCombosIntoDts(code, (keymap.combos ?? []).map(encodeComboToJson))
     }
     return {
-      code: applyConditionalLayers(code, keymap),
+      code: applyHoldTaps(applyConditionalLayers(code, keymap), keymap),
       json: generateKeymapJSON(layout, encoded),
       mode: 'splice',
       warnings
@@ -324,8 +330,11 @@ export function buildKeymapCode(
 
   warnings.push('generated_default_template')
   return {
-    code: applyConditionalLayers(
-      generateKeymapCode(layout, keymap, encoded, keymapTemplate),
+    code: applyHoldTaps(
+      applyConditionalLayers(
+        generateKeymapCode(layout, keymap, encoded, keymapTemplate),
+        keymap
+      ),
       keymap
     ),
     json: generateKeymapJSON(layout, encoded),
@@ -339,13 +348,26 @@ function applyConditionalLayers(code: string, keymap: ParsedKeymap): string {
   return spliceConditionalLayersIntoDts(code, keymap.conditionalLayers)
 }
 
+function applyHoldTaps(code: string, keymap: ParsedKeymap): string {
+  if (keymap.holdTaps === undefined) return code
+  return spliceHoldTapsIntoDts(code, keymap.holdTaps)
+}
+
 export function validateKeymapJson(keymap: unknown): void {
   const errors: string[] = []
 
   if (typeof keymap !== 'object' || keymap === null) {
     errors.push('keymap.json root must be an object')
   } else {
-    const km = keymap as { layers?: unknown }
+    const km = keymap as {
+      layers?: unknown
+      holdTaps?: Array<{ code?: unknown; override?: unknown }>
+    }
+    const extraBehaviours = new Set(
+      (Array.isArray(km.holdTaps) ? km.holdTaps : [])
+        .filter(row => row && row.override !== true && typeof row.code === 'string')
+        .map(row => String(row.code))
+    )
     if (!Array.isArray(km.layers)) {
       errors.push('keymap must include "layers" array')
     } else {
@@ -361,7 +383,7 @@ export function validateKeymapJson(keymap: unknown): void {
               errors.push(`Value at "${keyPath}" must be a string`)
             } else {
               const bind = key.match(/^&.+?\b/)
-              if (!(bind && bind[0] in behavioursByBind)) {
+              if (!(bind && (bind[0] in behavioursByBind || extraBehaviours.has(bind[0])))) {
                 errors.push(`Key bind at "${keyPath}" has invalid behaviour`)
               }
             }
