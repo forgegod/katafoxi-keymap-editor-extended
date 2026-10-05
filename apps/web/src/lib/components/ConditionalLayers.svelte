@@ -116,7 +116,7 @@
 
     {#if drafting}
       <p class="when-hint">
-        Hold two or more layers. The one marked shows appears while they are all held.
+        Hold two or more layers. The one marked Show appears while they are all held.
       </p>
       <div class="when-draft">
         <span class="when-kicker" style:grid-row="1" style:grid-column="1">Hold</span>
