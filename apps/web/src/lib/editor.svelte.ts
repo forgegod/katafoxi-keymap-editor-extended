@@ -43,6 +43,7 @@ import {
   isLegacyBilingualHostLegend,
   standardLayerView,
   remapShownLayersAfterDelete,
+  remapConditionalLayersAfterDelete,
   unregisterHostLayout,
   summarizeKeymapDiff,
   withHostKey,
@@ -67,6 +68,7 @@ import {
   type LayoutKey,
   type ParsedKeymap,
   type ZmkCombo,
+  type ZmkConditionalLayer,
   COMBO_MAX_KEYS,
   comboChordOverlap,
   comboChordOverlapPartners,
@@ -249,6 +251,13 @@ export function cloneParsedKeymap(km: ParsedKeymap): ParsedKeymap {
       if (c.layers) combo.layers = [...c.layers]
       return combo
     })
+  }
+  if (km.conditionalLayers) {
+    out.conditionalLayers = km.conditionalLayers.map(rule => ({
+      id: rule.id,
+      ifLayers: [...rule.ifLayers],
+      thenLayer: rule.thenLayer
+    }))
   }
   return out
 }
@@ -1854,8 +1863,22 @@ export class EditorState {
     const names = [...this.hostLegendLayerNames]
     names.splice(index, 1)
     const layers = km.layers.filter((_, i) => i !== index)
-    this.updateKeymap({ ...km, layer_names: names, layers })
+    const next: ParsedKeymap = { ...km, layer_names: names, layers }
+    if (km.conditionalLayers) {
+      next.conditionalLayers = remapConditionalLayersAfterDelete(
+        km.conditionalLayers,
+        index
+      )
+    }
+    this.updateKeymap(next)
     this.layerView = remapShownLayersAfterDelete(this.layerView, index, layers.length)
+  }
+
+  /** Replace conditional-layer rules on the draft. An empty list drops the block on save. */
+  updateConditionalLayers(conditionalLayers: ZmkConditionalLayer[]) {
+    const km = this.draftKeymap
+    if (!km) return
+    this.updateKeymap({ ...km, conditionalLayers })
   }
 
   updateKeymap(next: ParsedKeymap) {

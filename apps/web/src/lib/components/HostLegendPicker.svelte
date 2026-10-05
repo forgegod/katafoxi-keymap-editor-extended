@@ -1,5 +1,8 @@
 <script lang="ts">
   import {
+    conditionalLayerRowPeer,
+    conditionalLayerWhenText,
+    conditionalLayerWhenTitle,
     hostLanguagesAvailable,
     hostLegendColumns,
     type HostLanguageId
@@ -11,6 +14,7 @@
   import HostLegendLayerRow, {
     type HostLegendLayerRowModel
   } from './HostLegendLayerRow.svelte'
+  import ConditionalLayers from './ConditionalLayers.svelte'
   import HostLegendView from './HostLegendView.svelte'
   import HostProfileBar from './HostProfileBar.svelte'
 
@@ -42,17 +46,22 @@
   let renamingIndex = $state<number | null>(null)
   let editing = $state('')
   let pendingDelete = $state<{ index: number; name: string } | null>(null)
+  let editingWhen = $state(false)
   let stripEl: HTMLDivElement | undefined = $state()
-  const busy = $derived(renamingIndex != null || pendingDelete != null)
+  const busy = $derived(renamingIndex != null || pendingDelete != null || editingWhen)
   const open = $derived(forceOpen || hovered || focused || busy)
 
+  const conditionalRules = $derived(editor.draftKeymap?.conditionalLayers ?? [])
   const allRows = $derived(
     layerNames.map(
       (name, index): HostLegendLayerRowModel => ({
         index,
         name,
         marked: markedLayers.includes(index),
-        binding: editor.draftKeymap?.layers[index]?.[anchorIndex]
+        binding: editor.draftKeymap?.layers[index]?.[anchorIndex],
+        whenLabel: conditionalLayerWhenText(conditionalRules, index, layerNames),
+        whenTitle: conditionalLayerWhenTitle(conditionalRules, index, layerNames),
+        peer: conditionalLayerRowPeer(index, editor.legendHover, conditionalRules)
       })
     )
   )
@@ -125,9 +134,14 @@
 
   $effect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (!stripEl || stripEl.contains(event.target as Node)) return
+      const target = event.target
+      // A control that replaces itself (Add conditional layer) is already
+      // detached by the time this click reaches the document.
+      if (!(target instanceof Node) || !target.isConnected) return
+      if (!stripEl || stripEl.contains(target)) return
       cancelRename()
       cancelDelete()
+      editingWhen = false
     }
     document.addEventListener('click', handleClickOutside)
     return () => document.removeEventListener('click', handleClickOutside)
@@ -187,6 +201,11 @@
                   <button type="button" class="add-layer" onclick={() => editor.addLayer()}>
                     Add Layer
                   </button>
+                </th>
+              </tr>
+              <tr>
+                <th class="when-cell" colspan={columnCount}>
+                  <ConditionalLayers bind:editing={editingWhen} />
                 </th>
               </tr>
             </tfoot>
@@ -336,6 +355,10 @@
 
   tfoot th {
     font-weight: 400;
+  }
+
+  tfoot th.when-cell {
+    white-space: normal;
   }
 
   .delete-confirm {
