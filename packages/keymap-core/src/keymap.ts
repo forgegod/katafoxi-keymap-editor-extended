@@ -1,6 +1,10 @@
 import behaviorsData from '../data/zmk-behaviors.json' with { type: 'json' }
 import { spliceCombosIntoDts, type DtsComboJson } from './dts-combos.js'
 import {
+  normalizeConditionalLayers,
+  spliceConditionalLayersIntoDts
+} from './dts-conditional-layers.js'
+import {
   keymapBindingsText,
   macrosAppearInText,
   parseDefines
@@ -150,18 +154,27 @@ function encodeComboToJson(combo: ZmkCombo): DtsComboJson {
 export function parseKeymap(keymap: {
   layers: string[][]
   combos?: Array<DtsComboJson | ZmkCombo>
+  conditionalLayers?: unknown
   [key: string]: unknown
 }): ParsedKeymap {
   const combos = Array.isArray(keymap.combos)
     ? keymap.combos.map(parseComboFromJson)
     : undefined
-  const { combos: _rawCombos, layers: _rawLayers, ...rest } = keymap
+  const conditionalLayers = normalizeConditionalLayers(keymap.conditionalLayers)
+  const {
+    combos: _rawCombos,
+    conditionalLayers: _rawRules,
+    layers: _rawLayers,
+    ...rest
+  } = keymap
   const out: ParsedKeymap = {
     ...rest,
     layers: keymap.layers.map(layer => layer.map(parseKeyBinding))
   }
   if (combos) out.combos = combos
   else delete out.combos
+  if (conditionalLayers) out.conditionalLayers = conditionalLayers
+  else delete out.conditionalLayers
   return out
 }
 
@@ -276,7 +289,10 @@ export function buildKeymapCode(
 
   if (typeof template === 'string' && template.length > 0) {
     return {
-      code: generateKeymapCode(layout, keymap, encoded, template),
+      code: applyConditionalLayers(
+        generateKeymapCode(layout, keymap, encoded, template),
+        keymap
+      ),
       json: generateKeymapJSON(layout, encoded),
       mode: 'template',
       warnings
@@ -299,7 +315,7 @@ export function buildKeymapCode(
       code = spliceCombosIntoDts(code, (keymap.combos ?? []).map(encodeComboToJson))
     }
     return {
-      code,
+      code: applyConditionalLayers(code, keymap),
       json: generateKeymapJSON(layout, encoded),
       mode: 'splice',
       warnings
@@ -308,11 +324,19 @@ export function buildKeymapCode(
 
   warnings.push('generated_default_template')
   return {
-    code: generateKeymapCode(layout, keymap, encoded, keymapTemplate),
+    code: applyConditionalLayers(
+      generateKeymapCode(layout, keymap, encoded, keymapTemplate),
+      keymap
+    ),
     json: generateKeymapJSON(layout, encoded),
     mode: 'default_template',
     warnings
   }
+}
+
+function applyConditionalLayers(code: string, keymap: ParsedKeymap): string {
+  if (keymap.conditionalLayers === undefined) return code
+  return spliceConditionalLayersIntoDts(code, keymap.conditionalLayers)
 }
 
 export function validateKeymapJson(keymap: unknown): void {

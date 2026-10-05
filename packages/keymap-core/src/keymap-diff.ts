@@ -1,3 +1,4 @@
+import { encodeConditionalLayerFingerprint } from './dts-conditional-layers.js'
 import { encodeKeyBinding } from './keymap.js'
 import type { KeyBindingNode, ParsedKeymap, ZmkCombo } from './types.js'
 
@@ -33,6 +34,14 @@ export type KeymapChange =
       /** Empty when the combo was removed. */
       after: string
     }
+  | {
+      type: 'conditional_layer'
+      id: string
+      /** Empty when the rule was added. */
+      before: string
+      /** Empty when the rule was removed. */
+      after: string
+    }
 
 function layerName(keymap: ParsedKeymap, index: number): string {
   return keymap.layer_names?.[index] ?? `Layer ${index}`
@@ -66,6 +75,14 @@ function comboMap(keymap: ParsedKeymap): Map<string, string> {
   const map = new Map<string, string>()
   for (const combo of keymap.combos ?? []) {
     map.set(combo.id, encodeComboFingerprint(combo))
+  }
+  return map
+}
+
+function conditionalLayerMap(keymap: ParsedKeymap): Map<string, string> {
+  const map = new Map<string, string>()
+  for (const rule of keymap.conditionalLayers ?? []) {
+    map.set(rule.id, encodeConditionalLayerFingerprint(rule))
   }
   return map
 }
@@ -134,6 +151,17 @@ export function diffKeymaps(
     }
   }
 
+  const beforeRules = conditionalLayerMap(baseline)
+  const afterRules = conditionalLayerMap(draft)
+  const ruleIds = new Set([...beforeRules.keys(), ...afterRules.keys()])
+  for (const id of [...ruleIds].sort()) {
+    const before = beforeRules.get(id) ?? ''
+    const after = afterRules.get(id) ?? ''
+    if (before !== after) {
+      changes.push({ type: 'conditional_layer', id, before, after })
+    }
+  }
+
   return changes
 }
 
@@ -156,6 +184,10 @@ export function formatKeymapChange(change: KeymapChange): string {
       if (!change.before) return `${change.id} added: ${change.after}`
       if (!change.after) return `${change.id} removed: ${change.before}`
       return `${change.id}: ${change.before} → ${change.after}`
+    case 'conditional_layer':
+      if (!change.before) return `${change.id} added: ${change.after}`
+      if (!change.after) return `${change.id} removed: ${change.before}`
+      return `${change.id}: ${change.before} → ${change.after}`
   }
 }
 
@@ -166,6 +198,7 @@ export function summarizeKeymapDiff(changes: KeymapChange[]): string {
   let adds = 0
   let removes = 0
   let combos = 0
+  let conditionalLayers = 0
   for (const change of changes) {
     switch (change.type) {
       case 'binding':
@@ -183,6 +216,9 @@ export function summarizeKeymapDiff(changes: KeymapChange[]): string {
       case 'combo':
         combos++
         break
+      case 'conditional_layer':
+        conditionalLayers++
+        break
     }
   }
 
@@ -196,6 +232,9 @@ export function summarizeKeymapDiff(changes: KeymapChange[]): string {
     parts.push(countLabel(removes, 'layer removed', 'layers removed'))
   }
   if (combos > 0) parts.push(countLabel(combos, 'combo', 'combos'))
+  if (conditionalLayers > 0) {
+    parts.push(countLabel(conditionalLayers, 'conditional layer', 'conditional layers'))
+  }
   return parts.join(', ')
 }
 
