@@ -4,9 +4,12 @@ import {
   COMBO_MAX_KEYS,
   COMBO_MIN_KEYS,
   bindingLooksLikeAltTab,
+  comboChordOverlap,
+  comboChordOverlapPartners,
   comboDesignHint,
   comboKeysIssue,
   comboListMeta,
+  comboOverlapMessage,
   comboLooksLikeModifierChord,
   createEmptyCombo,
   encodeKeyBinding,
@@ -209,6 +212,72 @@ describe('combo key counts', () => {
     expect(comboKeysIssue([0, 1, 2, 3, 4, 5])).toBe('too_many')
     expect(isComboReady({ keyPositions: [1, 2] })).toBe(true)
     expect(isComboReady({ keyPositions: [1] })).toBe(false)
+  })
+})
+
+describe('combo chord overlap', () => {
+  const chord = (id: string, keyPositions: number[], layers?: number[]) => ({
+    id,
+    keyPositions,
+    ...(layers ? { layers } : {})
+  })
+
+  it('flags the same keys on a shared layer, including reversed order', () => {
+    const combos = [
+      chord('combo_esc', [0, 1]),
+      chord('combo_tab', [1, 0])
+    ]
+    expect(comboChordOverlap(combos)).toEqual({
+      id: 'combo_esc',
+      otherId: 'combo_tab'
+    })
+    expect(comboChordOverlapPartners(combos).get('combo_tab')).toBe('combo_esc')
+    expect(comboOverlapMessage('combo_tab')).toMatch(/combo_tab/)
+  })
+
+  it('treats repeated indexes as the same chord', () => {
+    expect(
+      comboChordOverlap([
+        chord('combo_esc', [0, 1, 1]),
+        chord('combo_tab', [1, 0])
+      ])
+    ).toEqual({ id: 'combo_esc', otherId: 'combo_tab' })
+  })
+
+  it('flags a global combo against the same keys on one layer', () => {
+    expect(
+      comboChordOverlap([
+        chord('combo_esc', [0, 1]),
+        chord('combo_tab', [0, 1], [0])
+      ])
+    ).toEqual({ id: 'combo_esc', otherId: 'combo_tab' })
+  })
+
+  it('flags a partial layer overlap', () => {
+    expect(
+      comboChordOverlap([
+        chord('combo_esc', [0, 1], [0, 1]),
+        chord('combo_tab', [0, 1], [1, 2])
+      ])?.id
+    ).toBe('combo_esc')
+  })
+
+  it('allows the same keys on disjoint layers', () => {
+    expect(
+      comboChordOverlap([
+        chord('combo_esc', [0, 1], [0]),
+        chord('combo_tab', [0, 1], [1])
+      ])
+    ).toBeNull()
+  })
+
+  it('allows a shorter chord nested in a longer one', () => {
+    expect(
+      comboChordOverlap([
+        chord('combo_esc', [0, 1]),
+        chord('combo_tab', [0, 1, 2])
+      ])
+    ).toBeNull()
   })
 })
 

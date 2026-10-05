@@ -10,9 +10,11 @@
     COMBO_TIMEOUT_MS_MIN,
     clampComboPriorIdleMs,
     clampComboTimeoutMs,
+    comboChordOverlapPartners,
     comboDesignHint,
     comboKeysIssue,
     comboKeysMessage,
+    comboOverlapMessage,
     comboListMeta,
     createEmptyCombo,
     encodeKeyBinding,
@@ -41,8 +43,12 @@
   const active = $derived(
     combos.find(c => c.id === editor.activeComboId) ?? null
   )
+  const overlapPartners = $derived(comboChordOverlapPartners(combos))
   const activeIssue = $derived(
     active ? comboKeysIssue(active.keyPositions) : null
+  )
+  const activeOverlapId = $derived(
+    active ? (overlapPartners.get(active.id) ?? null) : null
   )
   const designHint = $derived(
     active
@@ -50,10 +56,16 @@
       : null
   )
   const activeHint = $derived(
-    editor.comboNotice ?? comboKeysMessage(activeIssue) ?? designHint
+    editor.comboNotice ??
+      comboKeysMessage(activeIssue) ??
+      comboOverlapMessage(activeOverlapId) ??
+      designHint
   )
   const hintIsSoft = $derived(
-    !editor.comboNotice && activeIssue == null && designHint != null
+    !editor.comboNotice &&
+      activeIssue == null &&
+      activeOverlapId == null &&
+      designHint != null
   )
   const timeoutMs = $derived(active?.timeoutMs ?? COMBO_TIMEOUT_MS_DEFAULT)
   const timeoutIsCustom = $derived(active?.timeoutMs !== undefined)
@@ -120,18 +132,19 @@
       return merged
     })
     editor.updateCombos(next)
+    editor.refreshComboNotice()
   }
 
   function selectCombo(id: string) {
     editor.activeComboId = id
-    editor.comboNotice = null
+    editor.refreshComboNotice()
   }
 
   function addCombo() {
     const combo = createEmptyCombo(combos)
     editor.updateCombos([...combos, combo])
     editor.activeComboId = combo.id
-    editor.comboNotice = comboKeysMessage('too_few')
+    editor.refreshComboNotice()
   }
 
   function removeActive() {
@@ -139,7 +152,7 @@
     const next = combos.filter(c => c.id !== active.id)
     editor.updateCombos(next)
     editor.activeComboId = next[0]?.id ?? null
-    editor.comboNotice = null
+    editor.refreshComboNotice()
   }
 
   function renameActive(event: Event) {
@@ -480,16 +493,19 @@
     <ul class="combo-list" role="listbox" aria-label="Combo list">
       {#each combos as combo (combo.id)}
         {@const issue = comboKeysIssue(combo.keyPositions)}
+        {@const partner = overlapPartners.get(combo.id) ?? null}
         {@const soft =
           issue == null &&
+          partner == null &&
           comboDesignHint(combo.keyPositions, layer0, combo.binding)}
         <li>
           <button
             type="button"
             class="combo-item"
             class:active={combo.id === editor.activeComboId}
-            class:invalid={issue != null}
+            class:invalid={issue != null || partner != null}
             class:soft-warn={!!soft}
+            title={comboOverlapMessage(partner) ?? undefined}
             role="option"
             aria-selected={combo.id === editor.activeComboId}
             onclick={() => selectCombo(combo.id)}

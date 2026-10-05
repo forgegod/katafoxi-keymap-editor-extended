@@ -59,6 +59,30 @@ describe('editor combo mode', () => {
     expect(editor.comboMode).toBe(false)
   })
 
+  it('blocks exit when two combos share keys on the same layer', () => {
+    editor.updateCombos([
+      { id: 'combo_esc', keyPositions: [0, 1], binding: esc },
+      { id: 'combo_tab', keyPositions: [1, 0], binding: esc, layers: [0] }
+    ])
+    editor.toggleComboMode()
+    expect(editor.tryExitComboMode()).toBe(false)
+    expect(editor.comboMode).toBe(true)
+    expect(editor.activeComboId).toBe('combo_esc')
+    expect(editor.comboNotice).toMatch(/combo_tab/)
+    expect(editor.draftKeymap?.combos).toHaveLength(2)
+  })
+
+  it('allows the same keys on disjoint layers and a nested longer chord', () => {
+    editor.updateCombos([
+      { id: 'combo_esc', keyPositions: [0, 1], binding: esc, layers: [0] },
+      { id: 'combo_tab', keyPositions: [0, 1], binding: esc, layers: [1] },
+      { id: 'combo_long', keyPositions: [0, 1, 2], binding: esc, layers: [0] }
+    ])
+    editor.toggleComboMode()
+    expect(editor.tryExitComboMode()).toBe(true)
+    expect(editor.comboMode).toBe(false)
+  })
+
   it('drops empty drafts on exit and keeps complete combos', () => {
     editor.updateCombos([
       { id: 'combo_esc', keyPositions: [0, 1], binding: esc },

@@ -90,6 +90,45 @@ describe('ComboPanel', () => {
     ).toBeNull()
   })
 
+  it('marks both rows when two combos share keys and clears after the layers split', () => {
+    const keymap = {
+      layers: [
+        [none, none],
+        [none, none]
+      ],
+      layer_names: ['Base', 'Lower'],
+      combos: [
+        { id: 'combo_esc', keyPositions: [0, 1], binding: esc },
+        { id: 'combo_tab', keyPositions: [1, 0], binding: esc, layers: [1] }
+      ]
+    }
+    editor.baselineKeymap = structuredClone(keymap)
+    editor.draftKeymap = structuredClone(keymap)
+    editor.activeComboId = 'combo_esc'
+    mountPanel()
+
+    expect(target.querySelectorAll('.combo-item.invalid')).toHaveLength(2)
+    expect(target.querySelector('.combo-warn')?.textContent).toMatch(/combo_tab/)
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    )
+    flushSync()
+    expect(editor.comboMode).toBe(true)
+
+    const base = [...target.querySelectorAll('.layer-chip')].find(
+      el => el.textContent?.trim() === 'L0'
+    )
+    if (!(base instanceof HTMLButtonElement)) throw new Error('missing L0')
+    base.click()
+    flushSync()
+
+    expect(editor.draftKeymap?.combos?.[0]?.layers).toEqual([0])
+    expect(target.querySelectorAll('.combo-item.invalid')).toHaveLength(0)
+    expect(target.querySelector('.combo-warn')).toBeNull()
+    expect(editor.comboNotice).toBeNull()
+  })
+
   it('adds a new incomplete combo from New', () => {
     mountPanel()
     const add = [...target.querySelectorAll('.combo-btn')].find(

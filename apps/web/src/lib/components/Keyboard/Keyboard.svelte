@@ -115,11 +115,11 @@
 
   function openComboFromBoard(comboId: string) {
     editor.activeComboId = comboId
-    editor.comboNotice = null
     if (!editor.comboMode) {
       editor.schemeMode = false
       editor.comboMode = true
     }
+    editor.refreshComboNotice()
   }
 
   const hiddenKeys = $derived.by(() => {

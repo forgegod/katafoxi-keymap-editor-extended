@@ -68,8 +68,11 @@ import {
   type ParsedKeymap,
   type ZmkCombo,
   COMBO_MAX_KEYS,
+  comboChordOverlap,
+  comboChordOverlapPartners,
   comboKeysIssue,
-  comboKeysMessage
+  comboKeysMessage,
+  comboOverlapMessage
 } from '@keymap-editor/keymap-core'
 import type { Definitions } from './context'
 import {
@@ -329,7 +332,7 @@ export class EditorState {
   comboMode = $state(false)
   /** Selected combo id while `comboMode` is on. */
   activeComboId = $state<string | null>(null)
-  /** Short hint while editing combos (too few / too many keys). */
+  /** Short hint while editing combos (key count or a shared chord). */
   comboNotice = $state<string | null>(null)
 
   /**
@@ -1898,8 +1901,9 @@ export class EditorState {
   }
 
   /**
-   * Leave combo mode when every kept combo has 2–COMBO_MAX_KEYS keys.
-   * Drops empty drafts. Returns false if an incomplete combo blocks exit.
+   * Leave combo mode when every kept combo has a valid key count and no two
+   * claim the same keys on a shared layer. Drops empty drafts.
+   * Returns false when a combo still blocks exit.
    */
   tryExitComboMode(): boolean {
     if (!this.comboMode) return true
@@ -1912,14 +1916,35 @@ export class EditorState {
     const incomplete = withoutEmpty.find(c => comboKeysIssue(c.keyPositions) != null)
     if (incomplete) {
       this.activeComboId = incomplete.id
-      this.comboNotice =
-        comboKeysMessage(comboKeysIssue(incomplete.keyPositions)) ??
-        'Fix incomplete combos before leaving.'
+      this.refreshComboNotice()
+      return false
+    }
+    const overlap = comboChordOverlap(withoutEmpty)
+    if (overlap) {
+      this.activeComboId = overlap.id
+      this.refreshComboNotice()
       return false
     }
     this.comboMode = false
     this.comboNotice = null
     return true
+  }
+
+  /** Hard hint for the active combo: key count, then a shared chord. */
+  refreshComboNotice() {
+    const combos = this.draftKeymap?.combos ?? []
+    const combo = combos.find(c => c.id === this.activeComboId)
+    if (!combo) {
+      this.comboNotice = null
+      return
+    }
+    const issue = comboKeysIssue(combo.keyPositions)
+    if (issue) {
+      this.comboNotice = comboKeysMessage(issue)
+      return
+    }
+    const otherId = comboChordOverlapPartners(combos).get(combo.id)
+    this.comboNotice = comboOverlapMessage(otherId)
   }
 
   /** Toggle `keyIndex` in the active combo's key-positions. */
@@ -1933,21 +1958,19 @@ export class EditorState {
     const set = new Set(combo.keyPositions)
     if (set.has(keyIndex)) {
       set.delete(keyIndex)
-      this.comboNotice = null
     } else {
       if (set.size >= COMBO_MAX_KEYS) {
         this.comboNotice = comboKeysMessage('too_many')
         return
       }
       set.add(keyIndex)
-      this.comboNotice =
-        set.size < 2 ? comboKeysMessage('too_few') : null
     }
     combos[i] = {
       ...combo,
       keyPositions: [...set].sort((a, b) => a - b)
     }
     this.updateCombos(combos)
+    this.refreshComboNotice()
   }
 
   undo() {

@@ -60,7 +60,7 @@ Click a stacked keycap row. One dialog edits that layer’s ZMK binding:
 
 ## Combos
 
-**Combos** is a board mode beside Scheme: pick `key-positions` on the matrix, edit the chord binding in KeyEditor, and set per-combo `timeout-ms`, `layers`, `slow-release`, and `require-prior-idle-ms`. Parse/splice live in `keymap-core` (`dts-combos`); Save rewrites the `combos { … }` block with the rest of the keymap contract ([ADR 0002](adr/0002-keymap-file-contract.md)). Outside edit mode the board shows gap beads for adjacent two-key chords (horizontal or vertical) and side anchor beads for non-adjacent pairs or three-or-more chords; beads sit on the layer strip they apply to, and hovering a bead peeks those keys. Incomplete drafts (fewer than two keys) block leaving the mode; empty new rows are dropped on exit.
+**Combos** is a board mode beside Scheme: pick `key-positions` on the matrix, edit the chord binding in KeyEditor, and set per-combo `timeout-ms`, `layers`, `slow-release`, and `require-prior-idle-ms`. Parse/splice live in `keymap-core` (`dts-combos`); Save rewrites the `combos { … }` block with the rest of the keymap contract ([ADR 0002](adr/0002-keymap-file-contract.md)). Outside edit mode the board shows gap beads for adjacent two-key chords (horizontal or vertical) and side anchor beads for non-adjacent pairs or three-or-more chords; beads sit on the layer strip they apply to, and hovering a bead peeks those keys. Incomplete drafts (fewer than two keys) block leaving the mode, as do two combos with the same key set on a shared layer (omitted `layers` counts as every layer). A shorter chord nested in a longer one stays valid. Empty new rows are dropped on exit.
 
 ## Keycap / compose (target UX)
 

@@ -354,9 +354,81 @@ export function comboKeysMessage(issue: ComboKeysIssue | null): string | null {
   return null
 }
 
-/** True when the combo is safe to leave in the keymap / exit the editor. */
+/** True when this combo's key count is in range. Shared chords are list-level. */
 export function isComboReady(combo: { keyPositions: readonly number[] }): boolean {
   return comboKeysIssue(combo.keyPositions) === null
+}
+
+export interface ComboChordRef {
+  id: string
+  keyPositions: readonly number[]
+  /** Omit or leave empty for every layer. */
+  layers?: readonly number[]
+}
+
+/**
+ * Chord identity. Order and repeated indexes do not count.
+ * Fewer than two distinct keys is not a chord yet.
+ */
+function comboChordKey(keyPositions: readonly number[]): string | null {
+  const unique = [...new Set(keyPositions)].sort((a, b) => a - b)
+  if (unique.length < COMBO_MIN_KEYS) return null
+  return unique.join(',')
+}
+
+/** Omitted or empty `layers` means every layer, so it meets any other combo. */
+function comboLayersIntersect(
+  a: readonly number[] | undefined,
+  b: readonly number[] | undefined
+): boolean {
+  if (!a || a.length === 0 || !b || b.length === 0) return true
+  const set = new Set(a)
+  return b.some(layer => set.has(layer))
+}
+
+/**
+ * Combos that claim the same key set on a shared layer.
+ * The value is the other combo's id (first match in list order).
+ * A shorter chord inside a longer one is not a conflict.
+ */
+export function comboChordOverlapPartners(
+  combos: readonly ComboChordRef[]
+): Map<string, string> {
+  const partners = new Map<string, string>()
+  const chords: { id: string; key: string; layers?: readonly number[] }[] = []
+  for (const combo of combos) {
+    const key = comboChordKey(combo.keyPositions)
+    if (key == null) continue
+    chords.push({ id: combo.id, key, layers: combo.layers })
+  }
+  for (let i = 0; i < chords.length; i++) {
+    const left = chords[i]!
+    for (let j = i + 1; j < chords.length; j++) {
+      const right = chords[j]!
+      if (left.key !== right.key) continue
+      if (!comboLayersIntersect(left.layers, right.layers)) continue
+      if (!partners.has(left.id)) partners.set(left.id, right.id)
+      if (!partners.has(right.id)) partners.set(right.id, left.id)
+    }
+  }
+  return partners
+}
+
+/** First combo in list order that shares its chord with another on a common layer. */
+export function comboChordOverlap(
+  combos: readonly ComboChordRef[]
+): { id: string; otherId: string } | null {
+  const partners = comboChordOverlapPartners(combos)
+  for (const combo of combos) {
+    const otherId = partners.get(combo.id)
+    if (otherId) return { id: combo.id, otherId }
+  }
+  return null
+}
+
+export function comboOverlapMessage(otherId: string | null | undefined): string | null {
+  if (!otherId) return null
+  return `Same keys as ${otherId} on a shared layer.`
 }
 
 /**
