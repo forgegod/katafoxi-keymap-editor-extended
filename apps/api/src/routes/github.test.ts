@@ -321,6 +321,40 @@ describe('session and errors', () => {
     )
   })
 
+  it('POST /github/keyboard-files returns 400 for invalid JSON bodies', async () => {
+    const commit = vi.mocked(files.commitChanges)
+    const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark/main', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{not-json'
+    })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ errors: ['Request body must be valid JSON'] })
+    expect(commit).not.toHaveBeenCalled()
+  })
+
+  it('POST /github/keyboard-files returns 400 for an invalid branch name', async () => {
+    const commit = vi.mocked(files.commitChanges)
+    const layout = [{ x: 0, y: 0 }]
+    const keymap = parseKeymap(VALID_KEYMAP)
+    const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark/has%20space', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keymap, layout })
+    })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ name: 'BranchNameError' })
+    expect(commit).not.toHaveBeenCalled()
+  })
+
+  it('GET /github/keyboard-files returns 400 for an invalid branch query', async () => {
+    const fetchFiles = vi.mocked(files.fetchKeyboardFiles)
+    const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark?branch=bad..name')
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ name: 'BranchNameError' })
+    expect(fetchFiles).not.toHaveBeenCalled()
+  })
+
   it('POST /github/installation branches requires a session and a valid name', async () => {
     const anon = await app.request('/github/installation/1/acme%2Flark/branches', {
       method: 'POST',

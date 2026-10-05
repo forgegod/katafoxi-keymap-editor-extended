@@ -47,6 +47,32 @@ export class BranchNameError extends Error {
   }
 }
 
+export class RepositoryNameError extends Error {
+  readonly errors: string[]
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'RepositoryNameError'
+    this.errors = [message]
+  }
+}
+
+/** GitHub `owner/repo` full name. Throws when the shape is not safe to put in a URL. */
+export function assertRepositoryName(name: string): string {
+  const repository = name.trim()
+  if (!repository) throw new RepositoryNameError('Enter a repository')
+  const parts = repository.split('/')
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    throw new RepositoryNameError('Repository must be owner/repo')
+  }
+  for (const part of parts) {
+    if (part === '.' || part === '..' || !/^[A-Za-z0-9._-]+$/.test(part)) {
+      throw new RepositoryNameError('Repository name is invalid')
+    }
+  }
+  return repository
+}
+
 /** Git ref name, trimmed. Throws when Git would reject the branch. */
 export function assertBranchName(name: string): string {
   const branch = name.trim()

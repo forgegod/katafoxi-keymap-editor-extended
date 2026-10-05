@@ -1,3 +1,4 @@
+import path from 'node:path'
 import {
   buildKeymapCode,
   encodeHostKeymapSnapshot,
@@ -15,6 +16,34 @@ import * as api from './api.js'
 import * as auth from './auth.js'
 
 const MODE_FILE = '100644'
+const HOST_KEYMAP_LINUX_PREFIX = 'host_keymap/linux/'
+const HOST_KEYMAP_WINDOWS_PREFIX = 'host_keymap/windows/'
+
+/**
+ * True when a commit blob path is a safe host_keymap deliverable or snapshot.
+ * Rejects traversal (`..`), absolute paths, and anything outside the allowlist.
+ */
+export function isAllowedHostKeymapPath(filePath: string): boolean {
+  if (typeof filePath !== 'string' || !filePath) return false
+  if (filePath.includes('\0')) return false
+  if (filePath.startsWith('/') || path.win32.isAbsolute(filePath)) return false
+  if (filePath.split(/[/\\]/).includes('..')) return false
+
+  const normalized = path.posix.normalize(filePath)
+  if (normalized.startsWith('/') || normalized === '..' || normalized.startsWith('../')) {
+    return false
+  }
+  if (normalized.split('/').includes('..')) return false
+
+  if (normalized === HOST_KEYMAP_SNAPSHOT_PATH) return true
+
+  for (const prefix of [HOST_KEYMAP_LINUX_PREFIX, HOST_KEYMAP_WINDOWS_PREFIX]) {
+    if (!normalized.startsWith(prefix)) continue
+    const rest = normalized.slice(prefix.length)
+    if (rest && !rest.includes('/') && rest !== '.' && rest !== '..') return true
+  }
+  return false
+}
 
 export interface ConfigDirEntry {
   name: string
@@ -308,9 +337,9 @@ export async function commitChanges(
     })
     for (const file of hostDeliverables ?? []) {
       if (!file?.path || typeof file.content !== 'string') continue
-      if (!file.path.startsWith('host_keymap/')) continue
+      if (!isAllowedHostKeymapPath(file.path)) continue
       tree.push({
-        path: file.path,
+        path: path.posix.normalize(file.path),
         mode: MODE_FILE,
         type: 'blob',
         content: file.content

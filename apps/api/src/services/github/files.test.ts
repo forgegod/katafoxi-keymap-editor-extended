@@ -7,6 +7,7 @@ import {
   commitChanges,
   fetchKeyboardFiles,
   findCodeKeymap,
+  isAllowedHostKeymapPath,
   listConfigDir,
   MissingRepoFile
 } from './files.js'
@@ -200,6 +201,24 @@ function treeBlobs(request: { mock: { calls: unknown[][] } }) {
 
 afterEach(() => {
   vi.restoreAllMocks()
+})
+
+describe('isAllowedHostKeymapPath', () => {
+  it('allows snapshot and single-segment linux/windows deliverables', () => {
+    expect(isAllowedHostKeymapPath(HOST_KEYMAP_SNAPSHOT_PATH)).toBe(true)
+    expect(isAllowedHostKeymapPath('host_keymap/linux/ru.xkb')).toBe(true)
+    expect(isAllowedHostKeymapPath('host_keymap/windows/en-ru.klc')).toBe(true)
+  })
+
+  it('rejects traversal, absolute, and out-of-allowlist paths', () => {
+    expect(isAllowedHostKeymapPath('host_keymap/../config/evil.keymap')).toBe(false)
+    expect(isAllowedHostKeymapPath('host_keymap/linux/../windows/x.klc')).toBe(false)
+    expect(isAllowedHostKeymapPath('/host_keymap/linux/ru.xkb')).toBe(false)
+    expect(isAllowedHostKeymapPath('config/keymap.json')).toBe(false)
+    expect(isAllowedHostKeymapPath('host_keymap/extra/ru.xkb')).toBe(false)
+    expect(isAllowedHostKeymapPath('host_keymap/linux/nested/ru.xkb')).toBe(false)
+    expect(isAllowedHostKeymapPath('evil/../escape.txt')).toBe(false)
+  })
 })
 
 describe('listConfigDir', () => {
@@ -625,6 +644,14 @@ describe('commitChanges', () => {
       {
         path: 'evil/../escape.txt',
         content: 'nope'
+      },
+      {
+        path: 'host_keymap/../config/evil.keymap',
+        content: 'traversal'
+      },
+      {
+        path: '/host_keymap/linux/abs.xkb',
+        content: 'absolute'
       }
     ]
 

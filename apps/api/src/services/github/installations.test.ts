@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ApiRequestOptions } from './api.js'
 import * as api from './api.js'
-import { assertBranchName, BranchNameError, createBranch } from './installations.js'
+import { assertBranchName, assertRepositoryName, BranchNameError, createBranch, RepositoryNameError } from './installations.js'
 
 function requestUrl(options: ApiRequestOptions | string): string {
   return typeof options === 'string' ? options : options.url
@@ -18,6 +18,21 @@ describe('assertBranchName', () => {
     expect(() => assertBranchName('bad..name')).toThrow(BranchNameError)
     expect(() => assertBranchName('.hidden')).toThrow(BranchNameError)
     expect(() => assertBranchName('')).toThrow(/Enter a branch name/)
+  })
+})
+
+describe('assertRepositoryName', () => {
+  it('accepts owner/repo', () => {
+    expect(assertRepositoryName('acme/lark')).toBe('acme/lark')
+    expect(assertRepositoryName('  acme/keymap  ')).toBe('acme/keymap')
+  })
+
+  it('rejects malformed repository names', () => {
+    expect(() => assertRepositoryName('')).toThrow(RepositoryNameError)
+    expect(() => assertRepositoryName('only-owner')).toThrow(RepositoryNameError)
+    expect(() => assertRepositoryName('a/b/c')).toThrow(RepositoryNameError)
+    expect(() => assertRepositoryName('../evil/repo')).toThrow(RepositoryNameError)
+    expect(() => assertRepositoryName('acme/../lark')).toThrow(RepositoryNameError)
   })
 })
 
