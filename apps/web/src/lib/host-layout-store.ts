@@ -7,6 +7,7 @@ import {
   addHostLanguage,
   assignHostLanguageLayout,
   catalogLayoutsForLanguage,
+  cloneHostLayoutTable,
   HOST_ASSEMBLY_LIMIT,
   HOST_LANGUAGE_IDS,
   hostLayout,
@@ -125,17 +126,6 @@ export function uniqueUserHostLayoutName(
     if (!used(name)) return name
   }
   return `${base} ${crypto.randomUUID()}`
-}
-
-export function cloneHostLayoutTable(source: HostLayout, id: string): HostLayout {
-  const byZmk = new Map<string, HostKeyLevels>()
-  for (const [zmk, levels] of source.byZmk) {
-    byZmk.set(zmk, {
-      keysyms: [levels.keysyms[0], levels.keysyms[1], levels.keysyms[2], levels.keysyms[3]],
-      glyphs: [levels.glyphs[0], levels.glyphs[1], levels.glyphs[2], levels.glyphs[3]]
-    })
-  }
-  return { id, byZmk }
 }
 
 function serializeLayout(layout: HostLayout): StoredKeyRow[] {

@@ -39,7 +39,7 @@ export interface HostSymbolShelf {
   id: string
   title: string
   open: boolean
-  entries: HostSymbolShelfEntry[]
+  entries: readonly HostSymbolShelfEntry[]
 }
 
 type Range = readonly [number, number]
@@ -112,7 +112,7 @@ const STRUCTURAL_MODIFIER_KEYSYMS = [
  * Language-typical dead keys (from the primary system layout) sit on the open
  * Modifiers shelf; the rest are under collapsed "More dead keys".
  */
-export const HOST_SYMBOL_MODIFIER_KEYSYMS: readonly string[] = [
+export const HOST_SYMBOL_MODIFIER_KEYSYMS: readonly string[] = Object.freeze([
   ...STRUCTURAL_MODIFIER_KEYSYMS,
   'dead_grave',
   'dead_acute',
@@ -156,7 +156,7 @@ export const HOST_SYMBOL_MODIFIER_KEYSYMS: readonly string[] = [
   'dead_belowcircumflex',
   'dead_belowbreve',
   'dead_capital_schwa'
-]
+])
 
 type LanguageFamily = HostLanguageScript
 
@@ -265,7 +265,7 @@ interface Bucket {
   entries: HostSymbolShelfEntry[]
 }
 
-function buildShelves(language: HostLanguageId): HostSymbolShelf[] {
+function buildShelves(language: HostLanguageId): readonly HostSymbolShelf[] {
   const family = languageFamily(language)
 
   const languageBucket: Bucket = {
@@ -394,13 +394,20 @@ function buildShelves(language: HostLanguageId): HostSymbolShelf[] {
     shelves.push({ ...bucket, entries: sortEntries(bucket.entries) })
   }
 
-  return shelves
+  return Object.freeze(
+    shelves.map(shelf =>
+      Object.freeze({
+        ...shelf,
+        entries: Object.freeze(shelf.entries.map(entry => Object.freeze({ ...entry })))
+      })
+    )
+  )
 }
 
-const cache = new Map<HostLanguageId, HostSymbolShelf[]>()
+const cache = new Map<HostLanguageId, readonly HostSymbolShelf[]>()
 
 /** Ordered shelves for the host symbol picker for a column language. */
-export function hostSymbolShelves(language: HostLanguageId): HostSymbolShelf[] {
+export function hostSymbolShelves(language: HostLanguageId): readonly HostSymbolShelf[] {
   let shelves = cache.get(language)
   if (!shelves) {
     shelves = buildShelves(language)

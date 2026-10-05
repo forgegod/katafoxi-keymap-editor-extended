@@ -683,6 +683,17 @@ describe('withHostKey', () => {
     expect(tableOf(base)).toEqual(before)
     expect(next.byZmk).not.toBe(base.byZmk)
     expect(next.byZmk.get('A')).not.toBe(base.byZmk.get('A'))
+    // Unedited keys are deep-cloned so generations do not share level objects.
+    expect(next.byZmk.get('Q')).not.toBe(base.byZmk.get('Q'))
+    expect(next.byZmk.get('Q')).toEqual(base.byZmk.get('Q'))
+  })
+
+  it('does not share level objects across successive edits', () => {
+    const first = withHostKey(editableLayout(), 'A', 2, 'Cyrillic_io')!
+    const second = withHostKey(first, 'Q', 0, 'b')!
+    expect(second.byZmk.get('A')).not.toBe(first.byZmk.get('A'))
+    expect(second.byZmk.get('A')).toEqual(first.byZmk.get('A'))
+    expect(second.byZmk.get('Q')).not.toBe(first.byZmk.get('Q'))
   })
 
   it('leaves a registered system layout untouched', () => {

@@ -56,6 +56,7 @@ import {
   hostLayoutFromKeymapSnapshotKeys,
   buildHostKeymapDeliverableFiles,
   cloneHostLegendView,
+  cloneHostLayoutTable,
   type HostKeymapSnapshot,
   type HostKeymapDeliverableFile,
   type HostLayout,
@@ -97,7 +98,6 @@ import {
   writeClipboardOriginalSource
 } from './clipboard/session.js'
 import {
-  cloneHostLayoutTable,
   deleteUserHostLayout,
   isUserHostLayoutId,
   deleteHostLegendView,

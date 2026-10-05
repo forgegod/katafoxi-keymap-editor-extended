@@ -1,5 +1,5 @@
 import { primarySystemLayoutId } from './host-layout-catalog.js'
-import { STANDARD_HOST_LEGEND_VIEW } from './host-legend-presets.js'
+import { standardHostLegendView } from './host-legend-presets.js'
 import {
   ADDABLE_HOST_LANGUAGE_IDS,
   hostLanguageName,
@@ -7,6 +7,8 @@ import {
   type HostLanguageId
 } from './host-languages.js'
 import type { HostColumn, HostLegendView } from './types.js'
+
+export { standardHostLegendView }
 
 /** Shallow clone of columns / keycap so callers can mutate safely. */
 export function cloneHostLegendView(view: HostLegendView): HostLegendView {
@@ -61,10 +63,6 @@ function placeOnKeycap(view: HostLegendView, language: HostLanguageId): HostLang
 
 function columnOf(view: HostLegendView, language: HostLanguageId): HostColumn | undefined {
   return view.columns.find(column => column.language === language)
-}
-
-export function standardHostLegendView(): HostLegendView {
-  return cloneHostLegendView(STANDARD_HOST_LEGEND_VIEW)
 }
 
 export interface HostLegendColumn {

@@ -223,4 +223,20 @@ describe('hostSymbolShelves', () => {
       expect(glyphs.has(glyph), glyph).toBe(true)
     }
   })
+
+  it('returns frozen shelves and entries so cache consumers cannot mutate them', () => {
+    const shelves = hostSymbolShelves('en')
+    expect(Object.isFrozen(shelves)).toBe(true)
+    expect(Object.isFrozen(shelves[0])).toBe(true)
+    expect(Object.isFrozen(shelves[0]!.entries)).toBe(true)
+    expect(Object.isFrozen(shelves[0]!.entries[0])).toBe(true)
+    expect(() => {
+      ;(shelves as HostSymbolShelf[]).push({
+        id: 'x',
+        title: 'x',
+        open: false,
+        entries: []
+      })
+    }).toThrow()
+  })
 })
