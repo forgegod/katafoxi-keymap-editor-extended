@@ -347,6 +347,10 @@ export function generateKeymap(
  * Prefer an explicit template, else splice into originalSource, else the default
  * generated template. Always validates layer key counts first.
  *
+ * Template / default_template name layer nodes as `default_layer` (index 0) or
+ * `layer_${name}` from `layer_names` (sanitized); splice keeps existing DTS node
+ * ids by index and does not rename them from UI names (ADR 0002).
+ *
  * Optional model fields on every save path (`applyModelBlocks`):
  *
  * | Field | Absent (`undefined`) | Present empty (`[]`) | Present non-empty |
@@ -369,7 +373,6 @@ export function buildKeymapCode(
   const layers = encoded.layers as string[][]
   assertLayerKeyCounts(layout, layers)
 
-  const layerNames = (keymap.layer_names as string[]) || []
   const warnings: string[] = []
   const template = options?.template
   const originalSource = options?.originalSource
@@ -394,8 +397,7 @@ export function buildKeymapCode(
     }
     const spliced = spliceBindingsIntoDts(originalSource, {
       layout,
-      layers,
-      layerNames
+      layers
     })
     return {
       code: applyModelBlocks(spliced, keymap),

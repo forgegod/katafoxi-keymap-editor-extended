@@ -148,7 +148,7 @@ function isNumber(val: unknown): val is number {
  * Pick a column count for an inferred board: prefer a divisor of `keyCount`,
  * else 12 (last row may be short).
  */
-export function inferRectangularColumns(keyCount: number): number {
+function inferRectangularColumns(keyCount: number): number {
   if (!Number.isInteger(keyCount) || keyCount <= 0) {
     throw new Error('keyCount must be a positive integer')
   }
@@ -193,7 +193,7 @@ export function inferRectangularLayout(
 }
 
 /** True when the layout slot exists only to hold a matrix/keymap index. */
-export function isAbsentLayoutKey(key: LayoutKey): boolean {
+function isAbsentLayoutKey(key: LayoutKey): boolean {
   return key.absent === true
 }
 

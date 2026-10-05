@@ -1,7 +1,7 @@
 import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ParsedKeymap } from '@keymap-editor/keymap-core'
-import { SYSTEM_US_LAYOUT_ID } from '@keymap-editor/keymap-core'
+import { primarySystemLayoutId, type ParsedKeymap } from '@keymap-editor/keymap-core'
+
 import { buildDraftIdentity, deleteStoredDraft } from '../../draft-storage'
 import { editor } from '../../editor.svelte.js'
 import { clearHostLayoutStore } from '../../host-layout-store'
@@ -172,7 +172,7 @@ describe('Keyboard host legend redraw', () => {
 
   it('repaints the same keycap after an in-place host level edit', async () => {
     open(twinAKeymap)
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     flushSync()
     const layoutId = await editor.ensureEditableUserHostLayout('en')
     flushSync()
@@ -198,7 +198,7 @@ describe('Keyboard host legend redraw', () => {
 
   it('shows the same in-place edit on every key that uses that host key', async () => {
     open(twinAKeymap)
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     flushSync()
     await editor.ensureEditableUserHostLayout('en')
     flushSync()

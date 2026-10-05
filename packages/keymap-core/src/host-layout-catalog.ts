@@ -120,41 +120,6 @@ export const builtinHostLayoutSpecs: readonly BuiltinHostLayoutSpec[] = HOST_LAN
   language => language.sections.map(section => systemSpec(language, section))
 )
 
-/** System English group (`us(basic)`). */
-export const SYSTEM_US_LAYOUT_ID = systemLayoutId(hostLanguage('en'), hostLanguage('en').primarySection)
-
-/** System Russian group (`ru(winkeys)`). */
-export const SYSTEM_RU_LAYOUT_ID = systemLayoutId(hostLanguage('ru'), hostLanguage('ru').primarySection)
-
-/** System Ukrainian group (`ua(unicode)`). */
-export const SYSTEM_UA_LAYOUT_ID = systemLayoutId(hostLanguage('uk'), hostLanguage('uk').primarySection)
-
-/** System German group (`de(basic)` over `latin(type4)`). */
-export const SYSTEM_DE_LAYOUT_ID = systemLayoutId(hostLanguage('de'), hostLanguage('de').primarySection)
-
-/** System French group (`fr(basic)` over `latin`). */
-export const SYSTEM_FR_LAYOUT_ID = systemLayoutId(hostLanguage('fr'), hostLanguage('fr').primarySection)
-
-/** System Polish group (`pl(basic)` over `latin`, programmers / AltGr). */
-export const SYSTEM_PL_LAYOUT_ID = systemLayoutId(hostLanguage('pl'), hostLanguage('pl').primarySection)
-
-/** System Spanish group (`es(basic)` over `latin(type4)`). */
-export const SYSTEM_ES_LAYOUT_ID = systemLayoutId(hostLanguage('es'), hostLanguage('es').primarySection)
-
-export const SYSTEM_IT_LAYOUT_ID = systemLayoutId(hostLanguage('it'), hostLanguage('it').primarySection)
-export const SYSTEM_PT_LAYOUT_ID = systemLayoutId(hostLanguage('pt'), hostLanguage('pt').primarySection)
-export const SYSTEM_BR_LAYOUT_ID = systemLayoutId(hostLanguage('br'), hostLanguage('br').primarySection)
-export const SYSTEM_CS_LAYOUT_ID = systemLayoutId(hostLanguage('cs'), hostLanguage('cs').primarySection)
-export const SYSTEM_DA_LAYOUT_ID = systemLayoutId(hostLanguage('da'), hostLanguage('da').primarySection)
-export const SYSTEM_SV_LAYOUT_ID = systemLayoutId(hostLanguage('sv'), hostLanguage('sv').primarySection)
-export const SYSTEM_HU_LAYOUT_ID = systemLayoutId(hostLanguage('hu'), hostLanguage('hu').primarySection)
-export const SYSTEM_TR_LAYOUT_ID = systemLayoutId(hostLanguage('tr'), hostLanguage('tr').primarySection)
-export const SYSTEM_RO_LAYOUT_ID = systemLayoutId(hostLanguage('ro'), hostLanguage('ro').primarySection)
-export const SYSTEM_FI_LAYOUT_ID = systemLayoutId(hostLanguage('fi'), hostLanguage('fi').primarySection)
-export const SYSTEM_NO_LAYOUT_ID = systemLayoutId(hostLanguage('no'), hostLanguage('no').primarySection)
-export const SYSTEM_EL_LAYOUT_ID = systemLayoutId(hostLanguage('el'), hostLanguage('el').primarySection)
-export const SYSTEM_BG_LAYOUT_ID = systemLayoutId(hostLanguage('bg'), hostLanguage('bg').primarySection)
-
 /** Static catalog rows for one language. Runtime layouts are merged in the registry. */
 export function catalogLayoutsForLanguage(language: HostLanguageId): HostLayoutChoice[] {
   const all = hostLayoutChoices.filter(choice => choice.language === language)

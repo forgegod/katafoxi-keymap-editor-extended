@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { HOST_KEY_IDS } from './host-key-id.js'
-import { builtinHostLayoutSpecs, SYSTEM_US_LAYOUT_ID } from './host-layout-catalog.js'
+import { builtinHostLayoutSpecs, primarySystemLayoutId } from './host-layout-catalog.js'
 import {
   hostLayoutFromSymbols,
   withHostKey,
@@ -148,7 +148,7 @@ describe('xkb host layout round-trip', () => {
   })
 
   it('keeps withHostKey edits through write and reparse', () => {
-    const spec = builtinHostLayoutSpecs.find(item => item.id === SYSTEM_US_LAYOUT_ID)
+    const spec = builtinHostLayoutSpecs.find(item => item.id === primarySystemLayoutId('en')!)
     expect(spec).toBeDefined()
     let edited = hostLayoutFromSymbols(spec!.source, spec!.section, 'edited-us', spec!.files)
     expect(edited.byZmk.has('NON_US_BSLH')).toBe(false)

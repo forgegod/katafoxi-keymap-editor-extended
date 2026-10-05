@@ -1,3 +1,4 @@
+import { primarySystemLayoutId } from './host-layout-catalog.js'
 import { describe, expect, it } from 'vitest'
 import {
   addHostLanguage,
@@ -9,9 +10,6 @@ import {
   symbolAlignHasBasic,
   symbolAlignHasOrnament,
   symbolAlignPairFromView,
-  SYSTEM_FR_LAYOUT_ID,
-  SYSTEM_RU_LAYOUT_ID,
-  SYSTEM_US_LAYOUT_ID,
   toggleHostLanguage,
   withHostKey,
   type HostLayout
@@ -36,8 +34,8 @@ function layout(id: string, rows: Record<string, readonly string[]>): HostLayout
 }
 
 describe('symbolAlign', () => {
-  const us = hostLayout(SYSTEM_US_LAYOUT_ID)!
-  const ru = hostLayout(SYSTEM_RU_LAYOUT_ID)!
+  const us = hostLayout(primarySystemLayoutId('en')!)!
+  const ru = hostLayout(primarySystemLayoutId('ru')!)!
 
   it('marks punctuation with no shared key and skips letters', () => {
     const align = symbolAlign(us, ru)
@@ -154,12 +152,12 @@ describe('symbolAlign', () => {
     expect(pair).toEqual({
       leftLanguage: 'fr',
       rightLanguage: 'ru',
-      leftLayoutId: SYSTEM_FR_LAYOUT_ID,
-      rightLayoutId: SYSTEM_RU_LAYOUT_ID,
+      leftLayoutId: primarySystemLayoutId('fr')!,
+      rightLayoutId: primarySystemLayoutId('ru')!,
       winMerge: null
     })
-    const fr = hostLayout(SYSTEM_FR_LAYOUT_ID)!
-    const ruLayout = hostLayout(SYSTEM_RU_LAYOUT_ID)!
+    const fr = hostLayout(primarySystemLayoutId('fr')!)!
+    const ruLayout = hostLayout(primarySystemLayoutId('ru')!)!
     const align = symbolAlign(fr, ruLayout, { winMerge: null })
     expect(align.conflictByZmk.size).toBe(0)
     expect(symbolAlignCaption('DOT', align).length).toBeGreaterThan(0)
@@ -170,11 +168,11 @@ describe('symbolAlign', () => {
     expect(symbolAlignPairFromView(view)).toEqual({
       leftLanguage: 'en',
       rightLanguage: 'ru',
-      leftLayoutId: SYSTEM_US_LAYOUT_ID,
-      rightLayoutId: SYSTEM_RU_LAYOUT_ID,
+      leftLayoutId: primarySystemLayoutId('en')!,
+      rightLayoutId: primarySystemLayoutId('ru')!,
       winMerge: {
-        baseLayoutId: SYSTEM_US_LAYOUT_ID,
-        extraLayoutId: SYSTEM_RU_LAYOUT_ID
+        baseLayoutId: primarySystemLayoutId('en')!,
+        extraLayoutId: primarySystemLayoutId('ru')!
       }
     })
   })

@@ -70,7 +70,6 @@ describe('sensor-bindings', () => {
         ['&kp Z', '&kp B'],
         ['&kp C', '&kp D']
       ],
-      layerNames: ['default', 'lower_layer']
     })
     expect(spliced).toContain('sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN>;')
     expect(spliced).toContain('&kp Z')

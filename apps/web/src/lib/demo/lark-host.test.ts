@@ -1,5 +1,6 @@
+import { primarySystemLayoutId } from '@keymap-editor/keymap-core'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { SYSTEM_US_LAYOUT_ID } from '@keymap-editor/keymap-core'
+
 import { editor } from '../editor.svelte.js'
 import { clearHostLayoutStore } from '../host-layout-store'
 import { loadDemo } from './catalog'
@@ -50,7 +51,7 @@ describe('Lark demo host seed', () => {
       columns: [
         {
           language: 'en',
-          layoutId: SYSTEM_US_LAYOUT_ID,
+          layoutId: primarySystemLayoutId('en')!,
           visible: true,
           altGr: true,
           altGrShift: true

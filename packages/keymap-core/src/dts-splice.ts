@@ -64,14 +64,13 @@ function inferLayerIndent(source: string, layerNodes: ReturnType<typeof findKeym
 /**
  * Replace bindings interiors (and add/remove trailing layer nodes by index)
  * inside `keymap { compatible = "zmk,keymap"; ... }`. Outside that block is byte-stable.
- * Layer node ids are preserved by index; `layerNames` is ignored for DTS ids.
+ * Layer node ids are preserved by index (UI layer names do not rename DTS nodes).
  */
 export function spliceBindingsIntoDts(
   original: string,
   input: {
     layout: LayoutKey[]
     layers: string[][]
-    layerNames: string[]
   }
 ): string {
   const { layout, layers } = input

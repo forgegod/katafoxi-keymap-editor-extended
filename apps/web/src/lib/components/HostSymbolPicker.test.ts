@@ -1,8 +1,8 @@
 import {
   addHostLanguage,
   hostSymbolShelves,
-  SYSTEM_US_LAYOUT_ID,
   hostLayout,
+  primarySystemLayoutId,
   type HostLanguageId
 } from '@keymap-editor/keymap-core'
 import { flushSync, mount, unmount } from 'svelte'
@@ -224,7 +224,7 @@ describe('LegendDecodeCard host symbol catalog', () => {
 
   it('opens a catalog dialog from a level cell without a text field', async () => {
     openKey('A')
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     flushSync()
     openDecodeCell('Edit en level 0')
 
@@ -236,7 +236,7 @@ describe('LegendDecodeCard host symbol catalog', () => {
 
   it('arms AltGr by default when the host-edit session opens', async () => {
     openKey('A')
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     flushSync()
     const row = stackRows()[0]
     row.dispatchEvent(
@@ -276,7 +276,7 @@ describe('LegendDecodeCard host symbol catalog', () => {
 
   it('moves the armed cell with Tab without writing', async () => {
     openKey('A')
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     flushSync()
     const row = stackRows()[0]
     row.dispatchEvent(
@@ -307,7 +307,7 @@ describe('LegendDecodeCard host symbol catalog', () => {
 
   it('applies an open-shelf glyph through setHostKeyLevel and keeps the catalog open', async () => {
     openKey('A')
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     flushSync()
     openDecodeCell('Edit en level 0')
 
@@ -325,7 +325,7 @@ describe('LegendDecodeCard host symbol catalog', () => {
 
   it('clears a level when NoSymbol is chosen from modifiers', async () => {
     openKey('A')
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     flushSync()
     await editor.setHostKeyLevel('en', 'A', 1, 'B')
     flushSync()
@@ -344,7 +344,7 @@ describe('LegendDecodeCard host symbol catalog', () => {
 
   it('closes the catalog on Escape and ends the host-edit session', async () => {
     openKey('A')
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     flushSync()
     openDecodeCell('Edit en level 0')
     expect(catalog()).toBeInstanceOf(HTMLElement)

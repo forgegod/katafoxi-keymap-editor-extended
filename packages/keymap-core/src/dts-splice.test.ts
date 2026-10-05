@@ -62,7 +62,6 @@ describe('spliceBindingsIntoDts', () => {
         ['&kp Z', '&kp B'],
         ['&kp C_VOL_UP', '&trans']
       ],
-      layerNames: ['layer_0', 'layer_1']
     })
 
     expect(spliced).toContain('#define VU C_VOL_UP')
@@ -99,7 +98,6 @@ describe('spliceBindingsIntoDts', () => {
         ['&kp C', '&trans'],
         ['&none', '&none']
       ],
-      layerNames: ['base', 'lower', 'raise']
     })
     expect(spliced).toMatch(/layer_0\s*\{/)
     expect(spliced).toMatch(/layer_1\s*\{/)
@@ -116,7 +114,6 @@ describe('spliceBindingsIntoDts', () => {
         ['&kp C', '&trans'],
         ['&none', '&none']
       ],
-      layerNames: ['a', 'b', 'c']
     })
     const back = spliceBindingsIntoDts(withThree, {
       layout: TINY_LAYOUT,
@@ -124,26 +121,22 @@ describe('spliceBindingsIntoDts', () => {
         ['&kp A', '&kp B'],
         ['&kp C', '&trans']
       ],
-      layerNames: ['a', 'b']
     })
     expect(back).toMatch(/layer_0\s*\{/)
     expect(back).toMatch(/layer_1\s*\{/)
     expect(back).not.toMatch(/layer_2\s*\{/)
   })
 
-  it('does not rename DTS node ids when layerNames change', () => {
+  it('preserves existing DTS layer node ids', () => {
     const spliced = spliceBindingsIntoDts(LARK_LIKE, {
       layout: TINY_LAYOUT,
       layers: [
         ['&kp A', '&kp B'],
         ['&kp C_VOL_UP', '&trans']
-      ],
-      layerNames: ['base', 'lower']
+      ]
     })
     expect(spliced).toMatch(/layer_0\s*\{/)
     expect(spliced).toMatch(/layer_1\s*\{/)
-    expect(spliced).not.toMatch(/\bbase\s*\{/)
-    expect(spliced).not.toMatch(/\blower\s*\{/)
   })
 
   it('does not modify combo bindings text', () => {
@@ -153,7 +146,6 @@ describe('spliceBindingsIntoDts', () => {
         ['&kp Z', '&kp Y'],
         ['&none', '&none']
       ],
-      layerNames: ['layer_0', 'layer_1']
     })
     expect(spliced).toContain('bindings = <&kp ESC>')
     expect(spliced).toContain('key-positions = <0 1>')
@@ -164,14 +156,12 @@ describe('spliceBindingsIntoDts', () => {
       spliceBindingsIntoDts('/* no keymap */', {
         layout: TINY_LAYOUT,
         layers: [['&kp A', '&kp B']],
-        layerNames: ['default']
       })
     ).toThrow(KeymapValidationError)
     try {
       spliceBindingsIntoDts('/* no keymap */', {
         layout: TINY_LAYOUT,
         layers: [['&kp A', '&kp B']],
-        layerNames: ['default']
       })
     } catch (e) {
       expect(e).toBeInstanceOf(KeymapValidationError)
@@ -188,7 +178,6 @@ describe('spliceBindingsIntoDts', () => {
       spliceBindingsIntoDts(LARK_LIKE, {
         layout,
         layers: [short],
-        layerNames: ['x']
       })
     ).toThrow(KeymapValidationError)
 
@@ -196,7 +185,6 @@ describe('spliceBindingsIntoDts', () => {
       spliceBindingsIntoDts(LARK_LIKE, {
         layout,
         layers: [long],
-        layerNames: ['x']
       })
     ).toThrow(KeymapValidationError)
 
@@ -204,7 +192,6 @@ describe('spliceBindingsIntoDts', () => {
       spliceBindingsIntoDts(LARK_LIKE, {
         layout,
         layers: [short],
-        layerNames: ['x']
       })
     } catch (e) {
       expect(e).toBeInstanceOf(KeymapValidationError)
@@ -231,7 +218,6 @@ describe('buildKeymapCode paths', () => {
         ['&kp Z', '&kp B'],
         ['&kp C_VOL_UP', '&trans']
       ],
-      layerNames: ['layer_0', 'layer_1']
     })
     expect(spliced).toContain('&kp Z')
     expect(spliced).toContain('\r\n')

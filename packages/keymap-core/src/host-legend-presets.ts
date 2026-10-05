@@ -1,4 +1,4 @@
-import { SYSTEM_RU_LAYOUT_ID, SYSTEM_US_LAYOUT_ID } from './host-layout-catalog.js'
+import { primarySystemLayoutId } from './host-layout-catalog.js'
 import type { HostColumn, HostLegendView } from './types.js'
 
 function freezeColumn(column: HostColumn): HostColumn {
@@ -23,7 +23,13 @@ function freezeLegendView(view: HostLegendView): HostLegendView {
  */
 const STANDARD_HOST_LEGEND_VIEW: HostLegendView = freezeLegendView({
   columns: [
-    { language: 'en', layoutId: SYSTEM_US_LAYOUT_ID, visible: true, altGr: true, altGrShift: true }
+    {
+      language: 'en',
+      layoutId: primarySystemLayoutId('en')!,
+      visible: true,
+      altGr: true,
+      altGrShift: true
+    }
   ],
   open: null
 })
@@ -34,8 +40,20 @@ const STANDARD_HOST_LEGEND_VIEW: HostLegendView = freezeLegendView({
  */
 const LEGACY_BILINGUAL_HOST_LEGEND: HostLegendView = freezeLegendView({
   columns: [
-    { language: 'en', layoutId: SYSTEM_US_LAYOUT_ID, visible: true, altGr: true, altGrShift: true },
-    { language: 'ru', layoutId: SYSTEM_RU_LAYOUT_ID, visible: true, altGr: true, altGrShift: true }
+    {
+      language: 'en',
+      layoutId: primarySystemLayoutId('en')!,
+      visible: true,
+      altGr: true,
+      altGrShift: true
+    },
+    {
+      language: 'ru',
+      layoutId: primarySystemLayoutId('ru')!,
+      visible: true,
+      altGr: true,
+      altGrShift: true
+    }
   ],
   open: 'ru'
 })

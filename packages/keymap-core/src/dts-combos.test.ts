@@ -14,13 +14,11 @@ import {
   createEmptyCombo,
   encodeKeyBinding,
   formatCombosBlock,
-  isComboReady,
   nextComboIdFromBinding,
   parseDtsCombos,
   parseDtsKeymap,
   parseKeymap,
-  spliceCombosIntoDts,
-  suggestComboIdStem
+  spliceCombosIntoDts
 } from '../src/index.js'
 import type { LayoutKey } from '../src/types.js'
 
@@ -373,10 +371,10 @@ describe('createEmptyCombo / formatCombosBlock', () => {
       })
     ).toBe('50ms · all · idle100')
     expect(
-      suggestComboIdStem({
-        value: '&mo',
-        params: [{ value: 1, params: [] }]
-      })
+      nextComboIdFromBinding(
+        { value: '&mo', params: [{ value: 1, params: [] }] },
+        []
+      )
     ).toBe('combo_mo_1')
     expect(
       nextComboIdFromBinding(
@@ -396,8 +394,6 @@ describe('combo key counts', () => {
     expect(comboKeysIssue([0, 1])).toBeNull()
     expect(comboKeysIssue([0, 1, 2, 3, 4])).toBeNull()
     expect(comboKeysIssue([0, 1, 2, 3, 4, 5])).toBe('too_many')
-    expect(isComboReady({ keyPositions: [1, 2] })).toBe(true)
-    expect(isComboReady({ keyPositions: [1] })).toBe(false)
   })
 })
 

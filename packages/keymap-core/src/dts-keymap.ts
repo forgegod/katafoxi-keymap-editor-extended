@@ -69,19 +69,6 @@ export function findZmkKeymapBlock(source: string): DtsNamedBlock | null {
   })
 }
 
-/**
- * Absolute range of `bindings = <...>` interior (content between `<` and `>`).
- * `sensor-bindings` is a different property; the token before `bindings` must
- * not be a word character or a hyphen.
- */
-export function findBindingsInterior(
-  source: string,
-  from: number,
-  to: number
-): { start: number; end: number } | null {
-  return findAngleProp(maskDts(source), { start: from, end: to }, 'bindings')
-}
-
 export interface DtsLayerNode {
   /** Absolute start of the node id (e.g. `layer_0`). */
   nameStart: number

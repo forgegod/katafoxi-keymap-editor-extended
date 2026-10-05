@@ -10,13 +10,7 @@ import {
 } from './host-layout.js'
 import { registerLarkHostFixture } from './testing/lark-host.js'
 import { hostLegendFor, keycapFace } from './compose.js'
-import {
-  catalogLayoutsForLanguage,
-  SYSTEM_DE_LAYOUT_ID,
-  SYSTEM_RU_LAYOUT_ID,
-  SYSTEM_UA_LAYOUT_ID,
-  SYSTEM_US_LAYOUT_ID
-} from './host-layout-catalog.js'
+import { catalogLayoutsForLanguage, primarySystemLayoutId } from './host-layout-catalog.js'
 import { hostLayout, hostLevels } from './host-layout-registry.js'
 import {
   addHostLanguage,
@@ -273,8 +267,8 @@ describe('system English us(basic)', () => {
   })
 
   it('uses US letters and punctuation, without AltGr', () => {
-    const systemEnglishLayout = hostLayout(SYSTEM_US_LAYOUT_ID)!
-    expect(systemEnglishLayout.id).toBe(SYSTEM_US_LAYOUT_ID)
+    const systemEnglishLayout = hostLayout(primarySystemLayoutId('en')!)!
+    expect(systemEnglishLayout.id).toBe(primarySystemLayoutId('en')!)
     expect(systemEnglishLayout.byZmk.get('A')?.glyphs).toEqual(['a', 'A', '', ''])
     expect(systemEnglishLayout.byZmk.get('E')?.glyphs).toEqual(['e', 'E', '', ''])
     expect(systemEnglishLayout.byZmk.get('N1')?.glyphs).toEqual(['1', '!', '', ''])
@@ -287,9 +281,9 @@ describe('system English us(basic)', () => {
     const view = assignHostLanguageLayout(
       standardHostLegendView(),
       'en',
-      SYSTEM_US_LAYOUT_ID
+      primarySystemLayoutId('en')!
     )
-    expect(view.columns[0].layoutId).toBe(SYSTEM_US_LAYOUT_ID)
+    expect(view.columns[0].layoutId).toBe(primarySystemLayoutId('en')!)
     expect(hostLegendFor('E', view)?.columns[0]?.pair).toEqual(['e', 'E'])
     expect(extraPair(hostLegendFor('E', view)!)).toBeNull()
     expect(hostLegendFor('N1', view)?.columns[0]?.pair).toEqual(['1', '!'])
@@ -335,11 +329,11 @@ function openLayoutId(view: HostLegendView): string | null {
 
 describe('system Russian winkeys', () => {
   const view = hideAllAlt(
-    assignHostLanguageLayout(withRussian(), 'ru', SYSTEM_RU_LAYOUT_ID)
+    assignHostLanguageLayout(withRussian(), 'ru', primarySystemLayoutId('ru')!)
   )
 
   it('uses common letters and winkeys punctuation', () => {
-    const systemRussianLayout = hostLayout(SYSTEM_RU_LAYOUT_ID)!
+    const systemRussianLayout = hostLayout(primarySystemLayoutId('ru')!)!
     expect(systemRussianLayout.byZmk.get('Q')?.glyphs).toEqual(['й', 'Й', '', ''])
     expect(systemRussianLayout.byZmk.get('A')?.glyphs).toEqual(['ф', 'Ф', '', ''])
     expect(systemRussianLayout.byZmk.get('GRAVE')?.glyphs).toEqual(['ё', 'Ё', '', ''])
@@ -352,7 +346,7 @@ describe('system Russian winkeys', () => {
   })
 
   it('shows English first and system Russian second, both visible', () => {
-    expect(view.columns[0].layoutId).toBe(SYSTEM_US_LAYOUT_ID)
+    expect(view.columns[0].layoutId).toBe(primarySystemLayoutId('en')!)
     expect(openLayoutId(view)).toBe('system-ru')
     expect(view.columns[0].visible).toBe(true)
     expect(view.columns.find(column => column.language === 'ru')?.visible).toBe(true)
@@ -369,7 +363,7 @@ describe('system Russian winkeys', () => {
 
   it('shows both AltGr pairs when the English fixture and winkeys differ', () => {
     const shown = hideAllAlt(larkView())
-    const withWinkeys = assignHostLanguageLayout(shown, 'ru', SYSTEM_RU_LAYOUT_ID)
+    const withWinkeys = assignHostLanguageLayout(shown, 'ru', primarySystemLayoutId('ru')!)
     const withAlt = withWinkeys.columns.reduce(
       (next, column) =>
         setHostColumnAlt(setHostColumnAlt(next, column.language, 'altGr', true), column.language, 'altGrShift', true),
@@ -385,7 +379,7 @@ describe('system Russian winkeys', () => {
 
 describe('Ukrainian system layout', () => {
   it('uses Ukrainian letters on the quote key', () => {
-    const systemUkrainianLayout = hostLayout(SYSTEM_UA_LAYOUT_ID)!
+    const systemUkrainianLayout = hostLayout(primarySystemLayoutId('uk')!)!
     expect(systemUkrainianLayout.byZmk.get('SQT')?.glyphs[0]).toBe('є')
     expect(systemUkrainianLayout.byZmk.get('Q')?.glyphs[0]).toBe('й')
   })
@@ -462,7 +456,7 @@ describe('Ukrainian system layout', () => {
 
 describe('German system layout', () => {
   it('uses QWERTZ letters and ß on the minus key', () => {
-    const systemGermanLayout = hostLayout(SYSTEM_DE_LAYOUT_ID)!
+    const systemGermanLayout = hostLayout(primarySystemLayoutId('de')!)!
     expect(systemGermanLayout.byZmk.get('A')?.glyphs.slice(0, 2)).toEqual(['a', 'A'])
     expect(systemGermanLayout.byZmk.get('Y')?.glyphs[0]).toBe('z')
     expect(systemGermanLayout.byZmk.get('Z')?.glyphs[0]).toBe('y')
@@ -472,13 +466,13 @@ describe('German system layout', () => {
   })
 
   it('keeps dead_* keysyms on de(basic) and winkeys AC01 names from source', () => {
-    const grave = hostLevels(SYSTEM_DE_LAYOUT_ID, 'GRAVE')
+    const grave = hostLevels(primarySystemLayoutId('de')!, 'GRAVE')
     expect(grave?.keysyms).toEqual(['dead_circumflex', 'degree', 'U2032', 'U2033'])
     expect(grave?.glyphs[0]).toBe('')
-    const equal = hostLevels(SYSTEM_DE_LAYOUT_ID, 'EQUAL')
+    const equal = hostLevels(primarySystemLayoutId('de')!, 'EQUAL')
     expect(equal?.keysyms).toEqual(['dead_acute', 'dead_grave', 'dead_cedilla', 'dead_ogonek'])
     expect(equal?.glyphs[0]).toBe('')
-    expect(hostLevels(SYSTEM_RU_LAYOUT_ID, 'A')?.keysyms).toEqual([
+    expect(hostLevels(primarySystemLayoutId('ru')!, 'A')?.keysyms).toEqual([
       'Cyrillic_ef',
       'Cyrillic_EF',
       'NoSymbol',
@@ -488,7 +482,7 @@ describe('German system layout', () => {
       columns: [
         {
           language: 'de',
-          layoutId: SYSTEM_DE_LAYOUT_ID,
+          layoutId: primarySystemLayoutId('de')!,
           visible: true,
           altGr: true,
           altGrShift: true
@@ -573,7 +567,7 @@ describe('German system layout', () => {
       ['en', true],
       ['ru', true]
     ])
-    expect(openLayoutId(gone)).toBe(SYSTEM_RU_LAYOUT_ID)
+    expect(openLayoutId(gone)).toBe(primarySystemLayoutId('ru')!)
   })
 })
 
@@ -697,11 +691,11 @@ describe('withHostKey', () => {
   })
 
   it('leaves a registered system layout untouched', () => {
-    const system = hostLayout(SYSTEM_US_LAYOUT_ID)!
+    const system = hostLayout(primarySystemLayoutId('en')!)!
     const before = tableOf(system)
     withHostKey(system, 'A', 0, 'Cyrillic_ef')
-    expect(tableOf(hostLayout(SYSTEM_US_LAYOUT_ID)!)).toEqual(before)
-    expect(hostLevels(SYSTEM_US_LAYOUT_ID, 'A')?.glyphs).toEqual(['a', 'A', '', ''])
+    expect(tableOf(hostLayout(primarySystemLayoutId('en')!)!)).toEqual(before)
+    expect(hostLevels(primarySystemLayoutId('en')!, 'A')?.glyphs).toEqual(['a', 'A', '', ''])
   })
 
   it('creates a missing key with NoSymbol on the other three levels', () => {

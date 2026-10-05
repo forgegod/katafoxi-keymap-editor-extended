@@ -3,8 +3,8 @@ import {
   assignHostLanguageLayout,
   hostLayout,
   parseKeyBinding,
+  primarySystemLayoutId,
   registerHostLayout,
-  SYSTEM_RU_LAYOUT_ID,
   toggleHostLanguage,
   unregisterHostLayout,
   withHostKey,
@@ -60,7 +60,7 @@ describe('HostBasicGaps', () => {
   })
 
   it('names a letter missing from a changed layout, including a hidden column', () => {
-    const ru = hostLayout(SYSTEM_RU_LAYOUT_ID)!
+    const ru = hostLayout(primarySystemLayoutId('ru')!)!
     registerHostLayout(
       { id: USER_RU, language: 'ru', name: 'gap', flag: '🇷🇺', origin: 'user' },
       dropGlyphs(ru, ['ъ', 'Ъ'])
@@ -77,7 +77,7 @@ describe('HostBasicGaps', () => {
   })
 
   it('drops a digit the keymap types from the keypad', () => {
-    const ru = hostLayout(SYSTEM_RU_LAYOUT_ID)!
+    const ru = hostLayout(primarySystemLayoutId('ru')!)!
     registerHostLayout(
       { id: USER_RU, language: 'ru', name: 'gap', flag: '🇷🇺', origin: 'user' },
       dropGlyphs(ru, ['ъ', 'Ъ', '3'])
@@ -95,7 +95,7 @@ describe('HostBasicGaps', () => {
   })
 
   it('drops a letter as soon as the host table gains it back', () => {
-    const ru = hostLayout(SYSTEM_RU_LAYOUT_ID)!
+    const ru = hostLayout(primarySystemLayoutId('ru')!)!
     registerHostLayout(
       { id: USER_RU, language: 'ru', name: 'gap', flag: '🇷🇺', origin: 'user' },
       dropGlyphs(ru, ['ъ', 'Ъ'])

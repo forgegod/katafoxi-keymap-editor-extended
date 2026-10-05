@@ -222,7 +222,7 @@ function flattenBindingForId(node: KeyBindingNode): string {
  * Stem from the combo binding (`&kp ESC` → `combo_esc`, `&mo 1` → `combo_mo_1`).
  * Always a legal DTS node id fragment.
  */
-export function suggestComboIdStem(binding: KeyBindingNode): string {
+function suggestComboIdStem(binding: KeyBindingNode): string {
   const behavior = sanitizeComboIdPart(String(binding.value ?? '').replace(/^&/, ''))
   const paramBits = (binding.params ?? []).map(flattenBindingForId).filter(Boolean)
   let body: string
@@ -312,11 +312,6 @@ export function comboKeysMessage(issue: ComboKeysIssue | null): string | null {
     return `A combo can use at most ${COMBO_MAX_KEYS} keys.`
   }
   return null
-}
-
-/** True when this combo's key count is in range. Shared chords are list-level. */
-export function isComboReady(combo: { keyPositions: readonly number[] }): boolean {
-  return comboKeysIssue(combo.keyPositions) === null
 }
 
 export interface ComboChordRef {

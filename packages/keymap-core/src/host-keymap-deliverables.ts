@@ -33,17 +33,6 @@ export type HostKeymapDeliverableLayout = {
   user: boolean
 }
 
-/** Safe single path segment for host deliverable file names. */
-export function safeHostKeymapFileStem(name: string): string {
-  const safe = name
-    .replace(/[\\/:*?"<>|]+/g, '_')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .trim()
-  return safe || 'host-layout'
-}
-
 /**
  * Build Linux xkb sections and Windows `.klc` sources for the live legend.
  * One language → one `linux/<lang>.xkb` and `windows/<lang>.klc` when that

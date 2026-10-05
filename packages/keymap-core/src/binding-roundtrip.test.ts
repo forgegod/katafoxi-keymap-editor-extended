@@ -156,7 +156,6 @@ describe('spliceBindingsIntoDts preamble', () => {
         const spliced = spliceBindingsIntoDts(SPLICE_SOURCE, {
           layout: SPLICE_LAYOUT,
           layers: [[encodeKeyBinding(binding)]],
-          layerNames: ['layer_0']
         })
         expect(spliced.slice(0, spliced.indexOf(KEYMAP_MARK))).toBe(SPLICE_PREFIX)
       }),

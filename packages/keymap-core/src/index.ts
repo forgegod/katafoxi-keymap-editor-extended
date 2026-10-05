@@ -2,7 +2,13 @@ export * from './types.js'
 export * from './eol.js'
 export * from './layout.js'
 export * from './keymap.js'
-export * from './keymap-diff.js'
+export type { KeymapChange } from './keymap-diff.js'
+export {
+  diffKeymaps,
+  encodeComboFingerprint,
+  keymapsAreEqual,
+  summarizeKeymapDiff
+} from './keymap-diff.js'
 export * from './keycodes.js'
 export * from './catalog.js'
 export * from './modifiers.js'
@@ -10,7 +16,8 @@ export * from './behaviors.js'
 export * from './catalog-choices.js'
 export * from './keycode-labels.js'
 export * from './keycode-os.js'
-export * from './host-key-id.js'
+export type { HostKeyId } from './host-key-id.js'
+export { HOST_KEY_IDS, hostKeyByXkb, hostKeyByZmk } from './host-key-id.js'
 export * from './host-symbols.js'
 export * from './host-symbol-shelves.js'
 export * from './host-xkb-install.js'
@@ -24,7 +31,15 @@ export * from './klc-write.js'
 export * from './klc-read.js'
 export * from './host-layout.js'
 export * from './host-languages.js'
-export * from './host-layout-catalog.js'
+export type { BuiltinHostLayoutSpec, HostLayoutChoice, HostLayoutKind } from './host-layout-catalog.js'
+export {
+  builtinHostLayoutSpecs,
+  catalogLayoutsForLanguage,
+  hostLayoutChoiceLabel,
+  hostLayoutChoices,
+  primarySystemLayoutId,
+  reservedHostProfileNames
+} from './host-layout-catalog.js'
 export * from './host-layout-registry.js'
 export * from './host-keymap-snapshot.js'
 export * from './host-keymap-deliverables.js'

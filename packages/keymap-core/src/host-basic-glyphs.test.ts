@@ -1,29 +1,10 @@
+import { primarySystemLayoutId } from './host-layout-catalog.js'
 import { describe, expect, it } from 'vitest'
 import {
   hostLayout,
   keypadCoveredGlyphs,
   missingBasicGlyphs,
   parseKeyBinding,
-  SYSTEM_BG_LAYOUT_ID,
-  SYSTEM_BR_LAYOUT_ID,
-  SYSTEM_CS_LAYOUT_ID,
-  SYSTEM_DA_LAYOUT_ID,
-  SYSTEM_DE_LAYOUT_ID,
-  SYSTEM_EL_LAYOUT_ID,
-  SYSTEM_ES_LAYOUT_ID,
-  SYSTEM_FI_LAYOUT_ID,
-  SYSTEM_FR_LAYOUT_ID,
-  SYSTEM_HU_LAYOUT_ID,
-  SYSTEM_IT_LAYOUT_ID,
-  SYSTEM_NO_LAYOUT_ID,
-  SYSTEM_PL_LAYOUT_ID,
-  SYSTEM_PT_LAYOUT_ID,
-  SYSTEM_RO_LAYOUT_ID,
-  SYSTEM_RU_LAYOUT_ID,
-  SYSTEM_SV_LAYOUT_ID,
-  SYSTEM_TR_LAYOUT_ID,
-  SYSTEM_UA_LAYOUT_ID,
-  SYSTEM_US_LAYOUT_ID,
   withHostKey,
   type HostLayout,
   type ParsedKeymap
@@ -43,30 +24,30 @@ function dropGlyphs(layout: HostLayout, glyphs: readonly string[]): HostLayout {
 }
 
 describe('missingBasicGlyphs', () => {
-  const us = hostLayout(SYSTEM_US_LAYOUT_ID)!
-  const ru = hostLayout(SYSTEM_RU_LAYOUT_ID)!
+  const us = hostLayout(primarySystemLayoutId('en')!)!
+  const ru = hostLayout(primarySystemLayoutId('ru')!)!
 
   it('stays empty for each primary system layout', () => {
     expect(missingBasicGlyphs(us, 'en')).toEqual([])
     expect(missingBasicGlyphs(ru, 'ru')).toEqual([])
-    expect(missingBasicGlyphs(hostLayout(SYSTEM_UA_LAYOUT_ID)!, 'uk')).toEqual([])
-    expect(missingBasicGlyphs(hostLayout(SYSTEM_DE_LAYOUT_ID)!, 'de')).toEqual([])
-    expect(missingBasicGlyphs(hostLayout(SYSTEM_FR_LAYOUT_ID)!, 'fr')).toEqual([])
-    expect(missingBasicGlyphs(hostLayout(SYSTEM_PL_LAYOUT_ID)!, 'pl')).toEqual([])
-    expect(missingBasicGlyphs(hostLayout(SYSTEM_ES_LAYOUT_ID)!, 'es')).toEqual([])
-    expect(missingBasicGlyphs(hostLayout(SYSTEM_IT_LAYOUT_ID)!, 'it')).toEqual([])
-    expect(missingBasicGlyphs(hostLayout(SYSTEM_PT_LAYOUT_ID)!, 'pt')).toEqual([])
-    expect(missingBasicGlyphs(hostLayout(SYSTEM_BR_LAYOUT_ID)!, 'br')).toEqual([])
-    expect(missingBasicGlyphs(hostLayout(SYSTEM_CS_LAYOUT_ID)!, 'cs')).toEqual([])
-    expect(missingBasicGlyphs(hostLayout(SYSTEM_DA_LAYOUT_ID)!, 'da')).toEqual([])
-    expect(missingBasicGlyphs(hostLayout(SYSTEM_SV_LAYOUT_ID)!, 'sv')).toEqual([])
-    expect(missingBasicGlyphs(hostLayout(SYSTEM_HU_LAYOUT_ID)!, 'hu')).toEqual([])
-    expect(missingBasicGlyphs(hostLayout(SYSTEM_TR_LAYOUT_ID)!, 'tr')).toEqual([])
-    expect(missingBasicGlyphs(hostLayout(SYSTEM_RO_LAYOUT_ID)!, 'ro')).toEqual([])
-    expect(missingBasicGlyphs(hostLayout(SYSTEM_FI_LAYOUT_ID)!, 'fi')).toEqual([])
-    expect(missingBasicGlyphs(hostLayout(SYSTEM_NO_LAYOUT_ID)!, 'no')).toEqual([])
-    expect(missingBasicGlyphs(hostLayout(SYSTEM_EL_LAYOUT_ID)!, 'el')).toEqual([])
-    expect(missingBasicGlyphs(hostLayout(SYSTEM_BG_LAYOUT_ID)!, 'bg')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(primarySystemLayoutId('uk')!)!, 'uk')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(primarySystemLayoutId('de')!)!, 'de')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(primarySystemLayoutId('fr')!)!, 'fr')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(primarySystemLayoutId('pl')!)!, 'pl')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(primarySystemLayoutId('es')!)!, 'es')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(primarySystemLayoutId('it')!)!, 'it')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(primarySystemLayoutId('pt')!)!, 'pt')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(primarySystemLayoutId('br')!)!, 'br')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(primarySystemLayoutId('cs')!)!, 'cs')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(primarySystemLayoutId('da')!)!, 'da')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(primarySystemLayoutId('sv')!)!, 'sv')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(primarySystemLayoutId('hu')!)!, 'hu')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(primarySystemLayoutId('tr')!)!, 'tr')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(primarySystemLayoutId('ro')!)!, 'ro')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(primarySystemLayoutId('fi')!)!, 'fi')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(primarySystemLayoutId('no')!)!, 'no')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(primarySystemLayoutId('el')!)!, 'el')).toEqual([])
+    expect(missingBasicGlyphs(hostLayout(primarySystemLayoutId('bg')!)!, 'bg')).toEqual([])
   })
 
   it('reports a Russian letter missing in both cases', () => {
@@ -107,7 +88,7 @@ describe('missingBasicGlyphs', () => {
   })
 
   it('matches Turkish dotted and dotless I without default Unicode folding', () => {
-    const tr = hostLayout(SYSTEM_TR_LAYOUT_ID)!
+    const tr = hostLayout(primarySystemLayoutId('tr')!)!
     const withoutDotted = dropGlyphs(tr, ['i', 'İ'])
     expect(missingBasicGlyphs(withoutDotted, 'tr')).toContain('i')
     expect(missingBasicGlyphs(withoutDotted, 'tr')).not.toContain('ı')
@@ -121,7 +102,7 @@ describe('missingBasicGlyphs', () => {
   })
 
   it('treats German sharp s cases as the same letter', () => {
-    const de = hostLayout(SYSTEM_DE_LAYOUT_ID)!
+    const de = hostLayout(primarySystemLayoutId('de')!)!
     const without = dropGlyphs(de, ['ß', 'ẞ'])
     expect(missingBasicGlyphs(without, 'de')).toContain('ß')
     const onlyCapital = withHostKey(without, 'MINUS', 0, 'U1E9E')!
