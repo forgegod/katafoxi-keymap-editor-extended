@@ -13,14 +13,20 @@ import {
   createOauthState,
   createSession,
   deleteSession,
-  touchSession
+  touchSession,
+  type Session
 } from '../services/github/sessions.js'
 import * as installations from '../services/github/installations.js'
+import {
+  assertInstallationAccess,
+  InstallationAccessError
+} from '../services/github/installation-access.js'
 import * as files from '../services/github/files.js'
 import * as builds from '../services/github/builds.js'
 
 type Variables = {
   user: { sub: string; oauth_access_token: string }
+  session: Session
 }
 
 export const githubRoutes = new Hono<{ Variables: Variables }>()
@@ -81,6 +87,7 @@ githubRoutes.use('*', async (c, next) => {
     sub: session.login,
     oauth_access_token: session.oauthAccessToken
   })
+  c.set('session', session)
   await next()
 })
 
@@ -110,6 +117,12 @@ githubRoutes.post('/installation/:installationId/:repository/branches', async c 
   try {
     installations.assertBranchName(name)
     if (!from.trim()) throw new installations.BranchNameError('Choose a branch to copy')
+    await assertInstallationAccess(
+      c.get('user'),
+      installationId,
+      repository,
+      c.get('session')
+    )
     const { data } = await auth.createInstallationToken(installationId)
     const created = await installations.createBranch(
       (data as { token: string }).token,
@@ -119,6 +132,9 @@ githubRoutes.post('/installation/:installationId/:repository/branches', async c 
     )
     return c.json(created, 201)
   } catch (err) {
+    if (err instanceof InstallationAccessError) {
+      return c.body(null, 403)
+    }
     if (err instanceof installations.BranchNameError) {
       return c.json({ name: err.name, errors: err.errors }, 400)
     }
@@ -139,6 +155,12 @@ githubRoutes.post('/installation/:installationId/:repository/branches', async c 
 githubRoutes.get('/installation/:installationId/:repository/branches', async c => {
   const { installationId, repository } = c.req.param()
   try {
+    await assertInstallationAccess(
+      c.get('user'),
+      installationId,
+      repository,
+      c.get('session')
+    )
     const { data } = await auth.createInstallationToken(installationId)
     const branches = await installations.fetchRepoBranches(
       (data as { token: string }).token,
@@ -146,6 +168,9 @@ githubRoutes.get('/installation/:installationId/:repository/branches', async c =
     )
     return c.json(branches)
   } catch (err) {
+    if (err instanceof InstallationAccessError) {
+      return c.body(null, 403)
+    }
     return handleGithubError(c, err)
   }
 })
@@ -154,6 +179,12 @@ githubRoutes.get('/keyboard-files/:installationId/:repository', async c => {
   const { installationId, repository } = c.req.param()
   const branch = c.req.query('branch')
   try {
+    await assertInstallationAccess(
+      c.get('user'),
+      installationId,
+      repository,
+      c.get('session')
+    )
     const { info, keymap, hostSnapshot } = await files.fetchKeyboardFiles(
       installationId,
       repository,
@@ -167,6 +198,9 @@ githubRoutes.get('/keyboard-files/:installationId/:repository', async c => {
       hostSnapshot: hostSnapshot ?? null
     })
   } catch (err) {
+    if (err instanceof InstallationAccessError) {
+      return c.body(null, 403)
+    }
     if (err instanceof files.MissingRepoFile) {
       console.error(`Validation error in ${repository} (${branch}):`, err.name, err.errors)
       return c.json({ name: err.name, path: err.path, errors: err.errors }, 400)
@@ -184,6 +218,12 @@ githubRoutes.get('/builds/:installationId/:repository/artifact/:artifactId', asy
   if (!/^\d+$/.test(artifactId)) return c.body(null, 400)
   const archiveName = builds.firmwareArchiveName(c.req.query('name'))
   try {
+    await assertInstallationAccess(
+      c.get('user'),
+      installationId,
+      repository,
+      c.get('session')
+    )
     const bytes = await builds.downloadFirmwareArtifact(
       installationId,
       repository,
@@ -194,6 +234,9 @@ githubRoutes.get('/builds/:installationId/:repository/artifact/:artifactId', asy
       'Content-Disposition': `attachment; filename="${archiveName}"`
     })
   } catch (err) {
+    if (err instanceof InstallationAccessError) {
+      return c.body(null, 403)
+    }
     return handleGithubError(c, err)
   }
 })
@@ -203,9 +246,18 @@ githubRoutes.get('/builds/:installationId/:repository', async c => {
   const branch = c.req.query('branch')
   if (!branch) return c.body(null, 400)
   try {
+    await assertInstallationAccess(
+      c.get('user'),
+      installationId,
+      repository,
+      c.get('session')
+    )
     const build = await builds.fetchFirmwareBuild(installationId, repository, branch)
     return c.json(build)
   } catch (err) {
+    if (err instanceof InstallationAccessError) {
+      return c.body(null, 403)
+    }
     return handleGithubError(c, err)
   }
 })
@@ -214,6 +266,12 @@ githubRoutes.post('/keyboard-files/:installationId/:repository/:branch', async c
   const { installationId, repository, branch } = c.req.param()
   const { keymap, layout, hostSnapshot, hostDeliverables } = await c.req.json()
   try {
+    await assertInstallationAccess(
+      c.get('user'),
+      installationId,
+      repository,
+      c.get('session')
+    )
     const { mode, warnings } = await files.commitChanges(
       installationId,
       repository,
@@ -225,6 +283,9 @@ githubRoutes.post('/keyboard-files/:installationId/:repository/:branch', async c
     )
     return c.json({ ok: true, mode, warnings })
   } catch (err) {
+    if (err instanceof InstallationAccessError) {
+      return c.body(null, 403)
+    }
     if (err instanceof KeymapValidationError) {
       return c.json({ name: err.name, errors: err.errors }, 400)
     }

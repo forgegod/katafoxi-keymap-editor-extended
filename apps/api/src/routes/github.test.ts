@@ -74,10 +74,16 @@ async function authedRequest(
   return { sid, res: await app.request(path, { ...init, headers }) }
 }
 
+const OWN_INSTALLATION_REPOS = {
+  installations: [{ id: 1 }],
+  repositories: [{ full_name: 'acme/lark' }, { full_name: 'acme/keymap' }],
+  repoInstallationMap: { 'acme/lark': 1, 'acme/keymap': 1 }
+}
+
 beforeEach(() => {
   vi.spyOn(auth, 'getOauthToken')
   vi.spyOn(auth, 'getOauthUser')
-  vi.spyOn(installations, 'fetchInstallationRepos')
+  vi.spyOn(installations, 'fetchInstallationRepos').mockResolvedValue(OWN_INSTALLATION_REPOS)
   vi.spyOn(installations, 'fetchRepoBranches')
   vi.spyOn(files, 'fetchKeyboardFiles')
   vi.spyOn(files, 'commitChanges')
@@ -387,5 +393,73 @@ describe('session and errors', () => {
     expect(res.headers.get('content-type')).toContain('application/zip')
     expect(res.headers.get('content-disposition')).toBe('attachment; filename="firmware.zip"')
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]))
+  })
+})
+
+describe('installation access control', () => {
+  it('rejects a foreign installationId with 403 before minting a token', async () => {
+    const fetchFiles = vi.mocked(files.fetchKeyboardFiles)
+    const createToken = vi.spyOn(auth, 'createInstallationToken')
+
+    const { res } = await authedRequest('/github/keyboard-files/999/acme%2Flark')
+    expect(res.status).toBe(403)
+    expect(fetchFiles).not.toHaveBeenCalled()
+    expect(createToken).not.toHaveBeenCalled()
+  })
+
+  it('rejects a foreign repository within an own installation with 403', async () => {
+    const fetchFiles = vi.mocked(files.fetchKeyboardFiles)
+    const createToken = vi.spyOn(auth, 'createInstallationToken')
+
+    const { res } = await authedRequest('/github/keyboard-files/1/acme%2Fother')
+    expect(res.status).toBe(403)
+    expect(fetchFiles).not.toHaveBeenCalled()
+    expect(createToken).not.toHaveBeenCalled()
+  })
+
+  it('allows own installation and repository', async () => {
+    vi.mocked(files.fetchKeyboardFiles).mockResolvedValue({
+      info: VALID_INFO,
+      keymap: VALID_KEYMAP,
+      originalCodeKeymap: { name: 'lark.keymap', path: 'config/lark.keymap' },
+      hostSnapshot: null
+    })
+    const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark')
+    expect(res.status).toBe(200)
+    expect(files.fetchKeyboardFiles).toHaveBeenCalledWith('1', 'acme/lark', undefined)
+  })
+
+  it('caches installation access on the session across requests', async () => {
+    vi.mocked(files.fetchKeyboardFiles).mockResolvedValue({
+      info: VALID_INFO,
+      keymap: VALID_KEYMAP,
+      originalCodeKeymap: { name: 'lark.keymap', path: 'config/lark.keymap' },
+      hostSnapshot: null
+    })
+    const sid = trackSid(createSession({ login: 'octocat', oauthAccessToken: 'user-token' }))
+
+    const first = await app.request('/github/keyboard-files/1/acme%2Flark', {
+      headers: { Cookie: sessionCookie(sid) }
+    })
+    const second = await app.request('/github/keyboard-files/1/acme%2Flark', {
+      headers: { Cookie: sessionCookie(sid) }
+    })
+    expect(first.status).toBe(200)
+    expect(second.status).toBe(200)
+    expect(installations.fetchInstallationRepos).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects foreign installation on branch and build routes', async () => {
+    const createToken = vi.spyOn(auth, 'createInstallationToken')
+    const fetchBuild = vi.spyOn(builds, 'fetchFirmwareBuild')
+
+    const branches = await authedRequest('/github/installation/999/acme%2Flark/branches')
+    expect(branches.res.status).toBe(403)
+
+    const buildsRes = await authedRequest('/github/builds/999/acme%2Fkeymap?branch=main')
+    expect(buildsRes.res.status).toBe(403)
+
+    expect(createToken).not.toHaveBeenCalled()
+    expect(fetchBuild).not.toHaveBeenCalled()
   })
 })

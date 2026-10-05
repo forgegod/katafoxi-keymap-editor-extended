@@ -3,10 +3,17 @@ import crypto from 'node:crypto'
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000
 
+/** Cached map of repository full_name → installation id the user may access. */
+export type InstallationAccessCache = {
+  repoInstallationMap: Record<string, number>
+  expiresAt: number
+}
+
 export type Session = {
   login: string
   oauthAccessToken: string
   expiresAt: number
+  installationAccess?: InstallationAccessCache
 }
 
 const sessions = new Map<string, Session>()
