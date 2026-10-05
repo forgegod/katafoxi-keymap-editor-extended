@@ -117,9 +117,16 @@ function collectAltGrShiftParts(
 /** What the hover preview should mark: the whole combo, or only the hold badge. */
 export type LegendHoverHit = 'none' | 'combo' | 'hold'
 
+function hoverLayerTargets(hover: Extract<LegendHover, { kind: 'layers' }>): number[] {
+  return hover.source == null ? hover.layers : [...hover.layers, hover.source]
+}
+
 function holdRefMatchesHover(hold: HoldRef | undefined, hover: LegendHover): boolean {
   if (!hold) return false
   if (hover.kind === 'layer') return hold.kind === 'layer' && hold.layer === hover.layer
+  if (hover.kind === 'layers') {
+    return hold.kind === 'layer' && hoverLayerTargets(hover).includes(hold.layer)
+  }
   if (hover.kind === 'altGr') return hold.kind === 'mod' && isRAltCode(hold.code)
   return hold.kind === 'mod' && isShiftKeyCode(hold.code)
 }
@@ -130,8 +137,12 @@ export function legendHoverHit(
 ): LegendHoverHit {
   if (!hover) return 'none'
   const resolved = resolveBinding(binding)
-  if (hover.kind === 'layer') {
-    if (!bindingReferencesLayer(binding, hover.layer)) return 'none'
+  if (hover.kind === 'layer' || hover.kind === 'layers') {
+    const named =
+      hover.kind === 'layer'
+        ? bindingReferencesLayer(binding, hover.layer)
+        : hoverLayerTargets(hover).some(layer => bindingReferencesLayer(binding, layer))
+    if (!named) return 'none'
     return holdRefMatchesHover(resolved.hold, hover) &&
       resolved.tap != null &&
       hostKeyByZmk(resolved.tap)
