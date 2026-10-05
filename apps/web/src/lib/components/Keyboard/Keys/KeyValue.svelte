@@ -2,20 +2,31 @@
   import { isKeypadCode, keycapLegend } from '@keymap-editor/keymap-core'
   import Icon from '../../Common/Icon.svelte'
 
+  type SelectEvent = {
+    target: EventTarget | null
+    codeIndex: number
+    code: string | number | undefined
+    param: unknown
+  }
+
   interface Props {
     param: unknown
     index: number
     value: string | number | undefined
     source?: Record<string, unknown> | null
-    onSelect: (event: {
-      target: EventTarget | null
-      codeIndex: number
-      code: string | number | undefined
-      param: unknown
-    }) => void
+    /** When false (default), paint only — clicks bubble to the parent layer slot. */
+    interactive?: boolean
+    onSelect?: (event: SelectEvent) => void
   }
 
-  let { param, index, value, source, onSelect }: Props = $props()
+  let {
+    param,
+    index,
+    value,
+    source,
+    interactive = false,
+    onSelect
+  }: Props = $props()
 
   const title = $derived(
     source ? `(${source.code}) ${source.description ?? ''}` : undefined
@@ -33,7 +44,7 @@
 
   function handleClick(event: MouseEvent) {
     event.stopPropagation()
-    onSelect({
+    onSelect?.({
       target: event.target,
       codeIndex: index,
       code: value,
@@ -42,13 +53,24 @@
   }
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<span class="code" class:keypad {title} onclick={handleClick}>
-  {#if faIcon}
-    <Icon name={faIcon} />
-  {:else if text}
-    {text}
-  {:else}
-    <span>⦸</span>
-  {/if}
-</span>
+{#if interactive}
+  <button type="button" class="code" class:keypad {title} onclick={handleClick}>
+    {#if faIcon}
+      <Icon name={faIcon} />
+    {:else if text}
+      {text}
+    {:else}
+      <span>⦸</span>
+    {/if}
+  </button>
+{:else}
+  <span class="code" class:keypad {title}>
+    {#if faIcon}
+      <Icon name={faIcon} />
+    {:else if text}
+      {text}
+    {:else}
+      <span>⦸</span>
+    {/if}
+  </span>
+{/if}

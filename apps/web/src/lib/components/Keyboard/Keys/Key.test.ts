@@ -160,6 +160,23 @@ describe('Key click editor', () => {
     ).toBe(true)
   })
 
+  it('opens the editor when clicking ZMK legend .code inside the layer slot', () => {
+    open({
+      layerBindings: [
+        { value: '&kp', params: [{ value: 'A', params: [] }] },
+        { value: '&kp', params: [{ value: 'B', params: [] }] }
+      ],
+      layerView: { shown: [0, 1], layer0Raw: true }
+    })
+    const code = document.querySelector('.layer-slot .code')
+    expect(code).toBeInstanceOf(HTMLElement)
+    expect(code?.tagName).toBe('SPAN')
+    code?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    flushSync()
+
+    expect(editorDialog()).toBeInstanceOf(HTMLElement)
+  })
+
   it('applies a picked key and closes the dialog', () => {
     const onUpdate = open()
     clickKey()

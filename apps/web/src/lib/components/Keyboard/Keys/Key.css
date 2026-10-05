@@ -103,12 +103,22 @@
   padding: 0px 4px;
   margin-left: -2px;
   margin-right: -2px;
-  cursor: pointer;
+  /* Display legends inherit the layer-slot cursor so clicks pass through. */
+  cursor: inherit;
   display: inline-block;
   box-sizing: content-box;
   min-width: 0.5em;
   text-align: center;
   border-radius: 4px;
+}
+
+button.code {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
 }
 
 .code.keypad {

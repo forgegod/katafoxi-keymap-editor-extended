@@ -59,7 +59,6 @@
       parentCodeIndex={0}
       params={rowParams}
       values={hydrated.params}
-      onSelect={() => {}}
     />
   {/if}
 </span>
