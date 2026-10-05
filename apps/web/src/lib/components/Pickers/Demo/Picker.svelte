@@ -7,18 +7,11 @@
     type DemoCatalogEntry
   } from '../../../demo/catalog'
   import type { LayoutKey } from '@keymap-editor/keymap-core'
+  import type { DemoKeyboardSelection } from '../../../editor/types'
   import LayoutThumb from './LayoutThumb.svelte'
 
-  interface KeymapEvent {
-    source?: string
-    layout?: unknown
-    keymap?: unknown
-    demo?: { id: string; name: string }
-    [key: string]: unknown
-  }
-
   interface Props {
-    onSelect: (event: KeymapEvent) => void
+    onSelect: (event: DemoKeyboardSelection) => void
     /** Ask the source menu to switch to Clipboard. */
     onConnectClipboard?: () => void
     /** Ask the source menu to switch to GitHub. */

@@ -49,20 +49,28 @@ import * as persistDraft from './persist-draft'
 import * as publishBridge from './publish-bridge'
 import * as selectKeyboardApi from './select-keyboard'
 import type {
+  GithubKeyboardSelection,
   GithubMeta,
   HostKeyLevelEditResult,
   HostProfilePrompt,
   HostSymbolEditTarget,
   KeyboardSelection,
+  KeyboardSelectionSource,
   SaveNotice
 } from './types'
 
 export type {
+  ClipboardKeyboardSelection,
+  DemoKeyboardSelection,
+  GithubKeyboardSelection,
   GithubMeta,
   HostKeyLevelEditResult,
   HostProfilePrompt,
   HostSymbolEditTarget,
   KeyboardSelection,
+  KeyboardSelectionSource,
+  KeymapPickerPayload,
+  LocalKeyboardSelection,
   SaveNotice
 } from './types'
 export { hostLegendAnchorIndex } from './helpers'
@@ -70,7 +78,7 @@ export { adoptHoldTaps, cloneParsedKeymap } from './keymap-clone'
 
 export class EditorState {
   definitions = $state<Definitions | null>(null)
-  source = $state<string | null>(null)
+  source = $state<KeyboardSelectionSource | null>(null)
   githubMeta = $state<GithubMeta | null>(null)
   /** Pasted `.keymap` kept for clipboard splice / Copy. */
   clipboardOriginalSource = $state<string | null>(null)
@@ -300,7 +308,7 @@ export class EditorState {
   declare _draftIdentityMatches: (identityKey: string) => boolean
   declare selectKeyboard: (event: KeyboardSelection) => Promise<void>
   declare _preserveGithubSession: (
-    event: KeyboardSelection,
+    event: GithubKeyboardSelection,
     upcomingIdentity: DraftIdentity | null,
     upcomingKey: string | null,
     selectToken: number

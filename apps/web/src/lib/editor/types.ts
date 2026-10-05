@@ -39,29 +39,64 @@ export type SaveNotice = {
 
 export type GithubMeta = { repository: string; branch: string }
 
-export type KeyboardSelection = {
-  source?: string
+/** Shared board payload present on every keymap-selection source. */
+type KeyboardSelectionBase = {
   layout?: LayoutKey[] | null
   keymap?: ParsedKeymap | null
-  github?: GithubMeta
+  warnings?: string[]
+}
+
+export type DemoKeyboardSelection = KeyboardSelectionBase & {
+  source: 'demo'
+  demo?: { id: string; name: string }
+  /** Demo-only host layouts to open when the legend is still English-only. */
+  demoHost?: DemoHostLayoutSeed[]
+}
+
+export type ClipboardKeyboardSelection = KeyboardSelectionBase & {
+  source: 'clipboard'
+  /** Pasted `.keymap` text for clipboard Copy (splice). */
+  clipboardOriginalSource?: string | null
+  clipboardInferredLayout?: boolean
+}
+
+export type GithubKeyboardSelection = KeyboardSelectionBase & {
+  source: 'github'
+  github: GithubMeta
   /**
    * Keep the live draft and Host legend when retargeting the same GitHub repo
    * (Create branch ≈ `git checkout -b`). Baseline becomes the loaded tip.
    */
   preserveSession?: boolean
-  /** Demo-only host layouts to open when the legend is still English-only. */
-  demoHost?: DemoHostLayoutSeed[]
-  /** Pasted `.keymap` text for clipboard Copy (splice). */
-  clipboardOriginalSource?: string | null
-  /** Clipboard load warning codes (`clipboard_inferred_layout`, …). */
-  warnings?: string[]
   /**
    * Host snapshot from `host_keymap/snapshot.json` (GitHub). When present it
    * wins over IndexedDB for this keymap identity.
    */
   hostSnapshot?: HostKeymapSnapshot | null
-  [key: string]: unknown
 }
+
+export type LocalKeyboardSelection = KeyboardSelectionBase & {
+  source: 'local'
+}
+
+/** Keymap load/selection event stamped by source (Demo / Clipboard / GitHub / Local). */
+export type KeyboardSelection =
+  | DemoKeyboardSelection
+  | ClipboardKeyboardSelection
+  | GithubKeyboardSelection
+  | LocalKeyboardSelection
+
+export type KeyboardSelectionSource = KeyboardSelection['source']
+
+/**
+ * Payload from a source picker before KeyboardPicker stamps `source` from the
+ * live chip (GitHub/Local often omit `source`; Demo/Clipboard include it).
+ */
+export type KeymapPickerPayload =
+  | DemoKeyboardSelection
+  | ClipboardKeyboardSelection
+  | (Omit<GithubKeyboardSelection, 'source'> & { source?: 'github' })
+  | (Omit<LocalKeyboardSelection, 'source'> & { source?: 'local' })
 
 /** Max draft snapshots kept for undo / redo. */
 export const HISTORY_LIMIT = 50

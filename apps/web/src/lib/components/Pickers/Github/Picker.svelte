@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import type { LayoutKey } from '@keymap-editor/keymap-core'
+  import type { HostKeymapSnapshot, LayoutKey, ParsedKeymap } from '@keymap-editor/keymap-core'
   import * as config from '../../../config'
   import github from '../../../github/api.svelte.js'
   import { githubChipLabel, githubGateAction, manageReposUrl } from '../../../github/chrome-label.js'
@@ -25,8 +25,10 @@
   interface Props {
     onSelect: (event: {
       github: { repository: string; branch: string }
-      layout: unknown
-      keymap: unknown
+      layout: LayoutKey[]
+      keymap: ParsedKeymap
+      hostSnapshot?: HostKeymapSnapshot | null
+      warnings?: string[]
       /** Keep unpublished edits + Host legend when switching after Create branch. */
       preserveSession?: boolean
     }) => void

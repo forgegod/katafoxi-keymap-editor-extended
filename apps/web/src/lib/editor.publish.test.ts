@@ -273,7 +273,7 @@ describe('editor publish / draft persistence', () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
 
     const selection = {
-      source: 'local',
+      source: 'local' as const,
       layout: [{ x: 0, y: 0, row: 0, col: 0 }],
       keymap: km('A')
     }

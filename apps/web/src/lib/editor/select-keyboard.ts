@@ -1,4 +1,3 @@
-import type { ParsedKeymap } from '@keymap-editor/keymap-core'
 import {
   readClipboardOriginalSource,
   writeClipboardOriginalSource
@@ -19,7 +18,7 @@ import {
 import { formatKeymapSaveWarningNotices } from '../keymap-save-warnings.js'
 import { adoptHoldTaps, adoptSensorBindings, cloneLayout, cloneParsedKeymap } from './keymap-clone'
 import type { EditorState } from './state.svelte'
-import type { KeyboardSelection } from './types'
+import type { GithubKeyboardSelection, KeyboardSelection } from './types'
 
 export async function selectKeyboard(this: EditorState, event: KeyboardSelection) {
   const selectToken = ++this._selectGeneration
@@ -29,20 +28,19 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
   this.endHostEditSession()
   this.legendHover = null
 
+  const githubMeta = event.source === 'github' ? event.github : undefined
   const upcomingIdentity = buildDraftIdentity({
     source: event.source,
-    repo: event.github?.repository,
-    branch: event.github?.branch,
-    keyboard:
-      event.keymap && typeof event.keymap === 'object'
-        ? ((event.keymap as ParsedKeymap).keyboard ?? null)
-        : null
+    repo: githubMeta?.repository,
+    branch: githubMeta?.branch,
+    keyboard: event.keymap?.keyboard ?? null
   })
   const upcomingKey = upcomingIdentity
     ? draftIdentityKey(upcomingIdentity)
     : null
 
   if (
+    event.source === 'github' &&
     event.preserveSession &&
     (await this._preserveGithubSession(event, upcomingIdentity, upcomingKey, selectToken))
   ) {
@@ -54,8 +52,8 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
   const keepLiveDraft =
     alreadyHandled && this.draftKeymap != null && this.isDirty
 
-  this.source = event.source ?? null
-  this.githubMeta = event.github ?? null
+  this.source = event.source
+  this.githubMeta = githubMeta ?? null
   if (event.source !== 'github') {
     this._hostRepoBaselineEncoded = null
   }
@@ -104,8 +102,10 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
   }
 
   if (!alreadyHandled) {
-    if (event.hostSnapshot) {
-      await this._applyHostKeymapSnapshot(event.hostSnapshot, selectToken)
+    const hostSnapshot =
+      event.source === 'github' ? event.hostSnapshot : undefined
+    if (hostSnapshot) {
+      await this._applyHostKeymapSnapshot(hostSnapshot, selectToken)
     } else {
       if (event.source === 'github') this._hostRepoBaselineEncoded = null
       await this._restoreHostLegend(selectToken)
@@ -113,7 +113,7 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
   }
   if (selectToken !== this._selectGeneration) return
   if (alreadyHandled) return
-  if (event.demoHost?.length) {
+  if (event.source === 'demo' && event.demoHost?.length) {
     await this._seedDemoHostLayouts(event.demoHost, selectToken)
     if (selectToken !== this._selectGeneration) return
   }
@@ -129,7 +129,7 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
  * draft or Host legend (Create branch ≈ `git checkout -b`).
  */
 export async function _preserveGithubSession(this: EditorState, 
-  event: KeyboardSelection,
+  event: GithubKeyboardSelection,
   upcomingIdentity: DraftIdentity | null,
   upcomingKey: string | null,
   selectToken: number
@@ -137,7 +137,7 @@ export async function _preserveGithubSession(this: EditorState,
   const github = event.github
   const km = event.keymap
   if (!github || !km || !this.draftKeymap || !this.baselineKeymap) return false
-  if (this.source !== 'github' && event.source !== 'github') return false
+  if (this.source !== 'github') return false
   if (
     this.githubMeta &&
     this.githubMeta.repository !== github.repository

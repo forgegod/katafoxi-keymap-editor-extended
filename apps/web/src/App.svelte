@@ -3,7 +3,7 @@
   import { parseDtsKeymap, parseKeymap } from '@keymap-editor/keymap-core'
   import * as config from './lib/config'
   import { setDefinitionsContext } from './lib/context'
-  import { editor, type KeyboardSelection } from './lib/editor.svelte.js'
+  import { editor } from './lib/editor.svelte.js'
   import { handleEditorShortcut } from './lib/editor-shortcuts'
   import { publishKeymap } from './lib/publish-keymap'
   import { reloadLocalKeyboard } from './lib/api'
@@ -249,7 +249,7 @@
               openSource={openSourceRequest}
               onOpenSourceConsumed={() => (openSourceRequest = null)}
               onSelect={event => {
-                void editor.selectKeyboard(event as KeyboardSelection)
+                void editor.selectKeyboard(event)
               }}
               onLogout={() => editor.clearLoadedKeymap()}
             />
