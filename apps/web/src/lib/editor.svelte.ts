@@ -1591,6 +1591,8 @@ export class EditorState {
     this.#publishGeneration += 1
     this.#persistGeneration += 1
     this.#cancelPersistTimer()
+    this.endHostEditSession()
+    this.legendHover = null
 
     const upcomingIdentity = buildDraftIdentity({
       source: event.source,
@@ -2187,6 +2189,8 @@ export class EditorState {
     this.#persistGeneration += 1
     this.#selectGeneration += 1
     this.#publishGeneration += 1
+    this.endHostEditSession()
+    this.legendHover = null
     this.source = null
     this.githubMeta = null
     this.#hostRepoBaselineEncoded = null
