@@ -230,7 +230,9 @@ describe('KeyEditor value catalog', () => {
     }
   })
 
-  it('shows the key grid on &mt once the Key slot is active', () => {
+  it('shows the modifier row and the key grid together for &mt', () => {
+    const activated: number[] = []
+    const selected: string[] = []
     const base: EditorScene = {
       bindingLabel: '&mt',
       behaviours,
@@ -242,17 +244,45 @@ describe('KeyEditor value catalog', () => {
       activeCodeIndex: 1,
       choices: codeChoices,
       onSelectBehaviour: () => {},
-      onSelectValue: () => {},
-      onActivateSlot: () => {},
+      onSelectValue: choice => {
+        selected.push(String(choice.code))
+      },
+      onActivateSlot: codeIndex => {
+        activated.push(codeIndex)
+      },
       onConfirm: () => {},
       onCancel: () => {}
     }
     const editor = open(base)
 
-    expect(choiceTexts(target)).not.toContain('F1')
+    expect(choiceTexts(target)).toContain('F1')
+    expect(choiceTexts(target)).toContain('K')
     expect(
-      [...target.querySelectorAll('.key-editor-choice')].map(el => el.getAttribute('title'))
+      [...target.querySelectorAll('[data-slot-values] .key-editor-choice')].map(el =>
+        el.getAttribute('title')
+      )
     ).toContain('Left control')
+    expect(target.querySelector('[data-binding-slots]')).toBeNull()
+    expect(target.querySelector('[data-slot-values] .key-editor-section-label')?.textContent).toBe(
+      'Modifier'
+    )
+    expect(
+      [...target.querySelectorAll('.key-editor-section-label')].map(el =>
+        (el.textContent ?? '').trim()
+      )
+    ).toEqual(expect.arrayContaining(['Modifier', 'Value']))
+    const choiceBlock = target.querySelector('[data-behavior-choice]')
+    expect(choiceBlock?.querySelector('[data-behaviour-group="params"]')).toBeTruthy()
+    expect(choiceBlock?.querySelector('[data-behavior-presets]')).toBeTruthy()
+    expect(choiceBlock?.querySelector('[data-slot-values]')).toBeNull()
+
+    const ctrl = [...target.querySelectorAll('[data-slot-values] .key-editor-choice')].find(
+      el => el.getAttribute('title') === 'Left control'
+    )
+    if (!(ctrl instanceof HTMLButtonElement)) throw new Error('missing modifier choice')
+    ctrl.click()
+    expect(activated).toEqual([1])
+    expect(selected).toEqual(['LCTRL'])
 
     editor.show({
       ...base,
@@ -267,14 +297,17 @@ describe('KeyEditor value catalog', () => {
     flushSync()
 
     expect(choiceTexts(target)).toContain('F1')
-    expect(choiceTexts(target)).toContain('K')
-    const keyChip = [...target.querySelectorAll('.key-editor-chip')].find(el =>
-      (el.textContent ?? '').trim().startsWith('Key')
-    )
-    expect(keyChip?.classList.contains('active')).toBe(true)
+    expect(target.querySelector('[data-slot-values]')).toBeTruthy()
     expect(
       [...target.querySelectorAll('.key-editor-group h3')].map(el => el.textContent)
     ).toContain('Keyboard')
+    const key = [...target.querySelectorAll('.key-editor-choice')].find(
+      el => (el.textContent ?? '').trim() === 'K'
+    )
+    if (!(key instanceof HTMLButtonElement)) throw new Error('missing key choice')
+    key.click()
+    expect(activated.at(-1)).toBe(2)
+    expect(selected.at(-1)).toBe('K')
   })
 
   it('applies a finished &mt binding with Enter while a key button is focused', () => {
@@ -452,5 +485,145 @@ describe('KeyEditor value catalog', () => {
     )
     expect(confirmed).toBe(0)
     expect(activated).toEqual([1])
+  })
+
+  it('shows keymap hold-tap timing under the behaviour chips', () => {
+    const withTiming = behaviours.map(behavior =>
+      behavior.code === '&mt'
+        ? { ...behavior, tappingTermMs: 300, flavor: 'tap-preferred' }
+        : behavior
+    )
+    withTiming.push({
+      code: '&hm',
+      name: 'Hold-tap',
+      description: 'Hold-tap, 280 ms, tap preferred',
+      params: ['code', 'code'],
+      tappingTermMs: 280,
+      flavor: 'tap-preferred'
+    })
+    open({
+      bindingLabel: '&hm LCTRL A',
+      behaviours: withTiming,
+      editorSlots: [
+        slot(0, 'behaviour', '&hm', 'Behaviour'),
+        slot(1, 'code', 'LCTRL', 'Key'),
+        slot(2, 'code', 'A', 'Key')
+      ],
+      activeCodeIndex: 1,
+      choices: codeChoices,
+      onSelectBehaviour: () => {},
+      onSelectValue: () => {},
+      onActivateSlot: () => {},
+      onConfirm: () => {},
+      onCancel: () => {}
+    })
+
+    const chips = [...target.querySelectorAll('.key-editor-chip')].map(el =>
+      (el.textContent ?? '').trim()
+    )
+    expect(chips).toContain('&hm')
+    expect(target.querySelector('[data-hold-tap-fields] .key-editor-section-label')?.textContent).toBe(
+      'Timing'
+    )
+    expect(target.querySelector('[data-hold-tap-note]')?.textContent?.trim()).toBe(
+      'Changes every key that uses &hm.'
+    )
+    expect(target.textContent).not.toContain('Every &hm')
+  })
+
+  it('edits the shared &mt term and adds the homerow preset', () => {
+    const changes: unknown[] = []
+    let selected = ''
+    open({
+      bindingLabel: '&mt LCTRL J',
+      behaviours,
+      editorSlots: [
+        slot(0, 'behaviour', '&mt', 'Behaviour'),
+        slot(1, 'mod', 'LCTRL', 'Modifier'),
+        slot(2, 'code', 'J', 'Key')
+      ],
+      activeCodeIndex: 1,
+      choices: codeChoices,
+      holdTaps: [{ code: '&mt', override: true, tappingTermMs: 300, flavor: 'tap-preferred' }],
+      onChangeHoldTaps: next => changes.push(next),
+      onSelectBehaviour: choice => {
+        selected = String(choice.code)
+      },
+      onSelectValue: () => {},
+      onActivateSlot: () => {},
+      onConfirm: () => {},
+      onCancel: () => {}
+    })
+
+    expect(target.querySelector('[data-add-custom-behavior]')).toBeNull()
+    const term = target.querySelector('[data-hold-tap-term]')
+    expect(term).toBeInstanceOf(HTMLInputElement)
+    expect((term as HTMLInputElement).value).toBe('300')
+    ;(term as HTMLInputElement).value = '280'
+    term?.dispatchEvent(new Event('input', { bubbles: true }))
+    term?.dispatchEvent(new Event('change', { bubbles: true }))
+    expect(changes.at(-1)).toEqual([
+      { code: '&mt', override: true, tappingTermMs: 280, flavor: 'tap-preferred' }
+    ])
+
+    const homerow = target.querySelector('[data-behavior-preset="&hm"]')
+    expect(homerow).toBeInstanceOf(HTMLButtonElement)
+    expect(homerow?.getAttribute('aria-label')).toBe('Homerow')
+    ;(homerow as HTMLButtonElement).click()
+    flushSync()
+    expect(selected).toBe('&hm')
+    const created = changes.at(-1) as Array<{
+      code: string
+      tappingTermMs?: number
+      requirePriorIdleMs?: number
+    }>
+    expect(created.some(node => node.code === '&mt')).toBe(true)
+    expect(
+      created.some(
+        node => node.code === '&hm' && node.tappingTermMs === 280 && node.requirePriorIdleMs === 150
+      )
+    ).toBe(true)
+  })
+
+  it('switches from the active &mt chip to a preset', () => {
+    open({
+      bindingLabel: '&mt LCTRL J',
+      behaviours,
+      editorSlots: [
+        slot(0, 'behaviour', '&mt', 'Behaviour'),
+        slot(1, 'mod', 'LCTRL', 'Modifier'),
+        slot(2, 'code', 'J', 'Key')
+      ],
+      activeCodeIndex: 1,
+      choices: codeChoices,
+      holdTaps: [{ code: '&mt', override: true, tappingTermMs: 300, flavor: 'tap-preferred' }],
+      onChangeHoldTaps: () => {},
+      onSelectBehaviour: () => {},
+      onSelectValue: () => {},
+      onActivateSlot: () => {},
+      onConfirm: () => {},
+      onCancel: () => {}
+    })
+
+    clickChip(target, '&mt')
+    flushSync()
+    clickChip(target, '&hm')
+    flushSync()
+    const homerow = target.querySelector('[data-behavior-preset="&hm"]')
+    const autoshift = target.querySelector('[data-behavior-preset="&as"]')
+    expect(homerow?.classList.contains('active')).toBe(true)
+    expect(target.querySelector('.binding')?.textContent).toContain('&hm')
+    expect(
+      [...target.querySelectorAll('.key-editor-chip')].find(
+        el => (el.textContent ?? '').trim() === '&mt'
+      )?.classList.contains('active')
+    ).toBe(false)
+
+    ;(autoshift as HTMLButtonElement).click()
+    flushSync()
+    expect(autoshift?.classList.contains('active')).toBe(true)
+    expect(homerow?.classList.contains('active')).toBe(false)
+    expect(target.querySelector('.binding')?.textContent).toContain('&as')
+    expect(target.querySelector('[data-hold-tap-flavor]')).toBeNull()
   })
 })

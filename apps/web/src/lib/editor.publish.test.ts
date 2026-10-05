@@ -124,6 +124,28 @@ describe('editor publish / draft persistence', () => {
     confirm.mockRestore()
   })
 
+  it('keeps file hold-tap timings when a draft saved without them is restored', async () => {
+    const identity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
+    await saveStoredDraft(identity, km('Z'))
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const loaded = km('A')
+    loaded.holdTaps = [
+      { code: '&mt', override: true, tappingTermMs: 300, flavor: 'tap-preferred' }
+    ]
+
+    await editor.selectKeyboard({
+      source: 'local',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: loaded
+    })
+
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('Z')
+    expect(editor.draftKeymap!.holdTaps).toEqual(loaded.holdTaps)
+    expect(editor.baselineKeymap!.holdTaps).toEqual(loaded.holdTaps)
+
+    confirm.mockRestore()
+  })
+
   it('discards stored draft when confirm is cancelled', async () => {
     const identity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
     await saveStoredDraft(identity, km('Z'))

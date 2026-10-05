@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { CatalogChoice } from '@keymap-editor/keymap-core'
+  import type { CatalogChoice, ZmkHoldTap } from '@keymap-editor/keymap-core'
   import { untrack } from 'svelte'
   import { setSearchContext, type SearchBox } from '../../context'
   import type { EditorSlot } from '../../key-editor'
@@ -20,6 +20,8 @@
     onActivateSlot: (codeIndex: number) => void
     onConfirm: () => void
     onCancel: () => void
+    holdTaps?: ZmkHoldTap[]
+    onChangeHoldTaps?: (next: ZmkHoldTap[]) => void
   }
 
   interface Props {
@@ -45,6 +47,8 @@
   let onActivateSlot = $state(untrack(() => scene.onActivateSlot))
   let onConfirm = $state(untrack(() => scene.onConfirm))
   let onCancel = $state(untrack(() => scene.onCancel))
+  let holdTaps = $state(untrack(() => scene.holdTaps))
+  let onChangeHoldTaps = $state(untrack(() => scene.onChangeHoldTaps))
 
   export function show(next: EditorScene) {
     bindingLabel = next.bindingLabel
@@ -57,6 +61,8 @@
     onActivateSlot = next.onActivateSlot
     onConfirm = next.onConfirm
     onCancel = next.onCancel
+    holdTaps = next.holdTaps
+    onChangeHoldTaps = next.onChangeHoldTaps
   }
 </script>
 
@@ -71,5 +77,7 @@
   {onActivateSlot}
   {onConfirm}
   {onCancel}
+  {holdTaps}
+  {onChangeHoldTaps}
   onToggleHold={() => {}}
 />

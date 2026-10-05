@@ -18,6 +18,7 @@
     comboListMeta,
     createEmptyCombo,
     encodeKeyBinding,
+    mergeHoldTapCatalog,
     isPlaceholderComboId,
     layerLegendSymbol,
     nextComboIdFromBinding,
@@ -80,9 +81,15 @@
 
   const sources = $derived.by(() => {
     const defs = definitionsBox.current
+    const behaviours = defs
+      ? mergeHoldTapCatalog(
+          defs.behaviours,
+          editor.draftKeymap?.holdTaps ?? editor.baselineKeymap?.holdTaps
+        ).byCode
+      : {}
     return {
       keycodes: (defs?.keycodes.byCode ?? {}) as Record<string, unknown>,
-      behaviours: (defs?.behaviours.byCode ?? {}) as Record<string, unknown>
+      behaviours: behaviours as Record<string, unknown>
     }
   })
 
@@ -536,6 +543,8 @@
       onActivateSlot={openEditor}
       onConfirm={session.confirm}
       onCancel={session.closeEditor}
+      holdTaps={editor.draftKeymap?.holdTaps ?? editor.baselineKeymap?.holdTaps}
+      onChangeHoldTaps={next => editor.updateHoldTaps(next)}
     />
   </Modal>
 {/if}

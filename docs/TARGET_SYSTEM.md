@@ -57,6 +57,7 @@ Click a stacked keycap row. One dialog edits that layer’s ZMK binding:
 - Behaviour chips, then the value list for the active slot. `code` is Keyboard/Keypad, `command` is that behaviour's commands (`&mkp`, `&msc`, `&mmv`, `&bt`, `&out`, …), `layer` and `mod` are the layer or modifier slot (`&mo`, `&mt`, `&lt`).
 - Enter applies a complete binding. Esc cancels. An unfinished hold-tap stays open.
 - Pointing behaviours remind that firmware needs `CONFIG_ZMK_POINTING=y`. The editor only adds `#include <dt-bindings/zmk/pointing.h>`.
+- Hold-tap nodes are read into the keymap. Edit key changes tapping term and flavor for every key that uses `&mt` or `&lt`. The next row offers two presets: Homerow (`&hm`, modifier + key, with term, flavor, quick-tap, and prior-idle) and Autoshift (`&as`, one key — hold sends that key shifted, tap sends it — with a shared term). Choosing a preset adds its node when the keymap does not have it. A hold-tap already in the file keeps its name and can still be assigned; there is no form to invent another behaviour. Save rewrites those timing lines and inserts missing preset nodes when `holdTaps` is set.
 
 ## Conditional layers
 

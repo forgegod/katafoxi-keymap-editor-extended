@@ -4,6 +4,14 @@
   import {
     behaviorFirmwareNote,
     behaviorSlotParam,
+    ensureHoldTapPreset,
+    HOLD_TAP_FLAVORS,
+    HOLD_TAP_PRESETS,
+    holdTapPresetFor,
+    isStockHoldTap,
+    replaceHoldTapTiming,
+    type HoldTapPreset,
+    type ZmkHoldTap,
     behaviorValueCatalog,
     catalogKeyChoices,
     buildChoiceLabeler,
@@ -56,6 +64,8 @@
     onActivateSlot: (codeIndex: number) => void
     onConfirm: () => void
     onCancel: () => void
+    holdTaps?: ZmkHoldTap[]
+    onChangeHoldTaps?: (next: ZmkHoldTap[]) => void
   }
 
   let {
@@ -72,7 +82,9 @@
     onToggleHold,
     onActivateSlot,
     onConfirm,
-    onCancel
+    onCancel,
+    holdTaps,
+    onChangeHoldTaps
   }: Props = $props()
 
   const searchBox = getSearchContext()
@@ -90,10 +102,20 @@
   const activeSlot = $derived(
     editorSlots.find(slot => slot.codeIndex === activeCodeIndex) ?? editorSlots[0]
   )
-  const paramSlots = $derived(visibleValueSlots(editorSlots))
+  const paramSlots = $derived.by(() => {
+    const visible = visibleValueSlots(editorSlots)
+    if (String(behaviourValue ?? '') !== '&as') return visible
+    const keys = visible.filter(slot => isKeycodeParam(slot.param))
+    const filled = keys.filter(slot => isSlotFilled(slot))
+    const one = filled.at(-1) ?? keys[0]
+    return one ? [one] : visible.slice(0, 1)
+  })
+  const keySlot = $derived(paramSlots.find(slot => isKeycodeParam(slot.param)))
+  const inlineSlots = $derived(paramSlots.filter(slot => !isKeycodeParam(slot.param)))
+  const catalogSlot = $derived(keySlot ?? activeSlot)
   const behaviourValue = $derived(pickedBehaviour ?? editorSlots[0]?.value)
   const valueCatalog = $derived(behaviorValueCatalog(behaviourValue))
-  const catalogParam = $derived(behaviorSlotParam(behaviourValue, activeSlot?.param))
+  const catalogParam = $derived(behaviorSlotParam(behaviourValue, catalogSlot?.param))
   const resolvedChoices = $derived.by(() => {
     if (catalogParam === 'command') {
       if (valueCatalog.choices.length) return valueCatalog.choices as Choice[]
@@ -111,7 +133,9 @@
   const dimUsed = $derived(
     isKeycodeParam(catalogParam) || catalogParam === 'command'
   )
-  const showHolds = $derived(isKeycodeParam(catalogParam) && !!onToggleHold)
+  const showHolds = $derived(
+    !!keySlot && !!onToggleHold && String(behaviourValue ?? '') !== '&as'
+  )
   const showValuePicker = $derived(
     catalogParam != null && catalogParam !== 'behaviour'
   )
@@ -123,6 +147,112 @@
   const labelChoice = $derived(buildChoiceLabeler(displayChoices))
   const searching = $derived(query.trim().length > 0)
   const orderedBehaviours = $derived(sortBehaviorsByRole(behaviours))
+  const activeBehaviour = $derived(
+    orderedBehaviours.find(choice => String(choice.code) === String(behaviourValue ?? ''))
+  )
+  const behaviourCode = $derived(String(behaviourValue ?? ''))
+  const preset = $derived(holdTapPresetFor(behaviourCode))
+  const behaviourChoices = $derived(
+    orderedBehaviours.filter(choice => !holdTapPresetFor(String(choice.code)))
+  )
+  const customHoldTap = $derived(
+    (holdTaps ?? []).some(node => node.code === behaviourCode && !node.override) ||
+      activeBehaviour?.holdTap === true
+  )
+  const timingFields = $derived(
+    preset
+      ? preset.fields
+      : isStockHoldTap(behaviourCode) || customHoldTap
+        ? (['tappingTermMs', 'flavor'] as const)
+        : ([] as const)
+  )
+  const timingNode = $derived((holdTaps ?? []).find(node => node.code === behaviourCode))
+  const autoshift = $derived(behaviourCode === '&as')
+
+  let termDraft = $state('')
+  let flavorDraft = $state('')
+  let quickDraft = $state('')
+  let idleDraft = $state('')
+  let timingSyncKey = $state('')
+
+  function msText(value: unknown): string {
+    return typeof value === 'number' ? String(value) : ''
+  }
+
+  $effect(() => {
+    const key = [
+      behaviourCode,
+      timingNode?.tappingTermMs ?? '',
+      timingNode?.flavor ?? '',
+      timingNode?.quickTapMs ?? '',
+      timingNode?.requirePriorIdleMs ?? '',
+      activeBehaviour?.tappingTermMs ?? '',
+      activeBehaviour?.flavor ?? '',
+      activeBehaviour?.quickTapMs ?? '',
+      activeBehaviour?.requirePriorIdleMs ?? ''
+    ].join(':')
+    if (key === timingSyncKey) return
+    timingSyncKey = key
+    termDraft = msText(timingNode?.tappingTermMs ?? activeBehaviour?.tappingTermMs)
+    const flavor = timingNode?.flavor ?? activeBehaviour?.flavor
+    flavorDraft = typeof flavor === 'string' ? flavor : ''
+    quickDraft = msText(timingNode?.quickTapMs ?? activeBehaviour?.quickTapMs)
+    idleDraft = msText(timingNode?.requirePriorIdleMs ?? activeBehaviour?.requirePriorIdleMs)
+  })
+
+  function readMs(raw: unknown): number | undefined | null {
+    const text = String(raw ?? '').trim()
+    if (text === '') return undefined
+    const value = Number(text)
+    if (!Number.isInteger(value) || value < 0) return null
+    return value
+  }
+
+  function commitTiming() {
+    if (!onChangeHoldTaps || timingFields.length === 0) return
+    const patch: {
+      tappingTermMs?: number
+      flavor?: string
+      quickTapMs?: number
+      requirePriorIdleMs?: number
+    } = {}
+    if (timingFields.includes('tappingTermMs')) {
+      const tappingTermMs = readMs(termDraft)
+      if (tappingTermMs === null) return
+      patch.tappingTermMs = tappingTermMs
+    }
+    if (timingFields.includes('flavor')) {
+      patch.flavor = HOLD_TAP_FLAVORS.some(item => item.id === flavorDraft) ? flavorDraft : undefined
+    }
+    if (timingFields.includes('quickTapMs')) {
+      const quickTapMs = readMs(quickDraft)
+      if (quickTapMs === null) return
+      patch.quickTapMs = quickTapMs
+    }
+    if (timingFields.includes('requirePriorIdleMs')) {
+      const requirePriorIdleMs = readMs(idleDraft)
+      if (requirePriorIdleMs === null) return
+      patch.requirePriorIdleMs = requirePriorIdleMs
+    }
+    onChangeHoldTaps(replaceHoldTapTiming(holdTaps, behaviourCode, patch))
+  }
+
+  function choosePreset(next: HoldTapPreset) {
+    if (!onChangeHoldTaps) return
+    const list = ensureHoldTapPreset(holdTaps, next.code)
+    if (list !== holdTaps) onChangeHoldTaps(list)
+    if (behaviourCode === next.code) return
+    // Behaviour chips store a local override. Presets must replace it, or the
+    // row stays on &mt after the session draft has already moved.
+    pickedBehaviour = next.code
+    onSelectBehaviour({
+      code: next.code,
+      name: next.name,
+      params: [...next.params],
+      holdTap: true,
+      ...next.defaults
+    })
+  }
   const showFilter = $derived(displayChoices.length > 16)
   const catalogKey = $derived(
     `${String(behaviourValue ?? '')}:${String(catalogParam ?? '')}:${displayChoices.length}`
@@ -149,7 +279,7 @@
   const activeContexts = $derived.by(() => {
     if (pinnedContexts && pinnedForKey === catalogKey) return pinnedContexts
     if (!keycodeTaxonomy) return allGroups.map(group => group.context)
-    return initialTaxonomyContexts(allGroups, activeSlot?.value)
+    return initialTaxonomyContexts(allGroups, catalogSlot?.value)
   })
 
   const visibleGroups = $derived.by(() => {
@@ -159,11 +289,13 @@
   })
 
   const showGroupTitles = $derived(visibleGroups.length > 1)
-  const activeHolds = $derived(collectActiveHolds(editorSlots, activeCodeIndex))
+  const activeHolds = $derived(
+    collectActiveHolds(editorSlots, keySlot?.codeIndex ?? activeCodeIndex)
+  )
   const needsTerminal = $derived(needsTerminalKey(showHolds, activeHolds, paramSlots))
   const canConfirm = $derived(canConfirmBinding(editorSlots))
   const pickKeyHint = $derived(
-    shouldShowPickKeyHint(activeSlot, paramSlots, needsTerminal)
+    shouldShowPickKeyHint(catalogSlot, paramSlots, needsTerminal)
   )
   const firmwareNote = $derived(behaviorFirmwareNote(behaviourValue))
 
@@ -171,7 +303,40 @@
     pickedBehaviour = choice.code ?? null
     onSelectBehaviour(choice)
   }
-  const terminalValue = $derived(terminalKeySlot(editorSlots, activeCodeIndex)?.value)
+
+  function choicesFor(param: unknown): Choice[] {
+    const name = typeof param === 'string' ? param : ''
+    if (name === 'command') {
+      if (valueCatalog.choices.length) return valueCatalog.choices as Choice[]
+      const listed = behaviours.find(
+        choice => String(choice.code) === behaviourCode
+      ) as (Choice & { commands?: Choice[] }) | undefined
+      return listed?.commands ?? []
+    }
+    if (search && name && name !== 'behaviour') {
+      return (search.getSearchTargets(name, behaviourCode) ?? []) as Choice[]
+    }
+    return isKeycodeParam(name) ? choices : []
+  }
+
+  /** Write a modifier or layer without hiding the key catalog. */
+  function chooseInline(slot: EditorSlot, choice: Choice) {
+    onActivateSlot(slot.codeIndex)
+    onSelectValue(choice)
+  }
+
+  function focusKeySlot() {
+    if (keySlot) onActivateSlot(keySlot.codeIndex)
+  }
+
+  /** The key grid always edits the key slot, even after a modifier click. */
+  function chooseKey(choice: Choice) {
+    focusKeySlot()
+    onSelectValue(choice)
+  }
+  const terminalValue = $derived(
+    terminalKeySlot(editorSlots, keySlot?.codeIndex ?? activeCodeIndex)?.value
+  )
 
   function pulseMissing(codeIndex: number) {
     window.clearTimeout(pulseTimer)
@@ -269,33 +434,151 @@
 
   <div class="key-editor-body">
     <div class="key-editor-main">
-      <BehaviourRow
-        behaviours={orderedBehaviours}
-        activeCode={behaviourValue}
-        onChoose={chooseBehaviour}
-      />
+      <div class="key-editor-choice-block" data-behavior-choice>
+        <BehaviourRow
+          behaviours={behaviourChoices}
+          activeCode={behaviourValue}
+          onChoose={chooseBehaviour}
+        />
+
+        <section class="key-editor-row" data-behavior-presets>
+          <p class="key-editor-section-label">Presets</p>
+          <div class="key-editor-chips" role="group" aria-label="Homerow and autoshift">
+            {#each HOLD_TAP_PRESETS as item (item.code)}
+              <SelectChip
+                active={behaviourCode === item.code}
+                title={item.description}
+                aria-label={item.name}
+                data-behavior-preset={item.code}
+                disabled={!onChangeHoldTaps}
+                onclick={() => choosePreset(item)}
+              >
+                {item.code}
+              </SelectChip>
+            {/each}
+          </div>
+        </section>
+      </div>
+
+      {#if timingFields.length > 0}
+        <section class="key-editor-behavior" data-hold-tap-fields>
+          <div class="key-editor-row">
+            <p class="key-editor-section-label">Timing</p>
+            <div class="key-editor-behavior-fields">
+            {#if timingFields.includes('tappingTermMs')}
+              <label>
+                Tapping term
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputmode="numeric"
+                  data-hold-tap-term
+                  disabled={!onChangeHoldTaps}
+                  bind:value={termDraft}
+                  onchange={commitTiming}
+                />
+                <span>ms</span>
+              </label>
+            {/if}
+            {#if timingFields.includes('flavor')}
+              <label>
+                Flavor
+                <select
+                  data-hold-tap-flavor
+                  disabled={!onChangeHoldTaps}
+                  bind:value={flavorDraft}
+                  onchange={commitTiming}
+                >
+                  {#if isStockHoldTap(behaviourCode)}
+                    <option value="">Firmware default</option>
+                  {/if}
+                  {#each HOLD_TAP_FLAVORS as flavor (flavor.id)}
+                    <option value={flavor.id}>{flavor.label}</option>
+                  {/each}
+                </select>
+              </label>
+            {/if}
+            {#if timingFields.includes('quickTapMs')}
+              <label>
+                Quick tap
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputmode="numeric"
+                  data-hold-tap-quick
+                  disabled={!onChangeHoldTaps}
+                  bind:value={quickDraft}
+                  onchange={commitTiming}
+                />
+                <span>ms</span>
+              </label>
+            {/if}
+            {#if timingFields.includes('requirePriorIdleMs')}
+              <label>
+                Prior idle
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputmode="numeric"
+                  data-hold-tap-idle
+                  disabled={!onChangeHoldTaps}
+                  bind:value={idleDraft}
+                  onchange={commitTiming}
+                />
+                <span>ms</span>
+              </label>
+            {/if}
+            </div>
+          </div>
+          <p class="key-editor-note" data-hold-tap-note>
+            {#if autoshift}
+              Hold sends the shifted key. Changes every key that uses {behaviourCode}.
+            {:else}
+              Changes every key that uses {behaviourCode}.
+            {/if}
+          </p>
+        </section>
+      {/if}
 
       {#if firmwareNote}
         <p class="key-editor-note">{firmwareNote}</p>
       {/if}
 
-      {#if showValuePicker && keycodePicker}
+      {#each inlineSlots as slot (slot.codeIndex)}
+        {@const options = catalogKeyChoices(choicesFor(slot.param))}
+        {@const labelOf = buildChoiceLabeler(options)}
+        <section class="key-editor-row" data-slot-values>
+          <p class="key-editor-section-label">{slot.label}</p>
+          <div class="key-editor-grid">
+            {#if options.length === 0}
+              <p class="key-editor-empty">No matching values.</p>
+            {:else}
+              {#each options as choice (String(choice.code ?? ''))}
+                <button
+                  type="button"
+                  class="key-editor-choice"
+                  class:active={String(choice.code) === String(slot.value ?? '')}
+                  class:used={slot.param === 'command' &&
+                    used.has(String(choice.code ?? '')) &&
+                    String(choice.code) !== String(slot.value ?? '')}
+                  title={choice.description || String(choice.code ?? '')}
+                  onclick={() => chooseInline(slot, choice)}
+                >
+                  {labelOf(choice)}
+                </button>
+              {/each}
+            {/if}
+          </div>
+        </section>
+      {/each}
+
+      {#if keySlot}
         <section class="key-editor-row">
           <p class="key-editor-section-label">Value</p>
           <div class="key-editor-chips">
-            {#if paramSlots.length > 1}
-              {#each paramSlots as slot}
-                <SelectChip
-                  active={slot.codeIndex === activeSlot?.codeIndex}
-                  attention={pulseOn && pulseIndex === slot.codeIndex}
-                  onclick={() => onActivateSlot(slot.codeIndex)}
-                >
-                  {slot.label}{slot.value != null && slot.value !== ''
-                    ? ` · ${slot.value}`
-                    : ''}
-                </SelectChip>
-              {/each}
-            {/if}
             {#if showTaxonomy}
               <TaxonomyChips
                 chips={taxonomyChips}
@@ -311,8 +594,11 @@
             {activeHolds}
             {terminalValue}
             {displayChoices}
-            onSelectKey={code => onSelectValue({ code })}
-            onToggleHold={wrap => onToggleHold?.(wrap)}
+            onSelectKey={code => chooseKey({ code })}
+            onToggleHold={wrap => {
+              focusKeySlot()
+              onToggleHold?.(wrap)
+            }}
           />
         {/if}
 
@@ -352,32 +638,17 @@
             {showGroupTitles}
             {searching}
             {pickKeyHint}
-            activeValue={activeSlot?.value}
+            activeValue={keySlot.value}
             {dimUsed}
             {used}
             {usedLayerLabels}
             {labelChoice}
-            onChoose={onSelectValue}
+            onChoose={chooseKey}
           />
         {/key}
-      {:else if showValuePicker}
+      {:else if inlineSlots.length === 0 && showValuePicker}
         <section class="key-editor-row">
           <p class="key-editor-section-label">Value</p>
-          {#if paramSlots.length > 1}
-            <div class="key-editor-chips">
-              {#each paramSlots as slot}
-                <SelectChip
-                  active={slot.codeIndex === activeSlot?.codeIndex}
-                  attention={pulseOn && pulseIndex === slot.codeIndex}
-                  onclick={() => onActivateSlot(slot.codeIndex)}
-                >
-                  {slot.label}{slot.value != null && slot.value !== ''
-                    ? ` · ${slot.value}`
-                    : ''}
-                </SelectChip>
-              {/each}
-            </div>
-          {/if}
         </section>
         <div class="key-editor-values">
           {#if displayChoices.length === 0}
@@ -401,7 +672,7 @@
             </div>
           {/if}
         </div>
-      {:else}
+      {:else if inlineSlots.length === 0}
         <p class="key-editor-empty">This behaviour applies immediately.</p>
       {/if}
     </div>

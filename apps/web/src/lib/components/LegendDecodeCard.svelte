@@ -4,6 +4,7 @@
     ALT_GR_SHIFT_COLUMN_LABEL,
     ALT_LEVEL_EMPTY,
     behaviorPeekNote,
+    holdTapTimingNote,
     composeLegendDecode,
     hostLanguageName,
     hostLevels,
@@ -58,7 +59,14 @@
   })
   const behaviorNote = $derived.by(() => {
     try {
-      return behaviorPeekNote(parseKeyBinding(displayCard.binding).value)
+      const binding = parseKeyBinding(displayCard.binding)
+      const peek = behaviorPeekNote(binding.value)
+      const holdTap = (
+        editor.draftKeymap?.holdTaps ?? editor.baselineKeymap?.holdTaps
+      )?.find(item => item.code === String(binding.value))
+      const timing = holdTapTimingNote(holdTap)
+      const note = [peek, timing].filter(Boolean).join(' ')
+      return note || null
     } catch {
       return null
     }
