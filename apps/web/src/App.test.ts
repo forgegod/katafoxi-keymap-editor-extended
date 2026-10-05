@@ -8,7 +8,6 @@ import App from './App.svelte'
 
 vi.mock('./lib/config', () => ({
   apiBaseUrl: '',
-  appBaseUrl: '',
   githubAppName: 'test-app',
   enableGitHub: true,
   enableLocal: true

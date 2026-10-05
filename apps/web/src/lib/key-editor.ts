@@ -88,7 +88,7 @@ export function buildEditorSlots(
   return slots
 }
 
-export function keycodeSlots(slots: EditorSlot[]): EditorSlot[] {
+function keycodeSlots(slots: EditorSlot[]): EditorSlot[] {
   return slots.filter(slot => isKeycodeParam(slot.param))
 }
 

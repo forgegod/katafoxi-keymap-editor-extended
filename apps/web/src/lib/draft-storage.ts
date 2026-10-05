@@ -24,8 +24,6 @@ export type StoredDraft = DraftIdentity & {
   id: string
   draftKeymap: ParsedKeymap
   updatedAt: number
-  /** Cheap fingerprint of baseline at last write (future conflict UX). */
-  baselineHint?: string
 }
 
 export type DraftIdentityInput = {
@@ -65,13 +63,6 @@ export function draftIdentitiesMatch(
   b: DraftIdentity
 ): boolean {
   return draftIdentityKey(a) === draftIdentityKey(b)
-}
-
-/** Lightweight baseline fingerprint for optional conflict signals. */
-export function baselineFingerprint(km: ParsedKeymap): string {
-  const names = (km.layer_names ?? []).join(',')
-  const sizes = km.layers.map(layer => layer.length).join(',')
-  return `${names}|${km.layers.length}|${sizes}`
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -119,17 +110,13 @@ export async function loadStoredDraft(
 
 export async function saveStoredDraft(
   identity: DraftIdentity,
-  draftKeymap: ParsedKeymap,
-  options?: { baselineHint?: string }
+  draftKeymap: ParsedKeymap
 ): Promise<void> {
   const record: StoredDraft = {
     ...identity,
     id: draftIdentityKey(identity),
     draftKeymap,
     updatedAt: Date.now()
-  }
-  if (options?.baselineHint != null) {
-    record.baselineHint = options.baselineHint
   }
 
   const db = await openDb()

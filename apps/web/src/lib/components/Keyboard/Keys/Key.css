@@ -32,13 +32,6 @@
   transition: 200ms;
   z-index: 1;
 }
-.key:not([data-stacked='true']):hover {
-  background-color: var(--hover-selection);
-}
-.key:not([data-stacked='true']):hover .code,
-.key:not([data-stacked='true']):hover .behaviour-binding {
-  color: var(--on-accent);
-}
 .key > .code {
   padding: 5px;
 }
@@ -128,29 +121,9 @@ button.code {
   margin-left: 1px;
   margin-right: 1px;
 }
-.key:not([data-stacked='true']):hover .code.keypad {
-  background: var(--keypad-wash-on-accent);
-}
 
 .code * {
   pointer-events: none;
-}
-
-.behaviour-binding {
-  position: absolute;
-  top: 0;
-  left: 0;
-  font-size: 10px;
-  font-variant: small-caps;
-  padding: 2px;
-  opacity: 0.5;
-}
-.behaviour-binding.center {
-  position: static;
-  font-size: inherit;
-  font-variant: normal;
-  padding: 0;
-  opacity: 1;
 }
 
 .key .keycap-wrap {
@@ -236,13 +209,13 @@ button.code {
     inset 0 -2px 0 var(--mark-basic);
   background-color: color-mix(in srgb, var(--mark-basic) 14%, var(--key-face));
 }
-.key[data-stacked='true'] .layer-slot:hover,
-.key[data-stacked='true'] .layer-slot:focus-visible {
+.key .layer-slot:hover,
+.key .layer-slot:focus-visible {
   background-color: var(--hover-selection);
   color: var(--on-accent);
 }
-.key[data-stacked='true'] .layer-slot:hover :is(.zmk-row, .col, .hold, .code, .layer-empty, .lang, .slot, .face, .glyph, .pack),
-.key[data-stacked='true'] .layer-slot:focus-visible :is(.zmk-row, .col, .hold, .code, .layer-empty, .lang, .slot, .face, .glyph, .pack) {
+.key .layer-slot:hover :is(.zmk-row, .col, .hold, .code, .layer-empty, .lang, .slot, .face, .glyph, .pack),
+.key .layer-slot:focus-visible :is(.zmk-row, .col, .hold, .code, .layer-empty, .lang, .slot, .face, .glyph, .pack) {
   color: var(--on-accent);
 }
 
@@ -366,10 +339,10 @@ button.code {
   margin: 0 2px;
   border-radius: 2px;
 }
-.key[data-stacked='true'] .layer-slot:hover .code.keypad,
-.key[data-stacked='true'] .layer-slot:focus-visible .code.keypad,
-.key[data-stacked='true'] .layer-slot:hover .keycap.keypad,
-.key[data-stacked='true'] .layer-slot:focus-visible .keycap.keypad {
+.key .layer-slot:hover .code.keypad,
+.key .layer-slot:focus-visible .code.keypad,
+.key .layer-slot:hover .keycap.keypad,
+.key .layer-slot:focus-visible .keycap.keypad {
   background: var(--keypad-wash-on-accent);
 }
 

@@ -369,7 +369,6 @@
   data-behavior={behaviorRole}
   data-editable={comboMode || session.canEdit}
   data-tour={isLegendAnchor ? 'legend-key' : undefined}
-  data-stacked="true"
   style={Object.entries(positioningStyle)
     .map(([k, v]) => `${k.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`)}:${v}`)
     .join(';')}

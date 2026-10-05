@@ -4,9 +4,11 @@
   interface Props {
     children: Snippet
     onBackdrop?: () => void
+    /** Wider shell for long fixed-width content (e.g. exported .keymap). */
+    size?: 'default' | 'wide'
   }
 
-  let { children, onBackdrop }: Props = $props()
+  let { children, onBackdrop, size = 'default' }: Props = $props()
 
   let wrapperEl: HTMLDivElement | undefined = $state()
 
@@ -58,7 +60,7 @@
     if (onBackdrop && event.target === wrapperEl) onBackdrop()
   }}
 >
-  <div class="modal-content">
+  <div class="modal-content" data-size={size}>
     {@render children()}
   </div>
 </div>
@@ -82,5 +84,9 @@
     display: block;
     width: max-content;
     max-width: min(1180px, 94vw);
+  }
+
+  .modal-content[data-size='wide'] {
+    max-width: min(98vw, 1600px);
   }
 </style>

@@ -6,7 +6,6 @@ import KeyboardPicker from './KeyboardPicker.svelte'
 
 vi.mock('../../config', () => ({
   apiBaseUrl: '',
-  appBaseUrl: '',
   githubAppName: '',
   enableGitHub: true,
   enableLocal: true

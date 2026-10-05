@@ -38,7 +38,7 @@
   }
 </script>
 
-<Modal onBackdrop={onClose}>
+<Modal size="wide" onBackdrop={onClose}>
   <div class="clipboard-export" role="dialog" aria-modal="true" aria-label="Exported keymap">
     <h2 class="clipboard-export-title">.keymap ready</h2>
     <p class="clipboard-export-hint">
@@ -70,11 +70,6 @@
 </Modal>
 
 <style>
-  /* Nearly full viewport so binding rows stay one line (like the .keymap file). */
-  :global(.modal-content:has(.clipboard-export)) {
-    max-width: min(98vw, 1600px) !important;
-  }
-
   .clipboard-export {
     display: flex;
     flex-direction: column;

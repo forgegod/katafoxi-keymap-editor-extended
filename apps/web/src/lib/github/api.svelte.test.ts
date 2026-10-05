@@ -3,7 +3,6 @@ import { API } from './api.svelte.js'
 
 vi.mock('../config', () => ({
   apiBaseUrl: 'http://api.test',
-  appBaseUrl: '',
   githubAppName: 'test-app',
   enableGitHub: true,
   enableLocal: false

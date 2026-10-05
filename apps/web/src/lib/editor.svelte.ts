@@ -45,7 +45,6 @@ import {
   remapShownLayersAfterDelete,
   remapConditionalLayersAfterDelete,
   unregisterHostLayout,
-  summarizeKeymapDiff,
   withHostKey,
   symbolAlign,
   symbolAlignPairFromView,
@@ -86,7 +85,6 @@ import {
   type DemoHostLayoutSeed
 } from './demo/host-seeds.js'
 import {
-  baselineFingerprint,
   buildDraftIdentity,
   deleteStoredDraft,
   draftIdentityKey,
@@ -629,10 +627,6 @@ export class EditorState {
 
   get changes(): KeymapChange[] {
     return this.#changes
-  }
-
-  get dirtySummary(): string {
-    return summarizeKeymapDiff(this.changes)
   }
 
   /**
@@ -1558,10 +1552,6 @@ export class EditorState {
     return null
   }
 
-  showHostProfileStub(note: string) {
-    this.hostProfileNote = this.hostProfileNote === note ? null : note
-  }
-
   beginPublish(): number {
     this.#publishGeneration += 1
     return this.#publishGeneration
@@ -1628,11 +1618,7 @@ export class EditorState {
         return
       }
       if (token !== this.#persistGeneration) return
-      await saveStoredDraft(identity, cloneParsedKeymap(this.draftKeymap), {
-        baselineHint: this.baselineKeymap
-          ? baselineFingerprint(this.baselineKeymap)
-          : undefined
-      })
+      await saveStoredDraft(identity, cloneParsedKeymap(this.draftKeymap))
     } catch (err) {
       if (import.meta.env.DEV) {
         console.warn('Failed to persist draft to IndexedDB', err)
@@ -1827,11 +1813,7 @@ export class EditorState {
 
     try {
       if (this.draftKeymap && this.isDirty) {
-        await saveStoredDraft(next, cloneParsedKeymap(this.draftKeymap), {
-          baselineHint: this.baselineKeymap
-            ? baselineFingerprint(this.baselineKeymap)
-            : undefined
-        })
+        await saveStoredDraft(next, cloneParsedKeymap(this.draftKeymap))
       }
       if (previous) await deleteStoredDraft(previous)
     } catch (err) {

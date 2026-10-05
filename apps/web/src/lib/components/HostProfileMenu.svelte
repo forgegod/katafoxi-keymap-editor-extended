@@ -27,7 +27,6 @@
   })
   const customs = $derived(shelves.users)
   const activeId = $derived(editor.activeProfileId(language))
-  const canStore = true
 
   type XkbSectionChoice = { section: string; name: string }
 
@@ -377,7 +376,6 @@
           >
             {profile.layoutName}
           </button>
-          {#if canStore}
           <button
             type="button"
             class="profile-icon"
@@ -427,7 +425,6 @@
               <path d="M18 6L6 18" />
             </svg>
           </button>
-          {/if}
         </li>
       {/each}
       {#if customs.length > 0 && (shelves.primary || shelves.systems.length > 0)}
@@ -446,7 +443,6 @@
           >
             {hostLayoutChoiceLabel(primary)}
           </button>
-          {#if canStore}
           <button
             type="button"
             class="profile-icon"
@@ -459,7 +455,6 @@
               <path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4H5.5A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8" />
             </svg>
           </button>
-          {/if}
         </li>
       {/if}
       {#each shelves.systems as choice (choice.id)}
@@ -474,7 +469,6 @@
           >
             {hostLayoutChoiceLabel(choice)}
           </button>
-          {#if canStore}
           <button
             type="button"
             class="profile-icon"
@@ -487,7 +481,6 @@
               <path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4H5.5A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8" />
             </svg>
           </button>
-          {/if}
         </li>
       {/each}
       <li class="profile-sep" aria-hidden="true"></li>
