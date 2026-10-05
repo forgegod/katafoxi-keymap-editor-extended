@@ -50,6 +50,15 @@ export type KeymapChange =
       /** Empty when the behaviour was removed. */
       after: string
     }
+  | {
+      type: 'sensor'
+      layer: number
+      index: number
+      /** Empty when this encoder turn was added. */
+      before: string
+      /** Empty when this encoder turn was removed. */
+      after: string
+    }
 
 function layerName(keymap: ParsedKeymap, index: number): string {
   return keymap.layer_names?.[index] ?? `Layer ${index}`
@@ -202,6 +211,19 @@ export function diffKeymaps(
     }
   }
 
+  for (let layer = 0; layer < shared; layer++) {
+    const beforeRow = baseline.sensorBindings?.[layer] ?? []
+    const afterRow = draft.sensorBindings?.[layer] ?? []
+    const turns = Math.max(beforeRow.length, afterRow.length)
+    for (let index = 0; index < turns; index++) {
+      const before = encodeOrEmpty(beforeRow[index])
+      const after = encodeOrEmpty(afterRow[index])
+      if (before !== after) {
+        changes.push({ type: 'sensor', layer, index, before, after })
+      }
+    }
+  }
+
   return changes
 }
 
@@ -232,6 +254,8 @@ export function formatKeymapChange(change: KeymapChange): string {
       if (!change.before) return `${change.id} added: ${change.after}`
       if (!change.after) return `${change.id} removed: ${change.before}`
       return `${change.id}: ${change.before} → ${change.after}`
+    case 'sensor':
+      return `L${change.layer} encoder ${change.index}: ${change.before || '(empty)'} → ${change.after || '(empty)'}`
   }
 }
 
@@ -244,6 +268,7 @@ export function summarizeKeymapDiff(changes: KeymapChange[]): string {
   let combos = 0
   let conditionalLayers = 0
   let holdTaps = 0
+  let sensors = 0
   for (const change of changes) {
     switch (change.type) {
       case 'binding':
@@ -267,6 +292,9 @@ export function summarizeKeymapDiff(changes: KeymapChange[]): string {
       case 'hold_tap':
         holdTaps++
         break
+      case 'sensor':
+        sensors++
+        break
     }
   }
 
@@ -284,6 +312,7 @@ export function summarizeKeymapDiff(changes: KeymapChange[]): string {
     parts.push(countLabel(conditionalLayers, 'conditional layer', 'conditional layers'))
   }
   if (holdTaps > 0) parts.push(countLabel(holdTaps, 'behavior', 'behaviors'))
+  if (sensors > 0) parts.push(countLabel(sensors, 'encoder', 'encoders'))
   return parts.join(', ')
 }
 
