@@ -178,4 +178,36 @@ describe('symbolAlign', () => {
       }
     })
   })
+
+  it('aligns dead-key spacing marks the face shows, not empty stored glyphs', () => {
+    const base = layout('en', {
+      GRAVE: ['grave', 'asciitilde', 'NoSymbol', 'NoSymbol'],
+      EQUAL: ['equal', 'plus', 'NoSymbol', 'NoSymbol']
+    })
+    const extra = layout('de', {
+      GRAVE: ['dead_circumflex', 'degree', 'NoSymbol', 'NoSymbol'],
+      EQUAL: ['dead_acute', 'dead_grave', 'NoSymbol', 'NoSymbol']
+    })
+    expect(extra.byZmk.get('GRAVE')?.glyphs[0]).toBe('')
+    expect(extra.byZmk.get('EQUAL')?.glyphs[0]).toBe('')
+
+    const align = symbolAlign(base, extra, { winMerge: null })
+    expect(symbolAlignCaption('GRAVE', align)).toMatch(/Different position: `|Only in one language/)
+    expect(symbolAlignCaption('GRAVE', align)).toMatch(/\^|°/)
+    expect(symbolAlignHasBasic('EQUAL', align)).toBe(true)
+    expect(symbolAlignCaption('EQUAL', align)).toContain('`')
+    expect(symbolAlignCaption('EQUAL', align)).toMatch(/´|Only in one language/)
+  })
+
+  it('stays quiet when both layouts share the same dead spacing mark on a key', () => {
+    const left = layout('a', {
+      EQUAL: ['dead_grave', 'NoSymbol', 'NoSymbol', 'NoSymbol']
+    })
+    const right = layout('b', {
+      EQUAL: ['dead_grave', 'NoSymbol', 'NoSymbol', 'NoSymbol']
+    })
+    const align = symbolAlign(left, right, { winMerge: null })
+    expect(symbolAlignCaption('EQUAL', align)).toBe('')
+    expect(left.byZmk.get('EQUAL')?.glyphs[0]).toBe('')
+  })
 })
