@@ -214,6 +214,12 @@ export function hostLegendAnchorIndex(keymap: ParsedKeymap | null | undefined): 
   return letterAt >= 0 ? letterAt : 0
 }
 
+/** Shallow-clone each key so promote-absent edits do not mutate the load baseline. */
+function cloneLayout(layout: LayoutKey[] | null | undefined): LayoutKey[] | null {
+  if (!layout) return null
+  return layout.map(key => ({ ...key }))
+}
+
 /** Deep clone plain ParsedKeymap (value+params only). Never structuredClone reactive graphs. */
 function cloneSensorBinding(node: KeyBindingNode): KeyBindingNode {
   return {
@@ -331,11 +337,16 @@ export class EditorState {
   /** Pasted `.keymap` kept for clipboard splice / Copy. */
   clipboardOriginalSource = $state<string | null>(null)
   layout = $state<LayoutKey[] | null>(null)
+  /**
+   * Layout as last loaded. Scheme-mode `promoteAbsentKey` mutates `layout` only;
+   * Discard restores this baseline. Not part of undo/redo.
+   */
+  baselineLayout = $state<LayoutKey[] | null>(null)
   /** Last loaded / successfully published+reloaded keymap. */
   baselineKeymap = $state<ParsedKeymap | null>(null)
   /** Live editor document; always set after load. */
   draftKeymap = $state<ParsedKeymap | null>(null)
-  /** Plain draft snapshots for step undo (not vs baseline). */
+  /** ZMK draft snapshots for step undo (not host edits; not vs baseline). */
   undoStack = $state<ParsedKeymap[]>([])
   /**
    * Hold-tap list staged by the key dialog. The next keymap update absorbs it
@@ -1688,6 +1699,7 @@ export class EditorState {
       this.clipboardOriginalSource = null
     }
     this.layout = event.layout ?? null
+    this.baselineLayout = cloneLayout(event.layout)
     this.schemeMode = false
     this.comboMode = false
     this.activeComboId = null
@@ -1767,7 +1779,10 @@ export class EditorState {
     const previousIdentity = this.currentDraftIdentity()
     this.source = 'github'
     this.githubMeta = github
-    if (event.layout) this.layout = event.layout
+    if (event.layout) {
+      this.layout = event.layout
+      this.baselineLayout = cloneLayout(event.layout)
+    }
     this.baselineKeymap = cloneParsedKeymap(km)
     const adopted = adoptSensorBindings(
       adoptHoldTaps(this.draftKeymap, this.baselineKeymap),
@@ -2212,12 +2227,15 @@ export class EditorState {
   }
 
   /**
-   * Drop unpublished edits: draft ← baseline, clear step history + IndexedDB.
+   * Drop unpublished ZMK edits: draft ← baseline, restore layout baseline
+   * (scheme-mode promote-absent), clear step history + IndexedDB.
    * Unlike undo, this works after reload when the session stack is empty.
+   * Host layout table edits are unchanged (not part of ZMK draft history).
    */
   async discardDraft(): Promise<boolean> {
     if (!this.baselineKeymap || !this.draftKeymap || !this.isDirty) return false
     this.draftKeymap = cloneParsedKeymap(this.baselineKeymap)
+    this.layout = cloneLayout(this.baselineLayout)
     this.clearHistory()
     this.saveNotice = null
     await this.clearPersistedDraft()
@@ -2291,6 +2309,7 @@ export class EditorState {
     this.#hostRepoBaselineEncoded = null
     this.clipboardOriginalSource = null
     this.layout = null
+    this.baselineLayout = null
     this.baselineKeymap = null
     this.draftKeymap = null
     this.clearHistory()
@@ -2315,6 +2334,7 @@ export class EditorState {
     this.githubMeta = null
     this.clipboardOriginalSource = null
     this.layout = null
+    this.baselineLayout = null
     this.baselineKeymap = null
     this.draftKeymap = null
     this.#holdTapsOnNextUpdate = null
