@@ -7,6 +7,7 @@ import {
 import { normalizeHoldTaps, spliceHoldTapsIntoDts } from './dts-behaviors.js'
 import { spliceSensorBindingsIntoDts } from './dts-sensors.js'
 import {
+  compileMacros,
   findKeymapLayerNodes,
   findZmkKeymapBlock,
   keymapBindingsText,
@@ -349,9 +350,9 @@ export function buildKeymapCode(
   }
 
   if (typeof originalSource === 'string' && originalSource.length > 0) {
-    const macros = parseDefines(originalSource)
-    const bindingsText = keymapBindingsText(originalSource)
-    if (bindingsText && macrosAppearInText(bindingsText, macros)) {
+    const compiled = compileMacros(parseDefines(originalSource))
+    const regionsText = keymapBindingsText(originalSource)
+    if (regionsText && macrosAppearInText(regionsText, compiled)) {
       warnings.push('macros_expanded')
     }
     const spliced = spliceBindingsIntoDts(originalSource, {

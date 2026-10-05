@@ -214,11 +214,31 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+export interface TokenizeBindingsResult {
+  /** Bind strings that start with `&`. */
+  binds: string[]
+  /** True when a non-empty scrap did not start with `&` and was dropped. */
+  hasUnparsedFragment: boolean
+}
+
+/**
+ * Split a bindings block into individual bind strings (each starts with `&`).
+ * Non-empty scraps without a leading `&` are reported via `hasUnparsedFragment`.
+ */
+export function tokenizeBindingsDetailed(block: string): TokenizeBindingsResult {
+  const normalized = block.replace(/\r\n/g, '\n').replace(/\n/g, ' ')
+  const binds: string[] = []
+  let hasUnparsedFragment = false
+  for (const part of normalized.split(/(?=&)/)) {
+    const s = part.trim()
+    if (!s) continue
+    if (s.startsWith('&')) binds.push(s)
+    else hasUnparsedFragment = true
+  }
+  return { binds, hasUnparsedFragment }
+}
+
 /** Split a bindings block into individual bind strings (each starts with &). */
 export function tokenizeBindings(block: string): string[] {
-  const normalized = block.replace(/\r\n/g, '\n').replace(/\n/g, ' ')
-  return normalized
-    .split(/(?=&)/)
-    .map(s => s.trim())
-    .filter(s => s.startsWith('&'))
+  return tokenizeBindingsDetailed(block).binds
 }

@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { parseDtsKeymap, tokenizeBindings } from '../src/dts-keymap.js'
+import {
+  buildKeymapCode,
+  parseKeymap
+} from '../src/keymap.js'
+import {
+  parseDefines,
+  parseDtsKeymap,
+  tokenizeBindings
+} from '../src/dts-keymap.js'
+import type { LayoutKey } from '../src/types.js'
+
+const TINY_LAYOUT: LayoutKey[] = [
+  { x: 0, y: 0, row: 0, col: 0 },
+  { x: 1, y: 0, row: 0, col: 1 }
+]
 
 describe('tokenizeBindings', () => {
   it('splits binds including multi-param', () => {
@@ -53,5 +67,110 @@ describe('parseDtsKeymap', () => {
 `
     const km = parseDtsKeymap(src)
     expect(km.layers).toEqual([['&kp A', '&kp B']])
+  })
+
+  it('ignores #define lines that sit inside comments', () => {
+    const src = `// #define LINE_FAKE C_VOL_DN
+/*
+#define BLOCK_FAKE C_VOL_DN
+*/
+#define REAL C_VOL_UP
+/ {
+  keymap {
+    compatible = "zmk,keymap";
+    layer_0 {
+      bindings = <&kp A &kp REAL>;
+    };
+  };
+};
+`
+    expect(parseDefines(src)).toEqual({ REAL: 'C_VOL_UP' })
+    const km = parseDtsKeymap(src)
+    expect(km.layers[0]).toEqual(['&kp A', '&kp C_VOL_UP'])
+    expect(km.warnings).toContain('macros_expanded')
+  })
+
+  it('warns when non-& scraps remain after macro expand', () => {
+    const src = `#define ORPHAN C_VOL_UP
+/ {
+  keymap {
+    compatible = "zmk,keymap";
+    layer_0 {
+      bindings = <
+ORPHAN &kp A
+      >;
+    };
+  };
+};
+`
+    const km = parseDtsKeymap(src)
+    expect(km.layers[0]).toEqual(['&kp A'])
+    expect(km.warnings).toContain('unparsed_binding_fragment')
+    expect(km.warnings).toContain('macros_expanded')
+  })
+
+  it('expands a define that introduces the leading & before tokenize', () => {
+    const src = `#define VOL &kp C_VOL_UP
+/ {
+  keymap {
+    compatible = "zmk,keymap";
+    layer_0 {
+      bindings = <VOL &kp A>;
+    };
+  };
+};
+`
+    const km = parseDtsKeymap(src)
+    expect(km.layers[0]).toEqual(['&kp C_VOL_UP', '&kp A'])
+    expect(km.warnings).toContain('macros_expanded')
+    expect(km.warnings).not.toContain('unparsed_binding_fragment')
+  })
+})
+
+describe('buildKeymapCode macros_expanded regions', () => {
+  it('warns when a define is used only in combo bindings', () => {
+    const src = `#define ESC_KEY ESC
+/ {
+  keymap {
+    compatible = "zmk,keymap";
+    layer_0 {
+      bindings = <&kp A &kp B>;
+    };
+  };
+  combos {
+    compatible = "zmk,combos";
+    combo_esc {
+      bindings = <&kp ESC_KEY>;
+      key-positions = <0 1>;
+    };
+  };
+};
+`
+    const parsed = parseDtsKeymap(src)
+    expect(parsed.warnings).toContain('macros_expanded')
+    const result = buildKeymapCode(TINY_LAYOUT, parseKeymap(parsed), {
+      originalSource: src
+    })
+    expect(result.warnings).toContain('macros_expanded')
+  })
+
+  it('warns when a define is used only in sensor-bindings', () => {
+    const src = `#define VU C_VOL_UP
+/ {
+  keymap {
+    compatible = "zmk,keymap";
+    layer_0 {
+      bindings = <&kp A &kp B>;
+      sensor-bindings = <&inc_dec_kp VU C_VOL_DN>;
+    };
+  };
+};
+`
+    const parsed = parseDtsKeymap(src)
+    expect(parsed.warnings).toContain('macros_expanded')
+    const result = buildKeymapCode(TINY_LAYOUT, parseKeymap(parsed), {
+      originalSource: src
+    })
+    expect(result.warnings).toContain('macros_expanded')
   })
 })
