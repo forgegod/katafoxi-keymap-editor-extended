@@ -7,7 +7,7 @@
 
 const SENSOR_STATEMENT = /sensor-bindings\s*=\s*<[\s\S]*?>\s*;/
 
-export interface SensorLayerSpan {
+interface SensorLayerSpan {
   openBrace: number
   closeBrace: number
 }

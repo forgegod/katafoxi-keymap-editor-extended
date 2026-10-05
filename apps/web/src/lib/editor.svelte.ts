@@ -299,7 +299,7 @@ export function adoptHoldTaps(draft: ParsedKeymap, loaded: ParsedKeymap | null):
  * keeps its bindings and takes the encoder rows from the loaded keymap.
  * An explicit list on the draft, including empty, stays as saved.
  */
-export function adoptSensorBindings(
+function adoptSensorBindings(
   draft: ParsedKeymap,
   loaded: ParsedKeymap | null
 ): ParsedKeymap {

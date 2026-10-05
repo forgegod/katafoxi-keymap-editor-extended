@@ -175,7 +175,7 @@ export function keymapBindingsText(source: string): string | null {
 const SENSOR_STATEMENT = /sensor-bindings\s*=\s*<[\s\S]*?>\s*;/
 
 /** Bind strings inside one layer's `sensor-bindings`, or null when the property is absent. */
-export function readSensorBindingStrings(
+function readSensorBindingStrings(
   source: string,
   openBrace: number,
   closeBrace: number
