@@ -58,6 +58,10 @@ Click a stacked keycap row. One dialog edits that layer’s ZMK binding:
 - Enter applies a complete binding. Esc cancels. An unfinished hold-tap stays open.
 - Pointing behaviours remind that firmware needs `CONFIG_ZMK_POINTING=y`. The editor only adds `#include <dt-bindings/zmk/pointing.h>`.
 
+## Conditional layers
+
+A then-layer is on only while every if-layer is active (Lower + Raise → Adjust). The rule lives on the layer strip, beside the layer it turns on: that row reads `when Lower + Raise`. Hovering it highlights the held layers in the table and the keys that activate them; hovering a held layer highlights the then-layer row. Add and remove sit under Add Layer. Parse/splice live in `keymap-core` (`dts-conditional-layers`); Save rewrites the `conditional_layers { … }` block with the keymap contract ([ADR 0002](adr/0002-keymap-file-contract.md)). Deleting a layer renumbers the rules and drops one that loses its then-layer or no longer has two held layers. A then-layer numbered at or below a held layer stays valid and warns that the held layer can cover it.
+
 ## Combos
 
 **Combos** is a board mode beside Scheme: pick `key-positions` on the matrix, edit the chord binding in KeyEditor, and set per-combo `timeout-ms`, `layers`, `slow-release`, and `require-prior-idle-ms`. Parse/splice live in `keymap-core` (`dts-combos`); Save rewrites the `combos { … }` block with the rest of the keymap contract ([ADR 0002](adr/0002-keymap-file-contract.md)). Outside edit mode the board shows gap beads for adjacent two-key chords (horizontal or vertical) and side anchor beads for non-adjacent pairs or three-or-more chords; beads sit on the layer strip they apply to, and hovering a bead peeks those keys. Incomplete drafts (fewer than two keys) block leaving the mode, as do two combos with the same key set on a shared layer (omitted `layers` counts as every layer). A shorter chord nested in a longer one stays valid. Empty new rows are dropped on exit.
