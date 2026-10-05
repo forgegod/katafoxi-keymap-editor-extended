@@ -319,6 +319,64 @@ describe('HostLegendPicker', () => {
     expect(editor.draftKeymap?.conditionalLayers).toEqual([])
   })
 
+  it('focuses Delete in the alertdialog and cancels on Escape', async () => {
+    await open(keymapOf(['Base', 'Lower']))
+    const strip = hoverStrip()
+    const remove = target.querySelector('.legend-panel [aria-label="Delete layer Lower"]')
+    if (!(remove instanceof SVGElement)) throw new Error('missing delete')
+    remove.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    flushSync()
+
+    const dialog = target.querySelector('.legend-panel [role="alertdialog"]')
+    expect(dialog?.getAttribute('aria-modal')).toBe('true')
+    const confirm = target.querySelector('.legend-panel .confirm-delete')
+    if (!(confirm instanceof HTMLButtonElement)) throw new Error('missing confirm')
+    expect(document.activeElement).toBe(confirm)
+
+    strip.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    )
+    flushSync()
+    expect(target.querySelector('.legend-panel [role="alertdialog"]')).toBeNull()
+    expect(editor.draftKeymap?.layer_names).toEqual(['Base', 'Lower'])
+  })
+
+  it('closes the import pane with Escape before the profile menu', async () => {
+    await open(keymapOf(['default']))
+    hoverStrip()
+    const english = [...target.querySelectorAll('.legend-panel .profile-trigger')].find(
+      el => el.getAttribute('aria-label')?.startsWith('Profile English')
+    )
+    if (!(english instanceof HTMLButtonElement)) throw new Error('missing English profile')
+    english.click()
+    flushSync()
+    expect(target.querySelector('.profile-list')).not.toBeNull()
+
+    const importItem = [...target.querySelectorAll('.profile-action')].find(
+      el => el.textContent?.includes('Import xkb')
+    )
+    if (!(importItem instanceof HTMLButtonElement)) throw new Error('missing import item')
+    importItem.click()
+    flushSync()
+
+    const pane = target.querySelector('.profile-import[aria-label="Import xkb"]')
+    expect(pane?.getAttribute('aria-modal')).toBe('true')
+    expect(pane?.contains(document.activeElement)).toBe(true)
+
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    )
+    flushSync()
+    expect(target.querySelector('.profile-import')).toBeNull()
+    expect(target.querySelector('.profile-list')).not.toBeNull()
+
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    )
+    flushSync()
+    expect(target.querySelector('.profile-list')).toBeNull()
+  })
+
   it('puts a profile menu after each language flag', async () => {
     await open(keymapOf(['default']))
     const triggers = [...target.querySelectorAll('.legend-panel .profile-trigger')]

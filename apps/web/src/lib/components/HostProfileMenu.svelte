@@ -37,6 +37,10 @@
   let importSections = $state<XkbSectionChoice[]>([])
   let importSection = $state('')
   let importError = $state('')
+  let importPaneEl = $state<HTMLDivElement | undefined>()
+
+  const IMPORT_FOCUSABLE =
+    'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
   $effect(() => {
     if (open) return
@@ -46,6 +50,29 @@
     importSections = []
     importSection = ''
     importError = ''
+  })
+
+  $effect(() => {
+    if (!open) return
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      if (importKind) {
+        importKind = null
+        return
+      }
+      onClose()
+    }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  })
+
+  $effect(() => {
+    if (!open || importKind == null || !importPaneEl) return
+    const focusable = importPaneEl.querySelector(IMPORT_FOCUSABLE)
+    if (focusable instanceof HTMLElement) focusable.focus({ preventScroll: true })
+    else importPaneEl.focus({ preventScroll: true })
   })
 
   function beginImport(kind: 'xkb' | 'klc', event: MouseEvent) {
@@ -257,7 +284,14 @@
     {currentLabel()}
   </button>
   {#if open && importKind === 'xkb'}
-    <div class="profile-import" role="dialog" aria-label="Import xkb">
+    <div
+      class="profile-import"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Import xkb"
+      tabindex="-1"
+      bind:this={importPaneEl}
+    >
       <input
         type="file"
         aria-label="xkb file"
@@ -298,7 +332,14 @@
       </div>
     </div>
   {:else if open && importKind === 'klc'}
-    <div class="profile-import" role="dialog" aria-label="Import klc">
+    <div
+      class="profile-import"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Import klc"
+      tabindex="-1"
+      bind:this={importPaneEl}
+    >
       <input
         type="file"
         accept=".klc"

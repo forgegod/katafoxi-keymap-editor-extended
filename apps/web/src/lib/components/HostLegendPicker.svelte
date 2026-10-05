@@ -47,6 +47,7 @@
   let pendingDelete = $state<{ index: number; name: string } | null>(null)
   let editingWhen = $state(false)
   let stripEl: HTMLDivElement | undefined = $state()
+  let confirmDeleteBtn: HTMLButtonElement | undefined = $state()
   const busy = $derived(renamingIndex != null || pendingDelete != null || editingWhen)
   const open = $derived(forceOpen || hovered || focused || busy)
 
@@ -108,6 +109,16 @@
   function cancelDelete() {
     pendingDelete = null
   }
+
+  $effect(() => {
+    if (!pendingDelete || !confirmDeleteBtn) return
+    const previous =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+    confirmDeleteBtn.focus({ preventScroll: true })
+    return () => {
+      if (previous && document.contains(previous)) previous.focus({ preventScroll: true })
+    }
+  })
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key !== 'Escape') return
@@ -237,10 +248,15 @@
     {@render legendTable(visibleRows, true)}
     <HostProfileBar />
     {#if pendingDelete}
-      <div class="delete-confirm" role="alertdialog" aria-label="Delete layer">
+      <div class="delete-confirm" role="alertdialog" aria-modal="true" aria-label="Delete layer">
         <p>Delete layer {pendingDelete.name}?</p>
         <div class="delete-confirm-actions">
-          <button type="button" class="confirm-delete" onclick={confirmDelete}>
+          <button
+            type="button"
+            class="confirm-delete"
+            bind:this={confirmDeleteBtn}
+            onclick={confirmDelete}
+          >
             Delete
           </button>
           <button type="button" class="cancel-delete" onclick={cancelDelete}>

@@ -105,6 +105,10 @@
   /* Header control height (buttons, selects, status). Keep chrome siblings in sync. */
   --chrome-h: 30px;
 
+  /* Overlay stack: decode card 40, symbol picker 45, modal 50, coach tour 60. */
+  --modal-z: 50;
+  --modal-scrim: rgba(28, 32, 42, 0.78);
+
   /* Letters: Inter (Latin, Cyrillic, Greek), then Noto Sans for a script Inter lacks.
      Marks: Noto Sans Symbols 2. Emoji: the system emoji font.
      Keep the full families — a frozen character list drops the next language. */
