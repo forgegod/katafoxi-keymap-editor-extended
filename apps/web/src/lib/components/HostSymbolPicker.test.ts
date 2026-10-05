@@ -252,7 +252,7 @@ describe('LegendDecodeCard host symbol catalog', () => {
     flushSync()
     expect(editor.hostSymbolEditTarget).toEqual({ language: 'en', zmk: 'G', level: 2 })
 
-    catalog()?.querySelector('button.clear-slot')?.click()
+    ;(catalog()?.querySelector('button.clear-slot') as HTMLElement | null)?.click()
     flushSync()
     await vi.waitFor(() => {
       expect(editor.hostSymbolEditTarget).toEqual({ language: 'ru', zmk: 'G', level: 3 })

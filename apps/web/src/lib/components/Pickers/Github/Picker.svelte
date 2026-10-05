@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte'
+  import type { LayoutKey } from '@keymap-editor/keymap-core'
   import * as config from '../../../config'
   import github from '../../../github/api.svelte.js'
   import { githubChipLabel, githubGateAction, manageReposUrl } from '../../../github/chrome-label.js'
@@ -58,7 +59,7 @@
     loadWarnings = null
   }
 
-  function lintKeyboard({ layout }: { layout: Array<Record<string, unknown>> }) {
+  function lintKeyboard({ layout }: { layout: LayoutKey[] }) {
     const noKeyHasPosition = layout.every(
       key => key.row === undefined && key.col === undefined
     )
@@ -81,7 +82,7 @@
     loadError = null
     try {
       const response = await github.fetchLayoutAndKeymap(repository, branch)
-      lintKeyboard(response as { layout: Array<Record<string, unknown>> })
+      lintKeyboard(response)
       onSelect({
         github: { repository, branch },
         ...response
@@ -196,7 +197,7 @@
       .then(response => {
         if (cancelled) return
         loadingKeyboard = false
-        lintKeyboard(response as { layout: Array<Record<string, unknown>> })
+        lintKeyboard(response)
         const preserveSession = preserveSessionOnLoad
         preserveSessionOnLoad = false
         onSelect({

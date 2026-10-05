@@ -2,7 +2,7 @@ import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import github from '../../../github/api.svelte.js'
 import * as storage from '../../../github/storage'
-import type { GitHubRepo } from '../../../github/api.svelte.js'
+import type { GitHubRepo, KeyboardFilesResult } from '../../../github/api.svelte.js'
 import Picker from './Picker.svelte'
 
 // happy-dom comment nodes are not `instanceof Comment`. Svelte skips empty
@@ -93,8 +93,10 @@ describe('Github Picker', () => {
     storage.setPersistedBranch(repo.id, 'main')
     vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'only' }])
     vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
-      layout: [{ row: 0, col: 0 }],
-      keymap: { layers: [] }
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: { layers: [] },
+      hostSnapshot: null,
+      warnings: []
     })
 
     const onSelect = open()
@@ -131,8 +133,10 @@ describe('Github Picker', () => {
       { name: 'feat' }
     ])
     vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
-      layout: [{ row: 0, col: 0 }],
-      keymap: { layers: [] }
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: { layers: [] },
+      hostSnapshot: null,
+      warnings: []
     })
 
     const onSelect = open()
@@ -159,8 +163,10 @@ describe('Github Picker', () => {
       { name: 'feat' }
     ])
     vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
-      layout: [{ row: 0, col: 0 }],
-      keymap: { layers: [] }
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: { layers: [] },
+      hostSnapshot: null,
+      warnings: []
     })
 
     const onSelect = open()
@@ -192,7 +198,7 @@ describe('Github Picker', () => {
       [newRepo.full_name]: '1'
     }
 
-    const oldLayout = deferred<{ layout: unknown; keymap: unknown }>()
+    const oldLayout = deferred<KeyboardFilesResult>()
     const newBranches = deferred<Array<{ name: string }>>()
 
     vi.spyOn(github, 'fetchRepoBranches').mockImplementation(async next => {
@@ -201,7 +207,12 @@ describe('Github Picker', () => {
     })
     vi.spyOn(github, 'fetchLayoutAndKeymap').mockImplementation(async name => {
       if (name === oldRepo.full_name) return oldLayout.promise
-      return { layout: [{ row: 0, col: 0 }], keymap: { layers: [] } }
+      return {
+        layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+        keymap: { layers: [] },
+        hostSnapshot: null,
+        warnings: []
+      }
     })
 
     const onSelect = open()
@@ -231,8 +242,10 @@ describe('Github Picker', () => {
     expect(target.querySelector('#branch')).toBeNull()
 
     oldLayout.resolve({
-      layout: [{ row: 0, col: 0 }],
-      keymap: { layers: [] }
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: { layers: [] },
+      hostSnapshot: null,
+      warnings: []
     })
     await Promise.resolve()
     flushSync()
@@ -271,7 +284,9 @@ describe('Github Picker', () => {
     vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }])
     vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
       layout: [{ x: 0, y: 0 }, { x: 1, y: 0 }],
-      keymap: { layers: [] }
+      keymap: { layers: [] },
+      hostSnapshot: null,
+      warnings: []
     })
 
     const onSelect = open()
@@ -297,8 +312,10 @@ describe('Github Picker', () => {
       { name: 'dev' }
     ])
     vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
-      layout: [{ row: 0, col: 0 }],
-      keymap: { layers: [] }
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: { layers: [] },
+      hostSnapshot: null,
+      warnings: []
     })
     const create = vi.spyOn(github, 'createBranch').mockResolvedValue({ name: 'topic' })
 
@@ -337,8 +354,10 @@ describe('Github Picker', () => {
   it('shows a create-branch error and logs out without keeping the keymap', async () => {
     vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }, { name: 'dev' }])
     vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
-      layout: [{ row: 0, col: 0 }],
-      keymap: { layers: [] }
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: { layers: [] },
+      hostSnapshot: null,
+      warnings: []
     })
     vi.spyOn(github, 'createBranch').mockRejectedValue(
       Object.assign(new Error('conflict'), {

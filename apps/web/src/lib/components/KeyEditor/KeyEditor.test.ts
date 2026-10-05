@@ -117,10 +117,13 @@ describe('KeyEditor value catalog', () => {
     const preview = editor?.querySelector('.key-editor-preview')
     const body = editor?.querySelector('.key-editor-body')
     expect(preview).toBeTruthy()
-    expect(body?.contains(preview as Node)).toBe(false)
-    expect(preview?.querySelector('.binding')?.textContent).toBe('&kp A')
-    expect(preview?.querySelector('.key-editor-preview-label')).toBeNull()
-    expect(preview?.compareDocumentPosition(body as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(body).toBeTruthy()
+    expect(body!.contains(preview as Node)).toBe(false)
+    expect(preview!.querySelector('.binding')?.textContent).toBe('&kp A')
+    expect(preview!.querySelector('.key-editor-preview-label')).toBeNull()
+    expect(
+      preview!.compareDocumentPosition(body as Node) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
 
     const legend = target.querySelector('.key-editor-legend')
     expect(legend?.getAttribute('aria-label')).toBe('Value chip styles')

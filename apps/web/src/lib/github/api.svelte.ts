@@ -1,5 +1,17 @@
-import { inferRectangularLayout } from '@keymap-editor/keymap-core'
+import {
+  inferRectangularLayout,
+  type HostKeymapSnapshot,
+  type LayoutKey,
+  type ParsedKeymap
+} from '@keymap-editor/keymap-core'
 import * as config from '../config'
+
+export interface KeyboardFilesResult {
+  layout: LayoutKey[]
+  keymap: ParsedKeymap
+  hostSnapshot: HostKeymapSnapshot | null
+  warnings: string[]
+}
 
 type Listener = (...args: unknown[]) => void
 
@@ -234,7 +246,10 @@ export class API extends EventEmitter {
     return { name: created.name }
   }
 
-  async fetchLayoutAndKeymap(repo: string, branch?: string | null) {
+  async fetchLayoutAndKeymap(
+    repo: string,
+    branch?: string | null
+  ): Promise<KeyboardFilesResult> {
     const installation = encodeURIComponent(this.repoInstallationMap![repo])
     const repository = encodeURIComponent(repo)
     let path = `/github/keyboard-files/${installation}/${repository}`
@@ -245,9 +260,9 @@ export class API extends EventEmitter {
     try {
       const { data } = (await this._request(path)) as {
         data: {
-          info: { layouts: Record<string, { layout: unknown }> } | null
-          keymap: { layers?: unknown[] }
-          hostSnapshot?: unknown
+          info: { layouts: Record<string, { layout: LayoutKey[] }> } | null
+          keymap: ParsedKeymap
+          hostSnapshot?: HostKeymapSnapshot | null
         }
       }
       const warnings: string[] = []

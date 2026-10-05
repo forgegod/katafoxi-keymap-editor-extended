@@ -38,7 +38,7 @@ describe('preferred demo host language', () => {
   it('leaves English-only when the browser has no addable locale', async () => {
     vi.stubGlobal('navigator', {
       language: 'en-US',
-      languages: ['en-US', 'fr-FR']
+      languages: ['en-US', 'ja-JP']
     })
     const bundle = loadDemo('corne')
     await editor.selectKeyboard({

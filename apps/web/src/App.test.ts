@@ -114,7 +114,9 @@ describe('App chrome', () => {
     vi.spyOn(github, 'commitChanges').mockResolvedValue({ data: {} })
     vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
       layout: oneKeyLayout,
-      keymap: km('A')
+      keymap: km('A'),
+      hostSnapshot: null,
+      warnings: []
     })
     vi.spyOn(github, 'init').mockResolvedValue(undefined)
     github.initialized = true
