@@ -11,7 +11,8 @@ import {
   consumeOauthState,
   createOauthState,
   createSession,
-  deleteSession
+  deleteSession,
+  SESSION_COOKIE_MAX_AGE_SEC
 } from '../services/github/sessions.js'
 import { githubRoutes } from './github.js'
 
@@ -28,6 +29,7 @@ const VALID_INFO = {
 const VALID_KEYMAP = { layers: [['&kp A']] }
 
 const createdSids: string[] = []
+const appOrigin = new URL(config.APP_BASE_URL).origin
 
 function setCookieHeaders(res: Response): string[] {
   if (typeof res.headers.getSetCookie === 'function') {
@@ -64,6 +66,14 @@ function sessionCookie(sid: string): string {
   return `${auth.SID_COOKIE}=${sid}`
 }
 
+function withAppOrigin(headers: Headers, init: RequestInit): void {
+  const method = (init.method ?? 'GET').toUpperCase()
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return
+  if (!headers.has('Origin') && !headers.has('Referer')) {
+    headers.set('Origin', appOrigin)
+  }
+}
+
 async function authedRequest(
   path: string,
   init: RequestInit = {},
@@ -71,6 +81,7 @@ async function authedRequest(
 ) {
   const headers = new Headers(init.headers)
   headers.set('Cookie', sessionCookie(sid))
+  withAppOrigin(headers, init)
   return { sid, res: await app.request(path, { ...init, headers }) }
 }
 
@@ -190,7 +201,7 @@ describe('session and errors', () => {
     const sid = trackSid(createSession({ login: 'octocat', oauthAccessToken: 'user-token' }))
     const logout = await app.request('/github/logout', {
       method: 'POST',
-      headers: { Cookie: sessionCookie(sid) }
+      headers: { Cookie: sessionCookie(sid), Origin: appOrigin }
     })
     expect(logout.status).toBe(204)
 
@@ -199,6 +210,58 @@ describe('session and errors', () => {
     })
     expect(install.status).toBe(401)
     expect(installations.fetchInstallationRepos).not.toHaveBeenCalled()
+  })
+
+  it('rejects mutating requests with a foreign Origin', async () => {
+    const sid = trackSid(createSession({ login: 'octocat', oauthAccessToken: 'user-token' }))
+    const logout = await app.request('/github/logout', {
+      method: 'POST',
+      headers: { Cookie: sessionCookie(sid), Origin: 'https://evil.example' }
+    })
+    expect(logout.status).toBe(403)
+
+    const commit = vi.mocked(files.commitChanges)
+    const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark/main', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: 'https://evil.example'
+      },
+      body: JSON.stringify({ keymap: parseKeymap(VALID_KEYMAP), layout: [{ x: 0, y: 0 }] })
+    })
+    expect(res.status).toBe(403)
+    expect(commit).not.toHaveBeenCalled()
+  })
+
+  it('rejects mutating requests with neither Origin nor Referer', async () => {
+    const sid = trackSid(createSession({ login: 'octocat', oauthAccessToken: 'user-token' }))
+    const logout = await app.request('/github/logout', {
+      method: 'POST',
+      headers: { Cookie: sessionCookie(sid) }
+    })
+    expect(logout.status).toBe(403)
+  })
+
+  it('accepts mutating requests when Referer matches APP_BASE_URL', async () => {
+    const sid = trackSid(createSession({ login: 'octocat', oauthAccessToken: 'user-token' }))
+    const logout = await app.request('/github/logout', {
+      method: 'POST',
+      headers: {
+        Cookie: sessionCookie(sid),
+        Referer: `${appOrigin}/editor`
+      }
+    })
+    expect(logout.status).toBe(204)
+  })
+
+  it('refreshes the sid cookie maxAge on authenticated requests', async () => {
+    const { sid, res } = await authedRequest('/github/installation')
+    expect(res.status).toBe(200)
+    const cookies = parseCookies(res)
+    expect(cookies[auth.SID_COOKIE]?.value).toBe(sid)
+    expect(cookies[auth.SID_COOKIE].raw.toLowerCase()).toContain(
+      `max-age=${SESSION_COOKIE_MAX_AGE_SEC}`
+    )
   })
 
   it('GET /github/installation without a cookie returns 401', async () => {
@@ -358,7 +421,7 @@ describe('session and errors', () => {
   it('POST /github/installation branches requires a session and a valid name', async () => {
     const anon = await app.request('/github/installation/1/acme%2Flark/branches', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Origin: appOrigin },
       body: JSON.stringify({ name: 'topic', from: 'main' })
     })
     expect(anon.status).toBe(401)

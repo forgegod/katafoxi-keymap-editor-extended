@@ -31,6 +31,15 @@ type Variables = {
 
 export const githubRoutes = new Hono<{ Variables: Variables }>()
 
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+
+githubRoutes.use('*', async (c, next) => {
+  if (!SAFE_METHODS.has(c.req.method) && !auth.isTrustedAppOrigin(c)) {
+    return c.body(null, 403)
+  }
+  await next()
+})
+
 githubRoutes.get('/authorize', async c => {
   const code = c.req.query('code')
   if (code) {
@@ -80,6 +89,9 @@ githubRoutes.use('*', async (c, next) => {
     auth.clearSidCookie(c)
     return c.body(null, 401)
   }
+
+  // Keep browser cookie maxAge aligned with the sliding server TTL.
+  auth.setSidCookie(c, sid)
 
   c.set('user', {
     sub: session.login,

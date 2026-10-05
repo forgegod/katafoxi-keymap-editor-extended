@@ -7,6 +7,7 @@ import fs from 'node:fs'
 import { config } from './config.js'
 import { keyboardsRoutes } from './routes/keyboards.js'
 import { githubRoutes } from './routes/github.js'
+import { startSessionPruneTimer } from './services/github/sessions.js'
 
 const app = new Hono()
 
@@ -24,6 +25,7 @@ app.get('/health', c => c.body(null, 200))
 app.route('/', keyboardsRoutes)
 
 if (config.ENABLE_GITHUB) {
+  startSessionPruneTimer()
   app.route('/github', githubRoutes)
 }
 

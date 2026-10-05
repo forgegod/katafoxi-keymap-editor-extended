@@ -6,6 +6,7 @@ import type { CookieOptions } from 'hono/utils/cookie'
 import jwt from 'jsonwebtoken'
 import { config, REPO_ROOT } from '../../config.js'
 import * as api from './api.js'
+import { SESSION_COOKIE_MAX_AGE_SEC } from './sessions.js'
 
 const pemPath = path.join(REPO_ROOT, 'private-key.pem')
 
@@ -30,8 +31,41 @@ function cookieOptions(overrides: CookieOptions = {}): CookieOptions {
   }
 }
 
+export function appOrigin(): string {
+  try {
+    return new URL(config.APP_BASE_URL).origin
+  } catch {
+    return 'http://localhost:5173'
+  }
+}
+
+/**
+ * Defense in depth beyond SameSite=Lax: mutating requests must come from the SPA
+ * origin (Origin, or Referer when Origin is absent). Matches CORS APP_BASE_URL.
+ */
+export function isTrustedAppOrigin(c: Context): boolean {
+  const expected = appOrigin()
+  const originHeader = c.req.header('Origin')
+  if (originHeader) {
+    try {
+      return new URL(originHeader).origin === expected
+    } catch {
+      return false
+    }
+  }
+  const referer = c.req.header('Referer')
+  if (referer) {
+    try {
+      return new URL(referer).origin === expected
+    } catch {
+      return false
+    }
+  }
+  return false
+}
+
 export function setSidCookie(c: Context, sid: string) {
-  setCookie(c, SID_COOKIE, sid, cookieOptions({ maxAge: 24 * 60 * 60 }))
+  setCookie(c, SID_COOKIE, sid, cookieOptions({ maxAge: SESSION_COOKIE_MAX_AGE_SEC }))
 }
 
 export function clearSidCookie(c: Context) {

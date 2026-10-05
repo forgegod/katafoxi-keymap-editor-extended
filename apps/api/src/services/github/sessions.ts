@@ -1,7 +1,12 @@
 import crypto from 'node:crypto'
 
-const SESSION_TTL_MS = 24 * 60 * 60 * 1000
+export const SESSION_TTL_MS = 24 * 60 * 60 * 1000
+export const SESSION_COOKIE_MAX_AGE_SEC = Math.floor(SESSION_TTL_MS / 1000)
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000
+
+const DEFAULT_SESSION_MAP_MAX = 10_000
+const DEFAULT_OAUTH_STATE_MAP_MAX = 2_000
+const PRUNE_INTERVAL_MS = 5 * 60 * 1000
 
 /** Cached map of repository full_name → installation id the user may access. */
 export type InstallationAccessCache = {
@@ -19,11 +24,64 @@ export type Session = {
 const sessions = new Map<string, Session>()
 const oauthStates = new Map<string, { expiresAt: number }>()
 
+let sessionMapMax = DEFAULT_SESSION_MAP_MAX
+let oauthStateMapMax = DEFAULT_OAUTH_STATE_MAP_MAX
+let pruneTimer: ReturnType<typeof setInterval> | undefined
+
 function pruneExpired<T extends { expiresAt: number }>(map: Map<string, T>) {
   const now = Date.now()
   for (const [key, value] of map) {
     if (value.expiresAt <= now) map.delete(key)
   }
+}
+
+function evictOldestIfOverCap<T extends { expiresAt: number }>(map: Map<string, T>, max: number) {
+  while (map.size > max) {
+    let oldestKey: string | undefined
+    let oldestExp = Infinity
+    for (const [key, value] of map) {
+      if (value.expiresAt < oldestExp) {
+        oldestExp = value.expiresAt
+        oldestKey = key
+      }
+    }
+    if (oldestKey === undefined) break
+    map.delete(oldestKey)
+  }
+}
+
+export function startSessionPruneTimer(): void {
+  if (pruneTimer) return
+  pruneTimer = setInterval(() => {
+    pruneExpired(sessions)
+    pruneExpired(oauthStates)
+  }, PRUNE_INTERVAL_MS)
+  pruneTimer.unref?.()
+}
+
+export function stopSessionPruneTimer(): void {
+  if (!pruneTimer) return
+  clearInterval(pruneTimer)
+  pruneTimer = undefined
+}
+
+/** Test-only: lower map caps so eviction can be asserted without thousands of entries. */
+export function setMapCapsForTests(caps: { sessions?: number; oauthStates?: number }): void {
+  if (caps.sessions != null) sessionMapMax = caps.sessions
+  if (caps.oauthStates != null) oauthStateMapMax = caps.oauthStates
+}
+
+export function resetMapCapsForTests(): void {
+  sessionMapMax = DEFAULT_SESSION_MAP_MAX
+  oauthStateMapMax = DEFAULT_OAUTH_STATE_MAP_MAX
+}
+
+export function sessionMapSizeForTests(): number {
+  return sessions.size
+}
+
+export function oauthStateMapSizeForTests(): number {
+  return oauthStates.size
 }
 
 export function createSession(input: {
@@ -37,6 +95,7 @@ export function createSession(input: {
     oauthAccessToken: input.oauthAccessToken,
     expiresAt: Date.now() + SESSION_TTL_MS
   })
+  evictOldestIfOverCap(sessions, sessionMapMax)
   return id
 }
 
@@ -66,6 +125,7 @@ export function createOauthState(): string {
   pruneExpired(oauthStates)
   const state = crypto.randomBytes(32).toString('base64url')
   oauthStates.set(state, { expiresAt: Date.now() + OAUTH_STATE_TTL_MS })
+  evictOldestIfOverCap(oauthStates, oauthStateMapMax)
   return state
 }
 
