@@ -1,13 +1,10 @@
-/**
- * Public editor entry — re-exports the split modules under `./editor/`.
- */
 export {
   EditorState,
   editor,
   hostLegendAnchorIndex,
   adoptHoldTaps,
   cloneParsedKeymap
-} from './editor/index.js'
+} from './state.svelte'
 export type {
   GithubMeta,
   HostKeyLevelEditResult,
@@ -15,4 +12,4 @@ export type {
   HostSymbolEditTarget,
   KeyboardSelection,
   SaveNotice
-} from './editor/index.js'
+} from './types'
