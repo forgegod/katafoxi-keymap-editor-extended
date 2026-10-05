@@ -211,7 +211,10 @@ export function diffKeymaps(
     }
   }
 
-  for (let layer = 0; layer < shared; layer++) {
+  // Include added/removed layers so the dirty summary counts encoder
+  // turns that arrive with layer_add or clear with layer_remove.
+  const sensorLayers = Math.max(baseCount, draftCount)
+  for (let layer = 0; layer < sensorLayers; layer++) {
     const beforeRow = baseline.sensorBindings?.[layer] ?? []
     const afterRow = draft.sensorBindings?.[layer] ?? []
     const turns = Math.max(beforeRow.length, afterRow.length)
