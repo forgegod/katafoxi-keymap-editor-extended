@@ -15,6 +15,7 @@
     type LegendDecodeCard
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
+  import DecodeSessionBar from './DecodeSessionBar.svelte'
   import LangFlag from './LangFlag.svelte'
 
   interface Props {
@@ -348,26 +349,7 @@
     </div>
   {/if}
   {#if hostSession}
-    <div class="session-bar" role="group" aria-label="Host edit session">
-      <button
-        type="button"
-        class="session-accept"
-        data-host-accept
-        title="Enter"
-        onclick={() => onEndSession?.()}
-      >
-        Accept <kbd>Enter</kbd>
-      </button>
-      <button
-        type="button"
-        class="session-cancel"
-        data-host-cancel
-        title="Edits are already saved — Escape only closes the session"
-        onclick={() => onEndSession?.()}
-      >
-        Cancel <kbd>Esc</kbd>
-      </button>
-    </div>
+    <DecodeSessionBar {onEndSession} />
   {:else if hostEditable}
     <p class="mode-hint" role="note">
       Click row — ZMK · Alt+click — host
@@ -415,7 +397,8 @@
     max-width: min(40em, calc(100vw - 16px));
   }
 
-  .legend-decode.has-table :is(.was, .ids, .behavior-note, .mode-hint, .session-bar) {
+  .legend-decode.has-table :is(.was, .ids, .behavior-note, .mode-hint),
+  .legend-decode.has-table :global(.session-bar) {
     width: 0;
     min-width: 100%;
     white-space: normal;
@@ -638,49 +621,5 @@
     font-size: var(--font-sm);
     line-height: 1.3;
     color: var(--paper-ink-subtle);
-  }
-
-  .session-bar {
-    display: flex;
-    gap: 6px;
-    margin-top: 8px;
-    padding-top: 6px;
-    border-top: 1px solid color-mix(in srgb, var(--paper-shade) 12%, transparent);
-  }
-
-  .session-bar button {
-    flex: 1;
-    height: 30px;
-    margin: 0;
-    padding: 0 8px;
-    border: 0;
-    border-radius: 13px;
-    font-family: Quicksand, avenir, sans-serif;
-    font-size: var(--font-md);
-    cursor: pointer;
-  }
-
-  .session-bar kbd {
-    margin-left: 4px;
-    padding: 0 4px;
-    border-radius: 3px;
-    background: var(--on-accent-wash);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: var(--font-sm);
-    font-weight: 600;
-  }
-
-  .session-cancel kbd {
-    background: var(--shade-wash);
-  }
-
-  .session-accept {
-    background: var(--accent);
-    color: var(--on-accent);
-  }
-
-  .session-cancel {
-    background: var(--fill);
-    color: var(--text);
   }
 </style>

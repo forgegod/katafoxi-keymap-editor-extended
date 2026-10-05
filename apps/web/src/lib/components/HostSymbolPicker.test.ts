@@ -10,11 +10,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { editor } from '../editor.svelte.js'
 import { clearHostLayoutStore } from '../host-layout-store'
 import HostSymbolCatalog from './HostSymbolCatalog.svelte'
-import HostSymbolPicker, {
+import HostSymbolPicker from './HostSymbolPicker.svelte'
+import {
   hostSymbolExpandedByLanguage,
   hostSymbolPickerFrame,
   placePickerClearOf
-} from './HostSymbolPicker.svelte'
+} from './host-symbol-geometry'
 import Harness from './Keyboard/Keys/KeyHarness.svelte'
 
 function stackRows(): HTMLButtonElement[] {
