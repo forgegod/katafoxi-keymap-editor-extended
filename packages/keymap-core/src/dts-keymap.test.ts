@@ -36,4 +36,22 @@ describe('parseDtsKeymap', () => {
     expect(km.layers[1]).toEqual(['&trans', '&mo 1'])
     expect(km.warnings).toContain('macros_expanded')
   })
+
+  it('ignores braces inside layer comments when reading bindings', () => {
+    const src = `/ {
+  keymap {
+    compatible = "zmk,keymap";
+    layer_0 {
+      // { decoy open
+      /* } decoy close */
+      bindings = <
+&kp A &kp B
+      >;
+    };
+  };
+};
+`
+    const km = parseDtsKeymap(src)
+    expect(km.layers).toEqual([['&kp A', '&kp B']])
+  })
 })

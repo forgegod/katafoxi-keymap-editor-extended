@@ -6,7 +6,16 @@
  * `KeyBindingNode` so this module does not import keymap.ts.
  */
 
-import { findMatchingBrace } from './dts-keymap.js'
+import {
+  findAngleProp,
+  findNamedBlock,
+  hasBoolProp,
+  maskDts,
+  matchBrace,
+  parseUintList,
+  tokenizeBindings,
+  type DtsNamedBlock
+} from './dts-scan.js'
 import {
   isModifierWrapCode,
   modifierHoldForKey,
@@ -14,84 +23,21 @@ import {
 } from './modifiers.js'
 import type { KeyBindingNode, ZmkCombo } from './types.js'
 
-export interface DtsCombosBlock {
-  /** Absolute start of the `combos` keyword. */
-  keywordStart: number
-  openBrace: number
-  closeBrace: number
-  bodyStart: number
-  bodyEnd: number
-}
+export type DtsCombosBlock = DtsNamedBlock
 
 /**
  * Locate a `combos { … }` block. Prefers one that declares
  * `compatible = "zmk,combos"` when several exist.
  */
 export function findCombosBlock(source: string): DtsCombosBlock | null {
-  const re = /\bcombos\s*\{/g
-  let fallback: DtsCombosBlock | null = null
-  let m: RegExpExecArray | null
-  while ((m = re.exec(source)) !== null) {
-    const openBrace = m.index + m[0].length - 1
-    const closeBrace = findMatchingBrace(source, openBrace)
-    if (closeBrace < 0) continue
-    const bodyStart = openBrace + 1
-    const bodyEnd = closeBrace
-    const block: DtsCombosBlock = {
-      keywordStart: m.index,
-      openBrace,
-      closeBrace,
-      bodyStart,
-      bodyEnd
-    }
-    const body = source.slice(bodyStart, bodyEnd)
-    if (/compatible\s*=\s*"zmk,combos"/.test(body)) return block
-    if (!fallback) fallback = block
-  }
-  return fallback
-}
-
-function findAngleInterior(
-  source: string,
-  from: number,
-  to: number,
-  prop: string
-): { start: number; end: number } | null {
-  const slice = source.slice(from, to)
-  const re = new RegExp(`${prop}\\s*=\\s*<`)
-  const m = re.exec(slice)
-  if (!m) return null
-  const contentStart = from + m.index + m[0].length
-  let depth = 1
-  for (let i = contentStart; i < to; i++) {
-    if (source[i] === '<') depth++
-    else if (source[i] === '>') {
-      depth--
-      if (depth === 0) return { start: contentStart, end: i }
-    }
-  }
-  return null
-}
-
-function parseUintList(interior: string): number[] {
-  const out: number[] = []
-  for (const tok of interior.trim().split(/\s+/)) {
-    if (!tok) continue
-    const n = Number(tok)
-    if (Number.isInteger(n) && n >= 0) out.push(n)
-  }
-  return out
+  const masked = maskDts(source)
+  return findNamedBlock(source, masked, 'combos', { compatible: 'zmk,combos' })
 }
 
 function parseOptionalUintProp(body: string, prop: string): number | undefined {
-  const m = new RegExp(`${prop}\\s*=\\s*<\\s*(\\d+)\\s*>`).exec(body)
+  const m = new RegExp(`(?<![\\w-])${prop}\\s*=\\s*<\\s*(\\d+)\\s*>`).exec(body)
   if (!m) return undefined
   return Number(m[1])
-}
-
-function parseOptionalBoolProp(body: string, prop: string): boolean | undefined {
-  const m = new RegExp(`${prop}\\s*;`).exec(body)
-  return m ? true : undefined
 }
 
 /** Raw combo as stored in DtsKeymapJson before parseKeymap. */
@@ -111,47 +57,47 @@ export interface DtsComboJson {
  * Macros in combo bindings are left as written (caller may expand separately).
  */
 export function parseDtsCombos(source: string): DtsComboJson[] {
-  const block = findCombosBlock(source)
+  const masked = maskDts(source)
+  const block = findNamedBlock(source, masked, 'combos', { compatible: 'zmk,combos' })
   if (!block) return []
 
-  const body = source.slice(block.bodyStart, block.bodyEnd)
+  const body = masked.slice(block.bodyStart, block.bodyEnd)
   const combos: DtsComboJson[] = []
   const re = /(\w+)\s*\{/g
   let m: RegExpExecArray | null
   while ((m = re.exec(body)) !== null) {
     const name = m[1]
-    if (name === 'compatible') continue
     const openBraceRel = m.index + m[0].length - 1
     const openBrace = block.bodyStart + openBraceRel
-    const closeBrace = findMatchingBrace(source, openBrace)
+    const closeBrace = matchBrace(masked, openBrace)
     if (closeBrace < 0 || closeBrace > block.bodyEnd) {
       re.lastIndex = openBraceRel + 1
       continue
     }
     re.lastIndex = closeBrace - block.bodyStart + 1
 
+    const range = { start: openBrace + 1, end: closeBrace }
     const nodeBody = source.slice(openBrace + 1, closeBrace)
-    const bindings = findAngleInterior(source, openBrace + 1, closeBrace, 'bindings')
-    const positions = findAngleInterior(source, openBrace + 1, closeBrace, 'key-positions')
+    const bindings = findAngleProp(masked, range, 'bindings')
+    const positions = findAngleProp(masked, range, 'key-positions')
     if (!bindings || !positions) continue
 
-    const bindingText = source.slice(bindings.start, bindings.end).trim()
-    // One binding per combo (ZMK allows one); take the first &… token.
-    const bindMatch = bindingText.match(/&\S+(?:\s+\S+)*/)
-    if (!bindMatch) continue
+    // One binding per combo (ZMK allows one); tokenizeBindings tolerates spaces in ().
+    const binds = tokenizeBindings(source.slice(bindings.start, bindings.end))
+    if (binds.length === 0) continue
 
     const combo: DtsComboJson = {
       id: name,
       keyPositions: parseUintList(source.slice(positions.start, positions.end)),
-      binding: bindMatch[0].trim()
+      binding: binds[0]
     }
 
     const timeoutMs = parseOptionalUintProp(nodeBody, 'timeout-ms')
     if (timeoutMs !== undefined) combo.timeoutMs = timeoutMs
     const idle = parseOptionalUintProp(nodeBody, 'require-prior-idle-ms')
     if (idle !== undefined) combo.requirePriorIdleMs = idle
-    if (parseOptionalBoolProp(nodeBody, 'slow-release')) combo.slowRelease = true
-    const layersInterior = findAngleInterior(source, openBrace + 1, closeBrace, 'layers')
+    if (hasBoolProp(nodeBody, 'slow-release')) combo.slowRelease = true
+    const layersInterior = findAngleProp(masked, range, 'layers')
     if (layersInterior) {
       combo.layers = parseUintList(source.slice(layersInterior.start, layersInterior.end))
     }
@@ -229,10 +175,11 @@ export function spliceCombosIntoDts(original: string, combos: DtsComboJson[]): s
     return original.slice(0, block.keywordStart) + formatted + original.slice(to)
   }
 
-  const root = /\/\s*\{/.exec(original)
+  const masked = maskDts(original)
+  const root = /\/\s*\{/.exec(masked)
   if (root) {
     const openBrace = root.index + root[0].length - 1
-    const closeBrace = findMatchingBrace(original, openBrace)
+    const closeBrace = matchBrace(masked, openBrace)
     if (closeBrace >= 0) {
       const insertion = `\n${formatted}\n`
       return original.slice(0, closeBrace) + insertion + original.slice(closeBrace)

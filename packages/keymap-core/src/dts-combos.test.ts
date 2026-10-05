@@ -74,6 +74,74 @@ describe('parseDtsCombos', () => {
 };`)
     ).toEqual([])
   })
+
+  it('ignores braces inside combo comments', () => {
+    const src = `/ {
+    combos {
+        compatible = "zmk,combos";
+        combo_esc {
+            // { decoy
+            /* } */
+            bindings = <&kp ESC>;
+            key-positions = <0 1>;
+        };
+    };
+};
+`
+    expect(parseDtsCombos(src)).toEqual([
+      { id: 'combo_esc', binding: '&kp ESC', keyPositions: [0, 1] }
+    ])
+  })
+
+  it('reads bindings with spaces inside parentheses', () => {
+    const src = `/ {
+    combos {
+        compatible = "zmk,combos";
+        combo_shift_a {
+            bindings = <&kp LS( A )>;
+            key-positions = <0 1>;
+        };
+    };
+};
+`
+    expect(parseDtsCombos(src)).toEqual([
+      { id: 'combo_shift_a', binding: '&kp LS( A )', keyPositions: [0, 1] }
+    ])
+  })
+
+  it('does not treat sensor-bindings as the combo binding', () => {
+    const src = `/ {
+    combos {
+        compatible = "zmk,combos";
+        combo_esc {
+            sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN>;
+            bindings = <&kp ESC>;
+            key-positions = <0 1>;
+        };
+    };
+};
+`
+    expect(parseDtsCombos(src)).toEqual([
+      { id: 'combo_esc', binding: '&kp ESC', keyPositions: [0, 1] }
+    ])
+  })
+
+  it('does not take slow-release from not-slow-release', () => {
+    const src = `/ {
+    combos {
+        compatible = "zmk,combos";
+        combo_esc {
+            bindings = <&kp ESC>;
+            key-positions = <0 1>;
+            not-slow-release;
+        };
+    };
+};
+`
+    expect(parseDtsCombos(src)).toEqual([
+      { id: 'combo_esc', binding: '&kp ESC', keyPositions: [0, 1] }
+    ])
+  })
 })
 
 describe('parseDtsKeymap combos', () => {

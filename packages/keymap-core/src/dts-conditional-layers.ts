@@ -3,72 +3,23 @@
  * A then-layer is active exactly while every if-layer is active.
  */
 
-import { findMatchingBrace } from './dts-keymap.js'
+import {
+  findAngleProp,
+  findNamedBlock,
+  maskDts,
+  matchBrace,
+  parseUintList
+} from './dts-scan.js'
 import type { LegendHover, ZmkConditionalLayer } from './types.js'
 
 /** A conditional layer needs at least two held layers. */
 export const CONDITIONAL_LAYER_MIN_IF = 2
 
-interface DtsConditionalBlock {
-  keywordStart: number
-  openBrace: number
-  closeBrace: number
-  bodyStart: number
-  bodyEnd: number
-}
-
-function findConditionalBlock(source: string): DtsConditionalBlock | null {
-  const re = /\bconditional_layers\s*\{/g
-  let fallback: DtsConditionalBlock | null = null
-  let m: RegExpExecArray | null
-  while ((m = re.exec(source)) !== null) {
-    const openBrace = m.index + m[0].length - 1
-    const closeBrace = findMatchingBrace(source, openBrace)
-    if (closeBrace < 0) continue
-    const block: DtsConditionalBlock = {
-      keywordStart: m.index,
-      openBrace,
-      closeBrace,
-      bodyStart: openBrace + 1,
-      bodyEnd: closeBrace
-    }
-    const body = source.slice(block.bodyStart, block.bodyEnd)
-    if (/compatible\s*=\s*"zmk,conditional-layers"/.test(body)) return block
-    if (!fallback) fallback = block
-  }
-  return fallback
-}
-
-function findAngleInterior(
-  source: string,
-  from: number,
-  to: number,
-  prop: string
-): { start: number; end: number } | null {
-  const slice = source.slice(from, to)
-  const re = new RegExp(`${prop}\\s*=\\s*<`)
-  const m = re.exec(slice)
-  if (!m) return null
-  const contentStart = from + m.index + m[0].length
-  let depth = 1
-  for (let i = contentStart; i < to; i++) {
-    if (source[i] === '<') depth++
-    else if (source[i] === '>') {
-      depth--
-      if (depth === 0) return { start: contentStart, end: i }
-    }
-  }
-  return null
-}
-
-function parseUintList(interior: string): number[] {
-  const out: number[] = []
-  for (const tok of interior.trim().split(/\s+/)) {
-    if (!tok) continue
-    const n = Number(tok)
-    if (Number.isInteger(n) && n >= 0) out.push(n)
-  }
-  return out
+function findConditionalBlock(source: string) {
+  const masked = maskDts(source)
+  return findNamedBlock(source, masked, 'conditional_layers', {
+    compatible: 'zmk,conditional-layers'
+  })
 }
 
 /**
@@ -76,27 +27,30 @@ function parseUintList(interior: string): number[] {
  * A node without `if-layers` or `then-layer` is skipped.
  */
 export function parseDtsConditionalLayers(source: string): ZmkConditionalLayer[] {
-  const block = findConditionalBlock(source)
+  const masked = maskDts(source)
+  const block = findNamedBlock(source, masked, 'conditional_layers', {
+    compatible: 'zmk,conditional-layers'
+  })
   if (!block) return []
 
   const rules: ZmkConditionalLayer[] = []
-  const body = source.slice(block.bodyStart, block.bodyEnd)
+  const body = masked.slice(block.bodyStart, block.bodyEnd)
   const re = /(\w+)\s*\{/g
   let m: RegExpExecArray | null
   while ((m = re.exec(body)) !== null) {
     const name = m[1]
-    if (name === 'compatible') continue
     const openBraceRel = m.index + m[0].length - 1
     const openBrace = block.bodyStart + openBraceRel
-    const closeBrace = findMatchingBrace(source, openBrace)
+    const closeBrace = matchBrace(masked, openBrace)
     if (closeBrace < 0 || closeBrace > block.bodyEnd) {
       re.lastIndex = openBraceRel + 1
       continue
     }
     re.lastIndex = closeBrace - block.bodyStart + 1
 
-    const ifInterior = findAngleInterior(source, openBrace + 1, closeBrace, 'if-layers')
-    const thenInterior = findAngleInterior(source, openBrace + 1, closeBrace, 'then-layer')
+    const range = { start: openBrace + 1, end: closeBrace }
+    const ifInterior = findAngleProp(masked, range, 'if-layers')
+    const thenInterior = findAngleProp(masked, range, 'then-layer')
     if (!ifInterior || !thenInterior) continue
     const ifLayers = parseUintList(source.slice(ifInterior.start, ifInterior.end))
     const thenParts = parseUintList(source.slice(thenInterior.start, thenInterior.end))
@@ -168,10 +122,11 @@ export function spliceConditionalLayersIntoDts(
     return original.slice(0, block.keywordStart) + formatted + original.slice(to)
   }
 
-  const root = /\/\s*\{/.exec(original)
+  const masked = maskDts(original)
+  const root = /\/\s*\{/.exec(masked)
   if (root) {
     const openBrace = root.index + root[0].length - 1
-    const closeBrace = findMatchingBrace(original, openBrace)
+    const closeBrace = matchBrace(masked, openBrace)
     if (closeBrace >= 0) {
       return original.slice(0, closeBrace) + `\n${formatted}\n` + original.slice(closeBrace)
     }

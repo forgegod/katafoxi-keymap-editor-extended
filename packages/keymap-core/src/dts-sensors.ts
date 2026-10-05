@@ -5,7 +5,7 @@
  * without an import cycle.
  */
 
-const SENSOR_STATEMENT = /sensor-bindings\s*=\s*<[\s\S]*?>\s*;/
+import { findAnglePropStatement, maskDts } from './dts-scan.js'
 
 interface SensorLayerSpan {
   openBrace: number
@@ -26,12 +26,13 @@ function writeLayerSensorBindings(
   closeBrace: number,
   bindings: string[]
 ): string {
-  const body = source.slice(openBrace + 1, closeBrace)
-  const match = SENSOR_STATEMENT.exec(body)
+  const masked = maskDts(source)
+  const range = { start: openBrace + 1, end: closeBrace }
+  const found = findAnglePropStatement(masked, range, 'sensor-bindings')
   if (bindings.length === 0) {
-    if (!match) return source
-    const start = openBrace + 1 + match.index
-    const end = start + match[0].length
+    if (!found) return source
+    const start = found.statement.start
+    const end = found.statement.end
     let cut = start
     const before = source.slice(0, start)
     const lineBreak = before.match(/\n[ \t]*$/)
@@ -40,12 +41,13 @@ function writeLayerSensorBindings(
   }
 
   const statement = `sensor-bindings = <${bindings.join(' ')}>;`
-  if (match) {
-    const start = openBrace + 1 + match.index
-    const end = start + match[0].length
-    return source.slice(0, start) + statement + source.slice(end)
+  if (found) {
+    return (
+      source.slice(0, found.statement.start) + statement + source.slice(found.statement.end)
+    )
   }
 
+  const body = source.slice(openBrace + 1, closeBrace)
   const indent = bindingsIndent(body)
   let braceAt = closeBrace
   while (braceAt > openBrace && /[ \t]/.test(source[braceAt - 1])) braceAt--

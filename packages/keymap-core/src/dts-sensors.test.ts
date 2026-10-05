@@ -47,6 +47,22 @@ describe('sensor-bindings', () => {
     ])
   })
 
+  it('still finds bindings when sensor-bindings sits beside them in a layer', () => {
+    const src = `/ {
+  keymap {
+    compatible = "zmk,keymap";
+    default_layer {
+      sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN>;
+      bindings = <&kp A &kp B>;
+    };
+  };
+};
+`
+    const raw = parseDtsKeymap(src)
+    expect(raw.layers).toEqual([['&kp A', '&kp B']])
+    expect(raw.sensorBindings).toEqual([['&inc_dec_kp C_VOL_UP C_VOL_DN']])
+  })
+
   it('keeps a sensor line when the editor does not know about encoders', () => {
     const spliced = spliceBindingsIntoDts(WITH_SENSORS, {
       layout: TWO,

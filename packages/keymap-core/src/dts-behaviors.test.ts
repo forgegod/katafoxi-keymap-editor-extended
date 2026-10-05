@@ -108,6 +108,29 @@ describe('parseDtsHoldTaps', () => {
     ])
   })
 
+  it('ignores braces inside hold-tap comments when matching the node', () => {
+    const source = `
+      hm: hm {
+          compatible = "zmk,behavior-hold-tap";
+          // { decoy
+          /* } */
+          tapping-term-ms = <200>;
+          flavor = "balanced";
+          bindings = <&kp>, <&kp>;
+      };
+    `
+    expect(parseDtsHoldTaps(source)).toEqual([
+      {
+        code: '&hm',
+        nodeName: 'hm',
+        tappingTermMs: 200,
+        flavor: 'balanced',
+        bindings: ['&kp', '&kp'],
+        params: ['code', 'code']
+      }
+    ])
+  })
+
   it('reads &mt and &lt timing blocks from the LARK keymap', () => {
     const source = fs.readFileSync(
       path.join(path.dirname(fileURLToPath(import.meta.url)), '../fixtures/lark/lark.keymap'),

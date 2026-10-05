@@ -69,6 +69,22 @@ describe('parseDtsConditionalLayers', () => {
     ).toEqual([])
   })
 
+  it('ignores braces inside conditional-layer comments', () => {
+    const src = `/ {
+    conditional_layers {
+        compatible = "zmk,conditional-layers";
+        tri_layer {
+            // { decoy
+            /* } */
+            if-layers = <1 2>;
+            then-layer = <3>;
+        };
+    };
+};
+`
+    expect(parseDtsConditionalLayers(src)).toEqual([rule('tri_layer', [1, 2], 3)])
+  })
+
   it('attaches rules on DTS import and round-trips through keymap JSON', () => {
     const raw = parseDtsKeymap(WITH_RULE)
     expect(raw.conditionalLayers).toEqual([rule('tri_layer', [1, 2], 3)])

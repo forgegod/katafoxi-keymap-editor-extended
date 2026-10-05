@@ -15,54 +15,34 @@ import {
 } from './dts-combos.js'
 import { parseDtsConditionalLayers } from './dts-conditional-layers.js'
 import { parseDtsHoldTaps } from './dts-behaviors.js'
+import {
+  findAngleProp,
+  findAnglePropStatement,
+  findNamedBlock,
+  maskDts,
+  matchBrace,
+  tokenizeBindings,
+  type DtsNamedBlock
+} from './dts-scan.js'
 import type { ZmkConditionalLayer, ZmkHoldTap } from './types.js'
 
 const DEFINE_RE = /^#define\s+(\w+)\s+(.+)$/gm
 
-/** Index of matching `}` for `{` at openIndex, or -1. */
+/** @deprecated Prefer matchBrace on a maskDts view; kept for callers that already mask. */
 export function findMatchingBrace(source: string, openIndex: number): number {
-  if (source[openIndex] !== '{') return -1
-  let depth = 0
-  for (let i = openIndex; i < source.length; i++) {
-    const c = source[i]
-    if (c === '{') depth++
-    else if (c === '}') {
-      depth--
-      if (depth === 0) return i
-    }
-  }
-  return -1
+  return matchBrace(source, openIndex)
 }
 
 /**
  * Locate the `keymap { ... }` block that contains `compatible = "zmk,keymap"`.
  * Returns absolute indices into `source`: body is exclusive of the braces.
  */
-export function findZmkKeymapBlock(source: string): {
-  keywordStart: number
-  openBrace: number
-  closeBrace: number
-  bodyStart: number
-  bodyEnd: number
-} | null {
-  const re = /\bkeymap\s*\{/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(source)) !== null) {
-    const openBrace = m.index + m[0].length - 1
-    const closeBrace = findMatchingBrace(source, openBrace)
-    if (closeBrace < 0) continue
-    const body = source.slice(openBrace + 1, closeBrace)
-    if (/compatible\s*=\s*"zmk,keymap"/.test(body)) {
-      return {
-        keywordStart: m.index,
-        openBrace,
-        closeBrace,
-        bodyStart: openBrace + 1,
-        bodyEnd: closeBrace
-      }
-    }
-  }
-  return null
+export function findZmkKeymapBlock(source: string): DtsNamedBlock | null {
+  const masked = maskDts(source)
+  return findNamedBlock(source, masked, 'keymap', {
+    compatible: 'zmk,keymap',
+    requireCompatible: true
+  })
 }
 
 /**
@@ -75,19 +55,7 @@ export function findBindingsInterior(
   from: number,
   to: number
 ): { start: number; end: number } | null {
-  const slice = source.slice(from, to)
-  const m = /(?<![\w-])bindings\s*=\s*</.exec(slice)
-  if (!m) return null
-  const contentStart = from + m.index + m[0].length
-  let depth = 1
-  for (let i = contentStart; i < to; i++) {
-    if (source[i] === '<') depth++
-    else if (source[i] === '>') {
-      depth--
-      if (depth === 0) return { start: contentStart, end: i }
-    }
-  }
-  return null
+  return findAngleProp(maskDts(source), { start: from, end: to }, 'bindings')
 }
 
 export interface DtsLayerNode {
@@ -107,18 +75,18 @@ export interface DtsLayerNode {
  */
 export function findKeymapLayerNodes(
   source: string,
-  block: NonNullable<ReturnType<typeof findZmkKeymapBlock>>
+  block: DtsNamedBlock
 ): DtsLayerNode[] {
-  const body = source.slice(block.bodyStart, block.bodyEnd)
+  const masked = maskDts(source)
+  const body = masked.slice(block.bodyStart, block.bodyEnd)
   const nodes: DtsLayerNode[] = []
   const re = /(\w+)\s*\{/g
   let m: RegExpExecArray | null
   while ((m = re.exec(body)) !== null) {
     const name = m[1]
-    if (name === 'compatible') continue
     const openBraceRel = m.index + m[0].length - 1
     const openBrace = block.bodyStart + openBraceRel
-    const closeBrace = findMatchingBrace(source, openBrace)
+    const closeBrace = matchBrace(masked, openBrace)
     if (closeBrace < 0 || closeBrace > block.bodyEnd) {
       // Avoid re-matching the same `{` forever on malformed input
       re.lastIndex = openBraceRel + 1
@@ -128,7 +96,11 @@ export function findKeymapLayerNodes(
     // Skip past this node so nested braces aren't re-scanned as siblings
     re.lastIndex = closeBrace - block.bodyStart + 1
 
-    const bindingsInterior = findBindingsInterior(source, openBrace + 1, closeBrace)
+    const bindingsInterior = findAngleProp(
+      masked,
+      { start: openBrace + 1, end: closeBrace },
+      'bindings'
+    )
     if (!bindingsInterior) continue
 
     // Include trailing `;` and following whitespace up to next sibling / end
@@ -176,31 +148,24 @@ export function keymapBindingsText(source: string): string | null {
   return layers.map(n => source.slice(n.bindingsInterior.start, n.bindingsInterior.end)).join('\n')
 }
 
-const SENSOR_STATEMENT = /sensor-bindings\s*=\s*<[\s\S]*?>\s*;/
-
 /** Bind strings inside one layer's `sensor-bindings`, or null when the property is absent. */
 function readSensorBindingStrings(
   source: string,
+  masked: string,
   openBrace: number,
   closeBrace: number
 ): string[] | null {
-  const body = source.slice(openBrace + 1, closeBrace)
-  const match = SENSOR_STATEMENT.exec(body)
-  if (!match) return null
-  const open = match[0].indexOf('<')
-  const close = match[0].lastIndexOf('>')
-  if (open < 0 || close < 0 || close < open) return []
-  return tokenizeBindings(match[0].slice(open + 1, close))
+  const found = findAnglePropStatement(
+    masked,
+    { start: openBrace + 1, end: closeBrace },
+    'sensor-bindings'
+  )
+  if (!found) return null
+  return tokenizeBindings(source.slice(found.interior.start, found.interior.end))
 }
 
 /** Split a bindings block into individual bind strings (each starts with &). */
-export function tokenizeBindings(block: string): string[] {
-  const normalized = block.replace(/\r\n/g, '\n').replace(/\n/g, ' ')
-  return normalized
-    .split(/(?=&)/)
-    .map(s => s.trim())
-    .filter(s => s.startsWith('&'))
-}
+export { tokenizeBindings } from './dts-scan.js'
 
 export function parseDefines(source: string): Record<string, string> {
   const macros: Record<string, string> = {}
@@ -247,8 +212,12 @@ export function parseDtsKeymap(
   const layers: string[][] = []
   const layer_names: string[] = []
   const warnings: string[] = []
+  const masked = maskDts(source)
 
-  const block = findZmkKeymapBlock(source)
+  const block = findNamedBlock(source, masked, 'keymap', {
+    compatible: 'zmk,keymap',
+    requireCompatible: true
+  })
   if (!block) {
     throw new Error('No layers with bindings found in .keymap')
   }
@@ -268,7 +237,12 @@ export function parseDtsKeymap(
     layers.push(binds)
     layer_names.push(node.name === 'default_layer' ? 'default' : node.name)
 
-    const sensorRaw = readSensorBindingStrings(source, node.openBrace, node.closeBrace)
+    const sensorRaw = readSensorBindingStrings(
+      source,
+      masked,
+      node.openBrace,
+      node.closeBrace
+    )
     if (!sensorRaw) {
       sensorRows.push([])
       continue

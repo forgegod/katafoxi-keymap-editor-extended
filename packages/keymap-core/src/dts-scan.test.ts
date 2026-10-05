@@ -1,0 +1,115 @@
+import { describe, expect, it } from 'vitest'
+import {
+  findAngleProp,
+  findNamedBlock,
+  hasBoolProp,
+  maskDts,
+  matchBrace,
+  parseUintList
+} from './dts-scan.js'
+
+describe('maskDts', () => {
+  it('replaces comments and string interiors with same-length spaces', () => {
+    const src = 'a // {\n b /* } */ c "x{y}" d'
+    const masked = maskDts(src)
+    expect(masked.length).toBe(src.length)
+    expect(masked.indexOf('{')).toBe(-1)
+    expect(masked.indexOf('}')).toBe(-1)
+    // Quotes stay so callers can recover string values from the original.
+    expect(masked.includes('"')).toBe(true)
+    expect(masked).toMatch(/^a + \n b + c " + " d$/)
+  })
+})
+
+describe('matchBrace', () => {
+  it('ignores braces that only appear inside comments', () => {
+    const src = 'node { // {\n  /* } */\n  inner { };\n};'
+    const masked = maskDts(src)
+    const open = masked.indexOf('{')
+    const close = matchBrace(masked, open)
+    expect(src.slice(open, close + 1)).toContain('inner { }')
+    expect(src[close]).toBe('}')
+    expect(close).toBe(src.lastIndexOf('}'))
+  })
+})
+
+describe('findAngleProp', () => {
+  it('does not treat sensor-bindings as bindings', () => {
+    const src = `
+      sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN>;
+      bindings = <&kp ESC>;
+      key-positions = <0 1>;
+    `
+    const masked = maskDts(src)
+    const bindings = findAngleProp(masked, { start: 0, end: masked.length }, 'bindings')
+    expect(bindings).not.toBeNull()
+    expect(src.slice(bindings!.start, bindings!.end).trim()).toBe('&kp ESC')
+    const sensors = findAngleProp(masked, { start: 0, end: masked.length }, 'sensor-bindings')
+    expect(sensors).not.toBeNull()
+    expect(src.slice(sensors!.start, sensors!.end).trim()).toBe(
+      '&inc_dec_kp C_VOL_UP C_VOL_DN'
+    )
+  })
+
+  it('matches nested angle depth instead of the first >', () => {
+    const src = 'vals = <<1> <2>>;'
+    const masked = maskDts(src)
+    const interior = findAngleProp(masked, { start: 0, end: masked.length }, 'vals')
+    expect(interior).not.toBeNull()
+    expect(src.slice(interior!.start, interior!.end)).toBe('<1> <2>')
+  })
+})
+
+describe('hasBoolProp', () => {
+  it('does not match slow-release inside not-slow-release', () => {
+    expect(hasBoolProp('not-slow-release;', 'slow-release')).toBe(false)
+    expect(hasBoolProp('slow-release;', 'slow-release')).toBe(true)
+    expect(hasBoolProp('foo; slow-release; bar;', 'slow-release')).toBe(true)
+  })
+})
+
+describe('parseUintList', () => {
+  it('reads non-negative integers', () => {
+    expect(parseUintList(' 0 2 10 ')).toEqual([0, 2, 10])
+    expect(parseUintList('1 -2 x 3')).toEqual([1, 3])
+  })
+})
+
+describe('findNamedBlock', () => {
+  it('prefers the compatible block when several share a name', () => {
+    const src = `
+      combos { combo_a { bindings = <&kp A>; }; };
+      combos {
+        compatible = "zmk,combos";
+        combo_b { bindings = <&kp B>; };
+      };
+    `
+    const masked = maskDts(src)
+    const block = findNamedBlock(src, masked, 'combos', {
+      compatible: 'zmk,combos'
+    })
+    expect(block).not.toBeNull()
+    expect(src.slice(block!.bodyStart, block!.bodyEnd)).toContain('combo_b')
+    expect(src.slice(block!.bodyStart, block!.bodyEnd)).not.toContain('combo_a')
+  })
+
+  it('ignores a compatible that only appears in a comment', () => {
+    const src = `
+      keymap {
+        /* compatible = "zmk,keymap"; */
+        layer_0 { bindings = <&kp A>; };
+      };
+      keymap {
+        compatible = "zmk,keymap";
+        layer_1 { bindings = <&kp B>; };
+      };
+    `
+    const masked = maskDts(src)
+    const block = findNamedBlock(src, masked, 'keymap', {
+      compatible: 'zmk,keymap',
+      requireCompatible: true
+    })
+    expect(block).not.toBeNull()
+    expect(src.slice(block!.bodyStart, block!.bodyEnd)).toContain('layer_1')
+  })
+})

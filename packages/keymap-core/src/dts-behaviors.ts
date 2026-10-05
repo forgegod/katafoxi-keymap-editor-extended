@@ -6,7 +6,7 @@
  * Save rewrites timing in those nodes and inserts nodes the model added.
  */
 
-import { findMatchingBrace } from './dts-keymap.js'
+import { maskDts, matchBrace } from './dts-scan.js'
 import type { ZmkHoldTap } from './types.js'
 
 const HOLD_TAP_COMPATIBLE = 'zmk,behavior-hold-tap'
@@ -105,47 +105,20 @@ export function autoshiftBindingParams(keycode: string): Array<{
   ]
 }
 
-/** Replace comments with spaces so brace matching ignores them. Length stays put. */
-function maskComments(source: string): string {
-  const chars = source.split('')
-  let i = 0
-  while (i < chars.length) {
-    if (chars[i] === '/' && chars[i + 1] === '*') {
-      chars[i] = ' '
-      chars[i + 1] = ' '
-      i += 2
-      while (i < chars.length && !(chars[i] === '*' && chars[i + 1] === '/')) {
-        if (chars[i] !== '\n') chars[i] = ' '
-        i++
-      }
-      if (i < chars.length) {
-        chars[i] = ' '
-        if (chars[i + 1] != null) chars[i + 1] = ' '
-        i += 2
-      }
-      continue
-    }
-    if (chars[i] === '/' && chars[i + 1] === '/') {
-      while (i < chars.length && chars[i] !== '\n') {
-        chars[i] = ' '
-        i++
-      }
-      continue
-    }
-    i++
-  }
-  return chars.join('')
-}
-
 function readIntProp(body: string, name: string): number | undefined {
-  const match = new RegExp(`${name}\\s*=\\s*<\\s*(\\d+)\\s*>`).exec(body)
+  const match = new RegExp(`(?<![\\w-])${name}\\s*=\\s*<\\s*(\\d+)\\s*>`).exec(body)
   if (!match) return undefined
   return Number(match[1])
 }
 
-function readFlavor(body: string): string | undefined {
-  const match = /flavor\s*=\s*"([^"]*)"/.exec(body)
-  const flavor = match?.[1]?.trim()
+function readFlavor(source: string, masked: string, from: number, to: number): string | undefined {
+  const slice = masked.slice(from, to)
+  const match = /flavor\s*=\s*"/.exec(slice)
+  if (!match) return undefined
+  const contentStart = from + match.index + match[0].length
+  const contentEnd = masked.indexOf('"', contentStart)
+  if (contentEnd < 0 || contentEnd > to) return undefined
+  const flavor = source.slice(contentStart, contentEnd).trim()
   return flavor ? flavor : undefined
 }
 
@@ -170,10 +143,13 @@ function paramsForHoldTapBindings(bindings: string[], cells?: number): string[] 
   return Array.from({ length: count }, () => 'code')
 }
 
-function readTiming(body: string): Pick<
-  ZmkHoldTap,
-  'tappingTermMs' | 'quickTapMs' | 'requirePriorIdleMs' | 'flavor'
-> {
+function readTiming(
+  source: string,
+  masked: string,
+  from: number,
+  to: number
+): Pick<ZmkHoldTap, 'tappingTermMs' | 'quickTapMs' | 'requirePriorIdleMs' | 'flavor'> {
+  const body = masked.slice(from, to)
   const timing: Pick<
     ZmkHoldTap,
     'tappingTermMs' | 'quickTapMs' | 'requirePriorIdleMs' | 'flavor'
@@ -181,7 +157,7 @@ function readTiming(body: string): Pick<
   const tappingTermMs = readIntProp(body, 'tapping-term-ms')
   const quickTapMs = readIntProp(body, 'quick-tap-ms')
   const requirePriorIdleMs = readIntProp(body, 'require-prior-idle-ms')
-  const flavor = readFlavor(body)
+  const flavor = readFlavor(source, masked, from, to)
   if (tappingTermMs != null) timing.tappingTermMs = tappingTermMs
   if (quickTapMs != null) timing.quickTapMs = quickTapMs
   if (requirePriorIdleMs != null) timing.requirePriorIdleMs = requirePriorIdleMs
@@ -244,12 +220,16 @@ function pack(partial: ZmkHoldTap): ZmkHoldTap {
 
 function parseNamedHoldTaps(source: string, masked: string): ZmkHoldTap[] {
   const out: ZmkHoldTap[] = []
-  const re = new RegExp(`compatible\\s*=\\s*"${HOLD_TAP_COMPATIBLE}"`, 'g')
+  const re = /compatible\s*=\s*"/g
   let match: RegExpExecArray | null
   while ((match = re.exec(masked)) !== null) {
+    const contentStart = match.index + match[0].length
+    const contentEnd = masked.indexOf('"', contentStart)
+    if (contentEnd < 0) continue
+    if (source.slice(contentStart, contentEnd) !== HOLD_TAP_COMPATIBLE) continue
     const openBrace = nodeOpenBrace(masked, match.index - 1)
     if (openBrace < 0) continue
-    const closeBrace = findMatchingBrace(masked, openBrace)
+    const closeBrace = matchBrace(masked, openBrace)
     if (closeBrace < 0) continue
     const header = readNodeHeader(source, openBrace)
     if (!header) continue
@@ -260,7 +240,7 @@ function parseNamedHoldTaps(source: string, masked: string): ZmkHoldTap[] {
       pack({
         code: `&${header.label ?? header.name}`,
         nodeName: header.name,
-        ...readTiming(body),
+        ...readTiming(source, masked, openBrace + 1, closeBrace),
         bindings,
         params: paramsForHoldTapBindings(bindings, cells)
       })
@@ -270,17 +250,21 @@ function parseNamedHoldTaps(source: string, masked: string): ZmkHoldTap[] {
   return out
 }
 
-function parseHoldTapOverrides(masked: string, defined: Set<string>): ZmkHoldTap[] {
+function parseHoldTapOverrides(
+  source: string,
+  masked: string,
+  defined: Set<string>
+): ZmkHoldTap[] {
   const out: ZmkHoldTap[] = []
   const re = /(?<![A-Za-z0-9_])&([A-Za-z_][\w]*)\s*\{/g
   let match: RegExpExecArray | null
   while ((match = re.exec(masked)) !== null) {
     const openBrace = match.index + match[0].length - 1
-    const closeBrace = findMatchingBrace(masked, openBrace)
+    const closeBrace = matchBrace(masked, openBrace)
     if (closeBrace < 0) continue
     const body = masked.slice(openBrace + 1, closeBrace)
     if (/compatible\s*=/.test(body)) continue
-    const timing = readTiming(body)
+    const timing = readTiming(source, masked, openBrace + 1, closeBrace)
     if (!hasTiming(timing)) continue
     const code = `&${match[1]}`
     out.push(pack({ code, override: !defined.has(code), ...timing }))
@@ -305,10 +289,10 @@ function applyTiming(target: ZmkHoldTap, timing: ZmkHoldTap): ZmkHoldTap {
  * No hold-tap nodes → [].
  */
 export function parseDtsHoldTaps(source: string): ZmkHoldTap[] {
-  const masked = maskComments(source)
+  const masked = maskDts(source)
   const named = parseNamedHoldTaps(source, masked)
   const defined = new Set(named.map(node => node.code))
-  const overrides = parseHoldTapOverrides(masked, defined)
+  const overrides = parseHoldTapOverrides(source, masked, defined)
   const byCode = new Map<string, ZmkHoldTap>()
   const order: string[] = []
   for (const node of named) {
@@ -499,12 +483,16 @@ function headerStartAt(source: string, openBrace: number): number {
 
 function collectHoldTapSpans(source: string, masked: string): HoldTapSpan[] {
   const spans: HoldTapSpan[] = []
-  const namedRe = new RegExp(`compatible\\s*=\\s*"${HOLD_TAP_COMPATIBLE}"`, 'g')
+  const namedRe = /compatible\s*=\s*"/g
   let match: RegExpExecArray | null
   while ((match = namedRe.exec(masked)) !== null) {
+    const contentStart = match.index + match[0].length
+    const contentEnd = masked.indexOf('"', contentStart)
+    if (contentEnd < 0) continue
+    if (source.slice(contentStart, contentEnd) !== HOLD_TAP_COMPATIBLE) continue
     const open = nodeOpenBrace(masked, match.index - 1)
     if (open < 0) continue
-    const close = findMatchingBrace(masked, open)
+    const close = matchBrace(masked, open)
     if (close < 0) continue
     const header = readNodeHeader(source, open)
     if (!header) continue
@@ -521,14 +509,17 @@ function collectHoldTapSpans(source: string, masked: string): HoldTapSpan[] {
   const overrideRe = /(?<![A-Za-z0-9_])&([A-Za-z_][\w]*)\s*\{/g
   while ((match = overrideRe.exec(masked)) !== null) {
     const open = match.index + match[0].length - 1
-    const close = findMatchingBrace(masked, open)
+    const close = matchBrace(masked, open)
     if (close < 0) continue
     if (spans.some(span => open >= span.open && close <= span.close)) {
       overrideRe.lastIndex = close + 1
       continue
     }
     const body = masked.slice(open + 1, close)
-    if (/compatible\s*=/.test(body) || !hasTiming(readTiming(body))) {
+    if (
+      /compatible\s*=/.test(body) ||
+      !hasTiming(readTiming(source, masked, open + 1, close))
+    ) {
       overrideRe.lastIndex = close + 1
       continue
     }
@@ -666,7 +657,7 @@ function insertAtLine(source: string, closeBrace: number, text: string): TextEdi
  * Other lines in a node stay. An absent field on the keymap skips this entirely.
  */
 export function spliceHoldTapsIntoDts(source: string, holdTaps: readonly ZmkHoldTap[]): string {
-  const masked = maskComments(source)
+  const masked = maskDts(source)
   const spans = collectHoldTapSpans(source, masked)
   const byCode = new Map(holdTaps.map(node => [node.code, node]))
   const edits: TextEdit[] = []
@@ -704,7 +695,7 @@ export function spliceHoldTapsIntoDts(source: string, holdTaps: readonly ZmkHold
     const found = behaviorsRe.exec(masked)
     if (found) {
       const open = found.index + found[0].length - 1
-      const close = findMatchingBrace(masked, open)
+      const close = matchBrace(masked, open)
       if (close >= 0) {
         const indent = contentIndent(source, open)
         const text = missingNamed.map(node => formatNamedHoldTap(node, indent)).join('\n')

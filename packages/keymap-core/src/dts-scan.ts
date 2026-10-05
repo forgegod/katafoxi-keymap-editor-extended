@@ -1,0 +1,224 @@
+/**
+ * Shared DTS structure scanner: mask comments/strings, match braces and
+ * angle-bracket properties, find named blocks. Callers search on the masked
+ * view and slice values from the original source (same length).
+ */
+
+export interface DtsRange {
+  start: number
+  end: number
+}
+
+export interface DtsNamedBlock {
+  /** Absolute start of the keyword (e.g. `combos`). */
+  keywordStart: number
+  openBrace: number
+  closeBrace: number
+  bodyStart: number
+  bodyEnd: number
+}
+
+/**
+ * Replace // and /* comments, and double-quoted string interiors, with spaces
+ * of the same length. Newlines in comments stay so line structure is stable.
+ * Quote characters stay so callers can recover string values from the original.
+ */
+export function maskDts(source: string): string {
+  const out = new Array<string>(source.length)
+  let i = 0
+  while (i < source.length) {
+    const ch = source[i]
+    const next = source[i + 1]
+
+    if (ch === '/' && next === '*') {
+      out[i] = ' '
+      out[i + 1] = ' '
+      i += 2
+      while (i < source.length && !(source[i] === '*' && source[i + 1] === '/')) {
+        out[i] = source[i] === '\n' ? '\n' : ' '
+        i++
+      }
+      if (i < source.length) {
+        out[i] = ' '
+        if (i + 1 < source.length) out[i + 1] = ' '
+        i += 2
+      }
+      continue
+    }
+
+    if (ch === '/' && next === '/') {
+      while (i < source.length && source[i] !== '\n') {
+        out[i] = ' '
+        i++
+      }
+      continue
+    }
+
+    if (ch === '"') {
+      out[i] = '"'
+      i++
+      while (i < source.length && source[i] !== '"') {
+        out[i] = source[i] === '\n' ? '\n' : ' '
+        i++
+      }
+      if (i < source.length) {
+        out[i] = '"'
+        i++
+      }
+      continue
+    }
+
+    out[i] = ch
+    i++
+  }
+  return out.join('')
+}
+
+/** Index of matching `}` for `{` at openIndex on a masked string, or -1. */
+export function matchBrace(masked: string, openIndex: number): number {
+  if (masked[openIndex] !== '{') return -1
+  let depth = 0
+  for (let i = openIndex; i < masked.length; i++) {
+    const c = masked[i]
+    if (c === '{') depth++
+    else if (c === '}') {
+      depth--
+      if (depth === 0) return i
+    }
+  }
+  return -1
+}
+
+/**
+ * Absolute range of `prop = <...>` interior (between `<` and matching `>`).
+ * Uses a word-boundary lookbehind so `sensor-bindings` does not match `bindings`.
+ */
+export function findAngleProp(
+  masked: string,
+  bodyRange: DtsRange,
+  prop: string
+): DtsRange | null {
+  const slice = masked.slice(bodyRange.start, bodyRange.end)
+  const re = new RegExp(`(?<![\\w-])${escapeRegExp(prop)}\\s*=\\s*<`)
+  const m = re.exec(slice)
+  if (!m) return null
+  const contentStart = bodyRange.start + m.index + m[0].length
+  let depth = 1
+  for (let i = contentStart; i < bodyRange.end; i++) {
+    if (masked[i] === '<') depth++
+    else if (masked[i] === '>') {
+      depth--
+      if (depth === 0) return { start: contentStart, end: i }
+    }
+  }
+  return null
+}
+
+/**
+ * Full `prop = <...>;` statement span (prop name through trailing `;`), or null.
+ */
+export function findAnglePropStatement(
+  masked: string,
+  bodyRange: DtsRange,
+  prop: string
+): { statement: DtsRange; interior: DtsRange } | null {
+  const interior = findAngleProp(masked, bodyRange, prop)
+  if (!interior) return null
+  const slice = masked.slice(bodyRange.start, interior.start)
+  const re = new RegExp(`(?<![\\w-])${escapeRegExp(prop)}\\s*=\\s*<$`)
+  const m = re.exec(slice)
+  if (!m) return null
+  const stmtStart = bodyRange.start + m.index
+  let stmtEnd = interior.end + 1
+  while (stmtEnd < bodyRange.end && /[ \t\r\n]/.test(masked[stmtEnd])) stmtEnd++
+  if (masked[stmtEnd] === ';') stmtEnd++
+  return { statement: { start: stmtStart, end: stmtEnd }, interior }
+}
+
+export function parseUintList(interior: string): number[] {
+  const out: number[] = []
+  for (const tok of interior.trim().split(/\s+/)) {
+    if (!tok) continue
+    const n = Number(tok)
+    if (Number.isInteger(n) && n >= 0) out.push(n)
+  }
+  return out
+}
+
+/** True when `prop;` appears as its own token (not inside `not-prop;`). */
+export function hasBoolProp(body: string, prop: string): boolean {
+  return new RegExp(`(?<![\\w-])${escapeRegExp(prop)}\\s*;`).test(body)
+}
+
+export interface FindNamedBlockOptions {
+  /** Prefer (or require) a block whose body declares this compatible string. */
+  compatible?: string
+  /** When true, only a block with `compatible` matches (no fallback). */
+  requireCompatible?: boolean
+}
+
+/**
+ * Locate `keyword { … }`. Search on `masked`; when `compatible` is set, read
+ * the string value from `source`. Prefer that block; with `requireCompatible`,
+ * skip blocks that lack it.
+ */
+export function findNamedBlock(
+  source: string,
+  masked: string,
+  keyword: string,
+  options: FindNamedBlockOptions = {}
+): DtsNamedBlock | null {
+  const re = new RegExp(`\\b${escapeRegExp(keyword)}\\s*\\{`, 'g')
+  let fallback: DtsNamedBlock | null = null
+  let m: RegExpExecArray | null
+  while ((m = re.exec(masked)) !== null) {
+    const openBrace = m.index + m[0].length - 1
+    const closeBrace = matchBrace(masked, openBrace)
+    if (closeBrace < 0) continue
+    const block: DtsNamedBlock = {
+      keywordStart: m.index,
+      openBrace,
+      closeBrace,
+      bodyStart: openBrace + 1,
+      bodyEnd: closeBrace
+    }
+    if (options.compatible) {
+      if (blockHasCompatible(source, masked, block, options.compatible)) return block
+      if (!options.requireCompatible && !fallback) fallback = block
+      continue
+    }
+    return block
+  }
+  return options.requireCompatible ? null : fallback
+}
+
+function blockHasCompatible(
+  source: string,
+  masked: string,
+  block: DtsNamedBlock,
+  compatible: string
+): boolean {
+  const body = masked.slice(block.bodyStart, block.bodyEnd)
+  const re = /compatible\s*=\s*"/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(body)) !== null) {
+    const contentStart = block.bodyStart + m.index + m[0].length
+    const contentEnd = masked.indexOf('"', contentStart)
+    if (contentEnd < 0 || contentEnd > block.bodyEnd) continue
+    if (source.slice(contentStart, contentEnd) === compatible) return true
+  }
+  return false
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** Split a bindings block into individual bind strings (each starts with &). */
+export function tokenizeBindings(block: string): string[] {
+  const normalized = block.replace(/\r\n/g, '\n').replace(/\n/g, ' ')
+  return normalized
+    .split(/(?=&)/)
+    .map(s => s.trim())
+    .filter(s => s.startsWith('&'))
+}
