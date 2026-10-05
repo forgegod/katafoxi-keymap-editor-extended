@@ -80,7 +80,9 @@ export function spliceBindingsIntoDts(
   const eol = dominantEol(original)
   const block = findZmkKeymapBlock(original)
   if (!block) {
-    throw new Error('Cannot splice: no keymap block with compatible = "zmk,keymap" found')
+    throw new KeymapValidationError([
+      'Cannot splice: no keymap block with compatible = "zmk,keymap" found'
+    ])
   }
 
   const existing = findKeymapLayerNodes(original, block)
@@ -99,7 +101,9 @@ export function spliceBindingsIntoDts(
     // Re-find remaining nodes after removals
     const blockAfter = findZmkKeymapBlock(result)
     if (!blockAfter) {
-      throw new Error('Cannot splice: keymap block lost while removing layers')
+      throw new KeymapValidationError([
+        'Cannot splice: keymap block lost while removing layers'
+      ])
     }
     const remaining = findKeymapLayerNodes(result, blockAfter)
     for (let i = remaining.length - 1; i >= 0; i--) {
@@ -130,7 +134,9 @@ export function spliceBindingsIntoDts(
   if (layers.length > existing.length) {
     const blockAfter = findZmkKeymapBlock(result)
     if (!blockAfter) {
-      throw new Error('Cannot splice: keymap block lost while updating bindings')
+      throw new KeymapValidationError([
+        'Cannot splice: keymap block lost while updating bindings'
+      ])
     }
     const insertAt = blockAfter.closeBrace
     const newNodes: string[] = []

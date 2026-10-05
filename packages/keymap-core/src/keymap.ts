@@ -164,12 +164,15 @@ function encodeComboToJson(combo: ZmkCombo): DtsComboJson {
 }
 
 export function parseKeymap(keymap: {
+  keyboard?: string
+  keymap?: string
+  layout?: string
+  layer_names?: string[]
   layers: string[][]
   combos?: Array<DtsComboJson | ZmkCombo>
   conditionalLayers?: unknown
   holdTaps?: unknown
   sensorBindings?: unknown
-  [key: string]: unknown
 }): ParsedKeymap {
   const combos = Array.isArray(keymap.combos)
     ? keymap.combos.map(parseComboFromJson)
@@ -177,26 +180,17 @@ export function parseKeymap(keymap: {
   const conditionalLayers = normalizeConditionalLayers(keymap.conditionalLayers)
   const holdTaps = normalizeHoldTaps(keymap.holdTaps)
   const sensorBindings = normalizeSensorBindings(keymap.sensorBindings)
-  const {
-    combos: _rawCombos,
-    conditionalLayers: _rawRules,
-    holdTaps: _rawHoldTaps,
-    sensorBindings: _rawSensors,
-    layers: _rawLayers,
-    ...rest
-  } = keymap
   const out: ParsedKeymap = {
-    ...rest,
     layers: keymap.layers.map(layer => layer.map(parseKeyBinding))
   }
+  if (keymap.keyboard !== undefined) out.keyboard = keymap.keyboard
+  if (keymap.keymap !== undefined) out.keymap = keymap.keymap
+  if (keymap.layout !== undefined) out.layout = keymap.layout
+  if (keymap.layer_names !== undefined) out.layer_names = keymap.layer_names
   if (combos !== undefined) out.combos = combos
-  else delete out.combos
   if (conditionalLayers) out.conditionalLayers = conditionalLayers
-  else delete out.conditionalLayers
   if (holdTaps) out.holdTaps = holdTaps
-  else delete out.holdTaps
   if (sensorBindings) out.sensorBindings = sensorBindings
-  else delete out.sensorBindings
   return out
 }
 

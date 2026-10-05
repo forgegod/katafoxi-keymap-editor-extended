@@ -407,19 +407,19 @@ export function ensureHoldTapPreset(
   code: string
 ): ZmkHoldTap[] {
   const preset = holdTapPresetFor(code)
-  const current = list ?? []
+  const current = [...(list ?? [])]
   if (!preset || current.some(node => node.code === preset.code)) {
-    return list ? (list as ZmkHoldTap[]) : []
+    return current
   }
-  return [
-    ...current,
+  current.push(
     namedHoldTapNode({
       code: preset.code,
       bindings: preset.bindings,
       params: preset.params,
       ...preset.defaults
     })
-  ]
+  )
+  return current
 }
 
 type HoldTapTimingPatch = Partial<

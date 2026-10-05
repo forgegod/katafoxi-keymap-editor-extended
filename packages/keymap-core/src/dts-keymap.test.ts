@@ -8,6 +8,7 @@ import {
   parseDtsKeymap,
   tokenizeBindings
 } from '../src/dts-keymap.js'
+import { KeymapValidationError } from '../src/errors.js'
 import type { LayoutKey } from '../src/types.js'
 
 const TINY_LAYOUT: LayoutKey[] = [
@@ -25,6 +26,18 @@ describe('tokenizeBindings', () => {
 })
 
 describe('parseDtsKeymap', () => {
+  it('throws KeymapValidationError when no keymap block is present', () => {
+    expect(() => parseDtsKeymap('/* empty */')).toThrow(KeymapValidationError)
+    try {
+      parseDtsKeymap('/* empty */')
+    } catch (e) {
+      expect(e).toBeInstanceOf(KeymapValidationError)
+      expect((e as KeymapValidationError).errors).toEqual([
+        'No layers with bindings found in .keymap'
+      ])
+    }
+  })
+
   it('parses layers and expands defines', () => {
     const src = `
 #define VU C_VOL_UP

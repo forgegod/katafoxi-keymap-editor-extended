@@ -80,7 +80,6 @@ export interface ParsedKeymap {
    * A new layer copies the previous layer's list.
    */
   sensorBindings?: KeyBindingNode[][]
-  [key: string]: unknown
 }
 
 export interface LayoutKey {
@@ -104,10 +103,22 @@ export interface LayoutKey {
 
 export interface BehaviorDef {
   code: string
+  name?: string
+  description?: string
   includes?: string[]
   params?: unknown[]
-  commands?: Array<{ code: string; symbol?: string; additionalParams?: unknown[] }>
-  [key: string]: unknown
+  commands?: Array<{
+    code: string
+    symbol?: string
+    description?: string
+    additionalParams?: unknown[]
+  }>
+  /** Named hold-tap chip created from the keymap (not stock catalog). */
+  holdTap?: boolean
+  tappingTermMs?: number
+  quickTapMs?: number
+  requirePriorIdleMs?: number
+  flavor?: string
 }
 
 export interface KeycodeDef {
@@ -116,7 +127,8 @@ export interface KeycodeDef {
   context?: string
   symbol?: string
   faIcon?: string
-  [key: string]: unknown
+  /** Raw ZMK HID OS table before normalize. */
+  os?: unknown
 }
 
 export interface NormalizedKeycode {

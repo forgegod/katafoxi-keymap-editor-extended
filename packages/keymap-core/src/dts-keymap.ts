@@ -23,6 +23,7 @@ import {
   tokenizeBindingsDetailed,
   type DtsNamedBlock
 } from './dts-scan.js'
+import { KeymapValidationError } from './errors.js'
 import type { ZmkConditionalLayer, ZmkHoldTap } from './types.js'
 
 const DEFINE_RE = /^#define\s+(\w+)\s+(.+)$/gm
@@ -271,7 +272,6 @@ export interface DtsKeymapJson {
    */
   sensorBindings?: string[][]
   warnings: string[]
-  [key: string]: unknown
 }
 
 export function parseDtsKeymap(
@@ -289,7 +289,7 @@ export function parseDtsKeymap(
     requireCompatible: true
   })
   if (!block) {
-    throw new Error('No layers with bindings found in .keymap')
+    throw new KeymapValidationError(['No layers with bindings found in .keymap'])
   }
 
   const layerNodes = findKeymapLayerNodes(source, block)
@@ -328,7 +328,7 @@ export function parseDtsKeymap(
   }
 
   if (layers.length === 0) {
-    throw new Error('No layers with bindings found in .keymap')
+    throw new KeymapValidationError(['No layers with bindings found in .keymap'])
   }
 
   const combosBlock = findCombosBlock(source)

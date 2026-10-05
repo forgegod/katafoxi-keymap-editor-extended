@@ -159,6 +159,26 @@ describe('spliceBindingsIntoDts', () => {
     expect(spliced).toContain('key-positions = <0 1>')
   })
 
+  it('throws KeymapValidationError when no keymap block is present', () => {
+    expect(() =>
+      spliceBindingsIntoDts('/* no keymap */', {
+        layout: TINY_LAYOUT,
+        layers: [['&kp A', '&kp B']],
+        layerNames: ['default']
+      })
+    ).toThrow(KeymapValidationError)
+    try {
+      spliceBindingsIntoDts('/* no keymap */', {
+        layout: TINY_LAYOUT,
+        layers: [['&kp A', '&kp B']],
+        layerNames: ['default']
+      })
+    } catch (e) {
+      expect(e).toBeInstanceOf(KeymapValidationError)
+      expect((e as KeymapValidationError).errors[0]).toMatch(/no keymap block/)
+    }
+  })
+
   it('throws KeymapValidationError for too-short and too-long layers', () => {
     const layout = layoutOf(84)
     const short = Array.from({ length: 83 }, () => '&none')

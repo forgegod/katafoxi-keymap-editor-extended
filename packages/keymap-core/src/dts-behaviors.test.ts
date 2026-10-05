@@ -272,7 +272,8 @@ describe('parseDtsHoldTaps', () => {
         params: ['mod', 'code']
       }
     ])
-    expect(ensureHoldTapPreset(homerow, '&hm')).toBe(homerow)
+    expect(ensureHoldTapPreset(homerow, '&hm')).toEqual(homerow)
+    expect(ensureHoldTapPreset(homerow, '&hm')).not.toBe(homerow)
 
     const both = ensureHoldTapPreset(homerow, '&as')
     expect(both.map(node => node.code)).toEqual(['&hm', '&as'])
