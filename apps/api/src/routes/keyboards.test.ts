@@ -125,4 +125,64 @@ describe('keyboards routes when ENABLE_LOCAL is true', () => {
       errors
     })
   })
+
+  it('POST /keymap returns generic JSON 500 without leaking the error text', async () => {
+    const leak = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(zmk, 'saveLocalKeymap').mockImplementation(() => {
+      throw Object.assign(new Error('ENOENT: no such file or directory, open \'/secret/zmk-config/config/info.json\''), {
+        code: 'ENOENT',
+        path: '/secret/zmk-config/config/info.json'
+      })
+    })
+
+    const res = await app.request('/keymap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(KEYMAP)
+    })
+
+    const body = await res.text()
+    expect(res.status).toBe(500)
+    expect(JSON.parse(body)).toEqual({ error: 'internal' })
+    expect(body).not.toMatch(/secret|zmk-config|info\.json/)
+    expect(leak).toHaveBeenCalled()
+  })
+
+  it('GET /layout returns 404 JSON without paths when the layout file is missing', async () => {
+    const leak = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(zmk, 'loadLayout').mockImplementation(() => {
+      throw Object.assign(new Error('Layout info.json not found'), { code: 'ENOENT' })
+    })
+
+    const res = await app.request('/layout')
+    const body = await res.text()
+    expect(res.status).toBe(404)
+    expect(JSON.parse(body)).toEqual({ error: 'not_found' })
+    expect(body).not.toMatch(/[/\\]|info\.json|ZMK/)
+    expect(leak).toHaveBeenCalled()
+  })
+
+  it('GET /layout returns 400 JSON when layout JSON is invalid', async () => {
+    const leak = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(zmk, 'loadLayout').mockImplementation(() => {
+      throw new SyntaxError('Unexpected token in JSON at position 0')
+    })
+
+    const res = await app.request('/layout')
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'invalid' })
+    expect(leak).toHaveBeenCalled()
+  })
+
+  it('GET /keymap returns 400 JSON when keymap parsing fails', async () => {
+    const leak = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(zmk, 'loadKeymap').mockImplementation(() => {
+      throw new TypeError('Cannot read properties of undefined')
+    })
+
+    const res = await app.request('/keymap')
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'invalid' })
+    expect(leak).toHaveBeenCalled()
+  })
 })
