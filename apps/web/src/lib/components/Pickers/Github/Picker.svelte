@@ -52,6 +52,8 @@
   let loadingKeyboard = $state(false)
   let loadError: { name?: string; errors?: string[] } | null = $state(null)
   let loadWarnings: string[] | null = $state(null)
+  /** Shared by effect loads and Reload so a late response cannot overwrite a newer one. */
+  let keyboardLoadGeneration = 0
 
   function clearSelection() {
     selectedBranchName = null
@@ -78,10 +80,12 @@
     const branch = selectedBranchName
     if (!repository || !branch) return
 
+    const generation = ++keyboardLoadGeneration
     loadingKeyboard = true
     loadError = null
     try {
       const response = await github.fetchLayoutAndKeymap(repository, branch)
+      if (generation !== keyboardLoadGeneration) return
       lintKeyboard(response)
       onSelect({
         github: { repository, branch },
@@ -90,7 +94,9 @@
     } catch {
       /* validation errors arrive via repo-validation-error */
     } finally {
-      loadingKeyboard = false
+      if (generation === keyboardLoadGeneration) {
+        loadingKeyboard = false
+      }
     }
   }
 
@@ -180,7 +186,7 @@
     if (!repoId || !branch) return
 
     storage.setPersistedBranch(repoId, branch)
-    let cancelled = false
+    const generation = ++keyboardLoadGeneration
 
     loadingKeyboard = true
     loadError = null
@@ -188,14 +194,14 @@
     const repository = findBy(github.repositories ?? [], { id: repoId })
       ?.full_name
     if (!repository) {
-      loadingKeyboard = false
+      if (generation === keyboardLoadGeneration) loadingKeyboard = false
       return
     }
 
     github
       .fetchLayoutAndKeymap(repository, branch)
       .then(response => {
-        if (cancelled) return
+        if (generation !== keyboardLoadGeneration) return
         loadingKeyboard = false
         lintKeyboard(response)
         const preserveSession = preserveSessionOnLoad
@@ -207,14 +213,13 @@
         })
       })
       .catch(() => {
-        if (!cancelled) {
-          loadingKeyboard = false
-          preserveSessionOnLoad = false
-        }
+        if (generation !== keyboardLoadGeneration) return
+        loadingKeyboard = false
+        preserveSessionOnLoad = false
       })
 
     return () => {
-      cancelled = true
+      keyboardLoadGeneration += 1
     }
   })
 

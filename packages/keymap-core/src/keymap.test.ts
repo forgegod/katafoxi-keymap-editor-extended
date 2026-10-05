@@ -3,8 +3,32 @@ import {
   generateKeymap,
   isPrimaryKeymapJson,
   isUserKeymapFilename,
+  normalizeParsedKeymap,
   parseKeymap
 } from './keymap.js'
+
+describe('normalizeParsedKeymap', () => {
+  it('fills missing layer_names as Layer N', () => {
+    const km = normalizeParsedKeymap({
+      layers: [
+        [{ value: '&kp', params: [{ value: 'A', params: [] }] }],
+        [{ value: '&trans', params: [] }]
+      ]
+    })
+    expect(km.layer_names).toEqual(['Layer 0', 'Layer 1'])
+  })
+
+  it('keeps existing layer_names and stringifies them', () => {
+    const km = normalizeParsedKeymap({
+      layer_names: ['Base', 2 as unknown as string],
+      layers: [
+        [{ value: '&kp', params: [{ value: 'A', params: [] }] }],
+        [{ value: '&trans', params: [] }]
+      ]
+    })
+    expect(km.layer_names).toEqual(['Base', '2'])
+  })
+})
 
 describe('isPrimaryKeymapJson', () => {
   it('accepts a non-empty valid keymap', () => {

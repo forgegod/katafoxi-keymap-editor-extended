@@ -394,4 +394,85 @@ describe('Github Picker', () => {
       expect(onLogout).toHaveBeenCalled()
     })
   })
+
+  it('ignores a stale Reload after the branch changes', async () => {
+    vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([
+      { name: 'main' },
+      { name: 'dev' }
+    ])
+
+    const initial = deferred<KeyboardFilesResult>()
+    const reload = deferred<KeyboardFilesResult>()
+    let fetchCount = 0
+    vi.spyOn(github, 'fetchLayoutAndKeymap').mockImplementation(async (_repo, branch) => {
+      fetchCount += 1
+      if (fetchCount === 1) return initial.promise
+      if (fetchCount === 2) return reload.promise
+      return {
+        layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+        keymap: { layers: [[{ value: '&kp', params: [{ value: 'D', params: [] }] }]] },
+        hostSnapshot: null,
+        warnings: []
+      }
+    })
+
+    const onSelect = open()
+    initial.resolve({
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: { layers: [[{ value: '&kp', params: [{ value: 'M', params: [] }] }]] },
+      hostSnapshot: null,
+      warnings: []
+    })
+    await vi.waitFor(() => {
+      expect(onSelect).toHaveBeenCalledWith(
+        expect.objectContaining({
+          github: { repository: repo.full_name, branch: 'main' }
+        })
+      )
+    })
+
+    clickButton('Reload')
+    await vi.waitFor(() => {
+      expect(fetchCount).toBe(2)
+    })
+
+    const branchSelect = target.querySelector('#branch')
+    if (!(branchSelect instanceof HTMLSelectElement)) {
+      throw new Error('missing branch select')
+    }
+    // Selector option values are choice indexes, not branch names.
+    branchSelect.value = '1'
+    branchSelect.dispatchEvent(new Event('change', { bubbles: true }))
+    flushSync()
+
+    await vi.waitFor(() => {
+      expect(onSelect).toHaveBeenCalledWith(
+        expect.objectContaining({
+          github: { repository: repo.full_name, branch: 'dev' }
+        })
+      )
+    })
+    const callsAfterDev = onSelect.mock.calls.length
+
+    reload.resolve({
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: {
+        layers: [[{ value: '&kp', params: [{ value: 'STALE', params: [] }] }]]
+      },
+      hostSnapshot: null,
+      warnings: []
+    })
+    await Promise.resolve()
+    flushSync()
+    await Promise.resolve()
+    flushSync()
+
+    expect(onSelect.mock.calls.length).toBe(callsAfterDev)
+    expect(
+      onSelect.mock.calls.some(call => {
+        const keymap = (call[0] as { keymap?: { layers?: unknown } }).keymap
+        return JSON.stringify(keymap).includes('STALE')
+      })
+    ).toBe(false)
+  })
 })

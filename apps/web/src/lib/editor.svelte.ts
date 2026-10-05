@@ -77,7 +77,8 @@ import {
   comboChordOverlapPartners,
   comboKeysIssue,
   comboKeysMessage,
-  comboOverlapMessage
+  comboOverlapMessage,
+  normalizeParsedKeymap
 } from '@keymap-editor/keymap-core'
 import type { Definitions } from './context'
 import {
@@ -222,21 +223,18 @@ function cloneSensorBinding(node: KeyBindingNode): KeyBindingNode {
 
 export function cloneParsedKeymap(km: ParsedKeymap): ParsedKeymap {
   const cloneBinding = cloneSensorBinding
-
-  const layer_names = (
-    km.layer_names ?? km.layers.map((_, i) => `Layer ${i}`)
-  ).map(String)
+  const normalized = normalizeParsedKeymap(km)
 
   const out: ParsedKeymap = {
-    layer_names,
-    layers: km.layers.map(layer => layer.map(cloneBinding))
+    layer_names: normalized.layer_names!,
+    layers: normalized.layers.map(layer => layer.map(cloneBinding))
   }
-  if (km.keyboard != null) out.keyboard = km.keyboard
-  if (km.keymap != null) out.keymap = km.keymap
-  if (km.layout != null) out.layout = km.layout
+  if (normalized.keyboard != null) out.keyboard = normalized.keyboard
+  if (normalized.keymap != null) out.keymap = normalized.keymap
+  if (normalized.layout != null) out.layout = normalized.layout
   // Keep explicit `combos: []` so Save can drop the DTS block (absent ≠ empty).
-  if (km.combos !== undefined) {
-    out.combos = km.combos.map(c => {
+  if (normalized.combos !== undefined) {
+    out.combos = normalized.combos.map(c => {
       const combo: ZmkCombo = {
         id: c.id,
         keyPositions: [...c.keyPositions],
@@ -251,15 +249,15 @@ export function cloneParsedKeymap(km: ParsedKeymap): ParsedKeymap {
       return combo
     })
   }
-  if (km.conditionalLayers) {
-    out.conditionalLayers = km.conditionalLayers.map(rule => ({
+  if (normalized.conditionalLayers) {
+    out.conditionalLayers = normalized.conditionalLayers.map(rule => ({
       id: rule.id,
       ifLayers: [...rule.ifLayers],
       thenLayer: rule.thenLayer
     }))
   }
-  if (km.holdTaps) {
-    out.holdTaps = km.holdTaps.map(holdTap => {
+  if (normalized.holdTaps) {
+    out.holdTaps = normalized.holdTaps.map(holdTap => {
       const copy: ZmkHoldTap = { code: holdTap.code }
       if (holdTap.override) copy.override = true
       if (holdTap.nodeName) copy.nodeName = holdTap.nodeName
@@ -272,8 +270,8 @@ export function cloneParsedKeymap(km: ParsedKeymap): ParsedKeymap {
       return copy
     })
   }
-  if (km.sensorBindings) {
-    out.sensorBindings = km.sensorBindings.map(row => row.map(cloneBinding))
+  if (normalized.sensorBindings) {
+    out.sensorBindings = normalized.sensorBindings.map(row => row.map(cloneBinding))
   }
   return out
 }

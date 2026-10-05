@@ -125,17 +125,14 @@
   }
 
   function handleKeyboardSelected(event: KeymapEvent) {
-    const { layout, keymap, ...rest } = event
+    // Drop event.source so a stale load cannot overwrite the live chip selection.
+    const { layout, keymap, source: _eventSource, ...rest } = event
     if (!keymap || typeof keymap !== 'object') return
 
     const km = keymap as {
-      layer_names?: string[]
       layers: unknown[]
       keyboard?: string
     }
-    const layerNames =
-      km.layer_names || km.layers.map((_, i) => `Layer ${i}`)
-    Object.assign(km, { layer_names: layerNames })
 
     if (event.demo?.name) demoName = event.demo.name
     if (source === 'clipboard') {
@@ -146,12 +143,8 @@
         : base
     }
 
-    onSelect({ source: source ?? undefined, layout, keymap: km, ...rest })
-  }
-
-  async function fetchLocalKeyboard() {
-    const [layout, keymap] = await Promise.all([loadLayout(), loadKeymap()])
-    handleKeyboardSelected({ source: source ?? undefined, layout, keymap })
+    // layer_names: normalizeParsedKeymap at editor accept (cloneParsedKeymap)
+    onSelect({ ...rest, layout, keymap: km, source: source ?? undefined })
   }
 
   function connectGithub() {
@@ -167,8 +160,17 @@
   $effect(() => {
     const src = source
     if (src) localStorage.setItem('selectedSource', src)
-    if (src === 'local') {
-      fetchLocalKeyboard()
+    if (src !== 'local') return
+
+    let cancelled = false
+    void (async () => {
+      const [layout, keymap] = await Promise.all([loadLayout(), loadKeymap()])
+      if (cancelled) return
+      handleKeyboardSelected({ layout, keymap })
+    })()
+
+    return () => {
+      cancelled = true
     }
   })
 

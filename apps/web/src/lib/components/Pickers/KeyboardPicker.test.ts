@@ -265,4 +265,47 @@ describe('KeyboardPicker', () => {
     expect(loadLayout).toHaveBeenCalled()
     expect(loadKeymap).toHaveBeenCalled()
   })
+
+  it('ignores a stale local load after switching source', async () => {
+    function deferred<T>() {
+      let resolve!: (value: T) => void
+      const promise = new Promise<T>(res => {
+        resolve = res
+      })
+      return { promise, resolve }
+    }
+
+    localStorage.setItem('selectedSource', 'local')
+    const layoutGate = deferred<Array<{ row: number; col: number }>>()
+    const keymapGate = deferred<{ layers: Array<Array<{ value: string; params: never[] }>> }>()
+    vi.mocked(loadLayout).mockReturnValue(layoutGate.promise as never)
+    vi.mocked(loadKeymap).mockReturnValue(keymapGate.promise as never)
+
+    const onSelect = open()
+    expect(loadLayout).toHaveBeenCalled()
+    expect(loadKeymap).toHaveBeenCalled()
+    expect(onSelect).not.toHaveBeenCalled()
+
+    clickSource('demo')
+    await vi.waitFor(() => {
+      expect(onSelect).toHaveBeenCalledWith(
+        expect.objectContaining({ source: 'demo' })
+      )
+    })
+    const callsAfterDemo = onSelect.mock.calls.length
+
+    layoutGate.resolve([{ row: 0, col: 0 }])
+    keymapGate.resolve({
+      layers: [[{ value: '&kp', params: [] }]]
+    })
+    await Promise.resolve()
+    flushSync()
+    await Promise.resolve()
+    flushSync()
+
+    expect(onSelect.mock.calls.length).toBe(callsAfterDemo)
+    expect(onSelect).not.toHaveBeenCalledWith(
+      expect.objectContaining({ source: 'local' })
+    )
+  })
 })

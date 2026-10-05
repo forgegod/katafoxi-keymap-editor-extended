@@ -226,6 +226,17 @@ export function parseKeymap(keymap: {
   return out
 }
 
+/**
+ * Ensure `layer_names` is present (default `Layer N` per layer) and stringified.
+ * Call at the keyboard-accept boundary; do not invent names in UI pickers.
+ */
+export function normalizeParsedKeymap(km: ParsedKeymap): ParsedKeymap {
+  const layer_names = (
+    km.layer_names ?? km.layers.map((_, i) => `Layer ${i}`)
+  ).map(String)
+  return { ...km, layer_names }
+}
+
 /** JSON `string[][]` or already-parsed nodes. Undefined when the field is absent. */
 function normalizeSensorBindings(raw: unknown): KeyBindingNode[][] | undefined {
   if (!Array.isArray(raw)) return undefined
