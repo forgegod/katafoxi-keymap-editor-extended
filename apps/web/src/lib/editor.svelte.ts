@@ -2286,17 +2286,20 @@ export class EditorState {
     this.saveNotice = { kind: 'error', messages: extractErrorMessages(data) }
   }
 
-  /** Drop the loaded keymap after GitHub logout. Host layouts stay in the browser. */
-  clearLoadedKeymap() {
+  /**
+   * Drop the loaded keymap session (document, modes, host-edit UI).
+   * Host layout profiles stay in the browser. Shared with `resetForTests`.
+   */
+  reset() {
     this.#cancelPersistTimer()
     this.#persistGeneration += 1
     this.#selectGeneration += 1
     this.#publishGeneration += 1
+    this.#hostRepoBaselineEncoded = null
     this.endHostEditSession()
     this.legendHover = null
     this.source = null
     this.githubMeta = null
-    this.#hostRepoBaselineEncoded = null
     this.clipboardOriginalSource = null
     this.layout = null
     this.baselineLayout = null
@@ -2311,25 +2314,18 @@ export class EditorState {
     this.saveNotice = null
   }
 
-  /** Reset singleton between vitest cases. */
+  /** Drop the loaded keymap after GitHub logout. Host layouts stay in the browser. */
+  clearLoadedKeymap() {
+    this.reset()
+  }
+
+  /** Reset singleton between vitest cases (no-op outside test/dev). */
   resetForTests() {
-    this.#cancelPersistTimer()
-    this.#persistGeneration += 1
-    this.#selectGeneration += 1
-    this.#publishGeneration += 1
+    if (import.meta.env.MODE !== 'test' && !import.meta.env.DEV) return
+    this.reset()
     this.#handledDraftIdentityKey = null
-    this.#hostRepoBaselineEncoded = null
-    this.definitions = null
-    this.source = null
-    this.githubMeta = null
-    this.clipboardOriginalSource = null
-    this.layout = null
-    this.baselineLayout = null
-    this.baselineKeymap = null
-    this.draftKeymap = null
     this.#holdTapsOnNextUpdate = null
-    this.clearHistory()
-    this.saving = false
+    this.definitions = null
     resetHostLayoutRegistry()
     this.hostLegend = standardHostLegendView()
     this.hostAssemblies = []
@@ -2338,19 +2334,10 @@ export class EditorState {
     this.symbolAlignOn = true
     this.multilangView = false
     this.layerTonesOn = false
-    this.schemeMode = false
-    this.comboMode = false
-    this.activeComboId = null
-    this.comboNotice = null
     this.layerView = standardLayerView()
     this.userLayouts = []
     this.hostProfilePrompt = null
     this.hostProfileNote = null
-    this.legendHover = null
-    this.hostSymbolCatalogOpen = false
-    this.hostSymbolEditTarget = null
-    this.hostEditSession = null
-    this.saveNotice = null
   }
 }
 
