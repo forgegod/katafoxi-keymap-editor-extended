@@ -107,6 +107,7 @@ import {
   loadHostAssemblies,
   loadHostLegendView,
   loadUserHostLayouts,
+  foldHostProfileName,
   reservedProfileName,
   uniqueUserHostLayoutName,
   sanitizeHostLegendView,
@@ -1491,7 +1492,7 @@ export class EditorState {
     const taken = this.userLayouts.some(
       layout =>
         layout.language === language &&
-        layout.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru')
+        foldHostProfileName(layout.name) === foldHostProfileName(name)
     )
     if (taken) return 'A profile with this name already exists'
     const sourceId =
@@ -1515,7 +1516,7 @@ export class EditorState {
         : this.activeProfileId(language)
     const current = this.userLayouts.find(layout => layout.id === id)
     if (!current) return null
-    if (current.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru')) {
+    if (foldHostProfileName(current.name) === foldHostProfileName(name)) {
       this.hostProfilePrompt = null
       return null
     }
@@ -1523,7 +1524,7 @@ export class EditorState {
       layout =>
         layout.id !== current.id &&
         layout.language === language &&
-        layout.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru')
+        foldHostProfileName(layout.name) === foldHostProfileName(name)
     )
     if (taken) return 'A profile with this name already exists'
     const table = hostLayout(current.id)

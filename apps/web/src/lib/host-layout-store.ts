@@ -100,10 +100,15 @@ export function isUserHostLayoutId(id: string): boolean {
   return id.startsWith('user:')
 }
 
+/** Case-fold profile names for uniqueness (English UI; Unicode-aware via `en`). */
+export function foldHostProfileName(name: string): string {
+  return name.toLocaleLowerCase('en')
+}
+
 export function reservedProfileName(name: string): boolean {
-  const key = name.toLocaleLowerCase('ru')
+  const key = foldHostProfileName(name)
   return reservedHostProfileNames().some(
-    reserved => reserved.toLocaleLowerCase('ru') === key
+    reserved => foldHostProfileName(reserved) === key
   )
 }
 
@@ -116,10 +121,10 @@ export function uniqueUserHostLayoutName(
   const taken = new Set(
     existing
       .filter(layout => layout.language === language)
-      .map(layout => layout.name.toLocaleLowerCase('ru'))
+      .map(layout => foldHostProfileName(layout.name))
   )
   const used = (name: string) =>
-    reservedProfileName(name) || taken.has(name.toLocaleLowerCase('ru'))
+    reservedProfileName(name) || taken.has(foldHostProfileName(name))
   if (!used(base)) return base
   for (let n = 2; n < 1000; n++) {
     const name = `${base} ${n}`
@@ -151,8 +156,16 @@ function deserializeLayout(id: string, keys: StoredKeyRow[]): HostLayout {
   }
 }
 
+const LEGACY_PROFILE_LANGUAGE_ALT = HOST_LANGUAGE_IDS.map(id =>
+  id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+).join('|')
+
+const LEGACY_PROFILE_ID_RE = new RegExp(
+  `^(${LEGACY_PROFILE_LANGUAGE_ALT}):(in-layout|system)(?::([A-Za-z0-9_-]+))?$`
+)
+
 function layoutIdFromLegacyProfile(id: string): string | undefined {
-  const match = /^(en|ru|uk|de):(in-layout|system)(?::([A-Za-z0-9_-]+))?$/.exec(id)
+  const match = LEGACY_PROFILE_ID_RE.exec(id)
   if (!match || !isHostLanguageId(match[1])) return undefined
   const language = match[1]
   const kind = match[2]
@@ -281,7 +294,7 @@ function openDb(): Promise<IDBDatabase> {
     request.onerror = () => reject(request.error ?? new Error('IDB open failed'))
     request.onsuccess = () => {
       const db = request.result
-      void migrateLegacyProfiles(db).then(() => resolve(db), reject)
+      void maybeMigrateLegacyProfiles(db).then(() => resolve(db), reject)
     }
     request.onupgradeneeded = () => {
       const db = request.result
@@ -308,6 +321,34 @@ function txDone(tx: IDBTransaction): Promise<void> {
     tx.onerror = () => reject(tx.error ?? new Error('IDB transaction failed'))
     tx.onabort = () => reject(tx.error ?? new Error('IDB transaction aborted'))
   })
+}
+
+/** Skip the readwrite migrate when the legacy store is empty and the view is already present. */
+async function legacyMigrationNeeded(db: IDBDatabase): Promise<boolean> {
+  if (!db.objectStoreNames.contains(LEGACY_PROFILES_STORE)) return false
+  const tx = db.transaction([LEGACY_PROFILES_STORE, SETTINGS_STORE], 'readonly')
+  const profileCount = await idbRequest(tx.objectStore(LEGACY_PROFILES_STORE).count())
+  if (profileCount > 0) {
+    await txDone(tx)
+    return true
+  }
+  const viewRow = await idbRequest<StoredView | undefined>(
+    tx.objectStore(SETTINGS_STORE).get(VIEW_SETTING_ID)
+  )
+  if (viewRow) {
+    await txDone(tx)
+    return false
+  }
+  const active = await idbRequest<LegacyActive | undefined>(
+    tx.objectStore(SETTINGS_STORE).get(LEGACY_ACTIVE_SETTING_ID)
+  )
+  await txDone(tx)
+  return !!active
+}
+
+async function maybeMigrateLegacyProfiles(db: IDBDatabase): Promise<void> {
+  if (!(await legacyMigrationNeeded(db))) return
+  await migrateLegacyProfiles(db)
 }
 
 async function migrateLegacyProfiles(db: IDBDatabase): Promise<void> {
