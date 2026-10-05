@@ -497,7 +497,7 @@
   {#if combos.length === 0}
     <p class="combo-empty">No combos yet.</p>
   {:else}
-    <ul class="combo-list" role="listbox" aria-label="Combo list">
+    <ul class="combo-list" aria-label="Combo list">
       {#each combos as combo (combo.id)}
         {@const issue = comboKeysIssue(combo.keyPositions)}
         {@const partner = overlapPartners.get(combo.id) ?? null}
@@ -513,8 +513,7 @@
             class:invalid={issue != null || partner != null}
             class:soft-warn={!!soft}
             title={comboOverlapMessage(partner) ?? undefined}
-            role="option"
-            aria-selected={combo.id === editor.activeComboId}
+            aria-current={combo.id === editor.activeComboId ? 'true' : undefined}
             onclick={() => selectCombo(combo.id)}
           >
             <span class="combo-main">

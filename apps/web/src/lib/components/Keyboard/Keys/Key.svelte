@@ -270,15 +270,11 @@
     releaseLegendDecode(keyIndex)
   })
 
+  // Escape for the host-edit session lives on LegendDecodeCard (session card).
+  // Key only dismisses on outside pointerdown.
   $effect(() => {
     if (!inHostSession || !decodeTooltipId) return
     const cardId = decodeTooltipId
-    function onKeydown(event: KeyboardEvent) {
-      if (event.key !== 'Escape') return
-      event.preventDefault()
-      event.stopImmediatePropagation()
-      endHostEditSession()
-    }
     function onPointerDown(event: PointerEvent) {
       const target = event.target
       if (target instanceof Element && target.closest('.host-symbol-picker')) {
@@ -294,10 +290,8 @@
       event.stopPropagation()
       endHostEditSession()
     }
-    window.addEventListener('keydown', onKeydown, true)
     window.addEventListener('pointerdown', onPointerDown, true)
     return () => {
-      window.removeEventListener('keydown', onKeydown, true)
       window.removeEventListener('pointerdown', onPointerDown, true)
     }
   })

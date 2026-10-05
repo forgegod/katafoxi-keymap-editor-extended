@@ -418,16 +418,15 @@
     handleApply()
   }
 
-  // Rebind so Enter sees the binding filled after the dialog opened.
-  $effect(() => {
-    void canConfirm
-    void editorSlots
+  // One listener for the dialog lifetime; handleKeyDown reads latest canConfirm/slots.
+  onMount(() => {
     const onKey = (event: KeyboardEvent) => handleKeyDown(event)
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.clearTimeout(pulseTimer)
+    }
   })
-
-  onMount(() => () => window.clearTimeout(pulseTimer))
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
