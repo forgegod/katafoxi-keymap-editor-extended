@@ -52,6 +52,10 @@ describe('local-source LARK fixture', () => {
     expect(binds.some(b => /\bVU\b/.test(b))).toBe(false)
     expect(loaded.layers.length).toBe(7)
     expect(loaded.layers[0].length).toBe(zmk.loadLayout().length)
+    expect(loaded.holdTaps).toEqual([
+      { code: '&mt', override: true, flavor: 'tap-preferred', tappingTermMs: 300 },
+      { code: '&lt', override: true, flavor: 'balanced', tappingTermMs: 150 }
+    ])
   })
 
   it('writes files and reloads expanded bindings after save', () => {

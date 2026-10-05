@@ -142,6 +142,23 @@ async function fetchKeymap(
     try {
       const parsed = parseJsonBody(data)
       if (isPrimaryKeymapJson(parsed)) {
+        const record =
+          parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null
+        // Older keymap.json files have no holdTaps field. Read the nodes from
+        // the .keymap once; a later save records the array and skips this fetch.
+        if (record && !Object.prototype.hasOwnProperty.call(record, 'holdTaps')) {
+          try {
+            const fromDts = await fetchKeymapFromDts(
+              installationToken,
+              repository,
+              originalCodeKeymap,
+              branch
+            )
+            return { ...record, holdTaps: fromDts.holdTaps ?? [] }
+          } catch {
+            // JSON layers still load when the .keymap cannot be read.
+          }
+        }
         return parsed
       }
     } catch {
