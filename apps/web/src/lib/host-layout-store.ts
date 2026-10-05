@@ -23,6 +23,8 @@ import {
   type HostLegendView
 } from '@keymap-editor/keymap-core'
 
+import { idbRequest, openDb, txDone } from './idb'
+
 export const HOST_LAYOUT_DB_NAME = 'keymap-editor-host-profiles'
 export const UNKNOWN_HOST_LAYOUT_NOTE =
   'Unknown layout was replaced with the primary system layout.'
@@ -284,42 +286,19 @@ export function sanitizeHostLegendView(view: HostLegendView): {
   return { view: next, replaced }
 }
 
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    if (typeof indexedDB === 'undefined') {
-      reject(new Error('IndexedDB unavailable'))
-      return
-    }
-    const request = indexedDB.open(DB_NAME, DB_VERSION)
-    request.onerror = () => reject(request.error ?? new Error('IDB open failed'))
-    request.onsuccess = () => {
-      const db = request.result
-      void maybeMigrateLegacyProfiles(db).then(() => resolve(db), reject)
-    }
-    request.onupgradeneeded = () => {
-      const db = request.result
+function openHostDb(): Promise<IDBDatabase> {
+  return openDb({
+    name: DB_NAME,
+    version: DB_VERSION,
+    upgrade(db) {
       if (!db.objectStoreNames.contains(LAYOUTS_STORE)) {
         db.createObjectStore(LAYOUTS_STORE, { keyPath: 'id' })
       }
       if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
         db.createObjectStore(SETTINGS_STORE, { keyPath: 'id' })
       }
-    }
-  })
-}
-
-function idbRequest<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error ?? new Error('IDB request failed'))
-  })
-}
-
-function txDone(tx: IDBTransaction): Promise<void> {
-  return new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error ?? new Error('IDB transaction failed'))
-    tx.onabort = () => reject(tx.error ?? new Error('IDB transaction aborted'))
+    },
+    afterOpen: maybeMigrateLegacyProfiles
   })
 }
 
@@ -411,7 +390,7 @@ async function migrateLegacyProfiles(db: IDBDatabase): Promise<void> {
 }
 
 export async function loadUserHostLayouts(): Promise<UserHostLayoutRecord[]> {
-  const db = await openDb()
+  const db = await openHostDb()
   try {
     const tx = db.transaction(LAYOUTS_STORE, 'readonly')
     const rows = await idbRequest(tx.objectStore(LAYOUTS_STORE).getAll())
@@ -444,7 +423,7 @@ export async function saveUserHostLayout(record: UserHostLayoutRecord): Promise<
     updatedAt: record.updatedAt,
     keys: serializeLayout(record.layout)
   }
-  const db = await openDb()
+  const db = await openHostDb()
   try {
     const tx = db.transaction(LAYOUTS_STORE, 'readwrite')
     await idbRequest(tx.objectStore(LAYOUTS_STORE).put(stored))
@@ -455,7 +434,7 @@ export async function saveUserHostLayout(record: UserHostLayoutRecord): Promise<
 }
 
 export async function deleteUserHostLayout(id: string): Promise<void> {
-  const db = await openDb()
+  const db = await openHostDb()
   try {
     const tx = db.transaction(LAYOUTS_STORE, 'readwrite')
     await idbRequest(tx.objectStore(LAYOUTS_STORE).delete(id))
@@ -468,7 +447,7 @@ export async function deleteUserHostLayout(id: string): Promise<void> {
 export async function loadHostLegendView(
   settingId: string = VIEW_SETTING_ID
 ): Promise<HostLegendView | null> {
-  const db = await openDb()
+  const db = await openHostDb()
   try {
     const tx = db.transaction(SETTINGS_STORE, 'readonly')
     const row = await idbRequest<StoredView | undefined>(
@@ -487,7 +466,7 @@ export async function loadHostLegendView(
 }
 
 export async function deleteHostLegendView(settingId: string = VIEW_SETTING_ID): Promise<void> {
-  const db = await openDb()
+  const db = await openHostDb()
   try {
     const tx = db.transaction(SETTINGS_STORE, 'readwrite')
     await idbRequest(tx.objectStore(SETTINGS_STORE).delete(settingId))
@@ -507,7 +486,7 @@ export async function saveHostLegendView(
     open: view.open,
     ...(view.keycap ? { keycap: [...view.keycap] } : {})
   }
-  const db = await openDb()
+  const db = await openHostDb()
   try {
     const tx = db.transaction(SETTINGS_STORE, 'readwrite')
     await idbRequest(tx.objectStore(SETTINGS_STORE).put(record))
@@ -524,7 +503,7 @@ function isStoredAssembly(value: unknown): value is StoredHostAssembly {
 }
 
 export async function loadHostAssemblies(settingId: string): Promise<StoredHostAssembly[]> {
-  const db = await openDb()
+  const db = await openHostDb()
   try {
     const tx = db.transaction(SETTINGS_STORE, 'readonly')
     const row = await idbRequest<{ id: string; items?: unknown } | undefined>(
@@ -556,7 +535,7 @@ export async function saveHostAssemblies(
       view: cloneHostLegendView(item.view)
     }))
   }
-  const db = await openDb()
+  const db = await openHostDb()
   try {
     const tx = db.transaction(SETTINGS_STORE, 'readwrite')
     await idbRequest(tx.objectStore(SETTINGS_STORE).put(record))
@@ -567,7 +546,7 @@ export async function saveHostAssemblies(
 }
 
 export async function clearHostLayoutStore(): Promise<void> {
-  const db = await openDb()
+  const db = await openHostDb()
   try {
     const stores = [LAYOUTS_STORE, SETTINGS_STORE]
     if (db.objectStoreNames.contains(LEGACY_PROFILES_STORE)) {
