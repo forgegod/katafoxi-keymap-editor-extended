@@ -45,8 +45,40 @@ describe('hostSymbolShelves', () => {
     expect(glyphs.has('а')).toBe(false)
   })
 
+  it('opens Cyrillic letters for bg and keeps Latin collapsed', () => {
+    const shelves = hostSymbolShelves('bg')
+    const language = shelfById(shelves, 'cyrillic')
+    expect(language.open).toBe(true)
+    const glyphs = glyphsOf(language)
+    expect(glyphs.has('а')).toBe(true)
+    expect(glyphs.has('ж')).toBe(true)
+    expect(glyphs.has('я')).toBe(true)
+    expect(glyphs.has('α')).toBe(false)
+    const latin = shelfById(shelves, 'latin')
+    expect(latin.open).toBe(false)
+    expect(glyphsOf(latin).has('a')).toBe(true)
+  })
+
+  it('opens Greek letters for el and keeps Latin and Cyrillic collapsed', () => {
+    const shelves = hostSymbolShelves('el')
+    const language = shelfById(shelves, 'greek')
+    expect(language.open).toBe(true)
+    const glyphs = glyphsOf(language)
+    expect(glyphs.has('α')).toBe(true)
+    expect(glyphs.has('ω')).toBe(true)
+    expect(glyphs.has('ς')).toBe(true)
+    expect(glyphs.has('а')).toBe(false)
+    expect(glyphs.has('a')).toBe(false)
+    const latin = shelfById(shelves, 'latin')
+    expect(latin.open).toBe(false)
+    expect(glyphsOf(latin).has('a')).toBe(true)
+    const cyrillic = shelfById(shelves, 'cyrillic')
+    expect(cyrillic.open).toBe(false)
+    expect(glyphsOf(cyrillic).has('а')).toBe(true)
+  })
+
   it('puts Signs first among open shelves', () => {
-    for (const language of ['en', 'ru', 'uk', 'de'] as const) {
+    for (const language of ['en', 'ru', 'uk', 'de', 'bg', 'el'] as const) {
       const shelves = hostSymbolShelves(language)
       expect(shelves[0]?.id).toBe('signs')
       expect(shelves[0]?.open).toBe(true)
@@ -116,7 +148,7 @@ describe('hostSymbolShelves', () => {
     // Priority: language letter ranges claim letters first; Signs only takes
     // non-letters in its ranges. Open dictionary shelves must not share a
     // glyph. Dead spacing marks on Modifiers may match a Signs character (`^`).
-    for (const language of ['en', 'ru'] as const) {
+    for (const language of ['en', 'ru', 'bg', 'el'] as const) {
       const open = openShelves(hostSymbolShelves(language))
       const seen = new Set<string>()
       for (const shelf of open) {
@@ -126,11 +158,18 @@ describe('hostSymbolShelves', () => {
           seen.add(entry.glyph)
         }
       }
-      const languageShelf = open.find(shelf => shelf.id === 'latin' || shelf.id === 'cyrillic')!
+      const languageShelf = open.find(
+        shelf => shelf.id === 'latin' || shelf.id === 'cyrillic' || shelf.id === 'greek'
+      )!
       const signs = open.find(shelf => shelf.id === 'signs')!
-      expect(glyphsOf(languageShelf).has('a') || glyphsOf(languageShelf).has('а')).toBe(true)
+      expect(
+        glyphsOf(languageShelf).has('a') ||
+          glyphsOf(languageShelf).has('а') ||
+          glyphsOf(languageShelf).has('α')
+      ).toBe(true)
       expect(glyphsOf(signs).has('a')).toBe(false)
       expect(glyphsOf(signs).has('а')).toBe(false)
+      expect(glyphsOf(signs).has('α')).toBe(false)
     }
   })
 
@@ -168,6 +207,20 @@ describe('hostSymbolShelves', () => {
     const latin = shelfById(shelves, 'latin')
     for (const entry of latin.entries) {
       expect(/\p{M}/u.test(entry.glyph), entry.keysym).toBe(false)
+    }
+  })
+
+  it('includes Bulgarian letters on the open Cyrillic shelf for bg', () => {
+    const glyphs = glyphsOf(shelfById(hostSymbolShelves('bg'), 'cyrillic'))
+    for (const glyph of ['а', 'ж', 'ъ', 'ь', 'ю', 'я']) {
+      expect(glyphs.has(glyph), glyph).toBe(true)
+    }
+  })
+
+  it('includes Greek letters on the open Greek shelf for el', () => {
+    const glyphs = glyphsOf(shelfById(hostSymbolShelves('el'), 'greek'))
+    for (const glyph of ['α', 'β', 'σ', 'ς', 'ω']) {
+      expect(glyphs.has(glyph), glyph).toBe(true)
     }
   })
 })
