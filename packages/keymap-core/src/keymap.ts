@@ -322,11 +322,8 @@ export function buildKeymapCode(
 
   if (typeof template === 'string' && template.length > 0) {
     return {
-      code: applyHoldTaps(
-        applyConditionalLayers(
-          applySensorBindings(generateKeymapCode(layout, keymap, encoded, template), keymap),
-          keymap
-        ),
+      code: applyModelBlocks(
+        generateKeymapCode(layout, keymap, encoded, template),
         keymap
       ),
       json: generateKeymapJSON(layout, encoded),
@@ -341,18 +338,13 @@ export function buildKeymapCode(
     if (bindingsText && macrosAppearInText(bindingsText, macros)) {
       warnings.push('macros_expanded')
     }
-    let code = spliceBindingsIntoDts(originalSource, {
+    const spliced = spliceBindingsIntoDts(originalSource, {
       layout,
       layers,
       layerNames
     })
-    code = applySensorBindings(code, keymap)
-    // Always rewrite combos from the model when present (including empty → drop block).
-    if (keymap.combos !== undefined) {
-      code = spliceCombosIntoDts(code, (keymap.combos ?? []).map(encodeComboToJson))
-    }
     return {
-      code: applyHoldTaps(applyConditionalLayers(code, keymap), keymap),
+      code: applyModelBlocks(spliced, keymap),
       json: generateKeymapJSON(layout, encoded),
       mode: 'splice',
       warnings
@@ -361,20 +353,22 @@ export function buildKeymapCode(
 
   warnings.push('generated_default_template')
   return {
-    code: applyHoldTaps(
-      applyConditionalLayers(
-        applySensorBindings(
-          generateKeymapCode(layout, keymap, encoded, keymapTemplate),
-          keymap
-        ),
-        keymap
-      ),
+    code: applyModelBlocks(
+      generateKeymapCode(layout, keymap, encoded, keymapTemplate),
       keymap
     ),
     json: generateKeymapJSON(layout, encoded),
     mode: 'default_template',
     warnings
   }
+}
+
+/** Sensors → combos → conditional layers → hold-taps (each optional field). */
+function applyModelBlocks(code: string, keymap: ParsedKeymap): string {
+  return applyHoldTaps(
+    applyConditionalLayers(applyCombos(applySensorBindings(code, keymap), keymap), keymap),
+    keymap
+  )
 }
 
 function applySensorBindings(code: string, keymap: ParsedKeymap): string {
@@ -384,6 +378,12 @@ function applySensorBindings(code: string, keymap: ParsedKeymap): string {
   const nodes = findKeymapLayerNodes(code, block)
   const encoded = keymap.sensorBindings.map(layer => layer.map(encodeKeyBinding))
   return spliceSensorBindingsIntoDts(code, nodes, encoded)
+}
+
+/** Rewrite combos from the model when present (including empty → drop block). */
+function applyCombos(code: string, keymap: ParsedKeymap): string {
+  if (keymap.combos === undefined) return code
+  return spliceCombosIntoDts(code, (keymap.combos ?? []).map(encodeComboToJson))
 }
 
 function applyConditionalLayers(code: string, keymap: ParsedKeymap): string {

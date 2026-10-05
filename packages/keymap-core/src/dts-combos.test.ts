@@ -137,6 +137,29 @@ describe('spliceCombosIntoDts', () => {
 })
 
 describe('buildKeymapCode combos', () => {
+  const comboKm = () =>
+    parseKeymap({
+      layer_names: ['default'],
+      layers: [['&kp A', '&trans']],
+      combos: [
+        {
+          id: 'combo_esc',
+          binding: '&kp ESC',
+          keyPositions: [0, 1],
+          timeoutMs: 40
+        }
+      ]
+    })
+
+  const ROOT_TEMPLATE = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+
+{{rendered_layers}}
+    };
+};
+`
+
   it('splices combo edits after layer bindings', () => {
     const km = parseKeymap(parseDtsKeymap(WITH_COMBO))
     km.combos = [
@@ -151,6 +174,26 @@ describe('buildKeymapCode combos', () => {
     expect(built.code).toContain('&kp ENTER')
     expect(built.code).toContain('key-positions = <1 0>;')
     expect(built.code).toContain('&kp A')
+  })
+
+  it('writes non-empty combos when saving with a template', () => {
+    const built = buildKeymapCode(TINY_LAYOUT, comboKm(), { template: ROOT_TEMPLATE })
+    expect(built.mode).toBe('template')
+    expect(built.code).toContain('compatible = "zmk,combos"')
+    expect(built.code).toContain('combo_esc')
+    expect(built.code).toContain('&kp ESC')
+    expect(built.code).toContain('key-positions = <0 1>;')
+    expect(built.code).toContain('timeout-ms = <40>;')
+  })
+
+  it('writes non-empty combos on the default generated template path', () => {
+    const built = buildKeymapCode(TINY_LAYOUT, comboKm())
+    expect(built.mode).toBe('default_template')
+    expect(built.warnings).toContain('generated_default_template')
+    expect(built.code).toContain('compatible = "zmk,combos"')
+    expect(built.code).toContain('combo_esc')
+    expect(built.code).toContain('&kp ESC')
+    expect(built.code).toContain('key-positions = <0 1>;')
   })
 })
 
