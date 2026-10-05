@@ -48,13 +48,6 @@ function prepare(options: ApiRequestOptions | string): { url: string; init: Requ
   return { url, init }
 }
 
-function noteRateLimit(response: Response) {
-  const limitRemaining = response.headers.get('x-ratelimit-remaining')
-  if (limitRemaining) {
-    console.log('GitHub API ratelimit remaining requests:', limitRemaining)
-  }
-}
-
 async function throwIfNotOk(response: Response): Promise<void> {
   if (response.ok) return
   let data: unknown
@@ -71,7 +64,6 @@ async function throwIfNotOk(response: Response): Promise<void> {
 export async function request(options: ApiRequestOptions | string) {
   const { url, init } = prepare(options)
   const response = await fetch(url, init)
-  noteRateLimit(response)
   await throwIfNotOk(response)
 
   const contentType = response.headers.get('content-type') || ''
@@ -93,7 +85,6 @@ export async function request(options: ApiRequestOptions | string) {
 export async function requestBuffer(options: ApiRequestOptions | string): Promise<Uint8Array> {
   const { url, init } = prepare(options)
   const response = await fetch(url, init)
-  noteRateLimit(response)
   await throwIfNotOk(response)
   return new Uint8Array(await response.arrayBuffer())
 }
