@@ -18,7 +18,7 @@
     onSelectBehaviour: (choice: Choice) => void
     onSelectValue: (choice: Choice) => void
     onActivateSlot: (codeIndex: number) => void
-    onConfirm: () => void
+    onConfirm: (stagedHoldTaps?: ZmkHoldTap[] | null) => void
     onCancel: () => void
     holdTaps?: ZmkHoldTap[]
     onChangeHoldTaps?: (next: ZmkHoldTap[]) => void

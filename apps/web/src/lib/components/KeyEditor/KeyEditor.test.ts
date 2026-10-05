@@ -576,6 +576,7 @@ describe('KeyEditor value catalog', () => {
 
   it('edits the shared &mt term and adds the homerow preset', () => {
     const changes: unknown[] = []
+    const applied: unknown[] = []
     let selected = ''
     open({
       bindingLabel: '&mt LCTRL J',
@@ -594,7 +595,9 @@ describe('KeyEditor value catalog', () => {
       },
       onSelectValue: () => {},
       onActivateSlot: () => {},
-      onConfirm: () => {},
+      onConfirm: staged => {
+        applied.push(staged)
+      },
       onCancel: () => {}
     })
 
@@ -615,7 +618,13 @@ describe('KeyEditor value catalog', () => {
     ;(homerow as HTMLButtonElement).click()
     flushSync()
     expect(selected).toBe('&hm')
-    const created = changes.at(-1) as Array<{
+    expect(changes).toHaveLength(1)
+    expect((term as HTMLInputElement).value).toBe('280')
+
+    const apply = target.querySelector('[aria-label="Apply"]')
+    if (!(apply instanceof HTMLButtonElement)) throw new Error('missing Apply')
+    apply.click()
+    const created = applied[0] as Array<{
       code: string
       tappingTermMs?: number
       requirePriorIdleMs?: number

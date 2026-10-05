@@ -63,7 +63,7 @@
     onSelectValue: (choice: Choice) => void
     onToggleHold?: (wrapCode: string) => void
     onActivateSlot: (codeIndex: number) => void
-    onConfirm: () => void
+    onConfirm: (stagedHoldTaps?: ZmkHoldTap[] | null) => void
     onCancel: () => void
     holdTaps?: ZmkHoldTap[]
     onChangeHoldTaps?: (next: ZmkHoldTap[]) => void
@@ -167,7 +167,10 @@
         ? (['tappingTermMs', 'flavor'] as const)
         : ([] as const)
   )
-  const timingNode = $derived((holdTaps ?? []).find(node => node.code === behaviourCode))
+  /** Preset node kept in the dialog until Apply. Cancel drops it. */
+  let stagedHoldTaps = $state<ZmkHoldTap[] | null>(null)
+  const timingList = $derived(stagedHoldTaps ?? holdTaps)
+  const timingNode = $derived(timingList?.find(node => node.code === behaviourCode))
   const autoshift = $derived(behaviourCode === '&as')
 
   let termDraft = $state('')
@@ -235,7 +238,19 @@
       if (requirePriorIdleMs === null) return
       patch.requirePriorIdleMs = requirePriorIdleMs
     }
-    onChangeHoldTaps(replaceHoldTapTiming(holdTaps, behaviourCode, patch))
+    const next = replaceHoldTapTiming(timingList, behaviourCode, patch)
+    if (stagedHoldTaps) {
+      stagedHoldTaps = next
+      return
+    }
+    onChangeHoldTaps(next)
+  }
+
+  /** A preset the keymap does not have yet stays local until Apply. */
+  function stagePreset(code: string) {
+    const list = ensureHoldTapPreset(holdTaps, code)
+    const already = (holdTaps ?? []).some(node => node.code === code)
+    stagedHoldTaps = already ? null : list
   }
 
   function presetTitle(item: HoldTapPreset): string {
@@ -255,9 +270,8 @@
 
   function choosePreset(next: HoldTapPreset) {
     if (!onChangeHoldTaps) return
-    const list = ensureHoldTapPreset(holdTaps, next.code)
-    if (list !== holdTaps) onChangeHoldTaps(list)
     if (behaviourCode === next.code) return
+    stagePreset(next.code)
     // Behaviour chips store a local override. Presets must replace it, or the
     // row stays on &mt after the session draft has already moved.
     pickedBehaviour = next.code
@@ -316,6 +330,7 @@
   const firmwareNote = $derived(behaviorFirmwareNote(behaviourValue))
 
   function chooseBehaviour(choice: Choice) {
+    stagedHoldTaps = null
     pickedBehaviour = choice.code ?? null
     onSelectBehaviour(choice)
   }
@@ -368,7 +383,9 @@
 
   function handleApply() {
     if (canConfirm) {
-      onConfirm()
+      const staged = stagedHoldTaps
+      stagedHoldTaps = null
+      onConfirm(staged)
       return
     }
     const missing = firstMissingSlot(editorSlots)

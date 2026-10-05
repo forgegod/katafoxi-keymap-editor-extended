@@ -541,7 +541,10 @@
       onSelectValue={session.selectValue}
       onToggleHold={session.toggleHold}
       onActivateSlot={openEditor}
-      onConfirm={session.confirm}
+      onConfirm={staged => {
+        if (staged?.length) editor.armHoldTapsForNextUpdate(staged)
+        session.confirm()
+      }}
       onCancel={session.closeEditor}
       holdTaps={editor.draftKeymap?.holdTaps ?? editor.baselineKeymap?.holdTaps}
       onChangeHoldTaps={next => editor.updateHoldTaps(next)}

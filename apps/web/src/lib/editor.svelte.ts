@@ -324,6 +324,11 @@ export class EditorState {
   draftKeymap = $state<ParsedKeymap | null>(null)
   /** Plain draft snapshots for step undo (not vs baseline). */
   undoStack = $state<ParsedKeymap[]>([])
+  /**
+   * Hold-tap list staged by the key dialog. The next keymap update absorbs it
+   * so Apply writes the new node and the key in one step. Cancel never sets it.
+   */
+  #holdTapsOnNextUpdate: ZmkHoldTap[] | null = null
   redoStack = $state<ParsedKeymap[]>([])
   saving = $state(false)
   /** View over the host profile. It does not edit the keymap. */
@@ -1907,6 +1912,14 @@ export class EditorState {
     this.layerView = remapShownLayersAfterDelete(this.layerView, index, layers.length)
   }
 
+  /**
+   * Remember a hold-tap list for the keymap update that applies the open key.
+   * A new preset stays out of the draft until that update.
+   */
+  armHoldTapsForNextUpdate(holdTaps: ZmkHoldTap[] | null) {
+    this.#holdTapsOnNextUpdate = holdTaps
+  }
+
   /** Replace hold-tap nodes on the draft. Save rewrites those nodes in the keymap. */
   updateHoldTaps(holdTaps: ZmkHoldTap[]) {
     const km = this.draftKeymap
@@ -1922,6 +1935,9 @@ export class EditorState {
   }
 
   updateKeymap(next: ParsedKeymap) {
+    const stagedHoldTaps = this.#holdTapsOnNextUpdate
+    this.#holdTapsOnNextUpdate = null
+    if (stagedHoldTaps) next = { ...next, holdTaps: stagedHoldTaps }
     if (this.draftKeymap) {
       const prev = cloneParsedKeymap(this.draftKeymap)
       const stack = [...this.undoStack, prev]
@@ -2160,6 +2176,7 @@ export class EditorState {
     this.layout = null
     this.baselineKeymap = null
     this.draftKeymap = null
+    this.#holdTapsOnNextUpdate = null
     this.clearHistory()
     this.saving = false
     resetHostLayoutRegistry()
