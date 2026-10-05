@@ -1,5 +1,9 @@
 import { Hono } from 'hono'
-import { KeymapValidationError, type ParsedKeymap } from '@keymap-editor/keymap-core'
+import {
+  InfoValidationError,
+  KeymapValidationError,
+  type ParsedKeymap
+} from '@keymap-editor/keymap-core'
 import { config } from '../config.js'
 import * as zmk from '../services/zmk/local-source.js'
 
@@ -18,7 +22,8 @@ function isBadRequestError(err: unknown): boolean {
   return (
     err instanceof SyntaxError ||
     err instanceof TypeError ||
-    err instanceof KeymapValidationError
+    err instanceof KeymapValidationError ||
+    err instanceof InfoValidationError
   )
 }
 

@@ -2,6 +2,8 @@ export * from './types.js'
 export * from './eol.js'
 export * from './layout.js'
 export * from './keymap.js'
+export * from './keymap-clone.js'
+export * from './keyboard-bundle.js'
 export type { KeymapChange } from './keymap-diff.js'
 export {
   diffKeymaps,

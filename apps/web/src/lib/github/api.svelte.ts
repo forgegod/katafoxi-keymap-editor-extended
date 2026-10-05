@@ -1,5 +1,5 @@
 import {
-  inferRectangularLayout,
+  loadKeyboardBundle,
   parseHostKeymapSnapshot,
   type HostKeymapSnapshot,
   type LayoutKey,
@@ -273,42 +273,37 @@ export class API extends EventEmitter {
         }
       }
       const hostSnapshot = hostSnapshotFromResponse(data.hostSnapshot ?? null)
-      const warnings: string[] = []
-      if (data.info?.layouts && Object.keys(data.info.layouts).length > 0) {
-        const defaultLayout =
-          data.info.layouts.default ||
-          data.info.layouts[Object.keys(data.info.layouts)[0]]
-        return {
-          layout: defaultLayout.layout,
+      try {
+        const bundle = loadKeyboardBundle({
+          infoJson: data.info,
           keymap: data.keymap,
+          inferredLayoutWarning: 'github_inferred_layout',
+          fallbackKeyboard: 'github',
+          missingLayoutMessage:
+            'Missing file config/info.json and keymap has no bindings to infer a layout from'
+        })
+        return {
+          layout: bundle.layout,
+          keymap: bundle.keymap,
           hostSnapshot,
-          warnings
+          warnings: bundle.warnings
         }
-      }
-
-      const layer0 = Array.isArray(data.keymap?.layers) ? data.keymap.layers[0] : null
-      const keyCount = Array.isArray(layer0) ? layer0.length : 0
-      if (keyCount <= 0) {
-        const err = new Error('Request failed: 400') as RequestError
-        err.response = {
-          status: 400,
-          data: {
-            name: 'MissingRepoFile',
-            path: 'config/info.json',
-            errors: [
-              'Missing file config/info.json and keymap has no bindings to infer a layout from'
-            ]
+      } catch (bundleErr) {
+        const message =
+          bundleErr instanceof Error ? bundleErr.message : String(bundleErr)
+        if (/no bindings to infer/i.test(message)) {
+          const err = new Error('Request failed: 400') as RequestError
+          err.response = {
+            status: 400,
+            data: {
+              name: 'MissingRepoFile',
+              path: 'config/info.json',
+              errors: [message]
+            }
           }
+          throw err
         }
-        throw err
-      }
-
-      warnings.push('github_inferred_layout')
-      return {
-        layout: inferRectangularLayout(keyCount),
-        keymap: data.keymap,
-        hostSnapshot,
-        warnings
+        throw bundleErr
       }
     } catch (err) {
       const requestErr = err as RequestError

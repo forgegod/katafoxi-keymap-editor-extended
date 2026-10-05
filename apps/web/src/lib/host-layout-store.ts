@@ -523,10 +523,6 @@ function isStoredAssembly(value: unknown): value is StoredHostAssembly {
   return typeof item.id === 'string' && item.id.length > 0 && isHostLegendView(item.view)
 }
 
-function cloneStoredView(view: HostLegendView): HostLegendView {
-  return cloneHostLegendView(view)
-}
-
 export async function loadHostAssemblies(settingId: string): Promise<StoredHostAssembly[]> {
   const db = await openDb()
   try {
@@ -540,7 +536,7 @@ export async function loadHostAssemblies(settingId: string): Promise<StoredHostA
     for (const item of row.items) {
       if (!isStoredAssembly(item)) continue
       if (items.some(kept => kept.id === item.id)) continue
-      items.push({ id: item.id, view: cloneStoredView(item.view) })
+      items.push({ id: item.id, view: cloneHostLegendView(item.view) })
       if (items.length >= HOST_ASSEMBLY_LIMIT) break
     }
     return items
@@ -557,7 +553,7 @@ export async function saveHostAssemblies(
     id: settingId,
     items: items.slice(0, HOST_ASSEMBLY_LIMIT).map(item => ({
       id: item.id,
-      view: cloneStoredView(item.view)
+      view: cloneHostLegendView(item.view)
     }))
   }
   const db = await openDb()

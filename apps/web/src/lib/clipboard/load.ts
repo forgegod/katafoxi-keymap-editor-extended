@@ -6,11 +6,11 @@
 import {
   assertLayerKeyCounts,
   encodeKeymap,
-  inferRectangularLayout,
   isPrimaryKeymapJson,
+  loadKeyboardBundle,
   parseDtsKeymap,
   parseKeymap,
-  validateInfoJson,
+  pickInfoLayout,
   validateKeymapJson,
   type LayoutKey,
   type ParsedKeymap
@@ -26,12 +26,6 @@ export type ClipboardBundle = {
   warnings: string[]
   /** True when layout was synthesized (no info.json). */
   inferredLayout: boolean
-}
-
-type InfoJson = {
-  id?: string
-  name?: string
-  layouts: Record<string, { layout: LayoutKey[] }>
 }
 
 function parseJsonObject(text: string, label: string): unknown {
@@ -51,16 +45,7 @@ export function parseClipboardInfo(text: string): {
   keyboard: string
 } {
   const parsed = parseJsonObject(text, 'Layout')
-  validateInfoJson(parsed)
-  const info = parsed as InfoJson
-  const layoutName = Object.keys(info.layouts)[0]
-  if (!layoutName) throw new Error('info.json has no layouts')
-  const layout = info.layouts[layoutName].layout
-  const keyboard =
-    (typeof info.id === 'string' && info.id) ||
-    (typeof info.name === 'string' && info.name) ||
-    'clipboard'
-  return { layout, layoutName, keyboard }
+  return pickInfoLayout(parsed, { fallbackKeyboard: 'clipboard' })
 }
 
 /** Validate pasted `.keymap` text for splice on Copy (does not parse layers). */
@@ -131,18 +116,15 @@ export function loadClipboardBundle(
   exportKeymapText?: string
 ): ClipboardBundle {
   const infoTrimmed = infoText.trim()
-  let layout: LayoutKey[]
-  let layoutName: string
-  let keyboard: string
-  let inferredLayout = false
+  let infoJson: unknown | null = null
+  let keyboard = 'clipboard'
+  let layoutName = 'LAYOUT'
 
   if (infoTrimmed) {
-    ;({ layout, layoutName, keyboard } = parseClipboardInfo(infoTrimmed))
-  } else {
-    layoutName = 'LAYOUT'
-    keyboard = 'clipboard'
-    layout = []
-    inferredLayout = true
+    infoJson = parseJsonObject(infoTrimmed, 'Layout')
+    ;({ keyboard, layoutName } = pickInfoLayout(infoJson, {
+      fallbackKeyboard: 'clipboard'
+    }))
   }
 
   const { keymap, originalSource, warnings } = parseClipboardKeymap(
@@ -151,26 +133,23 @@ export function loadClipboardBundle(
     exportKeymapText
   )
 
-  if (inferredLayout) {
-    const keyCount = keymap.layers[0]?.length ?? 0
-    if (keyCount <= 0) {
-      throw new Error('Keymap has no bindings to infer a layout from')
-    }
-    layout = inferRectangularLayout(keyCount)
-    keymap.keyboard = keyboard
-    keymap.layout = layoutName
-    warnings.push('clipboard_inferred_layout')
-  }
-
-  const encoded = encodeKeymap(keymap)
-  assertLayerKeyCounts(layout, encoded.layers as string[][])
-  return {
-    layout,
-    layoutName,
-    keyboard,
+  const bundle = loadKeyboardBundle({
+    infoJson,
     keymap,
+    inferredLayoutWarning: 'clipboard_inferred_layout',
+    fallbackKeyboard: keyboard,
+    fallbackLayoutName: layoutName
+  })
+
+  const encoded = encodeKeymap(bundle.keymap)
+  assertLayerKeyCounts(bundle.layout, encoded.layers as string[][])
+  return {
+    layout: bundle.layout,
+    layoutName: bundle.layoutName,
+    keyboard: bundle.keyboard,
+    keymap: bundle.keymap,
     originalSource,
-    warnings,
-    inferredLayout
+    warnings: [...warnings, ...bundle.warnings],
+    inferredLayout: bundle.inferredLayout
   }
 }

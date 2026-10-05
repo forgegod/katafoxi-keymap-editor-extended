@@ -1,6 +1,8 @@
 import {
+  loadKeyboardBundle,
   parseDtsKeymap,
   parseKeymap,
+  pickInfoLayout,
   type LayoutKey,
   type ParsedKeymap
 } from '@keymap-editor/keymap-core'
@@ -71,12 +73,6 @@ export function writeStoredDemoId(id: string) {
   }
 }
 
-function layoutFromInfo(info: InfoJson): { layout: LayoutKey[]; layoutName: string } {
-  const layoutName = Object.keys(info.layouts)[0]
-  if (!layoutName) throw new Error('Demo info.json has no layouts')
-  return { layout: info.layouts[layoutName].layout, layoutName }
-}
-
 /** Load a bundled demo keyboard (layout + parsed keymap). */
 export function loadDemo(id: string): DemoBundle {
   const entry = DEMO_CATALOG.find(item => item.id === id)
@@ -84,12 +80,23 @@ export function loadDemo(id: string): DemoBundle {
   const files = DEMO_FILES[id]
   if (!files) throw new Error(`Demo files missing for: ${id}`)
 
-  const { layout, layoutName } = layoutFromInfo(files.info)
+  const { keyboard, layoutName } = pickInfoLayout(files.info, {
+    fallbackKeyboard: id
+  })
   const raw = parseDtsKeymap(files.keymapSource, {
-    keyboard: files.info.id ?? id,
+    keyboard,
     keymap: id,
     layout: layoutName
   })
-  const keymap = parseKeymap(raw)
-  return { entry, layout, keymap, hostSeeds: demoHostSeeds(id) }
+  const bundle = loadKeyboardBundle({
+    infoJson: files.info,
+    keymap: parseKeymap(raw),
+    fallbackKeyboard: keyboard
+  })
+  return {
+    entry,
+    layout: bundle.layout,
+    keymap: bundle.keymap,
+    hostSeeds: demoHostSeeds(id)
+  }
 }

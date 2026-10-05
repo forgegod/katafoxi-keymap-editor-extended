@@ -6,6 +6,7 @@ import {
   isUserKeymapFilename,
   parseDtsKeymap,
   parseKeymap,
+  pickInfoLayout,
   type BuildKeymapCodeResult,
   type LayoutKey,
   type ParsedKeymap
@@ -32,11 +33,7 @@ export function loadLayout(layoutName = 'LAYOUT'): LayoutKey[] {
     throw err
   }
   const info = JSON.parse(raw)
-  const layout = info?.layouts?.[layoutName]?.layout
-  if (!Array.isArray(layout)) {
-    throw new TypeError(`Layout ${layoutName} is missing or invalid`)
-  }
-  return layout
+  return pickInfoLayout(info, { layoutName }).layout
 }
 
 function findKeymapFile(): string | null {
