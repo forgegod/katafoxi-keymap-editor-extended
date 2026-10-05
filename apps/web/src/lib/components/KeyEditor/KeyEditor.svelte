@@ -10,6 +10,7 @@
     holdTapPresetFor,
     isStockHoldTap,
     replaceHoldTapTiming,
+    zmkBehaviorDocsUrl,
     type HoldTapPreset,
     type ZmkHoldTap,
     behaviorValueCatalog,
@@ -237,6 +238,21 @@
     onChangeHoldTaps(replaceHoldTapTiming(holdTaps, behaviourCode, patch))
   }
 
+  function presetTitle(item: HoldTapPreset): string {
+    const docs = zmkBehaviorDocsUrl(item.code) ? 'Ctrl+click: docs' : ''
+    return [item.description, docs].filter(Boolean).join('\n')
+  }
+
+  function choosePresetClick(event: MouseEvent, next: HoldTapPreset) {
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault()
+      const url = zmkBehaviorDocsUrl(next.code)
+      if (url) window.open(url, '_blank', 'noopener,noreferrer')
+      return
+    }
+    choosePreset(next)
+  }
+
   function choosePreset(next: HoldTapPreset) {
     if (!onChangeHoldTaps) return
     const list = ensureHoldTapPreset(holdTaps, next.code)
@@ -447,11 +463,11 @@
             {#each HOLD_TAP_PRESETS as item (item.code)}
               <SelectChip
                 active={behaviourCode === item.code}
-                title={item.description}
+                title={presetTitle(item)}
                 aria-label={item.name}
                 data-behavior-preset={item.code}
                 disabled={!onChangeHoldTaps}
-                onclick={() => choosePreset(item)}
+                onclick={event => choosePresetClick(event, item)}
               >
                 {item.code}
               </SelectChip>

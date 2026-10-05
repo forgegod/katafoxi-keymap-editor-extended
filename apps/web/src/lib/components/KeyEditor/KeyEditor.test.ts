@@ -531,6 +531,49 @@ describe('KeyEditor value catalog', () => {
     expect(target.textContent).not.toContain('Every &hm')
   })
 
+  it('opens the hold-tap docs from a preset without selecting it', () => {
+    const selected: string[] = []
+    const opened: string[] = []
+    const original = window.open
+    window.open = ((url?: string | URL) => {
+      opened.push(String(url))
+      return null
+    }) as typeof window.open
+    try {
+      open({
+        bindingLabel: '&mt LCTRL J',
+        behaviours,
+        editorSlots: [
+          slot(0, 'behaviour', '&mt', 'Behaviour'),
+          slot(1, 'mod', 'LCTRL', 'Modifier'),
+          slot(2, 'code', 'J', 'Key')
+        ],
+        activeCodeIndex: 1,
+        choices: codeChoices,
+        onSelectBehaviour: choice => {
+          selected.push(String(choice.code))
+        },
+        onChangeHoldTaps: () => {},
+        onSelectValue: () => {},
+        onActivateSlot: () => {},
+        onConfirm: () => {},
+        onCancel: () => {}
+      })
+
+      const homerow = target.querySelector('[data-behavior-preset="&hm"]')
+      const autoshift = target.querySelector('[data-behavior-preset="&as"]')
+      expect(homerow?.getAttribute('title')).toContain('Ctrl+click: docs')
+      expect(autoshift?.getAttribute('title')).toContain('Ctrl+click: docs')
+      homerow?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true })
+      )
+      expect(opened).toEqual(['https://zmk.dev/docs/keymaps/behaviors/hold-tap'])
+      expect(selected).toEqual([])
+    } finally {
+      window.open = original
+    }
+  })
+
   it('edits the shared &mt term and adds the homerow preset', () => {
     const changes: unknown[] = []
     let selected = ''

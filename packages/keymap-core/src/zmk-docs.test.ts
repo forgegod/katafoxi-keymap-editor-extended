@@ -15,6 +15,12 @@ describe('zmkBehaviorDocsUrl', () => {
     expect(zmkBehaviorDocsUrl('&bootloader')).toBe(
       'https://zmk.dev/docs/keymaps/behaviors/reset'
     )
+    expect(zmkBehaviorDocsUrl('&hm')).toBe(
+      'https://zmk.dev/docs/keymaps/behaviors/hold-tap'
+    )
+    expect(zmkBehaviorDocsUrl('&as')).toBe(
+      'https://zmk.dev/docs/keymaps/behaviors/hold-tap'
+    )
   })
 
   it('returns null for unknown bindings', () => {

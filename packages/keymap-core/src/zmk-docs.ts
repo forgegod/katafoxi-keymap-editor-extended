@@ -5,6 +5,9 @@ const BEHAVIOR_DOCS: Record<string, string> = {
   '&mmv': 'https://zmk.dev/docs/keymaps/behaviors/mouse-emulation',
   '&mt': 'https://zmk.dev/docs/keymaps/behaviors/hold-tap',
   '&lt': 'https://zmk.dev/docs/keymaps/behaviors/hold-tap',
+  // Editor presets. Both are hold-taps; ZMK documents them on the hold-tap page.
+  '&hm': 'https://zmk.dev/docs/keymaps/behaviors/hold-tap',
+  '&as': 'https://zmk.dev/docs/keymaps/behaviors/hold-tap',
   '&sk': 'https://zmk.dev/docs/keymaps/behaviors/sticky-key',
   '&sl': 'https://zmk.dev/docs/keymaps/behaviors/sticky-layer',
   '&mo': 'https://zmk.dev/docs/keymaps/behaviors/layers',
