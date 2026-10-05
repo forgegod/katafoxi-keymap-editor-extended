@@ -273,14 +273,18 @@ describe('fetchKeyboardFiles', () => {
       {
         'config/info.json': JSON.stringify(INFO),
         config: LISTING,
-        'config/keymap.json': JSON.stringify({ ...KEYMAP_JSON, holdTaps: [] })
+        'config/keymap.json': JSON.stringify({
+          ...KEYMAP_JSON,
+          holdTaps: [],
+          sensorBindings: []
+        })
       },
       { missing: [HOST_KEYMAP_SNAPSHOT_PATH] }
     )
 
     const result = await fetchKeyboardFiles('1', REPO, 'main')
 
-    expect(result.keymap).toEqual({ ...KEYMAP_JSON, holdTaps: [] })
+    expect(result.keymap).toEqual({ ...KEYMAP_JSON, holdTaps: [], sensorBindings: [] })
     expect(requestUrls(request).some(url => url.endsWith(`/${KEYMAP_PATH}`))).toBe(false)
   })
 
