@@ -14,7 +14,7 @@ import {
 } from './modifiers.js'
 import type { KeyBindingNode, ZmkCombo } from './types.js'
 
-interface DtsCombosBlock {
+export interface DtsCombosBlock {
   /** Absolute start of the `combos` keyword. */
   keywordStart: number
   openBrace: number
@@ -27,7 +27,7 @@ interface DtsCombosBlock {
  * Locate a `combos { … }` block. Prefers one that declares
  * `compatible = "zmk,combos"` when several exist.
  */
-function findCombosBlock(source: string): DtsCombosBlock | null {
+export function findCombosBlock(source: string): DtsCombosBlock | null {
   const re = /\bcombos\s*\{/g
   let fallback: DtsCombosBlock | null = null
   let m: RegExpExecArray | null

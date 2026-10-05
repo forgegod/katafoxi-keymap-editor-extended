@@ -92,4 +92,16 @@ describe('editor combo mode', () => {
     expect(editor.tryExitComboMode()).toBe(true)
     expect(editor.draftKeymap?.combos?.map(c => c.id)).toEqual(['combo_esc'])
   })
+
+  it('keeps combos: [] when the last combo is cleared so Save can drop the block', () => {
+    editor.updateCombos([
+      { id: 'combo_esc', keyPositions: [0, 1], binding: esc }
+    ])
+    editor.updateCombos([])
+    expect(editor.draftKeymap).toBeTruthy()
+    expect(Object.prototype.hasOwnProperty.call(editor.draftKeymap, 'combos')).toBe(
+      true
+    )
+    expect(editor.draftKeymap?.combos).toEqual([])
+  })
 })

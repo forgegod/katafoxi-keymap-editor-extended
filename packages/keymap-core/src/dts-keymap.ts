@@ -8,7 +8,11 @@
  * Per-layer `sensor-bindings` are parsed into `sensorBindings` (encoders).
  */
 
-import { parseDtsCombos, type DtsComboJson } from './dts-combos.js'
+import {
+  findCombosBlock,
+  parseDtsCombos,
+  type DtsComboJson
+} from './dts-combos.js'
 import { parseDtsConditionalLayers } from './dts-conditional-layers.js'
 import { parseDtsHoldTaps } from './dts-behaviors.js'
 import type { ZmkConditionalLayer, ZmkHoldTap } from './types.js'
@@ -214,7 +218,13 @@ export interface DtsKeymapJson {
   layout: string
   layer_names: string[]
   layers: string[][]
-  /** Raw combo nodes (string bindings); converted in parseKeymap. */
+  /**
+   * Raw combo nodes (string bindings); converted in parseKeymap.
+   * Omitted when the file has no `combos` block, or when a block is present
+   * but yields zero parsed nodes from a non-empty body (`combos_unparsed`).
+   * An explicit empty array means the file owns an empty combos list
+   * (Save may remove the block).
+   */
   combos?: DtsComboJson[]
   /** Omitted when the file has no conditional-layer rules. */
   conditionalLayers?: ZmkConditionalLayer[]
@@ -272,6 +282,7 @@ export function parseDtsKeymap(
     throw new Error('No layers with bindings found in .keymap')
   }
 
+  const combosBlock = findCombosBlock(source)
   const combosRaw = parseDtsCombos(source)
   const combos: DtsComboJson[] = []
   for (const c of combosRaw) {
@@ -287,6 +298,19 @@ export function parseDtsKeymap(
     warnings.push('macros_expanded')
   }
 
+  let ownedCombos: DtsComboJson[] | undefined
+  if (combos.length > 0) {
+    ownedCombos = combos
+  } else if (combosBlock) {
+    const body = source.slice(combosBlock.bodyStart, combosBlock.bodyEnd).trim()
+    if (body.length > 0) {
+      // Block present but nothing parsed — do not claim ownership with [].
+      warnings.push('combos_unparsed')
+    } else {
+      ownedCombos = []
+    }
+  }
+
   const conditionalLayers = parseDtsConditionalLayers(source)
   const holdTaps = parseDtsHoldTaps(source)
 
@@ -296,7 +320,7 @@ export function parseDtsKeymap(
     layout: meta.layout ?? 'LAYOUT',
     layer_names,
     layers,
-    combos,
+    ...(ownedCombos !== undefined ? { combos: ownedCombos } : {}),
     ...(conditionalLayers.length > 0 ? { conditionalLayers } : {}),
     ...(holdTaps.length > 0 ? { holdTaps } : {}),
     ...(anySensor ? { sensorBindings: sensorRows } : {}),

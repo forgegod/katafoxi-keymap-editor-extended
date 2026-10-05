@@ -241,7 +241,8 @@ export function cloneParsedKeymap(km: ParsedKeymap): ParsedKeymap {
   if (km.keyboard != null) out.keyboard = km.keyboard
   if (km.keymap != null) out.keymap = km.keymap
   if (km.layout != null) out.layout = km.layout
-  if (km.combos) {
+  // Keep explicit `combos: []` so Save can drop the DTS block (absent ≠ empty).
+  if (km.combos !== undefined) {
     out.combos = km.combos.map(c => {
       const combo: ZmkCombo = {
         id: c.id,

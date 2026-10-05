@@ -93,6 +93,72 @@ describe('parseDtsKeymap combos', () => {
       params: [{ value: 'ESC', params: [] }]
     })
   })
+
+  it('omits combos when the file has no combos block', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        layer_0 { bindings = <&kp A &kp B>; };
+    };
+};
+`
+    const raw = parseDtsKeymap(src)
+    expect(raw.combos).toBeUndefined()
+    expect(Object.prototype.hasOwnProperty.call(raw, 'combos')).toBe(false)
+    const km = parseKeymap(raw)
+    expect(km.combos).toBeUndefined()
+  })
+
+  it('omits combos and warns when a combos block yields zero parsed nodes', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        layer_0 { bindings = <&kp A &kp B>; };
+    };
+
+    combos {
+        compatible = "zmk,combos";
+        broken_combo {
+            timeout-ms = <40>;
+        };
+    };
+};
+`
+    const raw = parseDtsKeymap(src)
+    expect(raw.combos).toBeUndefined()
+    expect(raw.warnings).toContain('combos_unparsed')
+  })
+
+  it('leaves an unowned combos block alone on Save when parse omitted the field', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        layer_0 { bindings = <&kp A &kp B>; };
+    };
+
+    combos {
+        compatible = "zmk,combos";
+        broken_combo {
+            timeout-ms = <40>;
+        };
+    };
+};
+`
+    const km = parseKeymap(parseDtsKeymap(src))
+    expect(km.combos).toBeUndefined()
+    const built = buildKeymapCode(TINY_LAYOUT, km, { originalSource: src })
+    expect(built.mode).toBe('splice')
+    expect(built.code).toContain('broken_combo')
+    expect(built.code).toContain('compatible = "zmk,combos"')
+  })
+
+  it('drops the combos block when the model explicitly sets combos to []', () => {
+    const km = parseKeymap(parseDtsKeymap(WITH_COMBO))
+    km.combos = []
+    const built = buildKeymapCode(TINY_LAYOUT, km, { originalSource: WITH_COMBO })
+    expect(built.code).not.toContain('combos')
+    expect(built.code).toContain('&kp A')
+  })
 })
 
 describe('spliceCombosIntoDts', () => {

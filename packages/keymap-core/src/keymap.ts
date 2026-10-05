@@ -76,14 +76,17 @@ export function encodeKeyBinding(parsed: KeyBindingNode): string {
 }
 
 export function encodeKeymap(parsedKeymap: ParsedKeymap) {
-  const combos = parsedKeymap.combos?.map(encodeComboToJson)
+  const combos =
+    parsedKeymap.combos !== undefined
+      ? parsedKeymap.combos.map(encodeComboToJson)
+      : undefined
   const sensorBindings = parsedKeymap.sensorBindings?.map(layer =>
     layer.map(encodeKeyBinding)
   )
   return {
     ...parsedKeymap,
     layers: parsedKeymap.layers.map(layer => layer.map(encodeKeyBinding)),
-    ...(combos ? { combos } : {}),
+    ...(combos !== undefined ? { combos } : {}),
     ...(sensorBindings ? { sensorBindings } : {})
   }
 }
@@ -185,7 +188,7 @@ export function parseKeymap(keymap: {
     ...rest,
     layers: keymap.layers.map(layer => layer.map(parseKeyBinding))
   }
-  if (combos) out.combos = combos
+  if (combos !== undefined) out.combos = combos
   else delete out.combos
   if (conditionalLayers) out.conditionalLayers = conditionalLayers
   else delete out.conditionalLayers
@@ -305,6 +308,19 @@ export function generateKeymap(
 /**
  * Prefer an explicit template, else splice into originalSource, else the default
  * generated template. Always validates layer key counts first.
+ *
+ * Optional model fields on every save path (`applyModelBlocks`):
+ *
+ * | Field | Absent (`undefined`) | Present empty (`[]`) | Present non-empty |
+ * |-------|----------------------|----------------------|-------------------|
+ * | `combos` | Leave existing `combos` block alone | Remove the block | Rewrite / insert block |
+ * | `conditionalLayers` | Leave alone | Remove the node | Rewrite / insert |
+ * | `holdTaps` | Leave alone | (timing cleared per list) | Rewrite / insert |
+ * | `sensorBindings` | Leave alone | Clear per-layer props as listed | Rewrite per layer |
+ *
+ * DTS parse omits `combos` when there is no block, or when a block yields zero
+ * parsed nodes from a non-empty body (`combos_unparsed`). UI clear-all must set
+ * `combos: []` explicitly so Save can drop the block.
  */
 export function buildKeymapCode(
   layout: LayoutKey[],
