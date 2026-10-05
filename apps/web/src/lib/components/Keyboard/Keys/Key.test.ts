@@ -201,12 +201,14 @@ describe('Key click editor', () => {
     clickKey()
     clickChoice(document, '&mt', '.key-editor-chip')
 
-    const chips = [...document.querySelectorAll('.key-editor-chip')].map(el =>
+    const labels = [...document.querySelectorAll('.key-editor-section-label')].map(el =>
       (el.textContent ?? '').trim()
     )
-    expect(chips).toContain('Modifier')
-    expect(chips).toContain('Key')
-    expect(chips.some(text => text.includes('A'))).toBe(false)
+    expect(labels).toEqual(expect.arrayContaining(['Modifier', 'Value']))
+    const activeChoices = [...document.querySelectorAll('.key-editor-choice.active')].map(el =>
+      (el.textContent ?? '').trim()
+    )
+    expect(activeChoices).not.toContain('A')
     expect(document.querySelector('.binding')?.textContent).toBe('&mt')
 
     window.dispatchEvent(

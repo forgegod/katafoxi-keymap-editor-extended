@@ -49,7 +49,7 @@ function sideIsCompact(node: KeycapNode | undefined): boolean {
   return isCompactKeycapLegend(keycapNodeLegend(node))
 }
 
-/** `&mt` / `&lt` with two short legends — keep in-row, do not shrink the key. */
+/** Hold-tap with two short legends — keep in-row, do not shrink the key. */
 export function isCompactHoldTap(normalized: KeycapNode): boolean {
   const params = normalized.params ?? []
   if (!isHoldTapBinding(normalized)) return false

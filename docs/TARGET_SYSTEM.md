@@ -69,13 +69,13 @@ A then-layer is on only while every if-layer is active (Lower + Raise → Adjust
 
 ## Keycap / compose (target UX)
 
-- **ZMK legends** (compact codes on a raw layer0 row, and inside KeyEditor): helpers in `packages/keymap-core` `compose.ts` (`layerLegendSymbol`, `keycapLegend`, `isHoldTapBehavior`). Binding tokens stay ZMK (`1`, `LCTRL`, `LC(DEL)`).
+- **ZMK legends** (compact codes on a raw layer0 row, and inside KeyEditor): helpers in `packages/keymap-core` `compose.ts` (`layerLegendSymbol`, `keycapLegend`, `isHoldTapBehavior`, `isHoldTapBinding`). Binding tokens stay ZMK (`1`, `LCTRL`, `LC(DEL)`).
   - Layers: `L1` (index, not the layer name).
   - Left modifiers unmarked (`⌃ ⎇ ⌘ ⇧`); right side `R⌃` / `R⎇` / `R⌘` / `R⇧`. Alt is the ISO alternative-key symbol.
   - Compact chords drop parens: `LC(DEL)` → `⌃⌦`, `LS(CAPS)` → `⇧⇪`, and a short token `LA(F4)` → `⎇F4`, `LA(TAB)` → `⎇TAB`, `LA(ESC)` → `⎇ESC` (`F1`–`F12`).
   - Host-legend AltGr columns use the same mark: `R⎇` and `⇧R⎇`.
   - Mouse scroll keeps the family prefix: `SCRL⬆` `SCRL⬇` `SCRL⬅` `SCRL➡`. Pause/Break is `⏸`. Volume up / down / mute are `🔊` `🔉` `🔇`. Tooltip keeps the raw code.
-  - Behaviour on the cap: hide `&kp`; hide `&mt`/`&lt` when the hold-tap pill is shown; `&none` / `&trans` / instant binds are the center legend; other behaviours stay a small corner mark.
+  - Behaviour on the cap: hide `&kp`; hide the behaviour token when the hold-tap pill is shown (`&mt`, `&lt`, and a named hold-tap such as `&hm`); `&none` / `&trans` / instant binds are the center legend; other behaviours stay a small corner mark.
   - Caps Lock `⇪`. Browser back/forward `←` / `→` (not cursor `⏴` `⏵`). Number-row `-` / `=` (not the words `MINUS` / `EQUAL`). Tooltip keeps the raw code.
   - Keypad (`KP_*`): same glyph as the number row (`7`), boxed. Operators `+ - / *`, plus `KP_ENTER` `⮐`, `KP_DOT` `.`, `KP_EQUAL` `=`. Color is only a light fill. Host composed stays the same glyph.
 - **Composed view**: an N-column `ComposedLegend` in core (visible extras; a hidden base column is kept so the firmware alphabet remains when its glyphs are off the key). The keycap draws at most two languages (`onKeycap`): any pair, so Russian and Ukrainian can sit together while English stays the hidden reference. The table and decode card share the same `hostLevels` / `resolveHostColumns` path. Hold badges come from the binding (`holdRef`), not from the letter.

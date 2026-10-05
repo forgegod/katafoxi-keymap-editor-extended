@@ -21,13 +21,6 @@ const PARAM_FOR_BINDING: Record<string, string> = {
   '&sk': 'code'
 }
 
-const FLAVOR_LABELS: Record<string, string> = {
-  'tap-preferred': 'tap preferred',
-  'hold-preferred': 'hold preferred',
-  balanced: 'balanced',
-  'tap-unless-interrupted': 'tap unless interrupted'
-}
-
 /** Flavor ids the hold-tap form can write. */
 export const HOLD_TAP_FLAVORS: ReadonlyArray<{ id: string; label: string }> = [
   { id: 'tap-preferred', label: 'tap preferred' },
@@ -35,6 +28,10 @@ export const HOLD_TAP_FLAVORS: ReadonlyArray<{ id: string; label: string }> = [
   { id: 'balanced', label: 'balanced' },
   { id: 'tap-unless-interrupted', label: 'tap unless interrupted' }
 ]
+
+const FLAVOR_LABELS: Record<string, string> = Object.fromEntries(
+  HOLD_TAP_FLAVORS.map(flavor => [flavor.id, flavor.label])
+)
 
 /** `&mt` and `&lt` are the stock hold-taps a keymap can reconfigure. */
 export function isStockHoldTap(code: string): boolean {
@@ -165,7 +162,7 @@ function readBindingCells(body: string): number | undefined {
   return n > 0 ? n : undefined
 }
 
-export function paramsForHoldTapBindings(bindings: string[], cells?: number): string[] {
+function paramsForHoldTapBindings(bindings: string[], cells?: number): string[] {
   if (bindings.length > 0) {
     return bindings.map(code => PARAM_FOR_BINDING[code] ?? 'code')
   }
@@ -392,7 +389,7 @@ export function holdTapTimingNote(source: object | null | undefined): string | n
 }
 
 /** New hold-tap node. The label and the node name are the same. */
-export function namedHoldTapNode(input: {
+function namedHoldTapNode(input: {
   code: string
   tappingTermMs: number
   flavor: string
