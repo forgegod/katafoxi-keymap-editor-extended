@@ -7,6 +7,7 @@ import {
   findKeymapLayerNodes,
   findZmkKeymapBlock
 } from './dts-keymap.js'
+import { dominantEol, type LineEnding } from './eol.js'
 import { KeymapValidationError } from './errors.js'
 import { bindingColumnWidths, renderTable } from './layout.js'
 import type { LayoutKey } from './types.js'
@@ -24,22 +25,29 @@ export function assertLayerKeyCounts(layout: LayoutKey[], layers: string[][]): v
 function renderBindingsInterior(
   layout: LayoutKey[],
   layer: string[],
-  columnWidths: number[]
+  columnWidths: number[],
+  eol: LineEnding
 ): string {
   return renderTable(layout, layer, {
     linePrefix: '',
     columnSeparator: ' ',
-    columnWidths
+    columnWidths,
+    eol
   })
 }
 
-function formatNewLayerNode(index: number, interior: string, indent: string): string {
+function formatNewLayerNode(
+  index: number,
+  interior: string,
+  indent: string,
+  eol: LineEnding
+): string {
   const inner = indent + '    '
   return (
-    `${indent}layer_${index} {\n` +
-    `${inner}bindings = <\n` +
-    `${interior}\n` +
-    `${inner}>;\n` +
+    `${indent}layer_${index} {${eol}` +
+    `${inner}bindings = <${eol}` +
+    `${interior}${eol}` +
+    `${inner}>;${eol}` +
     `${indent}};`
   )
 }
@@ -69,6 +77,7 @@ export function spliceBindingsIntoDts(
   const { layout, layers } = input
   assertLayerKeyCounts(layout, layers)
 
+  const eol = dominantEol(original)
   const block = findZmkKeymapBlock(original)
   if (!block) {
     throw new Error('Cannot splice: no keymap block with compatible = "zmk,keymap" found')
@@ -95,12 +104,12 @@ export function spliceBindingsIntoDts(
     const remaining = findKeymapLayerNodes(result, blockAfter)
     for (let i = remaining.length - 1; i >= 0; i--) {
       const node = remaining[i]
-      const interior = renderBindingsInterior(layout, layers[i], columnWidths)
+      const interior = renderBindingsInterior(layout, layers[i], columnWidths, eol)
       result =
         result.slice(0, node.bindingsInterior.start) +
-        '\n' +
+        eol +
         interior +
-        '\n' +
+        eol +
         result.slice(node.bindingsInterior.end)
     }
     return result
@@ -109,12 +118,12 @@ export function spliceBindingsIntoDts(
   // Same or more layers: replace existing interiors, then append new nodes
   for (let i = existing.length - 1; i >= 0; i--) {
     const node = existing[i]
-    const interior = renderBindingsInterior(layout, layers[i], columnWidths)
+    const interior = renderBindingsInterior(layout, layers[i], columnWidths, eol)
     result =
       result.slice(0, node.bindingsInterior.start) +
-      '\n' +
+      eol +
       interior +
-      '\n' +
+      eol +
       result.slice(node.bindingsInterior.end)
   }
 
@@ -126,10 +135,10 @@ export function spliceBindingsIntoDts(
     const insertAt = blockAfter.closeBrace
     const newNodes: string[] = []
     for (let i = existing.length; i < layers.length; i++) {
-      const interior = renderBindingsInterior(layout, layers[i], columnWidths)
-      newNodes.push(formatNewLayerNode(i, interior, indent))
+      const interior = renderBindingsInterior(layout, layers[i], columnWidths, eol)
+      newNodes.push(formatNewLayerNode(i, interior, indent, eol))
     }
-    const insertion = '\n' + newNodes.join('\n') + '\n'
+    const insertion = eol + newNodes.join(eol) + eol
     result = result.slice(0, insertAt) + insertion + result.slice(insertAt)
   }
 

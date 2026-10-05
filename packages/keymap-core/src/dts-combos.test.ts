@@ -268,6 +268,15 @@ describe('spliceCombosIntoDts', () => {
     expect(next).toContain('compatible = "zmk,combos"')
     expect(next).toContain('key-positions = <0 1>;')
   })
+
+  it('rewrites combos with CRLF when the source uses CRLF', () => {
+    const crlf = WITH_COMBO.replace(/\n/g, '\r\n')
+    const next = spliceCombosIntoDts(crlf, [
+      { id: 'combo_tab', binding: '&kp TAB', keyPositions: [0] }
+    ])
+    expect(next).toContain('combo_tab')
+    expect(next.replace(/\r\n/g, '')).not.toContain('\n')
+  })
 })
 
 describe('buildKeymapCode combos', () => {

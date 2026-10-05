@@ -1,5 +1,6 @@
 import type { LayoutKey } from './types.js'
-import { InfoValidationError } from './errors.js'
+import type { LineEnding } from './eol.js'
+import { InfoValidationError, KeymapValidationError } from './errors.js'
 
 export { InfoValidationError } from './errors.js'
 
@@ -13,6 +14,8 @@ export interface RenderTableOpts {
    * lines up the same matrix column.
    */
   columnWidths?: number[]
+  /** Newline used between matrix rows. Defaults to LF. */
+  eol?: LineEnding
 }
 
 /** Place bindings into physical rows/cols from the layout. */
@@ -24,12 +27,23 @@ function layerBindingGrid(
   // holes in a JS array. Spreading those holes into Math.max yields NaN and an
   // empty bindings block on save.
   const rowsByIndex = new Map<number, (string | undefined)[]>()
+  // First layout index that claimed each (row,col); detect silent overwrites.
+  const claimed = new Map<string, number>()
 
   layer.forEach((code, i) => {
     if (layout[i]) {
       const { row = 0, col } = layout[i]
       const rowCells = rowsByIndex.get(row) ?? []
-      rowCells[col ?? rowCells.length] = code
+      const colIndex = col ?? rowCells.length
+      const cellKey = `${row},${colIndex}`
+      const prior = claimed.get(cellKey)
+      if (prior !== undefined) {
+        throw new KeymapValidationError([
+          `Duplicate matrix cell at row ${row}, col ${colIndex} (layout indexes ${prior} and ${i})`
+        ])
+      }
+      claimed.set(cellKey, i)
+      rowCells[colIndex] = code
       rowsByIndex.set(row, rowCells)
     }
   })
@@ -89,7 +103,8 @@ export function renderTable(
   const {
     useQuotes = false,
     linePrefix = '',
-    columnSeparator = ','
+    columnSeparator = ',',
+    eol = '\n'
   } = opts
   const minWidth = useQuotes ? 9 : 7
 
@@ -122,7 +137,7 @@ export function renderTable(
           .join('')
       )
     })
-    .join('\n')
+    .join(eol)
 }
 
 function isNumber(val: unknown): val is number {

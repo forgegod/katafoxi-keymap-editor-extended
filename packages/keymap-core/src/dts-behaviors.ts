@@ -7,6 +7,12 @@
  */
 
 import { maskDts, matchBrace } from './dts-scan.js'
+import {
+  dominantEol,
+  eatFollowingEol,
+  eatPrecedingEol,
+  type LineEnding
+} from './eol.js'
 import type { ZmkHoldTap } from './types.js'
 
 const HOLD_TAP_COMPATIBLE = 'zmk,behavior-hold-tap'
@@ -537,12 +543,12 @@ function collectHoldTapSpans(source: string, masked: string): HoldTapSpan[] {
 }
 
 function innerIndentOf(body: string, fallback: string): string {
-  const line = body.split('\n').find(row => row.trim().length > 0)
+  const line = body.split(/\r?\n/).find(row => row.trim().length > 0)
   return line ? (/^[ \t]*/.exec(line)?.[0] ?? fallback) : fallback
 }
 
 function contentIndent(source: string, openBrace: number): string {
-  const match = /\n([ \t]*)\S/.exec(source.slice(openBrace + 1))
+  const match = /\r?\n([ \t]*)\S/.exec(source.slice(openBrace + 1))
   return match?.[1] ?? '    '
 }
 
@@ -550,7 +556,8 @@ function setAssign(
   body: string,
   key: string,
   statement: string | null,
-  indent: string
+  indent: string,
+  eol: LineEnding
 ): string {
   const re = new RegExp(`^([ \\t]*)${key}\\s*=\\s*[^;\\n]*;`, 'm')
   const found = re.exec(body)
@@ -558,9 +565,10 @@ function setAssign(
     if (statement == null) {
       let start = found.index
       let end = found.index + found[0].length
-      if (body[end] === '\r') end++
-      if (body[end] === '\n') end++
-      else if (start > 0 && body[start - 1] === '\n') start -= 1
+      end = eatFollowingEol(body, end)
+      if (end === found.index + found[0].length) {
+        start = eatPrecedingEol(body, start)
+      }
       return body.slice(0, start) + body.slice(end)
     }
     return (
@@ -573,23 +581,30 @@ function setAssign(
   if (statement == null) return body
   const trimmed = body.replace(/[ \t]*$/, '')
   const needsNl = trimmed.length > 0 && !trimmed.endsWith('\n')
-  return `${trimmed}${needsNl ? '\n' : ''}${indent}${statement}\n`
+  return `${trimmed}${needsNl ? eol : ''}${indent}${statement}${eol}`
 }
 
-function patchTiming(body: string, node: ZmkHoldTap, indent: string): string {
+function patchTiming(
+  body: string,
+  node: ZmkHoldTap,
+  indent: string,
+  eol: LineEnding
+): string {
   let next = body
-  next = setAssign(next, 'flavor', node.flavor ? `flavor = "${node.flavor}";` : null, indent)
+  next = setAssign(next, 'flavor', node.flavor ? `flavor = "${node.flavor}";` : null, indent, eol)
   next = setAssign(
     next,
     'tapping-term-ms',
     node.tappingTermMs != null ? `tapping-term-ms = <${node.tappingTermMs}>;` : null,
-    indent
+    indent,
+    eol
   )
   next = setAssign(
     next,
     'quick-tap-ms',
     node.quickTapMs != null ? `quick-tap-ms = <${node.quickTapMs}>;` : null,
-    indent
+    indent,
+    eol
   )
   next = setAssign(
     next,
@@ -597,12 +612,13 @@ function patchTiming(body: string, node: ZmkHoldTap, indent: string): string {
     node.requirePriorIdleMs != null
       ? `require-prior-idle-ms = <${node.requirePriorIdleMs}>;`
       : null,
-    indent
+    indent,
+    eol
   )
   return next
 }
 
-function formatNamedHoldTap(node: ZmkHoldTap, indent: string): string {
+function formatNamedHoldTap(node: ZmkHoldTap, indent: string, eol: LineEnding): string {
   const label = node.code.replace(/^&/, '')
   const name = node.nodeName || label
   const bindings = node.bindings?.length ? node.bindings : ['&kp', '&kp']
@@ -620,10 +636,10 @@ function formatNamedHoldTap(node: ZmkHoldTap, indent: string): string {
   if (node.flavor) lines.push(`${inner}flavor = "${node.flavor}";`)
   lines.push(`${inner}bindings = <${bindings.join('>, <')}>;`)
   lines.push(`${indent}};`)
-  return lines.join('\n')
+  return lines.join(eol)
 }
 
-function formatOverrideBlock(node: ZmkHoldTap, indent: string): string {
+function formatOverrideBlock(node: ZmkHoldTap, indent: string, eol: LineEnding): string {
   const inner = `${indent}    `
   const lines = [`${indent}${node.code} {`]
   if (node.flavor) lines.push(`${inner}flavor = "${node.flavor}";`)
@@ -633,7 +649,7 @@ function formatOverrideBlock(node: ZmkHoldTap, indent: string): string {
     lines.push(`${inner}require-prior-idle-ms = <${node.requirePriorIdleMs}>;`)
   }
   lines.push(`${indent}};`)
-  return lines.join('\n')
+  return lines.join(eol)
 }
 
 function applyTextEdits(source: string, edits: TextEdit[]): string {
@@ -645,11 +661,11 @@ function applyTextEdits(source: string, edits: TextEdit[]): string {
   return out
 }
 
-function insertAtLine(source: string, closeBrace: number, text: string): TextEdit {
+function insertAtLine(source: string, closeBrace: number, text: string, eol: LineEnding): TextEdit {
   const lineStart = source.lastIndexOf('\n', closeBrace - 1) + 1
   const onClosingLine = source.slice(lineStart, closeBrace).trim() === ''
   const start = onClosingLine ? lineStart : closeBrace
-  return { start, end: start, text: `${text}\n` }
+  return { start, end: start, text: `${text}${eol}` }
 }
 
 /**
@@ -657,6 +673,7 @@ function insertAtLine(source: string, closeBrace: number, text: string): TextEdi
  * Other lines in a node stay. An absent field on the keymap skips this entirely.
  */
 export function spliceHoldTapsIntoDts(source: string, holdTaps: readonly ZmkHoldTap[]): string {
+  const eol = dominantEol(source)
   const masked = maskDts(source)
   const spans = collectHoldTapSpans(source, masked)
   const byCode = new Map(holdTaps.map(node => [node.code, node]))
@@ -669,8 +686,8 @@ export function spliceHoldTapsIntoDts(source: string, holdTaps: readonly ZmkHold
     if (!node || (span.kind === 'override' && !node.override) || (span.kind === 'named' && node.override)) {
       let start = span.blockStart
       let end = span.blockEnd
-      if (source[end] === '\n') end++
-      if (start > 0 && source[start - 1] === '\n') start--
+      end = eatFollowingEol(source, end)
+      start = eatPrecedingEol(source, start)
       edits.push({ start, end, text: '' })
       continue
     }
@@ -679,7 +696,7 @@ export function spliceHoldTapsIntoDts(source: string, holdTaps: readonly ZmkHold
     edits.push({
       start: span.open + 1,
       end: span.close,
-      text: patchTiming(body, node, indent)
+      text: patchTiming(body, node, indent, eol)
     })
     if (span.kind === 'named') patchedNamed.add(span.code)
     else patchedOverride.add(span.code)
@@ -698,19 +715,21 @@ export function spliceHoldTapsIntoDts(source: string, holdTaps: readonly ZmkHold
       const close = matchBrace(masked, open)
       if (close >= 0) {
         const indent = contentIndent(source, open)
-        const text = missingNamed.map(node => formatNamedHoldTap(node, indent)).join('\n')
-        edits.push(insertAtLine(source, close, text))
+        const text = missingNamed.map(node => formatNamedHoldTap(node, indent, eol)).join(eol)
+        edits.push(insertAtLine(source, close, text, eol))
       }
     } else {
       const root = /\/\s*\{/.exec(masked)
       if (root) {
         const open = root.index + root[0].length - 1
         const indent = contentIndent(source, open)
-        const text = missingNamed.map(node => formatNamedHoldTap(node, `${indent}    `)).join('\n')
+        const text = missingNamed
+          .map(node => formatNamedHoldTap(node, `${indent}    `, eol))
+          .join(eol)
         edits.push({
           start: open + 1,
           end: open + 1,
-          text: `\n${indent}behaviors {\n${text}\n${indent}};`
+          text: `${eol}${indent}behaviors {${eol}${text}${eol}${indent}};`
         })
       }
     }
@@ -719,10 +738,10 @@ export function spliceHoldTapsIntoDts(source: string, holdTaps: readonly ZmkHold
   if (missingOverrides.length > 0) {
     const root = /\/\s*\{/.exec(masked)
     const indent = root ? indentOfLine(source, root.index) : ''
-    const text = missingOverrides.map(node => formatOverrideBlock(node, indent)).join('\n\n')
+    const text = missingOverrides.map(node => formatOverrideBlock(node, indent, eol)).join(eol + eol)
     const start = root ? root.index : source.length
-    const prefix = start > 0 && source[start - 1] !== '\n' ? '\n' : ''
-    edits.push({ start, end: start, text: `${prefix}${text}\n\n` })
+    const prefix = start > 0 && source[start - 1] !== '\n' ? eol : ''
+    edits.push({ start, end: start, text: `${prefix}${text}${eol}${eol}` })
   }
 
   return applyTextEdits(source, edits)

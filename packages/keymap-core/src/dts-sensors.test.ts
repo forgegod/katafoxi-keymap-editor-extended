@@ -124,6 +124,28 @@ describe('sensor-bindings', () => {
     expect(again.sensorBindings).toEqual([['&inc_dec_kp C_VOL_UP C_VOL_DN'], []])
   })
 
+  it('inserts sensor-bindings with CRLF when the source uses CRLF', () => {
+    const bare = `/ {
+  keymap {
+    compatible = "zmk,keymap";
+    default_layer {
+      bindings = <
+&kp A &kp B
+      >;
+    };
+  };
+};
+`
+    const crlf = bare.replace(/\n/g, '\r\n')
+    const parsed = parseKeymap(parseDtsKeymap(bare))
+    parsed.sensorBindings = [
+      [{ value: '&inc_dec_kp', params: [{ value: 'C_VOL_UP', params: [] }, { value: 'C_VOL_DN', params: [] }] }]
+    ]
+    const built = buildKeymapCode(TWO, parsed, { originalSource: crlf })
+    expect(built.code).toContain('sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN>;')
+    expect(built.code.replace(/\r\n/g, '')).not.toContain('\n')
+  })
+
   it('keeps Lily58 volume turns on every layer', () => {
     const source = readFileSync(
       new URL('../fixtures/demo/lily58/lily58.keymap', import.meta.url),

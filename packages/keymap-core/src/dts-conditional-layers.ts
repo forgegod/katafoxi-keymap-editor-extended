@@ -10,6 +10,12 @@ import {
   matchBrace,
   parseUintList
 } from './dts-scan.js'
+import {
+  collapseExtraBlankLines,
+  dominantEol,
+  eatPrecedingEol,
+  type LineEnding
+} from './eol.js'
 import type { LegendHover, ZmkConditionalLayer } from './types.js'
 
 /** A conditional layer needs at least two held layers. */
@@ -67,7 +73,11 @@ function sanitizeNodeId(id: string): string {
   return cleaned.length > 0 ? cleaned : 'when_layers'
 }
 
-function formatRuleNode(rule: ZmkConditionalLayer, indent = '        '): string {
+function formatRuleNode(
+  rule: ZmkConditionalLayer,
+  indent = '        ',
+  eol: LineEnding = '\n'
+): string {
   const inner = indent + '    '
   const ifLayers = [...rule.ifLayers].sort((a, b) => a - b)
   return [
@@ -75,19 +85,20 @@ function formatRuleNode(rule: ZmkConditionalLayer, indent = '        '): string 
     `${inner}if-layers = <${ifLayers.join(' ')}>;`,
     `${inner}then-layer = <${rule.thenLayer}>;`,
     `${indent}};`
-  ].join('\n')
+  ].join(eol)
 }
 
 function formatConditionalLayersBlock(
   rules: readonly ZmkConditionalLayer[],
-  indent = '    '
+  indent = '    ',
+  eol: LineEnding = '\n'
 ): string {
   const child = indent + '    '
-  const nodes = rules.map(rule => formatRuleNode(rule, child)).join('\n')
+  const nodes = rules.map(rule => formatRuleNode(rule, child, eol)).join(eol)
   return (
-    `${indent}conditional_layers {\n` +
-    `${child}compatible = "zmk,conditional-layers";\n` +
-    (nodes ? `${nodes}\n` : '') +
+    `${indent}conditional_layers {${eol}` +
+    `${child}compatible = "zmk,conditional-layers";${eol}` +
+    (nodes ? `${nodes}${eol}` : '') +
     `${indent}};`
   )
 }
@@ -101,6 +112,7 @@ export function spliceConditionalLayersIntoDts(
   original: string,
   rules: readonly ZmkConditionalLayer[]
 ): string {
+  const eol = dominantEol(original)
   const block = findConditionalBlock(original)
 
   if (rules.length === 0) {
@@ -111,11 +123,11 @@ export function spliceConditionalLayersIntoDts(
     while (from > 0 && (original[from - 1] === ' ' || original[from - 1] === '\t')) {
       from--
     }
-    if (from > 0 && original[from - 1] === '\n') from--
-    return (original.slice(0, from) + original.slice(to)).replace(/\n{3,}/g, '\n\n')
+    from = eatPrecedingEol(original, from)
+    return collapseExtraBlankLines(original.slice(0, from) + original.slice(to), eol)
   }
 
-  const formatted = formatConditionalLayersBlock(rules)
+  const formatted = formatConditionalLayersBlock(rules, '    ', eol)
   if (block) {
     let to = block.closeBrace + 1
     if (original[to] === ';') to++
@@ -128,11 +140,11 @@ export function spliceConditionalLayersIntoDts(
     const openBrace = root.index + root[0].length - 1
     const closeBrace = matchBrace(masked, openBrace)
     if (closeBrace >= 0) {
-      return original.slice(0, closeBrace) + `\n${formatted}\n` + original.slice(closeBrace)
+      return original.slice(0, closeBrace) + `${eol}${formatted}${eol}` + original.slice(closeBrace)
     }
   }
 
-  return `${original.trimEnd()}\n\n/ {\n${formatted}\n};\n`
+  return `${original.trimEnd()}${eol}${eol}/ {${eol}${formatted}${eol}};${eol}`
 }
 
 function sanitizeName(raw: string): string {

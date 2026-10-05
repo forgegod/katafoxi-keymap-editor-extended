@@ -4,6 +4,7 @@ import {
   bindingColumnWidths,
   buildKeymapCode,
   inferRectangularLayout,
+  KeymapValidationError,
   parseKeymap,
   promoteAbsentLayoutKey,
   renderTable,
@@ -74,6 +75,45 @@ describe('renderTable', () => {
     // padEnd: left edges of the same matrix column line up across layers.
     expect(shortLayer.indexOf('&kp B')).toBe(longLayer.indexOf('&mt LCTRL J'))
     expect(shortLayer.indexOf('&kp C')).toBe(longLayer.indexOf('&kp D'))
+  })
+
+  it('throws KeymapValidationError when two keys share the same (row, col)', () => {
+    const layout: LayoutKey[] = [
+      { x: 0, y: 0, row: 0, col: 0 },
+      { x: 1, y: 0, row: 0, col: 0 }
+    ]
+    const layer = ['&kp A', '&kp B']
+    expect(() => renderTable(layout, layer, { columnSeparator: ' ' })).toThrow(
+      KeymapValidationError
+    )
+    expect(() => bindingColumnWidths(layout, [layer], { columnSeparator: ' ' })).toThrow(
+      KeymapValidationError
+    )
+    try {
+      renderTable(layout, layer, { columnSeparator: ' ' })
+      expect.unreachable('expected duplicate cell to throw')
+    } catch (e) {
+      expect(e).toBeInstanceOf(KeymapValidationError)
+      const err = e as KeymapValidationError
+      expect(err.errors[0]).toMatch(/duplicate matrix cell/i)
+      expect(err.errors[0]).toMatch(/row 0/)
+      expect(err.errors[0]).toMatch(/col 0/)
+    }
+  })
+
+  it('joins matrix rows with an explicit CRLF when requested', () => {
+    const layout: LayoutKey[] = [
+      { x: 0, y: 0, row: 0, col: 0 },
+      { x: 1, y: 0, row: 0, col: 1 },
+      { x: 0, y: 1, row: 1, col: 0 },
+      { x: 1, y: 1, row: 1, col: 1 }
+    ]
+    const rendered = renderTable(layout, ['&kp A', '&kp B', '&kp C', '&kp D'], {
+      columnSeparator: ' ',
+      eol: '\r\n'
+    })
+    expect(rendered).toContain('\r\n')
+    expect(rendered.split('\r\n')).toHaveLength(2)
   })
 })
 

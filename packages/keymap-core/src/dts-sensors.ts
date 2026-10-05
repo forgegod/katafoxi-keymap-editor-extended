@@ -6,6 +6,7 @@
  */
 
 import { findAnglePropStatement, maskDts } from './dts-scan.js'
+import { dominantEol, type LineEnding } from './eol.js'
 
 interface SensorLayerSpan {
   openBrace: number
@@ -13,7 +14,7 @@ interface SensorLayerSpan {
 }
 
 function bindingsIndent(body: string): string {
-  for (const line of body.split('\n')) {
+  for (const line of body.split(/\r?\n/)) {
     const found = line.match(/^([ \t]*)bindings\s*=/)
     if (found) return found[1]
   }
@@ -24,7 +25,8 @@ function writeLayerSensorBindings(
   source: string,
   openBrace: number,
   closeBrace: number,
-  bindings: string[]
+  bindings: string[],
+  eol: LineEnding
 ): string {
   const masked = maskDts(source)
   const range = { start: openBrace + 1, end: closeBrace }
@@ -35,7 +37,7 @@ function writeLayerSensorBindings(
     const end = found.statement.end
     let cut = start
     const before = source.slice(0, start)
-    const lineBreak = before.match(/\n[ \t]*$/)
+    const lineBreak = before.match(/\r?\n[ \t]*$/)
     if (lineBreak && lineBreak.index != null) cut = lineBreak.index
     return source.slice(0, cut) + source.slice(end)
   }
@@ -51,7 +53,7 @@ function writeLayerSensorBindings(
   const indent = bindingsIndent(body)
   let braceAt = closeBrace
   while (braceAt > openBrace && /[ \t]/.test(source[braceAt - 1])) braceAt--
-  const insertion = `${indent}${statement}\n`
+  const insertion = `${indent}${statement}${eol}`
   return source.slice(0, braceAt) + insertion + source.slice(braceAt)
 }
 
@@ -64,10 +66,17 @@ export function spliceSensorBindingsIntoDts(
   nodes: SensorLayerSpan[],
   layers: string[][]
 ): string {
+  const eol = dominantEol(source)
   let result = source
   for (let i = nodes.length - 1; i >= 0; i--) {
     const node = nodes[i]
-    result = writeLayerSensorBindings(result, node.openBrace, node.closeBrace, layers[i] ?? [])
+    result = writeLayerSensorBindings(
+      result,
+      node.openBrace,
+      node.closeBrace,
+      layers[i] ?? [],
+      eol
+    )
   }
   return result
 }

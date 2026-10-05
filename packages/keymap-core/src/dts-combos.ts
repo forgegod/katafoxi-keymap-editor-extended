@@ -17,6 +17,12 @@ import {
   type DtsNamedBlock
 } from './dts-scan.js'
 import {
+  collapseExtraBlankLines,
+  dominantEol,
+  eatPrecedingEol,
+  type LineEnding
+} from './eol.js'
+import {
   isModifierWrapCode,
   modifierHoldForKey,
   modifierHoldForWrap
@@ -113,7 +119,11 @@ function sanitizeComboId(id: string): string {
 }
 
 /** Format one combo node (encoded binding string already on the raw). */
-function formatComboNode(combo: DtsComboJson, indent = '        '): string {
+function formatComboNode(
+  combo: DtsComboJson,
+  indent = '        ',
+  eol: LineEnding = '\n'
+): string {
   const inner = indent + '    '
   const lines: string[] = [`${indent}${sanitizeComboId(combo.id)} {`]
   lines.push(`${inner}bindings = <${combo.binding}>;`)
@@ -131,16 +141,20 @@ function formatComboNode(combo: DtsComboJson, indent = '        '): string {
     lines.push(`${inner}layers = <${combo.layers.join(' ')}>;`)
   }
   lines.push(`${indent}};`)
-  return lines.join('\n')
+  return lines.join(eol)
 }
 
-export function formatCombosBlock(combos: DtsComboJson[], indent = '    '): string {
+export function formatCombosBlock(
+  combos: DtsComboJson[],
+  indent = '    ',
+  eol: LineEnding = '\n'
+): string {
   const child = indent + '    '
-  const nodes = combos.map(c => formatComboNode(c, child)).join('\n')
+  const nodes = combos.map(c => formatComboNode(c, child, eol)).join(eol)
   return (
-    `${indent}combos {\n` +
-    `${child}compatible = "zmk,combos";\n` +
-    (nodes ? `${nodes}\n` : '') +
+    `${indent}combos {${eol}` +
+    `${child}compatible = "zmk,combos";${eol}` +
+    (nodes ? `${nodes}${eol}` : '') +
     `${indent}};`
   )
 }
@@ -151,6 +165,7 @@ export function formatCombosBlock(combos: DtsComboJson[], indent = '    '): stri
  * aside from the inserted/removed region.
  */
 export function spliceCombosIntoDts(original: string, combos: DtsComboJson[]): string {
+  const eol = dominantEol(original)
   const block = findCombosBlock(original)
 
   if (combos.length === 0) {
@@ -161,13 +176,11 @@ export function spliceCombosIntoDts(original: string, combos: DtsComboJson[]): s
     while (from > 0 && (original[from - 1] === ' ' || original[from - 1] === '\t')) {
       from--
     }
-    if (from > 0 && original[from - 1] === '\n') from--
-    let next = original.slice(0, from) + original.slice(to)
-    next = next.replace(/\n{3,}/g, '\n\n')
-    return next
+    from = eatPrecedingEol(original, from)
+    return collapseExtraBlankLines(original.slice(0, from) + original.slice(to), eol)
   }
 
-  const formatted = formatCombosBlock(combos)
+  const formatted = formatCombosBlock(combos, '    ', eol)
 
   if (block) {
     let to = block.closeBrace + 1
@@ -181,12 +194,12 @@ export function spliceCombosIntoDts(original: string, combos: DtsComboJson[]): s
     const openBrace = root.index + root[0].length - 1
     const closeBrace = matchBrace(masked, openBrace)
     if (closeBrace >= 0) {
-      const insertion = `\n${formatted}\n`
+      const insertion = `${eol}${formatted}${eol}`
       return original.slice(0, closeBrace) + insertion + original.slice(closeBrace)
     }
   }
 
-  return `${original.trimEnd()}\n\n/ {\n${formatted}\n};\n`
+  return `${original.trimEnd()}${eol}${eol}/ {${eol}${formatted}${eol}};${eol}`
 }
 
 function sanitizeComboIdPart(raw: string): string {

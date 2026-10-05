@@ -1,0 +1,19 @@
+import { describe, expect, it } from 'vitest'
+import { dominantEol } from './eol.js'
+
+describe('dominantEol', () => {
+  it('returns LF when the source has no newlines or only LF', () => {
+    expect(dominantEol('')).toBe('\n')
+    expect(dominantEol('alone')).toBe('\n')
+    expect(dominantEol('a\nb\nc\n')).toBe('\n')
+  })
+
+  it('returns CRLF when CRLF lines outnumber bare LF', () => {
+    expect(dominantEol('a\r\nb\r\nc\r\n')).toBe('\r\n')
+    expect(dominantEol('a\r\nb\r\nc\n')).toBe('\r\n')
+  })
+
+  it('prefers LF on a tie', () => {
+    expect(dominantEol('a\r\nb\n')).toBe('\n')
+  })
+})

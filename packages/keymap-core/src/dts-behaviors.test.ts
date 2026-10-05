@@ -227,6 +227,22 @@ describe('parseDtsHoldTaps', () => {
     expect(parseDtsHoldTaps(spliced)).toEqual([node])
   })
 
+  it('inserts a hold-tap with CRLF when the source uses CRLF', () => {
+    const source =
+      `/ {\r\n    keymap {\r\n        compatible = "zmk,keymap";\r\n        default_layer {\r\n            bindings = <&kp A>;\r\n        };\r\n    };\r\n};\r\n`
+    const node = {
+      code: '&hm',
+      nodeName: 'hm',
+      tappingTermMs: 200,
+      flavor: 'tap-preferred',
+      bindings: ['&kp', '&kp'],
+      params: ['code', 'code']
+    }
+    const spliced = spliceHoldTapsIntoDts(source, [node])
+    expect(spliced).toContain('hm: hm {')
+    expect(spliced.replace(/\r\n/g, '')).not.toContain('\n')
+  })
+
   it('drops a cleared &mt block and reports the behavior as dirty', () => {
     const source = `&mt {\n    flavor = "tap-preferred";\n    tapping-term-ms = <300>;\n};\n\n/ {\n    keymap {\n        compatible = "zmk,keymap";\n        default_layer {\n            bindings = <&kp A>;\n        };\n    };\n};\n`
     const cleared = replaceHoldTapTiming(parseDtsHoldTaps(source), '&mt', {

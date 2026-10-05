@@ -202,6 +202,40 @@ describe('buildKeymapCode paths', () => {
     layers: [['&kp A', '&trans']]
   })
 
+  it('preserves CRLF endings when splicing into a CRLF keymap', () => {
+    const crlf = LARK_LIKE.replace(/\n/g, '\r\n')
+    expect(crlf).toContain('\r\n')
+    const spliced = spliceBindingsIntoDts(crlf, {
+      layout: TINY_LAYOUT,
+      layers: [
+        ['&kp Z', '&kp B'],
+        ['&kp C_VOL_UP', '&trans']
+      ],
+      layerNames: ['layer_0', 'layer_1']
+    })
+    expect(spliced).toContain('&kp Z')
+    expect(spliced).toContain('\r\n')
+    // Inserted bindings must not introduce bare LF (mixed endings).
+    expect(spliced.replace(/\r\n/g, '')).not.toContain('\n')
+  })
+
+  it('rejects duplicate matrix cells on the splice save path', () => {
+    const dupLayout: LayoutKey[] = [
+      { x: 0, y: 0, row: 0, col: 0 },
+      { x: 1, y: 0, row: 0, col: 0 }
+    ]
+    expect(() =>
+      buildKeymapCode(
+        dupLayout,
+        parseKeymap({
+          layers: [['&kp A', '&kp B']],
+          layer_names: ['default']
+        }),
+        { originalSource: LARK_LIKE }
+      )
+    ).toThrow(KeymapValidationError)
+  })
+
   it('path 1: template wins over originalSource', () => {
     const result = buildKeymapCode(TINY_LAYOUT, parsed, {
       template: '/* TEMPLATE_MARKER */\n{{rendered_layers}}\n',

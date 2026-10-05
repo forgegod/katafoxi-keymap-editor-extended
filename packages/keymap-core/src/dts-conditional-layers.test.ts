@@ -122,6 +122,13 @@ describe('spliceConditionalLayersIntoDts', () => {
     expect(parseDtsConditionalLayers(next)).toEqual([])
   })
 
+  it('rewrites conditional layers with CRLF when the source uses CRLF', () => {
+    const crlf = WITH_RULE.replace(/\n/g, '\r\n')
+    const next = spliceConditionalLayersIntoDts(crlf, [rule('tri_layer', [1, 2], 3)])
+    expect(next).toContain('then-layer = <3>;')
+    expect(next.replace(/\r\n/g, '')).not.toContain('\n')
+  })
+
   it('writes the block on save and drops it after the rules are cleared', () => {
     const parsed = parseKeymap(parseDtsKeymap(WITH_RULE))
     const built = buildKeymapCode(TINY, parsed, { originalSource: WITH_RULE })
