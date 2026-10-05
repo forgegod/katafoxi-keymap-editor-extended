@@ -12,8 +12,10 @@
 
 import { HOST_KEY_IDS, type HostKeyId } from './host-key-id.js'
 import type { HostLayout } from './host-layout.js'
+import { HOST_LANGUAGE_IDS, type HostLanguageId } from './host-languages.js'
 import { windowsDeadKey, type WindowsDeadKey } from './klc-dead.js'
-import type { WindowsLocale } from './klc-locale.js'
+import { WINDOWS_LOCALES, type WindowsLocale } from './klc-locale.js'
+import { isLetterCasePair } from './letter-case.js'
 import { keysymToGlyph } from './xkb-keysyms.js'
 
 export interface HostLayoutKlcOptions {
@@ -33,6 +35,8 @@ export interface HostLayoutKlcOptions {
    * stay with the base layout. `locale.sgcapByZmk` is ignored in this mode.
    */
   capsLayout?: HostLayout
+  /** Append-only bag for writer warnings (VK remap exhaustion, dropped glyphs). */
+  warnings?: string[]
 }
 
 const SHIFT_ORDER = [0, 1, 2, 6, 7] as const
@@ -180,19 +184,29 @@ export function klcCharToken(codepoint: number): string {
   return hex4(codepoint)
 }
 
-function glyphOf(keysym: string): string | null {
+/**
+ * Resolve a keysym to a single NFC code point MSKLC can put in a cell.
+ * Combining leftovers after NFC are dropped with an explicit warning.
+ */
+export function klcGlyphOf(keysym: string, warnings?: string[]): string | null {
   if (!keysym || keysym === 'NoSymbol' || keysym === 'VoidSymbol') return null
   if (keysym.startsWith('dead_')) return null
   const glyph = keysymToGlyph(keysym)
   if (!glyph) return null
-  const chars = [...glyph]
-  if (chars.length !== 1) return null
+  const normalized = glyph.normalize('NFC')
+  const chars = [...normalized]
+  if (chars.length !== 1) {
+    warnings?.push(`Dropped multi-codepoint glyph for keysym ${keysym}.`)
+    return null
+  }
   return chars[0]
 }
 
-function isCasePair(lower: string | null, upper: string | null): boolean {
-  if (!lower || !upper || lower === upper) return false
-  return lower.toUpperCase() === upper && upper.toLowerCase() === lower
+function caseLanguage(locale: WindowsLocale): HostLanguageId | undefined {
+  for (const id of HOST_LANGUAGE_IDS) {
+    if (WINDOWS_LOCALES[id].localeId === locale.localeId) return id
+  }
+  return undefined
 }
 
 function deadEntry(keysym: string, locale: WindowsLocale): WindowsDeadKey | undefined {
@@ -206,16 +220,16 @@ function deadEntry(keysym: string, locale: WindowsLocale): WindowsDeadKey | unde
   return { keysym, id, pairs }
 }
 
-function cellToken(keysym: string, locale: WindowsLocale): string {
+function cellToken(keysym: string, locale: WindowsLocale, warnings?: string[]): string {
   const dead = deadEntry(keysym, locale)
   if (dead) return `${hex4(dead.id)}@`
-  const glyph = glyphOf(keysym)
+  const glyph = klcGlyphOf(keysym, warnings)
   if (!glyph) return '-1'
   return klcCharToken(glyph.codePointAt(0) as number)
 }
 
-function latinVk(keysym: string): string | null {
-  const glyph = glyphOf(keysym)
+function latinVk(keysym: string, warnings?: string[]): string | null {
+  const glyph = klcGlyphOf(keysym, warnings)
   if (!glyph) return null
   if (glyph >= 'a' && glyph <= 'z') return glyph.toUpperCase()
   if (glyph >= 'A' && glyph <= 'Z') return glyph.toUpperCase()
@@ -226,10 +240,32 @@ function vkSpelling(vk: string): string {
   return vk.startsWith('VK_') ? vk.slice(3) : vk
 }
 
+/** Prefer these when a positional or letter VK is already taken. */
+const OEM_FALLBACKS = [
+  'OEM_1',
+  'OEM_2',
+  'OEM_3',
+  'OEM_4',
+  'OEM_5',
+  'OEM_6',
+  'OEM_7',
+  'OEM_8',
+  'OEM_102',
+  'OEM_COMMA',
+  'OEM_PERIOD',
+  'OEM_MINUS',
+  'OEM_PLUS'
+] as const
+
+function unusedOem(used: ReadonlySet<string>): string | undefined {
+  return OEM_FALLBACKS.find(oem => !used.has(oem))
+}
+
 function assignVks(
   keys: readonly HostKeyId[],
   layout: HostLayout,
-  locale: WindowsLocale
+  locale: WindowsLocale,
+  warnings?: string[]
 ): Map<string, string> {
   const assigned = new Map<string, string>()
   const used = new Set<string>()
@@ -249,18 +285,35 @@ function assignVks(
   }
   for (const key of keys) {
     if (assigned.has(key.zmk)) continue
-    const vk = vkSpelling(key.vk)
-    assigned.set(key.zmk, vk)
-    used.add(vk)
+    const preferred = vkSpelling(key.vk)
+    if (!used.has(preferred)) {
+      assigned.set(key.zmk, preferred)
+      used.add(preferred)
+      continue
+    }
+    const oem = unusedOem(used)
+    if (oem) {
+      assigned.set(key.zmk, oem)
+      used.add(oem)
+      warnings?.push(`Remapped ${key.zmk} from ${preferred} to ${oem} (VK collision).`)
+      continue
+    }
+    warnings?.push(`No free virtual key for ${key.zmk}; ${preferred} stays duplicated.`)
+    assigned.set(key.zmk, preferred)
   }
   return assigned
 }
 
-function layoutUsesLevel(layout: HostLayout, level: number, locale: WindowsLocale): boolean {
+/** Which host levels 2/3 appear as non-empty KLC cells (one pass per layout). */
+function usedAltGrLevels(layout: HostLayout, locale: WindowsLocale): { level2: boolean; level3: boolean } {
+  let level2 = false
+  let level3 = false
   for (const levels of layout.byZmk.values()) {
-    if (cellToken(levels.keysyms[level] ?? 'NoSymbol', locale) !== '-1') return true
+    if (!level2 && cellToken(levels.keysyms[2] ?? 'NoSymbol', locale) !== '-1') level2 = true
+    if (!level3 && cellToken(levels.keysyms[3] ?? 'NoSymbol', locale) !== '-1') level3 = true
+    if (level2 && level3) break
   }
-  return false
+  return { level2, level3 }
 }
 
 function shiftStates(layout: HostLayout, locale: WindowsLocale, capsLayout?: HostLayout): number[] {
@@ -268,11 +321,10 @@ function shiftStates(layout: HostLayout, locale: WindowsLocale, capsLayout?: Hos
   states.add(0)
   states.add(1)
   states.add(2)
-  const uses = (level: number) =>
-    layoutUsesLevel(layout, level, locale) ||
-    (capsLayout != null && layoutUsesLevel(capsLayout, level, locale))
-  if (uses(2)) states.add(6)
-  if (uses(3)) states.add(7)
+  const base = usedAltGrLevels(layout, locale)
+  const caps = capsLayout ? usedAltGrLevels(capsLayout, locale) : undefined
+  if (base.level2 || caps?.level2) states.add(6)
+  if (base.level3 || caps?.level3) states.add(7)
   return SHIFT_ORDER.filter(state => states.has(state))
 }
 
@@ -292,26 +344,34 @@ function mergedAltGr(
   return national === '-1' ? fromBase : national
 }
 
-function inferredCap(glyphs: readonly (string | null)[]): string {
+function inferredCap(
+  glyphs: readonly (string | null)[],
+  language?: HostLanguageId
+): string {
   let cap = 0
-  if (isCasePair(glyphs[0], glyphs[1])) cap |= 1
-  if (isCasePair(glyphs[2], glyphs[3])) cap |= 4
+  if (isLetterCasePair(glyphs[0], glyphs[1], language)) cap |= 1
+  if (isLetterCasePair(glyphs[2], glyphs[3], language)) cap |= 4
   return String(cap)
 }
 
 function capToken(
   zmk: string,
   glyphs: readonly (string | null)[],
-  locale: WindowsLocale
+  locale: WindowsLocale,
+  language?: HostLanguageId
 ): string {
   if (locale.sgcapByZmk?.[zmk] != null) return 'SGCap'
-  return inferredCap(glyphs)
+  return inferredCap(glyphs, language)
 }
 
-function tokensByState(keysyms: readonly string[], locale: WindowsLocale): Map<number, string> {
+function tokensByState(
+  keysyms: readonly string[],
+  locale: WindowsLocale,
+  warnings?: string[]
+): Map<number, string> {
   const byState = new Map<number, string>()
   for (let level = 0; level < LEVEL_SHIFT.length; level++) {
-    byState.set(LEVEL_SHIFT[level], cellToken(keysyms[level] ?? 'NoSymbol', locale))
+    byState.set(LEVEL_SHIFT[level], cellToken(keysyms[level] ?? 'NoSymbol', locale, warnings))
   }
   byState.set(2, '-1')
   return byState
@@ -348,13 +408,15 @@ function characterRow(
   layout: HostLayout,
   locale: WindowsLocale,
   states: readonly number[],
-  capsLayout?: HostLayout
+  capsLayout?: HostLayout,
+  language?: HostLanguageId,
+  warnings?: string[]
 ): LayoutRow {
   const keysyms = layout.byZmk.get(key.zmk)?.keysyms ?? ['NoSymbol', 'NoSymbol', 'NoSymbol', 'NoSymbol']
-  const glyphs = keysyms.map(name => glyphOf(name))
-  const byState = tokensByState(keysyms, locale)
+  const glyphs = keysyms.map(name => klcGlyphOf(name, warnings))
+  const byState = tokensByState(keysyms, locale, warnings)
   const capsKeysyms = capsLayout?.byZmk.get(key.zmk)?.keysyms
-  const capsStates = capsKeysyms ? tokensByState(capsKeysyms, locale) : undefined
+  const capsStates = capsKeysyms ? tokensByState(capsKeysyms, locale, warnings) : undefined
   const cells = states.map(state => mergedAltGr(state, byState, capsStates))
   if (capsLayout && capsAlphabetDiffers(byState, capsStates)) {
     const capsCells = states.map(state => {
@@ -373,7 +435,7 @@ function characterRow(
     rowLine(
       key.scan as number,
       vk,
-      capsLayout ? inferredCap(glyphs) : capToken(key.zmk, glyphs, locale),
+      capsLayout ? inferredCap(glyphs, language) : capToken(key.zmk, glyphs, locale, language),
       cells
     )
   ]
@@ -442,13 +504,24 @@ export function hostLayoutsToCapsKlc(
 export function hostLayoutToKlc(layout: HostLayout, options: HostLayoutKlcOptions): string {
   const locale = options.locale
   const capsLayout = options.capsLayout
+  const warnings = options.warnings
+  const language = caseLanguage(locale)
   const states = shiftStates(layout, locale, capsLayout)
   const keys = HOST_KEY_IDS.filter(key => key.scan !== undefined)
-  const vks = assignVks(keys, layout, locale)
+  const vks = assignVks(keys, layout, locale, warnings)
   const rows: LayoutRow[] = keys
     .filter(key => layout.byZmk.has(key.zmk) || capsLayout?.byZmk.has(key.zmk))
     .map(key =>
-      characterRow(key, vks.get(key.zmk) ?? vkSpelling(key.vk), layout, locale, states, capsLayout)
+      characterRow(
+        key,
+        vks.get(key.zmk) ?? vkSpelling(key.vk),
+        layout,
+        locale,
+        states,
+        capsLayout,
+        language,
+        warnings
+      )
     )
   rows.push(fixedRow(0x39, 'SPACE', '0', state => (state <= 2 ? '0020' : '-1'), states))
   rows.push(fixedRow(0x53, 'DECIMAL', '0', state => (state <= 1 ? '002e' : '-1'), states))

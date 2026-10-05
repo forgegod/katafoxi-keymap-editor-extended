@@ -105,4 +105,26 @@ describe('missingBasicGlyphs', () => {
     expect(missingBasicGlyphs(bare, 'ru')).not.toContain('<')
     expect(missingBasicGlyphs(bare, 'ru')).not.toContain('>')
   })
+
+  it('matches Turkish dotted and dotless I without default Unicode folding', () => {
+    const tr = hostLayout(SYSTEM_TR_LAYOUT_ID)!
+    const withoutDotted = dropGlyphs(tr, ['i', 'İ'])
+    expect(missingBasicGlyphs(withoutDotted, 'tr')).toContain('i')
+    expect(missingBasicGlyphs(withoutDotted, 'tr')).not.toContain('ı')
+
+    const withoutDotless = dropGlyphs(tr, ['ı', 'I'])
+    expect(missingBasicGlyphs(withoutDotless, 'tr')).toContain('ı')
+    expect(missingBasicGlyphs(withoutDotless, 'tr')).not.toContain('i')
+
+    const onlyUpperDotted = dropGlyphs(tr, ['i'])
+    expect(missingBasicGlyphs(onlyUpperDotted, 'tr')).not.toContain('i')
+  })
+
+  it('treats German sharp s cases as the same letter', () => {
+    const de = hostLayout(SYSTEM_DE_LAYOUT_ID)!
+    const without = dropGlyphs(de, ['ß', 'ẞ'])
+    expect(missingBasicGlyphs(without, 'de')).toContain('ß')
+    const onlyCapital = withHostKey(without, 'MINUS', 0, 'U1E9E')!
+    expect(missingBasicGlyphs(onlyCapital, 'de')).not.toContain('ß')
+  })
 })

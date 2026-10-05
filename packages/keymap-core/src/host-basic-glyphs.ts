@@ -2,6 +2,7 @@ import { primarySystemLayoutId } from './host-layout-catalog.js'
 import type { HostLanguageId } from './host-languages.js'
 import type { HostLayout } from './host-layout.js'
 import { hostLayout } from './host-layout-registry.js'
+import { foldLetterKey } from './letter-case.js'
 import type { KeyBindingNode, ParsedKeymap } from './types.js'
 
 /**
@@ -148,10 +149,10 @@ function glyphsOf(layout: HostLayout): Set<string> {
   return found
 }
 
-function hasLetter(found: Set<string>, letter: string): boolean {
-  const lower = letter.toLowerCase()
+function hasLetter(found: Set<string>, letter: string, language: HostLanguageId): boolean {
+  const want = foldLetterKey(letter, language)
   for (const glyph of found) {
-    if (glyph.toLowerCase() === lower) return true
+    if (foldLetterKey(glyph, language) === want) return true
   }
   return false
 }
@@ -210,7 +211,7 @@ export function missingBasicGlyphs(
   const stock = stockOf(language)
   const missing: string[] = []
   for (const letter of LETTERS[language]) {
-    if (!hasLetter(stock, letter) || hasLetter(found, letter)) continue
+    if (!hasLetter(stock, letter, language) || hasLetter(found, letter, language)) continue
     missing.push(letter)
   }
   for (const mark of MARKS) {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { builtinHostLayoutSpecs } from './host-layout-catalog.js'
 import { hostLayoutFromSymbols, withHostKey, type HostLayout } from './host-layout.js'
 import { windowsLocale, type WindowsLocale } from './klc-locale.js'
@@ -298,5 +298,79 @@ describe('klc export', () => {
     expect(bytes[0]).toBe(0xff)
     expect(bytes[1]).toBe(0xfe)
     expect(new TextDecoder('utf-16le').decode(bytes.subarray(2))).toBe(text)
+  })
+
+  it('remaps a positional VK when a Latin letter already claimed it', () => {
+    const base = systemLayout('system-us')
+    const layout = withHostKey(withHostKey(base, 'GRAVE', 0, 'a')!, 'GRAVE', 1, 'A')
+    if (!layout) throw new Error('edit failed')
+    const warnings: string[] = []
+    const text = hostLayoutToKlc(layout, {
+      name: 'US',
+      locale: windowsLocale('en'),
+      warnings
+    })
+    const rows = layoutRows(text)
+    expect(rows.get('29')?.[1]).toBe('A')
+    expect(rows.get('1e')?.[1]).not.toBe('A')
+    expect(rows.get('1e')?.[1]).toMatch(/^OEM_/)
+    const vks = [...rows.values()].map(fields => fields[1])
+    expect(new Set(vks).size).toBe(vks.length)
+    expect(warnings.some(message => message.includes('Remapped A') && message.includes('OEM_'))).toBe(
+      true
+    )
+  })
+
+  it('treats Turkish i/İ and ı/I as Caps Lock case pairs', () => {
+    const dotted = withHostKey(withHostKey(systemLayout('system-us'), 'A', 0, 'i')!, 'A', 1, 'İ')
+    if (!dotted) throw new Error('edit failed')
+    expect(layoutRows(hostLayoutToKlc(dotted, { name: 'TR', locale: windowsLocale('tr') })).get('1e')?.[2]).toBe(
+      '1'
+    )
+    expect(layoutRows(hostLayoutToKlc(dotted, { name: 'US', locale: windowsLocale('en') })).get('1e')?.[2]).toBe(
+      '0'
+    )
+
+    const dotless = withHostKey(withHostKey(systemLayout('system-us'), 'A', 0, 'ı')!, 'A', 1, 'I')
+    if (!dotless) throw new Error('edit failed')
+    expect(
+      layoutRows(hostLayoutToKlc(dotless, { name: 'TR', locale: windowsLocale('tr') })).get('1e')?.[2]
+    ).toBe('1')
+    expect(
+      layoutRows(hostLayoutToKlc(dotless, { name: 'US', locale: windowsLocale('en') })).get('1e')?.[2]
+    ).toBe('0')
+  })
+
+  it('treats German ß/ẞ as a Caps Lock case pair', () => {
+    const layout = withHostKey(withHostKey(systemLayout('system-us'), 'A', 0, 'ssharp')!, 'A', 1, 'U1E9E')
+    if (!layout) throw new Error('edit failed')
+    expect(layoutRows(hostLayoutToKlc(layout, { name: 'DE', locale: windowsLocale('de') })).get('1e')?.[2]).toBe(
+      '1'
+    )
+  })
+
+  it('NFC-normalizes glyphs and warns when dropping multi-codepoint cells', async () => {
+    const keysyms = await import('./xkb-keysyms.js')
+    const spy = vi.spyOn(keysyms, 'keysymToGlyph').mockImplementation((name: string) => {
+      if (name === 'a') return 'q\u0301'
+      if (name === 'A') return 'é'
+      return null
+    })
+    try {
+      const layout = withHostKey(withHostKey(systemLayout('system-us'), 'A', 0, 'a')!, 'A', 1, 'A')
+      if (!layout) throw new Error('edit failed')
+      const warnings: string[] = []
+      const text = hostLayoutToKlc(layout, {
+        name: 'US',
+        locale: windowsLocale('en'),
+        warnings
+      })
+      const row = layoutRows(text).get('1e')
+      expect(row?.[3]).toBe('-1')
+      expect(row?.[4]).toBe('00e9')
+      expect(warnings).toContain('Dropped multi-codepoint glyph for keysym a.')
+    } finally {
+      spy.mockRestore()
+    }
   })
 })
