@@ -111,6 +111,7 @@
       <p class="encoder-empty">No encoder on this layer.</p>
     {:else}
       <div class="encoder-row">
+        <!-- Index key: sensor-binding slots are positional; no stable encoder id in the keymap. -->
         {#each turns as binding, index (index)}
           {@const cw = binding.params[0]}
           {@const ccw = binding.params[1]}

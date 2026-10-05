@@ -186,7 +186,7 @@
   let el: HTMLDivElement | undefined = $state()
   let bodyEl: HTMLDivElement | undefined = $state()
   let expanded = $state<Record<string, boolean>>({})
-  let positioned = false
+  let positioned = $state(false)
   let dragging = $state(false)
 
   const shelves = $derived(hostSymbolShelves(language))
@@ -442,6 +442,7 @@
   bind:this={el}
   class="host-symbol-picker"
   class:dragging
+  class:ready={positioned}
   role="dialog"
   aria-label="Host symbol catalog"
   aria-modal="true"
@@ -575,6 +576,12 @@
     font-family: Quicksand, avenir, sans-serif;
     font-size: var(--font-sm);
     line-height: 1.2;
+    /* Default left/top flash until applyInitialGeometry runs. */
+    visibility: hidden;
+  }
+
+  .host-symbol-picker.ready {
+    visibility: visible;
   }
 
   .host-symbol-picker.dragging {

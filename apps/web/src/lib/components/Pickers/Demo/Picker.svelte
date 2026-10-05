@@ -90,7 +90,7 @@
   </p>
 
   <ul class="demo-list" role="listbox" aria-label="Demo keyboards">
-    {#each cards as card}
+    {#each cards as card (card.entry.id)}
       <li>
         <button
           type="button"

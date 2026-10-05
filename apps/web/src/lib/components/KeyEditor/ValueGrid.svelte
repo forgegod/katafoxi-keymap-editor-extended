@@ -141,7 +141,7 @@
   {#if groups.length === 0 || groups.every(group => group.items.length === 0)}
     <p class="key-editor-empty">No matching values.</p>
   {:else}
-    {#each groups as group}
+    {#each groups as group (group.context)}
       {@const bands = bandCatalogChoices(group.items)}
       <div class="key-editor-group">
         {#if showGroupTitles || searching}

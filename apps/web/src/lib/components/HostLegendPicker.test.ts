@@ -101,14 +101,16 @@ describe('HostLegendPicker', () => {
     expect(panelRows().map(row => row.querySelector('th')?.textContent?.trim())).toEqual(['default'])
     const sizer = target.querySelector('.legend-sizer')
     if (!(sizer instanceof HTMLElement)) throw new Error('missing sizer')
-    expect(sizer.querySelectorAll('tbody tr')).toHaveLength(1)
+    expect(sizer.classList.contains('holding')).toBe(false)
+    expect(sizer.querySelectorAll('tbody tr')).toHaveLength(0)
 
     hoverStrip()
     expect(panelRows().map(row => row.querySelector('th')?.textContent?.trim())).toEqual([
       'default',
       'raise'
     ])
-    expect(sizer.querySelectorAll('tbody tr')).toHaveLength(1)
+    expect(sizer.classList.contains('holding')).toBe(true)
+    expect(sizer.querySelectorAll('tbody tr')).toHaveLength(0)
   })
 
   it('keeps extra layers behind the overlay until it is opened', async () => {
@@ -120,12 +122,13 @@ describe('HostLegendPicker', () => {
     if (!(sizer instanceof HTMLElement) || !(panel instanceof HTMLElement)) {
       throw new Error('missing overlay parts')
     }
-    expect(panel.style.position).toBe('absolute')
+    expect(panel.classList.contains('overlay')).toBe(false)
     expect(sizer.hasAttribute('inert')).toBe(true)
-    expect(sizer.querySelectorAll('tbody tr')).toHaveLength(1)
+    expect(sizer.classList.contains('holding')).toBe(false)
 
     hoverStrip()
-    expect(sizer.querySelectorAll('tbody tr')).toHaveLength(1)
+    expect(sizer.classList.contains('holding')).toBe(true)
+    expect(panel.classList.contains('overlay')).toBe(true)
     expect(panelRows()).toHaveLength(9)
     expect(panelRows().map(row => row.querySelector('th')?.textContent?.trim())).toEqual(
       Array.from({ length: 9 }, (_, i) => `L${i}`)
