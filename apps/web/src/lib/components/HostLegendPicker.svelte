@@ -1,7 +1,6 @@
 <script lang="ts">
   import {
     conditionalLayerRowPeer,
-    conditionalLayerWhenText,
     conditionalLayerWhenTitle,
     hostLanguagesAvailable,
     hostLegendColumns,
@@ -59,7 +58,6 @@
         name,
         marked: markedLayers.includes(index),
         binding: editor.draftKeymap?.layers[index]?.[anchorIndex],
-        whenLabel: conditionalLayerWhenText(conditionalRules, index, layerNames),
         whenTitle: conditionalLayerWhenTitle(conditionalRules, index, layerNames),
         peer: conditionalLayerRowPeer(index, editor.legendHover, conditionalRules)
       })

@@ -237,7 +237,11 @@ describe('HostLegendPicker', () => {
     hoverStrip()
 
     const adjust = target.querySelector('.legend-panel tr[data-layer="3"]')
-    expect(adjust?.querySelector('.when')?.textContent).toBe('when Lower + Raise')
+    expect(adjust?.textContent).not.toContain('when Lower')
+    expect(adjust?.classList.contains('when-then')).toBe(true)
+    expect(adjust?.querySelector('.layer-name')?.getAttribute('title')).toBe(
+      'When Lower and Raise are held, show Adjust'
+    )
     adjust?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
     flushSync()
     expect(editor.legendHover).toEqual({ kind: 'layers', layers: [1, 2], source: 3 })

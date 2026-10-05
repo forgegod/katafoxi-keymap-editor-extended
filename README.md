@@ -63,7 +63,7 @@ Product persistence is **GitHub-first**; Local is for iterating against a cloned
 - One **KeyEditor**: behaviour chips, then the value grid (keys, layers, mods, mouse/BT commands). Enter applies; Esc cancels.
 - Compact ZMK legends (`L1`, `⌃`, hold-tap pills) in `keymap-core`.
 - Visual **Combos**: list + board key-positions, binding via KeyEditor, timeout / layers / slow-release / prior-idle props; gap beads for adjacent pairs (row or column), anchor beads for non-adjacent/multi-key chords, with layer-aware placement and hover peek.
-- **Conditional layers** on the layer strip: the shown layer reads `when Lower + Raise`, and hovering it highlights the keys that hold those layers.
+- **Conditional layers** on the layer strip: the shown layer keeps an accent rail, and hovering it highlights the keys that hold those layers.
 - Undo / redo, **Draft** / Ready status, Discard draft.
 - Host lane: Ready / Changed / Saved, Linux and Windows install dialogs, assemblies (remembered legend sets). On GitHub, Commit/Load round-trip the host snapshot with ZMK.
 - Light / dark theme (default dark).

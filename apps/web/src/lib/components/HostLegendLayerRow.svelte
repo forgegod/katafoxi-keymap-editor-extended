@@ -16,8 +16,7 @@
     name: string
     marked: boolean
     binding: KeyBindingNode | undefined
-    /** `when Lower + Raise` on the layer this rule turns on. */
-    whenLabel?: string | null
+    /** Full rule sentence for the layer this rule turns on. */
     whenTitle?: string | null
     /** Partner row while the other side of a conditional layer is hovered. */
     peer?: boolean
@@ -114,6 +113,7 @@
   data-layer={row.index}
   class:off={!row.marked}
   class:raw={row.index === 0 && layer0Raw}
+  class:when-then={!!row.whenTitle}
   class:when-peer={row.peer === true}
   style={editor.layerTonesOn ? layerToneStyle(row.index) : undefined}
   onmouseenter={interactive ? hoverLayer : undefined}
@@ -144,13 +144,11 @@
           <button
             type="button"
             class="layer-name"
+            title={row.whenTitle ?? undefined}
             onclick={startRename}
           >
             {row.name}
           </button>
-        {/if}
-        {#if row.whenLabel && renamingIndex !== row.index}
-          <span class="when" title={row.whenTitle ?? undefined}>{row.whenLabel}</span>
         {/if}
         {#if canDelete}
           <Icon
@@ -239,13 +237,9 @@
     opacity: 0.4;
   }
 
+  tr.when-then,
   tr.when-peer {
     box-shadow: inset 3px 0 0 var(--accent);
-  }
-
-  .when {
-    color: var(--accent);
-    font-size: var(--font-xs);
   }
 
   .row-head {
