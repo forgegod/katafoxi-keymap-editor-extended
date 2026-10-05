@@ -21,7 +21,6 @@ Dev also splits origins (Vite `:5173` → API `:8080` via proxy). Session cookie
 6. **`ENABLE_LOCAL` gate.** Local sibling/`zmk-config` routes (`/layout`, `/keymap`) are available only when `ENABLE_LOCAL` is true. Default that flag to **false** in env templates / examples.
 7. **Local save vs `git status`.** Local save must not treat a non-zero `git status` exit code as failure of the write itself (dirty trees are normal).
 8. **App PEM / `jsonwebtoken` scope.** Use the GitHub App private key and JWT libraries **only** to mint GitHub App installation JWTs for the GitHub API — not to pack OAuth access tokens into client-bearer tokens.
-9. **Residual:** `POST /github/webhook` remains an unauthenticated stub until webhook signature verification is implemented.
 
 ## Consequences
 
@@ -36,7 +35,6 @@ Dev also splits origins (Vite `:5173` → API `:8080` via proxy). Session cookie
 - In-memory sessions are lost on API restart; users must sign in again.
 - Multi-instance / multi-dyno deploys need a shared session store later (or sticky sessions as a stopgap).
 - Local Vite requires `GITHUB_OAUTH_CALLBACK_URL` on `:5173` (proxy path); pointing the callback at `:8080` directly breaks cookie attachment for the SPA origin.
-- Webhook endpoint stays open until signature verification lands.
 
 ## References
 

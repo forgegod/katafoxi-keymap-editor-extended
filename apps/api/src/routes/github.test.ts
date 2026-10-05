@@ -186,11 +186,6 @@ describe('GET /github/authorize', () => {
 })
 
 describe('session and errors', () => {
-  it('POST /github/webhook with no cookie returns 200', async () => {
-    const res = await app.request('/github/webhook', { method: 'POST' })
-    expect(res.status).toBe(200)
-  })
-
   it('POST /github/logout with a valid sid returns 204 and invalidates the session', async () => {
     const sid = trackSid(createSession({ login: 'octocat', oauthAccessToken: 'user-token' }))
     const logout = await app.request('/github/logout', {

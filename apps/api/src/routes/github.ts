@@ -64,8 +64,6 @@ githubRoutes.get('/authorize', async c => {
   return c.redirect(auth.createOauthFlowUrl(state))
 })
 
-githubRoutes.post('/webhook', c => c.body(null, 200))
-
 githubRoutes.post('/logout', c => {
   const sid = getCookie(c, auth.SID_COOKIE)
   if (sid) deleteSession(sid)
