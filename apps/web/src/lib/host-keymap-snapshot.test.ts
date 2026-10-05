@@ -1,4 +1,8 @@
-import { addHostLanguage, assignHostLanguageLayout } from '@keymap-editor/keymap-core'
+import {
+  addHostLanguage,
+  assignHostLanguageLayout,
+  encodeHostKeymapSnapshot
+} from '@keymap-editor/keymap-core'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { editor } from './editor.svelte.js'
 
@@ -108,5 +112,41 @@ describe('GitHub host keymap snapshot', () => {
 
     editor.acceptHostRepoBaseline()
     expect(editor.isHostRepoDirty).toBe(false)
+  })
+
+  it('acceptHostRepoBaseline uses the passed encoding, not live edits', async () => {
+    await editor.selectKeyboard({
+      ...BOARD,
+      hostSnapshot: {
+        version: 1,
+        view: {
+          columns: [
+            {
+              language: 'en',
+              layoutId: 'system-us',
+              visible: true,
+              altGr: true,
+              altGrShift: true
+            }
+          ],
+          open: null
+        },
+        layouts: []
+      }
+    })
+    const committed = encodeHostKeymapSnapshot(
+      editor.buildCurrentHostKeymapSnapshot()
+    )
+    expect(editor.isHostRepoDirty).toBe(false)
+
+    editor.hostLegend = assignHostLanguageLayout(
+      addHostLanguage(editor.hostLegend, 'ru'),
+      'ru',
+      'system-ru-legacy'
+    )
+    expect(editor.isHostRepoDirty).toBe(true)
+
+    editor.acceptHostRepoBaseline(committed)
+    expect(editor.isHostRepoDirty).toBe(true)
   })
 })

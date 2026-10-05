@@ -597,9 +597,13 @@ export class EditorState {
     return this.isDirty || this.isHostRepoDirty
   }
 
-  /** After a successful Commit, treat the live host snapshot as the repo tip. */
-  acceptHostRepoBaseline() {
-    this.#hostRepoBaselineEncoded = this.#encodeLiveHostSnapshot()
+  /**
+   * After a successful Commit, set the repo tip to the snapshot that was sent.
+   * Pass the encoding captured at write time so mid-flight host edits stay dirty.
+   */
+  acceptHostRepoBaseline(encoded?: string) {
+    this.#hostRepoBaselineEncoded =
+      encoded !== undefined ? encoded : this.#encodeLiveHostSnapshot()
   }
 
   get changes(): KeymapChange[] {

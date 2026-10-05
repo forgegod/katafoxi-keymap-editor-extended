@@ -1,5 +1,11 @@
-import type { LayoutKey, ParsedKeymap } from '@keymap-editor/keymap-core'
+import {
+  encodeHostKeymapSnapshot,
+  type HostKeymapSnapshot,
+  type LayoutKey,
+  type ParsedKeymap
+} from '@keymap-editor/keymap-core'
 import type { GithubMeta } from './editor.svelte.js'
+import type { KeyboardFilesResult } from './github/api.svelte.js'
 
 export type PublishKeymapEditor = {
   saving: boolean
@@ -18,15 +24,17 @@ export type PublishKeymapEditor = {
   applyPublished(reloaded: ParsedKeymap, saveMeta?: unknown): void
   applyReloadFailure(source: string | null): void
   applySaveFailure(data: unknown): void
-  acceptHostRepoBaseline?(): void
-  buildCurrentHostKeymapSnapshot?(): unknown
+  acceptHostRepoBaseline?(encoded?: string): void
+  buildCurrentHostKeymapSnapshot?(): HostKeymapSnapshot
 }
 
 export async function publishKeymap(
   editor: PublishKeymapEditor,
   handlers: {
     write: () => Promise<unknown>
-    reload: () => Promise<{ layout?: unknown; keymap?: unknown }>
+    reload: () => Promise<
+      Pick<KeyboardFilesResult, 'keymap'> & Partial<Pick<KeyboardFilesResult, 'layout'>>
+    >
   }
 ): Promise<boolean> {
   const publishDirty =
@@ -36,6 +44,9 @@ export async function publishKeymap(
   const token = editor.beginPublish()
   const sourceAtStart = editor.source
   const githubAtStart = editor.githubMeta
+  const committedHostBaseline = editor.buildCurrentHostKeymapSnapshot
+    ? encodeHostKeymapSnapshot(editor.buildCurrentHostKeymapSnapshot())
+    : undefined
   try {
     const saveMeta = await handlers.write()
     try {
@@ -44,10 +55,10 @@ export async function publishKeymap(
         return false
       }
       if (reloaded.layout) {
-        editor.layout = reloaded.layout as LayoutKey[]
+        editor.layout = reloaded.layout
       }
-      editor.applyPublished(reloaded.keymap as ParsedKeymap, saveMeta)
-      editor.acceptHostRepoBaseline?.()
+      editor.applyPublished(reloaded.keymap, saveMeta)
+      editor.acceptHostRepoBaseline?.(committedHostBaseline)
       return true
     } catch {
       if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {

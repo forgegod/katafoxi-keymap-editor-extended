@@ -1,12 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ParsedKeymap } from '@keymap-editor/keymap-core'
+import {
+  addHostLanguage,
+  assignHostLanguageLayout,
+  type ParsedKeymap
+} from '@keymap-editor/keymap-core'
 import {
   buildDraftIdentity,
   deleteStoredDraft,
   loadStoredDraft
 } from './draft-storage'
 import { editor } from './editor.svelte.js'
+import type { KeyboardFilesResult } from './github/api.svelte.js'
 import { publishKeymap } from './publish-keymap'
+
+type PublishReload = Pick<KeyboardFilesResult, 'keymap'> &
+  Partial<Pick<KeyboardFilesResult, 'layout'>>
 
 function km(code: string, keyboard = 'lark'): ParsedKeymap {
   return {
@@ -53,7 +61,7 @@ describe('publishKeymap', () => {
     editor.updateKeymap(km('M'))
 
     const write = deferred()
-    const reload = deferred<{ keymap?: ParsedKeymap }>()
+    const reload = deferred<PublishReload>()
     const writeFn = vi.fn(() => write.promise)
     const reloadFn = vi.fn(() => reload.promise)
 
@@ -90,7 +98,7 @@ describe('publishKeymap', () => {
     editor.updateKeymap(km('M'))
 
     const write = deferred()
-    const reload = deferred<{ keymap?: ParsedKeymap }>()
+    const reload = deferred<PublishReload>()
     const writeFn = vi.fn(() => write.promise)
     const reloadFn = vi.fn(() => reload.promise)
 
@@ -127,7 +135,7 @@ describe('publishKeymap', () => {
     editor.updateKeymap(km('M'))
 
     const write = deferred()
-    const reload = deferred<{ keymap?: ParsedKeymap }>()
+    const reload = deferred<PublishReload>()
     const published = publishKeymap(editor, {
       write: () => write.promise,
       reload: () => reload.promise
@@ -181,7 +189,7 @@ describe('publishKeymap', () => {
     editor.updateKeymap(km('M'))
 
     const write = deferred()
-    const reload = deferred<{ keymap?: ParsedKeymap }>()
+    const reload = deferred<PublishReload>()
     const writeFn = vi.fn(() => write.promise)
     const reloadFn = vi.fn(() => reload.promise)
     const handlers = { write: writeFn, reload: reloadFn }
@@ -210,5 +218,53 @@ describe('publishKeymap', () => {
     ).resolves.toBe(false)
     expect(write).not.toHaveBeenCalled()
     expect(reload).not.toHaveBeenCalled()
+  })
+
+  it('keeps host-repo dirty for edits made while Commit is in flight', async () => {
+    await editor.selectKeyboard({
+      source: 'github',
+      github: { repository: 'owner/repo', branch: 'main' },
+      layout,
+      keymap: km('A'),
+      hostSnapshot: {
+        version: 1,
+        view: {
+          columns: [
+            {
+              language: 'en',
+              layoutId: 'system-us',
+              visible: true,
+              altGr: true,
+              altGrShift: true
+            }
+          ],
+          open: null
+        },
+        layouts: []
+      }
+    })
+    editor.updateKeymap(km('M'))
+    expect(editor.isHostRepoDirty).toBe(false)
+
+    const write = deferred()
+    const reload = deferred<PublishReload>()
+    const published = publishKeymap(editor, {
+      write: () => write.promise,
+      reload: () => reload.promise
+    })
+
+    editor.hostLegend = assignHostLanguageLayout(
+      addHostLanguage(editor.hostLegend, 'ru'),
+      'ru',
+      'system-ru-legacy'
+    )
+    expect(editor.isHostRepoDirty).toBe(true)
+
+    write.resolve({})
+    reload.resolve({ layout, keymap: km('M') })
+
+    await expect(published).resolves.toBe(true)
+    expect(editor.isDirty).toBe(false)
+    expect(editor.isHostRepoDirty).toBe(true)
   })
 })
