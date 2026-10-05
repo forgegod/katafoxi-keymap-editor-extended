@@ -677,4 +677,35 @@ describe('host layout store', () => {
     expect(editor.isHostDirty).toBe(false)
     expect(editor.exportActiveHostLayoutsXkb()).toBeNull()
   })
+
+  it('marks host dirty when assigning an existing user layout to a column', async () => {
+    editor.beginSaveHostProfile('en')
+    expect(await editor.confirmHostProfileName('Home A')).toBeNull()
+    const idA = editor.activeProfileId('en')
+    expect(idA).toMatch(/^user:/)
+
+    editor.beginCopyHostProfile('en', idA)
+    expect(await editor.confirmHostProfileName('Home B')).toBeNull()
+    const idB = editor.activeProfileId('en')
+    expect(idB).toMatch(/^user:/)
+    expect(idB).not.toBe(idA)
+
+    editor.markHostDelivered()
+    expect(editor.isHostDirty).toBe(false)
+    expect(editor.hostDeliverableLayoutIds).toEqual([idB])
+
+    const revisionBefore = editor.hostLayoutRevision
+    await editor.selectLanguageProfile('en', idA)
+    expect(editor.hostLayoutRevision).toBe(revisionBefore)
+    expect(editor.activeProfileId('en')).toBe(idA)
+    expect(editor.hostDeliverableLayoutIds).toEqual([idA])
+    expect(editor.isHostDirty).toBe(true)
+
+    editor.markHostDelivered()
+    expect(editor.isHostDirty).toBe(false)
+
+    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    expect(editor.isHostDirty).toBe(false)
+    expect(editor.hostDeliverableLayoutIds).toEqual([])
+  })
 })

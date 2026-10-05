@@ -353,10 +353,11 @@ export class EditorState {
    */
   hostLayoutRevision = $state(0)
   /**
-   * `hostLayoutRevision` at the last Linux/Windows export. Host is dirty while
-   * deliverable user layouts exist and the revision has moved past this mark.
+   * Deliverable fingerprint (`layoutIds|revision`) captured by the last
+   * Linux/Windows export via `markHostDelivered`. Host is dirty while
+   * deliverable user layouts exist and the live fingerprint differs.
    */
-  hostDeliveredRevision = $state(0)
+  hostDeliveredFingerprint = $state('')
   /**
    * Session toggle. On underlines a symbol that sits on a different key and
    * outlines AltGr cells the combined Windows file cannot keep. Not stored
@@ -631,16 +632,30 @@ export class EditorState {
     return ids
   }
 
+  /**
+   * Fingerprint of the OS deliverable set: user layout ids in column order
+   * (duplicates kept) plus `hostLayoutRevision`, so both content edits and
+   * reassignment of an existing profile mark host dirty until delivered.
+   */
+  get hostDeliverableFingerprint(): string {
+    void this.hostLayoutRevision
+    void this.hostLegend
+    const ids = hostLegendColumns(this.hostLegend)
+      .filter(column => isUserHostLayoutId(column.layoutId))
+      .map(column => column.layoutId)
+    return `${ids.join('\0')}|${this.hostLayoutRevision}`
+  }
+
   get isHostDirty(): boolean {
     return (
       this.hostDeliverableLayoutIds.length > 0 &&
-      this.hostLayoutRevision !== this.hostDeliveredRevision
+      this.hostDeliverableFingerprint !== this.hostDeliveredFingerprint
     )
   }
 
   /** Mark the current host layouts as exported (Linux/Windows install dialog). */
   markHostDelivered() {
-    this.hostDeliveredRevision = this.hostLayoutRevision
+    this.hostDeliveredFingerprint = this.hostDeliverableFingerprint
   }
 
   /**
@@ -758,7 +773,7 @@ export class EditorState {
       for (const record of records) this.#registerUserLayout(record)
       this.userLayouts = records.map(({ layout: _layout, ...rest }) => rest)
       // Restored layouts are already on disk in the browser; wait for a new edit.
-      this.hostDeliveredRevision = this.hostLayoutRevision
+      this.markHostDelivered()
     } catch {
       resetHostLayoutRegistry()
       this.userLayouts = []
@@ -766,7 +781,7 @@ export class EditorState {
       this.hostAssemblies = []
       this.layerView = standardLayerView()
       this.hostProfileNote = null
-      this.hostDeliveredRevision = this.hostLayoutRevision
+      this.markHostDelivered()
     }
   }
 
@@ -2231,7 +2246,7 @@ export class EditorState {
     this.hostLegend = standardHostLegendView()
     this.hostAssemblies = []
     this.hostLayoutRevision = 0
-    this.hostDeliveredRevision = 0
+    this.hostDeliveredFingerprint = ''
     this.symbolAlignOn = true
     this.multilangView = false
     this.layerTonesOn = false
