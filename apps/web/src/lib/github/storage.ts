@@ -10,7 +10,11 @@ export function getPersistedRepository(): number | null {
 }
 
 export function setPersistedRepository(repository: number | string) {
-  localStorage.setItem(REPOSITORY, JSON.stringify(repository))
+  try {
+    localStorage.setItem(REPOSITORY, JSON.stringify(repository))
+  } catch {
+    /* private mode / quota — ignore */
+  }
 }
 
 export function getPersistedBranch(repoId: number | string): string | null {
@@ -22,5 +26,9 @@ export function getPersistedBranch(repoId: number | string): string | null {
 }
 
 export function setPersistedBranch(repoId: number | string, branch: string) {
-  localStorage.setItem(`${BRANCH}:${repoId}`, JSON.stringify(branch))
+  try {
+    localStorage.setItem(`${BRANCH}:${repoId}`, JSON.stringify(branch))
+  } catch {
+    /* private mode / quota — ignore */
+  }
 }

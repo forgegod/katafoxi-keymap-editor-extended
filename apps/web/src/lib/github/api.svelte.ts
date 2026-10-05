@@ -1,5 +1,6 @@
 import {
   inferRectangularLayout,
+  parseHostKeymapSnapshot,
   type HostKeymapSnapshot,
   type LayoutKey,
   type ParsedKeymap
@@ -11,6 +12,12 @@ export interface KeyboardFilesResult {
   keymap: ParsedKeymap
   hostSnapshot: HostKeymapSnapshot | null
   warnings: string[]
+}
+
+/** Accept a validated snapshot at the SPA boundary; non-ok → no snapshot. */
+function hostSnapshotFromResponse(raw: unknown): HostKeymapSnapshot | null {
+  const parsed = parseHostKeymapSnapshot(raw)
+  return parsed.ok ? parsed.snapshot : null
 }
 
 type Listener = (...args: unknown[]) => void
@@ -262,9 +269,10 @@ export class API extends EventEmitter {
         data: {
           info: { layouts: Record<string, { layout: LayoutKey[] }> } | null
           keymap: ParsedKeymap
-          hostSnapshot?: HostKeymapSnapshot | null
+          hostSnapshot?: unknown
         }
       }
+      const hostSnapshot = hostSnapshotFromResponse(data.hostSnapshot ?? null)
       const warnings: string[] = []
       if (data.info?.layouts && Object.keys(data.info.layouts).length > 0) {
         const defaultLayout =
@@ -273,7 +281,7 @@ export class API extends EventEmitter {
         return {
           layout: defaultLayout.layout,
           keymap: data.keymap,
-          hostSnapshot: data.hostSnapshot ?? null,
+          hostSnapshot,
           warnings
         }
       }
@@ -299,7 +307,7 @@ export class API extends EventEmitter {
       return {
         layout: inferRectangularLayout(keyCount),
         keymap: data.keymap,
-        hostSnapshot: data.hostSnapshot ?? null,
+        hostSnapshot,
         warnings
       }
     } catch (err) {

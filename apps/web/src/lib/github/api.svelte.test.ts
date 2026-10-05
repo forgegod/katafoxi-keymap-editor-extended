@@ -89,6 +89,27 @@ describe('API', () => {
     expect(onValidation).toHaveBeenCalledWith(body)
   })
 
+  it('fetchLayoutAndKeymap treats a non-ok hostSnapshot as null', async () => {
+    const api = new API()
+    api.repoInstallationMap = { 'acme/lark': '42' }
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        info: {
+          layouts: {
+            default: { layout: [{ x: 0, y: 0, row: 0, col: 0 }] }
+          }
+        },
+        keymap: { layers: [[{ value: '&kp', params: [{ value: 'A', params: [] }] }]] },
+        hostSnapshot: { version: 99, view: {}, layouts: [] }
+      })
+    )
+
+    const result = await api.fetchLayoutAndKeymap('acme/lark', 'main')
+
+    expect(result.hostSnapshot).toBeNull()
+    expect(result.layout).toHaveLength(1)
+  })
+
   it('fetchLayoutAndKeymap infers a rectangular layout when info.json is null', async () => {
     const api = new API()
     api.repoInstallationMap = { 'acme/lark': '42' }

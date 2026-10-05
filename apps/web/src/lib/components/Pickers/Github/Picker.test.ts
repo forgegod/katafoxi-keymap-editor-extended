@@ -280,6 +280,21 @@ describe('Github Picker', () => {
     expect(target.querySelector('.branch-value')?.textContent?.trim()).toBe('main')
   })
 
+  it('shows loadError for non-validation fetch failures', async () => {
+    vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }])
+    const err = Object.assign(new Error('Request failed: 502'), {
+      response: { status: 502, data: { message: 'Bad gateway' } }
+    })
+    vi.spyOn(github, 'fetchLayoutAndKeymap').mockRejectedValue(err)
+
+    open()
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('Bad gateway')
+    })
+    expect(target.querySelector('.branch-value')?.textContent?.trim()).toBe('main')
+  })
+
   it('warns when the layout has no row/col and still calls onSelect', async () => {
     vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }])
     vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({

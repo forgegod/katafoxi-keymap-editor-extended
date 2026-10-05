@@ -73,6 +73,43 @@
     }
   }
 
+  /** Surface non-validation load failures; 400s arrive via repo-validation-error. */
+  function applyLoadFailure(err: unknown) {
+    const requestErr = err as {
+      message?: string
+      response?: { status?: number; data?: unknown }
+    }
+    if (requestErr.response?.status === 400) return
+
+    const data = requestErr.response?.data
+    if (data && typeof data === 'object') {
+      const payload = data as { name?: string; errors?: unknown[]; message?: string }
+      if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+        loadError = {
+          name: payload.name || 'Error',
+          errors: payload.errors.map(String)
+        }
+        return
+      }
+      if (typeof payload.message === 'string' && payload.message) {
+        loadError = {
+          name: payload.name || 'Error',
+          errors: [payload.message]
+        }
+        return
+      }
+    }
+
+    loadError = {
+      name: 'Error',
+      errors: [
+        typeof requestErr.message === 'string' && requestErr.message
+          ? requestErr.message
+          : 'Failed to load keyboard from GitHub.'
+      ]
+    }
+  }
+
   async function reloadKeyboard() {
     const repository = findBy(github.repositories ?? [], {
       id: selectedRepoId
@@ -91,8 +128,9 @@
         github: { repository, branch },
         ...response
       })
-    } catch {
-      /* validation errors arrive via repo-validation-error */
+    } catch (err) {
+      if (generation !== keyboardLoadGeneration) return
+      applyLoadFailure(err)
     } finally {
       if (generation === keyboardLoadGeneration) {
         loadingKeyboard = false
@@ -212,10 +250,11 @@
           ...response
         })
       })
-      .catch(() => {
+      .catch(err => {
         if (generation !== keyboardLoadGeneration) return
         loadingKeyboard = false
         preserveSessionOnLoad = false
+        applyLoadFailure(err)
       })
 
     return () => {

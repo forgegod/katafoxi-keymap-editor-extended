@@ -1613,8 +1613,16 @@ export class EditorState {
           ? baselineFingerprint(this.baselineKeymap)
           : undefined
       })
-    } catch {
-      /* IDB failures are non-fatal */
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn('Failed to persist draft to IndexedDB', err)
+      }
+      this.saveNotice = {
+        kind: 'error',
+        messages: [
+          'Could not save your draft locally. Changes may be lost if you close this tab.'
+        ]
+      }
     }
   }
 
@@ -1802,8 +1810,16 @@ export class EditorState {
         })
       }
       if (previous) await deleteStoredDraft(previous)
-    } catch {
-      /* IDB failures are non-fatal */
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn('Failed to migrate draft in IndexedDB', err)
+      }
+      this.saveNotice = {
+        kind: 'error',
+        messages: [
+          'Could not save your draft locally. Changes may be lost if you close this tab.'
+        ]
+      }
     }
 
     try {
@@ -1812,8 +1828,16 @@ export class EditorState {
         hostAssembliesSettingId(nextKey),
         this.hostAssemblies
       )
-    } catch {
-      /* ignore */
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn('Failed to migrate host settings in IndexedDB', err)
+      }
+      this.saveNotice = {
+        kind: 'error',
+        messages: [
+          'Could not save your draft locally. Changes may be lost if you close this tab.'
+        ]
+      }
     }
   }
 

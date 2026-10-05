@@ -37,6 +37,20 @@ export type KeyEditSessionInput = {
   onUpdate: (keyIndex: number, layerIndex: number, binding: KeyBindingNode) => void
 }
 
+/** Parse draft paramsJson; null means corrupt JSON (caller falls back / closes). */
+function parseDraftParams(
+  paramsJson: string
+): Array<{ value?: string | number; params?: unknown[] }> | null {
+  try {
+    const parsed = JSON.parse(paramsJson) as unknown
+    return Array.isArray(parsed)
+      ? (parsed as Array<{ value?: string | number; params?: unknown[] }>)
+      : []
+  } catch {
+    return null
+  }
+}
+
 export function createKeyEditSession(input: KeyEditSessionInput) {
   let editing = $state<{ rowKey: string; slotCodeIndex: number } | null>(null)
   let draftByRow = $state<Record<string, KeyEditDraft>>({})
@@ -53,11 +67,12 @@ export function createKeyEditSession(input: KeyEditSessionInput) {
     hydrateTree(fallbackBinding.value, fallbackBinding.params ?? [], sources)
   )
   const activeDraft = $derived(editing ? draftByRow[editing.rowKey] : undefined)
-  const working = $derived(
-    activeDraft == null
-      ? normalized
-      : hydrateTree(activeDraft.value, JSON.parse(activeDraft.paramsJson), sources)
-  )
+  const working = $derived.by(() => {
+    if (activeDraft == null) return normalized
+    const params = parseDraftParams(activeDraft.paramsJson)
+    if (params == null) return normalized
+    return hydrateTree(activeDraft.value, params, sources)
+  })
   const workingBehaviourParams = $derived(
     getBehaviourParams(working.params, lookupBehaviour(working.value) as never)
   )
@@ -113,9 +128,14 @@ export function createKeyEditSession(input: KeyEditSessionInput) {
     if (!editing) return null
     const draft = draftByRow[editing.rowKey]
     if (!draft) return null
+    const params = parseDraftParams(draft.paramsJson)
+    if (params == null) {
+      closeEditor()
+      return null
+    }
     return {
       value: draft.value,
-      params: JSON.parse(draft.paramsJson)
+      params: params as HydratedNode[]
     }
   }
 
