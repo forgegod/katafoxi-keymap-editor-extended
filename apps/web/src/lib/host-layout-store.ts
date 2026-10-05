@@ -15,6 +15,7 @@ import {
   primarySystemLayoutId,
   reservedHostProfileNames,
   standardHostLegendView,
+  cloneHostLegendView,
   type HostKeyLevels,
   type HostLanguageId,
   type HostLayout,
@@ -492,11 +493,7 @@ function isStoredAssembly(value: unknown): value is StoredHostAssembly {
 }
 
 function cloneStoredView(view: HostLegendView): HostLegendView {
-  return {
-    columns: view.columns.map(column => ({ ...column })),
-    open: view.open,
-    ...(view.keycap ? { keycap: [...view.keycap] } : {})
-  }
+  return cloneHostLegendView(view)
 }
 
 export async function loadHostAssemblies(settingId: string): Promise<StoredHostAssembly[]> {

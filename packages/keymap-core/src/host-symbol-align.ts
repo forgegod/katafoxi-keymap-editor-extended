@@ -95,7 +95,7 @@ export function symbolAlignPairFromView(view: HostLegendView): SymbolAlignViewPa
   const leftCol = view.columns.find(column => column.language === leftLanguage)
   const rightCol = view.columns.find(column => column.language === rightLanguage)
   if (!leftCol || !rightCol) return null
-  const baseCol = view.columns[0]
+  const baseCol = view.columns.find(column => column.language === 'en')
   const open = view.open
   const openCol = open ? view.columns.find(column => column.language === open) : undefined
   const winMerge =

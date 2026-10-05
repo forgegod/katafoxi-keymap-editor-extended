@@ -6,7 +6,9 @@
 
 import { isHostLanguageId, type HostLanguageId } from './host-languages.js'
 import type { HostKeyLevels, HostLayout } from './host-layout.js'
+import { cloneHostLegendView } from './host-legend-view.js'
 import type { HostLegendView } from './types.js'
+import { keysymToGlyph } from './xkb-keysyms.js'
 
 /** Repo path relative to the repository root (sibling of `config/`). */
 export const HOST_KEYMAP_SNAPSHOT_PATH = 'host_keymap/snapshot.json'
@@ -46,6 +48,13 @@ export type HostKeymapLayoutInput = {
   layout: HostLayout
 }
 
+/** Structured parse outcome so callers can tell corrupt JSON from a future schema. */
+export type HostKeymapSnapshotParseResult =
+  | { ok: true; snapshot: HostKeymapSnapshot }
+  | { ok: false; error: 'missing' }
+  | { ok: false; error: 'invalid' }
+  | { ok: false; error: 'unsupported_version'; version: unknown }
+
 function isStringTuple4(value: unknown): value is [string, string, string, string] {
   return (
     Array.isArray(value) &&
@@ -58,20 +67,26 @@ function isUserLayoutId(id: string): boolean {
   return id.startsWith('user:')
 }
 
-function cloneView(view: HostLegendView): HostLegendView {
-  return {
-    columns: view.columns.map(column => ({ ...column })),
-    open: view.open,
-    ...(view.keycap ? { keycap: [...view.keycap] } : {})
-  }
+function glyphsFromKeysyms(
+  keysyms: [string, string, string, string]
+): HostKeyLevels['glyphs'] {
+  return [
+    keysymToGlyph(keysyms[0]) ?? '',
+    keysymToGlyph(keysyms[1]) ?? '',
+    keysymToGlyph(keysyms[2]) ?? '',
+    keysymToGlyph(keysyms[3]) ?? ''
+  ]
 }
 
+/** Stable key order for dirty compare — Map insertion order is not enough. */
 function serializeLayoutKeys(layout: HostLayout): HostKeymapKeyRow[] {
-  return [...layout.byZmk.entries()].map(([zmk, levels]) => ({
-    zmk,
-    keysyms: [levels.keysyms[0], levels.keysyms[1], levels.keysyms[2], levels.keysyms[3]],
-    glyphs: [levels.glyphs[0], levels.glyphs[1], levels.glyphs[2], levels.glyphs[3]]
-  }))
+  return [...layout.byZmk.entries()]
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+    .map(([zmk, levels]) => ({
+      zmk,
+      keysyms: [levels.keysyms[0], levels.keysyms[1], levels.keysyms[2], levels.keysyms[3]],
+      glyphs: [levels.glyphs[0], levels.glyphs[1], levels.glyphs[2], levels.glyphs[3]]
+    }))
 }
 
 /** Rebuild a runtime layout table from snapshot rows. */
@@ -120,11 +135,11 @@ function parseKeyRow(raw: unknown): HostKeymapKeyRow | null {
   if (!raw || typeof raw !== 'object') return null
   const row = raw as Record<string, unknown>
   if (typeof row.zmk !== 'string' || !row.zmk) return null
-  if (!isStringTuple4(row.keysyms) || !isStringTuple4(row.glyphs)) return null
+  if (!isStringTuple4(row.keysyms)) return null
   return {
     zmk: row.zmk,
     keysyms: row.keysyms,
-    glyphs: row.glyphs
+    glyphs: glyphsFromKeysyms(row.keysyms)
   }
 }
 
@@ -173,18 +188,21 @@ function parseView(raw: unknown): HostLegendView | null {
       altGrShift: column.altGrShift
     })
   }
+  if (columns[0]?.language !== 'en') return null
   let open: HostLanguageId | null = null
   if (view.open !== null && view.open !== undefined) {
     if (typeof view.open !== 'string' || !isHostLanguageId(view.open)) return null
     open = view.open
   }
   const next: HostLegendView = { columns, open }
-  if (Array.isArray(view.keycap)) {
-    const keycap = view.keycap.filter(
-      (language): language is HostLanguageId =>
-        typeof language === 'string' && isHostLanguageId(language)
-    )
-    if (keycap.length > 0) next.keycap = keycap.slice(-2)
+  if (view.keycap !== undefined) {
+    if (!Array.isArray(view.keycap) || view.keycap.length === 0) return null
+    const keycap: HostLanguageId[] = []
+    for (const language of view.keycap) {
+      if (typeof language !== 'string' || !isHostLanguageId(language)) return null
+      keycap.push(language)
+    }
+    next.keycap = keycap.slice(-2)
   }
   return next
 }
@@ -215,7 +233,7 @@ export function buildHostKeymapSnapshot(
   }
   return {
     version: HOST_KEYMAP_SNAPSHOT_VERSION,
-    view: cloneView(view),
+    view: cloneHostLegendView(view),
     layouts: out
   }
 }
@@ -226,32 +244,43 @@ export function encodeHostKeymapSnapshot(snapshot: HostKeymapSnapshot): string {
 }
 
 /**
- * Parse and validate a snapshot document. Returns null when the payload is
- * missing, unreadable, or not version 1.
+ * Parse and validate a snapshot document.
+ * Distinguishes missing input, unsupported schema version, and invalid payload.
  */
-export function parseHostKeymapSnapshot(raw: unknown): HostKeymapSnapshot | null {
+export function parseHostKeymapSnapshot(raw: unknown): HostKeymapSnapshotParseResult {
+  if (raw === null || raw === undefined) return { ok: false, error: 'missing' }
+  if (typeof raw === 'string' && raw.trim() === '') return { ok: false, error: 'missing' }
+
   let data = raw
   if (typeof raw === 'string') {
     try {
       data = JSON.parse(raw)
     } catch {
-      return null
+      return { ok: false, error: 'invalid' }
     }
   }
-  if (!data || typeof data !== 'object') return null
+  if (!data || typeof data !== 'object') return { ok: false, error: 'invalid' }
   const doc = data as Record<string, unknown>
-  if (doc.version !== HOST_KEYMAP_SNAPSHOT_VERSION) return null
+  if (doc.version !== HOST_KEYMAP_SNAPSHOT_VERSION) {
+    if (doc.version === undefined || doc.version === null) {
+      return { ok: false, error: 'invalid' }
+    }
+    return { ok: false, error: 'unsupported_version', version: doc.version }
+  }
   const view = parseView(doc.view)
-  if (!view) return null
-  if (!Array.isArray(doc.layouts)) return null
+  if (!view) return { ok: false, error: 'invalid' }
+  if (!Array.isArray(doc.layouts)) return { ok: false, error: 'invalid' }
   const layouts: HostKeymapLayoutSnapshot[] = []
   const ids = new Set<string>()
   for (const item of doc.layouts) {
     const layout = parseLayout(item)
-    if (!layout) return null
-    if (ids.has(layout.id)) return null
+    if (!layout) return { ok: false, error: 'invalid' }
+    if (ids.has(layout.id)) return { ok: false, error: 'invalid' }
     ids.add(layout.id)
     layouts.push(layout)
   }
-  return { version: HOST_KEYMAP_SNAPSHOT_VERSION, view, layouts }
+  return {
+    ok: true,
+    snapshot: { version: HOST_KEYMAP_SNAPSHOT_VERSION, view, layouts }
+  }
 }

@@ -55,6 +55,7 @@ import {
   encodeHostKeymapSnapshot,
   hostLayoutFromKeymapSnapshotKeys,
   buildHostKeymapDeliverableFiles,
+  cloneHostLegendView,
   type HostKeymapSnapshot,
   type HostKeymapDeliverableFile,
   type HostLayout,
@@ -166,14 +167,6 @@ const HISTORY_LIMIT = 50
 
 /** Debounce for IndexedDB draft writes. */
 const PERSIST_DEBOUNCE_MS = 400
-
-function cloneHostLegendView(view: HostLegendView): HostLegendView {
-  return {
-    columns: view.columns.map(column => ({ ...column })),
-    open: view.open,
-    ...(view.keycap ? { keycap: [...view.keycap] } : {})
-  }
-}
 
 function pairedImportNames(
   description: string,

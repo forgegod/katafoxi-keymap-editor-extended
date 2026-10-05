@@ -222,10 +222,10 @@ async function fetchHostKeymapSnapshot(
       HOST_KEYMAP_SNAPSHOT_PATH,
       { raw: true, branch }
     )
-    const parsed = parseHostKeymapSnapshot(
+    const result = parseHostKeymapSnapshot(
       typeof data === 'string' ? data : parseJsonBody(data)
     )
-    return parsed
+    return result.ok ? result.snapshot : null
   } catch (err) {
     if (err instanceof MissingRepoFile) return null
     throw err

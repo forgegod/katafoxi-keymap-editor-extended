@@ -8,7 +8,8 @@ import {
 } from './host-languages.js'
 import type { HostColumn, HostLegendView } from './types.js'
 
-function cloneView(view: HostLegendView): HostLegendView {
+/** Shallow clone of columns / keycap so callers can mutate safely. */
+export function cloneHostLegendView(view: HostLegendView): HostLegendView {
   return {
     columns: view.columns.map(column => ({ ...column })),
     open: view.open,
@@ -63,7 +64,7 @@ function columnOf(view: HostLegendView, language: HostLanguageId): HostColumn | 
 }
 
 export function standardHostLegendView(): HostLegendView {
-  return cloneView(STANDARD_HOST_LEGEND_VIEW)
+  return cloneHostLegendView(STANDARD_HOST_LEGEND_VIEW)
 }
 
 export interface HostLegendColumn {
@@ -116,7 +117,7 @@ export function replaceHostLanguage(
   if (!hostLanguagesAvailable(view).includes(to)) return view
   const layoutId = primarySystemLayoutId(to)
   if (!layoutId) return view
-  const next = cloneView(view)
+  const next = cloneHostLegendView(view)
   const slot = next.columns.find(column => column.language === from)
   if (!slot || slot === next.columns[0]) return view
   slot.language = to
@@ -134,7 +135,7 @@ export function removeHostLanguage(
   if (!isAddableHostLanguage(language)) return view
   const index = view.columns.findIndex(column => column.language === language)
   if (index <= 0) return view
-  const next = cloneView(view)
+  const next = cloneHostLegendView(view)
   next.columns.splice(index, 1)
   if (next.keycap) next.keycap = next.keycap.filter(id => id !== language)
   if (next.open !== language) return next
@@ -157,7 +158,7 @@ export function addHostLanguage(
   if (!hostLanguagesAvailable(view).includes(language)) return view
   const layoutId = primarySystemLayoutId(language)
   if (!layoutId) return view
-  const next = cloneView(view)
+  const next = cloneHostLegendView(view)
   next.columns.push({
     language,
     layoutId,
@@ -181,7 +182,7 @@ export function toggleHostLanguage(
 ): HostLegendView {
   const column = columnOf(view, language)
   if (!column) return view
-  const next = cloneView(view)
+  const next = cloneHostLegendView(view)
   const target = columnOf(next, language)!
   const base = next.columns[0]?.language
   if (shownKeycap(next).includes(language)) {
@@ -206,7 +207,7 @@ export function setHostColumnAlt(
   on: boolean
 ): HostLegendView {
   if (!columnOf(view, language)) return view
-  const next = cloneView(view)
+  const next = cloneHostLegendView(view)
   columnOf(next, language)![field] = on
   return next
 }
@@ -218,7 +219,7 @@ export function assignHostLanguageLayout(
   layoutId: string
 ): HostLegendView {
   if (!columnOf(current, language)) return current
-  const next = cloneView(current)
+  const next = cloneHostLegendView(current)
   columnOf(next, language)!.layoutId = layoutId
   return next
 }
