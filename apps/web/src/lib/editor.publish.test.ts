@@ -238,6 +238,35 @@ describe('editor publish / draft persistence', () => {
     confirm.mockRestore()
   })
 
+  it('ignores Restore when confirm runs after a newer keyboard select', async () => {
+    const larkIdentity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
+    await saveStoredDraft(larkIdentity, km('Z'))
+
+    let nestedSelect: Promise<void> | undefined
+    const confirm = vi.spyOn(window, 'confirm').mockImplementation(() => {
+      nestedSelect = editor.selectKeyboard({
+        source: 'local',
+        layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+        keymap: km('A', 'other')
+      })
+      return true
+    })
+
+    await editor.selectKeyboard({
+      source: 'local',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A')
+    })
+    await nestedSelect
+
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(editor.draftKeymap!.keyboard).toBe('other')
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('A')
+    expect(editor.isDirty).toBe(false)
+
+    confirm.mockRestore()
+  })
+
   it('keeps live dirty edits when reselecting the same keyboard', async () => {
     const identity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
     await saveStoredDraft(identity, km('Z'))

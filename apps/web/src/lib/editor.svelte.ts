@@ -888,21 +888,26 @@ export class EditorState {
   /**
    * Apply a GitHub `host_keymap/snapshot.json`: register layouts, set the
    * legend, mirror into IndexedDB, and set the repo host baseline.
+   * Buffer first, then mutate/persist only while `selectToken` is still current
+   * so a superseded select cannot leave a partial layout set on disk.
    */
   async #applyHostKeymapSnapshot(
     snapshot: HostKeymapSnapshot,
     selectToken: number
   ): Promise<void> {
-    for (const item of snapshot.layouts) {
-      const layout = hostLayoutFromKeymapSnapshotKeys(item.id, item.keys)
-      const record: UserHostLayoutRecord = {
-        id: item.id,
-        name: item.name,
-        language: item.language,
-        origin: item.origin,
-        updatedAt: Date.now(),
-        layout
-      }
+    if (selectToken !== this.#selectGeneration) return
+    const records: UserHostLayoutRecord[] = snapshot.layouts.map(item => ({
+      id: item.id,
+      name: item.name,
+      language: item.language,
+      origin: item.origin,
+      updatedAt: Date.now(),
+      layout: hostLayoutFromKeymapSnapshotKeys(item.id, item.keys)
+    }))
+    if (selectToken !== this.#selectGeneration) return
+
+    for (const record of records) {
+      if (selectToken !== this.#selectGeneration) return
       this.#registerUserLayout(record)
       const listedItem = {
         id: record.id,
@@ -911,13 +916,26 @@ export class EditorState {
         origin: record.origin,
         updatedAt: record.updatedAt
       }
-      this.userLayouts = this.userLayouts.some(entry => entry.id === item.id)
-        ? this.userLayouts.map(entry => (entry.id === item.id ? listedItem : entry))
+      this.userLayouts = this.userLayouts.some(entry => entry.id === record.id)
+        ? this.userLayouts.map(entry => (entry.id === record.id ? listedItem : entry))
         : [...this.userLayouts, listedItem]
-      await saveUserHostLayout(record)
-      if (selectToken !== this.#selectGeneration) return
     }
+
     const { view, replaced } = sanitizeHostLegendView(snapshot.view)
+    const writtenIds: string[] = []
+    for (const record of records) {
+      if (selectToken !== this.#selectGeneration) {
+        await this.#rollbackUserHostLayoutWrites(writtenIds)
+        return
+      }
+      await saveUserHostLayout(record)
+      writtenIds.push(record.id)
+    }
+    if (selectToken !== this.#selectGeneration) {
+      await this.#rollbackUserHostLayoutWrites(writtenIds)
+      return
+    }
+
     this.hostLegend = view
     if (replaced.length > 0) this.hostProfileNote = UNKNOWN_HOST_LAYOUT_NOTE
     await this.#persistHostLegend()
@@ -928,6 +946,17 @@ export class EditorState {
     })
     this.markHostDelivered()
     await this.#restoreHostAssemblies(selectToken)
+  }
+
+  /** Drop IDB rows written by an aborted select batch. */
+  async #rollbackUserHostLayoutWrites(ids: string[]): Promise<void> {
+    for (const id of ids) {
+      try {
+        await deleteUserHostLayout(id)
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   #hostAssembliesSettingId(): string | null {
@@ -1812,26 +1841,30 @@ export class EditorState {
   /**
    * Keep demo host layouts (`en2` / `ru2` for Lark) registered under stable ids.
    * Assign them on the legend only while it is still the default English-only view.
+   * Buffer seeds first; register/persist only while `selectToken` is still current.
+   * Demo seed ids are stable shared fixtures — do not delete them on abort.
    */
   async #seedDemoHostLayouts(
     seeds: DemoHostLayoutSeed[],
     selectToken: number
   ): Promise<void> {
+    if (selectToken !== this.#selectGeneration) return
     // Re-registering fixtures bumps hostLayoutRevision; do not treat that as a
     // user edit waiting for OS install.
     const dirtyBefore = this.isHostDirty
-    for (const seed of seeds) {
-      const table = demoHostLayoutTable(seed)
-      const record: UserHostLayoutRecord = {
-        id: seed.id,
-        name: seed.name,
-        language: seed.language,
-        origin: { from: 'xkb', fileName: seed.name, section: seed.section },
-        updatedAt: Date.now(),
-        layout: table
-      }
+    const records: UserHostLayoutRecord[] = seeds.map(seed => ({
+      id: seed.id,
+      name: seed.name,
+      language: seed.language,
+      origin: { from: 'xkb' as const, fileName: seed.name, section: seed.section },
+      updatedAt: Date.now(),
+      layout: demoHostLayoutTable(seed)
+    }))
+    if (selectToken !== this.#selectGeneration) return
+
+    for (const record of records) {
+      if (selectToken !== this.#selectGeneration) return
       this.#registerUserLayout(record)
-      const listed = this.userLayouts.some(item => item.id === seed.id)
       const listedItem = {
         id: record.id,
         name: record.name,
@@ -1839,12 +1872,16 @@ export class EditorState {
         origin: record.origin,
         updatedAt: record.updatedAt
       }
-      this.userLayouts = listed
-        ? this.userLayouts.map(item => (item.id === seed.id ? listedItem : item))
+      this.userLayouts = this.userLayouts.some(item => item.id === record.id)
+        ? this.userLayouts.map(item => (item.id === record.id ? listedItem : item))
         : [...this.userLayouts, listedItem]
-      await saveUserHostLayout(record)
-      if (selectToken !== this.#selectGeneration) return
     }
+
+    for (const record of records) {
+      if (selectToken !== this.#selectGeneration) return
+      await saveUserHostLayout(record)
+    }
+    if (selectToken !== this.#selectGeneration) return
 
     if (!sameHostLegendView(this.hostLegend, standardHostLegendView())) {
       if (!dirtyBefore) this.markHostDelivered()
@@ -1860,7 +1897,9 @@ export class EditorState {
     }
 
     this.hostLegend = view
+    if (selectToken !== this.#selectGeneration) return
     await this.#persistHostLegend()
+    if (selectToken !== this.#selectGeneration) return
     this.markHostDelivered()
   }
 
@@ -1868,6 +1907,7 @@ export class EditorState {
     if (!this.baselineKeymap || !this.draftKeymap) return
     const identity = this.currentDraftIdentity()
     if (!identity) return
+    const identityKey = draftIdentityKey(identity)
 
     let stored
     try {
@@ -1876,11 +1916,12 @@ export class EditorState {
       return
     }
     if (selectToken !== this.#selectGeneration) return
+    if (!this.#draftIdentityMatches(identityKey)) return
     if (!stored) return
 
     // Stale clean record — drop without prompting.
     if (diffKeymaps(this.baselineKeymap, stored.draftKeymap).length === 0) {
-      this.#handledDraftIdentityKey = draftIdentityKey(identity)
+      this.#handledDraftIdentityKey = identityKey
       try {
         await deleteStoredDraft(identity)
       } catch {
@@ -1889,12 +1930,18 @@ export class EditorState {
       return
     }
 
+    // Re-check identity around the blocking prompt so a superseded select cannot
+    // show or apply a Restore/Discard decision for the wrong keyboard.
+    if (selectToken !== this.#selectGeneration) return
+    if (!this.#draftIdentityMatches(identityKey)) return
+
     const restore = window.confirm(
       'An unpublished draft was saved in this browser. Restore it?\n\nOK = Restore · Cancel = Discard'
     )
     if (selectToken !== this.#selectGeneration) return
+    if (!this.#draftIdentityMatches(identityKey)) return
 
-    this.#handledDraftIdentityKey = draftIdentityKey(identity)
+    this.#handledDraftIdentityKey = identityKey
 
     if (restore) {
       this.draftKeymap = adoptSensorBindings(
@@ -1909,6 +1956,12 @@ export class EditorState {
         /* ignore */
       }
     }
+  }
+
+  /** True when the open draft identity still matches `identityKey`. */
+  #draftIdentityMatches(identityKey: string): boolean {
+    const current = this.currentDraftIdentity()
+    return current != null && draftIdentityKey(current) === identityKey
   }
 
   addLayer() {

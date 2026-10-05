@@ -3,8 +3,13 @@ import {
   assignHostLanguageLayout,
   encodeHostKeymapSnapshot
 } from '@keymap-editor/keymap-core'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { editor } from './editor.svelte.js'
+import * as hostLayoutStore from './host-layout-store'
+import {
+  clearHostLayoutStore,
+  loadUserHostLayouts
+} from './host-layout-store'
 
 const BOARD = {
   source: 'github' as const,
@@ -19,9 +24,49 @@ const BOARD = {
   }
 }
 
+function snapshotWithLayouts(
+  layouts: Array<{ id: string; name: string; language: 'en' | 'ru' }>
+) {
+  return {
+    version: 1 as const,
+    view: {
+      columns: [
+        {
+          language: 'en' as const,
+          layoutId: 'system-us',
+          visible: true,
+          altGr: true,
+          altGrShift: true
+        }
+      ],
+      open: null
+    },
+    layouts: layouts.map(item => ({
+      id: item.id,
+      name: item.name,
+      language: item.language,
+      origin: { from: 'copy' as const, layoutId: 'system-us' },
+      keys: [
+        {
+          zmk: 'Q',
+          keysyms: ['q', 'Q', 'NoSymbol', 'NoSymbol'] as [
+            string,
+            string,
+            string,
+            string
+          ],
+          glyphs: ['q', 'Q', '', ''] as [string, string, string, string]
+        }
+      ]
+    }))
+  }
+}
+
 describe('GitHub host keymap snapshot', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     editor.resetForTests()
+    await clearHostLayoutStore()
+    await editor.restoreHostProfiles()
   })
 
   it('applies a repo snapshot over IndexedDB and clears host-repo dirty', async () => {
@@ -78,6 +123,42 @@ describe('GitHub host keymap snapshot', () => {
     expect(editor.hostLegend.open).toBe('ru')
     expect(editor.isHostRepoDirty).toBe(false)
     expect(editor.isPublishDirty).toBe(false)
+  })
+
+  it('rolls back host layout IDB writes when keyboard selection is superseded', async () => {
+    let saveCount = 0
+    let nestedSelect: Promise<void> | undefined
+    const originalSave = hostLayoutStore.saveUserHostLayout
+    const saveSpy = vi
+      .spyOn(hostLayoutStore, 'saveUserHostLayout')
+      .mockImplementation(async record => {
+        saveCount += 1
+        await originalSave(record)
+        if (saveCount === 1) {
+          nestedSelect = editor.selectKeyboard({
+            ...BOARD,
+            github: { repository: 'acme/lark', branch: 'other' },
+            keymap: { ...BOARD.keymap, keyboard: 'other' },
+            hostSnapshot: snapshotWithLayouts([])
+          })
+        }
+      })
+
+    await editor.selectKeyboard({
+      ...BOARD,
+      hostSnapshot: snapshotWithLayouts([
+        { id: 'user:stale-a', name: 'stale-a', language: 'en' },
+        { id: 'user:stale-b', name: 'stale-b', language: 'ru' }
+      ])
+    })
+    await nestedSelect
+
+    const stored = await loadUserHostLayouts()
+    expect(stored.map(row => row.id)).not.toContain('user:stale-a')
+    expect(stored.map(row => row.id)).not.toContain('user:stale-b')
+    expect(editor.draftKeymap!.keyboard).toBe('other')
+
+    saveSpy.mockRestore()
   })
 
   it('marks host-repo dirty after a live edit until acceptHostRepoBaseline', async () => {
