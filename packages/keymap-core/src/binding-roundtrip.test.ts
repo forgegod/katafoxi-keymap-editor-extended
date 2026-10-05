@@ -1,9 +1,8 @@
 /**
  * Property tests: encodeKeymap/parseKeymap trees and spliceBindingsIntoDts
  * preamble stability. Keys and modifiers come from the real catalogs.
- *
- * Unary nests only: parseKeyBinding's greedy `/\((.+)\)/` plus comma-split
- * cannot round-trip multi-arg wraps (e.g. FOO(BAR(A,B),C)).
+ * Multi-arg nests (FOO(BAR(A,B),C)) are covered by unit tests below; the
+ * property arb stays on catalog unary wraps and hold-tap shapes.
  */
 
 import fc from 'fast-check'
@@ -110,6 +109,33 @@ describe('binding encode/parse round-trip', () => {
     const original = parseKeymap({ layers: [['&lt 0 A']] })
     expect(original.layers[0][0].params[0]).toEqual({ value: '0', params: [] })
     expect(parseKeymap(encodeKeymap(original))).toEqual(original)
+  })
+
+  it('round-trips multi-arg nests and unary wraps', () => {
+    const multiArg = {
+      value: '&kp',
+      params: [
+        {
+          value: 'FOO',
+          params: [
+            {
+              value: 'BAR',
+              params: [leaf('A'), leaf('B')]
+            },
+            leaf('C')
+          ]
+        }
+      ]
+    }
+    const unary = {
+      value: '&kp',
+      params: [wrapChain(['LC', 'LS'], 'A')]
+    }
+    expect(encodeKeyBinding(multiArg)).toBe('&kp FOO(BAR(A,B),C)')
+    expect(encodeKeyBinding(unary)).toBe('&kp LC(LS(A))')
+    expect(parseKeymap(encodeKeymap({ layers: [[multiArg, unary]] }))).toEqual({
+      layers: [[multiArg, unary]]
+    })
   })
 
   it('parseKeymap(encodeKeymap) matches the original tree', () => {

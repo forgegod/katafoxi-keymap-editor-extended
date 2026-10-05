@@ -105,6 +105,39 @@ describe('parseKeyBinding', () => {
       ]
     })
   })
+
+  it('parses unary nested wraps', () => {
+    expect(parseKeyBinding('&kp LC(LS(A))')).toEqual({
+      value: '&kp',
+      params: [
+        {
+          value: 'LC',
+          params: [{ value: 'LS', params: [{ value: 'A', params: [] }] }]
+        }
+      ]
+    })
+  })
+
+  it('parses multi-arg nests with commas inside parentheses', () => {
+    expect(parseKeyBinding('&kp FOO(BAR(A,B),C)')).toEqual({
+      value: '&kp',
+      params: [
+        {
+          value: 'FOO',
+          params: [
+            {
+              value: 'BAR',
+              params: [
+                { value: 'A', params: [] },
+                { value: 'B', params: [] }
+              ]
+            },
+            { value: 'C', params: [] }
+          ]
+        }
+      ]
+    })
+  })
 })
 
 describe('parseKeymap / generateKeymap', () => {

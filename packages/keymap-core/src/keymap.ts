@@ -98,20 +98,52 @@ function getBehavioursUsed(keymap: ParsedKeymap): string[] {
 }
 
 /**
+ * Split a comma-separated argument list, ignoring commas nested in parentheses.
+ */
+function splitTopLevelArgs(text: string): string[] {
+  const parts: string[] = []
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!
+    if (ch === '(') depth++
+    else if (ch === ')') depth--
+    else if (ch === ',' && depth === 0) {
+      const part = text.slice(start, i).trim()
+      if (part.length > 0) parts.push(part)
+      start = i + 1
+    }
+  }
+  const last = text.slice(start).trim()
+  if (last.length > 0) parts.push(last)
+  return parts
+}
+
+/**
  * Parse a bind string into a tree of values and parameters
  */
 export function parseKeyBinding(binding: string): KeyBindingNode {
-  const paramsPattern = /\((.+)\)/
-
   function parse(code: string): KeyBindingNode {
-    const value = code.replace(paramsPattern, '')
-    const match = code.match(paramsPattern)
-    const params = (match?.[1] ?? '')
-      .split(',')
-      .map(s => s.trim())
-      .filter(s => s.length > 0)
-      .map(parse)
+    const open = code.indexOf('(')
+    if (open === -1) return { value: code, params: [] }
 
+    let depth = 0
+    let close = -1
+    for (let i = open; i < code.length; i++) {
+      const ch = code[i]!
+      if (ch === '(') depth++
+      else if (ch === ')') {
+        depth--
+        if (depth === 0) {
+          close = i
+          break
+        }
+      }
+    }
+    if (close === -1) return { value: code, params: [] }
+
+    const value = code.slice(0, open) + code.slice(close + 1)
+    const params = splitTopLevelArgs(code.slice(open + 1, close)).map(parse)
     return { value, params }
   }
 
