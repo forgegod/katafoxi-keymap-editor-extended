@@ -220,11 +220,15 @@ export function hostLegendAnchorIndex(keymap: ParsedKeymap | null | undefined): 
 }
 
 /** Deep clone plain ParsedKeymap (value+params only). Never structuredClone reactive graphs. */
-export function cloneParsedKeymap(km: ParsedKeymap): ParsedKeymap {
-  const cloneBinding = (node: KeyBindingNode): KeyBindingNode => ({
+function cloneSensorBinding(node: KeyBindingNode): KeyBindingNode {
+  return {
     value: node.value,
-    params: Array.isArray(node.params) ? node.params.map(cloneBinding) : []
-  })
+    params: Array.isArray(node.params) ? node.params.map(cloneSensorBinding) : []
+  }
+}
+
+export function cloneParsedKeymap(km: ParsedKeymap): ParsedKeymap {
+  const cloneBinding = cloneSensorBinding
 
   const layer_names = (
     km.layer_names ?? km.layers.map((_, i) => `Layer ${i}`)
@@ -274,6 +278,9 @@ export function cloneParsedKeymap(km: ParsedKeymap): ParsedKeymap {
       return copy
     })
   }
+  if (km.sensorBindings) {
+    out.sensorBindings = km.sensorBindings.map(row => row.map(cloneBinding))
+  }
   return out
 }
 
@@ -285,6 +292,19 @@ export function cloneParsedKeymap(km: ParsedKeymap): ParsedKeymap {
 export function adoptHoldTaps(draft: ParsedKeymap, loaded: ParsedKeymap | null): ParsedKeymap {
   if (draft.holdTaps != null || !loaded?.holdTaps) return draft
   return cloneParsedKeymap({ ...draft, holdTaps: loaded.holdTaps })
+}
+
+/**
+ * Encoder lists come from the keymap file. A draft saved before that load
+ * keeps its bindings and takes the encoder rows from the loaded keymap.
+ * An explicit list on the draft, including empty, stays as saved.
+ */
+export function adoptSensorBindings(
+  draft: ParsedKeymap,
+  loaded: ParsedKeymap | null
+): ParsedKeymap {
+  if (draft.sensorBindings != null || !loaded?.sensorBindings) return draft
+  return cloneParsedKeymap({ ...draft, sensorBindings: loaded.sensorBindings })
 }
 
 export type KeyboardSelection = {
@@ -1633,7 +1653,10 @@ export class EditorState {
         this.draftKeymap = cloneParsedKeymap(baseline)
         this.clearHistory()
       } else if (this.draftKeymap) {
-        const adopted = adoptHoldTaps(this.draftKeymap, baseline)
+        const adopted = adoptSensorBindings(
+          adoptHoldTaps(this.draftKeymap, baseline),
+          baseline
+        )
         if (adopted !== this.draftKeymap) this.draftKeymap = adopted
       }
     }
@@ -1695,7 +1718,10 @@ export class EditorState {
     this.githubMeta = github
     if (event.layout) this.layout = event.layout
     this.baselineKeymap = cloneParsedKeymap(km)
-    const adopted = adoptHoldTaps(this.draftKeymap, this.baselineKeymap)
+    const adopted = adoptSensorBindings(
+      adoptHoldTaps(this.draftKeymap, this.baselineKeymap),
+      this.baselineKeymap
+    )
     if (adopted !== this.draftKeymap) this.draftKeymap = adopted
     this.schemeMode = false
     this.comboMode = false
@@ -1858,8 +1884,8 @@ export class EditorState {
     this.#handledDraftIdentityKey = draftIdentityKey(identity)
 
     if (restore) {
-      this.draftKeymap = adoptHoldTaps(
-        cloneParsedKeymap(stored.draftKeymap),
+      this.draftKeymap = adoptSensorBindings(
+        adoptHoldTaps(cloneParsedKeymap(stored.draftKeymap), this.baselineKeymap),
         this.baselineKeymap
       )
       this.clearHistory()
@@ -1879,11 +1905,19 @@ export class EditorState {
     const index = km.layers.length
     const names = this.hostLegendLayerNames
     const blank = (): KeyBindingNode => ({ value: '&trans', params: [] })
-    this.updateKeymap({
+    const next: ParsedKeymap = {
       ...km,
       layer_names: [...names, `Layer #${index}`],
       layers: [...km.layers, Array.from({ length: width }, blank)]
-    })
+    }
+    if (km.sensorBindings) {
+      const prev = km.sensorBindings[km.sensorBindings.length - 1] ?? []
+      next.sensorBindings = [
+        ...km.sensorBindings.map(row => row.map(cloneSensorBinding)),
+        prev.map(cloneSensorBinding)
+      ]
+    }
+    this.updateKeymap(next)
   }
 
   renameLayer(index: number, name: string) {
@@ -1908,8 +1942,22 @@ export class EditorState {
         index
       )
     }
+    if (km.sensorBindings) {
+      next.sensorBindings = km.sensorBindings.filter((_, i) => i !== index)
+    }
     this.updateKeymap(next)
     this.layerView = remapShownLayersAfterDelete(this.layerView, index, layers.length)
+  }
+
+  /** Replace one encoder turn on a layer. */
+  updateSensorBinding(layer: number, index: number, binding: KeyBindingNode) {
+    const km = this.draftKeymap
+    if (!km?.sensorBindings) return
+    const rows = km.sensorBindings.map(row => row.map(cloneSensorBinding))
+    const row = rows[layer]
+    if (!row || index < 0 || index >= row.length) return
+    row[index] = cloneSensorBinding(binding)
+    this.updateKeymap({ ...km, sensorBindings: rows })
   }
 
   /**

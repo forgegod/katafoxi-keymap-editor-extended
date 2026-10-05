@@ -28,6 +28,7 @@
   import MatrixSchemeOverlay from './MatrixSchemeOverlay.svelte'
   import ComboArcsOverlay from './ComboArcsOverlay.svelte'
   import ComboPanel from '../ComboPanel.svelte'
+  import EncoderBar from './EncoderBar.svelte'
 
   interface Props {
     layout: LayoutKey[]
@@ -108,6 +109,9 @@
       : [0]
   )
   const boardCombos = $derived(keymap.combos ?? [])
+  const hasEncoders = $derived(
+    (keymap.sensorBindings ?? []).some(row => row.length > 0)
+  )
   let comboHoverPeek = $state<{
     positions: ReadonlySet<number>
     faceLayer: number
@@ -248,7 +252,11 @@
   {#if comboMode}
     <ComboPanel />
   {/if}
-  <div class="keyboard-stage" bind:this={stageEl}>
+  <div class="keyboard-column">
+    {#if hasEncoders}
+      <EncoderBar />
+    {/if}
+    <div class="keyboard-stage" bind:this={stageEl}>
     <div class="keyboard-fit" style={fitStyle}>
       <div class="keyboard-canvas" style={canvasStyle}>
         {#if isReady}
@@ -301,6 +309,7 @@
         {/if}
       </div>
     </div>
+    </div>
   </div>
 </div>
 
@@ -316,6 +325,15 @@
     min-width: 0;
     min-height: 0;
     box-sizing: border-box;
+  }
+
+  .keyboard-column {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+    min-height: 0;
   }
 
   .keyboard-stage {
