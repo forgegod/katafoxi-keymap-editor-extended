@@ -7,7 +7,9 @@
  */
 
 import {
+  buildHostKeymapSnapshot,
   diffKeymaps,
+  encodeHostKeymapSnapshot,
   getBehaviorCatalog,
   getKeycodeCatalog,
   resetHostLayoutRegistry,
@@ -185,11 +187,24 @@ export class EditorState {
    * Encoded `host_keymap/snapshot.json` last loaded from or committed to the
    * GitHub repo. Null when this session has no repo host baseline yet.
    */
-  _hostRepoBaselineEncoded: string | null = null
+  _hostRepoBaselineEncoded = $state<string | null>(null)
 
   _changes = $derived.by(() => {
     if (!this.baselineKeymap || !this.draftKeymap) return []
     return diffKeymaps(this.baselineKeymap, this.draftKeymap)
+  })
+
+  /** Host half differs from the last GitHub load/commit (ADR 0005). */
+  isHostRepoDirty = $derived.by(() => {
+    if (this.source !== 'github') return false
+    const live = this._encodeLiveHostSnapshot()
+    if (this._hostRepoBaselineEncoded === null) {
+      return (
+        live !==
+        encodeHostKeymapSnapshot(buildHostKeymapSnapshot(standardHostLegendView(), []))
+      )
+    }
+    return live !== this._hostRepoBaselineEncoded
   })
 
   /** Null when the toggle is off or fewer than two languages are on the key. */
@@ -444,7 +459,6 @@ export class EditorState {
   declare buildCurrentHostKeymapSnapshot: () => HostKeymapSnapshot
   declare buildCurrentHostKeymapDeliverables: () => HostKeymapDeliverableFile[]
   declare _encodeLiveHostSnapshot: () => string
-  declare readonly isHostRepoDirty: boolean
   declare acceptHostRepoBaseline: (encoded?: string) => void
   declare _applyHostKeymapSnapshot: (
     snapshot: HostKeymapSnapshot,
