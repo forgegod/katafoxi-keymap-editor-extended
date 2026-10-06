@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { tick } from 'svelte'
   import { keycapFace, type ComposedLegend, type LegendHoverHit } from '@keymap-editor/keymap-core'
+  import { observeKeycapFit, requestKeycapFit } from '../fit-scheduler'
 
   interface Props {
     legend: ComposedLegend
@@ -20,39 +20,24 @@
   let faceEl: HTMLSpanElement | undefined = $state()
   let scale = $state(1)
 
-  function fitFace() {
+  $effect(() => {
     const box = keycapEl
-    const el = faceEl
-    if (!box || !el) return
-    const prevTransform = el.style.transform
-    const prevWidth = el.style.width
-    el.style.transform = 'scale(1)'
-    el.style.width = 'max-content'
-    const have = box.clientWidth
-    const need = el.scrollWidth
-    scale = have > 0 && need > have ? have / need : 1
-    el.style.transform = prevTransform
-    el.style.width = prevWidth
-  }
+    if (!box) return
+    return observeKeycapFit({
+      box,
+      getFace: () => faceEl,
+      setScale: next => {
+        scale = next
+      }
+    })
+  })
 
   $effect(() => {
     void face.packs
     void face.hold
     void stacked
     const box = keycapEl
-    if (!box) return
-    let cancelled = false
-    void tick().then(() => {
-      if (!cancelled) fitFace()
-    })
-    const ro = new ResizeObserver(() => {
-      if (!cancelled) fitFace()
-    })
-    ro.observe(box)
-    return () => {
-      cancelled = true
-      ro.disconnect()
-    }
+    if (box) requestKeycapFit(box)
   })
 </script>
 
