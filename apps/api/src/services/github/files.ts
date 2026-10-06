@@ -85,12 +85,12 @@ export function collectHostDeliverables(
   return { files: selected, warnings }
 }
 
-export interface ConfigDirEntry {
+interface ConfigDirEntry {
   name: string
   path: string
 }
 
-export type ConfigDirListing = ReadonlyArray<ConfigDirEntry>
+type ConfigDirListing = ReadonlyArray<ConfigDirEntry>
 
 export const BRANCH_CHANGED_NOTICE = 'Branch changed on GitHub — reload'
 
@@ -351,7 +351,7 @@ export async function fetchKeyboardFiles(
     originalCodeKeymap,
     ref
   )
-  return { info, keymap, originalCodeKeymap, hostSnapshot, headSha: head.sha }
+  return { info, keymap, hostSnapshot, headSha: head.sha }
 }
 
 export async function commitChanges(

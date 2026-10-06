@@ -113,12 +113,6 @@ export function startSessionPruneTimer(): void {
   pruneTimer.unref?.()
 }
 
-export function stopSessionPruneTimer(): void {
-  if (!pruneTimer) return
-  clearInterval(pruneTimer)
-  pruneTimer = undefined
-}
-
 /** Test-only: lower map caps so eviction can be asserted without thousands of entries. */
 export function setMapCapsForTests(caps: { sessions?: number }): void {
   if (caps.sessions != null) sessionMapMax = caps.sessions

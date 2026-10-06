@@ -35,7 +35,6 @@ import * as files from '../services/github/files.js'
 import * as builds from '../services/github/builds.js'
 
 type Variables = {
-  user: { sub: string; oauth_access_token: string }
   session: Session
 }
 
@@ -220,25 +219,21 @@ githubRoutes.use('*', async (c, next) => {
   // Keep browser cookie maxAge aligned with the sliding server TTL.
   auth.setSidCookie(c, sid)
 
-  c.set('user', {
-    sub: session.login,
-    oauth_access_token: session.oauthAccessToken
-  })
   c.set('session', session)
   await next()
 })
 
 githubRoutes.get('/installation', async c => {
-  const user = c.get('user')
+  const session = c.get('session')
   try {
     const { repoAccess, ...installationRepos } = await installations.fetchInstallationRepos(
-      user.oauth_access_token
+      session.oauthAccessToken
     )
-    cacheInstallationAccess(c.get('session'), repoAccess)
+    cacheInstallationAccess(session, repoAccess)
     if ((installationRepos.installations as unknown[]).length === 0) {
-      console.log(`User ${user.sub} does not have an active app installation.`)
+      console.log(`User ${session.login} does not have an active app installation.`)
     }
-    return c.json({ login: user.sub, ...installationRepos })
+    return c.json({ login: session.login, ...installationRepos })
   } catch (err) {
     return handleGithubError(c, err)
   }
@@ -259,10 +254,9 @@ githubRoutes.post('/installation/:installationId/:repository/branches', async c 
     installations.assertBranchName(name)
     installations.assertCommitish(from)
     await assertInstallationAccess(
-      c.get('user'),
+      c.get('session'),
       installationId,
       repository,
-      c.get('session'),
       { requirePush: true }
     )
     const { data } = await auth.createInstallationToken(installationId, { repository })
@@ -302,10 +296,9 @@ githubRoutes.get('/installation/:installationId/:repository/branches', async c =
   try {
     const repository = installations.assertRepositoryName(rawRepository)
     await assertInstallationAccess(
-      c.get('user'),
+      c.get('session'),
       installationId,
-      repository,
-      c.get('session')
+      repository
     )
     const { data } = await auth.createInstallationToken(installationId, { repository })
     const branches = await installations.fetchRepoBranches(
@@ -334,10 +327,9 @@ githubRoutes.get('/keyboard-files/:installationId/:repository', async c => {
         ? undefined
         : installations.assertBranchName(rawBranch)
     await assertInstallationAccess(
-      c.get('user'),
+      c.get('session'),
       installationId,
-      repository,
-      c.get('session')
+      repository
     )
     const { info, keymap, hostSnapshot, headSha } = await files.fetchKeyboardFiles(
       installationId,
@@ -381,10 +373,9 @@ githubRoutes.get('/builds/:installationId/:repository/artifact/:artifactId', asy
   try {
     const repository = installations.assertRepositoryName(rawRepository)
     await assertInstallationAccess(
-      c.get('user'),
+      c.get('session'),
       installationId,
-      repository,
-      c.get('session')
+      repository
     )
     const zip = await builds.downloadFirmwareArtifact(
       installationId,
@@ -418,10 +409,9 @@ githubRoutes.get('/builds/:installationId/:repository', async c => {
     const repository = installations.assertRepositoryName(rawRepository)
     const branch = installations.assertBranchName(rawBranch)
     await assertInstallationAccess(
-      c.get('user'),
+      c.get('session'),
       installationId,
-      repository,
-      c.get('session')
+      repository
     )
     const build = await builds.fetchFirmwareBuild(installationId, repository, branch)
     return c.json(build)
@@ -457,10 +447,9 @@ githubRoutes.post('/keyboard-files/:installationId/:repository/:branch', async c
     const repository = installations.assertRepositoryName(rawRepository)
     const branch = installations.assertBranchName(rawBranch)
     await assertInstallationAccess(
-      c.get('user'),
+      c.get('session'),
       installationId,
       repository,
-      c.get('session'),
       { requirePush: true }
     )
     const { keymap, layout, hostSnapshot, hostDeliverables, baseSha } = body

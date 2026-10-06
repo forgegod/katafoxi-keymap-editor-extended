@@ -313,7 +313,6 @@ describe('fetchKeyboardFiles', () => {
 
     const result = await fetchKeyboardFiles('1', REPO, 'main')
 
-    expect(result.originalCodeKeymap.path).toBe(KEYMAP_PATH)
     expect(result.keymap).toMatchObject({
       ...KEYMAP_JSON,
       holdTaps: [
@@ -359,7 +358,6 @@ describe('fetchKeyboardFiles', () => {
 
     const result = await fetchKeyboardFiles('1', REPO)
 
-    expect(result.originalCodeKeymap.path).toBe(KEYMAP_PATH)
     expect(result.keymap.layers[0]).toEqual(['&kp A'])
     expect(requestUrls(request).filter(url => url.endsWith('/contents/config'))).toHaveLength(
       1
@@ -382,7 +380,6 @@ describe('fetchKeyboardFiles', () => {
 
     const result = await fetchKeyboardFiles('1', REPO)
 
-    expect(result.originalCodeKeymap.path).toBe(KEYMAP_PATH)
     expect(result.keymap.layers[0]).toEqual(['&kp A'])
     expect(
       requestUrls(request).filter(url => url.endsWith(`/${KEYMAP_PATH}`))
@@ -402,7 +399,6 @@ describe('fetchKeyboardFiles', () => {
 
     const result = await fetchKeyboardFiles('1', REPO)
 
-    expect(result.originalCodeKeymap.path).toBe(KEYMAP_PATH)
     expect(result.keymap.layers[0]).toEqual(['&kp A'])
     expect(
       requestUrls(request).filter(url => url.endsWith(`/${KEYMAP_PATH}`))
@@ -445,7 +441,6 @@ describe('fetchKeyboardFiles', () => {
     const result = await fetchKeyboardFiles('1', REPO)
     expect(result.info).toBeNull()
     expect(result.keymap).toEqual(KEYMAP_JSON)
-    expect(result.originalCodeKeymap.path).toBe(KEYMAP_PATH)
   })
 
   it('returns a parsed host snapshot when host_keymap/snapshot.json exists', async () => {

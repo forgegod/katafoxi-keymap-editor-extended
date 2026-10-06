@@ -174,7 +174,7 @@ export function appTokenTimestamps(nowSeconds: number): { iat: number; exp: numb
   }
 }
 
-export function createAppToken(): string {
+function createAppToken(): string {
   const now = Math.floor(Date.now() / 1000)
   return jwt.sign(
     { iss: config.GITHUB_APP_ID, ...appTokenTimestamps(now) },

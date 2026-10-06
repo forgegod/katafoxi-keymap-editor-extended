@@ -35,26 +35,14 @@ describe('assertInstallationAccess', () => {
     })
     const session = sessionWithToken()
 
-    await expect(
-      assertInstallationAccess(
-        { oauth_access_token: 'user-token' },
-        '1',
-        'acme/lark',
-        session
-      )
-    ).resolves.toBeUndefined()
+    await expect(assertInstallationAccess(session, '1', 'acme/lark')).resolves.toBeUndefined()
 
     expect(session.installationAccess?.repos).toEqual({
       'acme/lark': { installationId: 1, push: true }
     })
     expect(installations.fetchInstallationRepos).toHaveBeenCalledTimes(1)
 
-    await assertInstallationAccess(
-      { oauth_access_token: 'user-token' },
-      '1',
-      'acme/lark',
-      session
-    )
+    await assertInstallationAccess(session, '1', 'acme/lark')
     expect(installations.fetchInstallationRepos).toHaveBeenCalledTimes(1)
   })
 
@@ -67,14 +55,9 @@ describe('assertInstallationAccess', () => {
     })
     const session = sessionWithToken()
 
-    await expect(
-      assertInstallationAccess(
-        { oauth_access_token: 'user-token' },
-        '1e2',
-        'acme/lark',
-        session
-      )
-    ).rejects.toBeInstanceOf(InstallationAccessError)
+    await expect(assertInstallationAccess(session, '1e2', 'acme/lark')).rejects.toBeInstanceOf(
+      InstallationAccessError
+    )
     expect(installations.fetchInstallationRepos).not.toHaveBeenCalled()
   })
 
@@ -87,14 +70,9 @@ describe('assertInstallationAccess', () => {
     })
     const session = sessionWithToken()
 
-    await expect(
-      assertInstallationAccess(
-        { oauth_access_token: 'user-token' },
-        '999',
-        'acme/lark',
-        session
-      )
-    ).rejects.toBeInstanceOf(InstallationAccessError)
+    await expect(assertInstallationAccess(session, '999', 'acme/lark')).rejects.toBeInstanceOf(
+      InstallationAccessError
+    )
   })
 
   it('rejects a repository that is not in the user map', async () => {
@@ -106,14 +84,9 @@ describe('assertInstallationAccess', () => {
     })
     const session = sessionWithToken()
 
-    await expect(
-      assertInstallationAccess(
-        { oauth_access_token: 'user-token' },
-        '1',
-        'acme/other',
-        session
-      )
-    ).rejects.toBeInstanceOf(InstallationAccessError)
+    await expect(assertInstallationAccess(session, '1', 'acme/other')).rejects.toBeInstanceOf(
+      InstallationAccessError
+    )
   })
 
   it('refreshes the cache after the ACL TTL', async () => {
@@ -126,19 +99,9 @@ describe('assertInstallationAccess', () => {
     })
     const session = sessionWithToken()
 
-    await assertInstallationAccess(
-      { oauth_access_token: 'user-token' },
-      '1',
-      'acme/lark',
-      session
-    )
+    await assertInstallationAccess(session, '1', 'acme/lark')
     vi.advanceTimersByTime(INSTALLATION_ACCESS_TTL_MS + 1)
-    await assertInstallationAccess(
-      { oauth_access_token: 'user-token' },
-      '1',
-      'acme/lark',
-      session
-    )
+    await assertInstallationAccess(session, '1', 'acme/lark')
     expect(installations.fetchInstallationRepos).toHaveBeenCalledTimes(2)
   })
 
@@ -150,11 +113,10 @@ describe('assertInstallationAccess', () => {
       repoAccess: { 'acme/a': { installationId: 1, push: false } }
     })
     const session = sessionWithToken()
-    const user = { oauth_access_token: 'user-token' }
 
-    await expect(assertInstallationAccess(user, '1', 'acme/a', session)).resolves.toBeUndefined()
+    await expect(assertInstallationAccess(session, '1', 'acme/a')).resolves.toBeUndefined()
     await expect(
-      assertInstallationAccess(user, '1', 'acme/a', session, { requirePush: true })
+      assertInstallationAccess(session, '1', 'acme/a', { requirePush: true })
     ).rejects.toBeInstanceOf(InstallationAccessError)
   })
 })

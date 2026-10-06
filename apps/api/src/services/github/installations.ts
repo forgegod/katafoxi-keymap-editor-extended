@@ -43,7 +43,7 @@ async function collectPaged<T>(
   return items
 }
 
-export async function fetchInstallations(userToken: string) {
+async function fetchInstallations(userToken: string) {
   const installations = await collectPaged<GithubInstallation>(
     userToken,
     `/user/installations?per_page=${GITHUB_LIST_PER_PAGE}`,

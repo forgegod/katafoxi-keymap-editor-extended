@@ -4,7 +4,7 @@ import { createInstallationToken } from './auth.js'
 /** How long a new commit may wait for its workflow run to appear. */
 const PENDING_WINDOW_MS = 10 * 60 * 1000
 
-export type FirmwareBuildStatus =
+type FirmwareBuildStatus =
   | 'none'
   | 'pending'
   | 'queued'
@@ -14,7 +14,7 @@ export type FirmwareBuildStatus =
   | 'cancelled'
   | 'unavailable'
 
-export interface FirmwareBuild {
+interface FirmwareBuild {
   status: FirmwareBuildStatus
   sha: string | null
   shortSha: string | null

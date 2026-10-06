@@ -507,7 +507,6 @@ describe('session and errors', () => {
     vi.mocked(files.fetchKeyboardFiles).mockResolvedValue({
       info: null,
       keymap: VALID_KEYMAP,
-      originalCodeKeymap: { name: 'lark.keymap', path: 'config/lark.keymap' },
       hostSnapshot: null,
       headSha: 'abc123'
     })
@@ -537,7 +536,6 @@ describe('session and errors', () => {
     vi.mocked(files.fetchKeyboardFiles).mockResolvedValue({
       info: VALID_INFO,
       keymap: VALID_KEYMAP,
-      originalCodeKeymap: { name: 'lark.keymap', path: 'config/lark.keymap' },
       hostSnapshot: null,
       headSha: 'abc123'
     })
@@ -869,7 +867,6 @@ describe('installation access control', () => {
     vi.mocked(files.fetchKeyboardFiles).mockResolvedValue({
       info: VALID_INFO,
       keymap: VALID_KEYMAP,
-      originalCodeKeymap: { name: 'lark.keymap', path: 'config/lark.keymap' },
       hostSnapshot: null,
       headSha: 'abc123'
     })
@@ -882,7 +879,6 @@ describe('installation access control', () => {
     vi.mocked(files.fetchKeyboardFiles).mockResolvedValue({
       info: VALID_INFO,
       keymap: VALID_KEYMAP,
-      originalCodeKeymap: { name: 'lark.keymap', path: 'config/lark.keymap' },
       hostSnapshot: null,
       headSha: 'abc123'
     })
@@ -939,7 +935,6 @@ describe('installation access control', () => {
     vi.mocked(files.fetchKeyboardFiles).mockResolvedValue({
       info: VALID_INFO,
       keymap: VALID_KEYMAP,
-      originalCodeKeymap: { name: 'a.keymap', path: 'config/a.keymap' },
       hostSnapshot: null,
       headSha: 'abc123'
     })
@@ -968,7 +963,6 @@ describe('installation access control', () => {
     vi.mocked(files.fetchKeyboardFiles).mockResolvedValue({
       info: VALID_INFO,
       keymap: VALID_KEYMAP,
-      originalCodeKeymap: { name: 'lark.keymap', path: 'config/lark.keymap' },
       hostSnapshot: null,
       headSha: 'abc123'
     })

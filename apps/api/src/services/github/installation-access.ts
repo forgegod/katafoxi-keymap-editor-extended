@@ -27,13 +27,12 @@ export function cacheInstallationAccess(
  * before minting an installation token. Caches the allowed map on the session.
  */
 export async function assertInstallationAccess(
-  user: { oauth_access_token: string },
+  session: Session,
   installationId: string,
   repository: string,
-  session: Session,
   options?: { requirePush?: boolean }
 ): Promise<void> {
-  if (!/^\d+$/.test(installationId) || !repository.includes('/')) {
+  if (!/^\d+$/.test(installationId)) {
     throw new InstallationAccessError()
   }
   const installId = Number(installationId)
@@ -44,7 +43,7 @@ export async function assertInstallationAccess(
   const now = Date.now()
   const cached = session.installationAccess
   if (!cached || cached.expiresAt <= now) {
-    const { repoAccess } = await fetchInstallationRepos(user.oauth_access_token)
+    const { repoAccess } = await fetchInstallationRepos(session.oauthAccessToken)
     cacheInstallationAccess(session, repoAccess, now)
   }
 
