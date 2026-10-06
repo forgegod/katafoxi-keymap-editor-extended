@@ -43,3 +43,4 @@ app/
 /playwright/.cache/
 
 /tmp/
+docs/audit/*
