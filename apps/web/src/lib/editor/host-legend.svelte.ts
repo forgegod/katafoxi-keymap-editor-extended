@@ -139,8 +139,11 @@ export async function _materializeUserHostLayoutFromTable(this: EditorState,
   this.hostLegend = assignHostLanguageLayout(this.hostLegend, language, id)
   this.hostProfilePrompt = null
   this.hostProfileNote = null
+  const generation = this._selectGeneration
+  const legendSettingId = this._hostLegendSettingId()
   await this._persistHostLayoutWrite(() => saveUserHostLayout(record))
-  await this._persistHostLegend()
+  if (generation !== this._selectGeneration) return id
+  await this._persistHostLegend(legendSettingId, generation)
   return id
 }
 
@@ -169,10 +172,18 @@ export function _hostLegendSettingId(this: EditorState): string | null {
   return identity ? hostLegendSettingId(draftIdentityKey(identity)) : null
 }
 
-export async function _persistHostLegend(this: EditorState): Promise<void> {
-  const settingId = this._hostLegendSettingId()
-  if (!settingId) return
-  await this._persistHostLayoutWrite(() => saveHostLegendView(this.hostLegend, settingId))
+export async function _persistHostLegend(
+  this: EditorState,
+  settingId?: string | null,
+  generation: number = this._selectGeneration
+): Promise<void> {
+  const id = settingId !== undefined ? settingId : this._hostLegendSettingId()
+  if (!id || generation !== this._selectGeneration) return
+  const view = this.hostLegend
+  await this._persistHostLayoutWrite(async () => {
+    if (generation !== this._selectGeneration) return
+    await saveHostLegendView(view, id)
+  })
 }
 
 /**
@@ -215,12 +226,18 @@ export function _hostAssembliesSettingId(this: EditorState): string | null {
   return identity ? hostAssembliesSettingId(draftIdentityKey(identity)) : null
 }
 
-export async function _persistHostAssemblies(this: EditorState): Promise<void> {
-  const settingId = this._hostAssembliesSettingId()
-  if (!settingId) return
-  await this._persistHostLayoutWrite(() =>
-    saveHostAssemblies(settingId, this.hostAssemblies)
-  )
+export async function _persistHostAssemblies(
+  this: EditorState,
+  settingId?: string | null,
+  generation: number = this._selectGeneration
+): Promise<void> {
+  const id = settingId !== undefined ? settingId : this._hostAssembliesSettingId()
+  if (!id || generation !== this._selectGeneration) return
+  const assemblies = this.hostAssemblies
+  await this._persistHostLayoutWrite(async () => {
+    if (generation !== this._selectGeneration) return
+    await saveHostAssemblies(id, assemblies)
+  })
 }
 
 export async function _restoreHostAssemblies(this: EditorState, selectToken: number): Promise<void> {
@@ -291,12 +308,18 @@ export function hostAssemblyRememberBlocked(this: EditorState): boolean {
 
 export async function rememberHostAssembly(this: EditorState): Promise<void> {
   if (this.hostAssemblySaved() || this.hostAssemblyRememberBlocked()) return
+  const generation = this._selectGeneration
+  const settingId = this._hostAssembliesSettingId()
   const { view } = sanitizeHostLegendView(cloneHostLegendView(this.hostLegend))
   this.hostAssemblies = [...this.hostAssemblies, { id: crypto.randomUUID(), view }]
-  await this._persistHostAssemblies()
+  if (generation !== this._selectGeneration) return
+  await this._persistHostAssemblies(settingId, generation)
 }
 
 export async function showHostAssembly(this: EditorState, id: string): Promise<void> {
+  const generation = this._selectGeneration
+  const legendSettingId = this._hostLegendSettingId()
+  const assembliesSettingId = this._hostAssembliesSettingId()
   const index = this.hostAssemblies.findIndex(item => item.id === id)
   if (index < 0) return
   const { view, replaced } = sanitizeHostLegendView(
@@ -307,9 +330,11 @@ export async function showHostAssembly(this: EditorState, id: string): Promise<v
     next[index] = { id, view }
     this.hostAssemblies = next
     this.hostProfileNote = UNKNOWN_HOST_LAYOUT_NOTE
-    await this._persistHostAssemblies()
+    await this._persistHostAssemblies(assembliesSettingId, generation)
+    if (generation !== this._selectGeneration) return
   }
-  await this.commitHostMap(view)
+  if (generation !== this._selectGeneration) return
+  await this.commitHostMap(view, legendSettingId, generation)
 }
 
 export async function forgetHostAssembly(this: EditorState, id: string): Promise<void> {
@@ -453,18 +478,31 @@ export function profilesForLanguage(this: EditorState, language: HostLanguageId)
  * Apply a language-column change immediately.
  * Builtin system picks do not ask for a name.
  */
-export function commitHostMap(this: EditorState, next: HostLegendView): Promise<void> {
+export function commitHostMap(
+  this: EditorState,
+  next: HostLegendView,
+  settingId?: string | null,
+  generation: number = this._selectGeneration
+): Promise<void> {
+  if (generation !== this._selectGeneration) return Promise.resolve()
   this.hostLegend = { ...next }
-  return this._persistHostLayoutWrite(() => this._persistHostLegend())
+  return this._persistHostLayoutWrite(() => this._persistHostLegend(settingId, generation))
 }
 
-export function selectLanguageProfile(this: EditorState, language: HostLanguageId, id: string): Promise<void> {
+export function selectLanguageProfile(
+  this: EditorState,
+  language: HostLanguageId,
+  id: string,
+  settingId?: string | null,
+  generation: number = this._selectGeneration
+): Promise<void> {
   if (this.activeProfileId(language) === id) return Promise.resolve()
   this.hostProfilePrompt = null
   this.hostProfileNote = null
   if (!hostLayout(id)) return Promise.resolve()
+  if (generation !== this._selectGeneration) return Promise.resolve()
   this.hostLegend = assignHostLanguageLayout(this.hostLegend, language, id)
-  return this._persistHostLegend()
+  return this._persistHostLegend(settingId, generation)
 }
 
 export function beginSaveHostProfile(this: EditorState, language: HostLanguageId) {
@@ -722,13 +760,16 @@ export async function deleteActiveHostProfile(this: EditorState): Promise<void> 
   if (!isUserHostLayoutId(id)) return
   const existed = this.userLayouts.some(layout => layout.id === id)
   if (!existed) return
+  const generation = this._selectGeneration
+  const settingId = this._hostLegendSettingId()
   this.userLayouts = this.userLayouts.filter(layout => layout.id !== id)
   this.hostProfilePrompt = null
   unregisterHostLayout(id)
   await this._persistHostLayoutWrite(() => deleteUserHostLayout(id))
+  if (generation !== this._selectGeneration) return
   if (this.activeProfileId(language) === id) {
     const primary = primarySystemLayoutId(language)
-    if (primary) await this.selectLanguageProfile(language, primary)
+    if (primary) await this.selectLanguageProfile(language, primary, settingId, generation)
   }
 }
 

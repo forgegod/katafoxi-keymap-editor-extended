@@ -359,10 +359,10 @@ export class EditorState {
   declare _hostLegendSettingId: () => string | null
   declare _noteHostLayoutSaveFailed: () => void
   declare _persistHostLayoutWrite: (write: () => Promise<void>) => Promise<void>
-  declare _persistHostLegend: () => Promise<void>
+  declare _persistHostLegend: (settingId?: string | null, generation?: number) => Promise<void>
   declare _restoreHostLegend: (selectToken: number) => Promise<void>
   declare _hostAssembliesSettingId: () => string | null
-  declare _persistHostAssemblies: () => Promise<void>
+  declare _persistHostAssemblies: (settingId?: string | null, generation?: number) => Promise<void>
   declare _restoreHostAssemblies: (selectToken: number) => Promise<void>
   declare _layoutShortName: (layoutId: string, language: HostLanguageId) => string
   declare hostAssemblyParts: (
@@ -398,8 +398,17 @@ export class EditorState {
     level: number
   ) => Promise<HostKeyLevelEditResult>
   declare profilesForLanguage: (language: HostLanguageId) => UserHostLayout[]
-  declare commitHostMap: (next: HostLegendView) => Promise<void>
-  declare selectLanguageProfile: (language: HostLanguageId, id: string) => Promise<void>
+  declare commitHostMap: (
+    next: HostLegendView,
+    settingId?: string | null,
+    generation?: number
+  ) => Promise<void>
+  declare selectLanguageProfile: (
+    language: HostLanguageId,
+    id: string,
+    settingId?: string | null,
+    generation?: number
+  ) => Promise<void>
   declare beginSaveHostProfile: (language: HostLanguageId) => void
   declare beginCopyHostProfile: (language: HostLanguageId, layoutId?: string) => void
   declare importHostLayoutFromXkb: (

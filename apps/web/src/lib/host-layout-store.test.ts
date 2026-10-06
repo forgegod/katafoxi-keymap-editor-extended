@@ -1,6 +1,8 @@
 import {
   addHostLanguage,
+  cloneHostLegendView,
   composeKey,
+  sameHostLegendView,
   composeLegendDecode,
   encodeKlc,
   hostLayout,
@@ -16,11 +18,15 @@ import {
   type HostLayout,
   type HostLegendView
 } from '@keymap-editor/keymap-core'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildDraftIdentity, draftIdentityKey } from './draft-storage'
 import { EditorState, editor, type KeyboardSelection } from './editor.svelte.js'
+import * as hostLayoutStore from './host-layout-store'
 import {
   clearHostLayoutStore,
   HOST_LAYOUT_DB_NAME,
+  hostLegendSettingId,
+  loadHostLegendView,
   loadUserHostLayouts,
   saveHostLegendView,
   UNKNOWN_HOST_LAYOUT_NOTE,
@@ -40,6 +46,24 @@ const BOARD: KeyboardSelection = {
 
 async function openBoard(state: EditorState = editor) {
   await state.selectKeyboard(BOARD)
+}
+
+function localBoard(keyboard: string): KeyboardSelection {
+  return {
+    source: 'local',
+    layout: [],
+    keymap: {
+      keyboard,
+      layers: [[{ value: '&none', params: [] }]],
+      layer_names: ['base']
+    }
+  }
+}
+
+function legendSettingIdFor(keyboard: string): string {
+  return hostLegendSettingId(
+    draftIdentityKey(buildDraftIdentity({ source: 'local', keyboard })!)
+  )
 }
 
 function openLayoutId(view: HostLegendView): string | null {
@@ -197,6 +221,78 @@ describe('host layout store', () => {
     expect(editor.userLayouts).toHaveLength(0)
     expect(await loadUserHostLayouts()).toHaveLength(0)
     expect(openLayoutId(editor.hostLegend)).toBe(primarySystemLayoutId('ru')!)
+  })
+
+  it('does not write keyboard A legend under B during a delayed saveUserHostLayout', async () => {
+    const boardA = localBoard('board-a')
+    const boardB = localBoard('board-b')
+    const settingB = legendSettingIdFor('board-b')
+
+    await editor.selectKeyboard(boardB)
+    await editor.commitHostMap(addHostLanguage(editor.hostLegend, 'uk'))
+    const legendB = cloneHostLegendView(editor.hostLegend)
+    expect(await loadHostLegendView(settingB)).toEqual(legendB)
+
+    await editor.selectKeyboard(boardA)
+    expect(editor.hostLegend.columns.some(column => column.language === 'uk')).toBe(
+      false
+    )
+
+    let releaseSave!: () => void
+    const saveGate = new Promise<void>(resolve => {
+      releaseSave = resolve
+    })
+    let enteredSave!: () => void
+    const saveEntered = new Promise<void>(resolve => {
+      enteredSave = resolve
+    })
+    const originalSave = hostLayoutStore.saveUserHostLayout
+    const saveSpy = vi
+      .spyOn(hostLayoutStore, 'saveUserHostLayout')
+      .mockImplementation(async record => {
+        enteredSave()
+        await saveGate
+        return originalSave(record)
+      })
+
+    let releaseLoad!: () => void
+    const loadGate = new Promise<void>(resolve => {
+      releaseLoad = resolve
+    })
+    let enteredLoad!: () => void
+    const loadEntered = new Promise<void>(resolve => {
+      enteredLoad = resolve
+    })
+    const originalLoad = hostLayoutStore.loadHostLegendView
+    const loadSpy = vi
+      .spyOn(hostLayoutStore, 'loadHostLegendView')
+      .mockImplementation(async (settingId?: string) => {
+        if (settingId === settingB) {
+          enteredLoad()
+          await loadGate
+        }
+        return originalLoad(settingId)
+      })
+
+    try {
+      editor.beginSaveHostProfile('en')
+      const saving = editor.confirmHostProfileName('Alpha')
+      await saveEntered
+      const switching = editor.selectKeyboard(boardB)
+      await loadEntered
+      releaseSave()
+      await saving
+
+      const storedB = await originalLoad(settingB)
+      expect(storedB).not.toBeNull()
+      expect(sameHostLegendView(storedB!, legendB)).toBe(true)
+
+      releaseLoad()
+      await switching
+    } finally {
+      saveSpy.mockRestore()
+      loadSpy.mockRestore()
+    }
   })
 
   it('copies a named system variant, not only the open layout', async () => {
