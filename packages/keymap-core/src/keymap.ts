@@ -185,6 +185,9 @@ function splitTopLevelParams(text: string): string[] {
  * Parse a bind string into a tree of values and parameters
  */
 export function parseKeyBinding(binding: string): KeyBindingNode {
+  if (typeof binding !== 'string') {
+    throw new KeymapValidationError([`Invalid key binding: ${String(binding)}`])
+  }
   function parse(code: string): KeyBindingNode {
     const open = code.indexOf('(')
     if (open === -1) return { value: code.trim(), params: [] }
@@ -235,10 +238,17 @@ function parseBindingInput(item: unknown, label: string): KeyBindingNode {
 }
 
 function parseComboFromJson(raw: DtsComboJson | ZmkCombo): ZmkCombo {
+  if (!raw || typeof raw !== 'object') {
+    throw new KeymapValidationError(['combo entries must be objects'])
+  }
   const binding = parseBindingInput(raw.binding, 'combo binding')
+  const positions = raw.keyPositions
+  if (positions !== undefined && !Array.isArray(positions)) {
+    throw new KeymapValidationError(['combo keyPositions must be an array'])
+  }
   const combo: ZmkCombo = {
     id: String(raw.id),
-    keyPositions: [...(raw.keyPositions ?? [])].map(Number),
+    keyPositions: [...(positions ?? [])].map(Number),
     binding
   }
   if (raw.timeoutMs !== undefined) combo.timeoutMs = Number(raw.timeoutMs)
@@ -276,6 +286,12 @@ export function parseKeymap(keymap: {
   holdTaps?: unknown
   sensorBindings?: unknown
 }): ParsedKeymap {
+  if (typeof keymap !== 'object' || keymap === null) {
+    throw new KeymapValidationError(['keymap.json root must be an object'])
+  }
+  if (!Array.isArray(keymap.layers)) {
+    throw new KeymapValidationError(['keymap must include "layers" array'])
+  }
   const combos = Array.isArray(keymap.combos)
     ? keymap.combos.map(parseComboFromJson)
     : undefined
@@ -283,7 +299,12 @@ export function parseKeymap(keymap: {
   const holdTaps = normalizeHoldTaps(keymap.holdTaps)
   const sensorBindings = normalizeSensorBindings(keymap.sensorBindings)
   const out: ParsedKeymap = {
-    layers: keymap.layers.map(layer => layer.map(parseKeyBinding))
+    layers: keymap.layers.map((layer, i) => {
+      if (!Array.isArray(layer)) {
+        throw new KeymapValidationError([`Layer at layers[${i}] must be an array`])
+      }
+      return layer.map(item => parseBindingInput(item, `layers[${i}]`))
+    })
   }
   if (keymap.keyboard !== undefined) out.keyboard = keymap.keyboard
   if (keymap.keymap !== undefined) out.keymap = keymap.keymap

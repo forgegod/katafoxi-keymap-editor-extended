@@ -229,7 +229,7 @@ export function validateInfoJson(info: unknown): void {
     errors.push('info.json root must be an object')
   } else {
     const root = info as Record<string, unknown>
-    if (!root.layouts) {
+    if (!('layouts' in root) || root.layouts === undefined) {
       errors.push('info must define "layouts"')
     } else if (typeof root.layouts !== 'object' || root.layouts === null) {
       errors.push('layouts must be an object')
