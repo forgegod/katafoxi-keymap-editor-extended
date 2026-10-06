@@ -87,11 +87,20 @@ UI: `http://127.0.0.1:5173` · API: `http://127.0.0.1:8080`.
 
 Full setup (env, Local junction, GitHub App): [running-locally.md](running-locally.md).
 
+## Hosted app
+
+Production (SPA + API, same origin):
+
+- VPS + domain ([zmk-keymap-editor.com](https://zmk-keymap-editor.com)): [docs/deploy-vps.md](docs/deploy-vps.md)
+- Fly.io (optional): [docs/deploy-fly.md](docs/deploy-fly.md)
+
 ## Docs
 
 | Doc | Content |
 |-----|---------|
 | [running-locally.md](running-locally.md) | Install, Demo, Clipboard, Local, GitHub, tests |
+| [docs/deploy-vps.md](docs/deploy-vps.md) | Production deploy on a VPS + domain |
+| [docs/deploy-fly.md](docs/deploy-fly.md) | Production deploy on Fly.io |
 | [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md) | Product vision |
 | [docs/adr/](docs/adr/README.md) | Architecture decisions |
 | [AGENTS.md](AGENTS.md) | Notes for coding agents |

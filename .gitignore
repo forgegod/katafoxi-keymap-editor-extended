@@ -22,6 +22,8 @@ coverage/
 .env.*
 !.env.template
 !apps/web/.env.development.example
+!deploy/env.production.example
+deploy/.env
 *.pem
 
 # Editor
