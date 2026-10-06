@@ -8,9 +8,14 @@ const DEFAULT_SESSION_MAP_MAX = 10_000
 const DEFAULT_OAUTH_STATE_MAP_MAX = 2_000
 const PRUNE_INTERVAL_MS = 5 * 60 * 1000
 
-/** Cached map of repository full_name → installation id the user may access. */
+/** Cached per-repo ACL for the signed-in user and this App installation. */
+export type InstallationRepoAccess = {
+  installationId: number
+  push: boolean
+}
+
 export type InstallationAccessCache = {
-  repoInstallationMap: Record<string, number>
+  repos: Record<string, InstallationRepoAccess>
   expiresAt: number
 }
 

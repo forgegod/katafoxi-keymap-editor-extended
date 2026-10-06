@@ -30,7 +30,8 @@ describe('assertInstallationAccess', () => {
     vi.mocked(installations.fetchInstallationRepos).mockResolvedValue({
       installations: [{ id: 1 }],
       repositories: [{ full_name: 'acme/lark' }],
-      repoInstallationMap: { 'acme/lark': 1 }
+      repoInstallationMap: { 'acme/lark': 1 },
+      repoAccess: { 'acme/lark': { installationId: 1, push: true } }
     })
     const session = sessionWithToken()
 
@@ -43,7 +44,9 @@ describe('assertInstallationAccess', () => {
       )
     ).resolves.toBeUndefined()
 
-    expect(session.installationAccess?.repoInstallationMap).toEqual({ 'acme/lark': 1 })
+    expect(session.installationAccess?.repos).toEqual({
+      'acme/lark': { installationId: 1, push: true }
+    })
     expect(installations.fetchInstallationRepos).toHaveBeenCalledTimes(1)
 
     await assertInstallationAccess(
@@ -59,7 +62,8 @@ describe('assertInstallationAccess', () => {
     vi.mocked(installations.fetchInstallationRepos).mockResolvedValue({
       installations: [{ id: 1 }],
       repositories: [{ full_name: 'acme/lark' }],
-      repoInstallationMap: { 'acme/lark': 1 }
+      repoInstallationMap: { 'acme/lark': 1 },
+      repoAccess: { 'acme/lark': { installationId: 1, push: true } }
     })
     const session = sessionWithToken()
 
@@ -77,7 +81,8 @@ describe('assertInstallationAccess', () => {
     vi.mocked(installations.fetchInstallationRepos).mockResolvedValue({
       installations: [{ id: 1 }],
       repositories: [{ full_name: 'acme/lark' }],
-      repoInstallationMap: { 'acme/lark': 1 }
+      repoInstallationMap: { 'acme/lark': 1 },
+      repoAccess: { 'acme/lark': { installationId: 1, push: true } }
     })
     const session = sessionWithToken()
 
@@ -96,7 +101,8 @@ describe('assertInstallationAccess', () => {
     vi.mocked(installations.fetchInstallationRepos).mockResolvedValue({
       installations: [{ id: 1 }],
       repositories: [{ full_name: 'acme/lark' }],
-      repoInstallationMap: { 'acme/lark': 1 }
+      repoInstallationMap: { 'acme/lark': 1 },
+      repoAccess: { 'acme/lark': { installationId: 1, push: true } }
     })
     const session = sessionWithToken()
 
@@ -114,5 +120,21 @@ describe('assertInstallationAccess', () => {
       session
     )
     expect(installations.fetchInstallationRepos).toHaveBeenCalledTimes(2)
+  })
+
+  it('rejects writes when the user lacks push on the repository', async () => {
+    vi.mocked(installations.fetchInstallationRepos).mockResolvedValue({
+      installations: [{ id: 1 }],
+      repositories: [{ full_name: 'acme/a' }],
+      repoInstallationMap: { 'acme/a': 1 },
+      repoAccess: { 'acme/a': { installationId: 1, push: false } }
+    })
+    const session = sessionWithToken()
+    const user = { oauth_access_token: 'user-token' }
+
+    await expect(assertInstallationAccess(user, '1', 'acme/a', session)).resolves.toBeUndefined()
+    await expect(
+      assertInstallationAccess(user, '1', 'acme/a', session, { requirePush: true })
+    ).rejects.toBeInstanceOf(InstallationAccessError)
   })
 })

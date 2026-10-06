@@ -19,6 +19,7 @@ import {
 import * as installations from '../services/github/installations.js'
 import {
   assertInstallationAccess,
+  cacheInstallationAccess,
   InstallationAccessError
 } from '../services/github/installation-access.js'
 import * as files from '../services/github/files.js'
@@ -104,7 +105,10 @@ githubRoutes.use('*', async (c, next) => {
 githubRoutes.get('/installation', async c => {
   const user = c.get('user')
   try {
-    const installationRepos = await installations.fetchInstallationRepos(user.oauth_access_token)
+    const { repoAccess, ...installationRepos } = await installations.fetchInstallationRepos(
+      user.oauth_access_token
+    )
+    cacheInstallationAccess(c.get('session'), repoAccess)
     if ((installationRepos.installations as unknown[]).length === 0) {
       console.log(`User ${user.sub} does not have an active app installation.`)
     }
@@ -132,7 +136,8 @@ githubRoutes.post('/installation/:installationId/:repository/branches', async c 
       c.get('user'),
       installationId,
       repository,
-      c.get('session')
+      c.get('session'),
+      { requirePush: true }
     )
     const { data } = await auth.createInstallationToken(installationId)
     const created = await installations.createBranch(
@@ -323,7 +328,8 @@ githubRoutes.post('/keyboard-files/:installationId/:repository/:branch', async c
       c.get('user'),
       installationId,
       repository,
-      c.get('session')
+      c.get('session'),
+      { requirePush: true }
     )
     const { keymap, layout, hostSnapshot, hostDeliverables } = body as {
       keymap: Parameters<typeof files.commitChanges>[4]

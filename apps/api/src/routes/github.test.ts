@@ -12,6 +12,7 @@ import {
   createOauthState,
   createSession,
   deleteSession,
+  getSession,
   SESSION_COOKIE_MAX_AGE_SEC
 } from '../services/github/sessions.js'
 import { githubRoutes } from './github.js'
@@ -88,7 +89,11 @@ async function authedRequest(
 const OWN_INSTALLATION_REPOS = {
   installations: [{ id: 1 }],
   repositories: [{ full_name: 'acme/lark' }, { full_name: 'acme/keymap' }],
-  repoInstallationMap: { 'acme/lark': 1, 'acme/keymap': 1 }
+  repoInstallationMap: { 'acme/lark': 1, 'acme/keymap': 1 },
+  repoAccess: {
+    'acme/lark': { installationId: 1, push: true },
+    'acme/keymap': { installationId: 1, push: true }
+  }
 }
 
 beforeEach(() => {
@@ -174,7 +179,8 @@ describe('GET /github/authorize', () => {
     vi.mocked(installations.fetchInstallationRepos).mockResolvedValue({
       installations: [{ id: 1 }],
       repositories: [],
-      repoInstallationMap: {}
+      repoInstallationMap: {},
+      repoAccess: {}
     })
 
     const callback = await app.request(`/github/authorize?code=abc&state=${encodeURIComponent(state)}`, {
@@ -553,5 +559,77 @@ describe('installation access control', () => {
 
     expect(createToken).not.toHaveBeenCalled()
     expect(fetchBuild).not.toHaveBeenCalled()
+  })
+
+  it('rejects acme/b when the user list only includes acme/a', async () => {
+    vi.mocked(installations.fetchInstallationRepos).mockResolvedValue({
+      installations: [{ id: 1 }],
+      repositories: [{ full_name: 'acme/a' }],
+      repoInstallationMap: { 'acme/a': 1 },
+      repoAccess: { 'acme/a': { installationId: 1, push: true } }
+    })
+    const fetchFiles = vi.mocked(files.fetchKeyboardFiles)
+    const commit = vi.mocked(files.commitChanges)
+
+    const { res } = await authedRequest('/github/keyboard-files/1/acme%2Fb')
+    expect(res.status).toBe(403)
+    expect(fetchFiles).not.toHaveBeenCalled()
+    expect(commit).not.toHaveBeenCalled()
+  })
+
+  it('allows GET without push and rejects POST commit', async () => {
+    vi.mocked(installations.fetchInstallationRepos).mockResolvedValue({
+      installations: [{ id: 1 }],
+      repositories: [{ full_name: 'acme/a' }],
+      repoInstallationMap: { 'acme/a': 1 },
+      repoAccess: { 'acme/a': { installationId: 1, push: false } }
+    })
+    vi.mocked(files.fetchKeyboardFiles).mockResolvedValue({
+      info: VALID_INFO,
+      keymap: VALID_KEYMAP,
+      originalCodeKeymap: { name: 'a.keymap', path: 'config/a.keymap' },
+      hostSnapshot: null
+    })
+    const commit = vi.mocked(files.commitChanges)
+    const sid = trackSid(createSession({ login: 'octocat', oauthAccessToken: 'user-token' }))
+
+    const read = await app.request('/github/keyboard-files/1/acme%2Fa', {
+      headers: { Cookie: sessionCookie(sid) }
+    })
+    expect(read.status).toBe(200)
+
+    const write = await app.request('/github/keyboard-files/1/acme%2Fa/main', {
+      method: 'POST',
+      headers: {
+        Cookie: sessionCookie(sid),
+        Origin: appOrigin,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ keymap: parseKeymap(VALID_KEYMAP), layout: [{ x: 0, y: 0 }] })
+    })
+    expect(write.status).toBe(403)
+    expect(commit).not.toHaveBeenCalled()
+  })
+
+  it('GET /github/installation fills the session ACL cache', async () => {
+    vi.mocked(files.fetchKeyboardFiles).mockResolvedValue({
+      info: VALID_INFO,
+      keymap: VALID_KEYMAP,
+      originalCodeKeymap: { name: 'lark.keymap', path: 'config/lark.keymap' },
+      hostSnapshot: null
+    })
+    const { sid, res } = await authedRequest('/github/installation')
+    expect(res.status).toBe(200)
+    expect(getSession(sid)?.installationAccess?.repos).toEqual({
+      'acme/lark': { installationId: 1, push: true },
+      'acme/keymap': { installationId: 1, push: true }
+    })
+    expect(installations.fetchInstallationRepos).toHaveBeenCalledTimes(1)
+
+    const filesRes = await app.request('/github/keyboard-files/1/acme%2Flark', {
+      headers: { Cookie: sessionCookie(sid) }
+    })
+    expect(filesRes.status).toBe(200)
+    expect(installations.fetchInstallationRepos).toHaveBeenCalledTimes(1)
   })
 })

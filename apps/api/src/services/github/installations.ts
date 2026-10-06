@@ -1,40 +1,63 @@
 import LinkHeader from 'http-link-header'
 import * as api from './api.js'
-import { createInstallationToken } from './auth.js'
+import type { InstallationRepoAccess } from './sessions.js'
+
+type GithubInstallation = { id: number; suspended_at?: string }
+type GithubRepository = {
+  full_name: string
+  permissions?: { push?: boolean }
+}
+
+async function collectPaged<T>(
+  userToken: string,
+  firstUrl: string,
+  itemsFrom: (data: unknown) => T[]
+): Promise<T[]> {
+  const items: T[] = []
+  let url: string | undefined = firstUrl
+  while (url) {
+    const res = await api.request({ url, token: userToken })
+    items.push(...itemsFrom(res.data))
+    const paging = LinkHeader.parse((res.headers.link as string) || '')
+    url = paging.get('rel', 'next')?.[0]?.uri
+  }
+  return items
+}
 
 export async function fetchInstallations(userToken: string) {
-  const url = '/user/installations'
-  const { data } = await api.request({ url, token: userToken })
-  const installations = (data as { installations: Array<{ suspended_at?: string }> })
-    .installations
+  const installations = await collectPaged<GithubInstallation>(
+    userToken,
+    '/user/installations?per_page=100',
+    data => (data as { installations: GithubInstallation[] }).installations
+  )
   return installations.filter(installation => !installation.suspended_at)
 }
 
 export async function fetchInstallationRepos(userToken: string) {
-  const repositories: unknown[] = []
+  const repositories: GithubRepository[] = []
   const installations = await fetchInstallations(userToken)
-  const repoInstallationMap: Record<string, number> = {}
+  const repoAccess: Record<string, InstallationRepoAccess> = {}
 
-  for (const installation of installations as Array<{ id: number }>) {
-    const { data } = await createInstallationToken(String(installation.id))
-    const token = (data as { token: string }).token
-
-    let url: string | undefined = `/installation/repositories`
-    while (url) {
-      const res = await api.request({ url, token })
-      const paging = LinkHeader.parse((res.headers.link as string) || '')
-      const pageData = res.data as { repositories: Array<{ full_name: string }> }
-
-      repositories.push(...pageData.repositories)
-      for (const repo of pageData.repositories) {
-        repoInstallationMap[repo.full_name] = installation.id
+  for (const installation of installations) {
+    const pageRepos = await collectPaged<GithubRepository>(
+      userToken,
+      `/user/installations/${installation.id}/repositories?per_page=100`,
+      data => (data as { repositories: GithubRepository[] }).repositories
+    )
+    repositories.push(...pageRepos)
+    for (const repo of pageRepos) {
+      repoAccess[repo.full_name] = {
+        installationId: installation.id,
+        push: repo.permissions?.push === true
       }
-
-      url = paging.get('rel', 'next')?.[0]?.uri
     }
   }
 
-  return { installations, repositories, repoInstallationMap }
+  const repoInstallationMap = Object.fromEntries(
+    Object.entries(repoAccess).map(([name, access]) => [name, access.installationId])
+  )
+
+  return { installations, repositories, repoInstallationMap, repoAccess }
 }
 
 export class BranchNameError extends Error {
