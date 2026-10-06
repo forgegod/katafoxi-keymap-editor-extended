@@ -4,7 +4,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import fs from 'node:fs'
-import { config } from './config.js'
+import { assertLocalDevAdapterAllowed, config } from './config.js'
 import { keyboardsRoutes } from './routes/keyboards.js'
 import { githubRoutes } from './routes/github.js'
 import { startSessionPruneTimer } from './services/github/sessions.js'
@@ -54,6 +54,8 @@ if (fs.existsSync(config.WEB_DIST)) {
 } else if (!config.ENABLE_DEV_SERVER) {
   console.warn(`Web dist not found at ${config.WEB_DIST}; API-only mode`)
 }
+
+assertLocalDevAdapterAllowed()
 
 console.log(
   `API listening on ${config.HOST}:${config.PORT} (github=${config.ENABLE_GITHUB}, local=${config.ENABLE_LOCAL})`

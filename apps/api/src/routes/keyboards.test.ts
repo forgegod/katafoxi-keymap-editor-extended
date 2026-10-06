@@ -7,6 +7,8 @@ import { keyboardsRoutes } from './keyboards.js'
 
 const app = new Hono().route('/', keyboardsRoutes)
 
+const APP_ORIGIN = new URL(config.APP_BASE_URL).origin
+
 const LAYOUT = [{ row: 0, col: 0, x: 0, y: 0 }]
 const KEYMAP = {
   keyboard: 'lark',
@@ -14,6 +16,14 @@ const KEYMAP = {
   layout: 'LAYOUT',
   layer_names: ['default'],
   layers: [[{ value: '&kp', params: [{ value: 'A', params: [] }] }]]
+}
+
+function jsonPostHeaders(extra: Record<string, string> = {}) {
+  return {
+    'Content-Type': 'application/json',
+    Origin: APP_ORIGIN,
+    ...extra
+  }
 }
 
 let previousEnableLocal: boolean
@@ -54,7 +64,7 @@ describe('keyboards routes when ENABLE_LOCAL is false', () => {
   it('POST /keymap returns 404 and does not call zmk', async () => {
     const res = await app.request('/keymap', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: jsonPostHeaders(),
       body: JSON.stringify(KEYMAP)
     })
     expect(res.status).toBe(404)
@@ -93,7 +103,7 @@ describe('keyboards routes when ENABLE_LOCAL is true', () => {
 
     const res = await app.request('/keymap', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: jsonPostHeaders(),
       body: JSON.stringify(KEYMAP)
     })
 
@@ -115,7 +125,7 @@ describe('keyboards routes when ENABLE_LOCAL is true', () => {
 
     const res = await app.request('/keymap', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: jsonPostHeaders(),
       body: JSON.stringify(KEYMAP)
     })
 
@@ -137,7 +147,7 @@ describe('keyboards routes when ENABLE_LOCAL is true', () => {
 
     const res = await app.request('/keymap', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: jsonPostHeaders(),
       body: JSON.stringify(KEYMAP)
     })
 
@@ -146,6 +156,35 @@ describe('keyboards routes when ENABLE_LOCAL is true', () => {
     expect(JSON.parse(body)).toEqual({ error: 'internal' })
     expect(body).not.toMatch(/secret|zmk-config|info\.json/)
     expect(leak).toHaveBeenCalled()
+  })
+
+  it('POST /keymap with a foreign Origin returns 403 and does not save', async () => {
+    const save = vi.spyOn(zmk, 'saveLocalKeymap')
+    const res = await app.request('/keymap', {
+      method: 'POST',
+      headers: jsonPostHeaders({ Origin: 'https://evil.example' }),
+      body: JSON.stringify(KEYMAP)
+    })
+    expect(res.status).toBe(403)
+    expect(save).not.toHaveBeenCalled()
+  })
+
+  it('POST /keymap with text/plain returns 415 and does not save', async () => {
+    const save = vi.spyOn(zmk, 'saveLocalKeymap')
+    const res = await app.request('/keymap', {
+      method: 'POST',
+      headers: jsonPostHeaders({ 'Content-Type': 'text/plain' }),
+      body: JSON.stringify(KEYMAP)
+    })
+    expect(res.status).toBe(415)
+    expect(save).not.toHaveBeenCalled()
+  })
+
+  it('GET /layout with a non-loopback Host returns 403 and does not load', async () => {
+    const load = vi.spyOn(zmk, 'loadLayout')
+    const res = await app.request('http://evil.example/layout')
+    expect(res.status).toBe(403)
+    expect(load).not.toHaveBeenCalled()
   })
 
   it('GET /layout returns 404 JSON without paths when the layout file is missing', async () => {

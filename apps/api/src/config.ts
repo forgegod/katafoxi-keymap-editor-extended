@@ -40,6 +40,19 @@ function parseBoolean(val: string | undefined): boolean {
 
 const isProduction = process.env.NODE_ENV === 'production'
 
+/**
+ * Sibling zmk-config I/O is a local-dev adapter. Refuse to enable it in
+ * production so a 0.0.0.0 bind cannot expose the server filesystem.
+ */
+export function assertLocalDevAdapterAllowed(
+  enableLocal = parseBoolean(process.env.ENABLE_LOCAL),
+  nodeEnv = process.env.NODE_ENV
+): void {
+  if (enableLocal && nodeEnv === 'production') {
+    throw new Error('ENABLE_LOCAL cannot be enabled when NODE_ENV is production')
+  }
+}
+
 export const config = {
   /** Bind address. Override with HOST; default loopback locally, all interfaces in production. */
   HOST: env('HOST', isProduction ? '0.0.0.0' : '127.0.0.1'),

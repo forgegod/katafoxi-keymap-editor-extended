@@ -1,13 +1,57 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import {
   InfoValidationError,
   KeymapValidationError,
   type ParsedKeymap
 } from '@keymap-editor/keymap-core'
 import { config } from '../config.js'
+import { isTrustedAppOrigin } from '../services/github/auth.js'
 import * as zmk from '../services/zmk/local-source.js'
 
 export const keyboardsRoutes = new Hono()
+
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+
+function isLoopbackHostHeader(host: string | undefined): boolean {
+  if (!host || /[\s\\]/.test(host)) return false
+  try {
+    const hostname = new URL(`http://${host}`).hostname.replace(/^\[|\]$/g, '')
+    if (hostname === 'localhost' || hostname === '::1') return true
+    const parts = hostname.split('.')
+    if (parts.length !== 4) return false
+    const octets = parts.map(part => Number(part))
+    return octets[0] === 127 && octets.every(n => Number.isInteger(n) && n >= 0 && n <= 255)
+  } catch {
+    return false
+  }
+}
+
+function isJsonContentType(value: string | undefined): boolean {
+  if (!value) return false
+  return value.split(';', 1)[0].trim().toLowerCase() === 'application/json'
+}
+
+function requestHost(c: Context): string | undefined {
+  const header = c.req.header('Host')
+  if (header) return header
+  try {
+    return new URL(c.req.url).host
+  } catch {
+    return undefined
+  }
+}
+
+// CSRF: same isTrustedAppOrigin as github routes (lives in services/github/auth).
+// Not extracted to trusted-origin.ts so this change does not touch github.ts.
+keyboardsRoutes.use('*', async (c, next) => {
+  if (!isLoopbackHostHeader(requestHost(c))) {
+    return c.body(null, 403)
+  }
+  if (!SAFE_METHODS.has(c.req.method) && !isTrustedAppOrigin(c)) {
+    return c.body(null, 403)
+  }
+  await next()
+})
 
 function isNotFoundError(err: unknown): boolean {
   return (
@@ -58,6 +102,10 @@ keyboardsRoutes.get('/keymap', c => {
 
 keyboardsRoutes.post('/keymap', async c => {
   if (!config.ENABLE_LOCAL) return c.body(null, 404)
+
+  if (!isJsonContentType(c.req.header('Content-Type'))) {
+    return c.body(null, 415)
+  }
 
   const keymap = (await c.req.json()) as ParsedKeymap
   try {
