@@ -12,7 +12,6 @@
     flavor?: unknown
     quickTapMs?: unknown
     requirePriorIdleMs?: unknown
-    [key: string]: unknown
   }
 
   interface Props {

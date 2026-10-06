@@ -13,6 +13,10 @@ export interface CatalogChoice {
   faIcon?: string
   additionalParams?: unknown[]
   holdTap?: boolean
+  tappingTermMs?: number
+  quickTapMs?: number
+  requirePriorIdleMs?: number
+  flavor?: string
   commands?: CatalogChoice[]
   /** ZMK HID OS table when the binder passed it through. */
   os?: unknown
