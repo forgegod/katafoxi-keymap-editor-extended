@@ -52,20 +52,17 @@ function repositoryTokenName(repository: string | undefined): string | undefined
   return name || undefined
 }
 
-/** Repo-scoped token with the permissions this API actually uses. */
+/**
+ * Repo-scoped token. Do not send a `permissions` subset: GitHub 422s if the
+ * App was not granted every listed permission (typical local Apps lack Actions).
+ * The token still only covers `repositories`, with whatever the App already has.
+ */
 function installationTokenRequestData(
   repository: string | undefined
-): { repositories: string[]; permissions: Record<string, string> } | undefined {
+): { repositories: string[] } | undefined {
   const name = repositoryTokenName(repository)
   if (!name) return undefined
-  return {
-    repositories: [name],
-    permissions: {
-      contents: 'write',
-      metadata: 'read',
-      actions: 'read'
-    }
-  }
+  return { repositories: [name] }
 }
 
 function installationTokenCacheKey(

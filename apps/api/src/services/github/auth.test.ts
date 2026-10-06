@@ -134,12 +134,7 @@ describe('createInstallationToken', () => {
         method: 'POST',
         token: 'app-jwt',
         data: {
-          repositories: ['lark'],
-          permissions: {
-            contents: 'write',
-            metadata: 'read',
-            actions: 'read'
-          }
+          repositories: ['lark']
         }
       })
     )
@@ -167,6 +162,27 @@ describe('createInstallationToken', () => {
 describe('mintInstallationToken', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+  })
+
+  it('scopes the token to the repo name and does not send a permissions subset', async () => {
+    vi.spyOn(fs, 'readFileSync').mockReturnValue('test-pem')
+    vi.spyOn(jwt, 'sign').mockImplementation(() => 'app-jwt')
+    const request = vi.spyOn(api, 'request').mockResolvedValue({
+      data: { token: 'install-token' },
+      headers: {},
+      status: 201
+    })
+
+    await mintInstallationToken('1', { repository: 'acme/lark' })
+    expect(request.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        url: '/app/installations/1/access_tokens',
+        data: { repositories: ['lark'] }
+      })
+    )
+    expect(
+      (request.mock.calls[0]?.[0] as { data?: { permissions?: unknown } }).data?.permissions
+    ).toBeUndefined()
   })
 
   it('posts an unscoped token when the repository is omitted', async () => {

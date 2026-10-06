@@ -217,8 +217,11 @@
             break
           }
         }
-      } catch {
-        if (!cancelled) loadingBranches = false
+      } catch (err) {
+        if (!cancelled) {
+          loadingBranches = false
+          applyLoadFailure(err)
+        }
       }
     })()
 

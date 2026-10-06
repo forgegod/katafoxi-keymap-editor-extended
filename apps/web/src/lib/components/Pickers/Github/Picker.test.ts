@@ -297,6 +297,40 @@ describe('Github Picker', () => {
     expect(target.querySelector('.branch-value')?.textContent?.trim()).toBe('main')
   })
 
+  it('shows loadError when listing branches fails', async () => {
+    const err = Object.assign(new Error('Request failed: 502'), {
+      response: { status: 502, data: { message: 'Bad gateway' } }
+    })
+    vi.spyOn(github, 'fetchRepoBranches').mockRejectedValue(err)
+
+    const onSelect = open()
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('Bad gateway')
+    })
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('shows a StaleRepoBase branch-list error and does not select a keyboard', async () => {
+    const err = Object.assign(new Error('Request failed: 409'), {
+      response: {
+        status: 409,
+        data: {
+          name: 'StaleRepoBase',
+          errors: ['Branch changed on GitHub — reload']
+        }
+      }
+    })
+    vi.spyOn(github, 'fetchRepoBranches').mockRejectedValue(err)
+
+    const onSelect = open()
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('Branch changed on GitHub — reload')
+    })
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
   it('shows loadError for non-validation fetch failures', async () => {
     vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }])
     const err = Object.assign(new Error('Request failed: 502'), {

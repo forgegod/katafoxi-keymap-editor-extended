@@ -550,6 +550,10 @@ function handleGithubError(c: Context, err: unknown) {
     return c.body(null, 502)
   }
   if (status === 409 || status === 422) {
+    if (isAppInstallationTokenUrl(e.response?.url)) {
+      console.error(`[${status}] ${dataLog}`, err)
+      return c.body(null, 502)
+    }
     return c.json(
       { name: 'StaleRepoBase', errors: [files.BRANCH_CHANGED_NOTICE] },
       409

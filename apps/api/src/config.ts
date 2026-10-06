@@ -6,10 +6,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 /** Repo root (keymap-editor-extended) */
 export const REPO_ROOT = path.resolve(__dirname, '../../..')
 
-/** Load repo `.env` when present; never override existing process.env (Heroku-safe). */
-function loadDotEnvIfExists(filePath: string) {
-  if (!fs.existsSync(filePath)) return
-  for (const line of fs.readFileSync(filePath, 'utf8').split(/\r?\n/)) {
+/**
+ * Line-oriented `.env` parse. First assignment wins. Quoted values keep
+ * literal `\n`; a real multiline PEM is not joined across lines.
+ */
+export function parseDotEnvText(text: string): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const line of text.split(/\r?\n/)) {
     const trimmed = line.trim()
     if (!trimmed || trimmed.startsWith('#')) continue
     const eq = trimmed.indexOf('=')
@@ -22,9 +25,17 @@ function loadDotEnvIfExists(filePath: string) {
     ) {
       value = value.slice(1, -1)
     }
-    if (process.env[key] === undefined) {
-      process.env[key] = value
-    }
+    if (out[key] === undefined) out[key] = value
+  }
+  return out
+}
+
+/** Load repo `.env` when present; never override existing process.env (Heroku-safe). */
+function loadDotEnvIfExists(filePath: string) {
+  if (!fs.existsSync(filePath)) return
+  const parsed = parseDotEnvText(fs.readFileSync(filePath, 'utf8'))
+  for (const [key, value] of Object.entries(parsed)) {
+    if (process.env[key] === undefined) process.env[key] = value
   }
 }
 

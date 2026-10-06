@@ -78,6 +78,16 @@ function withAppOrigin(headers: Headers, init: RequestInit): void {
   }
 }
 
+function appTokenError(status: number) {
+  return Object.assign(new Error(`GitHub API ${status}`), {
+    response: {
+      status,
+      data: { message: 'Validation Failed' },
+      url: 'https://api.github.com/app/installations/1/access_tokens'
+    }
+  })
+}
+
 async function authedRequest(
   path: string,
   init: RequestInit = {},
@@ -473,6 +483,44 @@ describe('session and errors', () => {
     expect((await authedRequest('/github/keyboard-files/1/acme%2Flark')).res.status).toBe(502)
   })
 
+  it.each([
+    {
+      title: 'GET branches',
+      path: '/github/installation/1/acme%2Flark/branches',
+      status: 422,
+      reject: () =>
+        vi.spyOn(auth, 'createInstallationToken').mockRejectedValue(appTokenError(422))
+    },
+    {
+      title: 'GET branches',
+      path: '/github/installation/1/acme%2Flark/branches',
+      status: 409,
+      reject: () =>
+        vi.spyOn(auth, 'createInstallationToken').mockRejectedValue(appTokenError(409))
+    },
+    {
+      title: 'GET keyboard-files',
+      path: '/github/keyboard-files/1/acme%2Flark',
+      status: 422,
+      reject: () => vi.mocked(files.fetchKeyboardFiles).mockRejectedValue(appTokenError(422))
+    },
+    {
+      title: 'GET keyboard-files',
+      path: '/github/keyboard-files/1/acme%2Flark',
+      status: 409,
+      reject: () => vi.mocked(files.fetchKeyboardFiles).mockRejectedValue(appTokenError(409))
+    }
+  ])('maps App-token $status on $title to 502 instead of StaleRepoBase', async ({
+    path,
+    reject
+  }) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    reject()
+    const { res } = await authedRequest(path)
+    expect(res.status).toBe(502)
+    expect(await res.text()).toBe('')
+  })
+
   it('stringifies GitHub error bodies in logs instead of [object Object]', async () => {
     const logged: string[] = []
     vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
@@ -778,7 +826,7 @@ describe('session and errors', () => {
     expect(mint).toHaveBeenCalledWith(
       expect.objectContaining({
         url: '/app/installations/1/access_tokens',
-        data: expect.objectContaining({ repositories: ['lark'] })
+        data: { repositories: ['lark'] }
       })
     )
   })
