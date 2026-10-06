@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { builtinHostLayoutSpecs } from './host-layout-catalog.js'
+import { builtinHostLayoutSpecs, primarySystemLayoutId } from './host-layout-catalog.js'
+import { HOST_LANGUAGE_IDS } from './host-languages.js'
 import { hostLayoutFromSymbols, withHostKey, type HostLayout } from './host-layout.js'
 import { windowsLocale, type WindowsLocale } from './klc-locale.js'
 import {
@@ -217,7 +218,7 @@ describe('klc export', () => {
   })
 
   it('warns once per unknown dead key instead of writing -1 silently', () => {
-    const layout = withHostKey(systemLayout('system-us'), 'GRAVE', 0, 'dead_iota')
+    const layout = withHostKey(systemLayout('system-us'), 'GRAVE', 0, 'dead_hamza')
     if (!layout) throw new Error('edit failed')
     const warnings: string[] = []
     const text = hostLayoutToKlc(layout, {
@@ -227,7 +228,7 @@ describe('klc export', () => {
     })
     expect(layoutRows(text).get('29')?.[3]).toBe('-1')
     expect(text).not.toContain('DEADKEY')
-    expect(warnings).toContain('Dropped unknown dead key dead_iota.')
+    expect(warnings).toContain('Dropped unknown dead key dead_hamza.')
   })
   it('puts a second alphabet on Caps Lock and keeps the base locale', () => {
     const text = hostLayoutsToCapsKlc(systemLayout('system-us'), systemLayout('system-ru'), {
@@ -407,6 +408,50 @@ describe('klc export', () => {
       expect(warnings).toContain('Dropped multi-codepoint glyph for keysym a.')
     } finally {
       spy.mockRestore()
+    }
+  })
+
+  it('exports System Greek tonos, dialytika, and polytonic dead keys', () => {
+    const warnings: string[] = []
+    const text = hostLayoutToKlc(systemLayout('system-gr'), {
+      name: 'Greek',
+      locale: windowsLocale('el'),
+      warnings
+    })
+    expect(warnings.filter(item => item.startsWith('Dropped unknown dead'))).toEqual([])
+    expect(layoutRows(text).get('27')?.[3]).toBe('00b4@')
+    expect(text).toContain('DEADKEY\t00b4')
+    expect(text).toContain('03b1\t03ac')
+    expect(text).toContain('DEADKEY\t00a8')
+    expect(text).toContain('03b9\t03ca')
+    expect(text).toContain('DEADKEY\t037a')
+    expect(text).toContain('DEADKEY\t1fbf')
+    expect(text).toContain('DEADKEY\t1ffe')
+  })
+
+  it('exports Finnish below-comma as Romanian ș/ț pairs', () => {
+    const warnings: string[] = []
+    const text = hostLayoutToKlc(systemLayout('system-fi'), {
+      name: 'Finnish',
+      locale: windowsLocale('fi'),
+      warnings
+    })
+    expect(warnings.filter(item => item.startsWith('Dropped unknown dead'))).toEqual([])
+    expect(text).toContain('DEADKEY\t0326')
+    expect(text).toContain('0073\t0219')
+  })
+
+  it('does not drop unknown dead keys on a language primary layout', () => {
+    for (const language of HOST_LANGUAGE_IDS) {
+      const layoutId = primarySystemLayoutId(language)
+      if (!layoutId) throw new Error(`no primary layout for ${language}`)
+      const warnings: string[] = []
+      hostLayoutToKlc(systemLayout(layoutId), {
+        name: language,
+        locale: windowsLocale(language),
+        warnings
+      })
+      expect(warnings.filter(item => item.startsWith('Dropped unknown dead')), language).toEqual([])
     }
   })
 })

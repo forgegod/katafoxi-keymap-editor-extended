@@ -14,6 +14,13 @@ describe('deadKeySpacingGlyph', () => {
     expect(deadKeySpacingGlyph('dead_belowdot')).toBe('\u25cc\u0323')
     expect(deadKeySpacingGlyph('dead_horn')).toBe('\u25cc\u031b')
     expect(deadKeySpacingGlyph('dead_macron')).toBe('¯')
+    expect(deadKeySpacingGlyph('dead_belowcomma')).toBe('\u25cc\u0326')
+  })
+
+  it('uses spacing Greek marks for iota and breathings', () => {
+    expect(deadKeySpacingGlyph('dead_iota')).toBe('\u037a')
+    expect(deadKeySpacingGlyph('dead_psili')).toBe('\u1fbf')
+    expect(deadKeySpacingGlyph('dead_dasia')).toBe('\u1ffe')
   })
 
   it('uses a dotted circle for an unknown dead accent', () => {
