@@ -17,7 +17,7 @@ import { WINDOWS_DEAD_KEYS, windowsDeadKey } from './klc-dead.js'
 import { windowsLocale } from './klc-locale.js'
 import { glyphToKeysym } from './xkb-keysyms.js'
 
-export class KlcParseError extends Error {
+class KlcParseError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'KlcParseError'

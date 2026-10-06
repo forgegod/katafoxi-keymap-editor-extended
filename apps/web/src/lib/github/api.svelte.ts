@@ -51,7 +51,7 @@ function hostSnapshotFromResponse(raw: unknown): {
 type Listener = (...args: unknown[]) => void
 
 /** Minimal EventEmitter (replaces eventemitter3). */
-export class EventEmitter {
+class EventEmitter {
   private listeners = new Map<string, Set<Listener>>()
 
   on(event: string, fn: Listener): this {

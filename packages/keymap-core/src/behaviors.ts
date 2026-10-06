@@ -38,13 +38,6 @@ export function isInstantBehavior(choice: {
   return !Array.isArray(choice.params) || choice.params.length === 0
 }
 
-/** Mouse-emulation bindings that need firmware pointing support. */
-export const POINTING_BEHAVIORS = ['&mkp', '&msc', '&mmv'] as const
-
-export function isPointingBehavior(code: string | number | undefined | null): boolean {
-  return (POINTING_BEHAVIORS as readonly string[]).includes(String(code))
-}
-
 const POINTING_FIRMWARE_NOTE =
   'Firmware: CONFIG_ZMK_POINTING=y in the keyboard .conf. This editor only adds #include <dt-bindings/zmk/pointing.h> to the keymap.'
 

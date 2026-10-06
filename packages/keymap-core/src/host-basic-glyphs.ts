@@ -108,7 +108,7 @@ const MARKS = [
  * Digits stay out; national marks (`№`, …) stay ornament. Grave and tilde join the
  * punct half of `MARKS`.
  */
-export const BASIC_ALIGN_GLYPHS: ReadonlySet<string> = new Set([
+const BASIC_ALIGN_GLYPHS: ReadonlySet<string> = new Set([
   ';',
   ':',
   '/',

@@ -4,9 +4,7 @@
 export {
   EditorState,
   editor,
-  hostLegendAnchorIndex,
-  adoptHoldTaps,
-  cloneParsedKeymap
+  hostLegendAnchorIndex
 } from './editor/index.js'
 export type {
   ClipboardKeyboardSelection,

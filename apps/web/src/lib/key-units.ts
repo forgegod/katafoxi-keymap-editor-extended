@@ -17,7 +17,7 @@ export interface KeyRotation {
   a?: number
 }
 
-export function getComputedParams(
+function getComputedParams(
   position: KeyPosition,
   size: KeySize,
   rotation: KeyRotation = {}

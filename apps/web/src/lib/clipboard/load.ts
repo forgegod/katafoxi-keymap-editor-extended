@@ -49,7 +49,7 @@ export function parseClipboardInfo(text: string): {
 }
 
 /** Validate pasted `.keymap` text for splice on Copy (does not parse layers). */
-export function parseClipboardExportSource(text: string): string {
+function parseClipboardExportSource(text: string): string {
   const trimmed = text.trim()
   if (!trimmed) throw new Error('Export .keymap is empty')
   if (trimmed.startsWith('{')) {

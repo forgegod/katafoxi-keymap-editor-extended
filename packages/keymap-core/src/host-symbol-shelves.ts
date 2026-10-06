@@ -122,7 +122,7 @@ const STRUCTURAL_MODIFIER_KEYSYMS = [
  * Language-typical dead keys (from the primary system layout) sit on the open
  * Modifiers shelf; the rest are under collapsed "More dead keys".
  */
-export const HOST_SYMBOL_MODIFIER_KEYSYMS: readonly string[] = Object.freeze([
+const HOST_SYMBOL_MODIFIER_KEYSYMS: readonly string[] = Object.freeze([
   ...STRUCTURAL_MODIFIER_KEYSYMS,
   'dead_grave',
   'dead_acute',

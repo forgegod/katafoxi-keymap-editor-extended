@@ -195,7 +195,7 @@ function hex4(codepoint: number): string {
 }
 
 /** MSKLC writes ASCII letters and digits as themselves, everything else as four hex digits. */
-export function klcCharToken(codepoint: number): string {
+function klcCharToken(codepoint: number): string {
   const asciiLetter = (codepoint >= 0x41 && codepoint <= 0x5a) || (codepoint >= 0x61 && codepoint <= 0x7a)
   const asciiDigit = codepoint >= 0x30 && codepoint <= 0x39
   if (asciiLetter || asciiDigit) return String.fromCodePoint(codepoint)
@@ -216,7 +216,7 @@ function noteWarning(warnings: string[] | undefined, message: string): void {
  * index rather than the bitmask (6/7), and this project's reader still treats
  * `%%` as empty, so we do not emit a guessed table.
  */
-export function klcGlyphOf(keysym: string, warnings?: string[]): string | null {
+function klcGlyphOf(keysym: string, warnings?: string[]): string | null {
   if (!keysym || keysym === 'NoSymbol' || keysym === 'VoidSymbol') return null
   if (keysym.startsWith('dead_')) return null
   const glyph = keysymToGlyph(keysym)

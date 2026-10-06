@@ -3,7 +3,7 @@ export type GithubGate = 'login' | 'install'
 const KEYBOARD_PREFIX = 'zmk-keyboard-'
 
 /** Repo name, without `owner/`. */
-export function repoName(fullName: string): string {
+function repoName(fullName: string): string {
   const slash = fullName.lastIndexOf('/')
   return slash === -1 ? fullName : fullName.slice(slash + 1)
 }

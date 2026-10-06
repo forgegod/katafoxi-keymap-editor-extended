@@ -39,7 +39,7 @@ export function makeIndex(tree: HydratedNode): HydratedNode[] {
 }
 
 /** Nodes in a hydrated subtree (node + nested params), matching makeIndex DFS order. */
-export function subtreeSize(node: HydratedNode | undefined): number {
+function subtreeSize(node: HydratedNode | undefined): number {
   if (!node) return 1
   return 1 + (node.params ?? []).reduce((sum, child) => sum + subtreeSize(child), 0)
 }

@@ -45,8 +45,7 @@ export function isKeycodeParam(param: unknown): boolean {
 
 export {
   codeColumnMinPx,
-  codeGridMetrics,
-  typicalCodeLabelChars
+  codeGridMetrics
 } from './code-grid'
 
 /** Behaviour slot plus each hydrated param (including nested LC(code) slots). */

@@ -57,7 +57,7 @@ export type EncodedKeymap = Omit<ParsedKeymap, 'layers' | 'combos' | 'sensorBind
   sensorBindings?: string[][]
 }
 
-export const keymapTemplate = `
+const keymapTemplate = `
 /*
  * Copyright (c) 2020 The ZMK Contributors
  *

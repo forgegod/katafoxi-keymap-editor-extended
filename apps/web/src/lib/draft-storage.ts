@@ -7,7 +7,7 @@ import type { ParsedKeymap } from '@keymap-editor/keymap-core'
 
 import { idbRequest, openDb, txDone } from './idb'
 
-export const DRAFT_SCHEMA_VERSION = 1
+const DRAFT_SCHEMA_VERSION = 1
 
 const DB_NAME = 'keymap-editor-drafts'
 const STORE_NAME = 'drafts'
@@ -60,7 +60,7 @@ export function buildDraftIdentity(
   return identity
 }
 
-export function draftIdentitiesMatch(
+function draftIdentitiesMatch(
   a: DraftIdentity,
   b: DraftIdentity
 ): boolean {

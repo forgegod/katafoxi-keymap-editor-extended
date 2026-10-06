@@ -16,7 +16,7 @@ export interface TaxonomyChip {
 const CONTEXT_PRIORITY = ['Keyboard', 'Keypad']
 
 /** Catalog contexts that make up the home board view. */
-export const DEFAULT_TAXONOMY_CONTEXTS = ['Keyboard', 'Keypad'] as const
+const DEFAULT_TAXONOMY_CONTEXTS = ['Keyboard', 'Keypad'] as const
 
 export const HOME_TAXONOMY_CHIP_ID = 'Keyboard+Keypad'
 

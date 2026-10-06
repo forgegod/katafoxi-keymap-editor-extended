@@ -1,9 +1,7 @@
 export {
   EditorState,
   editor,
-  hostLegendAnchorIndex,
-  adoptHoldTaps,
-  cloneParsedKeymap
+  hostLegendAnchorIndex
 } from './state.svelte'
 export type {
   ClipboardKeyboardSelection,

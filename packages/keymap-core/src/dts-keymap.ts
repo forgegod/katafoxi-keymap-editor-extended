@@ -23,7 +23,6 @@ import {
   escapeRegExp,
   iterateChildNodes,
   maskDts,
-  matchBrace,
   scanDts,
   tokenizeBindings,
   tokenizeBindingsDetailed,
@@ -55,11 +54,6 @@ export function compileMacros(macros: Record<string, string>): CompiledMacros {
       multiBinding: tokenizeBindings(macros[key]!).length > 1
     }))
   }
-}
-
-/** @deprecated Prefer matchBrace on a maskDts view; kept for callers that already mask. */
-export function findMatchingBrace(source: string, openIndex: number): number {
-  return matchBrace(source, openIndex)
 }
 
 const ZMK_KEYMAP_BLOCK = {
@@ -240,7 +234,7 @@ export function keymapBindingsText(source: string): string | null {
 }
 
 /** Split a bindings block into individual bind strings (each starts with &). */
-export { tokenizeBindings, tokenizeBindingsDetailed } from './dts-scan.js'
+export { tokenizeBindings } from './dts-scan.js'
 
 /** Join `\` + EOL so a continued `#define` is one logical line. */
 function joinBackslashEol(text: string): string {

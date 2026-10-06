@@ -8,7 +8,7 @@
  * scanners so braces are not rematched and the file is not remasked.
  */
 
-export interface DtsRange {
+interface DtsRange {
   start: number
   end: number
 }
@@ -347,7 +347,7 @@ export function hasBoolProp(body: string, prop: string): boolean {
   ).test(body)
 }
 
-export interface FindNamedBlockOptions {
+interface FindNamedBlockOptions {
   /** Prefer (or require) a block whose body declares this compatible string. */
   compatible?: string
   /** When true, only a block with `compatible` matches (no fallback). */
@@ -455,7 +455,7 @@ function blockHasCompatible(
   return false
 }
 
-export interface TokenizeBindingsResult {
+interface TokenizeBindingsResult {
   /** Bind strings that start with `&`. */
   binds: string[]
   /** True when a non-empty scrap did not start with `&` and was dropped. */

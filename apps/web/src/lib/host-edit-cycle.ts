@@ -5,7 +5,7 @@ import {
 } from '@keymap-editor/keymap-core'
 
 /** AltGr and AltGr+Shift — the usual host-symbol edit path. */
-export const HOST_EDIT_CYCLE_LEVELS = [2, 3] as const
+const HOST_EDIT_CYCLE_LEVELS = [2, 3] as const
 
 export type HostEditCycleTarget = {
   language: HostLanguageId

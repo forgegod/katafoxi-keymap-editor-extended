@@ -66,7 +66,7 @@ export function uniqueCatalogChoices(choices: CatalogChoice[]): CatalogChoice[] 
 }
 
 /** Codes that name the same catalog chip (`RET` / `ENTER` / `RETURN`). */
-export function choiceAliasKeys(choice: CatalogChoice): string[] {
+function choiceAliasKeys(choice: CatalogChoice): string[] {
   const keys = new Set<string>()
   if (choice.code != null && choice.code !== '') keys.add(String(choice.code))
   if (Array.isArray(choice.aliases)) {

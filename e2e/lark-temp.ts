@@ -9,7 +9,7 @@ export function resolveE2eZmkConfig(): string {
   return process.env.E2E_ZMK_CONFIG ?? path.join(os.tmpdir(), 'keymap-e2e')
 }
 
-export const LARK_FIXTURE_DIR = path.join(
+const LARK_FIXTURE_DIR = path.join(
   REPO_ROOT,
   'packages/keymap-core/fixtures/lark'
 )

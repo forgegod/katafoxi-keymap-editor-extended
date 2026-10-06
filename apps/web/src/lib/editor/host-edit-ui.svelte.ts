@@ -7,10 +7,6 @@ export function armHostSymbolEdit(this: EditorState, target: HostSymbolEditTarge
   this.hostSymbolCatalogOpen = true
 }
 
-export function clearHostSymbolEdit(this: EditorState) {
-  this.hostSymbolEditTarget = null
-}
-
 /**
  * Start an Alt+click host-edit session. When `zmk` is known, arm the first
  * AltGr cycle cell (extras before base) so the catalog is ready to write.

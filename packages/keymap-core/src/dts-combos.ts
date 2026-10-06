@@ -420,7 +420,7 @@ export function comboOverlapMessage(otherId: string | null | undefined): string 
  * True when layer0 at this index is a standalone modifier key
  * (`&kp LSHIFT`, `&sk LCTRL`, hold side of `&mt LALT A`).
  */
-export function bindingIsModifierKey(node: KeyBindingNode | undefined): boolean {
+function bindingIsModifierKey(node: KeyBindingNode | undefined): boolean {
   if (!node) return false
   const behavior = String(node.value)
   if (behavior === '&kp' || behavior === '&sk') {
@@ -433,7 +433,7 @@ export function bindingIsModifierKey(node: KeyBindingNode | undefined): boolean 
 }
 
 /** True when the bind is a mod key or nests a wrap like `LS(CAPS)` / `LC(BSPC)`. */
-export function bindingCarriesModifier(node: KeyBindingNode | undefined): boolean {
+function bindingCarriesModifier(node: KeyBindingNode | undefined): boolean {
   if (!node) return false
   if (bindingIsModifierKey(node)) return true
   if (isModifierWrapCode(node.value)) return true

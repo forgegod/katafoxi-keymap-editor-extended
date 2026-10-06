@@ -69,7 +69,6 @@ export type {
   SaveNotice
 } from './types'
 export { hostLegendAnchorIndex } from './helpers'
-export { adoptHoldTaps, cloneParsedKeymap } from './keymap-clone'
 
 export class EditorState {
   definitions = $state<Definitions | null>(null)

@@ -124,7 +124,7 @@ export function modifierHoldLegend(hold: ModifierHold): string {
   return hold.side === 'R' ? `R${glyph}` : glyph
 }
 
-export function sortModifierWraps(wraps: Iterable<string>): string[] {
+function sortModifierWraps(wraps: Iterable<string>): string[] {
   return [...wraps].sort((a, b) => {
     const ha = modifierHoldForWrap(a)
     const hb = modifierHoldForWrap(b)
@@ -136,7 +136,7 @@ export function sortModifierWraps(wraps: Iterable<string>): string[] {
 }
 
 /** One wrap per role; last side wins. */
-export function normalizeModifierWraps(wraps: Iterable<string>): string[] {
+function normalizeModifierWraps(wraps: Iterable<string>): string[] {
   const byRole = new Map<ModifierRole, string>()
   for (const wrap of wraps) {
     const hold = modifierHoldForWrap(wrap)
@@ -155,7 +155,7 @@ export function canApplyModifierHold(
   return wrapHold.role !== keyHold.role
 }
 
-export function wrapsCompatibleWithTerminal(
+function wrapsCompatibleWithTerminal(
   wraps: Iterable<string>,
   terminal?: string | number
 ): string[] {
