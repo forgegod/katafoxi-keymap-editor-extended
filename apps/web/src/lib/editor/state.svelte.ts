@@ -227,6 +227,7 @@ export class EditorState {
     this._selectGeneration += 1
     this._publishGeneration += 1
     this._hostRepoBaselineEncoded = null
+    this._handledDraftIdentityKey = null
     this.endHostEditSession()
     this.legendHover = null
     this.source = null
@@ -254,7 +255,6 @@ export class EditorState {
   resetForTests() {
     if (import.meta.env.MODE !== 'test' && !import.meta.env.DEV) return
     this.reset()
-    this._handledDraftIdentityKey = null
     this._holdTapsOnNextUpdate = null
     this.definitions = null
     resetHostLayoutRegistry()

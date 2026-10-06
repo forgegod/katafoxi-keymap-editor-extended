@@ -294,6 +294,59 @@ describe('editor publish / draft persistence', () => {
     confirm.mockRestore()
   })
 
+  it('prompts restore and reapplies host snapshot after logout on the same GitHub identity', async () => {
+    const identity = buildDraftIdentity({
+      source: 'github',
+      repo: 'acme/lark',
+      branch: 'main',
+      keyboard: 'lark'
+    })!
+    await saveStoredDraft(identity, km('Z'))
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const layout = [{ x: 0, y: 0, row: 0, col: 0 }]
+    const hostSnapshot = {
+      version: 1 as const,
+      view: {
+        columns: [
+          {
+            language: 'en' as const,
+            layoutId: 'system-us',
+            visible: true,
+            altGr: true,
+            altGrShift: true
+          }
+        ],
+        open: null
+      },
+      layouts: []
+    }
+    const selection = {
+      source: 'github' as const,
+      github: { repository: 'acme/lark', branch: 'main' },
+      layout,
+      keymap: km('A'),
+      hostSnapshot
+    }
+
+    await editor.selectKeyboard(selection)
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('Z')
+    expect(editor._hostRepoBaselineEncoded).not.toBeNull()
+
+    editor.clearLoadedKeymap()
+    expect(editor._handledDraftIdentityKey).toBeNull()
+    expect(editor._hostRepoBaselineEncoded).toBeNull()
+
+    await editor.selectKeyboard(selection)
+    expect(confirm).toHaveBeenCalledTimes(2)
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('Z')
+    expect(editor._hostRepoBaselineEncoded).not.toBeNull()
+    expect(editor.isHostRepoDirty).toBe(false)
+
+    confirm.mockRestore()
+    await deleteStoredDraft(identity)
+  })
+
   it('deletes a stale clean IDB record without prompting', async () => {
     const identity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
     await saveStoredDraft(identity, km('A'))
