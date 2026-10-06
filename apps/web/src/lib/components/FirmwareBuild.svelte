@@ -1,6 +1,14 @@
 <script lang="ts">
+  import * as config from '../config'
   import github, { type FirmwareBuild, type FirmwareBuildStatus } from '../github/api.svelte.js'
   import Spinner from './Common/Spinner.svelte'
+
+  function isTrustedFirmwareHref(href: string): boolean {
+    if (href.startsWith('https://github.com/')) return true
+    const api = config.apiBaseUrl
+    if (api) return href.startsWith(api)
+    return href.startsWith('/') && !href.startsWith('//')
+  }
 
   interface Props {
     repository: string
@@ -77,10 +85,13 @@
     return 'Waiting for GitHub Actions to start.'
   })
 
-  const downloadUrl = $derived(
-    build?.status === 'success' && build.artifactId
-      ? github.firmwareDownloadUrl(repository, build.artifactId, build.artifactName)
-      : ''
+  const downloadUrl = $derived.by(() => {
+    if (build?.status !== 'success' || !build.artifactId) return ''
+    const url = github.firmwareDownloadUrl(repository, build.artifactId, build.artifactName)
+    return isTrustedFirmwareHref(url) ? url : ''
+  })
+  const htmlUrl = $derived(
+    build?.htmlUrl && isTrustedFirmwareHref(build.htmlUrl) ? build.htmlUrl : ''
   )
 
   $effect(() => {
@@ -126,8 +137,8 @@
         <path d="M5 21h14" />
       </svg>
     </a>
-  {:else if build.htmlUrl && (build.status === 'failure' || build.status === 'cancelled' || build.status === 'success')}
-    <a class={chipClass} href={build.htmlUrl} target="_blank" rel="noreferrer" {title}>
+  {:else if htmlUrl && (build.status === 'failure' || build.status === 'cancelled' || build.status === 'success')}
+    <a class={chipClass} href={htmlUrl} target="_blank" rel="noreferrer" {title}>
       {@render chip()}
     </a>
   {:else}
