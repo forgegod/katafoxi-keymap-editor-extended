@@ -281,7 +281,6 @@
       {/if}
       {#if source === 'github'}
         <GithubPicker
-          embedded
           onSelect={handleKeyboardSelected}
           onStatus={status => (gh = status)}
           {onLogout}

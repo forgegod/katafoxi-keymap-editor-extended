@@ -5,14 +5,13 @@
   import * as config from '../../../config'
   import { editor } from '../../../editor.svelte.js'
   import github from '../../../github/api.svelte.js'
-  import { githubChipLabel, githubGateAction, manageReposUrl } from '../../../github/chrome-label.js'
+  import { manageReposUrl } from '../../../github/chrome-label.js'
   import * as storage from '../../../github/storage'
   import { findBy, mapProp } from '../../../utils'
   import ValidationErrors from './ValidationErrors.svelte'
   import IconButton from '../../Common/IconButton.svelte'
   import Button from '../../Common/Button.svelte'
   import Selector from '../../Common/Selector.svelte'
-  import SourceMenu from '../SourceMenu.svelte'
 
   export interface GithubChromeStatus {
     ready: boolean
@@ -37,13 +36,11 @@
       /** True for Reload / repo-or-branch change, not the automatic mount load. */
       userInitiated?: boolean
     }) => void
-    /** Parent draws the chip; this picker only fills the menu and keeps loading. */
-    embedded?: boolean
     onStatus?: (status: GithubChromeStatus) => void
     onLogout?: () => void
   }
 
-  let { onSelect, embedded = false, onStatus, onLogout }: Props = $props()
+  let { onSelect, onStatus, onLogout }: Props = $props()
 
   let branchForm = $state(false)
   let branchDraft = $state('')
@@ -233,7 +230,10 @@
   $effect(() => {
     const repoId = selectedRepoId
     const branch = selectedBranchName
-    if (!repoId || !branch) return
+    if (!repoId || !branch) {
+      loadingKeyboard = false
+      return
+    }
 
     storage.setPersistedBranch(repoId, branch)
     const generation = ++keyboardLoadGeneration
@@ -303,39 +303,9 @@
   const appInstalled = $derived(github.isAppInstalled())
   const ready = $derived(github.initialized)
 
-  const gate = $derived(
-    githubGateAction({
-      onlySource: true,
-      ready,
-      authorized,
-      appInstalled
-    })
-  )
-
-  const triggerLabel = $derived.by(() => {
-    if (gate === 'login') return 'Login with GitHub'
-    if (gate === 'install') return 'Add Repository'
-    if (!ready || !authorized || !appInstalled) return 'GitHub'
-    return githubChipLabel(selectedRepo?.full_name ?? null, repoFullNames, selectedBranchName)
-  })
-
-  const triggerTitle = $derived.by(() => {
-    if (!ready || !authorized) return 'Login with GitHub'
-    if (!appInstalled) return 'Add a GitHub repository'
-    const full = selectedRepo?.full_name
-    if (full && selectedBranchName) return `${full} · ${selectedBranchName}`
-    if (full) return full
-    return 'GitHub'
-  })
-
   async function beginLoginFlow() {
     await editor.flushPendingPersist()
     github.beginLoginFlow()
-  }
-
-  function runGate() {
-    if (gate === 'login') void beginLoginFlow()
-    else if (gate === 'install') github.beginInstallAppFlow()
   }
 
   function beginBranchForm() {
@@ -525,19 +495,7 @@
   {/if}
 {/snippet}
 
-{#if embedded}
-  {@render fields()}
-{:else}
-  <SourceMenu
-    label={triggerLabel}
-    title={triggerTitle}
-    busy={!ready || loadingBranches || loadingKeyboard}
-    popup={gate === null}
-    onActivate={runGate}
-  >
-    {@render fields()}
-  </SourceMenu>
-{/if}
+{@render fields()}
 
 <style>
   .identity-line {

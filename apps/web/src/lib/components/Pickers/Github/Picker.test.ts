@@ -74,8 +74,20 @@ describe('Github Picker', () => {
     github.installations = null
   })
 
-  function open(onSelect = vi.fn(), onLogout?: () => void) {
-    view = mount(Picker, { target, props: { onSelect, onLogout } })
+  function open(
+    onSelect = vi.fn(),
+    onLogout?: () => void,
+    onStatus?: (status: {
+      ready: boolean
+      authorized: boolean
+      appInstalled: boolean
+      loading: boolean
+      repoFullName: string | null
+      repoFullNames: string[]
+      branch: string | null
+    }) => void
+  ) {
+    view = mount(Picker, { target, props: { onSelect, onLogout, onStatus } })
     flushSync()
     return onSelect
   }
@@ -103,22 +115,11 @@ describe('Github Picker', () => {
     const onSelect = open()
 
     await vi.waitFor(() => {
-      expect(target.querySelector('.source-trigger-label')?.textContent?.trim()).toBe('only')
+      expect(target.querySelector('.branch-value')?.textContent?.trim()).toBe('only')
     })
-    expect(target.querySelector('.source-trigger')?.getAttribute('title')).toBe(
-      'acme/lark · only'
-    )
-    expect(target.querySelector('.branch-value')?.textContent?.trim()).toBe('only')
+    expect(target.querySelector('.source-trigger')).toBeNull()
     expect(target.querySelector('#branch')).toBeNull()
     expect(target.querySelector('#repo')).toBeNull()
-    const popover = target.querySelector('.source-popover')
-    expect(popover).toBeInstanceOf(HTMLElement)
-    expect((popover as HTMLElement).hidden).toBe(true)
-    target.querySelector('.source-trigger')?.dispatchEvent(
-      new MouseEvent('click', { bubbles: true })
-    )
-    flushSync()
-    expect((popover as HTMLElement).hidden).toBe(false)
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({
         github: expect.objectContaining({ repository: repo.full_name, branch: 'only' })
@@ -219,7 +220,8 @@ describe('Github Picker', () => {
       }
     })
 
-    const onSelect = open()
+    const onStatus = vi.fn()
+    const onSelect = open(vi.fn(), undefined, onStatus)
 
     await vi.waitFor(() => {
       expect(github.fetchLayoutAndKeymap).toHaveBeenCalledWith(
@@ -227,6 +229,9 @@ describe('Github Picker', () => {
         'main'
       )
     })
+    expect(onStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ loading: true, branch: 'main' })
+    )
     expect(target.querySelector('.branch-value')?.textContent?.trim()).toBe('main')
     expect(target.querySelector('#branch')).toBeNull()
 
@@ -244,6 +249,13 @@ describe('Github Picker', () => {
     flushSync()
 
     expect(target.querySelector('#branch')).toBeNull()
+
+    newBranches.resolve([])
+    await vi.waitFor(() => {
+      expect(onStatus).toHaveBeenCalledWith(
+        expect.objectContaining({ loading: false, branch: null })
+      )
+    })
 
     oldLayout.resolve({
       layout: [{ x: 0, y: 0, row: 0, col: 0 }],
