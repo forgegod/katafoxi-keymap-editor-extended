@@ -2,7 +2,13 @@ import { Hono } from 'hono'
 import fs from 'node:fs'
 import jwt from 'jsonwebtoken'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { KeymapValidationError, parseKeymap } from '@keymap-editor/keymap-core'
+import {
+  KeymapValidationError,
+  buildHostKeymapSnapshot,
+  parseHostKeymapSnapshot,
+  parseKeymap
+} from '@keymap-editor/keymap-core'
+import type { HostLegendView } from '@keymap-editor/keymap-core'
 import { config } from '../config.js'
 import * as api from '../services/github/api.js'
 import * as auth from '../services/github/auth.js'
@@ -38,6 +44,48 @@ const VALID_INFO = {
 }
 
 const VALID_KEYMAP = { layers: [['&kp A']] }
+
+const HOST_VIEW: HostLegendView = {
+  columns: [
+    {
+      language: 'en',
+      layoutId: 'system-us',
+      visible: true,
+      altGr: true,
+      altGrShift: true
+    },
+    {
+      language: 'ru',
+      layoutId: 'user:ru-1',
+      visible: true,
+      altGr: true,
+      altGrShift: false
+    }
+  ],
+  open: 'ru',
+  keycap: ['en', 'ru']
+}
+
+const HOST_SNAPSHOT = buildHostKeymapSnapshot(HOST_VIEW, [
+  {
+    id: 'user:ru-1',
+    name: 'typewriter',
+    language: 'ru',
+    origin: { from: 'copy', layoutId: 'system-ru-legacy' },
+    layout: {
+      id: 'user:ru-1',
+      byZmk: new Map([
+        [
+          'Q',
+          {
+            keysyms: ['Cyrillic_shorti', 'Cyrillic_SHORTI', 'NoSymbol', 'NoSymbol'],
+            glyphs: ['й', 'Й', '', '']
+          }
+        ]
+      ])
+    }
+  }
+])
 
 const createdSids: string[] = []
 const appOrigin = new URL(config.APP_BASE_URL).origin
@@ -1049,6 +1097,122 @@ describe('session and errors', () => {
     })
     expect(res.status).toBe(413)
     expect(files.commitChanges).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /github/keyboard-files commit', () => {
+  const layout = [{ x: 0, y: 0 }]
+  const keymap = parseKeymap(VALID_KEYMAP)
+  const deliverables = [
+    { path: 'host_keymap/linux/ru.xkb', content: 'xkb_symbols "ru" { };\n' }
+  ]
+  const commitPath = '/github/keyboard-files/1/acme%2Flark/feature%2Fx'
+
+  it('commits a parsed snapshot and returns { ok, mode, warnings }', async () => {
+    const parsed = parseHostKeymapSnapshot(HOST_SNAPSHOT)
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+
+    const commit = vi.mocked(files.commitChanges).mockResolvedValue({
+      mode: 'splice',
+      warnings: ['note']
+    })
+    const { res } = await authedRequest(commitPath, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        keymap,
+        layout,
+        hostSnapshot: HOST_SNAPSHOT,
+        hostDeliverables: deliverables,
+        baseSha: 'abc123'
+      })
+    })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true, mode: 'splice', warnings: ['note'] })
+    expect(commit).toHaveBeenCalledWith(
+      '1',
+      'acme/lark',
+      'feature/x',
+      layout,
+      keymap,
+      parsed.snapshot,
+      deliverables,
+      'abc123'
+    )
+  })
+
+  it('passes a canonical snapshot when the payload has extra fields or non-canonical order', async () => {
+    const parsed = parseHostKeymapSnapshot(HOST_SNAPSHOT)
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+
+    const messy = {
+      extra: 'drop-me',
+      layouts: HOST_SNAPSHOT.layouts.map(item => ({ ...item, leftover: true })),
+      view: { leftover: 'column', ...HOST_SNAPSHOT.view },
+      version: HOST_SNAPSHOT.version
+    }
+    const commit = vi.mocked(files.commitChanges).mockResolvedValue({
+      mode: 'splice',
+      warnings: []
+    })
+    const { res } = await authedRequest(commitPath, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keymap, layout, hostSnapshot: messy })
+    })
+    expect(res.status).toBe(200)
+    expect(commit).toHaveBeenCalledTimes(1)
+    const passed = commit.mock.calls[0]?.[5]
+    expect(passed).toEqual(parsed.snapshot)
+    expect(passed).not.toHaveProperty('extra')
+    expect(passed).not.toMatchObject({ layouts: [{ leftover: true }] })
+  })
+
+  it('coerces a non-array hostDeliverables and non-string baseSha to null', async () => {
+    const commit = vi.mocked(files.commitChanges).mockResolvedValue({
+      mode: 'splice',
+      warnings: []
+    })
+    const { res } = await authedRequest(commitPath, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        keymap,
+        layout,
+        hostDeliverables: 'x',
+        baseSha: 1
+      })
+    })
+    expect(res.status).toBe(200)
+    expect(commit).toHaveBeenCalledWith(
+      '1',
+      'acme/lark',
+      'feature/x',
+      layout,
+      keymap,
+      null,
+      null,
+      null
+    )
+  })
+
+  it('returns 403 and does not commit when the installation has push:false', async () => {
+    vi.mocked(installations.fetchInstallationRepos).mockResolvedValue({
+      installations: [{ id: 1 }],
+      repositories: [{ full_name: 'acme/lark' }],
+      repoInstallationMap: { 'acme/lark': 1 },
+      repoAccess: { 'acme/lark': { installationId: 1, push: false } }
+    })
+    const commit = vi.mocked(files.commitChanges)
+    const { res } = await authedRequest(commitPath, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keymap, layout })
+    })
+    expect(res.status).toBe(403)
+    expect(commit).not.toHaveBeenCalled()
   })
 })
 
