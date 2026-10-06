@@ -15,6 +15,7 @@ import {
   applyModifierHold,
   applyTerminalKey,
   buildEditorSlots,
+  isKeycodeParam,
   keycodeChainRootSlot,
   nextEditorSlot,
   terminalKeySlot
@@ -220,9 +221,10 @@ export function createKeyEditSession(input: KeyEditSessionInput) {
   function selectValue(choice: { code?: string | number }) {
     const current = readDraft()
     if (!editing || !activeSlot || !current || choice.code == null) return
+    const code = typeof choice.code === 'number' ? String(choice.code) : choice.code
     if (String(current.value) === '&as') {
       setDraft(
-        { value: '&as', params: autoshiftBindingParams(String(choice.code)) },
+        { value: '&as', params: autoshiftBindingParams(String(code)) },
         1
       )
       return
@@ -230,15 +232,19 @@ export function createKeyEditSession(input: KeyEditSessionInput) {
     const updated = cloneBindTree(current)
     const root = keycodeChainRootSlot(slots, editing.slotCodeIndex)
     if (root && (activeSlot.param === 'code' || activeSlot.param === 'keycode')) {
-      applyTerminalKey(updated, root.codeIndex, choice.code)
+      applyTerminalKey(updated, root.codeIndex, code)
     } else {
       let target = makeIndex(updated)[editing.slotCodeIndex]
       if (!target && editing.slotCodeIndex > 0) {
-        updated.params = emptyParamNodes(Math.max(updated.params.length, 1))
-        target = updated.params[0]
+        const count = Math.max(updated.params.length, editing.slotCodeIndex)
+        updated.params = [
+          ...updated.params,
+          ...emptyParamNodes(count - updated.params.length)
+        ]
+        target = makeIndex(updated)[editing.slotCodeIndex]
       }
       if (!target) return
-      target.value = choice.code
+      target.value = code
       target.params = []
     }
     setDraft(updated, root?.codeIndex ?? editing.slotCodeIndex)
@@ -248,7 +254,7 @@ export function createKeyEditSession(input: KeyEditSessionInput) {
     const current = readDraft()
     if (!editing || !current) return
     const root = keycodeChainRootSlot(slots, editing.slotCodeIndex)
-    if (!root) return
+    if (!root || !isKeycodeParam(root.param)) return
     const updated = applyModifierHold(cloneBindTree(current), root.codeIndex, wrapCode)
     setDraft(updated, root.codeIndex)
   }
