@@ -9,6 +9,7 @@ Bundled sample layouts + keymaps for the SPA **Demo** source (first-visit onboar
 | `lark` | [`fixtures/lark`](../lark/) (sibling; not under `demo/`) | Vendored LARK keymap |
 | `lily58` | same contrib repo | ZMK shield default |
 | `pncateho` | Dual-half 2×4 + thumbs (from [zmk-PNCATEHO](https://github.com/aroum/zmk-PNCATEHO) transform) | Chord firmware with combos expanded from `chords.dtsi` |
+| `sofle` | same contrib repo | ZMK shield default with layer `#define`s expanded, dual encoders, demo combos |
 | `cradio` | same contrib repo (Sweep) | Small demo keymap sized to the 34-key layout |
 
 Product code loads these as opaque fixture ids via `apps/web/src/lib/demo/catalog.ts` (`catalog.json` + Vite-imported files). The SPA lists demos alphabetically by display name. Do not teach compose/host-layout domain logic about these board names.

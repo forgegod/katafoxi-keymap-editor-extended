@@ -20,6 +20,7 @@ describe('demo catalog', () => {
       'Lark',
       'Lily58',
       'PNCATEHO',
+      'Sofle',
       'Sweep'
     ])
     expect(DEMO_CATALOG.map(entry => entry.id)).toEqual([
@@ -28,6 +29,7 @@ describe('demo catalog', () => {
       'lark',
       'lily58',
       'pncateho',
+      'sofle',
       'cradio'
     ])
     expect(defaultDemoId()).toBe('corne')
@@ -115,6 +117,18 @@ describe('demo catalog', () => {
           id: 'combo_esc',
           keyPositions: [19, 20]
         })
+      ])
+    )
+  })
+
+  it('loads Sofle as a 60-key dual-encoder split with four layers', async () => {
+    const { layout, keymap } = await loadDemo('sofle')
+    expect(layout).toHaveLength(60)
+    expect(keymap.layers).toHaveLength(4)
+    expect(keymap.sensorBindings?.slice(0, 3).every(row => row?.length === 2)).toBe(true)
+    expect(keymap.conditionalLayers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ ifLayers: [1, 2], thenLayer: 3 })
       ])
     )
   })

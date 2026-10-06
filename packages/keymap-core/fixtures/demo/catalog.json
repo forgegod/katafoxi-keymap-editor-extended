@@ -32,6 +32,12 @@
       "repoUrl": "https://github.com/aroum/zmk-PNCATEHO"
     },
     {
+      "id": "sofle",
+      "name": "Sofle",
+      "blurb": "60-key split · dual encoders · 3×6 + numbers",
+      "repoUrl": "https://github.com/josefadamcik/SofleKeyboard"
+    },
+    {
       "id": "cradio",
       "name": "Sweep",
       "blurb": "34-key split · Cradio / Ferris Sweep",
