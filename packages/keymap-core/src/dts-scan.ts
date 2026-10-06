@@ -256,19 +256,40 @@ export interface FindNamedBlockOptions {
   requireCompatible?: boolean
 }
 
+/** `#if` / `#ifdef` / `#ifndef` / `#elif` / `#else` at the start of a line. */
+const PREPROCESSOR_CONDITIONAL_RE = /^\s*#(if|ifdef|ifndef|elif|else)\b/m
+
 /**
- * Locate `keyword { … }`. Search on `masked`; when `compatible` is set, read
- * the string value from `source`. Prefer that block; with `requireCompatible`,
- * skip blocks that lack it.
+ * True when a preprocessor branch sits in `masked` (or `range` on it).
+ * Comments and strings are already spaces on a maskDts view.
  */
-export function findNamedBlock(
+export function hasPreprocessorConditional(
+  masked: string,
+  range?: Pick<DtsRange, 'start' | 'end'>
+): boolean {
+  const slice = range ? masked.slice(range.start, range.end) : masked
+  return PREPROCESSOR_CONDITIONAL_RE.test(slice)
+}
+
+function namedBlockRe(keyword: string): RegExp {
+  return new RegExp(`(?<![\\w,.+@-])${escapeRegExp(keyword)}\\s*\\{`, 'g')
+}
+
+/**
+ * Every `keyword { … }` on `masked`. When `compatible` is set, read the
+ * string from `source` and keep matching bodies; with `requireCompatible`,
+ * skip blocks that lack it. Without a compatible hit, the first name match
+ * is the fallback (unless `requireCompatible`).
+ */
+export function findNamedBlocks(
   source: string,
   masked: string,
   keyword: string,
   options: FindNamedBlockOptions = {}
-): DtsNamedBlock | null {
-  const re = new RegExp(`\\b${escapeRegExp(keyword)}\\s*\\{`, 'g')
-  let fallback: DtsNamedBlock | null = null
+): DtsNamedBlock[] {
+  const re = namedBlockRe(keyword)
+  const all: DtsNamedBlock[] = []
+  const compatibleHits: DtsNamedBlock[] = []
   let m: RegExpExecArray | null
   while ((m = re.exec(masked)) !== null) {
     const openBrace = m.index + m[0].length - 1
@@ -281,14 +302,31 @@ export function findNamedBlock(
       bodyStart: openBrace + 1,
       bodyEnd: closeBrace
     }
-    if (options.compatible) {
-      if (blockHasCompatible(source, masked, block, options.compatible)) return block
-      if (!options.requireCompatible && !fallback) fallback = block
-      continue
+    all.push(block)
+    if (options.compatible && blockHasCompatible(source, masked, block, options.compatible)) {
+      compatibleHits.push(block)
     }
-    return block
   }
-  return options.requireCompatible ? null : fallback
+  if (options.compatible) {
+    if (compatibleHits.length > 0) return compatibleHits
+    if (options.requireCompatible) return []
+    return all.length > 0 ? [all[0]!] : []
+  }
+  return all
+}
+
+/**
+ * Locate `keyword { … }`. Search on `masked`; when `compatible` is set, read
+ * the string value from `source`. Prefer that block; with `requireCompatible`,
+ * skip blocks that lack it.
+ */
+export function findNamedBlock(
+  source: string,
+  masked: string,
+  keyword: string,
+  options: FindNamedBlockOptions = {}
+): DtsNamedBlock | null {
+  return findNamedBlocks(source, masked, keyword, options)[0] ?? null
 }
 
 function blockHasCompatible(

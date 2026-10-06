@@ -6,7 +6,13 @@
  * Save rewrites timing in those nodes and inserts nodes the model added.
  */
 
-import { maskDts, matchBrace, readUintAngleScalar } from './dts-scan.js'
+import {
+  findNamedBlock,
+  hasPreprocessorConditional,
+  maskDts,
+  matchBrace,
+  readUintAngleScalar
+} from './dts-scan.js'
 import {
   dominantEol,
   eatFollowingEol,
@@ -322,6 +328,11 @@ export interface DtsHoldTapsParse {
    * or a hold-tap node could not be fully read. Save must omit `holdTaps`.
    */
   unparsed: boolean
+  /**
+   * True when `#if` / `#ifdef` / `#else` wrap or sit inside hold-tap nodes.
+   * Save must omit `holdTaps` (`preprocessor_conditional`).
+   */
+  preprocessorConditional: boolean
 }
 
 /**
@@ -355,7 +366,8 @@ export function parseDtsHoldTapsDetailed(source: string): DtsHoldTapsParse {
   }
   return {
     holdTaps: order.map(code => byCode.get(code)!),
-    unparsed: named.unparsed || overrides.unparsed
+    unparsed: named.unparsed || overrides.unparsed,
+    preprocessorConditional: holdTapRegionsHavePreprocessor(source, masked)
   }
 }
 
@@ -582,6 +594,38 @@ function collectHoldTapSpans(source: string, masked: string): HoldTapSpan[] {
   return spans
 }
 
+function holdTapRegionsHavePreprocessor(source: string, masked: string): boolean {
+  const behaviors = findNamedBlock(source, masked, 'behaviors')
+  if (
+    behaviors &&
+    hasPreprocessorConditional(masked, { start: behaviors.bodyStart, end: behaviors.bodyEnd })
+  ) {
+    return true
+  }
+  const spans = collectHoldTapSpans(source, masked)
+  const byCode = new Map<string, HoldTapSpan[]>()
+  for (const span of spans) {
+    if (hasPreprocessorConditional(masked, { start: span.open + 1, end: span.close })) {
+      return true
+    }
+    const prev = masked.lastIndexOf('}', span.blockStart - 1)
+    const from = prev >= 0 ? prev + 1 : 0
+    if (hasPreprocessorConditional(masked, { start: from, end: span.blockStart })) {
+      return true
+    }
+    const list = byCode.get(span.code) ?? []
+    list.push(span)
+    byCode.set(span.code, list)
+  }
+  for (const list of byCode.values()) {
+    if (list.length < 2) continue
+    const start = Math.min(...list.map(span => span.blockStart))
+    const end = Math.max(...list.map(span => span.blockEnd))
+    if (hasPreprocessorConditional(masked, { start, end })) return true
+  }
+  return false
+}
+
 function innerIndentOf(body: string, fallback: string): string {
   const line = body.split(/\r?\n/).find(row => row.trim().length > 0)
   return line ? (/^[ \t]*/.exec(line)?.[0] ?? fallback) : fallback
@@ -766,16 +810,11 @@ export function spliceHoldTapsIntoDts(source: string, holdTaps: readonly ZmkHold
   )
 
   if (missingNamed.length > 0) {
-    const behaviorsRe = /\bbehaviors\s*\{/g
-    const found = behaviorsRe.exec(masked)
+    const found = findNamedBlock(source, masked, 'behaviors')
     if (found) {
-      const open = found.index + found[0].length - 1
-      const close = matchBrace(masked, open)
-      if (close >= 0) {
-        const indent = contentIndent(source, open)
-        const text = missingNamed.map(node => formatNamedHoldTap(node, indent, eol)).join(eol)
-        edits.push(insertAtLine(source, close, text, eol))
-      }
+      const indent = contentIndent(source, found.openBrace)
+      const text = missingNamed.map(node => formatNamedHoldTap(node, indent, eol)).join(eol)
+      edits.push(insertAtLine(source, found.closeBrace, text, eol))
     } else {
       const root = /\/\s*\{/.exec(masked)
       if (root) {

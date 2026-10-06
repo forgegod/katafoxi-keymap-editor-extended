@@ -10,6 +10,7 @@ import {
   findAngleProp,
   findNamedBlock,
   hasBoolProp,
+  hasPreprocessorConditional,
   iterateChildNodes,
   maskDts,
   matchBrace,
@@ -61,6 +62,11 @@ export interface DtsCombosParse {
    * was not fully numeric. Save must omit `combos` so the block is left alone.
    */
   unparsed: boolean
+  /**
+   * True when `#if` / `#ifdef` / `#else` sit inside the combos block.
+   * Save must omit `combos` (`preprocessor_conditional`).
+   */
+  preprocessorConditional: boolean
 }
 
 /**
@@ -74,7 +80,10 @@ export function parseDtsCombos(source: string): DtsComboJson[] {
 export function parseDtsCombosDetailed(source: string): DtsCombosParse {
   const masked = maskDts(source)
   const block = findNamedBlock(source, masked, 'combos', { compatible: 'zmk,combos' })
-  if (!block) return { combos: [], unparsed: false }
+  if (!block) return { combos: [], unparsed: false, preprocessorConditional: false }
+  if (hasPreprocessorConditional(masked, { start: block.bodyStart, end: block.bodyEnd })) {
+    return { combos: [], unparsed: false, preprocessorConditional: true }
+  }
 
   const combos: DtsComboJson[] = []
   let unparsed = false
@@ -130,7 +139,7 @@ export function parseDtsCombosDetailed(source: string): DtsCombosParse {
 
     combos.push(combo)
   }
-  return { combos, unparsed }
+  return { combos, unparsed, preprocessorConditional: false }
 }
 
 function sanitizeComboId(id: string): string {

@@ -4,6 +4,7 @@
  */
 
 import {
+  assertCanSpliceKeymap,
   findKeymapLayerNodes,
   findZmkKeymapBlock
 } from './dts-keymap.js'
@@ -85,12 +86,7 @@ export function spliceBindingsIntoDts(
   assertLayerKeyCounts(layout, layers)
 
   const eol = dominantEol(original)
-  const block = findZmkKeymapBlock(original)
-  if (!block) {
-    throw new KeymapValidationError([
-      'Cannot splice: no keymap block with compatible = "zmk,keymap" found'
-    ])
-  }
+  const block = assertCanSpliceKeymap(original)
 
   const existing = findKeymapLayerNodes(original, block)
   const indent = inferLayerIndent(original, existing)

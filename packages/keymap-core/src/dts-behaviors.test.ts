@@ -354,4 +354,33 @@ describe('parseDtsHoldTaps', () => {
     ])
     expect(spliced).toContain('tapping-term-ms = <280>; // keep')
   })
+
+  it('omits holdTaps when #ifdef wraps two timing branches so Save keeps both', () => {
+    const src = `/ {
+    behaviors {
+#ifdef SHORT_HOLD
+        &mt {
+            tapping-term-ms = <200>;
+        };
+#else
+        &mt {
+            tapping-term-ms = <400>;
+        };
+#endif
+    };
+
+    keymap {
+        compatible = "zmk,keymap";
+        default_layer { bindings = <&kp A &kp B>; };
+    };
+};
+`
+    const raw = parseDtsKeymap(src)
+    expect(raw.holdTaps).toBeUndefined()
+    expect(raw.warnings).toContain('preprocessor_conditional')
+    const built = buildKeymapCode(TINY, parseKeymap(raw), { originalSource: src })
+    expect(built.code).toContain('tapping-term-ms = <200>;')
+    expect(built.code).toContain('tapping-term-ms = <400>;')
+    expect(built.code).toContain('#ifdef SHORT_HOLD')
+  })
 })

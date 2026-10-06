@@ -324,6 +324,38 @@ describe('parseDtsKeymap combos', () => {
     expect(built.code).toContain('combo_esc')
     expect(built.code).toContain('key-positions = <LT0 LT1>;')
   })
+
+  it('omits combos when #ifdef wraps nodes so Save keeps both branches', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        layer_0 { bindings = <&kp A &kp B>; };
+    };
+
+    combos {
+        compatible = "zmk,combos";
+#ifdef BOARD_HAS_THUMBS
+        combo_esc {
+            bindings = <&kp ESC>;
+            key-positions = <0 1>;
+        };
+#else
+        combo_tab {
+            bindings = <&kp TAB>;
+            key-positions = <0 1>;
+        };
+#endif
+    };
+};
+`
+    const raw = parseDtsKeymap(src)
+    expect(raw.combos).toBeUndefined()
+    expect(raw.warnings).toContain('preprocessor_conditional')
+    const built = buildKeymapCode(TINY_LAYOUT, parseKeymap(raw), { originalSource: src })
+    expect(built.code).toContain('#ifdef BOARD_HAS_THUMBS')
+    expect(built.code).toContain('combo_esc')
+    expect(built.code).toContain('combo_tab')
+  })
 })
 
 describe('spliceCombosIntoDts', () => {

@@ -3,6 +3,7 @@ import {
   findAngleProp,
   findNamedBlock,
   hasBoolProp,
+  hasPreprocessorConditional,
   iterateChildNodes,
   maskDts,
   matchBrace,
@@ -110,6 +111,21 @@ describe('iterateChildNodes', () => {
 })
 
 describe('findNamedBlock', () => {
+  it('does not treat my-keymap as a keymap block', () => {
+    const src = `
+      my-keymap { compatible = "zmk,keymap"; decoy { bindings = <&kp A>; }; };
+      keymap { compatible = "zmk,keymap"; live { bindings = <&kp B>; }; };
+    `
+    const masked = maskDts(src)
+    const block = findNamedBlock(src, masked, 'keymap', {
+      compatible: 'zmk,keymap',
+      requireCompatible: true
+    })
+    expect(block).not.toBeNull()
+    expect(src.slice(block!.bodyStart, block!.bodyEnd)).toContain('live')
+    expect(src.slice(block!.keywordStart, block!.openBrace)).toMatch(/^\s*keymap\s*$/)
+  })
+
   it('prefers the compatible block when several share a name', () => {
     const src = `
       combos { combo_a { bindings = <&kp A>; }; };
@@ -145,5 +161,28 @@ describe('findNamedBlock', () => {
     })
     expect(block).not.toBeNull()
     expect(src.slice(block!.bodyStart, block!.bodyEnd)).toContain('layer_1')
+  })
+})
+
+describe('hasPreprocessorConditional', () => {
+  it('sees branch directives on their own lines and ignores comments', () => {
+    const src = `/ {
+  keymap {
+    compatible = "zmk,keymap";
+    // #if 0
+    layer_0 { bindings = <&kp A>; };
+#if 0
+    layer_1 { bindings = <&kp B>; };
+#endif
+  };
+};
+`
+    const masked = maskDts(src)
+    const block = findNamedBlock(src, masked, 'keymap')
+    expect(block).not.toBeNull()
+    expect(hasPreprocessorConditional(masked, { start: block!.bodyStart, end: block!.bodyEnd })).toBe(
+      true
+    )
+    expect(hasPreprocessorConditional(maskDts('// #ifdef FOO\nkeymap { };'))).toBe(false)
   })
 })

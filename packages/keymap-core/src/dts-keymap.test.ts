@@ -237,3 +237,57 @@ describe('buildKeymapCode macros_expanded regions', () => {
     expect(result.warnings).toContain('macros_expanded')
   })
 })
+
+describe('parseDtsKeymap preprocessor and multiple keymap nodes', () => {
+  it('warns preprocessor_conditional for #if 0 layers and refuses Save splice', () => {
+    const src = `/ {
+  keymap {
+    compatible = "zmk,keymap";
+    layer_0 { bindings = <&kp A &kp B>; };
+#if 0
+    layer_1 { bindings = <&kp C &kp D>; };
+#endif
+  };
+};
+`
+    const km = parseDtsKeymap(src)
+    expect(km.warnings).toContain('preprocessor_conditional')
+    expect(km.layers.length).toBe(2)
+    expect(() =>
+      buildKeymapCode(TINY_LAYOUT, parseKeymap(km), { originalSource: src })
+    ).toThrow(KeymapValidationError)
+    try {
+      buildKeymapCode(TINY_LAYOUT, parseKeymap(km), { originalSource: src })
+    } catch (e) {
+      expect((e as KeymapValidationError).errors[0]).toMatch(/preprocessor/)
+    }
+  })
+
+  it('warns multiple_keymap_nodes after /delete-node/ and refuses splice', () => {
+    const src = `/ {
+  keymap {
+    compatible = "zmk,keymap";
+    layer_0 { bindings = <&kp A &kp B>; };
+  };
+};
+/delete-node/ &{/keymap};
+/ {
+  keymap {
+    compatible = "zmk,keymap";
+    layer_0 { bindings = <&kp C &kp D>; };
+  };
+};
+`
+    const km = parseDtsKeymap(src)
+    expect(km.warnings).toContain('multiple_keymap_nodes')
+    expect(km.layers[0]).toEqual(['&kp A', '&kp B'])
+    expect(() =>
+      buildKeymapCode(TINY_LAYOUT, parseKeymap(km), { originalSource: src })
+    ).toThrow(KeymapValidationError)
+    try {
+      buildKeymapCode(TINY_LAYOUT, parseKeymap(km), { originalSource: src })
+    } catch (e) {
+      expect((e as KeymapValidationError).errors[0]).toMatch(/multiple keymap/)
+    }
+  })
+})

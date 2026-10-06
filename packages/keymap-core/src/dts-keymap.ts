@@ -18,6 +18,8 @@ import { parseDtsHoldTapsDetailed } from './dts-behaviors.js'
 import {
   findAngleProp,
   findNamedBlock,
+  findNamedBlocks,
+  hasPreprocessorConditional,
   iterateChildNodes,
   maskDts,
   matchBrace,
@@ -58,16 +60,52 @@ export function findMatchingBrace(source: string, openIndex: number): number {
   return matchBrace(source, openIndex)
 }
 
+const ZMK_KEYMAP_BLOCK = {
+  compatible: 'zmk,keymap',
+  requireCompatible: true
+} as const
+
+/**
+ * Locate `keymap { compatible = "zmk,keymap"; … }` blocks. Search uses a
+ * DTS-name lookbehind so `my-keymap {` is not a hit.
+ */
+export function findZmkKeymapBlocks(source: string): DtsNamedBlock[] {
+  const masked = maskDts(source)
+  return findNamedBlocks(source, masked, 'keymap', ZMK_KEYMAP_BLOCK)
+}
+
 /**
  * Locate the `keymap { ... }` block that contains `compatible = "zmk,keymap"`.
  * Returns absolute indices into `source`: body is exclusive of the braces.
+ * Several such nodes → the first (Save refuses via assertCanSpliceKeymap).
  */
 export function findZmkKeymapBlock(source: string): DtsNamedBlock | null {
+  return findZmkKeymapBlocks(source)[0] ?? null
+}
+
+/** Throw when Save must not rewrite layers (preprocessor or several keymap nodes). */
+export function assertCanSpliceKeymap(source: string): DtsNamedBlock {
   const masked = maskDts(source)
-  return findNamedBlock(source, masked, 'keymap', {
-    compatible: 'zmk,keymap',
-    requireCompatible: true
-  })
+  const blocks = findNamedBlocks(source, masked, 'keymap', ZMK_KEYMAP_BLOCK)
+  if (blocks.length === 0) {
+    throw new KeymapValidationError([
+      'Cannot splice: no keymap block with compatible = "zmk,keymap" found'
+    ])
+  }
+  if (blocks.length > 1) {
+    throw new KeymapValidationError(['Cannot splice: multiple keymap nodes'])
+  }
+  const block = blocks[0]!
+  if (hasPreprocessorConditional(masked, { start: block.bodyStart, end: block.bodyEnd })) {
+    throw new KeymapValidationError([
+      'Cannot splice: preprocessor conditionals in the keymap block'
+    ])
+  }
+  return block
+}
+
+function addWarning(warnings: string[], code: string): void {
+  if (!warnings.includes(code)) warnings.push(code)
 }
 
 export interface DtsLayerNode {
@@ -247,12 +285,16 @@ export function parseDtsKeymap(
   const warnings: string[] = []
   const masked = maskDts(source)
 
-  const block = findNamedBlock(source, masked, 'keymap', {
-    compatible: 'zmk,keymap',
-    requireCompatible: true
-  })
+  const keymapBlocks = findNamedBlocks(source, masked, 'keymap', ZMK_KEYMAP_BLOCK)
+  if (keymapBlocks.length > 1) {
+    addWarning(warnings, 'multiple_keymap_nodes')
+  }
+  const block = keymapBlocks[0]
   if (!block) {
     throw new KeymapValidationError(['No layers with bindings found in .keymap'])
+  }
+  if (hasPreprocessorConditional(masked, { start: block.bodyStart, end: block.bodyEnd })) {
+    addWarning(warnings, 'preprocessor_conditional')
   }
 
   const layerNodes = findKeymapLayerNodes(source, block)
@@ -307,22 +349,24 @@ export function parseDtsKeymap(
   }
 
   if (anyMacroExpanded) {
-    warnings.push('macros_expanded')
+    addWarning(warnings, 'macros_expanded')
   }
   if (anyUnparsedFragment) {
-    warnings.push('unparsed_binding_fragment')
+    addWarning(warnings, 'unparsed_binding_fragment')
   }
 
   let ownedCombos: DtsComboJson[] | undefined
-  if (combosParsed.unparsed) {
-    warnings.push('combos_unparsed')
+  if (combosParsed.preprocessorConditional) {
+    addWarning(warnings, 'preprocessor_conditional')
+  } else if (combosParsed.unparsed) {
+    addWarning(warnings, 'combos_unparsed')
   } else if (combos.length > 0) {
     ownedCombos = combos
   } else if (combosBlock) {
     const body = source.slice(combosBlock.bodyStart, combosBlock.bodyEnd).trim()
     if (body.length > 0) {
       // Block present but nothing parsed — do not claim ownership with [].
-      warnings.push('combos_unparsed')
+      addWarning(warnings, 'combos_unparsed')
     } else {
       ownedCombos = []
     }
@@ -331,15 +375,17 @@ export function parseDtsKeymap(
   const conditionalParsed = parseDtsConditionalLayersDetailed(source)
   let ownedConditional: ZmkConditionalLayer[] | undefined
   if (conditionalParsed.unparsed) {
-    warnings.push('conditional_layers_unparsed')
+    addWarning(warnings, 'conditional_layers_unparsed')
   } else if (conditionalParsed.rules.length > 0) {
     ownedConditional = conditionalParsed.rules
   }
 
   const holdParsed = parseDtsHoldTapsDetailed(source)
   let ownedHoldTaps: ZmkHoldTap[] | undefined
-  if (holdParsed.unparsed) {
-    warnings.push('hold_tap_timing_unparsed')
+  if (holdParsed.preprocessorConditional) {
+    addWarning(warnings, 'preprocessor_conditional')
+  } else if (holdParsed.unparsed) {
+    addWarning(warnings, 'hold_tap_timing_unparsed')
   } else if (holdParsed.holdTaps.length > 0) {
     ownedHoldTaps = holdParsed.holdTaps
   }
