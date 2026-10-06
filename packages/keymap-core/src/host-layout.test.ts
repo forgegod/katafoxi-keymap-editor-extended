@@ -10,7 +10,11 @@ import {
 } from './host-layout.js'
 import { registerLarkHostFixture } from './testing/lark-host.js'
 import { hostLegendFor, keycapFace } from './compose.js'
-import { catalogLayoutsForLanguage, primarySystemLayoutId } from './host-layout-catalog.js'
+import {
+  builtinHostLayoutSpecs,
+  catalogLayoutsForLanguage,
+  primarySystemLayoutId
+} from './host-layout-catalog.js'
 import { hostLayout, hostLevels } from './host-layout-registry.js'
 import {
   addHostLanguage,
@@ -128,6 +132,41 @@ describe('parseXkbSymbolsSection', () => {
     const keys = parseXkbSymbolsSection(source, 'basic', [], { warnings })
     expect(keys.get('AC01')).toEqual(['a', 'A'])
     expect(warnings).toEqual(['Key <AC01> has 2 keysym groups; using the first.'])
+  })
+
+  it('merges include then override per level, keeping any and NoSymbol', () => {
+    const source = `
+      xkb_symbols "base" {
+        key <AD01> {[ semicolon, colon, NoSymbol, NoSymbol ]};
+        key <AD02> {[ a, A, at, Greek_alpha ]};
+      };
+      xkb_symbols "basic" {
+        include "self(base)"
+        key <AD01> {[ any, any, periodcentered ]};
+        key <AD02> {[ NoSymbol, B, NoSymbol, NoSymbol ]};
+      };
+    `
+    const keys = parseXkbSymbolsSection(source, 'basic', [], { fileId: 'self' })
+    expect(keys.get('AD01')).toEqual([
+      'semicolon',
+      'colon',
+      'periodcentered',
+      'NoSymbol'
+    ])
+    expect(keys.get('AD02')).toEqual(['a', 'B', 'at', 'Greek_alpha'])
+  })
+
+  it('maps unresolved any to NoSymbol when nothing was included', () => {
+    const source = `
+      xkb_symbols "basic" {
+        key <AD01> {[ any, any, periodcentered ]};
+      };
+    `
+    expect(parseXkbSymbolsSection(source, 'basic').get('AD01')).toEqual([
+      'NoSymbol',
+      'NoSymbol',
+      'periodcentered'
+    ])
   })
 })
 
@@ -451,6 +490,22 @@ describe('Ukrainian system layout', () => {
         pack.glyphs.filter(glyph => !glyph.alt).map(glyph => glyph.text).join('')
       )
     ).toEqual(['ыЫ', 'іІ'])
+  })
+})
+
+describe('Greek system layout', () => {
+  it('keeps gr(simple) letters under gr(basic) any overrides', () => {
+    expect(hostLevels('system-gr', 'Q')?.keysyms[0]).toBe('semicolon')
+  })
+
+  it('resolves every builtin so no keysym any remains', () => {
+    for (const spec of builtinHostLayoutSpecs) {
+      const layout = hostLayout(spec.id)
+      expect(layout, spec.id).toBeDefined()
+      for (const [zmk, levels] of layout!.byZmk) {
+        expect(levels.keysyms, `${spec.id}:${zmk}`).not.toContain('any')
+      }
+    }
   })
 })
 

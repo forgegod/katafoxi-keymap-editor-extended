@@ -103,8 +103,37 @@ function reportCycle(path: string, options: ParseXkbOptions): void {
 }
 
 /**
+ * xkbcomp default merge mode is override: per level, `NoSymbol` in the new
+ * map keeps the previous keysym (and trailing omitted levels act the same).
+ * xkeyboard-config writes `any` for that keep-previous sentinel; treat it alike.
+ * With no included value, `any` collapses to `NoSymbol` (xkbcomp's empty slot).
+ */
+function keepsIncludedLevel(keysym: string): boolean {
+  return keysym === 'any' || keysym === 'NoSymbol'
+}
+
+function mergeKeyLevels(included: string[] | undefined, overlay: string[]): string[] {
+  if (!included) {
+    return overlay.map(level => (level === 'any' ? 'NoSymbol' : level))
+  }
+  const width = Math.max(included.length, overlay.length)
+  const merged: string[] = []
+  for (let i = 0; i < width; i++) {
+    const next = i < overlay.length ? overlay[i] : undefined
+    const prev = i < included.length ? included[i] : undefined
+    if (next === undefined || keepsIncludedLevel(next)) {
+      merged.push(prev ?? 'NoSymbol')
+    } else {
+      merged.push(next)
+    }
+  }
+  return merged
+}
+
+/**
  * XKB key name → keysym names, in level order.
- * Included sections are applied first; a later statement in this section wins.
+ * Included sections are applied first; a later statement merges per level
+ * (override): concrete keysyms replace, `any` / `NoSymbol` keep included.
  */
 export function parseXkbSymbolsSection(
   source: string,
@@ -159,7 +188,7 @@ export function parseXkbSymbolsSection(
           strictIncludes: fromVendored ? false : options.strictIncludes
         }
       )) {
-        keys.set(name, levels)
+        keys.set(name, mergeKeyLevels(keys.get(name), levels))
       }
       continue
     }
@@ -171,7 +200,7 @@ export function parseXkbSymbolsSection(
         `Key <${keyName}> has ${lists.length} keysym groups; using the first.`
       )
     }
-    keys.set(keyName, lists[0])
+    keys.set(keyName, mergeKeyLevels(keys.get(keyName), lists[0]))
   }
   return keys
 }
