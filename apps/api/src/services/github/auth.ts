@@ -125,6 +125,41 @@ export function createOauthReturnUrl(): string {
   return config.APP_BASE_URL
 }
 
+export function createOauthDeniedUrl(): string {
+  const url = new URL(config.APP_BASE_URL)
+  url.searchParams.set('login', 'denied')
+  return url.toString()
+}
+
+export type OauthTokenPayload = {
+  accessToken: string
+  refreshToken: string | null
+  expiresInSec: number | null
+}
+
+/**
+ * GitHub returns HTTP 200 with `{ error }` for bad codes. Require a string
+ * `access_token`; otherwise the caller should respond 401.
+ */
+export function parseOauthTokenPayload(data: unknown): OauthTokenPayload | null {
+  if (data == null || typeof data !== 'object') return null
+  const body = data as {
+    error?: unknown
+    access_token?: unknown
+    refresh_token?: unknown
+    expires_in?: unknown
+  }
+  if (body.error != null) return null
+  if (typeof body.access_token !== 'string' || body.access_token.length === 0) return null
+  return {
+    accessToken: body.access_token,
+    refreshToken: typeof body.refresh_token === 'string' ? body.refresh_token : null,
+    expiresInSec: typeof body.expires_in === 'number' && Number.isFinite(body.expires_in)
+      ? body.expires_in
+      : null
+  }
+}
+
 export function getOauthToken(code: string) {
   return api.request({
     method: 'POST',
@@ -134,6 +169,20 @@ export function getOauthToken(code: string) {
       client_id: config.GITHUB_CLIENT_ID,
       client_secret: config.GITHUB_CLIENT_SECRET,
       code
+    }
+  })
+}
+
+export function refreshOauthToken(refreshToken: string) {
+  return api.request({
+    method: 'POST',
+    url: 'https://github.com/login/oauth/access_token',
+    headers: { Accept: 'application/json' },
+    data: {
+      client_id: config.GITHUB_CLIENT_ID,
+      client_secret: config.GITHUB_CLIENT_SECRET,
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken
     }
   })
 }

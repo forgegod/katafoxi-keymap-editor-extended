@@ -1,8 +1,12 @@
 import crypto from 'node:crypto'
 
 export const SESSION_TTL_MS = 24 * 60 * 60 * 1000
+export const SESSION_ABSOLUTE_TTL_MS = 7 * 24 * 60 * 60 * 1000
 export const SESSION_COOKIE_MAX_AGE_SEC = Math.floor(SESSION_TTL_MS / 1000)
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000
+
+/** Refresh the GitHub user token this long before `tokenExpiresAt`. */
+export const TOKEN_REFRESH_SKEW_MS = 60 * 1000
 
 const DEFAULT_SESSION_MAP_MAX = 10_000
 const DEFAULT_OAUTH_STATE_MAP_MAX = 2_000
@@ -22,7 +26,13 @@ export type InstallationAccessCache = {
 export type Session = {
   login: string
   oauthAccessToken: string
+  oauthRefreshToken: string | null
+  /** When the GitHub access token expires; null if GitHub omitted `expires_in`. */
+  tokenExpiresAt: number | null
+  /** Sliding idle expiry (capped by absoluteExpiresAt). */
   expiresAt: number
+  /** Hard session end; touch cannot extend past this. */
+  absoluteExpiresAt: number
   installationAccess?: InstallationAccessCache
 }
 
@@ -55,11 +65,19 @@ function evictOldestIfOverCap<T extends { expiresAt: number }>(map: Map<string, 
   }
 }
 
+function isSessionAlive(session: Session, now = Date.now()): boolean {
+  return session.expiresAt > now && session.absoluteExpiresAt > now
+}
+
 export function startSessionPruneTimer(): void {
   if (pruneTimer) return
   pruneTimer = setInterval(() => {
     pruneExpired(sessions)
     pruneExpired(oauthStates)
+    const now = Date.now()
+    for (const [key, session] of sessions) {
+      if (!isSessionAlive(session, now)) sessions.delete(key)
+    }
   }, PRUNE_INTERVAL_MS)
   pruneTimer.unref?.()
 }
@@ -92,13 +110,24 @@ export function oauthStateMapSizeForTests(): number {
 export function createSession(input: {
   login: string
   oauthAccessToken: string
+  oauthRefreshToken?: string | null
+  expiresInSec?: number | null
 }): string {
   pruneExpired(sessions)
   const id = crypto.randomBytes(32).toString('base64url')
+  const now = Date.now()
+  const absoluteExpiresAt = now + SESSION_ABSOLUTE_TTL_MS
+  const expiresInSec = input.expiresInSec
   sessions.set(id, {
     login: input.login,
     oauthAccessToken: input.oauthAccessToken,
-    expiresAt: Date.now() + SESSION_TTL_MS
+    oauthRefreshToken: input.oauthRefreshToken ?? null,
+    tokenExpiresAt:
+      typeof expiresInSec === 'number' && Number.isFinite(expiresInSec)
+        ? now + expiresInSec * 1000
+        : null,
+    expiresAt: Math.min(now + SESSION_TTL_MS, absoluteExpiresAt),
+    absoluteExpiresAt
   })
   evictOldestIfOverCap(sessions, sessionMapMax)
   return id
@@ -108,7 +137,7 @@ export function getSession(id: string): Session | undefined {
   pruneExpired(sessions)
   const session = sessions.get(id)
   if (!session) return undefined
-  if (session.expiresAt <= Date.now()) {
+  if (!isSessionAlive(session)) {
     sessions.delete(id)
     return undefined
   }
@@ -118,8 +147,38 @@ export function getSession(id: string): Session | undefined {
 export function touchSession(id: string): Session | undefined {
   const session = getSession(id)
   if (!session) return undefined
-  session.expiresAt = Date.now() + SESSION_TTL_MS
+  const now = Date.now()
+  session.expiresAt = Math.min(now + SESSION_TTL_MS, session.absoluteExpiresAt)
   return session
+}
+
+export function updateSessionOauthTokens(
+  id: string,
+  tokens: {
+    oauthAccessToken: string
+    oauthRefreshToken?: string | null
+    expiresInSec?: number | null
+  }
+): Session | undefined {
+  const session = getSession(id)
+  if (!session) return undefined
+  const now = Date.now()
+  session.oauthAccessToken = tokens.oauthAccessToken
+  if (tokens.oauthRefreshToken !== undefined) {
+    session.oauthRefreshToken = tokens.oauthRefreshToken
+  }
+  const expiresInSec = tokens.expiresInSec
+  session.tokenExpiresAt =
+    typeof expiresInSec === 'number' && Number.isFinite(expiresInSec)
+      ? now + expiresInSec * 1000
+      : null
+  return session
+}
+
+/** True when the access token is missing an expiry or is still fresh past the skew window. */
+export function oauthTokenNeedsRefresh(session: Session, now = Date.now()): boolean {
+  if (session.tokenExpiresAt == null) return false
+  return session.tokenExpiresAt - TOKEN_REFRESH_SKEW_MS <= now
 }
 
 export function deleteSession(id: string): void {

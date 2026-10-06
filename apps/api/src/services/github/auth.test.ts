@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { appOrigin, appTokenTimestamps, isTrustedAppOrigin } from './auth.js'
+import {
+  appOrigin,
+  appTokenTimestamps,
+  createOauthDeniedUrl,
+  isTrustedAppOrigin,
+  parseOauthTokenPayload
+} from './auth.js'
 import { config } from '../../config.js'
 
 describe('appTokenTimestamps', () => {
@@ -9,6 +15,36 @@ describe('appTokenTimestamps', () => {
       iat: now - 60,
       exp: now + 8 * 60
     })
+  })
+})
+
+describe('parseOauthTokenPayload', () => {
+  it('accepts a token response with refresh metadata', () => {
+    expect(
+      parseOauthTokenPayload({
+        access_token: 'tok',
+        refresh_token: 'ref',
+        expires_in: 1
+      })
+    ).toEqual({
+      accessToken: 'tok',
+      refreshToken: 'ref',
+      expiresInSec: 1
+    })
+  })
+
+  it('rejects GitHub error bodies and non-string access tokens', () => {
+    expect(parseOauthTokenPayload({ error: 'bad_verification_code' })).toBeNull()
+    expect(parseOauthTokenPayload({ access_token: 123 })).toBeNull()
+    expect(parseOauthTokenPayload({})).toBeNull()
+  })
+})
+
+describe('createOauthDeniedUrl', () => {
+  it('adds login=denied to APP_BASE_URL', () => {
+    const url = new URL(createOauthDeniedUrl())
+    expect(url.origin + url.pathname).toBe(new URL(config.APP_BASE_URL).origin + new URL(config.APP_BASE_URL).pathname)
+    expect(url.searchParams.get('login')).toBe('denied')
   })
 })
 

@@ -13,7 +13,9 @@ import {
   createOauthState,
   createSession,
   deleteSession,
+  oauthTokenNeedsRefresh,
   touchSession,
+  updateSessionOauthTokens,
   type Session
 } from '../services/github/sessions.js'
 import * as installations from '../services/github/installations.js'
@@ -42,6 +44,14 @@ githubRoutes.use('*', async (c, next) => {
 })
 
 githubRoutes.get('/authorize', async c => {
+  const oauthError = c.req.query('error')
+  if (oauthError) {
+    const state = c.req.query('state')
+    if (state) consumeOauthState(state)
+    auth.clearOauthStateCookie(c)
+    return c.redirect(auth.createOauthDeniedUrl())
+  }
+
   const code = c.req.query('code')
   if (code) {
     try {
@@ -53,12 +63,20 @@ githubRoutes.get('/authorize', async c => {
       }
 
       const { data: oauth } = await auth.getOauthToken(code)
-      const oauthData = oauth as { access_token: string }
-      const { data: user } = await auth.getOauthUser(oauthData.access_token)
+      const oauthData = auth.parseOauthTokenPayload(oauth)
+      if (!oauthData) {
+        auth.clearOauthStateCookie(c)
+        return c.body(null, 401)
+      }
+      const { data: user } = await auth.getOauthUser(oauthData.accessToken)
       const login = (user as { login: string }).login
+      const previousSid = getCookie(c, auth.SID_COOKIE)
+      if (previousSid) deleteSession(previousSid)
       const sid = createSession({
         login,
-        oauthAccessToken: oauthData.access_token
+        oauthAccessToken: oauthData.accessToken,
+        oauthRefreshToken: oauthData.refreshToken,
+        expiresInSec: oauthData.expiresInSec
       })
       auth.setSidCookie(c, sid)
       auth.clearOauthStateCookie(c)
@@ -67,6 +85,12 @@ githubRoutes.get('/authorize', async c => {
       console.error(err)
       return c.body(null, 500)
     }
+  }
+
+  const previousSid = getCookie(c, auth.SID_COOKIE)
+  if (previousSid) {
+    deleteSession(previousSid)
+    auth.clearSidCookie(c)
   }
 
   const state = createOauthState()
@@ -89,6 +113,34 @@ githubRoutes.use('*', async (c, next) => {
   if (!session) {
     auth.clearSidCookie(c)
     return c.body(null, 401)
+  }
+
+  if (oauthTokenNeedsRefresh(session)) {
+    const refreshToken = session.oauthRefreshToken
+    if (!refreshToken) {
+      deleteSession(sid)
+      auth.clearSidCookie(c)
+      return c.body(null, 401)
+    }
+    try {
+      const { data } = await auth.refreshOauthToken(refreshToken)
+      const refreshed = auth.parseOauthTokenPayload(data)
+      if (!refreshed) {
+        deleteSession(sid)
+        auth.clearSidCookie(c)
+        return c.body(null, 401)
+      }
+      updateSessionOauthTokens(sid, {
+        oauthAccessToken: refreshed.accessToken,
+        oauthRefreshToken: refreshed.refreshToken ?? refreshToken,
+        expiresInSec: refreshed.expiresInSec
+      })
+    } catch (err) {
+      console.error(err)
+      deleteSession(sid)
+      auth.clearSidCookie(c)
+      return c.body(null, 401)
+    }
   }
 
   // Keep browser cookie maxAge aligned with the sliding server TTL.

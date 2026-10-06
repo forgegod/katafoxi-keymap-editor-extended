@@ -6,10 +6,13 @@ import {
   deleteSession,
   getSession,
   oauthStateMapSizeForTests,
+  oauthTokenNeedsRefresh,
   resetMapCapsForTests,
+  SESSION_ABSOLUTE_TTL_MS,
   sessionMapSizeForTests,
   setMapCapsForTests,
-  touchSession
+  touchSession,
+  updateSessionOauthTokens
 } from './sessions.js'
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000
@@ -72,6 +75,49 @@ describe('sessions', () => {
     vi.advanceTimersByTime(2 * HOUR_MS)
     expect(getSession(id)).toBeUndefined()
     deleteSession(id)
+  })
+
+  it('touchSession cannot extend past the absolute 7-day max', () => {
+    const id = trackSession(
+      createSession({ login: 'carol', oauthAccessToken: 'tok-c' })
+    )
+
+    // Slide for just under 7 days, refreshing before each 24h idle expiry.
+    const stepMs = 23 * HOUR_MS
+    const steps = Math.floor(SESSION_ABSOLUTE_TTL_MS / stepMs)
+    for (let i = 0; i < steps; i++) {
+      vi.advanceTimersByTime(stepMs)
+      expect(touchSession(id)?.login).toBe('carol')
+    }
+    const remaining = SESSION_ABSOLUTE_TTL_MS - steps * stepMs
+    vi.advanceTimersByTime(remaining - 1)
+    expect(touchSession(id)?.login).toBe('carol')
+
+    vi.advanceTimersByTime(2)
+    expect(touchSession(id)).toBeUndefined()
+    expect(getSession(id)).toBeUndefined()
+  })
+
+  it('tracks oauth token expiry and refresh needs', () => {
+    const id = trackSession(
+      createSession({
+        login: 'dave',
+        oauthAccessToken: 'tok-d',
+        oauthRefreshToken: 'refresh-d',
+        expiresInSec: 1
+      })
+    )
+    const session = getSession(id)
+    expect(session).toBeDefined()
+    expect(oauthTokenNeedsRefresh(session!)).toBe(true)
+
+    updateSessionOauthTokens(id, {
+      oauthAccessToken: 'tok-d2',
+      oauthRefreshToken: 'refresh-d2',
+      expiresInSec: 3600
+    })
+    expect(getSession(id)?.oauthAccessToken).toBe('tok-d2')
+    expect(oauthTokenNeedsRefresh(getSession(id)!)).toBe(false)
   })
 
   it('evicts the oldest session when over the map cap', () => {

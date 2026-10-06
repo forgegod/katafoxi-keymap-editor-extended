@@ -98,6 +98,7 @@ const OWN_INSTALLATION_REPOS = {
 
 beforeEach(() => {
   vi.spyOn(auth, 'getOauthToken')
+  vi.spyOn(auth, 'refreshOauthToken')
   vi.spyOn(auth, 'getOauthUser')
   vi.spyOn(installations, 'fetchInstallationRepos').mockResolvedValue(OWN_INSTALLATION_REPOS)
   vi.spyOn(installations, 'fetchRepoBranches')
@@ -125,6 +126,49 @@ describe('GET /github/authorize', () => {
 
     const state = new URL(location).searchParams.get('state')
     expect(state).toBe(cookies[auth.OAUTH_STATE_COOKIE].value)
+    consumeOauthState(state ?? '')
+  })
+
+  it('redirects to the app with login=denied on access_denied and does not start OAuth', async () => {
+    const state = createOauthState()
+    const res = await app.request(
+      `/github/authorize?error=access_denied&state=${encodeURIComponent(state)}`,
+      { headers: { Cookie: `${auth.OAUTH_STATE_COOKIE}=${state}` } }
+    )
+    expect(res.status).toBe(302)
+    const location = res.headers.get('location') ?? ''
+    expect(location).toBe(auth.createOauthDeniedUrl())
+    expect(location.includes('github.com')).toBe(false)
+    expect(consumeOauthState(state)).toBe(false)
+    const cookies = parseCookies(res)
+    expect(cookies[auth.OAUTH_STATE_COOKIE]).toBeDefined()
+    expect(cookieIsCleared(cookies[auth.OAUTH_STATE_COOKIE].raw)).toBe(true)
+  })
+
+  it('returns 401 when the oauth token response contains an error', async () => {
+    const state = createOauthState()
+    vi.mocked(auth.getOauthToken).mockResolvedValue({
+      data: { error: 'bad_verification_code' }
+    } as Awaited<ReturnType<typeof auth.getOauthToken>>)
+
+    const res = await app.request(`/github/authorize?code=abc&state=${encodeURIComponent(state)}`, {
+      headers: { Cookie: `${auth.OAUTH_STATE_COOKIE}=${state}` }
+    })
+    expect(res.status).toBe(401)
+    expect(auth.getOauthUser).not.toHaveBeenCalled()
+  })
+
+  it('deletes the previous session when starting a new OAuth login', async () => {
+    const previous = trackSid(createSession({ login: 'old', oauthAccessToken: 'old-token' }))
+    const res = await app.request('/github/authorize', {
+      headers: { Cookie: sessionCookie(previous) }
+    })
+    expect(res.status).toBe(302)
+    expect(getSession(previous)).toBeUndefined()
+    const cookies = parseCookies(res)
+    expect(cookies[auth.SID_COOKIE]).toBeDefined()
+    expect(cookieIsCleared(cookies[auth.SID_COOKIE].raw)).toBe(true)
+    const state = new URL(res.headers.get('location') ?? '').searchParams.get('state')
     consumeOauthState(state ?? '')
   })
 
@@ -171,7 +215,11 @@ describe('GET /github/authorize', () => {
     expect(startCookies[auth.OAUTH_STATE_COOKIE]?.value).toBe(state)
 
     vi.mocked(auth.getOauthToken).mockResolvedValue({
-      data: { access_token: 'oauth-token' }
+      data: {
+        access_token: 'oauth-token',
+        refresh_token: 'refresh-token',
+        expires_in: 28800
+      }
     } as Awaited<ReturnType<typeof auth.getOauthToken>>)
     vi.mocked(auth.getOauthUser).mockResolvedValue({
       data: { login: 'octocat' }
@@ -199,6 +247,74 @@ describe('GET /github/authorize', () => {
     expect(install.status).toBe(200)
     expect(await install.json()).toMatchObject({ login: 'octocat' })
     expect(installations.fetchInstallationRepos).toHaveBeenCalledWith('oauth-token')
+    expect(auth.refreshOauthToken).not.toHaveBeenCalled()
+  })
+
+  it('refreshes the oauth access token after expires_in elapses', async () => {
+    vi.useFakeTimers()
+    const start = await app.request('/github/authorize')
+    const startCookies = parseCookies(start)
+    const state = new URL(start.headers.get('location') ?? '').searchParams.get('state') ?? ''
+    expect(startCookies[auth.OAUTH_STATE_COOKIE]?.value).toBe(state)
+
+    vi.mocked(auth.getOauthToken).mockResolvedValue({
+      data: {
+        access_token: 'oauth-token',
+        refresh_token: 'refresh-1',
+        expires_in: 1
+      }
+    } as Awaited<ReturnType<typeof auth.getOauthToken>>)
+    vi.mocked(auth.getOauthUser).mockResolvedValue({
+      data: { login: 'octocat' }
+    } as Awaited<ReturnType<typeof auth.getOauthUser>>)
+    vi.mocked(auth.refreshOauthToken).mockResolvedValue({
+      data: {
+        access_token: 'oauth-token-2',
+        refresh_token: 'refresh-2',
+        expires_in: 28800
+      }
+    } as Awaited<ReturnType<typeof auth.refreshOauthToken>>)
+
+    const callback = await app.request(`/github/authorize?code=abc&state=${encodeURIComponent(state)}`, {
+      headers: { Cookie: `${auth.OAUTH_STATE_COOKIE}=${state}` }
+    })
+    const sid = parseCookies(callback)[auth.SID_COOKIE]?.value
+    expect(sid).toBeTruthy()
+    trackSid(sid)
+
+    vi.advanceTimersByTime(2000)
+
+    const install = await app.request('/github/installation', {
+      headers: { Cookie: sessionCookie(sid) }
+    })
+    expect(install.status).toBe(200)
+    expect(auth.refreshOauthToken).toHaveBeenCalledWith('refresh-1')
+    expect(installations.fetchInstallationRepos).toHaveBeenCalledWith('oauth-token-2')
+    expect(getSession(sid)?.oauthAccessToken).toBe('oauth-token-2')
+  })
+
+  it('returns 401 and deletes the session when oauth refresh fails', async () => {
+    vi.useFakeTimers()
+    const sid = trackSid(
+      createSession({
+        login: 'octocat',
+        oauthAccessToken: 'stale-token',
+        oauthRefreshToken: 'refresh-bad',
+        expiresInSec: 1
+      })
+    )
+    vi.mocked(auth.refreshOauthToken).mockResolvedValue({
+      data: { error: 'bad_refresh_token' }
+    } as Awaited<ReturnType<typeof auth.refreshOauthToken>>)
+
+    vi.advanceTimersByTime(2000)
+
+    const res = await app.request('/github/installation', {
+      headers: { Cookie: sessionCookie(sid) }
+    })
+    expect(res.status).toBe(401)
+    expect(getSession(sid)).toBeUndefined()
+    expect(installations.fetchInstallationRepos).not.toHaveBeenCalled()
   })
 })
 
