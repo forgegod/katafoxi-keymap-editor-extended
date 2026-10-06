@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { API } from './api.svelte.js'
 
@@ -281,3 +283,117 @@ describe('API', () => {
     expect(onAuthFailed).not.toHaveBeenCalled()
   })
 })
+
+const CONTRACT_PATH = path.resolve(process.cwd(), '../../contracts/github-requests.json')
+const UPDATE_CONTRACT = process.env.UPDATE_CONTRACT === '1'
+const CONTRACT_REPO = 'acme/lark'
+const CONTRACT_BRANCH = 'feature/x#1'
+const CONTRACT_INSTALLATION = '42'
+const CONTRACT_LAYOUT = [{ x: 0, y: 0 }]
+const CONTRACT_KEYMAP = { layers: [['&kp A']] }
+
+type GithubRequestContract = {
+  name: string
+  method: string
+  url: string
+  body?: unknown
+}
+
+function recordedFetch(name: string, fetchMock: ReturnType<typeof vi.fn>): GithubRequestContract {
+  expect(fetchMock).toHaveBeenCalledTimes(1)
+  const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+  const method = String(init?.method ?? 'GET').toUpperCase()
+  const entry: GithubRequestContract = { name, method, url }
+  if (typeof init?.body === 'string' && init.body.length > 0) {
+    entry.body = JSON.parse(init.body)
+  }
+  fetchMock.mockClear()
+  return entry
+}
+
+describe('GitHub request contract', () => {
+  let fetchMock: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    localStorage.clear()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    localStorage.clear()
+  })
+
+  it('captures client requests that match contracts/github-requests.json', async () => {
+    const api = new API()
+    api.repoInstallationMap = { [CONTRACT_REPO]: CONTRACT_INSTALLATION }
+    const captured: GithubRequestContract[] = []
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        login: 'octocat',
+        installations: [{ id: 42 }],
+        repositories: [{ id: 1, full_name: CONTRACT_REPO }],
+        repoInstallationMap: { [CONTRACT_REPO]: CONTRACT_INSTALLATION }
+      })
+    )
+    await api.init()
+    captured.push(recordedFetch('init', fetchMock))
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, []))
+    await api.fetchRepoBranches({ id: 1, full_name: CONTRACT_REPO })
+    captured.push(recordedFetch('fetchRepoBranches', fetchMock))
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(201, { name: CONTRACT_BRANCH }))
+    await api.createBranch(CONTRACT_REPO, CONTRACT_BRANCH, 'main')
+    captured.push(recordedFetch('createBranch', fetchMock))
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        info: { layouts: { default: { layout: CONTRACT_LAYOUT } } },
+        keymap: CONTRACT_KEYMAP,
+        hostSnapshot: null,
+        headSha: 'abc123'
+      })
+    )
+    await api.fetchLayoutAndKeymap(CONTRACT_REPO, CONTRACT_BRANCH)
+    captured.push(recordedFetch('fetchLayoutAndKeymap', fetchMock))
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true }))
+    await api.commitChanges(CONTRACT_REPO, CONTRACT_BRANCH, CONTRACT_LAYOUT, CONTRACT_KEYMAP)
+    captured.push(recordedFetch('commitChanges', fetchMock))
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        status: 'none',
+        sha: null,
+        shortSha: null,
+        at: null,
+        htmlUrl: null,
+        artifactId: null,
+        artifactName: null,
+        detail: null
+      })
+    )
+    await api.fetchFirmwareBuild(CONTRACT_REPO, CONTRACT_BRANCH)
+    captured.push(recordedFetch('fetchFirmwareBuild', fetchMock))
+
+    captured.push({
+      name: 'firmwareDownloadUrl',
+      method: 'GET',
+      url: api.firmwareDownloadUrl(CONTRACT_REPO, 7, 'firmware')
+    })
+
+    if (UPDATE_CONTRACT) {
+      mkdirSync(path.dirname(CONTRACT_PATH), { recursive: true })
+      writeFileSync(CONTRACT_PATH, `${JSON.stringify(captured, null, 2)}\n`)
+    }
+    if (!existsSync(CONTRACT_PATH)) {
+      throw new Error('Missing contracts/github-requests.json; run with UPDATE_CONTRACT=1')
+    }
+    const expected = JSON.parse(readFileSync(CONTRACT_PATH, 'utf8')) as GithubRequestContract[]
+    expect(captured).toEqual(expected)
+  })
+})
+

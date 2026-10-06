@@ -1,7 +1,10 @@
 import { Hono } from 'hono'
 import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import jwt from 'jsonwebtoken'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createApp } from '../index.js'
 import {
   KeymapValidationError,
   buildHostKeymapSnapshot,
@@ -1584,4 +1587,113 @@ describe('GitHub error status and body.name', () => {
     const body = text ? (JSON.parse(text) as { name?: string }) : {}
     expect(body.name).toBe(name)
   })
+})
+
+type GithubRequestContract = {
+  name: string
+  method: string
+  url: string
+  body?: unknown
+}
+
+const GITHUB_REQUEST_CONTRACT = JSON.parse(
+  fs.readFileSync(
+    fileURLToPath(new URL('../../../../contracts/github-requests.json', import.meta.url)),
+    'utf8'
+  )
+) as GithubRequestContract[]
+
+const CONTRACT_REPOS = {
+  installations: [{ id: 42 }],
+  repositories: [{ full_name: 'acme/lark' }],
+  repoInstallationMap: { 'acme/lark': 42 },
+  repoAccess: {
+    'acme/lark': { installationId: 42, push: true }
+  }
+}
+
+describe('GitHub request contract with the web client', () => {
+  const contractApp = createApp({
+    enableGithub: true,
+    enableDevServer: true,
+    webDist: path.join(path.dirname(fileURLToPath(import.meta.url)), '__missing-web-dist__')
+  })
+
+  async function playContract(entry: GithubRequestContract) {
+    const parsed = new URL(entry.url)
+    const requestPath = `${parsed.pathname}${parsed.search}`
+    const headers = new Headers()
+    headers.set('Cookie', sessionCookie(trackSid(createSession({ login: 'octocat', oauthAccessToken: 'user-token' }))))
+    const method = entry.method.toUpperCase()
+    if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+      headers.set('Origin', appOrigin)
+    }
+    const init: RequestInit = { method, headers }
+    if (entry.body !== undefined) {
+      headers.set('Content-Type', 'application/json')
+      init.body = JSON.stringify(entry.body)
+    }
+    return contractApp.request(requestPath, init)
+  }
+
+  beforeEach(() => {
+    vi.mocked(installations.fetchInstallationRepos).mockResolvedValue(CONTRACT_REPOS)
+    vi.spyOn(auth, 'createInstallationToken').mockResolvedValue({
+      data: { token: 'install-token' }
+    } as Awaited<ReturnType<typeof auth.createInstallationToken>>)
+    vi.mocked(installations.fetchRepoBranches).mockResolvedValue([])
+    vi.spyOn(installations, 'createBranch').mockResolvedValue({ name: 'feature/x#1' })
+    vi.mocked(files.fetchKeyboardFiles).mockResolvedValue({
+      info: VALID_INFO,
+      keymap: VALID_KEYMAP,
+      hostSnapshot: null,
+      headSha: 'abc123'
+    })
+    vi.mocked(files.commitChanges).mockResolvedValue({ mode: 'splice', warnings: [] })
+    vi.spyOn(builds, 'fetchFirmwareBuild').mockResolvedValue({
+      status: 'none',
+      sha: null,
+      shortSha: null,
+      at: null,
+      htmlUrl: null,
+      artifactId: null,
+      artifactName: null,
+      detail: null
+    })
+    vi.spyOn(builds, 'downloadFirmwareArtifact').mockResolvedValue(
+      new Response(new Uint8Array([1, 2, 3]))
+    )
+  })
+
+  for (const entry of GITHUB_REQUEST_CONTRACT) {
+    it(`decodes ${entry.name} the way the SPA encodes it`, async () => {
+      const res = await playContract(entry)
+      expect(res.status, `${entry.name} ${entry.method} ${entry.url}`).toBeGreaterThanOrEqual(200)
+      expect(res.status, `${entry.name} ${entry.method} ${entry.url}`).toBeLessThan(300)
+
+      if (entry.name === 'init') return
+
+      expect(
+        vi.mocked(installations.fetchRepoBranches).mock.calls[0]?.[1] ??
+          vi.mocked(installations.createBranch).mock.calls[0]?.[1] ??
+          vi.mocked(files.fetchKeyboardFiles).mock.calls[0]?.[1] ??
+          vi.mocked(files.commitChanges).mock.calls[0]?.[1] ??
+          vi.mocked(builds.fetchFirmwareBuild).mock.calls[0]?.[1] ??
+          vi.mocked(builds.downloadFirmwareArtifact).mock.calls[0]?.[1]
+      ).toBe('acme/lark')
+
+      if (entry.name === 'fetchRepoBranches' || entry.name === 'firmwareDownloadUrl') return
+
+      if (entry.name === 'createBranch') {
+        expect(vi.mocked(installations.createBranch).mock.calls[0]?.[2]).toBe('feature/x#1')
+        return
+      }
+
+      expect(
+        vi.mocked(files.fetchKeyboardFiles).mock.calls[0]?.[2] ??
+          vi.mocked(files.commitChanges).mock.calls[0]?.[2] ??
+          vi.mocked(builds.fetchFirmwareBuild).mock.calls[0]?.[2]
+      ).toBe('feature/x#1')
+    })
+  }
 })
