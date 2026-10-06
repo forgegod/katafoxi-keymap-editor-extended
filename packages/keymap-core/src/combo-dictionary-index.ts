@@ -394,7 +394,7 @@ function unwrapBinding(binding: KeyBindingNode): UnwrapResult | null {
       const wrap = inline[1]!.toUpperCase()
       if (wrapIsShift(wrap)) shift = true
       else if (!modWrap) modWrap = wrap
-      const inner = node.params[0]
+      const inner: KeyBindingNode | undefined = node.params[0]
       node = inner ?? { value: inline[2]!, params: [] }
       continue
     }
@@ -484,16 +484,21 @@ export function comboDictionaryIndexHits(
     const ref = comboBindingIndexRef(combo.binding)
     if (ref.kind === 'skip' || ref.kind === 'other') continue
     const slot = grouped.get(ref.keyId) ?? {
-      base: [],
-      shift: [],
-      mods: new Map()
+      base: [] as ComboIndexBucket[],
+      shift: [] as ComboIndexBucket[],
+      mods: new Map<string, { label: string; buckets: ComboIndexBucket[] }>()
     }
     if (ref.kind === 'mod') {
-      const prev = slot.mods.get(ref.wrap) ?? { label: ref.label, buckets: [] }
+      const prev = slot.mods.get(ref.wrap) ?? {
+        label: ref.label,
+        buckets: [] as ComboIndexBucket[]
+      }
       prev.buckets.push({ combo, extras: extraCount(combo, extra) })
       slot.mods.set(ref.wrap, prev)
+    } else if (ref.band === 'base') {
+      slot.base.push({ combo, extras: extraCount(combo, extra) })
     } else {
-      slot[ref.band].push({ combo, extras: extraCount(combo, extra) })
+      slot.shift.push({ combo, extras: extraCount(combo, extra) })
     }
     grouped.set(ref.keyId, slot)
   }
