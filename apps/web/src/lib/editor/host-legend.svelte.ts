@@ -527,13 +527,15 @@ export async function importHostLayoutFromXkb(this: EditorState,
     return `Section “${section}” was not found`
   }
   try {
-    const imported = hostLayoutFromXkb(text, section, { fileName })
+    const warnings: string[] = []
+    const imported = hostLayoutFromXkb(text, section, { fileName, warnings })
     const label = listed.find(item => item.section === section)?.name ?? section
     await this._materializeUserHostLayoutFromTable(language, label, imported, {
       from: 'xkb',
       fileName,
       section
     })
+    if (warnings.length > 0) this.hostProfileNote = warnings.join(' ')
     return null
   } catch (error) {
     return error instanceof Error ? error.message : 'Could not import xkb'

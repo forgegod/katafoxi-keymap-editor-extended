@@ -551,15 +551,30 @@ describe('host layout store', () => {
     expect(editor.hostLegend.open).toBe('fr')
   })
 
-  it('names an unresolved include when importing xkb', async () => {
+  it('imports xkb with a skipped level3(ralt_switch) include and warns', async () => {
     const text = `
-      xkb_symbols "broken" {
+      xkb_symbols "basic" {
         include "level3(ralt_switch)"
         key <AC01> {[ a, A ]};
       };
     `
+    expect(await editor.importHostLayoutFromXkb('en', text, 'basic', 'imported.xkb')).toBeNull()
+    expect(editor.userLayouts).toHaveLength(1)
+    expect(hostLayout(editor.userLayouts[0]!.id)?.byZmk.get('A')?.keysyms[0]).toBe('a')
+    expect(editor.hostProfileNote).toBe(
+      'Skipped xkb include "level3(ralt_switch)": non-character module.'
+    )
+  })
+
+  it('names an unresolved include when importing xkb', async () => {
+    const text = `
+      xkb_symbols "broken" {
+        include "missing(nope)"
+        key <AC01> {[ a, A ]};
+      };
+    `
     expect(await editor.importHostLayoutFromXkb('en', text, 'broken', 'broken.xkb')).toBe(
-      'Unresolved xkb include "level3(ralt_switch)"'
+      'Unresolved xkb include "missing(nope)"'
     )
     expect(editor.userLayouts).toHaveLength(0)
   })
