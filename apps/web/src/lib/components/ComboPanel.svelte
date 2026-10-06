@@ -15,6 +15,9 @@
     mergeHoldTapCatalog,
     isPlaceholderComboId,
     nextComboIdFromBinding,
+    patchCombo,
+    renameCombo,
+    toggleComboLayer,
     type ZmkCombo
   } from '@keymap-editor/keymap-core'
   import { getDefinitionsContext, getSearchContext } from '../context'
@@ -112,30 +115,7 @@
 
   function patchActive(patch: Partial<ZmkCombo>) {
     if (!active) return
-    const next = combos.map(c => {
-      if (c.id !== active.id) return c
-      const merged: ZmkCombo = { ...c, ...patch }
-      if ('timeoutMs' in patch && patch.timeoutMs === undefined) {
-        delete merged.timeoutMs
-      }
-      if (
-        'requirePriorIdleMs' in patch &&
-        patch.requirePriorIdleMs === undefined
-      ) {
-        delete merged.requirePriorIdleMs
-      }
-      if (
-        'layers' in patch &&
-        (patch.layers === undefined || patch.layers.length === 0)
-      ) {
-        delete merged.layers
-      }
-      if ('slowRelease' in patch && !patch.slowRelease) {
-        delete merged.slowRelease
-      }
-      return merged
-    })
-    editor.updateCombos(next)
+    editor.updateCombos(patchCombo(combos, active.id, patch))
     editor.refreshComboNotice()
   }
 
@@ -162,14 +142,14 @@
   function renameActive(event: Event) {
     if (!active) return
     const input = event.currentTarget as HTMLInputElement
-    const id = input.value.trim().replace(/[^a-zA-Z0-9_]/g, '_') || active.id
-    if (id === active.id) return
-    if (combos.some(c => c.id === id)) {
+    const result = renameCombo(combos, active.id, input.value)
+    if (!result) {
       input.value = active.id
       return
     }
-    patchActive({ id })
-    editor.activeComboId = id
+    editor.updateCombos(result.combos)
+    editor.activeComboId = result.id
+    editor.refreshComboNotice()
   }
 
   function setTimeoutMs(ms: number) {
@@ -208,18 +188,7 @@
 
   function toggleLayer(index: number) {
     if (!active) return
-    if (layersAreGlobal) {
-      patchActive({ layers: [index] })
-      return
-    }
-    const set = new Set(active.layers)
-    if (set.has(index)) set.delete(index)
-    else set.add(index)
-    if (set.size === 0 || set.size >= layerCount) {
-      patchActive({ layers: undefined })
-      return
-    }
-    patchActive({ layers: [...set].sort((a, b) => a - b) })
+    patchActive({ layers: toggleComboLayer(active, index, layerCount) })
   }
 
   function editBinding() {
