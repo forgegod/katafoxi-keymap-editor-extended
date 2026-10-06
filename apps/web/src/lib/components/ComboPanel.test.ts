@@ -1,3 +1,4 @@
+import { parseKeyBinding } from '@keymap-editor/keymap-core'
 import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { editor } from '../editor.svelte.js'
@@ -292,6 +293,39 @@ describe('ComboPanel', () => {
     expect(editor.draftKeymap?.combos?.[0]?.id).toBe('combo_esc')
     expect(editor.activeComboId).toBe('combo_esc')
     expect(target.querySelector('.combo-id')?.textContent).toBe('combo_esc')
+  })
+
+  it('opens Binding for LC(TAB) with a nested preview and value bands', () => {
+    const keymap = {
+      layers: [[none, none]],
+      layer_names: ['Base'],
+      combos: [
+        {
+          id: 'combo_ctrl_tab',
+          keyPositions: [0, 1],
+          binding: parseKeyBinding('&kp LC(TAB)')
+        }
+      ]
+    }
+    editor.baselineKeymap = structuredClone(keymap)
+    editor.draftKeymap = structuredClone(keymap)
+    editor.activeComboId = 'combo_ctrl_tab'
+    mountPanel()
+
+    const binding = [...target.querySelectorAll('.combo-btn')].find(
+      el => el.textContent?.trim() === 'Binding'
+    )
+    if (!(binding instanceof HTMLButtonElement)) throw new Error('missing Binding')
+    binding.click()
+    flushSync()
+
+    const dialog = document.querySelector('[role=dialog][aria-label="Edit key"]')
+    expect(dialog).toBeTruthy()
+    expect(dialog?.querySelector('.key-editor-preview .binding')?.textContent).toBe(
+      '&kp LC(TAB)'
+    )
+    expect(dialog?.querySelector('.key-editor-band')).toBeTruthy()
+    expect(dialog?.querySelector('.key-editor-values > .key-editor-grid')).toBeNull()
   })
 
   it('marks keycodes already used by other combo bindings', () => {

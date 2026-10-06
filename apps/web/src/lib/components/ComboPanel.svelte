@@ -87,8 +87,11 @@
   )
   const selectedLayers = $derived(new Set(active?.layers ?? []))
 
+  // Same shape as search.sources (`code` / `mod` / `layer`) so hydrateTree can
+  // resolve LC(TAB) nests. Hold-tap chips stay merged into behaviours.
   const sources = $derived.by(() => {
     const defs = definitionsBox.current
+    const searchSources = searchBox.current?.sources ?? {}
     const behaviours = defs
       ? mergeHoldTapCatalog(
           defs.behaviours,
@@ -96,7 +99,7 @@
         ).byCode
       : {}
     return {
-      keycodes: (defs?.keycodes.byCode ?? {}) as Record<string, unknown>,
+      ...searchSources,
       behaviours: behaviours as Record<string, unknown>
     }
   })

@@ -38,6 +38,7 @@
 
   const sources = $derived.by(() => {
     const defs = definitionsBox?.current
+    const searchSources = searchBox?.current?.sources ?? {}
     const holdTaps = editor.draftKeymap?.holdTaps ?? editor.baselineKeymap?.holdTaps
     const catalog = defs
       ? mergeHoldTapCatalog(defs.behaviours, holdTaps).byCode
@@ -55,10 +56,10 @@
       }
     }
     return {
-      keycodes: (defs?.keycodes.byCode ?? getKeycodeCatalog().byCode) as Record<
-        string,
-        unknown
-      >,
+      ...searchSources,
+      code: (searchSources.code ??
+        defs?.keycodes.byCode ??
+        getKeycodeCatalog().byCode) as Record<string, unknown>,
       behaviours
     }
   })
