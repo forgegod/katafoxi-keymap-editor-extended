@@ -7,8 +7,6 @@ export * from './keyboard-bundle.js'
 export type { KeymapChange } from './keymap-diff.js'
 export {
   diffKeymaps,
-  encodeComboFingerprint,
-  encodeHoldTapFingerprint,
   keymapsAreEqual,
   summarizeKeymapDiff
 } from './keymap-diff.js'
