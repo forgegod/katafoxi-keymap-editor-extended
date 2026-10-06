@@ -3,7 +3,8 @@
 const UNSAFE_FILE_CHARS = /[\\/:*?"<>|]+/g
 
 export function downloadFileStem(name: string, fallback = 'download'): string {
-  return name.replace(UNSAFE_FILE_CHARS, '_').trim() || fallback
+  const stem = name.replace(UNSAFE_FILE_CHARS, '_').trim().replace(/^_+|_+$/g, '')
+  return stem || fallback
 }
 
 export function downloadFileName(name: string, ext: string, fallback = 'download'): string {
