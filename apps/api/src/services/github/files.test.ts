@@ -541,19 +541,20 @@ describe('commitChanges', () => {
     expect(requestUrls(request).some(url => url.includes('/git/refs/'))).toBe(false)
   })
 
-  it('does not percent-encode slashes in branch names for commits and refs', async () => {
-    const branch = 'feature/x'
+  it('keeps slashes literal and percent-encodes # and % in commit and ref paths', async () => {
+    const branch = 'feature/x#y%'
+    const encoded = 'feature/x%23y%25'
     const request = mockGithub({
       config: LISTING_NO_TEMPLATE,
       [KEYMAP_PATH]: ORIGINAL_SOURCE,
-      ...gitCommitEndpoints(branch)
+      ...gitCommitEndpoints(encoded)
     })
 
     await commitChanges('1', REPO, branch, ONE_KEY_LAYOUT, EDITED_KEYMAP)
 
-    expect(findRequest(request, 'GET', `/repos/${REPO}/commits/feature/x`)).toBeDefined()
+    expect(findRequest(request, 'GET', `/repos/${REPO}/commits/${encoded}`)).toBeDefined()
     expect(
-      findRequest(request, 'PATCH', `/repos/${REPO}/git/refs/heads/feature/x`)
+      findRequest(request, 'PATCH', `/repos/${REPO}/git/refs/heads/${encoded}`)
     ).toBeDefined()
     expect(requestUrls(request).some(url => url.includes('feature%2Fx'))).toBe(false)
   })

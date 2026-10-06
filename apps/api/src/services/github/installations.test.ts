@@ -4,6 +4,7 @@ import * as api from './api.js'
 import * as auth from './auth.js'
 import {
   assertBranchName,
+  assertCommitish,
   assertRepositoryName,
   BranchNameError,
   createBranch,
@@ -25,7 +26,20 @@ describe('assertBranchName', () => {
     expect(() => assertBranchName('has space')).toThrow(BranchNameError)
     expect(() => assertBranchName('bad..name')).toThrow(BranchNameError)
     expect(() => assertBranchName('.hidden')).toThrow(BranchNameError)
+    expect(() => assertBranchName('feature/100%')).toThrow(BranchNameError)
     expect(() => assertBranchName('')).toThrow(/Enter a branch name/)
+  })
+})
+
+describe('assertCommitish', () => {
+  it('accepts a branch or a 40-character sha', () => {
+    expect(assertCommitish('main')).toBe('main')
+    expect(assertCommitish('  ' + 'a'.repeat(40) + '  ')).toBe('a'.repeat(40))
+  })
+
+  it('rejects traversal and empty source', () => {
+    expect(() => assertCommitish('../../x')).toThrow(BranchNameError)
+    expect(() => assertCommitish('')).toThrow(/Choose a branch to copy/)
   })
 })
 
@@ -163,5 +177,13 @@ describe('createBranch', () => {
       name: 'feature/x'
     })
     expect(request).toHaveBeenCalledTimes(2)
+  })
+
+  it('rejects an unvalidated from before calling GitHub', async () => {
+    const request = vi.spyOn(api, 'request')
+    await expect(createBranch('install-token', 'acme/lark', 'topic', '../../x')).rejects.toThrow(
+      BranchNameError
+    )
+    expect(request).not.toHaveBeenCalled()
   })
 })

@@ -71,7 +71,7 @@ async function fetchFile(
   options: { raw?: boolean; branch?: string | null } = {}
 ) {
   const { raw = false, branch = null } = options
-  const url = `/repos/${repository}/contents/${filePath}`
+  const url = api.githubApiPath('repos', repository, 'contents', filePath)
   const params: Record<string, string> = {}
   if (branch) params.ref = branch
 
@@ -306,7 +306,7 @@ export async function commitChanges(
   const built = buildKeymapCode(layout, keymap, { template, originalSource })
 
   const { data: commitData } = await api.request({
-    url: `/repos/${repository}/commits/${branch}`,
+    url: api.githubApiPath('repos', repository, 'commits', branch),
     token: installationToken
   })
   const { sha, commit } = commitData as {
@@ -348,7 +348,7 @@ export async function commitChanges(
   }
 
   const { data: treeData } = await api.request({
-    url: `/repos/${repository}/git/trees`,
+    url: api.githubApiPath('repos', repository, 'git', 'trees'),
     method: 'POST',
     token: installationToken,
     data: {
@@ -359,7 +359,7 @@ export async function commitChanges(
   const newTreeSha = (treeData as { sha: string }).sha
 
   const { data: newCommit } = await api.request({
-    url: `/repos/${repository}/git/commits`,
+    url: api.githubApiPath('repos', repository, 'git', 'commits'),
     method: 'POST',
     token: installationToken,
     data: {
@@ -371,7 +371,7 @@ export async function commitChanges(
   const newSha = (newCommit as { sha: string }).sha
 
   await api.request({
-    url: `/repos/${repository}/git/refs/heads/${branch}`,
+    url: api.githubApiPath('repos', repository, 'git', 'refs', 'heads', branch),
     method: 'PATCH',
     token: installationToken,
     data: { sha: newSha }

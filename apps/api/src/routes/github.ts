@@ -131,7 +131,7 @@ githubRoutes.post('/installation/:installationId/:repository/branches', async c 
   try {
     const repository = installations.assertRepositoryName(rawRepository)
     installations.assertBranchName(name)
-    if (!from.trim()) throw new installations.BranchNameError('Choose a branch to copy')
+    installations.assertCommitish(from)
     await assertInstallationAccess(
       c.get('user'),
       installationId,
@@ -206,7 +206,7 @@ githubRoutes.get('/keyboard-files/:installationId/:repository', async c => {
     const branch =
       rawBranch == null || rawBranch === ''
         ? undefined
-        : installations.assertBranchName(decodeURIComponent(rawBranch))
+        : installations.assertBranchName(rawBranch)
     await assertInstallationAccess(
       c.get('user'),
       installationId,
@@ -285,7 +285,7 @@ githubRoutes.get('/builds/:installationId/:repository', async c => {
   if (!rawBranch) return c.body(null, 400)
   try {
     const repository = installations.assertRepositoryName(rawRepository)
-    const branch = installations.assertBranchName(decodeURIComponent(rawBranch))
+    const branch = installations.assertBranchName(rawBranch)
     await assertInstallationAccess(
       c.get('user'),
       installationId,
@@ -323,7 +323,7 @@ githubRoutes.post('/keyboard-files/:installationId/:repository/:branch', async c
   }
   try {
     const repository = installations.assertRepositoryName(rawRepository)
-    const branch = installations.assertBranchName(decodeURIComponent(rawBranch))
+    const branch = installations.assertBranchName(rawBranch)
     await assertInstallationAccess(
       c.get('user'),
       installationId,

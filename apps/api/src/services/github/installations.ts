@@ -102,7 +102,7 @@ export function assertBranchName(name: string): string {
   if (!branch) throw new BranchNameError('Enter a branch name')
   if (branch.length > 200) throw new BranchNameError('Branch name is too long')
   if (
-    /[\s~^:?*\[\\]/.test(branch) ||
+    /[\s~^:?*\[\\%]/.test(branch) ||
     branch.includes('..') ||
     branch.includes('@{') ||
     branch.includes('//') ||
@@ -118,6 +118,16 @@ export function assertBranchName(name: string): string {
   return branch
 }
 
+const COMMIT_SHA = /^[0-9a-f]{40}$/i
+
+/** Branch name, or a full 40-character commit SHA. */
+export function assertCommitish(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) throw new BranchNameError('Choose a branch to copy')
+  if (COMMIT_SHA.test(trimmed)) return trimmed
+  return assertBranchName(trimmed)
+}
+
 export async function createBranch(
   installationToken: string,
   repo: string,
@@ -125,11 +135,10 @@ export async function createBranch(
   from: string
 ): Promise<{ name: string }> {
   const branch = assertBranchName(name)
-  const source = from.trim()
-  if (!source) throw new BranchNameError('Choose a branch to copy')
+  const source = assertCommitish(from)
 
   const { data } = await api.request({
-    url: `/repos/${repo}/commits/${source}`,
+    url: api.githubApiPath('repos', repo, 'commits', source),
     token: installationToken
   })
   const sha = (data as { sha?: unknown }).sha
@@ -138,7 +147,7 @@ export async function createBranch(
   }
 
   await api.request({
-    url: `/repos/${repo}/git/refs`,
+    url: api.githubApiPath('repos', repo, 'git', 'refs'),
     method: 'POST',
     token: installationToken,
     data: { ref: `refs/heads/${branch}`, sha }
@@ -148,7 +157,7 @@ export async function createBranch(
 
 export async function fetchRepoBranches(installationToken: string, repo: string) {
   const branches: unknown[] = []
-  let url: string | undefined = `/repos/${repo}/branches`
+  let url: string | undefined = api.githubApiPath('repos', repo, 'branches')
   while (url) {
     const res = await api.request({ url, token: installationToken })
     const paging = LinkHeader.parse((res.headers.link as string) || '')

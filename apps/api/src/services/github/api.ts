@@ -9,6 +9,20 @@ export interface ApiRequestOptions {
   params?: Record<string, string>
 }
 
+/**
+ * GitHub REST path: encode each segment, keep `/` between branch/content parts.
+ * `githubApiPath('repos', 'acme/lark', 'commits', 'feature/x#y')`
+ * → `/repos/acme/lark/commits/feature/x%23y`
+ */
+export function githubApiPath(...parts: string[]): string {
+  const encoded = parts
+    .flatMap(part => part.split('/'))
+    .filter(segment => segment.length > 0)
+    .map(encodeURIComponent)
+    .join('/')
+  return `/${encoded}`
+}
+
 function prepare(options: ApiRequestOptions | string): { url: string; init: RequestInit } {
   const opts: ApiRequestOptions =
     typeof options === 'string' ? { url: options } : { ...options }

@@ -57,10 +57,6 @@ const EMPTY: FirmwareBuild = {
   detail: null
 }
 
-function repoApiPath(repository: string): string {
-  return repository.split('/').map(encodeURIComponent).join('/')
-}
-
 function shortSha(sha: string | null | undefined): string | null {
   if (!sha) return null
   return sha.slice(0, 7)
@@ -134,17 +130,16 @@ export async function fetchFirmwareBuild(
     throw err
   }
 
-  const repo = repoApiPath(repository)
   let commit: CommitPayload
   let runs: WorkflowRun[]
   try {
     const [commitRes, runsRes] = await Promise.all([
       api.request({
-        url: `/repos/${repo}/commits/${encodeURIComponent(branch)}`,
+        url: api.githubApiPath('repos', repository, 'commits', branch),
         token
       }),
       api.request({
-        url: `/repos/${repo}/actions/runs`,
+        url: api.githubApiPath('repos', repository, 'actions', 'runs'),
         token,
         params: { branch, per_page: '10' }
       })
@@ -199,7 +194,7 @@ export async function fetchFirmwareBuild(
 
   try {
     const { data } = await api.request({
-      url: `/repos/${repo}/actions/runs/${run.id}/artifacts`,
+      url: api.githubApiPath('repos', repository, 'actions', 'runs', String(run.id), 'artifacts'),
       token,
       params: { per_page: '20' }
     })
@@ -224,9 +219,8 @@ export async function downloadFirmwareArtifact(
   artifactId: string
 ): Promise<Uint8Array> {
   const token = await installationToken(installationId)
-  const repo = repoApiPath(repository)
   return api.requestBuffer({
-    url: `/repos/${repo}/actions/artifacts/${encodeURIComponent(artifactId)}/zip`,
+    url: api.githubApiPath('repos', repository, 'actions', 'artifacts', artifactId, 'zip'),
     token
   })
 }

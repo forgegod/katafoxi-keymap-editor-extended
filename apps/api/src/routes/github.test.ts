@@ -416,6 +416,42 @@ describe('session and errors', () => {
     expect(commit).not.toHaveBeenCalled()
   })
 
+  it('POST /github/keyboard-files does not commit a triple-encoded dot-dot branch', async () => {
+    const commit = vi.mocked(files.commitChanges)
+    const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark/x%25252e%25252e', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keymap: parseKeymap(VALID_KEYMAP), layout: [{ x: 0, y: 0 }] })
+    })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ name: 'BranchNameError' })
+    expect(commit).not.toHaveBeenCalled()
+  })
+
+  it('POST /github/keyboard-files returns 400 for a branch name with %', async () => {
+    const commit = vi.mocked(files.commitChanges)
+    const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark/feature%2F100%25', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keymap: parseKeymap(VALID_KEYMAP), layout: [{ x: 0, y: 0 }] })
+    })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ name: 'BranchNameError' })
+    expect(commit).not.toHaveBeenCalled()
+  })
+
+  it('POST /github/installation branches rejects a traversing from', async () => {
+    const create = vi.spyOn(installations, 'createBranch')
+    const { res } = await authedRequest('/github/installation/1/acme%2Flark/branches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'topic', from: '../../x' })
+    })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ name: 'BranchNameError' })
+    expect(create).not.toHaveBeenCalled()
+  })
+
   it('GET /github/keyboard-files returns 400 for an invalid branch query', async () => {
     const fetchFiles = vi.mocked(files.fetchKeyboardFiles)
     const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark?branch=bad..name')
