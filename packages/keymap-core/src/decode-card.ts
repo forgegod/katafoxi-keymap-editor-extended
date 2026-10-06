@@ -25,6 +25,8 @@ export interface LegendDecodeColumn {
   language: HostLanguageId
   /** Same flag as the host-legend strip for the column's current layout. */
   flag: string
+  /** Same tone as `keycapFace` packs: first column `base`, later columns `second`. */
+  tone: 'base' | 'second'
   slots: [LegendDecodeSlot, LegendDecodeSlot, LegendDecodeSlot, LegendDecodeSlot]
 }
 
@@ -42,6 +44,12 @@ export interface LegendDecodeCard {
 
 export function formatDecodeWord(column: Pick<LegendDecodeColumn, 'slots'>): string {
   return column.slots.map(slot => slot.text).join('')
+}
+
+/** HID / ZMK id without a `KC_` prefix the decode card stores for display. */
+export function stripKcPrefix(code: string | undefined | null): string {
+  if (!code) return ''
+  return code.replace(/^KC_/, '')
 }
 
 function decodeSlot(keysym: string): LegendDecodeSlot {
@@ -126,6 +134,7 @@ export function composeLegendDecode(
     current.push({
       language: column.language,
       flag: column.flag,
+      tone: column.tone,
       slots: slotsFromKeyLevels(levels)
     })
     const primary = hostLayoutShelves(column.language).primary
@@ -133,6 +142,7 @@ export function composeLegendDecode(
     system.push({
       language: column.language,
       flag: column.flag,
+      tone: column.tone,
       slots:
         sysLevels && levelsBelongInDecode(sysLevels)
           ? slotsFromKeyLevels(sysLevels)
@@ -155,6 +165,7 @@ function systemDecodeColumns(
     return {
       language: column.language,
       flag: column.flag,
+      tone: column.tone,
       slots:
         sysLevels && levelsBelongInDecode(sysLevels)
           ? slotsFromKeyLevels(sysLevels)
@@ -175,7 +186,7 @@ export function withEditableLegendDecodeGaps(
   view?: HostLegendView
 ): LegendDecodeCard {
   if (!card.keycode) return card
-  const zmk = card.keycode.replace(/^KC_/, '')
+  const zmk = stripKcPrefix(card.keycode)
   const hostView = view ?? standardHostLegendView()
   const shown = resolveHostColumns(hostView).filter(item => item.shown)
   const current = [...card.current]
@@ -183,7 +194,12 @@ export function withEditableLegendDecodeGaps(
   for (const column of shown) {
     if (current.some(item => item.language === column.language)) continue
     if (hostLevels(column.layoutId, zmk)) continue
-    current.push({ language: column.language, flag: column.flag, slots: emptySlots() })
+    current.push({
+      language: column.language,
+      flag: column.flag,
+      tone: column.tone,
+      slots: emptySlots()
+    })
     changed = true
   }
   if (!changed) return card

@@ -7,6 +7,9 @@
     hostKeyByZmk,
     isBlankLayerBinding,
     isComplex,
+    blankRowMark,
+    layerRowAriaLabel,
+    stripKcPrefix,
     multilangKeycapLines,
     isHoldTapBinding,
     isSimple,
@@ -253,7 +256,7 @@
     level: number
   ) {
     if (!inHostSession || !decode) return
-    const zmkCode = decodeCard?.keycode?.replace(/^KC_/, '') ?? ''
+    const zmkCode = stripKcPrefix(decodeCard?.keycode)
     if (!zmkCode) return
     editor.armHostSymbolEdit({ language, zmk: zmkCode, level })
   }
@@ -299,29 +302,6 @@
       window.removeEventListener('pointerdown', onPointerDown, true)
     }
   })
-  function rowTitle(row: { title: string; binding: KeyBindingNode }): string {
-    return row.title || encodeKeyBinding(row.binding)
-  }
-
-  function rowAriaLabel(
-    row: { layer: number; title: string; binding: KeyBindingNode },
-    occupied: boolean
-  ): string {
-    const title = rowTitle(row)
-    const code = String(row.binding.value)
-    const base =
-      code === '&trans'
-        ? `${title}, layer ${row.layer}, passes through`
-        : code === '&none'
-          ? `${title}, layer ${row.layer}, silent`
-          : `${title}, layer ${row.layer}`
-    return occupied ? `${base}, already held` : base
-  }
-
-  function blankRowMark(binding: KeyBindingNode): string {
-    return String(binding.value) === '&trans' ? '↓' : '∅'
-  }
-
   function slotAlign(binding: KeyBindingNode): {
     moved: boolean
     basic: boolean
@@ -399,7 +379,7 @@
             ? `grid-row: 1 / -1; ${layerToneStyle(0)}`
             : 'grid-row: 1 / -1'
         }
-        aria-label={rowAriaLabel(
+        aria-label={layerRowAriaLabel(
           {
             layer: 0,
             title: encodeKeyBinding(multilangFace.binding),
@@ -439,7 +419,7 @@
         class:when-held={occupied}
         data-layer={row.layer}
         style={editor.layerTonesOn ? layerToneStyle(row.layer) : undefined}
-        aria-label={rowAriaLabel(row, occupied)}
+        aria-label={layerRowAriaLabel(row, occupied)}
         aria-describedby={
           decode?.layer === row.layer && !inHostSession ? decodeTooltipId : undefined
         }

@@ -53,6 +53,7 @@
         role="columnheader"
         aria-colspan="4"
         data-language={column.language}
+        data-tone={column.tone}
         title={hostLanguageName(column.language)}
       >
         <LangFlag language={column.language} alt={hostLanguageName(column.language)} />
@@ -61,7 +62,7 @@
   </div>
   <div class="row levels" role="row">
     {#each current as column (column.language)}
-      <div class="lang" data-language={column.language} role="none">
+      <div class="lang" data-language={column.language} data-tone={column.tone} role="none">
         {#each LEVEL_LABELS as label, index (`${column.language}-lvl-${index}`)}
           <span class="level-label" role="columnheader">{label}</span>
         {/each}
@@ -71,7 +72,7 @@
   {#if system}
     <div class="row system" role="row">
       {#each system as column (column.language)}
-        <div class="lang" data-language={column.language} role="none">
+        <div class="lang" data-language={column.language} data-tone={column.tone} role="none">
           {#each column.slots as slot, index (`${column.language}-sys-${index}`)}
             <span
               class="slot"
@@ -87,7 +88,7 @@
   {/if}
   <div class="row current" role="row">
     {#each current as column (column.language)}
-      <div class="lang" data-language={column.language} role="none">
+      <div class="lang" data-language={column.language} data-tone={column.tone} role="none">
         {#each column.slots as slot, index (`${column.language}-${index}`)}
           {@const isEditing =
             hostSession &&
@@ -132,7 +133,7 @@
   {#if showRevertRow}
     <div class="row revert-row" role="row">
       {#each current as column (column.language)}
-        <div class="lang" data-language={column.language} role="none">
+        <div class="lang" data-language={column.language} data-tone={column.tone} role="none">
           {#each column.slots as slot, index (`${column.language}-rev-${index}`)}
             <div class="cell revert-cell" role="cell">
               {#if slot.differs}
@@ -269,12 +270,7 @@
     background: color-mix(in srgb, var(--warn-wash) 55%, var(--highlight));
   }
 
-  .lang[data-language='ru'] .slot.diff,
-  .lang[data-language='uk'] .slot.diff,
-  .lang[data-language='de'] .slot.diff,
-  .lang[data-language='fr'] .slot.diff,
-  .lang[data-language='pl'] .slot.diff,
-  .lang[data-language='es'] .slot.diff {
+  .lang[data-tone='second'] .slot.diff {
     color: var(--accent-strong);
   }
 

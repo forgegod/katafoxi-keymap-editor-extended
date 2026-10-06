@@ -7,9 +7,13 @@ import {
   bindingSendsShift,
   composeKey,
   composeLayerRows,
+  blankRowMark,
   composeLegendDecode,
   encodeKeyBinding,
   formatDecodeWord,
+  layerRowAriaLabel,
+  legendColumnTone,
+  stripKcPrefix,
   hostComposeGlyphs,
   hostLayout,
   cloneHostLayoutTable,
@@ -949,6 +953,7 @@ describe('composeLegendDecode', () => {
     expect(card.vk).toBe('VK_OEM_MINUS')
     expect(card.evdevName).toBe('KEY_MINUS')
     expect(card.current.map(column => column.language)).toEqual(['en', 'ru'])
+    expect(card.current.map(column => column.tone)).toEqual(['base', 'second'])
     expect(card.current.map(column => column.flag)).toEqual(['🇦🇺', '🇷🇺'])
     expect(card.current.map(formatDecodeWord)).toEqual(['-_ˬˬ', 'бБˬˬ'])
     expect(card.system?.map(formatDecodeWord)).toEqual(['-_ˬˬ', '-_ˬˬ'])
@@ -994,6 +999,7 @@ describe('composeLegendDecode', () => {
     )
     const circumflex = composeLegendDecode(parseKeyBinding('&kp LBKT'), view)
     const frDead = circumflex.current.find(column => column.language === 'fr')
+    expect(frDead?.tone).toBe('second')
     expect(frDead?.slots.map(slot => slot.text)).toEqual(['^', '¨', '¨', '°'])
     expect(frDead?.slots.map(slot => slot.dead)).toEqual([true, true, true, true])
 
@@ -1093,6 +1099,7 @@ describe('composeLegendDecode', () => {
       expect(base.current.map(column => column.language)).toEqual(['en'])
       const card = withEditableLegendDecodeGaps(base, hostView)
       expect(card.current.map(column => column.language)).toEqual(['en', 'ru'])
+      expect(card.current.map(column => column.tone)).toEqual(['base', 'second'])
       expect(card.system?.map(column => column.language)).toEqual(['en', 'ru'])
       expect(card.current.find(column => column.language === 'ru')?.slots.map(slot => slot.text)).toEqual([
         ALT_LEVEL_EMPTY,
@@ -1109,6 +1116,46 @@ describe('composeLegendDecode', () => {
     } finally {
       unregisterHostLayout(id)
     }
+  })
+})
+
+describe('blankRowMark', () => {
+  it('marks passthrough and silent blanks', () => {
+    expect(blankRowMark(parseKeyBinding('&trans'))).toBe('↓')
+    expect(blankRowMark(parseKeyBinding('&none'))).toBe('∅')
+  })
+})
+
+describe('layerRowAriaLabel', () => {
+  it('names passthrough, silent, and occupied rows', () => {
+    const trans = parseKeyBinding('&trans')
+    const none = parseKeyBinding('&none')
+    const tap = parseKeyBinding('&kp A')
+    expect(layerRowAriaLabel({ layer: 1, title: '&trans', binding: trans }, false)).toBe(
+      '&trans, layer 1, passes through'
+    )
+    expect(layerRowAriaLabel({ layer: 2, title: '', binding: none }, false)).toBe(
+      '&none, layer 2, silent'
+    )
+    expect(layerRowAriaLabel({ layer: 0, title: 'A', binding: tap }, true)).toBe(
+      'A, layer 0, already held'
+    )
+  })
+})
+
+describe('stripKcPrefix', () => {
+  it('drops the decode-card KC_ prefix', () => {
+    expect(stripKcPrefix('KC_MINUS')).toBe('MINUS')
+    expect(stripKcPrefix('MINUS')).toBe('MINUS')
+    expect(stripKcPrefix(undefined)).toBe('')
+  })
+})
+
+describe('legendColumnTone', () => {
+  it('marks every language after the first as second', () => {
+    expect(legendColumnTone(0)).toBe('base')
+    expect(legendColumnTone(1)).toBe('second')
+    expect(legendColumnTone(4)).toBe('second')
   })
 })
 

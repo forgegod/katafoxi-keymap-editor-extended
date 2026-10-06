@@ -84,9 +84,14 @@ export interface ResolvedHostColumn extends HostLegendColumn {
 export function resolveHostColumns(view: HostLegendView): ResolvedHostColumn[] {
   return hostLegendColumns(view).map((column, index): ResolvedHostColumn => ({
     ...column,
-    tone: index === 0 ? 'base' : 'second',
+    tone: legendColumnTone(index),
     flag: hostLayoutMeta(column.layoutId)?.flag ?? ''
   }))
+}
+
+/** First shown host language is base; later columns share the second-language tone. */
+export function legendColumnTone(index: number): ComposedLegendColumn['tone'] {
+  return index === 0 ? 'base' : 'second'
 }
 
 function emptyComposeColumn(resolved: ResolvedHostColumn): ComposedLegendColumn {

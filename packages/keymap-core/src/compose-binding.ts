@@ -10,6 +10,7 @@ import {
 } from './modifiers.js'
 import { keycodeGlyphLabel, keypadGlyphLabel } from './keycode-labels.js'
 import { getBehaviorCatalog } from './catalog.js'
+import { encodeKeyBinding } from './keymap.js'
 import type {
   HoldRef,
   KeyBindingNode,
@@ -329,4 +330,25 @@ export function formatHoldBadge(hold: HoldRef): string {
 export function isBlankLayerBinding(node: KeyBindingNode): boolean {
   const value = String(node.value)
   return value === '&trans' || value === '&none'
+}
+
+/** Hover mark for a blank layer row: passthrough vs silent. */
+export function blankRowMark(binding: KeyBindingNode): string {
+  return String(binding.value) === '&trans' ? '↓' : '∅'
+}
+
+/** Spoken label for a stacked layer slot, including held-layer occupancy. */
+export function layerRowAriaLabel(
+  row: { layer: number; title: string; binding: KeyBindingNode },
+  occupied: boolean
+): string {
+  const title = row.title || encodeKeyBinding(row.binding)
+  const code = String(row.binding.value)
+  const base =
+    code === '&trans'
+      ? `${title}, layer ${row.layer}, passes through`
+      : code === '&none'
+        ? `${title}, layer ${row.layer}, silent`
+        : `${title}, layer ${row.layer}`
+  return occupied ? `${base}, already held` : base
 }

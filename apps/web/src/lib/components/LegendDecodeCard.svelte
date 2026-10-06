@@ -7,6 +7,7 @@
     keysymToGlyph,
     parseKeyBinding,
     withEditableLegendDecodeGaps,
+    stripKcPrefix,
     type HostLanguageId,
     type LegendDecodeCard
   } from '@keymap-editor/keymap-core'
@@ -39,7 +40,7 @@
   let el: HTMLDivElement | undefined = $state()
   let busy = $state(false)
 
-  const zmk = $derived(card.keycode?.replace(/^KC_/, '') ?? '')
+  const zmk = $derived(stripKcPrefix(card.keycode))
   const showBinding = $derived(!zmk || card.binding !== `&kp ${zmk}`)
   const dialogLabel = $derived(
     card.keycode ? `Legend decode ${card.keycode}` : 'Legend decode'

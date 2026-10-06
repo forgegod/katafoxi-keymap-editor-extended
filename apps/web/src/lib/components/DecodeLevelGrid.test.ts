@@ -28,6 +28,7 @@ function slot(
 const ru: LegendDecodeColumn = {
   language: 'ru',
   flag: '🇷🇺',
+  tone: 'second',
   slots: [
     slot('ф'),
     slot('Ф'),
@@ -81,5 +82,6 @@ describe('DecodeLevelGrid', () => {
     expect(labels).toContain(`Edit Russian ${ALT_GR_SHIFT_COLUMN_LABEL}`)
     expect(labels).toContain(`Revert Russian ${ALT_GR_SHIFT_COLUMN_LABEL}`)
     expect(labels.some(label => label?.includes('level '))).toBe(false)
+    expect(target.querySelector('.lang')?.getAttribute('data-tone')).toBe('second')
   })
 })
