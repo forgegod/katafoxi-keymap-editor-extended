@@ -31,6 +31,18 @@
   import KeyEditorHost from './KeyEditorHost.svelte'
   import './Combo.css'
 
+  interface Props {
+    usedKeycodes?: ReadonlyMap<string, readonly number[]>
+    usedRevision?: string
+    usedLayerLabels?: readonly string[]
+  }
+
+  let {
+    usedKeycodes,
+    usedRevision = '',
+    usedLayerLabels = []
+  }: Props = $props()
+
   const definitionsBox = getDefinitionsContext()
   const searchBox = getSearchContext()
 
@@ -330,6 +342,9 @@
   editorSlots={session.slots}
   activeCodeIndex={session.activeSlot?.codeIndex ?? 0}
   choices={session.choices}
+  {usedKeycodes}
+  {usedRevision}
+  {usedLayerLabels}
   onSelectBehaviour={session.selectBehaviour}
   onSelectValue={session.selectValue}
   onToggleHold={session.toggleHold}

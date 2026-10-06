@@ -294,6 +294,44 @@ describe('ComboPanel', () => {
     expect(target.querySelector('.combo-id')?.textContent).toBe('combo_esc')
   })
 
+  it('marks keycodes already used by other combo bindings', () => {
+    const a = {
+      value: '&kp',
+      params: [{ value: 'A', params: [] }]
+    }
+    const keymap = {
+      layers: [[none, none]],
+      layer_names: ['Base'],
+      combos: [
+        { id: 'combo_esc', keyPositions: [0, 1], binding: esc },
+        { id: 'combo_a', keyPositions: [0, 1], binding: a, layers: [0] }
+      ]
+    }
+    editor.baselineKeymap = structuredClone(keymap)
+    editor.draftKeymap = structuredClone(keymap)
+    editor.activeComboId = 'combo_esc'
+    mountPanel()
+
+    const binding = [...target.querySelectorAll('.combo-btn')].find(
+      el => el.textContent?.trim() === 'Binding'
+    )
+    if (!(binding instanceof HTMLButtonElement)) throw new Error('missing Binding')
+    binding.click()
+    flushSync()
+
+    const filter = document.querySelector('.key-editor-filter')
+    if (!(filter instanceof HTMLInputElement)) throw new Error('missing filter')
+    filter.value = 'A'
+    filter.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+
+    const aChoice = [...document.querySelectorAll('.key-editor-choice')].find(
+      el => (el.textContent ?? '').trim() === 'A'
+    )
+    if (!(aChoice instanceof HTMLButtonElement)) throw new Error('missing A')
+    expect(aChoice.classList.contains('used')).toBe(true)
+  })
+
   it('reverts the id field when the new name is already taken', () => {
     const keymap = {
       layers: [[none, none]],

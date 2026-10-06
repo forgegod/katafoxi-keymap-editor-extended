@@ -1,13 +1,28 @@
 <script lang="ts">
   import {
+    collectUsedKeycodes,
     getBehaviorCatalog,
     getKeycodeCatalog,
-    layerLegendSymbol
+    layerLegendSymbol,
+    usedKeycodesRevision
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
   import { setDefinitionsContext, setSearchContext } from '../context'
   import { buildSearchContext } from '../search-context'
   import ComboPanel from './ComboPanel.svelte'
+
+  const usedKeycodes = $derived(
+    collectUsedKeycodes(
+      editor.draftKeymap?.layers ?? [],
+      editor.draftKeymap?.combos
+    )
+  )
+  const usedRevision = $derived(usedKeycodesRevision(usedKeycodes))
+  const usedLayerLabels = $derived(
+    (editor.draftKeymap?.layer_names ?? []).map((_, index) =>
+      layerLegendSymbol(index)
+    )
+  )
 
   const definitions = {
     keycodes: getKeycodeCatalog(),
@@ -38,4 +53,4 @@
   })
 </script>
 
-<ComboPanel />
+<ComboPanel {usedKeycodes} {usedRevision} {usedLayerLabels} />

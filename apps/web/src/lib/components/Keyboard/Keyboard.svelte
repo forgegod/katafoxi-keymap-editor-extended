@@ -62,7 +62,9 @@
   const layerNames = $derived(
     keymap.layer_names ?? keymap.layers.map((_, i) => `Layer ${i}`)
   )
-  const usedKeycodes = $derived(collectUsedKeycodes(keymap.layers ?? []))
+  const usedKeycodes = $derived(
+    collectUsedKeycodes(keymap.layers ?? [], keymap.combos)
+  )
   const usedRevision = $derived(usedKeycodesRevision(usedKeycodes))
 
   const availableLayers = $derived(
@@ -288,7 +290,7 @@
 
 <div class="keyboard-root">
   {#if comboMode}
-    <ComboPanel />
+    <ComboPanel {usedKeycodes} {usedRevision} {usedLayerLabels} />
   {/if}
   <div class="keyboard-column">
     {#if hasEncoders}

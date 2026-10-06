@@ -46,28 +46,51 @@ function rememberKeycode(
   else if (list[list.length - 1] !== layer) list.push(layer)
 }
 
+function collectFromBinding(
+  found: Map<string, Array<number>>,
+  bind: KeyBindingNode,
+  layer: number
+) {
+  const behavior = String(bind.value)
+  const tapIndex = TAP_CODE_PARAM[behavior] ?? COMMAND_CODE_PARAM[behavior]
+  if (tapIndex == null) return
+  rememberKeycode(found, placedKeycode(bind.params?.[tapIndex]), layer)
+  const modIndex = MOD_CODE_PARAM[behavior]
+  if (modIndex != null) {
+    rememberKeycode(found, placedKeycode(bind.params?.[modIndex]), layer)
+  }
+}
+
 /**
  * Keycodes placed anywhere in the keymap, keyed to layer indexes.
  * Counts the tap of `&kp`, `&sk`, `&mt`, and `&lt`, the modifier of `&mt`,
  * and command tokens (`&mkp LCLK`, `&msc SCRL_UP`). `LS(CAPS)` and `LC(C)`
- * contribute the terminal key. Each layer index is listed once, in order.
+ * contribute the terminal key. Combo bindings use the combo's `layers`
+ * filter, or every keymap layer when that filter is omitted.
+ * Each layer index is listed once, in order.
  */
 export function collectUsedKeycodes(
-  layers: ReadonlyArray<ReadonlyArray<KeyBindingNode> | undefined>
+  layers: ReadonlyArray<ReadonlyArray<KeyBindingNode> | undefined>,
+  combos?: ReadonlyArray<{
+    binding: KeyBindingNode
+    layers?: readonly number[]
+  }>
 ): Map<string, Array<number>> {
   const found = new Map<string, Array<number>>()
   layers.forEach((layer, index) => {
     for (const bind of layer ?? []) {
-      const behavior = String(bind.value)
-      const tapIndex = TAP_CODE_PARAM[behavior] ?? COMMAND_CODE_PARAM[behavior]
-      if (tapIndex == null) continue
-      rememberKeycode(found, placedKeycode(bind.params?.[tapIndex]), index)
-      const modIndex = MOD_CODE_PARAM[behavior]
-      if (modIndex != null) {
-        rememberKeycode(found, placedKeycode(bind.params?.[modIndex]), index)
-      }
+      collectFromBinding(found, bind, index)
     }
   })
+  if (!combos?.length) return found
+  const allLayers = layers.map((_, index) => index)
+  for (const combo of combos) {
+    const indexes =
+      combo.layers && combo.layers.length > 0 ? combo.layers : allLayers
+    for (const index of indexes) {
+      collectFromBinding(found, combo.binding, index)
+    }
+  }
   return found
 }
 
