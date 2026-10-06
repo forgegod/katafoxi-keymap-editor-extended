@@ -89,6 +89,7 @@ export default defineConfig({
       env: {
         ...process.env,
         VITE_ENABLE_LOCAL: 'true',
+        VITE_ENABLE_GITHUB: 'true',
         API_PROXY: apiOrigin,
         VITE_PORT: String(webPort)
       }
