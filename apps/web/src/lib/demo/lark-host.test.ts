@@ -1,4 +1,4 @@
-import { primarySystemLayoutId } from '@keymap-editor/keymap-core'
+import { hostLayout, primarySystemLayoutId } from '@keymap-editor/keymap-core'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { editor } from '../editor.svelte.js'
@@ -72,5 +72,25 @@ describe('Lark demo host seed', () => {
       'en',
       'ru'
     ])
+  })
+
+  it('keeps in-place host key edits when selecting the demo again', async () => {
+    const bundle = loadDemo('lark')
+    const selection = {
+      source: 'demo' as const,
+      layout: bundle.layout,
+      keymap: bundle.keymap,
+      demoHost: bundle.hostSeeds
+    }
+    await editor.selectKeyboard(selection)
+
+    const edited = await editor.setHostKeyLevel('en', 'A', 0, 'α')
+    expect(edited).toMatchObject({ ok: true, layoutId: DEMO_LARK_EN_ID })
+    expect(hostLayout(DEMO_LARK_EN_ID)?.byZmk.get('A')?.keysyms[0]).toBe('Greek_alpha')
+
+    await editor.selectKeyboard(selection)
+
+    expect(editor.activeProfileId('en')).toBe(DEMO_LARK_EN_ID)
+    expect(hostLayout(DEMO_LARK_EN_ID)?.byZmk.get('A')?.keysyms[0]).toBe('Greek_alpha')
   })
 })

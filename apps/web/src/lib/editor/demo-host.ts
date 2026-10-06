@@ -14,7 +14,9 @@ import { saveUserHostLayout, type UserHostLayoutRecord } from '../host-layout-st
 import type { EditorState } from './state.svelte'
 
 /**
- * Keep demo host layouts (`en2` / `ru2` for Lark) registered under stable ids.
+ * Register demo host layouts under stable ids so a later Demo select reuses
+ * the same tables. Insert a seed only when that id is missing from
+ * `userLayouts`; in-place edits on those ids must survive re-select.
  * Assign them on the legend only while it is still the default English-only view.
  * Buffer seeds first; register/persist only while `selectToken` is still current.
  * Demo seed ids are stable shared fixtures — do not delete them on abort.
@@ -24,7 +26,7 @@ export async function _seedDemoHostLayouts(this: EditorState,
   selectToken: number
 ): Promise<void> {
   if (selectToken !== this._selectGeneration) return
-  // Re-registering fixtures bumps hostLayoutRevision; do not treat that as a
+  // Registering fixtures bumps hostLayoutRevision; do not treat that as a
   // user edit waiting for OS install.
   const dirtyBefore = this.isHostDirty
   const records: UserHostLayoutRecord[] = seeds.map(seed => ({
@@ -37,23 +39,26 @@ export async function _seedDemoHostLayouts(this: EditorState,
   }))
   if (selectToken !== this._selectGeneration) return
 
-  for (const record of records) {
+  const existingIds = new Set(this.userLayouts.map(item => item.id))
+  const fresh = records.filter(record => !existingIds.has(record.id))
+
+  for (const record of fresh) {
     if (selectToken !== this._selectGeneration) return
     this._registerUserLayout(record)
-    const listedItem = {
-      id: record.id,
-      name: record.name,
-      language: record.language,
-      origin: record.origin,
-      updatedAt: record.updatedAt
-    }
-    this.userLayouts = this.userLayouts.some(item => item.id === record.id)
-      ? this.userLayouts.map(item => (item.id === record.id ? listedItem : item))
-      : [...this.userLayouts, listedItem]
+    this.userLayouts = [
+      ...this.userLayouts,
+      {
+        id: record.id,
+        name: record.name,
+        language: record.language,
+        origin: record.origin,
+        updatedAt: record.updatedAt
+      }
+    ]
   }
 
   try {
-    for (const record of records) {
+    for (const record of fresh) {
       if (selectToken !== this._selectGeneration) return
       await saveUserHostLayout(record)
     }
