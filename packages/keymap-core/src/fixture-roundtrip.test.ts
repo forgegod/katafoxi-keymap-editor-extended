@@ -6,24 +6,33 @@
  * “lossy accept”). That is the only allowed whole-file mismatch: text outside
  * layer `bindings = <…>` interiors stays byte-identical, and interiors differ
  * only by those expansions (plus the splice table rewrite that follows).
+ *
+ * Locality properties edit one (or two) keys on the same fixtures. Lark is
+ * compared against the already-expanded no-op Save so `#define` interiors
+ * do not look like extra splice damage.
  */
 
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
   findKeymapLayerNodes,
   findZmkKeymapBlock,
   parseDtsKeymap
 } from './dts-keymap.js'
-import { scanDts, tokenizeBindings } from './dts-scan.js'
+import { findNamedBlock, scanDts, tokenizeBindings } from './dts-scan.js'
 import {
   buildKeymapCode,
+  cloneParsedKeymap,
+  diffKeymaps,
   encodeKeyBinding,
   parseKeymap,
-  type LayoutKey
+  type LayoutKey,
+  type ParsedKeymap
 } from './index.js'
+import { bindingArb } from './testing/binding-arbitraries.js'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../fixtures')
 const CATALOG = join(ROOT, 'demo/catalog.json')
@@ -185,3 +194,204 @@ function expectNoOpRoundTrip(id: string, source: string, layout: LayoutKey[]): v
 
   expect(built.code, firstDiff(source, built.code)).toBe(source)
 }
+
+interface LoadedFixture {
+  id: string
+  layout: LayoutKey[]
+  /**
+   * Locality baseline: original source, except Lark uses the expanded no-op
+   * Save so `#define` interiors are already token-equal to the model.
+   */
+  baseline: string
+  parsed: ParsedKeymap
+}
+
+function loadForEdit(c: FixtureCase): LoadedFixture {
+  const { source, layout } = loadFixture(c)
+  const parsed = parseKeymap(parseDtsKeymap(source))
+  let baseline = source
+  if (c.id === LARK_ID) {
+    const built = buildKeymapCode(layout, parsed, { originalSource: source })
+    expect(built.mode).toBe('splice')
+    baseline = built.code
+  }
+  return { id: c.id, layout, baseline, parsed }
+}
+
+function layerNodes(source: string) {
+  const scan = scanDts(source)
+  const block = findZmkKeymapBlock(source, scan)
+  if (!block) throw new Error('no zmk,keymap block')
+  return findKeymapLayerNodes(source, block, scan)
+}
+
+function namedBlockSlice(
+  source: string,
+  keyword: string,
+  compatible?: string
+): string | null {
+  const block = findNamedBlock(source, scanDts(source), keyword, {
+    ...(compatible ? { compatible } : {})
+  })
+  if (!block) return null
+  let end = block.closeBrace + 1
+  if (source[end] === ';') end++
+  return source.slice(block.keywordStart, end)
+}
+
+function expectSiblingBlocksUntouched(before: string, after: string): void {
+  expect(namedBlockSlice(after, 'combos', 'zmk,combos')).toBe(
+    namedBlockSlice(before, 'combos', 'zmk,combos')
+  )
+  expect(namedBlockSlice(after, 'conditional_layers', 'zmk,conditional-layers')).toBe(
+    namedBlockSlice(before, 'conditional_layers', 'zmk,conditional-layers')
+  )
+  expect(namedBlockSlice(after, 'behaviors')).toBe(namedBlockSlice(before, 'behaviors'))
+}
+
+function commonPrefixLen(a: string, b: string): number {
+  const n = Math.min(a.length, b.length)
+  let i = 0
+  while (i < n && a[i] === b[i]) i++
+  return i
+}
+
+function commonSuffixLen(a: string, b: string, prefixLen: number): number {
+  const n = Math.min(a.length - prefixLen, b.length - prefixLen)
+  let i = 0
+  while (i < n && a[a.length - 1 - i] === b[b.length - 1 - i]) i++
+  return i
+}
+
+/** True when the single prefix/suffix gap sits inside `interior`. */
+function spanInsideInterior(
+  text: string,
+  prefix: number,
+  suffix: number,
+  interior: { start: number; end: number }
+): boolean {
+  const from = prefix
+  const to = text.length - suffix
+  if (from > to) return false
+  return from >= interior.start && to <= interior.end
+}
+
+function assertFc(label: string, property: Parameters<typeof fc.assert>[0], numRuns = 100): void {
+  try {
+    fc.assert(property, { numRuns })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    const seed = msg.match(/seed:\s*(-?\d+)/)?.[1] ?? 'unknown'
+    throw new Error(`${label} failed (seed ${seed}):\n${msg}`)
+  }
+}
+
+const loadedFixtures = cases.map(loadForEdit)
+const fixtureArb = fc.constantFrom(...loadedFixtures)
+
+describe('fixture splice locality', () => {
+  it('one binding edit rewrites one interval inside that layer and reparses', () => {
+    const editArb = fixtureArb.chain(fx =>
+      fc.record({
+        fx: fc.constant(fx),
+        layer: fc.integer({ min: 0, max: fx.parsed.layers.length - 1 }),
+        index: fc.integer({ min: 0, max: fx.layout.length - 1 }),
+        binding: bindingArb
+      })
+    )
+
+    assertFc(
+      'one-key locality',
+      fc.property(editArb, ({ fx, layer, index, binding }) => {
+        const before = encodeKeyBinding(fx.parsed.layers[layer]![index]!)
+        const after = encodeKeyBinding(binding)
+        fc.pre(before !== after)
+
+        const draft = cloneParsedKeymap(fx.parsed)
+        draft.layers[layer]![index] = binding
+        const built = buildKeymapCode(fx.layout, draft, { originalSource: fx.baseline })
+        expect(built.mode).toBe('splice')
+        expect(built.code).not.toBe(fx.baseline)
+
+        const prefix = commonPrefixLen(fx.baseline, built.code)
+        const suffix = commonSuffixLen(fx.baseline, built.code, prefix)
+        const srcInterior = layerNodes(fx.baseline)[layer]!.bindingsInterior
+        const codeInterior = layerNodes(built.code)[layer]!.bindingsInterior
+        expect(
+          spanInsideInterior(fx.baseline, prefix, suffix, srcInterior),
+          `changed span in source [${prefix}, ${fx.baseline.length - suffix}) not inside layer ${layer} bindings`
+        ).toBe(true)
+        expect(
+          spanInsideInterior(built.code, prefix, suffix, codeInterior),
+          `changed span in code [${prefix}, ${built.code.length - suffix}) not inside layer ${layer} bindings`
+        ).toBe(true)
+
+        const reparsed = parseKeymap(parseDtsKeymap(built.code))
+        expect(diffKeymaps(draft, reparsed)).toEqual([])
+        expectSiblingBlocksUntouched(fx.baseline, built.code)
+
+        const srcInteriors = layerInteriors(fx.baseline)
+        const codeInteriors = layerInteriors(built.code)
+        for (let i = 0; i < srcInteriors.length; i++) {
+          if (i === layer) continue
+          expect(codeInteriors[i], `unedited layer ${i} interior changed`).toBe(srcInteriors[i])
+        }
+        expect(tokenizeBindings(codeInteriors[layer]!)[index]).toBe(after)
+      })
+    )
+  })
+
+  it('two binding edits on different layers both land and leave the rest', () => {
+    const twoEditArb = fixtureArb.chain(fx => {
+      const lastLayer = fx.parsed.layers.length - 1
+      const lastKey = fx.layout.length - 1
+      return fc.record({
+        fx: fc.constant(fx),
+        layers: fc.uniqueArray(fc.integer({ min: 0, max: lastLayer }), {
+          minLength: 2,
+          maxLength: 2
+        }),
+        indexA: fc.integer({ min: 0, max: lastKey }),
+        indexB: fc.integer({ min: 0, max: lastKey }),
+        bindingA: bindingArb,
+        bindingB: bindingArb
+      })
+    })
+
+    assertFc(
+      'two-layer locality',
+      fc.property(
+        twoEditArb,
+        ({ fx, layers, indexA, indexB, bindingA, bindingB }) => {
+          fc.pre(fx.parsed.layers.length >= 2)
+          const [layerA, layerB] = layers
+          const encodedA = encodeKeyBinding(bindingA)
+          const encodedB = encodeKeyBinding(bindingB)
+          fc.pre(encodedA !== encodeKeyBinding(fx.parsed.layers[layerA!]![indexA]!))
+          fc.pre(encodedB !== encodeKeyBinding(fx.parsed.layers[layerB!]![indexB]!))
+
+          const draft = cloneParsedKeymap(fx.parsed)
+          draft.layers[layerA!]![indexA] = bindingA
+          draft.layers[layerB!]![indexB] = bindingB
+          const built = buildKeymapCode(fx.layout, draft, { originalSource: fx.baseline })
+          expect(built.mode).toBe('splice')
+
+          const srcInteriors = layerInteriors(fx.baseline)
+          const codeInteriors = layerInteriors(built.code)
+          const edited = new Set([layerA, layerB])
+          for (let i = 0; i < srcInteriors.length; i++) {
+            if (edited.has(i)) continue
+            expect(codeInteriors[i], `unedited layer ${i} interior changed`).toBe(srcInteriors[i])
+          }
+          expect(tokenizeBindings(codeInteriors[layerA!]!)[indexA]).toBe(encodedA)
+          expect(tokenizeBindings(codeInteriors[layerB!]!)[indexB]).toBe(encodedB)
+          expect(bindingExteriors(built.code)).toBe(bindingExteriors(fx.baseline))
+
+          const reparsed = parseKeymap(parseDtsKeymap(built.code))
+          expect(diffKeymaps(draft, reparsed)).toEqual([])
+          expectSiblingBlocksUntouched(fx.baseline, built.code)
+        }
+      )
+    )
+  })
+})
