@@ -386,6 +386,102 @@ describe('GET /github/authorize', () => {
     expect(getSession(sid)).toBeUndefined()
     expect(installations.fetchInstallationRepos).not.toHaveBeenCalled()
   })
+
+  it.each([
+    {
+      title: 'there is no refresh token',
+      session: {
+        login: 'octocat',
+        oauthAccessToken: 'stale-token',
+        expiresInSec: 1
+      },
+      setupRefresh: () => {},
+      expectRefreshCalls: 0
+    },
+    {
+      title: 'refreshOauthToken throws',
+      session: {
+        login: 'octocat',
+        oauthAccessToken: 'stale-token',
+        oauthRefreshToken: 'refresh-throw',
+        expiresInSec: 1
+      },
+      setupRefresh: () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {})
+        vi.mocked(auth.refreshOauthToken).mockRejectedValue(new Error('refresh boom'))
+      },
+      expectRefreshCalls: 1
+    },
+    {
+      title: 'refresh response is { error }',
+      session: {
+        login: 'octocat',
+        oauthAccessToken: 'stale-token',
+        oauthRefreshToken: 'refresh-error',
+        expiresInSec: 1
+      },
+      setupRefresh: () => {
+        vi.mocked(auth.refreshOauthToken).mockResolvedValue({
+          data: { error: 'bad_refresh_token' }
+        } as Awaited<ReturnType<typeof auth.refreshOauthToken>>)
+      },
+      expectRefreshCalls: 1
+    }
+  ])(
+    'returns 401, clears sid, and does not retry refresh when $title',
+    async ({ session, setupRefresh, expectRefreshCalls }) => {
+      vi.useFakeTimers()
+      const sid = trackSid(createSession(session))
+      setupRefresh()
+      vi.advanceTimersByTime(2000)
+
+      const first = await app.request('/github/installation', {
+        headers: { Cookie: sessionCookie(sid) }
+      })
+      expect(first.status).toBe(401)
+      expect(getSession(sid)).toBeUndefined()
+      const firstCookies = parseCookies(first)
+      expect(firstCookies[auth.SID_COOKIE]).toBeDefined()
+      expect(cookieIsCleared(firstCookies[auth.SID_COOKIE].raw)).toBe(true)
+      expect(auth.refreshOauthToken).toHaveBeenCalledTimes(expectRefreshCalls)
+      expect(installations.fetchInstallationRepos).not.toHaveBeenCalled()
+
+      const second = await app.request('/github/installation', {
+        headers: { Cookie: sessionCookie(sid) }
+      })
+      expect(second.status).toBe(401)
+      expect(getSession(sid)).toBeUndefined()
+      expect(auth.refreshOauthToken).toHaveBeenCalledTimes(expectRefreshCalls)
+      expect(installations.fetchInstallationRepos).not.toHaveBeenCalled()
+    }
+  )
+
+  it('returns 500 without a sid when the OAuth callback throws', async () => {
+    const start = await app.request('/github/authorize')
+    const state = new URL(start.headers.get('location') ?? '').searchParams.get('state') ?? ''
+    expect(state).toBeTruthy()
+
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(auth.getOauthToken).mockRejectedValue(new Error('token exchange boom'))
+
+    const callback = await app.request(`/github/authorize?code=abc&state=${encodeURIComponent(state)}`, {
+      headers: { Cookie: `${auth.OAUTH_STATE_COOKIE}=${state}` }
+    })
+    expect(callback.status).toBe(500)
+    const cookies = parseCookies(callback)
+    const sidCookie = cookies[auth.SID_COOKIE]
+    expect(sidCookie === undefined || cookieIsCleared(sidCookie.raw)).toBe(true)
+    expect(auth.getOauthUser).not.toHaveBeenCalled()
+
+    const replay = await app.request(`/github/authorize?code=abc&state=${encodeURIComponent(state)}`, {
+      headers: { Cookie: `${auth.OAUTH_STATE_COOKIE}=${state}` }
+    })
+    expect(replay.status).toBe(401)
+    expect(auth.getOauthToken).toHaveBeenCalledTimes(1)
+    expect(consumeOauthState(state)).toBe(false)
+    // The 500 response does not clear oauth_state; usability is the consumed nonce.
+    expect(cookies[auth.OAUTH_STATE_COOKIE]).toBeUndefined()
+  })
 })
 
 function connEnv(remoteAddress: string) {
