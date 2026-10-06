@@ -1461,3 +1461,127 @@ describe('installation access control', () => {
     expect(installations.fetchInstallationRepos).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('GitHub error status and body.name', () => {
+  const createBranchPath = '/github/installation/1/acme%2Flark/branches'
+  const artifactPath = '/github/builds/1/acme%2Fkeymap/artifact/22?name=firmware'
+  const buildsPath = '/github/builds/1/acme%2Fkeymap'
+
+  function githubStatusError(status: number) {
+    return Object.assign(new Error(`GitHub API ${status}`), {
+      response: { status, data: { message: 'failed' } }
+    })
+  }
+
+  function mockInstallToken() {
+    vi.spyOn(auth, 'createInstallationToken').mockResolvedValue({
+      data: { token: 'install-token' }
+    } as Awaited<ReturnType<typeof auth.createInstallationToken>>)
+  }
+
+  it.each([
+    {
+      title: 'create-branch JSON is invalid',
+      status: 400,
+      name: 'BranchNameError',
+      request: () =>
+        authedRequest(createBranchPath, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{not-json'
+        })
+    },
+    {
+      title: 'create-branch GitHub 422 maps to BranchExists',
+      status: 409,
+      name: 'BranchExists',
+      setup: () => {
+        mockInstallToken()
+        vi.spyOn(installations, 'createBranch').mockRejectedValue(githubStatusError(422))
+      },
+      request: () =>
+        authedRequest(createBranchPath, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'topic', from: 'main' })
+        })
+    },
+    {
+      title: 'create-branch GitHub 404 maps to BranchNotFound',
+      status: 400,
+      name: 'BranchNotFound',
+      setup: () => {
+        mockInstallToken()
+        vi.spyOn(installations, 'createBranch').mockRejectedValue(githubStatusError(404))
+      },
+      request: () =>
+        authedRequest(createBranchPath, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'topic', from: 'main' })
+        })
+    },
+    {
+      title: 'artifact zip has an empty body',
+      status: 502,
+      name: undefined,
+      setup: () => {
+        vi.spyOn(builds, 'downloadFirmwareArtifact').mockResolvedValue(new Response(null))
+      },
+      request: () => authedRequest(artifactPath)
+    },
+    {
+      title: 'artifact InstallationAccessError',
+      status: 403,
+      name: undefined,
+      request: () => authedRequest('/github/builds/999/acme%2Fkeymap/artifact/22?name=firmware')
+    },
+    {
+      title: 'artifact is too large',
+      status: 413,
+      name: undefined,
+      setup: () => {
+        vi.spyOn(builds, 'downloadFirmwareArtifact').mockRejectedValue(
+          new builds.ArtifactTooLargeError(99_000_000)
+        )
+      },
+      request: () => authedRequest(artifactPath)
+    },
+    {
+      title: 'artifact id is not digits',
+      status: 400,
+      name: undefined,
+      request: () => authedRequest('/github/builds/1/acme%2Fkeymap/artifact/not-a-number')
+    },
+    {
+      title: 'builds query is missing branch',
+      status: 400,
+      name: undefined,
+      request: () => authedRequest(buildsPath)
+    },
+    {
+      title: 'builds JSON has an invalid branch name',
+      status: 400,
+      name: 'BranchNameError',
+      request: () => authedRequest(`${buildsPath}?branch=has%20space`)
+    },
+    {
+      title: 'create-branch InstallationAccessError',
+      status: 403,
+      name: undefined,
+      request: () =>
+        authedRequest('/github/installation/999/acme%2Flark/branches', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'topic', from: 'main' })
+        })
+    }
+  ])('returns $status and name $name when $title', async ({ status, name, setup, request }) => {
+    setup?.()
+    const { res } = await request()
+    expect(res.status).toBe(status)
+    const text = await res.text()
+    const body = text ? (JSON.parse(text) as { name?: string }) : {}
+    expect(body.name).toBe(name)
+  })
+})
