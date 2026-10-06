@@ -63,6 +63,19 @@ describe('hostLayoutFromXkb', () => {
     expect(current?.byZmk.has('NON_US_BSLH')).toBe(false)
   })
 
+  it('prefers same-file ru(common) over the vendored ru module', () => {
+    const text = `
+      xkb_symbols "common" {
+        key <AC01> {[ x, X ]};
+      };
+      xkb_symbols "winkeys" {
+        include "ru(common)"
+      };
+    `
+    const layout = hostLayoutFromXkb(text, 'winkeys', { fileName: 'ru.xkb' })
+    expect(layout.byZmk.get('A')?.keysyms[0]).toBe('x')
+  })
+
   it('resolves include us(basic) against the vendored us file', () => {
     const text = `
       xkb_symbols "custom" {

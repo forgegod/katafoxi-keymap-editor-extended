@@ -1,6 +1,8 @@
 /**
  * Import a user host layout from an xkb symbols file.
  * Includes resolve against vendored modules (`us`, `ru`, `latin`, …).
+ * When the include names this file (`ru.xkb` + `include "ru(common)"`)
+ * and the section exists here, that local section wins.
  */
 
 import { HOST_LANGUAGES } from './host-languages.js'

@@ -156,6 +156,27 @@ describe('parseXkbSymbolsSection', () => {
     expect(keys.get('AD02')).toEqual(['a', 'B', 'at', 'Greek_alpha'])
   })
 
+  it('resolves ru(common) from the same file before a vendored ru module', () => {
+    const vendored = `
+      xkb_symbols "common" {
+        key <AC01> {[ Cyrillic_ef, Cyrillic_EF ]};
+      };
+    `
+    const source = `
+      xkb_symbols "common" {
+        key <AC01> {[ x, X ]};
+      };
+      xkb_symbols "winkeys" {
+        include "ru(common)"
+      };
+    `
+    const keys = parseXkbSymbolsSection(source, 'winkeys', [], {
+      fileId: 'ru',
+      files: { ru: vendored }
+    })
+    expect(keys.get('AC01')).toEqual(['x', 'X'])
+  })
+
   it('maps unresolved any to NoSymbol when nothing was included', () => {
     const source = `
       xkb_symbols "basic" {

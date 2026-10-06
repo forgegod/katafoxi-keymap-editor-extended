@@ -1,9 +1,10 @@
 /**
  * Read `key <NAME> { [ level1, level2, ... ] }` statements from one
  * `xkb_symbols` section.
- * `include "file(section)"` is expanded from the same source, or from
- * `files[file]` when that map is given. A bare `include "latin"` is
- * `latin(basic)`. Includes of missing files stay unresolved.
+ * `include "file(section)"` is expanded from the same source when
+ * `file` is this `fileId` and the section exists here; otherwise from
+ * `files[file]`. A bare `include "latin"` is `latin(basic)`. Includes
+ * of missing files stay unresolved.
  */
 
 /** One X11 keysym name token (safe to embed in `xkb_symbols` text). */
@@ -169,14 +170,18 @@ export function parseXkbSymbolsSection(
       const fromVendored = !!(fromFiles && hasSection(fromFiles, spec.section))
       const sameFile =
         hasSection(source, spec.section) && (fileId === '' || spec.file === fileId)
-      const nestedSource = (fromVendored ? fromFiles : null) ?? (sameFile ? source : null)
+      const preferSameFile = spec.file === fileId && sameFile
+      const nestedSource =
+        (preferSameFile ? source : null) ??
+        (fromVendored ? fromFiles : null) ??
+        (sameFile ? source : null)
       if (!nestedSource) {
         if (options.strictIncludes) {
           throw new Error(`Unresolved xkb include "${match[1]}"`)
         }
         continue
       }
-      const nestedId = fromVendored ? spec.file : fileId
+      const nestedId = fromVendored && !preferSameFile ? spec.file : fileId
       for (const [name, levels] of parseXkbSymbolsSection(
         nestedSource,
         spec.section,
@@ -185,7 +190,7 @@ export function parseXkbSymbolsSection(
           ...options,
           fileId: nestedId,
           // Vendored modules keep the builtin skip for their own missing includes.
-          strictIncludes: fromVendored ? false : options.strictIncludes
+          strictIncludes: fromVendored && !preferSameFile ? false : options.strictIncludes
         }
       )) {
         keys.set(name, mergeKeyLevels(keys.get(name), levels))
