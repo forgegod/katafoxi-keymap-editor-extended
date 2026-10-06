@@ -175,13 +175,13 @@ export function keymapBindingsText(source: string): string | null {
   })
   if (block) {
     for (const node of findKeymapLayerNodes(source, block)) {
-      parts.push(source.slice(node.bindingsInterior.start, node.bindingsInterior.end))
+      parts.push(masked.slice(node.bindingsInterior.start, node.bindingsInterior.end))
       const sensor = findAngleProp(
         masked,
         { start: node.openBrace + 1, end: node.closeBrace },
         'sensor-bindings'
       )
-      if (sensor) parts.push(source.slice(sensor.start, sensor.end))
+      if (sensor) parts.push(masked.slice(sensor.start, sensor.end))
     }
   }
 
@@ -204,7 +204,7 @@ export function keymapBindingsText(source: string): string | null {
         { start: openBrace + 1, end: closeBrace },
         'bindings'
       )
-      if (bindings) parts.push(source.slice(bindings.start, bindings.end))
+      if (bindings) parts.push(masked.slice(bindings.start, bindings.end))
     }
   }
 
@@ -286,7 +286,7 @@ export function parseDtsKeymap(
   let anySensor = false
 
   for (const node of layerNodes) {
-    const rawBlock = source.slice(node.bindingsInterior.start, node.bindingsInterior.end)
+    const rawBlock = masked.slice(node.bindingsInterior.start, node.bindingsInterior.end)
     if (macrosAppearInText(rawBlock, compiled)) {
       anyMacroExpanded = true
     }
@@ -307,7 +307,7 @@ export function parseDtsKeymap(
       continue
     }
     anySensor = true
-    const sensorRaw = source.slice(sensorInterior.start, sensorInterior.end)
+    const sensorRaw = masked.slice(sensorInterior.start, sensorInterior.end)
     if (macrosAppearInText(sensorRaw, compiled)) anyMacroExpanded = true
     const sensorTok = tokenizeBindingsDetailed(expandMacros(sensorRaw, compiled))
     if (sensorTok.hasUnparsedFragment) anyUnparsedFragment = true

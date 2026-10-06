@@ -5,7 +5,8 @@ import {
   hasBoolProp,
   maskDts,
   matchBrace,
-  parseUintList
+  parseUintList,
+  tokenizeBindings
 } from './dts-scan.js'
 
 describe('maskDts', () => {
@@ -65,6 +66,14 @@ describe('hasBoolProp', () => {
     expect(hasBoolProp('not-slow-release;', 'slow-release')).toBe(false)
     expect(hasBoolProp('slow-release;', 'slow-release')).toBe(true)
     expect(hasBoolProp('foo; slow-release; bar;', 'slow-release')).toBe(true)
+  })
+})
+
+describe('tokenizeBindings', () => {
+  it('ignores & tokens that only appear inside comments', () => {
+    expect(
+      tokenizeBindings(' /* L & R */ &kp A // tail\n    &kp B ')
+    ).toEqual(['&kp A', '&kp B'])
   })
 })
 

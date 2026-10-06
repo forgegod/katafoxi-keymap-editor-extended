@@ -1,7 +1,8 @@
 /**
  * Shared DTS structure scanner: mask comments/strings, match braces and
  * angle-bracket properties, find named blocks. Callers search on the masked
- * view and slice values from the original source (same length).
+ * view (same length as source). Bindings interiors are tokenized from the
+ * mask; other values may still be sliced from the original.
  */
 
 export interface DtsRange {
@@ -226,7 +227,7 @@ export interface TokenizeBindingsResult {
  * Non-empty scraps without a leading `&` are reported via `hasUnparsedFragment`.
  */
 export function tokenizeBindingsDetailed(block: string): TokenizeBindingsResult {
-  const normalized = block.replace(/\r\n/g, '\n').replace(/\n/g, ' ')
+  const normalized = maskDts(block).replace(/\r\n/g, '\n').replace(/\n/g, ' ')
   const binds: string[] = []
   let hasUnparsedFragment = false
   for (const part of normalized.split(/(?=&)/)) {

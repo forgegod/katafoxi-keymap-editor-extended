@@ -83,13 +83,13 @@ export function parseDtsCombos(source: string): DtsComboJson[] {
     re.lastIndex = closeBrace - block.bodyStart + 1
 
     const range = { start: openBrace + 1, end: closeBrace }
-    const nodeBody = source.slice(openBrace + 1, closeBrace)
+    const nodeBody = masked.slice(openBrace + 1, closeBrace)
     const bindings = findAngleProp(masked, range, 'bindings')
     const positions = findAngleProp(masked, range, 'key-positions')
     if (!bindings || !positions) continue
 
     // One binding per combo (ZMK allows one); tokenizeBindings tolerates spaces in ().
-    const binds = tokenizeBindings(source.slice(bindings.start, bindings.end))
+    const binds = tokenizeBindings(masked.slice(bindings.start, bindings.end))
     if (binds.length === 0) continue
 
     const combo: DtsComboJson = {

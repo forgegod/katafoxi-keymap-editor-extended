@@ -124,6 +124,23 @@ describe('parseDtsCombos', () => {
     ])
   })
 
+  it('does not take slow-release from a commented-out property', () => {
+    const src = `/ {
+    combos {
+        compatible = "zmk,combos";
+        combo_esc {
+            bindings = <&kp ESC>;
+            key-positions = <0 1>;
+            // slow-release;
+        };
+    };
+};
+`
+    expect(parseDtsCombos(src)).toEqual([
+      { id: 'combo_esc', binding: '&kp ESC', keyPositions: [0, 1] }
+    ])
+  })
+
   it('does not take slow-release from not-slow-release', () => {
     const src = `/ {
     combos {
