@@ -1,3 +1,4 @@
+import { diffKeymaps } from '@keymap-editor/keymap-core'
 import {
   readClipboardOriginalSource,
   writeClipboardOriginalSource
@@ -49,8 +50,16 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
 
   const alreadyHandled =
     upcomingKey != null && upcomingKey === this._handledDraftIdentityKey
+  const sameBaseline =
+    this.baselineKeymap != null &&
+    event.keymap != null &&
+    diffKeymaps(this.baselineKeymap, event.keymap).length === 0
   const keepLiveDraft =
-    alreadyHandled && this.draftKeymap != null && this.isDirty
+    event.source !== 'clipboard' &&
+    alreadyHandled &&
+    this.draftKeymap != null &&
+    this.isDirty &&
+    sameBaseline
 
   this.source = event.source
   this.githubMeta = githubMeta ?? null

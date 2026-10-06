@@ -294,6 +294,40 @@ describe('editor publish / draft persistence', () => {
     confirm.mockRestore()
   })
 
+  it('does not keep a clipboard draft when pasting a different keymap', async () => {
+    const identity = buildDraftIdentity({
+      source: 'clipboard',
+      keyboard: 'clipboard'
+    })!
+    await saveStoredDraft(identity, km('Z', 'clipboard'))
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    await editor.selectKeyboard({
+      source: 'clipboard',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A', 'clipboard'),
+      clipboardOriginalSource: 'bindings = <&kp A>;'
+    })
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('Z')
+
+    editor.updateKeymap(km('M', 'clipboard'))
+    expect(editor.isDirty).toBe(true)
+
+    await editor.selectKeyboard({
+      source: 'clipboard',
+      keymap: km('B', 'clipboard'),
+      clipboardOriginalSource: 'bindings = <&kp B>;',
+      warnings: ['clipboard_inferred_layout']
+    })
+
+    expect(editor.draftKeymap).toEqual(km('B', 'clipboard'))
+    expect(editor.isDirty).toBe(false)
+
+    confirm.mockRestore()
+    await deleteStoredDraft(identity)
+  })
+
   it('prompts restore and reapplies host snapshot after logout on the same GitHub identity', async () => {
     const identity = buildDraftIdentity({
       source: 'github',
