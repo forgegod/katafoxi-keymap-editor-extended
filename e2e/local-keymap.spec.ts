@@ -41,11 +41,11 @@ async function openLocalEditor(page: Page) {
   await expect(
     page.locator(ESC_KEY).getByRole('button', { name: '&kp ESC, layer 0' })
   ).toBeVisible()
-  const popover = page.locator('.source-popover')
-  if ((await popover.getAttribute('hidden')) === null) {
+  const popover = page.getByRole('dialog', { name: 'Local files' })
+  if (await popover.isVisible()) {
     await trigger.click()
   }
-  await expect(popover).toHaveAttribute('hidden', '')
+  await expect(popover).toBeHidden()
 }
 
 async function waitForPersistedDraft(page: Page) {
@@ -88,10 +88,10 @@ async function applyEscToF13(page: Page) {
 }
 
 async function applyF13InEditor(page: Page) {
-  const dialog = page.locator('.key-editor[aria-label="Edit key"]')
+  const dialog = page.getByRole('dialog', { name: 'Edit key' })
   await expect(dialog).toBeVisible()
   await dialog.getByPlaceholder('Filter values…').fill(NEW_KEYCODE)
-  await dialog.locator('.key-editor-choice', { hasText: NEW_KEYCODE }).first().click()
+  await dialog.getByRole('button', { name: NEW_KEYCODE }).first().click()
   await dialog.getByRole('button', { name: 'Apply' }).click()
   await expect(dialog).toBeHidden()
 }
@@ -151,7 +151,7 @@ test.describe('local adapter smoke', () => {
     await openLocalEditor(page)
 
     const key = page.locator(E_KEY)
-    const layer2Row = key.locator('button.layer-slot[data-layer="2"]')
+    const layer2Row = key.getByRole('button', { name: `${LAYER2_ORIGINAL_BIND}, layer 2` })
     await expect(layer2Row).toBeVisible()
     await layer2Row.click()
     await applyF13InEditor(page)
@@ -204,7 +204,7 @@ test.describe('local adapter smoke', () => {
     await openLocalEditor(page)
 
     const key = page.locator(E_KEY)
-    const layer0Row = key.locator('button.layer-slot[data-layer="0"]')
+    const layer0Row = key.getByRole('button', { name: `${LAYER0_E_BIND}, layer 0` })
     await expect(layer0Row).toBeVisible()
     await expect(key.locator('.keycap')).not.toContainText(hostGlyph)
 
@@ -222,12 +222,14 @@ test.describe('local adapter smoke', () => {
     await decodeDialog.getByRole('button', { name: 'Edit Russian tap' }).click()
     const catalog = page.getByRole('dialog', { name: 'Host symbol catalog' })
     await expect(catalog).toBeVisible()
-    await expect(catalog.locator(`button.glyph[aria-label="${glyphLabel}"]`)).toHaveCount(0)
+    await expect(
+      catalog.getByRole('button', { name: glyphLabel, exact: true })
+    ).toHaveCount(0)
 
     const greekShelf = catalog.locator('[data-shelf="greek"]')
-    await greekShelf.locator('button.shelf-toggle').click()
+    await greekShelf.getByRole('button', { name: 'Greek' }).click()
     await expect(greekShelf).toHaveAttribute('data-open', 'true')
-    await catalog.locator(`button.glyph[aria-label="${glyphLabel}"]`).click()
+    await catalog.getByRole('button', { name: glyphLabel, exact: true }).click()
     // Catalog stays open after a pick so shelf expand state survives the next assignment.
     await expect(catalog).toBeVisible()
     await expect(greekShelf).toHaveAttribute('data-open', 'true')
