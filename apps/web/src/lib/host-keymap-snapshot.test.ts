@@ -125,6 +125,72 @@ describe('GitHub host keymap snapshot', () => {
     expect(editor.isPublishDirty).toBe(false)
   })
 
+  it('applies a GitHub host snapshot when IndexedDB save fails', async () => {
+    const snapshot = {
+      version: 1 as const,
+      view: {
+        columns: [
+          {
+            language: 'en' as const,
+            layoutId: 'system-us',
+            visible: true,
+            altGr: true,
+            altGrShift: true
+          },
+          {
+            language: 'ru' as const,
+            layoutId: 'user:repo-ru',
+            visible: true,
+            altGr: true,
+            altGrShift: true
+          }
+        ],
+        open: 'ru' as const
+      },
+      layouts: [
+        {
+          id: 'user:repo-ru',
+          name: 'from-repo',
+          language: 'ru' as const,
+          origin: { from: 'copy' as const, layoutId: 'system-ru-legacy' },
+          keys: [
+            {
+              zmk: 'Q',
+              keysyms: [
+                'Cyrillic_shorti',
+                'Cyrillic_SHORTI',
+                'NoSymbol',
+                'NoSymbol'
+              ] as [string, string, string, string],
+              glyphs: ['й', 'Й', '', ''] as [string, string, string, string]
+            }
+          ]
+        }
+      ]
+    }
+    const saveSpy = vi
+      .spyOn(hostLayoutStore, 'saveUserHostLayout')
+      .mockRejectedValue(new Error('idb unavailable'))
+
+    await expect(
+      editor.selectKeyboard({
+        ...BOARD,
+        hostSnapshot: snapshot
+      })
+    ).resolves.toBeUndefined()
+
+    expect(editor.activeProfileId('ru')).toBe('user:repo-ru')
+    expect(editor.hostLegend.open).toBe('ru')
+    expect(editor.draftKeymap?.keyboard).toBe('board')
+    expect(editor.hostProfileNote).toBe(hostLayoutStore.HOST_LAYOUT_SAVE_FAIL_NOTE)
+    expect(editor.saveNotice).toEqual({
+      kind: 'error',
+      messages: [hostLayoutStore.HOST_LAYOUT_SAVE_FAIL_NOTE]
+    })
+
+    saveSpy.mockRestore()
+  })
+
   it('rolls back host layout IDB writes when keyboard selection is superseded', async () => {
     let saveCount = 0
     let nestedSelect: Promise<void> | undefined

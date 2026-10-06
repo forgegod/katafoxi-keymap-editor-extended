@@ -60,6 +60,19 @@ describe('API', () => {
     expect(localStorage.getItem('auth_token')).toBeNull()
   })
 
+  it('init still sets initialized when localStorage.removeItem throws', async () => {
+    const api = new API()
+    fetchMock.mockResolvedValue(jsonResponse(401, { error: 'unauthorized' }))
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new Error('blocked')
+    })
+
+    await api.init()
+
+    expect(api.initialized).toBe(true)
+    expect(api.authorized).toBe(false)
+  })
+
   it('init on 500 marks unauthorized and does not emit authentication-failed', async () => {
     const api = new API()
     const onAuthFailed = vi.fn()

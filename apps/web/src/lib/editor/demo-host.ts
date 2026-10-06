@@ -52,9 +52,13 @@ export async function _seedDemoHostLayouts(this: EditorState,
       : [...this.userLayouts, listedItem]
   }
 
-  for (const record of records) {
-    if (selectToken !== this._selectGeneration) return
-    await saveUserHostLayout(record)
+  try {
+    for (const record of records) {
+      if (selectToken !== this._selectGeneration) return
+      await saveUserHostLayout(record)
+    }
+  } catch {
+    this._noteHostLayoutSaveFailed()
   }
   if (selectToken !== this._selectGeneration) return
 

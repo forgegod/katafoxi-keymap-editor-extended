@@ -28,6 +28,7 @@ import { idbRequest, openDb, txDone } from './idb'
 export const HOST_LAYOUT_DB_NAME = 'keymap-editor-host-profiles'
 export const UNKNOWN_HOST_LAYOUT_NOTE =
   'Unknown layout was replaced with the primary system layout.'
+export const HOST_LAYOUT_SAVE_FAIL_NOTE = 'Could not save host layout locally'
 
 const DB_NAME = HOST_LAYOUT_DB_NAME
 const LAYOUTS_STORE = 'layouts'
@@ -286,6 +287,13 @@ export function sanitizeHostLegendView(view: HostLegendView): {
   return { view: next, replaced }
 }
 
+/** Skip `afterOpen` migration work after the first successful check this module load. */
+let legacyMigrationChecked = false
+
+export function resetHostLayoutMigrationChecked() {
+  legacyMigrationChecked = false
+}
+
 function openHostDb(): Promise<IDBDatabase> {
   return openDb({
     name: DB_NAME,
@@ -326,8 +334,11 @@ async function legacyMigrationNeeded(db: IDBDatabase): Promise<boolean> {
 }
 
 async function maybeMigrateLegacyProfiles(db: IDBDatabase): Promise<void> {
-  if (!(await legacyMigrationNeeded(db))) return
-  await migrateLegacyProfiles(db)
+  if (legacyMigrationChecked) return
+  if (await legacyMigrationNeeded(db)) {
+    await migrateLegacyProfiles(db)
+  }
+  legacyMigrationChecked = true
 }
 
 async function migrateLegacyProfiles(db: IDBDatabase): Promise<void> {
@@ -546,6 +557,7 @@ export async function saveHostAssemblies(
 }
 
 export async function clearHostLayoutStore(): Promise<void> {
+  legacyMigrationChecked = false
   const db = await openHostDb()
   try {
     const stores = [LAYOUTS_STORE, SETTINGS_STORE]

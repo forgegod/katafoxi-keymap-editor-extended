@@ -126,13 +126,17 @@ export async function _applyHostKeymapSnapshot(this: EditorState,
 
   const { view, replaced } = sanitizeHostLegendView(snapshot.view)
   const writtenIds: string[] = []
-  for (const record of records) {
-    if (selectToken !== this._selectGeneration) {
-      await this._rollbackUserHostLayoutWrites(writtenIds)
-      return
+  try {
+    for (const record of records) {
+      if (selectToken !== this._selectGeneration) {
+        await this._rollbackUserHostLayoutWrites(writtenIds)
+        return
+      }
+      await saveUserHostLayout(record)
+      writtenIds.push(record.id)
     }
-    await saveUserHostLayout(record)
-    writtenIds.push(record.id)
+  } catch {
+    this._noteHostLayoutSaveFailed()
   }
   if (selectToken !== this._selectGeneration) {
     await this._rollbackUserHostLayoutWrites(writtenIds)

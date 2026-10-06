@@ -24,7 +24,8 @@ import {
   loadUserHostLayouts,
   saveHostLegendView,
   UNKNOWN_HOST_LAYOUT_NOTE,
-  uniqueUserHostLayoutName
+  uniqueUserHostLayoutName,
+  resetHostLayoutMigrationChecked
 } from './host-layout-store'
 
 const BOARD: KeyboardSelection = {
@@ -53,6 +54,7 @@ function byZmkRecord(layout: HostLayout): Record<string, HostKeyLevels> {
 }
 
 function deleteHostLayoutDb(): Promise<void> {
+  resetHostLayoutMigrationChecked()
   return new Promise((resolve, reject) => {
     const request = indexedDB.deleteDatabase(HOST_LAYOUT_DB_NAME)
     request.onsuccess = () => resolve()

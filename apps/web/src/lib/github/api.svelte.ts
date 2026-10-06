@@ -158,7 +158,11 @@ export class API extends EventEmitter {
     }
 
     // Migrate away from legacy client JWT storage.
-    localStorage.removeItem('auth_token')
+    try {
+      localStorage.removeItem('auth_token')
+    } catch {
+      /* blocked storage must not stall init */
+    }
 
     try {
       const { data } = (await this._request('/github/installation', {

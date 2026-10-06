@@ -357,6 +357,8 @@ export class EditorState {
     origin: UserHostLayoutOrigin
   ) => Promise<string>
   declare _hostLegendSettingId: () => string | null
+  declare _noteHostLayoutSaveFailed: () => void
+  declare _persistHostLayoutWrite: (write: () => Promise<void>) => Promise<void>
   declare _persistHostLegend: () => Promise<void>
   declare _restoreHostLegend: (selectToken: number) => Promise<void>
   declare _hostAssembliesSettingId: () => string | null

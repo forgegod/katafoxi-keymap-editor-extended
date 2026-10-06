@@ -17,15 +17,33 @@ export function openDb(options: OpenDbOptions): Promise<IDBDatabase> {
       reject(new Error('IndexedDB unavailable'))
       return
     }
+    let settled = false
+    const finish = (action: () => void) => {
+      if (settled) return
+      settled = true
+      action()
+    }
     const request = indexedDB.open(options.name, options.version)
-    request.onerror = () => reject(request.error ?? new Error('IDB open failed'))
+    request.onerror = () =>
+      finish(() => reject(request.error ?? new Error('IDB open failed')))
+    request.onblocked = () => finish(() => reject(new Error('IDB open blocked')))
     request.onsuccess = () => {
       const db = request.result
-      if (!options.afterOpen) {
-        resolve(db)
+      if (settled) {
+        db.close()
         return
       }
-      void options.afterOpen(db).then(() => resolve(db), reject)
+      if (!options.afterOpen) {
+        finish(() => resolve(db))
+        return
+      }
+      void options.afterOpen(db).then(
+        () => finish(() => resolve(db)),
+        err => {
+          db.close()
+          finish(() => reject(err))
+        }
+      )
     }
     if (options.upgrade) {
       request.onupgradeneeded = event => {
