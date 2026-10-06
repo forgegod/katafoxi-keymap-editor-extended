@@ -396,10 +396,6 @@ describe('KeyEditor value catalog', () => {
     expect(homeChip?.classList.contains('active')).toBe(true)
   })
 
-  it.todo(
-    'hides KP_* until search — home taxonomy selects Keyboard+Keypad, so keypad stays visible without a query'
-  )
-
   it('shows Keypad matches while taxonomy chips stay visible', () => {
     open(filterScene, filterSearch)
 
