@@ -60,6 +60,19 @@ describe('production static security headers', () => {
     expect(res.headers.get('strict-transport-security')).toBeNull()
   })
 
+  it('GET / with a public Host still serves the SPA (local adapter Host guard is not global)', async () => {
+    const webDist = tempWebDist()
+    const app = createApp({
+      webDist,
+      appBaseUrl: 'https://zmk-keymap-editor.com',
+      enableGithub: false,
+      enableDevServer: false
+    })
+    const res = await app.request('https://zmk-keymap-editor.com/')
+    expect(res.status).toBe(200)
+    expect(await res.text()).toContain('<!doctype html>')
+  })
+
   it('sets HSTS only when APP_BASE_URL is https', async () => {
     const webDist = tempWebDist()
     const app = createApp({

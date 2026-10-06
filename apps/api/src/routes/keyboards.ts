@@ -44,9 +44,11 @@ function requestHost(c: Context): string | undefined {
   }
 }
 
-// CSRF: same isTrustedAppOrigin as github routes (lives in services/github/auth).
-// Not extracted to trusted-origin.ts so this change does not touch github.ts.
-keyboardsRoutes.use('*', async (c, next) => {
+// Loopback Host + CSRF only for the local zmk-config adapter.
+// Must not use '*' on a router mounted at `/` — that 403s the SPA when
+// Host is the public site name (production behind Caddy).
+// CSRF: same isTrustedAppOrigin as github routes (services/github/auth).
+async function localAdapterGuard(c: Context, next: () => Promise<void>) {
   if (!isLoopbackHostHeader(requestHost(c))) {
     return c.body(null, 403)
   }
@@ -55,7 +57,10 @@ keyboardsRoutes.use('*', async (c, next) => {
   }
   if (c.req.method === 'POST') return limitPostBody(c, next)
   await next()
-})
+}
+
+keyboardsRoutes.use('/layout', localAdapterGuard)
+keyboardsRoutes.use('/keymap', localAdapterGuard)
 
 function isNotFoundError(err: unknown): boolean {
   return (
