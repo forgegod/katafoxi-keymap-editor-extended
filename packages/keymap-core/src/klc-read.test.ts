@@ -113,4 +113,47 @@ describe('parseKlc', () => {
       'This .klc file has no SHIFTSTATE table.'
     )
   })
+
+  it('leaves N1 and N9 alone when a LIGATURE block follows LAYOUT', () => {
+    const parsed = parseKlc(`KBD\tX\t"X"
+SHIFTSTATE
+0
+1
+LAYOUT
+02	1	0	1	!
+0a	9	0	9	(
+LIGATURE
+2	1	0061	0062
+9	1	0063	0064
+ENDKBD
+`)
+    expect(glyphs(parsed.base, 'N1')).toEqual(['1', '!', '', ''])
+    expect(glyphs(parsed.base, 'N9')).toEqual(['9', '(', '', ''])
+  })
+
+  it('reads a LAYOUT row with double tabs the same as with single tabs', () => {
+    const header = `KBD\tX\t"X"
+SHIFTSTATE
+0
+1
+LAYOUT
+`
+    const single = parseKlc(`${header}02\t1\t0\t1\t!\nENDKBD\n`)
+    const doubled = parseKlc(`${header}02\t\t1\t0\t1\t!\nENDKBD\n`)
+    expect(glyphs(doubled.base, 'N1')).toEqual(glyphs(single.base, 'N1'))
+    expect(glyphs(doubled.base, 'N1')).toEqual(['1', '!', '', ''])
+  })
+
+  it('keeps a KBD description that has spaces and a // comment inside quotes', () => {
+    const parsed = parseKlc(`KBD MyKbd "My Layout // draft"
+SHIFTSTATE
+0
+1
+LAYOUT
+02	1	0	1	!
+ENDKBD
+`)
+    expect(parsed.kbdId).toBe('MyKbd')
+    expect(parsed.description).toBe('My Layout // draft')
+  })
 })

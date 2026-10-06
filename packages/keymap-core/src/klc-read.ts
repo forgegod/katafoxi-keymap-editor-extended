@@ -50,6 +50,8 @@ const KEYWORDS = new Set([
   'VERSION',
   'SHIFTSTATE',
   'LAYOUT',
+  'LIGATURE',
+  'ATTRIBUTES',
   'DEADKEY',
   'KEYNAME',
   'KEYNAME_EXT',
@@ -117,11 +119,25 @@ function leadingKeyword(line: string): string | null {
   return match[1]
 }
 
+function stripCommentOutsideQuotes(line: string): string {
+  let inQuote = false
+  for (let index = 0; index < line.length; index++) {
+    const ch = line[index]
+    if (ch === '"') inQuote = !inQuote
+    else if (!inQuote && ch === '/' && line[index + 1] === '/') return line.slice(0, index)
+  }
+  return line
+}
+
 function splitFields(line: string): string[] {
-  const bare = line.split('//')[0].trimEnd()
-  if (!bare.trim()) return []
-  const parts = bare.includes('\t') ? bare.split('\t') : bare.trim().split(/\s+/)
-  return parts.map(part => part.trim())
+  const bare = stripCommentOutsideQuotes(line).trim()
+  if (!bare) return []
+  return bare.split(/\s+/)
+}
+
+function kbdQuotedDescription(rawLine: string): string {
+  const quoted = /"([^"]*)"/.exec(rawLine)
+  return quoted ? quoted[1] : ''
 }
 
 function unquote(value: string): string {
@@ -318,13 +334,14 @@ export function parseKlc(text: string): KlcLayoutImport {
         else mode = 'skip'
       } else if (keyword === 'KBD') {
         mode = 'none'
-        const fields = splitFields(trimmed)
-        kbdId = fields[1] ?? ''
-        description = unquote(fields.slice(2).join('\t'))
+        kbdId = splitFields(trimmed)[1] ?? ''
+        description = kbdQuotedDescription(line)
       } else if (keyword === 'LOCALEID') {
         mode = 'none'
         localeId = unquote(splitFields(trimmed)[1] ?? '')
       } else if (
+        keyword === 'LIGATURE' ||
+        keyword === 'ATTRIBUTES' ||
         keyword === 'KEYNAME' ||
         keyword === 'KEYNAME_EXT' ||
         keyword === 'KEYNAME_DEAD' ||
@@ -348,8 +365,8 @@ export function parseKlc(text: string): KlcLayoutImport {
         if (pending) pending.continuation = fields.slice(3)
         continue
       }
+      if (!/^[0-9a-f]{2}$/i.test(fields[0])) continue
       const scan = Number.parseInt(fields[0], 16)
-      if (!Number.isInteger(scan)) continue
       finishRow()
       pending = { scan, cells: fields.slice(3) }
       continue
