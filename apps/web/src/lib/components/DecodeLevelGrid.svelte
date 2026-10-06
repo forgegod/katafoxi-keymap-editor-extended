@@ -32,6 +32,12 @@
   }: Props = $props()
 
   const LEVEL_LABELS = ['tap', '⇧', ALT_GR_COLUMN_LABEL, ALT_GR_SHIFT_COLUMN_LABEL] as const
+
+  function levelTitle(language: HostLanguageId, index: number): string {
+    const name = hostLanguageName(language)
+    const level = LEVEL_LABELS[index] ?? `level ${index}`
+    return `${name} ${level}`
+  }
 </script>
 
 <div
@@ -45,6 +51,7 @@
       <div
         class="lang-head flag"
         role="columnheader"
+        aria-colspan="4"
         data-language={column.language}
         title={hostLanguageName(column.language)}
       >
@@ -54,7 +61,7 @@
   </div>
   <div class="row levels" role="row">
     {#each current as column (column.language)}
-      <div class="lang" data-language={column.language} role="rowgroup">
+      <div class="lang" data-language={column.language} role="none">
         {#each LEVEL_LABELS as label, index (`${column.language}-lvl-${index}`)}
           <span class="level-label" role="columnheader">{label}</span>
         {/each}
@@ -64,7 +71,7 @@
   {#if system}
     <div class="row system" role="row">
       {#each system as column (column.language)}
-        <div class="lang" data-language={column.language} role="rowgroup">
+        <div class="lang" data-language={column.language} role="none">
           {#each column.slots as slot, index (`${column.language}-sys-${index}`)}
             <span
               class="slot"
@@ -80,7 +87,7 @@
   {/if}
   <div class="row current" role="row">
     {#each current as column (column.language)}
-      <div class="lang" data-language={column.language} role="rowgroup">
+      <div class="lang" data-language={column.language} role="none">
         {#each column.slots as slot, index (`${column.language}-${index}`)}
           {@const isEditing =
             hostSession &&
@@ -101,8 +108,8 @@
                 data-dead={slot.dead ? '1' : undefined}
                 disabled={!zmk}
                 aria-label={slot.dead
-                  ? `Edit ${column.language} level ${index} dead key ${slot.text}`
-                  : `Edit ${column.language} level ${index}`}
+                  ? `Edit ${levelTitle(column.language, index)} dead key ${slot.text}`
+                  : `Edit ${levelTitle(column.language, index)}`}
                 aria-expanded={isEditing}
                 aria-haspopup="dialog"
               >
@@ -125,7 +132,7 @@
   {#if showRevertRow}
     <div class="row revert-row" role="row">
       {#each current as column (column.language)}
-        <div class="lang" data-language={column.language} role="rowgroup">
+        <div class="lang" data-language={column.language} role="none">
           {#each column.slots as slot, index (`${column.language}-rev-${index}`)}
             <div class="cell revert-cell" role="cell">
               {#if slot.differs}
@@ -136,7 +143,7 @@
                   data-language={column.language}
                   data-level={index}
                   title="Revert to system"
-                  aria-label={`Revert ${column.language} level ${index}`}
+                  aria-label={`Revert ${levelTitle(column.language, index)}`}
                   disabled={busy || !zmk}
                 >
                   ↺

@@ -219,7 +219,7 @@ test.describe('local adapter smoke', () => {
     await layer0Row.click({ modifiers: ['Alt'] })
     const decodeDialog = page.getByRole('dialog', { name: /Legend decode/ })
     await expect(decodeDialog).toBeVisible()
-    await decodeDialog.getByRole('button', { name: 'Edit ru level 0' }).click()
+    await decodeDialog.getByRole('button', { name: 'Edit Russian tap' }).click()
     const catalog = page.getByRole('dialog', { name: 'Host symbol catalog' })
     await expect(catalog).toBeVisible()
     await expect(catalog.locator(`button.glyph[aria-label="${glyphLabel}"]`)).toHaveCount(0)

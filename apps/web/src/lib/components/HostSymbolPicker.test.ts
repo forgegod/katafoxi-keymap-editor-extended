@@ -28,7 +28,7 @@ function catalog(): HTMLElement | null {
   return document.querySelector('[role="dialog"][aria-label="Host symbol catalog"]')
 }
 
-function openDecodeCell(levelLabel = 'Edit en level 0'): HTMLButtonElement {
+function openDecodeCell(levelLabel = 'Edit English tap'): HTMLButtonElement {
   const row = stackRows()[0]
   row.dispatchEvent(
     new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true })
@@ -227,7 +227,7 @@ describe('LegendDecodeCard host symbol catalog', () => {
     openKey('A')
     await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     flushSync()
-    openDecodeCell('Edit en level 0')
+    openDecodeCell('Edit English tap')
 
     expect(catalog()).toBeInstanceOf(HTMLElement)
     expect(document.querySelector('.cell-input')).toBeNull()
@@ -335,7 +335,7 @@ describe('LegendDecodeCard host symbol catalog', () => {
     openKey('A')
     await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     flushSync()
-    openDecodeCell('Edit en level 0')
+    openDecodeCell('Edit English tap')
 
     const glyph = catalog()?.querySelector('button.glyph[aria-label="b b"]')
     expect(glyph).toBeInstanceOf(HTMLButtonElement)
@@ -356,7 +356,7 @@ describe('LegendDecodeCard host symbol catalog', () => {
     await editor.setHostKeyLevel('en', 'A', 1, 'B')
     flushSync()
 
-    openDecodeCell('Edit en level 1')
+    openDecodeCell('Edit English ⇧')
     const noSymbol = catalog()?.querySelector('button.glyph[aria-label="NoSymbol"]')
     expect(noSymbol).toBeInstanceOf(HTMLButtonElement)
     ;(noSymbol as HTMLButtonElement).click()
@@ -372,7 +372,7 @@ describe('LegendDecodeCard host symbol catalog', () => {
     openKey('A')
     await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     flushSync()
-    openDecodeCell('Edit en level 0')
+    openDecodeCell('Edit English tap')
     expect(catalog()).toBeInstanceOf(HTMLElement)
     expect(editor.hostEditSession).not.toBeNull()
 
