@@ -19,9 +19,15 @@ coverage
 
 # Env and secrets
 .env
-.env.test
-apps/web/.env.development
-private-key.pem
+.env.*
+!.env.template
+!apps/web/.env.development.example
+*.pem
+
+# Editor
+.idea/
+.vscode/
+.DS_Store
 
 # Local firmware checkouts (not this repo)
 zmk-config

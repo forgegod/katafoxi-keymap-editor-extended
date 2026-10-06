@@ -39,14 +39,14 @@ Both must be true; the API gates the routes, and the SPA hides Local unless the 
 
 ### GitHub auth
 
-- Enable GitHub with `ENABLE_GITHUB=true` and the GitHub App fields in `.env`. In `apps/web/.env.development`, set `VITE_ENABLE_GITHUB=true` and `VITE_GITHUB_APP_NAME` to the same slug as `GITHUB_APP_NAME`. In dev, `VITE_APP_BASE_URL` must be `http://127.0.0.1:5173`.
+- Enable GitHub with `ENABLE_GITHUB=true` and the GitHub App fields in `.env` (including `GITHUB_APP_PRIVATE_KEY`). In `apps/web/.env.development`, set `VITE_ENABLE_GITHUB=true` and `VITE_GITHUB_APP_NAME` to the same slug as `GITHUB_APP_NAME`.
 - Login uses an HttpOnly session cookie (`sid`). The browser never gets a GitHub OAuth access token, and there is no `?token=` on the redirect after OAuth. Sessions live in memory in the API process (24h sliding TTL): restarting the API, or running more than one process without sticky routing, signs everyone out. OAuth `state` is an HMAC-signed cookie, not a capped server map. GitHub routes are rate-limited per IP.
 - Opening a repository needs a user `config/*.keymap`. `config/info.json` is optional: without it the SPA draws a flat rectangular board from the binding count (same as Clipboard). Bindings come from `config/keymap.json` when that file has non-empty valid layers, and from the `.keymap` otherwise. `*.keymap.template` is read only when committing. Commit does not create `info.json`.
 - The ZMK lane shows **Latest** for that branch’s Actions firmware build. The chip stays neutral until a firmware artifact can be downloaded. A successful run with an artifact downloads the zip through the API. A failed, cancelled, or artifact-less run opens the Actions page.
 - In dev, `GITHUB_OAUTH_CALLBACK_URL` must be the **Vite** origin (e.g. `http://127.0.0.1:5173/github/authorize`), not `:8080`, so `Set-Cookie` attaches via the Vite proxy. Production uses same-origin `{APP_BASE_URL}/github/authorize`.
 - Decision record: [docs/adr/0003-github-auth-server-session.md](docs/adr/0003-github-auth-server-session.md).
 
-Set `PORT` if the API port must change. Set `HOST` to override the bind address (default `127.0.0.1` locally, `0.0.0.0` when `NODE_ENV=production`). Set `APP_BASE_URL` to the browser-facing app origin.
+Set `PORT` if the API port must change. Set `HOST` to override the bind address (default `127.0.0.1` locally, `0.0.0.0` when `NODE_ENV=production`). Set `APP_BASE_URL` to the browser-facing app origin (`http://127.0.0.1:5173` in this repo’s default). `ENABLE_DEV_SERVER=true` skips the “web dist not found” warning when the API does not serve `apps/web/dist` (normal for `pnpm dev`, where Vite hosts the SPA).
 
 ## Using the editor
 
@@ -82,7 +82,7 @@ pnpm test:e2e
 
 `pnpm test` is Vitest: `packages/keymap-core`, `apps/api`, and `apps/web`. It does not start a server.
 
-`pnpm test:e2e` is Playwright (Chromium only). It copies `packages/keymap-core/fixtures/lark` into a temp directory, starts the API and Vite on free ports (preferring 18080 and 15173), changes one key, and checks that Write files keeps the `.keymap` preamble. It also reloads a dirty draft and expects the IndexedDB restore confirm. It does not use ports 5173 or 8080 and does not write `zmk-config`.
+`pnpm test:e2e` is Playwright (Chromium only). `globalSetup` copies `packages/keymap-core/fixtures/lark` into a temp directory and starts the API and Vite on free ports (preferring 18080 and 15173). Specs open Source **Local** from the source menu, splice a binding with **Write files** while keeping the `.keymap` preamble, edit a composed layer-2 row, restore an IndexedDB draft after reload (dismiss confirm), and Alt+click a keycap to change a host glyph. They do not use ports 5173 or 8080 and do not write the repo `zmk-config`.
 
 Optional overrides, defaults unchanged when unset:
 

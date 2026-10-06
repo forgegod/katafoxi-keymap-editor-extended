@@ -2,7 +2,11 @@ import { spawn } from 'node:child_process'
 
 // `pnpm --parallel` pipes child stdio. On Windows, tsx's esbuild then
 // hangs in its service ping and the API never binds :8080.
-const packages = ['@keymap-editor/api', '@keymap-editor/web']
+const packages = [
+  '@keymap-editor/keymap-core',
+  '@keymap-editor/api',
+  '@keymap-editor/web'
+]
 
 function start(pkg) {
   const command = `pnpm --filter ${pkg} dev`

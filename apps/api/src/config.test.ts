@@ -22,6 +22,6 @@ describe('assertLocalDevAdapterAllowed', () => {
 describe('originFromBaseUrl', () => {
   it('returns the origin of a valid APP_BASE_URL', () => {
     expect(originFromBaseUrl('https://editor.example/app')).toBe('https://editor.example')
-    expect(originFromBaseUrl('not a url')).toBe('http://localhost:5173')
+    expect(originFromBaseUrl('not a url')).toBe('http://127.0.0.1:5173')
   })
 })

@@ -57,7 +57,7 @@ export function originFromBaseUrl(appBaseUrl: string): string {
   try {
     return new URL(appBaseUrl).origin
   } catch {
-    return 'http://localhost:5173'
+    return 'http://127.0.0.1:5173'
   }
 }
 
@@ -74,7 +74,7 @@ export const config = {
   GITHUB_CLIENT_ID: env('GITHUB_CLIENT_ID'),
   GITHUB_CLIENT_SECRET: env('GITHUB_CLIENT_SECRET'),
   GITHUB_OAUTH_CALLBACK_URL: env('GITHUB_OAUTH_CALLBACK_URL'),
-  APP_BASE_URL: env('APP_BASE_URL', 'http://localhost:5173'),
+  APP_BASE_URL: env('APP_BASE_URL', 'http://127.0.0.1:5173'),
   WEB_DIST: path.join(REPO_ROOT, 'apps/web/dist'),
   ZMK_CONFIG_PATH: env('ZMK_CONFIG_PATH', path.join(REPO_ROOT, 'zmk-config'))
 }

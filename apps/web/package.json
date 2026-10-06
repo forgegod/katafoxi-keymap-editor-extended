@@ -2,6 +2,7 @@
   "name": "@keymap-editor/web",
   "private": true,
   "version": "0.1.0",
+  "description": "Private workspace package; not independently versioned.",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +11,9 @@
     "test": "vitest run",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "lint": "svelte-check --tsconfig ./tsconfig.app.json"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "dependencies": {
     "@keymap-editor/keymap-core": "workspace:*",
