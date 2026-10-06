@@ -1,7 +1,9 @@
+import { getConnInfo } from '@hono/node-server/conninfo'
 import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { getCookie } from 'hono/cookie'
+import { config } from '../config.js'
 import {
   KeymapValidationError,
   InfoValidationError,
@@ -45,23 +47,41 @@ const POST_BODY_MAX_BYTES = 2_000_000
 const limitPostBody = bodyLimit({ maxSize: POST_BODY_MAX_BYTES })
 const DEFAULT_GITHUB_RATE_MAX = 120
 const DEFAULT_GITHUB_RATE_WINDOW_MS = 60_000
-const GITHUB_RATE_BUCKET_CAP = 2_000
+export const GITHUB_RATE_BUCKET_CAP = 2_000
 
 let githubRateMax = DEFAULT_GITHUB_RATE_MAX
 let githubRateWindowMs = DEFAULT_GITHUB_RATE_WINDOW_MS
 const githubRateBuckets = new Map<string, { count: number; resetAt: number }>()
 
-function clientIp(c: Context): string {
+function socketAddress(c: Context): string | undefined {
+  try {
+    const address = getConnInfo(c).remote.address?.trim()
+    if (address) return address
+  } catch {
+    // app.request() in tests has no incoming socket
+  }
+  return undefined
+}
+
+function forwardedClientIp(c: Context): string | undefined {
   const forwarded = c.req.header('x-forwarded-for')
   if (forwarded) {
     const first = forwarded.split(',')[0]?.trim()
     if (first) return first
   }
   const realIp = c.req.header('x-real-ip')?.trim()
-  return realIp || 'local'
+  return realIp || undefined
 }
 
-function pruneGithubRateBuckets(now: number) {
+function clientIp(c: Context): string {
+  if (config.TRUST_PROXY) {
+    const forwarded = forwardedClientIp(c)
+    if (forwarded) return forwarded
+  }
+  return socketAddress(c) ?? 'local'
+}
+
+export function pruneGithubRateBuckets(now: number) {
   for (const [ip, bucket] of githubRateBuckets) {
     if (bucket.resetAt <= now) githubRateBuckets.delete(ip)
   }
@@ -83,6 +103,11 @@ export function resetGithubRateLimitForTests(): void {
   githubRateMax = DEFAULT_GITHUB_RATE_MAX
   githubRateWindowMs = DEFAULT_GITHUB_RATE_WINDOW_MS
   githubRateBuckets.clear()
+}
+
+/** Test-only: inspect the in-memory map used by pruneGithubRateBuckets. */
+export function githubRateBucketsForTests(): Map<string, { count: number; resetAt: number }> {
+  return githubRateBuckets
 }
 
 githubRoutes.use('*', async (c, next) => {

@@ -18,7 +18,14 @@ import {
   getSession,
   SESSION_COOKIE_MAX_AGE_SEC
 } from '../services/github/sessions.js'
-import { githubRoutes, resetGithubRateLimitForTests, setGithubRateLimitForTests } from './github.js'
+import {
+  GITHUB_RATE_BUCKET_CAP,
+  githubRateBucketsForTests,
+  githubRoutes,
+  pruneGithubRateBuckets,
+  resetGithubRateLimitForTests,
+  setGithubRateLimitForTests
+} from './github.js'
 
 const app = new Hono().route('/github', githubRoutes)
 
@@ -333,7 +340,29 @@ describe('GET /github/authorize', () => {
   })
 })
 
+function connEnv(remoteAddress: string) {
+  return { incoming: { socket: { remoteAddress } } }
+}
+
+function consumeAuthorizeState(res: Response) {
+  if (res.status !== 302) return
+  const location = res.headers.get('location') ?? ''
+  const state = new URL(location).searchParams.get('state')
+  if (state) consumeOauthState(state)
+}
+
 describe('github rate limit', () => {
+  let previousTrustProxy: boolean
+
+  beforeEach(() => {
+    previousTrustProxy = config.TRUST_PROXY
+    config.TRUST_PROXY = false
+  })
+
+  afterEach(() => {
+    config.TRUST_PROXY = previousTrustProxy
+  })
+
   it('returns 429 when an IP exceeds the /github/* cap', async () => {
     setGithubRateLimitForTests({ max: 2, windowMs: 60_000 })
     const first = await app.request('/github/authorize')
@@ -343,8 +372,132 @@ describe('github rate limit', () => {
     expect(second.status).toBe(302)
     expect(third.status).toBe(429)
     expect(third.headers.get('retry-after')).toBeTruthy()
-    consumeOauthState(new URL(first.headers.get('location') ?? '').searchParams.get('state') ?? '')
-    consumeOauthState(new URL(second.headers.get('location') ?? '').searchParams.get('state') ?? '')
+    consumeAuthorizeState(first)
+    consumeAuthorizeState(second)
+  })
+
+  it('ignores X-Forwarded-For when TRUST_PROXY is unset so one client stays in one bucket', async () => {
+    setGithubRateLimitForTests({ max: 2, windowMs: 60_000 })
+    const env = connEnv('203.0.113.10')
+    const first = await app.request(
+      '/github/authorize',
+      { headers: { 'X-Forwarded-For': '198.51.100.1' } },
+      env
+    )
+    const second = await app.request(
+      '/github/authorize',
+      { headers: { 'X-Forwarded-For': '198.51.100.2' } },
+      env
+    )
+    const third = await app.request(
+      '/github/authorize',
+      { headers: { 'X-Forwarded-For': '198.51.100.3' } },
+      env
+    )
+    expect(first.status).toBe(302)
+    expect(second.status).toBe(302)
+    expect(third.status).toBe(429)
+    consumeAuthorizeState(first)
+    consumeAuthorizeState(second)
+  })
+
+  it('ignores X-Real-IP when TRUST_PROXY is unset', async () => {
+    setGithubRateLimitForTests({ max: 1, windowMs: 60_000 })
+    const env = connEnv('203.0.113.10')
+    const first = await app.request(
+      '/github/authorize',
+      { headers: { 'X-Real-IP': '198.51.100.8' } },
+      env
+    )
+    const second = await app.request(
+      '/github/authorize',
+      { headers: { 'X-Real-IP': '198.51.100.9' } },
+      env
+    )
+    expect(first.status).toBe(302)
+    expect(second.status).toBe(429)
+    consumeAuthorizeState(first)
+  })
+
+  it('keys buckets on the socket address when TRUST_PROXY is unset', async () => {
+    setGithubRateLimitForTests({ max: 1, windowMs: 60_000 })
+    const first = await app.request('/github/authorize', {}, connEnv('203.0.113.1'))
+    const second = await app.request('/github/authorize', {}, connEnv('203.0.113.2'))
+    expect(first.status).toBe(302)
+    expect(second.status).toBe(302)
+    consumeAuthorizeState(first)
+    consumeAuthorizeState(second)
+  })
+
+  it('uses X-Forwarded-For when TRUST_PROXY is true', async () => {
+    config.TRUST_PROXY = true
+    setGithubRateLimitForTests({ max: 1, windowMs: 60_000 })
+    const env = connEnv('203.0.113.10')
+    const first = await app.request(
+      '/github/authorize',
+      { headers: { 'X-Forwarded-For': '198.51.100.1, 10.0.0.1' } },
+      env
+    )
+    const second = await app.request(
+      '/github/authorize',
+      { headers: { 'X-Forwarded-For': '198.51.100.2' } },
+      env
+    )
+    const firstRepeat = await app.request(
+      '/github/authorize',
+      { headers: { 'X-Forwarded-For': '198.51.100.1' } },
+      env
+    )
+    expect(first.status).toBe(302)
+    expect(second.status).toBe(302)
+    expect(firstRepeat.status).toBe(429)
+    consumeAuthorizeState(first)
+    consumeAuthorizeState(second)
+  })
+
+  it('uses X-Real-IP when TRUST_PROXY is true and X-Forwarded-For is absent', async () => {
+    config.TRUST_PROXY = true
+    setGithubRateLimitForTests({ max: 1, windowMs: 60_000 })
+    const env = connEnv('203.0.113.10')
+    const first = await app.request('/github/authorize', { headers: { 'X-Real-IP': '198.51.100.8' } }, env)
+    const second = await app.request('/github/authorize', { headers: { 'X-Real-IP': '198.51.100.9' } }, env)
+    expect(first.status).toBe(302)
+    expect(second.status).toBe(302)
+    consumeAuthorizeState(first)
+    consumeAuthorizeState(second)
+  })
+
+  it('falls back to the socket address when TRUST_PROXY is true but forwarded headers are missing', async () => {
+    config.TRUST_PROXY = true
+    setGithubRateLimitForTests({ max: 1, windowMs: 60_000 })
+    const first = await app.request('/github/authorize', {}, connEnv('203.0.113.1'))
+    const second = await app.request('/github/authorize', {}, connEnv('203.0.113.1'))
+    const other = await app.request('/github/authorize', {}, connEnv('203.0.113.2'))
+    expect(first.status).toBe(302)
+    expect(second.status).toBe(429)
+    expect(other.status).toBe(302)
+    consumeAuthorizeState(first)
+    consumeAuthorizeState(other)
+  })
+
+  it('deletes expired rate buckets and caps the map at GITHUB_RATE_BUCKET_CAP', () => {
+    const now = 1_700_000_000_000
+    const buckets = githubRateBucketsForTests()
+    buckets.clear()
+    buckets.set('expired', { count: 3, resetAt: now - 1 })
+    buckets.set('live', { count: 1, resetAt: now + 60_000 })
+    pruneGithubRateBuckets(now)
+    expect(buckets.has('expired')).toBe(false)
+    expect(buckets.get('live')).toEqual({ count: 1, resetAt: now + 60_000 })
+
+    buckets.clear()
+    for (let i = 0; i < GITHUB_RATE_BUCKET_CAP + 7; i++) {
+      buckets.set(`ip-${i}`, { count: 1, resetAt: now + 60_000 })
+    }
+    pruneGithubRateBuckets(now)
+    expect(buckets.size).toBe(GITHUB_RATE_BUCKET_CAP)
+    expect(buckets.has('ip-0')).toBe(false)
+    expect(buckets.has(`ip-${GITHUB_RATE_BUCKET_CAP + 6}`)).toBe(true)
   })
 })
 

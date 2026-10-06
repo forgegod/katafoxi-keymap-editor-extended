@@ -79,6 +79,8 @@ export const config = {
   ENABLE_DEV_SERVER: parseBoolean(process.env.ENABLE_DEV_SERVER),
   ENABLE_GITHUB: parseBoolean(process.env.ENABLE_GITHUB),
   ENABLE_LOCAL: parseBoolean(process.env.ENABLE_LOCAL),
+  /** When true, GitHub rate limits use X-Forwarded-For / X-Real-IP. Off by default so those headers cannot spoof the bucket. */
+  TRUST_PROXY: parseBoolean(process.env.TRUST_PROXY),
   GITHUB_APP_PRIVATE_KEY: env('GITHUB_APP_PRIVATE_KEY'),
   GITHUB_APP_ID: env('GITHUB_APP_ID'),
   GITHUB_CLIENT_ID: env('GITHUB_CLIENT_ID'),
