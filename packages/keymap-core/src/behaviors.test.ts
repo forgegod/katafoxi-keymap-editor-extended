@@ -109,6 +109,14 @@ describe('behaviorValueCatalog', () => {
     expect(catalog.param).toBe('code')
     expect(catalog.choices).toEqual([])
   })
+
+  it('returns a copy of the command list', () => {
+    const catalog = behaviorValueCatalog('&mkp')
+    catalog.choices.push({ code: 'MUTATED' })
+    expect(behaviorValueCatalog('&mkp').choices.map(c => c.code)).not.toContain(
+      'MUTATED'
+    )
+  })
 })
 
 describe('behaviorSlotParam', () => {

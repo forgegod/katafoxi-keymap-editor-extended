@@ -104,7 +104,10 @@ export function behaviorValueCatalog(
   if (!def) return { choices: [] }
   const param = typeof def.params?.[0] === 'string' ? def.params[0] : undefined
   if (param === 'command') {
-    return { param, choices: (def.commands ?? []) as CatalogChoice[] }
+    return {
+      param,
+      choices: (def.commands ?? []).map(command => ({ ...command }))
+    }
   }
   return { param, choices: [] }
 }

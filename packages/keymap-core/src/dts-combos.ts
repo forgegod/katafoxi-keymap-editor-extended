@@ -21,9 +21,9 @@ import {
   type DtsScan
 } from './dts-scan.js'
 import {
-  collapseExtraBlankLines,
   dominantEol,
   eatPrecedingEol,
+  joinCollapsingExtraBlankLines,
   type LineEnding
 } from './eol.js'
 import {
@@ -207,7 +207,7 @@ export function spliceCombosIntoDts(original: string, combos: DtsComboJson[]): s
       from--
     }
     from = eatPrecedingEol(original, from)
-    return collapseExtraBlankLines(original.slice(0, from) + original.slice(to), eol)
+    return joinCollapsingExtraBlankLines(original.slice(0, from), original.slice(to), eol)
   }
 
   const formatted = formatCombosBlock(combos, '    ', eol)

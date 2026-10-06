@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { loadKeyboardBundle, pickInfoLayout } from './keyboard-bundle.js'
+import { KeymapValidationError } from './errors.js'
 import { parseKeymap } from './keymap.js'
 
 const info = {
@@ -60,6 +61,18 @@ describe('pickInfoLayout', () => {
     expect(picked.layoutName).toBe('THUMBS')
     expect(picked.layout).toHaveLength(2)
   })
+
+  it('returns a copied layout array', () => {
+    const picked = pickInfoLayout(info)
+    picked.layout.pop()
+    expect(info.layouts.LAYOUT.layout).toHaveLength(2)
+  })
+
+  it('throws KeymapValidationError for an unknown layout name', () => {
+    expect(() => pickInfoLayout(info, { layoutName: 'NOPE' })).toThrow(
+      KeymapValidationError
+    )
+  })
 })
 
 describe('loadKeyboardBundle', () => {
@@ -104,6 +117,6 @@ describe('loadKeyboardBundle', () => {
         keymap: parseKeymap({ layers: [[]] }),
         missingLayoutMessage: 'Missing file config/info.json and keymap has no bindings to infer a layout from'
       })
-    ).toThrow(/Missing file config\/info\.json/)
+    ).toThrow(KeymapValidationError)
   })
 })

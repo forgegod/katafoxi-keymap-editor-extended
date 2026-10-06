@@ -48,6 +48,23 @@ export interface DtsScan {
 }
 
 const CHILD_NODE_RE = /(?:([A-Za-z_]\w*)\s*:\s*)?([A-Za-z0-9,._+@-]+)\s*\{/g
+const ANGLE_PROP_START_RE = new Map<string, RegExp>()
+const ANGLE_PROP_END_RE = new Map<string, RegExp>()
+const BOOL_PROP_RE = new Map<string, RegExp>()
+const NAMED_BLOCK_RE = new Map<string, RegExp>()
+
+function cachedPropRe(
+  cache: Map<string, RegExp>,
+  prop: string,
+  source: (escaped: string) => string,
+  flags?: string
+): RegExp {
+  const hit = cache.get(prop)
+  if (hit) return hit
+  const re = new RegExp(source(escapeRegExp(prop)), flags)
+  cache.set(prop, re)
+  return re
+}
 
 /** Escape `value` so it can be embedded in a `RegExp` source. */
 export function escapeRegExp(value: string): string {
@@ -230,7 +247,11 @@ export function findAngleProp(
   prop: string
 ): DtsRange | null {
   const slice = masked.slice(bodyRange.start, bodyRange.end)
-  const re = new RegExp(`(?<![\\w-])${escapeRegExp(prop)}\\s*=\\s*<`)
+  const re = cachedPropRe(
+    ANGLE_PROP_START_RE,
+    prop,
+    escaped => `(?<![\\w-])${escaped}\\s*=\\s*<`
+  )
   const m = re.exec(slice)
   if (!m) return null
   const contentStart = bodyRange.start + m.index + m[0].length
@@ -256,7 +277,11 @@ export function findAnglePropStatement(
   const interior = findAngleProp(masked, bodyRange, prop)
   if (!interior) return null
   const slice = masked.slice(bodyRange.start, interior.start)
-  const re = new RegExp(`(?<![\\w-])${escapeRegExp(prop)}\\s*=\\s*<$`)
+  const re = cachedPropRe(
+    ANGLE_PROP_END_RE,
+    prop,
+    escaped => `(?<![\\w-])${escaped}\\s*=\\s*<$`
+  )
   const m = re.exec(slice)
   if (!m) return null
   const stmtStart = bodyRange.start + m.index
@@ -315,7 +340,11 @@ export function readUintAngleScalar(
 
 /** True when `prop;` appears as its own token (not inside `not-prop;`). */
 export function hasBoolProp(body: string, prop: string): boolean {
-  return new RegExp(`(?<![\\w-])${escapeRegExp(prop)}\\s*;`).test(body)
+  return cachedPropRe(
+    BOOL_PROP_RE,
+    prop,
+    escaped => `(?<![\\w-])${escaped}\\s*;`
+  ).test(body)
 }
 
 export interface FindNamedBlockOptions {
@@ -341,7 +370,13 @@ export function hasPreprocessorConditional(
 }
 
 function namedBlockRe(keyword: string): RegExp {
-  return new RegExp(`(?<![\\w,.+@-])${escapeRegExp(keyword)}\\s*\\{`, 'g')
+  const cached = cachedPropRe(
+    NAMED_BLOCK_RE,
+    keyword,
+    escaped => `(?<![\\w,.+@-])${escaped}\\s*\\{`,
+    'g'
+  )
+  return new RegExp(cached.source, 'g')
 }
 
 /**

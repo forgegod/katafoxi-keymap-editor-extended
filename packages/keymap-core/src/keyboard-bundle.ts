@@ -1,3 +1,4 @@
+import { KeymapValidationError } from './errors.js'
 import { inferRectangularLayout, validateInfoJson } from './layout.js'
 import type { LayoutKey, ParsedKeymap } from './types.js'
 
@@ -26,14 +27,15 @@ export function pickInfoLayout(
   validateInfoJson(info)
   const root = info as InfoJsonLayouts
   const names = Object.keys(root.layouts)
-  if (names.length === 0) throw new Error('info.json has no layouts')
 
   const layoutName =
     options.layoutName ??
-    (root.layouts.default ? 'default' : names[0])
+    (root.layouts.default ? 'default' : names[0]!)
   const entry = root.layouts[layoutName]
   if (!entry || !Array.isArray(entry.layout)) {
-    throw new Error(`info.json layout "${layoutName}" is missing or invalid`)
+    throw new KeymapValidationError([
+      `info.json layout "${layoutName}" is missing or invalid`
+    ])
   }
 
   const keyboard =
@@ -42,7 +44,11 @@ export function pickInfoLayout(
     options.fallbackKeyboard ||
     'keyboard'
 
-  return { layout: entry.layout, layoutName, keyboard }
+  return {
+    layout: entry.layout.map(key => ({ ...key })),
+    layoutName,
+    keyboard
+  }
 }
 
 export type LoadKeyboardBundleOptions = {
@@ -114,7 +120,7 @@ export function loadKeyboardBundle(
 
   const keyCount = Array.isArray(keymap.layers?.[0]) ? keymap.layers[0].length : 0
   if (keyCount <= 0) {
-    throw new Error(missingLayoutMessage)
+    throw new KeymapValidationError([missingLayoutMessage])
   }
 
   const layout = inferRectangularLayout(keyCount)

@@ -8,9 +8,14 @@ export interface CatalogChoice {
   context?: string
   symbol?: string
   params?: unknown[]
+  aliases?: Array<string | number>
+  isModifier?: boolean
+  faIcon?: string
+  additionalParams?: unknown[]
+  holdTap?: boolean
+  commands?: CatalogChoice[]
   /** ZMK HID OS table when the binder passed it through. */
   os?: unknown
-  [key: string]: unknown
 }
 
 export function choiceHasParams(choice: CatalogChoice): boolean {

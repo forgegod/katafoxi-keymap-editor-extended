@@ -618,6 +618,17 @@ function holdTapRegionsHavePreprocessor(
   return false
 }
 
+const ASSIGN_STATEMENT_RE = new Map<string, RegExp>()
+
+function assignStatementRe(key: string): RegExp {
+  const hit = ASSIGN_STATEMENT_RE.get(key)
+  if (hit) return hit
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp(`(?<![A-Za-z0-9_-])${escaped}\\s*=\\s*[^;]*;`)
+  ASSIGN_STATEMENT_RE.set(key, re)
+  return re
+}
+
 function innerIndentOf(body: string, fallback: string): string {
   const line = body.split(/\r?\n/).find(row => row.trim().length > 0)
   return line ? (/^[ \t]*/.exec(line)?.[0] ?? fallback) : fallback
@@ -636,9 +647,7 @@ function setAssign(
   eol: LineEnding
 ): string {
   const masked = maskDts(body)
-  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const re = new RegExp(`(?<![A-Za-z0-9_-])${escaped}\\s*=\\s*[^;]*;`)
-  const found = re.exec(masked)
+  const found = assignStatementRe(key).exec(masked)
   if (found) {
     if (statement == null) {
       let start = found.index

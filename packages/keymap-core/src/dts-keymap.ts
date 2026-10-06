@@ -47,12 +47,12 @@ export interface CompiledMacros {
 export function compileMacros(macros: Record<string, string>): CompiledMacros {
   const keys = Object.keys(macros).sort((a, b) => b.length - a.length)
   return {
-    macros,
+    macros: { ...macros },
     entries: keys.map(key => ({
       key,
       re: new RegExp(`\\b${escapeRegExp(key)}\\b`, 'g'),
-      value: macros[key],
-      multiBinding: tokenizeBindings(macros[key]).length > 1
+      value: macros[key]!,
+      multiBinding: tokenizeBindings(macros[key]!).length > 1
     }))
   }
 }

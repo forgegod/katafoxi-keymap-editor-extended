@@ -153,7 +153,7 @@ function isNumber(val: unknown): val is number {
  */
 function inferRectangularColumns(keyCount: number): number {
   if (!Number.isInteger(keyCount) || keyCount <= 0) {
-    throw new Error('keyCount must be a positive integer')
+    throw new KeymapValidationError(['keyCount must be a positive integer'])
   }
   if (keyCount <= 12) {
     for (const cols of [12, 10, 8, 7, 6, 5, 4, 3, 2]) {
@@ -177,10 +177,10 @@ export function inferRectangularLayout(
 ): LayoutKey[] {
   const columns = options?.columns ?? inferRectangularColumns(keyCount)
   if (!Number.isInteger(columns) || columns <= 0) {
-    throw new Error('columns must be a positive integer')
+    throw new KeymapValidationError(['columns must be a positive integer'])
   }
   if (!Number.isInteger(keyCount) || keyCount <= 0) {
-    throw new Error('keyCount must be a positive integer')
+    throw new KeymapValidationError(['keyCount must be a positive integer'])
   }
   return Array.from({ length: keyCount }, (_, i) => {
     const row = Math.floor(i / columns)

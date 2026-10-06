@@ -143,6 +143,13 @@ describe('inferRectangularLayout', () => {
     expect(layout[83]).toMatchObject({ row: 6, col: 11 })
   })
 
+  it('throws KeymapValidationError for a non-positive key count', () => {
+    expect(() => inferRectangularLayout(0)).toThrow(KeymapValidationError)
+    expect(() => inferRectangularLayout(12, { columns: 0 })).toThrow(
+      KeymapValidationError
+    )
+  })
+
   it('uses a single row for a small board', () => {
     const layout = inferRectangularLayout(5)
     expect(layout).toHaveLength(5)

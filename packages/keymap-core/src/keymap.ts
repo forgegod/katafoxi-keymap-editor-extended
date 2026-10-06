@@ -48,6 +48,15 @@ export interface BuildKeymapCodeResult {
 const behaviours = behaviorsData as BehaviorDef[]
 const behavioursByBind = Object.fromEntries(behaviours.map(b => [b.code, b]))
 
+const INCLUDES_PATTERN = /\{\{\s*behaviour_includes\s*\}\}/
+const LAYERS_PATTERN = /\{\{\s*rendered_layers\s*\}\}/
+
+export type EncodedKeymap = Omit<ParsedKeymap, 'layers' | 'combos' | 'sensorBindings'> & {
+  layers: string[][]
+  combos?: DtsComboJson[]
+  sensorBindings?: string[][]
+}
+
 export const keymapTemplate = `
 /*
  * Copyright (c) 2020 The ZMK Contributors
@@ -85,7 +94,7 @@ export function encodeKeyBinding(parsed: KeyBindingNode): string {
   return `${value} ${params.map(encodeBindValue).join(' ')}`.trim()
 }
 
-export function encodeKeymap(parsedKeymap: ParsedKeymap) {
+export function encodeKeymap(parsedKeymap: ParsedKeymap): EncodedKeymap {
   const combos =
     parsedKeymap.combos !== undefined
       ? parsedKeymap.combos.map(encodeComboToJson)
@@ -93,17 +102,34 @@ export function encodeKeymap(parsedKeymap: ParsedKeymap) {
   const sensorBindings = parsedKeymap.sensorBindings?.map(layer =>
     layer.map(encodeKeyBinding)
   )
+  const { layers: _layers, combos: _combos, sensorBindings: _sensors, ...rest } =
+    parsedKeymap
   return {
-    ...parsedKeymap,
+    ...rest,
     layers: parsedKeymap.layers.map(layer => layer.map(encodeKeyBinding)),
     ...(combos !== undefined ? { combos } : {}),
     ...(sensorBindings ? { sensorBindings } : {})
   }
 }
 
+function collectBindValues(node: KeyBindingNode, out: Set<string>): void {
+  out.add(String(node.value))
+}
+
 function getBehavioursUsed(keymap: ParsedKeymap): string[] {
-  const keybinds = keymap.layers.flat()
-  return [...new Set(keybinds.map(b => String(b.value)))]
+  const used = new Set<string>()
+  for (const layer of keymap.layers) {
+    for (const bind of layer) collectBindValues(bind, used)
+  }
+  if (keymap.combos) {
+    for (const combo of keymap.combos) collectBindValues(combo.binding, used)
+  }
+  if (keymap.sensorBindings) {
+    for (const layer of keymap.sensorBindings) {
+      for (const bind of layer) collectBindValues(bind, used)
+    }
+  }
+  return [...used]
 }
 
 /**
@@ -194,11 +220,22 @@ export function parseKeyBinding(binding: string): KeyBindingNode {
   return { value, params }
 }
 
+function parseBindingInput(item: unknown, label: string): KeyBindingNode {
+  if (typeof item === 'string') return parseKeyBinding(item)
+  if (item && typeof item === 'object' && 'value' in item) {
+    const rec = item as { value: unknown; params?: unknown }
+    if (typeof rec.value === 'string' || typeof rec.value === 'number') {
+      const params = Array.isArray(rec.params)
+        ? rec.params.map(child => parseBindingInput(child, label))
+        : []
+      return { value: rec.value, params }
+    }
+  }
+  throw new KeymapValidationError([`${label} entries must be bind strings`])
+}
+
 function parseComboFromJson(raw: DtsComboJson | ZmkCombo): ZmkCombo {
-  const binding =
-    typeof raw.binding === 'string'
-      ? parseKeyBinding(raw.binding)
-      : (raw.binding as KeyBindingNode)
+  const binding = parseBindingInput(raw.binding, 'combo binding')
   const combo: ZmkCombo = {
     id: String(raw.id),
     keyPositions: [...(raw.keyPositions ?? [])].map(Number),
@@ -275,13 +312,7 @@ function normalizeSensorBindings(raw: unknown): KeyBindingNode[][] | undefined {
   if (!Array.isArray(raw)) return undefined
   return raw.map(layer => {
     if (!Array.isArray(layer)) return []
-    return layer.map(item => {
-      if (typeof item === 'string') return parseKeyBinding(item)
-      if (item && typeof item === 'object' && 'value' in item) {
-        return item as KeyBindingNode
-      }
-      throw new Error('sensorBindings entries must be bind strings')
-    })
+    return layer.map(item => parseBindingInput(item, 'sensorBindings'))
   })
 }
 
@@ -294,8 +325,6 @@ function renderTemplate(
     layerNames: string[]
   }
 ): string {
-  const includesPattern = /\{\{\s*behaviour_includes\s*\}\}/
-  const layersPattern = /\{\{\s*rendered_layers\s*\}\}/
   const columnWidths = bindingColumnWidths(params.layout, params.layers, {
     columnSeparator: ' '
   })
@@ -321,17 +350,17 @@ ${rendered}
   })
 
   return template
-    .replace(includesPattern, () => params.behaviourHeaders.join('\n'))
-    .replace(layersPattern, () => renderedLayers.join(''))
+    .replace(INCLUDES_PATTERN, () => params.behaviourHeaders.join('\n'))
+    .replace(LAYERS_PATTERN, () => renderedLayers.join(''))
 }
 
 function generateKeymapCode(
   layout: LayoutKey[],
   keymap: ParsedKeymap,
-  encoded: ReturnType<typeof encodeKeymap>,
+  encoded: EncodedKeymap,
   template: string
 ): string {
-  const names = (keymap.layer_names as string[]) || []
+  const names = keymap.layer_names ?? []
   const behaviourHeaders = [
     ...new Set(
       getBehavioursUsed(keymap).flatMap(
@@ -343,16 +372,13 @@ function generateKeymapCode(
   return renderTemplate(template, {
     layout,
     behaviourHeaders,
-    layers: encoded.layers as string[][],
+    layers: encoded.layers,
     layerNames: names
   })
 }
 
-function generateKeymapJSON(
-  layout: LayoutKey[],
-  encoded: ReturnType<typeof encodeKeymap>
-): string {
-  const layers = encoded.layers as string[][]
+function generateKeymapJSON(layout: LayoutKey[], encoded: EncodedKeymap): string {
+  const layers = encoded.layers
   const columnWidths = bindingColumnWidths(layout, layers, { useQuotes: true })
   const base = JSON.stringify({ ...encoded, layers: null }, null, 2)
   const rendered = layers.map(layer => {
@@ -414,7 +440,7 @@ export function buildKeymapCode(
   options?: { template?: string; originalSource?: string }
 ): BuildKeymapCodeResult {
   const encoded = encodeKeymap(keymap)
-  const layers = encoded.layers as string[][]
+  const layers = encoded.layers
   assertLayerKeyCounts(layout, layers)
 
   const warnings: string[] = []
@@ -534,7 +560,7 @@ function applyCombos(
   if (fingerprintsMatch(keymap.combos, original?.combos, comboFingerprint)) {
     return code
   }
-  return spliceCombosIntoDts(code, (keymap.combos ?? []).map(encodeComboToJson))
+  return spliceCombosIntoDts(code, keymap.combos.map(encodeComboToJson))
 }
 
 function applyConditionalLayers(
@@ -636,6 +662,20 @@ export function isUserKeymapFilename(name: string): boolean {
   return lower.endsWith('.keymap') && !lower.endsWith('.keymap.template')
 }
 
+function cloneBehaviorDef(def: BehaviorDef): BehaviorDef {
+  return {
+    ...def,
+    includes: def.includes ? [...def.includes] : undefined,
+    params: def.params ? [...def.params] : undefined,
+    commands: def.commands?.map(command => ({
+      ...command,
+      additionalParams: command.additionalParams
+        ? [...command.additionalParams]
+        : undefined
+    }))
+  }
+}
+
 export function loadBehaviorsData(): BehaviorDef[] {
-  return behaviours
+  return behaviours.map(cloneBehaviorDef)
 }

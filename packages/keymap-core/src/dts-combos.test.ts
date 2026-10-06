@@ -398,6 +398,13 @@ describe('spliceCombosIntoDts', () => {
     expect(next).toContain('key-positions = <0 1>;')
   })
 
+  it('does not collapse extra blanks away from the removed combos block', () => {
+    const source = `/*\n\n\n\nkeep */\n/ {\n    keymap {\n        compatible = "zmk,keymap";\n        layer_0 { bindings = <&kp A &kp B>; };\n    };\n\n    combos {\n        compatible = "zmk,combos";\n        combo_esc {\n            bindings = <&kp ESC>;\n            key-positions = <0 1>;\n        };\n    };\n};\n`
+    const next = spliceCombosIntoDts(source, [])
+    expect(next.startsWith('/*\n\n\n\nkeep */')).toBe(true)
+    expect(next).not.toContain('combos')
+  })
+
   it('rewrites combos with CRLF when the source uses CRLF', () => {
     const crlf = WITH_COMBO.replace(/\n/g, '\r\n')
     const next = spliceCombosIntoDts(crlf, [

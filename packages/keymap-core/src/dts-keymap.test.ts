@@ -4,6 +4,7 @@ import {
   parseKeymap
 } from '../src/keymap.js'
 import {
+  compileMacros,
   parseDefines,
   parseDtsKeymap,
   tokenizeBindings
@@ -487,5 +488,16 @@ describe('buildKeymapCode unchanged combos/conditional/hold-tap', () => {
     })
     expect(built.code).toContain('&kp TAB')
     expect(built.code).not.toContain('// keep-combo')
+  })
+})
+
+describe('compileMacros', () => {
+  it('copies the macro table so later mutation of the input is ignored', () => {
+    const macros = { FOO: '&kp A' }
+    const compiled = compileMacros(macros)
+    macros.FOO = '&kp B'
+    compiled.macros.BAR = '&kp C'
+    expect(compiled.macros.FOO).toBe('&kp A')
+    expect(Object.prototype.hasOwnProperty.call(macros, 'BAR')).toBe(false)
   })
 })

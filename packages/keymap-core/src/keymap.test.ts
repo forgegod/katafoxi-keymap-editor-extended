@@ -4,6 +4,7 @@ import {
   isPrimaryKeymapJson,
   isUserKeymapFilename,
   KeymapValidationError,
+  loadBehaviorsData,
   normalizeParsedKeymap,
   parseKeyBinding,
   parseKeymap
@@ -96,6 +97,25 @@ describe('generateKeymap mouse includes', () => {
     expect(code).toContain('&mkp LCLK')
   })
 
+  it('adds includes for combo and encoder binds not used on layers', () => {
+    const { code } = generateKeymap(
+      [{ x: 0, y: 0 }],
+      parseKeymap({
+        layers: [['&trans']],
+        combos: [
+          {
+            id: 'combo_bt',
+            binding: '&bt BT_CLR',
+            keyPositions: [0, 0]
+          }
+        ],
+        sensorBindings: [['&mkp LCLK']]
+      })
+    )
+    expect(code).toContain('#include <dt-bindings/zmk/bt.h>')
+    expect(code).toContain('#include <dt-bindings/zmk/pointing.h>')
+  })
+
   it('gives colliding sanitized layer names unique _2 suffixes', () => {
     const layout = [{ x: 0, y: 0 }, { x: 1, y: 0 }]
     const { code } = generateKeymap(
@@ -153,5 +173,29 @@ describe('isUserKeymapFilename', () => {
   it('rejects templates and other files', () => {
     expect(isUserKeymapFilename('lark.keymap.template')).toBe(false)
     expect(isUserKeymapFilename('readme.md')).toBe(false)
+  })
+})
+
+describe('parseKeymap sensorBindings', () => {
+  it('throws KeymapValidationError for a non-bind entry', () => {
+    expect(() =>
+      parseKeymap({
+        layers: [['&kp A']],
+        sensorBindings: [[{ nope: true }]]
+      })
+    ).toThrow(KeymapValidationError)
+  })
+})
+
+describe('loadBehaviorsData', () => {
+  it('returns a copy so callers cannot mutate the shared catalog', () => {
+    const first = loadBehaviorsData()
+    const bt = first.find(row => row.code === '&bt')
+    expect(bt?.includes).toBeTruthy()
+    bt!.includes!.push('#include <mutated.h>')
+    bt!.commands!.push({ code: 'MUTATED' })
+    const second = loadBehaviorsData().find(row => row.code === '&bt')
+    expect(second?.includes).not.toContain('#include <mutated.h>')
+    expect(second?.commands?.some(row => row.code === 'MUTATED')).toBe(false)
   })
 })

@@ -37,3 +37,23 @@ export function collapseExtraBlankLines(text: string, eol: LineEnding): string {
   if (eol === '\r\n') return text.replace(/(?:\r\n){3,}/g, '\r\n\r\n')
   return text.replace(/\n{3,}/g, '\n\n')
 }
+
+/**
+ * Join `before` + `after` and collapse a 3+ newline run only at the join.
+ * Distant extra blanks in either side stay byte-identical.
+ */
+export function joinCollapsingExtraBlankLines(
+  before: string,
+  after: string,
+  eol: LineEnding
+): string {
+  const text = before + after
+  const n = eol.length
+  let start = before.length
+  let end = before.length
+  while (start >= n && text.slice(start - n, start) === eol) start -= n
+  while (end + n <= text.length && text.slice(end, end + n) === eol) end += n
+  const count = (end - start) / n
+  if (count < 3) return text
+  return text.slice(0, start) + eol + eol + text.slice(end)
+}
