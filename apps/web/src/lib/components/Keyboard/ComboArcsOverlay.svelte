@@ -61,6 +61,7 @@
     viewBox={`${minX} ${minY} ${width} ${height}`}
     style:left="{minX}px"
     style:top="{minY}px"
+    role="group"
     aria-label="Combos on this board"
   >
     {#each segs as seg (seg.id)}

@@ -12,6 +12,7 @@
     KeyboardSelectionSource,
     KeymapPickerPayload
   } from '../../editor/types'
+  import { tick } from 'svelte'
   import GithubPicker, { type GithubChromeStatus } from './Github/Picker.svelte'
   import DemoPicker from './Demo/Picker.svelte'
   import ClipboardPicker from './Clipboard/Picker.svelte'
@@ -114,6 +115,44 @@
     if (gh.repoFullName) return gh.repoFullName
     return 'GitHub'
   })
+
+  function sourceTabIndex(id: KeyboardSelectionSource): 0 | -1 {
+    if (source === id) return 0
+    if (source == null && sourceChoices[0]?.id === id) return 0
+    return -1
+  }
+
+  async function onSourceGroupKeydown(event: KeyboardEvent) {
+    if (
+      event.key !== 'ArrowLeft' &&
+      event.key !== 'ArrowRight' &&
+      event.key !== 'ArrowUp' &&
+      event.key !== 'ArrowDown' &&
+      event.key !== 'Home' &&
+      event.key !== 'End'
+    ) {
+      return
+    }
+    const ids = sourceChoices.map(choice => choice.id)
+    if (ids.length === 0) return
+    const group = event.currentTarget
+    event.preventDefault()
+    const current =
+      source && ids.includes(source) ? ids.indexOf(source) : 0
+    let next = current
+    if (event.key === 'Home') next = 0
+    else if (event.key === 'End') next = ids.length - 1
+    else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      next = (current + 1) % ids.length
+    } else {
+      next = (current - 1 + ids.length) % ids.length
+    }
+    source = ids[next]
+    await tick()
+    if (!(group instanceof HTMLElement)) return
+    const radio = group.querySelector(`[data-source="${ids[next]}"]`)
+    if (radio instanceof HTMLElement) radio.focus()
+  }
 
   function runGate() {
     if (gate === 'login') github.beginLoginFlow()
@@ -248,6 +287,8 @@
           class="source-cards"
           role="radiogroup"
           aria-label="Keymap source"
+          tabindex="-1"
+          onkeydown={event => void onSourceGroupKeydown(event)}
         >
           {#each sourceChoices as choice}
             <button
@@ -256,6 +297,7 @@
               class:selected={choice.id === source}
               role="radio"
               aria-checked={choice.id === source}
+              tabindex={sourceTabIndex(choice.id)}
               data-source={choice.id}
               title={choice.blurb}
               onclick={() => {

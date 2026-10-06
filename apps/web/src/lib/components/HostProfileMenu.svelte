@@ -11,7 +11,6 @@
   import { isUserHostLayoutId } from '../host-layout-store.js'
   import { clickOutside } from '../actions/click-outside'
   import { pushEscapeHandler } from '../escape-stack'
-  import Button from './Common/Button.svelte'
   import ProfileImportKlc from './ProfileImportKlc.svelte'
   import ProfileImportXkb from './ProfileImportXkb.svelte'
 
@@ -267,7 +266,7 @@
     class="profile-trigger"
     aria-label="Profile {languageName}: {currentFullLabel()}"
     title={currentFullLabel()}
-    aria-haspopup="listbox"
+    aria-haspopup="menu"
     aria-expanded={open}
     onclick={onToggle}
   >
@@ -305,15 +304,15 @@
       onBack={() => (importKind = null)}
     />
   {:else if open}
-    <ul class="profile-list" role="listbox" aria-label="Profile {languageName}">
+    <ul class="profile-list" role="menu" aria-label="Profile {languageName}">
       {#each customs as profile (profile.id)}
-        <li class="profile-row">
+        <li class="profile-row" role="none">
           <button
             type="button"
             class="profile-item"
             class:selected={profile.id === activeId}
-            role="option"
-            aria-selected={profile.id === activeId}
+            role="menuitem"
+            aria-current={profile.id === activeId ? 'true' : undefined}
             onclick={() => selectLayout(profile.id)}
           >
             {profile.layoutName}
@@ -321,6 +320,7 @@
           <button
             type="button"
             class="profile-icon"
+            role="menuitem"
             title="Export xkb"
             aria-label="Export {profile.layoutName}"
             onclick={event => exportCustom(profile.id, event)}
@@ -334,6 +334,7 @@
           <button
             type="button"
             class="profile-icon"
+            role="menuitem"
             title="Copy profile"
             aria-label="Copy {profile.layoutName}"
             onclick={event => copyCustom(profile.id, event)}
@@ -346,6 +347,7 @@
           <button
             type="button"
             class="profile-icon stub"
+            role="menuitem"
             title="Rename profile"
             aria-label="Rename {profile.layoutName}"
             onclick={event => renameCustom(profile.id, event)}
@@ -358,6 +360,7 @@
           <button
             type="button"
             class="profile-icon stub danger"
+            role="menuitem"
             title="Delete profile"
             aria-label="Delete {profile.layoutName}"
             onclick={event => deleteCustom(profile.id, event)}
@@ -370,17 +373,17 @@
         </li>
       {/each}
       {#if customs.length > 0 && (shelves.primary || shelves.systems.length > 0)}
-        <li class="profile-sep" aria-hidden="true"></li>
+        <li class="profile-sep" role="separator"></li>
       {/if}
       {#if shelves.primary}
         {@const primary = shelves.primary}
-        <li class="profile-row">
+        <li class="profile-row" role="none">
           <button
             type="button"
             class="profile-item"
             class:selected={primary.id === activeId}
-            role="option"
-            aria-selected={primary.id === activeId}
+            role="menuitem"
+            aria-current={primary.id === activeId ? 'true' : undefined}
             onclick={() => selectLayout(primary.id)}
           >
             {hostLayoutChoiceLabel(primary)}
@@ -388,6 +391,7 @@
           <button
             type="button"
             class="profile-icon"
+            role="menuitem"
             title="Copy profile"
             aria-label="Copy {hostLayoutChoiceLabel(primary)}"
             onclick={event => copyLayout(primary, event)}
@@ -400,13 +404,13 @@
         </li>
       {/if}
       {#each shelves.systems as choice (choice.id)}
-        <li class="profile-row">
+        <li class="profile-row" role="none">
           <button
             type="button"
             class="profile-item"
             class:selected={choice.id === activeId}
-            role="option"
-            aria-selected={choice.id === activeId}
+            role="menuitem"
+            aria-current={choice.id === activeId ? 'true' : undefined}
             onclick={() => selectLayout(choice.id)}
           >
             {hostLayoutChoiceLabel(choice)}
@@ -414,6 +418,7 @@
           <button
             type="button"
             class="profile-icon"
+            role="menuitem"
             title="Copy profile"
             aria-label="Copy {hostLayoutChoiceLabel(choice)}"
             onclick={event => copyLayout(choice, event)}
@@ -425,21 +430,31 @@
           </button>
         </li>
       {/each}
-      <li class="profile-sep" aria-hidden="true"></li>
+      <li class="profile-sep" role="separator"></li>
       {#if isUserHostLayoutId(activeId)}
-        <li class="profile-row">
-          <button type="button" class="profile-action" onclick={exportActive}>
+        <li class="profile-row" role="none">
+          <button type="button" class="profile-action" role="menuitem" onclick={exportActive}>
             Export xkb
           </button>
         </li>
       {/if}
-      <li class="profile-row">
-        <button type="button" class="profile-action" onclick={event => beginImport('xkb', event)}>
+      <li class="profile-row" role="none">
+        <button
+          type="button"
+          class="profile-action"
+          role="menuitem"
+          onclick={event => beginImport('xkb', event)}
+        >
           Import xkb…
         </button>
       </li>
-      <li class="profile-row">
-        <button type="button" class="profile-action" onclick={event => beginImport('klc', event)}>
+      <li class="profile-row" role="none">
+        <button
+          type="button"
+          class="profile-action"
+          role="menuitem"
+          onclick={event => beginImport('klc', event)}
+        >
           Import klc…
         </button>
       </li>

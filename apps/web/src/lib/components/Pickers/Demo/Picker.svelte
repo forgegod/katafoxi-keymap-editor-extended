@@ -100,7 +100,7 @@
 
   <ul class="demo-list" role="listbox" aria-label="Demo keyboards">
     {#each cards as card (card.entry.id)}
-      <li>
+      <li class="demo-item" role="none">
         <button
           type="button"
           class="demo-card"
@@ -116,17 +116,16 @@
           <span class="demo-meta">
             <span class="demo-name">{card.entry.name}</span>
             <span class="demo-blurb">{card.entry.blurb}</span>
-            <a
-              class="demo-repo"
-              href={card.entry.repoUrl}
-              target="_blank"
-              rel="noreferrer"
-              onclick={event => event.stopPropagation()}
-            >
-              Hardware repo
-            </a>
           </span>
         </button>
+        <a
+          class="demo-repo"
+          href={card.entry.repoUrl}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Hardware repo
+        </a>
       </li>
     {/each}
   </ul>
@@ -184,6 +183,10 @@
     list-style: none;
   }
 
+  .demo-item {
+    position: relative;
+  }
+
   .demo-card {
     display: grid;
     grid-template-columns: 132px minmax(0, 1fr);
@@ -218,6 +221,7 @@
     flex-direction: column;
     justify-content: center;
     gap: 2px;
+    padding-bottom: 1.15em;
   }
 
   .demo-name {
@@ -238,6 +242,10 @@
   }
 
   .demo-repo {
+    position: absolute;
+    left: calc(8px + 132px + 10px);
+    bottom: 8px;
+    z-index: 1;
     width: fit-content;
     color: var(--accent, #2a9d8f);
     font-size: var(--font-sm, 0.85rem);

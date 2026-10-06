@@ -9,7 +9,7 @@ export function repoName(fullName: string): string {
 }
 
 /**
- * Closed-chrome label. `zmk-keyboard-lark` shows `lark`.
+ * Closed-chrome label. `zmk-keyboard-foo` shows `foo`.
  * `zmk-config` stays whole. A short label shared by two repos falls back to `owner/name`.
  */
 export function repoChoiceLabel(fullName: string, fullNames: string[]): string {

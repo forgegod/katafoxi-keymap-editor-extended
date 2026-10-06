@@ -352,4 +352,45 @@ describe('KeyboardPicker', () => {
       expect.objectContaining({ source: 'local' })
     )
   })
+
+  it('moves the source radiogroup with arrow keys and a roving tabindex', async () => {
+    open()
+    const group = target.querySelector('[role="radiogroup"]')
+    if (!(group instanceof HTMLElement)) throw new Error('missing radiogroup')
+    const demo = target.querySelector('[data-source="demo"]')
+    const clipboard = target.querySelector('[data-source="clipboard"]')
+    if (!(demo instanceof HTMLButtonElement) || !(clipboard instanceof HTMLButtonElement)) {
+      throw new Error('missing source radios')
+    }
+    expect(demo.tabIndex).toBe(0)
+    expect(clipboard.tabIndex).toBe(-1)
+
+    demo.focus()
+    group.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })
+    )
+    flushSync()
+    await vi.waitFor(() => {
+      expect(selectedSourceCard().dataset.source).toBe('clipboard')
+    })
+    expect(clipboard.tabIndex).toBe(0)
+    expect(demo.tabIndex).toBe(-1)
+    expect(document.activeElement).toBe(clipboard)
+  })
+
+  it('keeps the demo hardware repo outside the option button', async () => {
+    open()
+    await vi.waitFor(() => {
+      expect(target.querySelector('.demo-card')).toBeTruthy()
+    })
+    const option = target.querySelector('.demo-card[role="option"]')
+    const repo = target.querySelector('a.demo-repo')
+    const item = repo?.closest('li')
+    expect(option).toBeInstanceOf(HTMLButtonElement)
+    expect(repo).toBeInstanceOf(HTMLAnchorElement)
+    expect(option?.contains(repo)).toBe(false)
+    expect(item?.getAttribute('role')).toBe('none')
+    expect(item?.contains(option)).toBe(true)
+    expect(item?.contains(repo)).toBe(true)
+  })
 })
