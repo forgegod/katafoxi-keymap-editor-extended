@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { parseDtsKeymap, parseKeymap } from '@keymap-editor/keymap-core'
   import * as config from './lib/config'
   import { setDefinitionsContext } from './lib/context'
   import { editor } from './lib/editor.svelte.js'
@@ -8,9 +7,7 @@
   import { hasEscapeOverlay } from './lib/escape-stack'
   import { publishKeymap } from './lib/publish-keymap'
   import { reloadLocalKeyboard } from './lib/api'
-  import { buildClipboardExport } from './lib/clipboard/export'
-  import { formatKeymapSaveWarnings } from './lib/keymap-save-warnings'
-  import { writeClipboardOriginalSource } from './lib/clipboard/session'
+  import { copyClipboardKeymap } from './lib/editor/clipboard-copy'
   import KeyboardPicker from './lib/components/Pickers/KeyboardPicker.svelte'
   import ClipboardExportSheet from './lib/components/Pickers/Clipboard/ExportSheet.svelte'
   import Spinner from './lib/components/Common/Spinner.svelte'
@@ -158,54 +155,8 @@
   }
 
   async function handleCopyClipboard() {
-    if (!editor.layout || !editor.draftKeymap || editor.saving) return
-    editor.saving = true
-    try {
-      const built = buildClipboardExport(
-        editor.layout,
-        editor.draftKeymap,
-        editor.clipboardOriginalSource
-      )
-      let copied = false
-      try {
-        await navigator.clipboard.writeText(built.code)
-        copied = true
-      } catch {
-        copied = false
-      }
-
-      editor.clipboardOriginalSource = built.code
-      const identity = editor.currentDraftIdentity()
-      if (identity) writeClipboardOriginalSource(identity, built.code)
-
-      const km = editor.draftKeymap
-      const raw = parseDtsKeymap(built.code, {
-        keyboard: typeof km.keyboard === 'string' ? km.keyboard : 'clipboard',
-        keymap: typeof km.keymap === 'string' ? km.keymap : 'clipboard',
-        layout: typeof km.layout === 'string' ? km.layout : 'LAYOUT'
-      })
-      const reloaded = parseKeymap(raw)
-      if (editor.isDirty) {
-        editor.applyClipboardCopied(reloaded, {
-          mode: built.mode,
-          warnings: built.warnings
-        })
-      } else {
-        editor.saveNotice = null
-      }
-
-      clipboardExport = {
-        code: built.code,
-        copied,
-        warnings: formatKeymapSaveWarnings(built.warnings)
-      }
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Could not build the .keymap export'
-      editor.saveNotice = { kind: 'error', messages: [message] }
-    } finally {
-      editor.saving = false
-    }
+    const sheet = await copyClipboardKeymap(editor)
+    if (sheet) clipboardExport = sheet
   }
 </script>
 
