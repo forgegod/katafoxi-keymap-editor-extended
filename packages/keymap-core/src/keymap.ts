@@ -1,19 +1,25 @@
 import behaviorsData from '../data/zmk-behaviors.json' with { type: 'json' }
 import { spliceCombosIntoDts, type DtsComboJson } from './dts-combos.js'
 import {
+  encodeConditionalLayerFingerprint,
   normalizeConditionalLayers,
   spliceConditionalLayersIntoDts
 } from './dts-conditional-layers.js'
 import { normalizeHoldTaps, spliceHoldTapsIntoDts } from './dts-behaviors.js'
-import { spliceSensorBindingsIntoDts } from './dts-sensors.js'
 import {
   compileMacros,
   findKeymapLayerNodes,
   findZmkKeymapBlock,
   keymapBindingsText,
   macrosAppearInText,
-  parseDefines
+  parseDefines,
+  parseDtsKeymap
 } from './dts-keymap.js'
+import {
+  encodeComboFingerprint,
+  encodeHoldTapFingerprint
+} from './keymap-diff.js'
+import { spliceSensorBindingsIntoDts } from './dts-sensors.js'
 import { uniqueDtsNodeId } from './dts-scan.js'
 import { assertLayerKeyCounts, spliceBindingsIntoDts } from './dts-splice.js'
 import { bindingColumnWidths, renderTable } from './layout.js'
@@ -23,7 +29,9 @@ import type {
   KeyBindingNode,
   LayoutKey,
   ParsedKeymap,
-  ZmkCombo
+  ZmkCombo,
+  ZmkConditionalLayer,
+  ZmkHoldTap
 } from './types.js'
 
 export { KeymapValidationError } from './errors.js'
@@ -370,6 +378,8 @@ export function generateKeymap(
  * token). The same omit+warn rule applies to `conditionalLayers`
  * (`conditional_layers_unparsed`) and `holdTaps` (`hold_tap_timing_unparsed`).
  * UI clear-all must set `combos: []` explicitly so Save can drop the block.
+ * On the splice path, combos / conditional layers / hold-taps stay
+ * byte-identical when fingerprints match a reparse of `originalSource`.
  */
 export function buildKeymapCode(
   layout: LayoutKey[],
@@ -407,7 +417,7 @@ export function buildKeymapCode(
       layers
     })
     return {
-      code: applyModelBlocks(spliced, keymap),
+      code: applyModelBlocks(spliced, keymap, parseOriginalModel(originalSource)),
       json: generateKeymapJSON(layout, encoded),
       mode: 'splice',
       warnings
@@ -426,11 +436,52 @@ export function buildKeymapCode(
   }
 }
 
+function parseOriginalModel(source: string): ParsedKeymap | undefined {
+  try {
+    return parseKeymap(parseDtsKeymap(source))
+  } catch {
+    return undefined
+  }
+}
+
+function fingerprintsMatch<T>(
+  draft: T[],
+  original: T[] | undefined,
+  encode: (item: T) => string
+): boolean {
+  if (original === undefined || draft.length !== original.length) return false
+  for (let i = 0; i < draft.length; i++) {
+    if (encode(draft[i]!) !== encode(original[i]!)) return false
+  }
+  return true
+}
+
+function comboFingerprint(combo: ZmkCombo): string {
+  return `${combo.id}\n${encodeComboFingerprint(combo)}`
+}
+
+function conditionalLayerFingerprint(rule: ZmkConditionalLayer): string {
+  return `${rule.id}\n${encodeConditionalLayerFingerprint(rule)}`
+}
+
+function holdTapFingerprint(node: ZmkHoldTap): string {
+  return `${node.code}\n${encodeHoldTapFingerprint(node)}`
+}
+
 /** Sensors → combos → conditional layers → hold-taps (each optional field). */
-function applyModelBlocks(code: string, keymap: ParsedKeymap): string {
+function applyModelBlocks(
+  code: string,
+  keymap: ParsedKeymap,
+  original?: ParsedKeymap
+): string {
   return applyHoldTaps(
-    applyConditionalLayers(applyCombos(applySensorBindings(code, keymap), keymap), keymap),
-    keymap
+    applyConditionalLayers(
+      applyCombos(applySensorBindings(code, keymap), keymap, original),
+      keymap,
+      original
+    ),
+    keymap,
+    original
   )
 }
 
@@ -447,18 +498,45 @@ function applySensorBindings(code: string, keymap: ParsedKeymap): string {
 }
 
 /** Rewrite combos from the model when present (including empty → drop block). */
-function applyCombos(code: string, keymap: ParsedKeymap): string {
+function applyCombos(
+  code: string,
+  keymap: ParsedKeymap,
+  original?: ParsedKeymap
+): string {
   if (keymap.combos === undefined) return code
+  if (fingerprintsMatch(keymap.combos, original?.combos, comboFingerprint)) {
+    return code
+  }
   return spliceCombosIntoDts(code, (keymap.combos ?? []).map(encodeComboToJson))
 }
 
-function applyConditionalLayers(code: string, keymap: ParsedKeymap): string {
+function applyConditionalLayers(
+  code: string,
+  keymap: ParsedKeymap,
+  original?: ParsedKeymap
+): string {
   if (keymap.conditionalLayers === undefined) return code
+  if (
+    fingerprintsMatch(
+      keymap.conditionalLayers,
+      original?.conditionalLayers,
+      conditionalLayerFingerprint
+    )
+  ) {
+    return code
+  }
   return spliceConditionalLayersIntoDts(code, keymap.conditionalLayers)
 }
 
-function applyHoldTaps(code: string, keymap: ParsedKeymap): string {
+function applyHoldTaps(
+  code: string,
+  keymap: ParsedKeymap,
+  original?: ParsedKeymap
+): string {
   if (keymap.holdTaps === undefined) return code
+  if (fingerprintsMatch(keymap.holdTaps, original?.holdTaps, holdTapFingerprint)) {
+    return code
+  }
   return spliceHoldTapsIntoDts(code, keymap.holdTaps)
 }
 

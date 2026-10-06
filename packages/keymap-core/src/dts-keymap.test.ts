@@ -8,6 +8,7 @@ import {
   parseDtsKeymap,
   tokenizeBindings
 } from '../src/dts-keymap.js'
+import { findNamedBlock, maskDts } from '../src/dts-scan.js'
 import { KeymapValidationError } from '../src/errors.js'
 import type { LayoutKey } from '../src/types.js'
 
@@ -289,5 +290,103 @@ describe('parseDtsKeymap preprocessor and multiple keymap nodes', () => {
     } catch (e) {
       expect((e as KeymapValidationError).errors[0]).toMatch(/multiple keymap/)
     }
+  })
+})
+
+const WITH_UNCHANGED_BLOCKS = `/ {
+    behaviors {
+        hm: homerow_mods {
+            compatible = "zmk,behavior-hold-tap";
+            // keep-ht
+            label = "HOMEROW_MODS";
+            #binding-cells = <2>;
+            tapping-term-ms = <280>;
+            flavor = "tap-preferred";
+            bindings = <&kp>, <&kp>;
+        };
+    };
+
+    keymap {
+        compatible = "zmk,keymap";
+        default_layer {
+            bindings = <
+&kp A &kp B
+            >;
+        };
+    };
+
+    combos {
+        compatible = "zmk,combos";
+        // keep-combo
+        combo_esc {
+            bindings = <&kp ESC>;
+            key-positions = <0 1>;
+            timeout-ms = <40>;
+        };
+    };
+
+    conditional_layers {
+        compatible = "zmk,conditional-layers";
+        // keep-cl
+        tri_layer {
+            if-layers = <1 2>;
+            then-layer = <3>;
+        };
+    };
+};
+`
+
+function namedBlockSlice(
+  source: string,
+  keyword: string,
+  compatible?: string
+): string {
+  const block = findNamedBlock(source, maskDts(source), keyword, {
+    ...(compatible ? { compatible } : {})
+  })
+  expect(block).not.toBeNull()
+  return source.slice(block!.keywordStart, block!.closeBrace + 2)
+}
+
+describe('buildKeymapCode unchanged combos/conditional/hold-tap', () => {
+  it('leaves those blocks byte-identical when only a key binding changes', () => {
+    const km = parseKeymap(parseDtsKeymap(WITH_UNCHANGED_BLOCKS))
+    km.layers[0][0] = { value: '&kp', params: [{ value: 'C', params: [] }] }
+    const built = buildKeymapCode(TINY_LAYOUT, km, {
+      originalSource: WITH_UNCHANGED_BLOCKS
+    })
+    expect(built.mode).toBe('splice')
+    expect(built.code).toContain('&kp C')
+    expect(namedBlockSlice(built.code, 'combos', 'zmk,combos')).toBe(
+      namedBlockSlice(WITH_UNCHANGED_BLOCKS, 'combos', 'zmk,combos')
+    )
+    expect(
+      namedBlockSlice(built.code, 'conditional_layers', 'zmk,conditional-layers')
+    ).toBe(
+      namedBlockSlice(
+        WITH_UNCHANGED_BLOCKS,
+        'conditional_layers',
+        'zmk,conditional-layers'
+      )
+    )
+    expect(namedBlockSlice(built.code, 'behaviors')).toBe(
+      namedBlockSlice(WITH_UNCHANGED_BLOCKS, 'behaviors')
+    )
+  })
+
+  it('still rewrites a block when its model fingerprint changes', () => {
+    const km = parseKeymap(parseDtsKeymap(WITH_UNCHANGED_BLOCKS))
+    km.combos = [
+      {
+        id: 'combo_esc',
+        keyPositions: [0, 1],
+        binding: { value: '&kp', params: [{ value: 'TAB', params: [] }] }
+      }
+    ]
+    const built = buildKeymapCode(TINY_LAYOUT, km, {
+      originalSource: WITH_UNCHANGED_BLOCKS
+    })
+    expect(built.code).toContain('&kp TAB')
+    expect(built.code).not.toContain('// keep-combo')
   })
 })
