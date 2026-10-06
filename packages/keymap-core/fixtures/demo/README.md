@@ -7,6 +7,7 @@ Bundled sample layouts + keymaps for the SPA **Demo** source (first-visit onboar
 | `corne` | [keymap-editor-contrib](https://github.com/nickcoutsos/keymap-editor-contrib/blob/main/keyboard-data/corne.json) | ZMK shield default |
 | `glove80` | same contrib repo | ZMK Glove80 default with layer `#define`s expanded, tap-dance retained, demo combos |
 | `kabarga` | [zmk-kabarga](https://github.com/aroum/zmk-kabarga) `config/kabarga.json` | Upstream keymap with layer `#define`s expanded to numbers, plus demo gap/anchor combos |
+| `kyria` | same contrib repo | ZMK Kyria default with dual encoders and demo combos |
 | `lark` | [`fixtures/lark`](../lark/) (sibling; not under `demo/`) | Vendored LARK keymap |
 | `lily58` | same contrib repo | ZMK shield default |
 | `nice60` | same contrib repo | ZMK nice!60 default plus demo combos |

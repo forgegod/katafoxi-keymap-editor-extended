@@ -18,6 +18,7 @@ describe('demo catalog', () => {
       'Corne',
       'Glove80',
       'Kabarga',
+      'Kyria',
       'Lark',
       'Lily58',
       'nice!60',
@@ -30,6 +31,7 @@ describe('demo catalog', () => {
       'corne',
       'glove80',
       'kabarga',
+      'kyria',
       'lark',
       'lily58',
       'nice60',
@@ -158,6 +160,13 @@ describe('demo catalog', () => {
     expect(layout).toHaveLength(80)
     expect(keymap.layers).toHaveLength(3)
     expect(keymap.combos?.length).toBeGreaterThanOrEqual(4)
+  })
+
+  it('loads Kyria as a 50-key dual-encoder split', async () => {
+    const { layout, keymap } = await loadDemo('kyria')
+    expect(layout).toHaveLength(50)
+    expect(keymap.layers).toHaveLength(2)
+    expect(keymap.sensorBindings?.every(row => row?.length === 2)).toBe(true)
   })
 
   it('groups PNCATEHO combos into a chord dictionary of finger cores', async () => {

@@ -20,6 +20,12 @@
       "repoUrl": "https://github.com/aroum/zmk-kabarga"
     },
     {
+      "id": "kyria",
+      "name": "Kyria",
+      "blurb": "50-key split · dual encoders · large thumbs",
+      "repoUrl": "https://github.com/splitkb/kyria"
+    },
+    {
       "id": "lark",
       "name": "Lark",
       "blurb": "60-key split · two 5-way sticks · en2 + ru2",

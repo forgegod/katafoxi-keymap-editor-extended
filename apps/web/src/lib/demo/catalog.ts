@@ -102,6 +102,13 @@ const DEMO_LOADERS: Record<string, () => Promise<DemoFiles>> = {
       import('../../../../../packages/keymap-core/fixtures/demo/glove80/glove80.keymap?raw')
     ])
     return { info: info as InfoJson, keymapSource }
+  },
+  kyria: async () => {
+    const [{ default: info }, { default: keymapSource }] = await Promise.all([
+      import('../../../../../packages/keymap-core/fixtures/demo/kyria/info.json'),
+      import('../../../../../packages/keymap-core/fixtures/demo/kyria/kyria.keymap?raw')
+    ])
+    return { info: info as InfoJson, keymapSource }
   }
 }
 
