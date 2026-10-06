@@ -155,11 +155,10 @@
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
   }
 
-  /* Demo list is short; grow to fit every card instead of scrolling.
-     :global — .demo-picker is rendered via the children snippet. */
+  /* Demo grid is compact; still cap to the viewport on short screens. */
   .source-popover:global(:has(.demo-picker)) {
-    max-height: none;
-    overflow-y: visible;
+    max-height: min(92vh, calc(100vh - 40px));
+    overflow-y: auto;
   }
 
   /* Author `display: flex` would otherwise override the UA [hidden] rule. */

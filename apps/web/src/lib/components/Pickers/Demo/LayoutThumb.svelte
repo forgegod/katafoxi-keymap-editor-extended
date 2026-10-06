@@ -3,17 +3,24 @@
   import { getKeyBoundingBox, getKeyStyles } from '../../../key-units'
   import { layoutThumbVisibleIndexes } from './layout-thumb-visible'
 
-  /** Shared slot so every demo card’s preview is the same size. */
-  const FRAME_W = 132
-  const FRAME_H = 56
+  /** Default slot so every demo card’s preview is the same size. */
+  const DEFAULT_FRAME_W = 100
+  const DEFAULT_FRAME_H = 40
 
   interface Props {
     layout: LayoutKey[]
     /** Accessible name for the schematic. */
     label: string
+    frameWidth?: number
+    frameHeight?: number
   }
 
-  let { layout, label }: Props = $props()
+  let {
+    layout,
+    label,
+    frameWidth = DEFAULT_FRAME_W,
+    frameHeight = DEFAULT_FRAME_H
+  }: Props = $props()
 
   function keySize(key: LayoutKey) {
     const w = key.w ?? key.u ?? 1
@@ -28,15 +35,15 @@
     const visible = layoutThumbVisibleIndexes(layout).map(index => layout[index])
     if (!visible.length) {
       return {
-        width: FRAME_W,
-        height: FRAME_H,
+        width: frameWidth,
+        height: frameHeight,
         scale: 1,
         ox: 0,
         oy: 0,
         minX: 0,
         minY: 0,
-        canvasW: FRAME_W,
-        canvasH: FRAME_H,
+        canvasW: frameWidth,
+        canvasH: frameHeight,
         keys: [] as ReturnType<typeof getKeyStyles>[]
       }
     }
@@ -59,16 +66,16 @@
 
     const canvasW = Math.max(maxX - minX, 1)
     const canvasH = Math.max(maxY - minY, 1)
-    const scale = Math.min(FRAME_W / canvasW, FRAME_H / canvasH)
+    const scale = Math.min(frameWidth / canvasW, frameHeight / canvasH)
     const drawnW = canvasW * scale
     const drawnH = canvasH * scale
 
     return {
-      width: FRAME_W,
-      height: FRAME_H,
+      width: frameWidth,
+      height: frameHeight,
       scale,
-      ox: (FRAME_W - drawnW) / 2,
-      oy: (FRAME_H - drawnH) / 2,
+      ox: (frameWidth - drawnW) / 2,
+      oy: (frameHeight - drawnH) / 2,
       minX,
       minY,
       canvasW,

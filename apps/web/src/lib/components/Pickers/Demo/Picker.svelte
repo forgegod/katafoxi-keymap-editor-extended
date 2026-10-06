@@ -163,8 +163,8 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    min-width: 18rem;
-    max-width: 22rem;
+    width: min(34rem, calc(100vw - 48px));
+    min-width: 20rem;
   }
 
   .demo-hint {
@@ -175,8 +175,8 @@
   }
 
   .demo-list {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
     margin: 0;
     padding: 0;
@@ -185,17 +185,18 @@
 
   .demo-item {
     position: relative;
+    min-width: 0;
   }
 
   .demo-card {
-    display: grid;
-    grid-template-columns: 132px minmax(0, 1fr);
-    align-items: center;
-    gap: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
     width: 100%;
-    min-height: 72px;
+    min-height: 0;
     margin: 0;
-    padding: 8px;
+    padding: 6px 6px 1.4em;
     color: inherit;
     font: inherit;
     text-align: left;
@@ -214,19 +215,20 @@
     box-shadow: inset 0 0 0 1px var(--accent, #2a9d8f);
   }
 
+  .demo-card :global(.layout-thumb) {
+    align-self: center;
+  }
+
   .demo-meta {
     display: flex;
     min-width: 0;
-    min-height: 56px;
     flex-direction: column;
-    justify-content: center;
-    gap: 2px;
-    padding-bottom: 1.15em;
+    gap: 1px;
   }
 
   .demo-name {
     font-weight: 600;
-    font-size: var(--font-md);
+    font-size: var(--font-sm, 0.85rem);
     line-height: 1.2;
   }
 
@@ -234,21 +236,21 @@
     display: -webkit-box;
     overflow: hidden;
     color: var(--text-muted);
-    font-size: var(--font-sm, 0.85rem);
-    line-height: 1.3;
+    font-size: 0.75rem;
+    line-height: 1.25;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
   }
 
   .demo-repo {
     position: absolute;
-    left: calc(8px + 132px + 10px);
-    bottom: 8px;
+    left: 6px;
+    bottom: 4px;
     z-index: 1;
     width: fit-content;
     color: var(--accent, #2a9d8f);
-    font-size: var(--font-sm, 0.85rem);
+    font-size: 0.75rem;
     text-decoration: underline;
     text-underline-offset: 2px;
   }
@@ -293,5 +295,11 @@
     background: none;
     border: none;
     cursor: pointer;
+  }
+
+  @media (max-width: 420px) {
+    .demo-list {
+      grid-template-columns: 1fr;
+    }
   }
 </style>

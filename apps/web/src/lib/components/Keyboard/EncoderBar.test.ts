@@ -214,7 +214,9 @@ describe('EncoderBar', () => {
     open([[volPair('C_VOL_UP', 'C_VOL_DN')], [], [volPair('C_MUTE', 'C_VOL_DN')]])
     hoverLayer(1)
 
-    expect(named('Encoders').textContent).toContain('No encoder on this layer.')
+    const bar = named('Encoders')
+    expect(bar.textContent).toContain('No encoder on this layer.')
+    expect(getComputedStyle(bar).minHeight).toBe('28px')
     expect(document.querySelector('[role="dialog"][aria-label="Edit key"]')).toBeNull()
   })
 })
