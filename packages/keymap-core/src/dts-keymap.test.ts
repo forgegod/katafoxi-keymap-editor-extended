@@ -157,6 +157,21 @@ ORPHAN &kp A
     expect(km.warnings).not.toContain('macros_expanded')
   })
 
+  it('keeps a hyphenated layer node name', () => {
+    const src = `/ {
+  keymap {
+    compatible = "zmk,keymap";
+    layer-base {
+      bindings = <&kp A &kp B>;
+    };
+  };
+};
+`
+    const km = parseDtsKeymap(src)
+    expect(km.layer_names).toEqual(['layer-base'])
+    expect(km.layers).toEqual([['&kp A', '&kp B']])
+  })
+
   it('expands a define that introduces the leading & before tokenize', () => {
     const src = `#define VOL &kp C_VOL_UP
 / {

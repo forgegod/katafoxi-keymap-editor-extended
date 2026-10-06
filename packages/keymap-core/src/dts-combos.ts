@@ -10,6 +10,7 @@ import {
   findAngleProp,
   findNamedBlock,
   hasBoolProp,
+  iterateChildNodes,
   maskDts,
   matchBrace,
   readUintAngleProp,
@@ -75,22 +76,13 @@ export function parseDtsCombosDetailed(source: string): DtsCombosParse {
   const block = findNamedBlock(source, masked, 'combos', { compatible: 'zmk,combos' })
   if (!block) return { combos: [], unparsed: false }
 
-  const body = masked.slice(block.bodyStart, block.bodyEnd)
   const combos: DtsComboJson[] = []
   let unparsed = false
-  const re = /(?:([A-Za-z_]\w*)\s*:\s*)?([A-Za-z_]\w*)\s*\{/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(body)) !== null) {
-    const label = m[1]
-    const name = m[2]
-    const openBraceRel = m.index + m[0].length - 1
-    const openBrace = block.bodyStart + openBraceRel
-    const closeBrace = matchBrace(masked, openBrace)
-    if (closeBrace < 0 || closeBrace > block.bodyEnd) {
-      re.lastIndex = openBraceRel + 1
-      continue
-    }
-    re.lastIndex = closeBrace - block.bodyStart + 1
+  for (const child of iterateChildNodes(masked, block)) {
+    const label = child.label
+    const name = child.name
+    const openBrace = child.openBrace
+    const closeBrace = child.closeBrace
 
     if (label) unparsed = true
 

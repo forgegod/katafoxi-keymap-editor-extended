@@ -54,11 +54,18 @@ function formatNewLayerNode(
 
 function inferLayerIndent(source: string, layerNodes: ReturnType<typeof findKeymapLayerNodes>): string {
   if (layerNodes.length > 0) {
-    const lineStart = source.lastIndexOf('\n', layerNodes[0].nameStart - 1) + 1
-    const prefix = source.slice(lineStart, layerNodes[0].nameStart)
+    const lineStart = source.lastIndexOf('\n', layerNodes[0].labelStart - 1) + 1
+    const prefix = source.slice(lineStart, layerNodes[0].labelStart)
     if (/^[ \t]*$/.test(prefix)) return prefix
   }
   return '        '
+}
+
+/** Cut from the node header (label or name), including same-line indent. */
+function layerNodeCutStart(source: string, labelStart: number): number {
+  let from = labelStart
+  while (from > 0 && (source[from - 1] === ' ' || source[from - 1] === '\t')) from--
+  return from
 }
 
 /**
@@ -95,7 +102,7 @@ export function spliceBindingsIntoDts(
     // Drop trailing layer nodes (from the end)
     for (let i = existing.length - 1; i >= layers.length; i--) {
       const node = existing[i]
-      result = result.slice(0, node.nameStart) + result.slice(node.nodeEnd)
+      result = result.slice(0, layerNodeCutStart(result, node.labelStart)) + result.slice(node.nodeEnd)
     }
     // Re-find remaining nodes after removals
     const blockAfter = findZmkKeymapBlock(result)

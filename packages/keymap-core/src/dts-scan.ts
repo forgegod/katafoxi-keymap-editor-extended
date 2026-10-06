@@ -20,6 +20,23 @@ export interface DtsNamedBlock {
 }
 
 /**
+ * Direct child node of a DTS block. `labelStart` is the start of `label:` when
+ * present, otherwise the node name. `end` is after `};` plus one trailing
+ * newline — not the next line's indent.
+ */
+export interface DtsChildNode {
+  labelStart: number
+  nameStart: number
+  openBrace: number
+  closeBrace: number
+  end: number
+  label?: string
+  name: string
+}
+
+const CHILD_NODE_RE = /(?:([A-Za-z_]\w*)\s*:\s*)?([A-Za-z0-9,._+@-]+)\s*\{/g
+
+/**
  * Replace // and /* comments, and double-quoted string interiors, with spaces
  * of the same length. Newlines in comments stay so line structure is stable.
  * Quote characters stay so callers can recover string values from the original.
@@ -73,6 +90,50 @@ export function maskDts(source: string): string {
     i++
   }
   return out.join('')
+}
+
+/**
+ * Direct children of `block` (not nested grandchildren). Search on `masked`
+ * (same length as source). Skips a match whose braces do not close in the body.
+ */
+export function* iterateChildNodes(
+  masked: string,
+  block: Pick<DtsNamedBlock, 'bodyStart' | 'bodyEnd'>
+): Generator<DtsChildNode, void, undefined> {
+  const re = new RegExp(CHILD_NODE_RE.source, 'g')
+  re.lastIndex = block.bodyStart
+  let m: RegExpExecArray | null
+  while ((m = re.exec(masked)) !== null) {
+    if (m.index >= block.bodyEnd) break
+    const openBrace = m.index + m[0].length - 1
+    if (openBrace >= block.bodyEnd) break
+    const closeBrace = matchBrace(masked, openBrace)
+    if (closeBrace < 0 || closeBrace > block.bodyEnd) {
+      re.lastIndex = openBrace + 1
+      continue
+    }
+    re.lastIndex = closeBrace + 1
+
+    let nameStart = openBrace
+    while (nameStart > m.index && /\s/.test(masked[nameStart - 1])) nameStart--
+    nameStart -= m[2].length
+
+    let end = closeBrace + 1
+    if (end < block.bodyEnd && masked[end] === ';') end++
+    if (end < block.bodyEnd && masked[end] === '\r') end++
+    if (end < block.bodyEnd && masked[end] === '\n') end++
+
+    const node: DtsChildNode = {
+      labelStart: m.index,
+      nameStart,
+      openBrace,
+      closeBrace,
+      end,
+      name: m[2]
+    }
+    if (m[1]) node.label = m[1]
+    yield node
+  }
 }
 
 /** Index of matching `}` for `{` at openIndex on a masked string, or -1. */

@@ -18,6 +18,7 @@ import { parseDtsHoldTapsDetailed } from './dts-behaviors.js'
 import {
   findAngleProp,
   findNamedBlock,
+  iterateChildNodes,
   maskDts,
   matchBrace,
   tokenizeBindingsDetailed,
@@ -70,9 +71,11 @@ export function findZmkKeymapBlock(source: string): DtsNamedBlock | null {
 }
 
 export interface DtsLayerNode {
+  /** Absolute start of `label:` when present, otherwise the node name. */
+  labelStart: number
   /** Absolute start of the node id (e.g. `layer_0`). */
   nameStart: number
-  /** Absolute end after the closing `};` (or `}`). */
+  /** Absolute end after the closing `};` plus a trailing newline. */
   nodeEnd: number
   name: string
   openBrace: number
@@ -89,44 +92,22 @@ export function findKeymapLayerNodes(
   block: DtsNamedBlock
 ): DtsLayerNode[] {
   const masked = maskDts(source)
-  const body = masked.slice(block.bodyStart, block.bodyEnd)
   const nodes: DtsLayerNode[] = []
-  const re = /(\w+)\s*\{/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(body)) !== null) {
-    const name = m[1]
-    const openBraceRel = m.index + m[0].length - 1
-    const openBrace = block.bodyStart + openBraceRel
-    const closeBrace = matchBrace(masked, openBrace)
-    if (closeBrace < 0 || closeBrace > block.bodyEnd) {
-      // Avoid re-matching the same `{` forever on malformed input
-      re.lastIndex = openBraceRel + 1
-      continue
-    }
-
-    // Skip past this node so nested braces aren't re-scanned as siblings
-    re.lastIndex = closeBrace - block.bodyStart + 1
-
+  for (const child of iterateChildNodes(masked, block)) {
     const bindingsInterior = findAngleProp(
       masked,
-      { start: openBrace + 1, end: closeBrace },
+      { start: child.openBrace + 1, end: child.closeBrace },
       'bindings'
     )
     if (!bindingsInterior) continue
 
-    // Include trailing `;` and following whitespace up to next sibling / end
-    let nodeEnd = closeBrace + 1
-    if (source[nodeEnd] === ';') nodeEnd++
-    while (nodeEnd < block.bodyEnd && /[ \t\r\n]/.test(source[nodeEnd])) {
-      nodeEnd++
-    }
-
     nodes.push({
-      nameStart: block.bodyStart + m.index,
-      nodeEnd,
-      name,
-      openBrace,
-      closeBrace,
+      labelStart: child.labelStart,
+      nameStart: child.nameStart,
+      nodeEnd: child.end,
+      name: child.name,
+      openBrace: child.openBrace,
+      closeBrace: child.closeBrace,
       bindingsInterior
     })
   }
@@ -187,21 +168,10 @@ export function keymapBindingsText(source: string): string | null {
 
   const combosBlock = findCombosBlock(source)
   if (combosBlock) {
-    const body = masked.slice(combosBlock.bodyStart, combosBlock.bodyEnd)
-    const re = /(\w+)\s*\{/g
-    let m: RegExpExecArray | null
-    while ((m = re.exec(body)) !== null) {
-      const openBraceRel = m.index + m[0].length - 1
-      const openBrace = combosBlock.bodyStart + openBraceRel
-      const closeBrace = matchBrace(masked, openBrace)
-      if (closeBrace < 0 || closeBrace > combosBlock.bodyEnd) {
-        re.lastIndex = openBraceRel + 1
-        continue
-      }
-      re.lastIndex = closeBrace - combosBlock.bodyStart + 1
+    for (const child of iterateChildNodes(masked, combosBlock)) {
       const bindings = findAngleProp(
         masked,
-        { start: openBrace + 1, end: closeBrace },
+        { start: child.openBrace + 1, end: child.closeBrace },
         'bindings'
       )
       if (bindings) parts.push(masked.slice(bindings.start, bindings.end))

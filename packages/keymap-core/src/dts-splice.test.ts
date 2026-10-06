@@ -201,6 +201,56 @@ describe('spliceBindingsIntoDts', () => {
       expect(err.errors[0]).toMatch(/0/)
     }
   })
+
+  it('deletes a labeled layer without leaving raise: };', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        default_layer {
+            bindings = <&kp A &kp B>;
+        };
+        raise: layer_1 {
+            bindings = <&kp C &kp D>;
+        };
+    };
+};
+`
+    const spliced = spliceBindingsIntoDts(src, {
+      layout: TINY_LAYOUT,
+      layers: [['&kp A', '&kp B']]
+    })
+    expect(spliced).not.toMatch(/raise:/)
+    expect(spliced).not.toMatch(/layer_1/)
+    const km = parseDtsKeymap(spliced)
+    expect(km.layers).toHaveLength(1)
+    expect(km.layer_names).toEqual(['default'])
+    expect(spliced).toMatch(/\n        \};\n    \};\n\};\n?$/)
+  })
+
+  it('deletes a hyphenated layer and keeps layer-base', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        layer-base {
+            bindings = <&kp A &kp B>;
+        };
+        layer-raise {
+            bindings = <&kp C &kp D>;
+        };
+    };
+};
+`
+    const spliced = spliceBindingsIntoDts(src, {
+      layout: TINY_LAYOUT,
+      layers: [['&kp A', '&kp B']]
+    })
+    expect(spliced).not.toContain('layer-}')
+    expect(spliced).not.toContain('layer-raise')
+    const km = parseDtsKeymap(spliced)
+    expect(km.layers).toHaveLength(1)
+    expect(km.layer_names).toEqual(['layer-base'])
+    expect(spliced).toMatch(/\n        \};\n    \};\n\};\n?$/)
+  })
 })
 
 describe('buildKeymapCode paths', () => {

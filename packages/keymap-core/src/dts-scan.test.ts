@@ -3,6 +3,7 @@ import {
   findAngleProp,
   findNamedBlock,
   hasBoolProp,
+  iterateChildNodes,
   maskDts,
   matchBrace,
   parseUintList,
@@ -83,6 +84,28 @@ describe('parseUintList', () => {
     expect(parseUintList('')).toEqual([])
     expect(parseUintList('1 -2 x 3')).toBeNull()
     expect(parseUintList('LT0 LT1')).toBeNull()
+  })
+})
+
+describe('iterateChildNodes', () => {
+  it('keeps hyphenated names and labeled node spans', () => {
+    const src = `/ {
+    parent {
+        layer-base { bindings = <&kp A>; };
+        raise: layer_1 { bindings = <&kp B>; };
+    };
+};
+`
+    const masked = maskDts(src)
+    const block = findNamedBlock(src, masked, 'parent')
+    expect(block).not.toBeNull()
+    const kids = [...iterateChildNodes(masked, block!)]
+    expect(kids.map(k => k.name)).toEqual(['layer-base', 'layer_1'])
+    expect(kids[0].label).toBeUndefined()
+    expect(kids[1].label).toBe('raise')
+    expect(src.slice(kids[1].labelStart, kids[1].nameStart)).toMatch(/^raise:\s*$/)
+    expect(src.slice(kids[0].end, kids[1].labelStart)).toMatch(/^[ \t]*$/)
+    expect(src[kids[0].end - 1]).toBe('\n')
   })
 })
 

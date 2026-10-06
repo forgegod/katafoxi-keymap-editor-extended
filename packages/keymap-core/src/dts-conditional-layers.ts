@@ -5,6 +5,7 @@
 
 import {
   findNamedBlock,
+  iterateChildNodes,
   maskDts,
   matchBrace,
   readUintAngleProp,
@@ -54,24 +55,13 @@ export function parseDtsConditionalLayersDetailed(source: string): DtsConditiona
 
   const rules: ZmkConditionalLayer[] = []
   let unparsed = false
-  const body = masked.slice(block.bodyStart, block.bodyEnd)
-  const re = /(?:([A-Za-z_]\w*)\s*:\s*)?([A-Za-z_]\w*)\s*\{/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(body)) !== null) {
-    const label = m[1]
-    const name = m[2]
-    const openBraceRel = m.index + m[0].length - 1
-    const openBrace = block.bodyStart + openBraceRel
-    const closeBrace = matchBrace(masked, openBrace)
-    if (closeBrace < 0 || closeBrace > block.bodyEnd) {
-      re.lastIndex = openBraceRel + 1
-      continue
-    }
-    re.lastIndex = closeBrace - block.bodyStart + 1
+  for (const child of iterateChildNodes(masked, block)) {
+    const label = child.label
+    const name = child.name
 
     if (label) unparsed = true
 
-    const range = { start: openBrace + 1, end: closeBrace }
+    const range = { start: child.openBrace + 1, end: child.closeBrace }
     const ifLayers = readUintAngleProp(masked, range, 'if-layers')
     const thenLayer = readUintAngleScalar(masked, range, 'then-layer')
     if (ifLayers.kind !== 'ok' || ifLayers.values.length === 0 || thenLayer.kind !== 'ok') {
