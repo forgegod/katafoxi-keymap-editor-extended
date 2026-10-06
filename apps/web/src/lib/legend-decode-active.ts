@@ -1,3 +1,6 @@
+/** Decode owner for the typewriter combo index (not a matrix slot). */
+export const DICTIONARY_DECODE_KEY = -1
+
 /** At most one legend-decode card is live across the board. */
 
 type DecodeCloser = () => void

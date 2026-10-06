@@ -1,13 +1,34 @@
 <script lang="ts">
   import {
     comboDictionaryIndexModel,
-    typewriterIndexFace,
+    comboIndexHitActiveId,
+    composeLegendDecode,
+    hostKeyByZmk,
+    parseKeyBinding,
+    stripKcPrefix,
+    typewriterIndexBandFace,
+    typewriterIndexZmk,
     type ComboIndexHit,
     type ComboIndexOther,
     type LayoutKey,
+    type LegendDecodeCard as LegendDecodeCardModel,
+    type TypewriterIndexBandFace,
+    type TypewriterIndexKey,
     type ZmkCombo
   } from '@keymap-editor/keymap-core'
   import { getKeyBoundingBox, getKeyStyles } from '../../key-units'
+  import { editor } from '../../editor.svelte.js'
+  import { hostEditCycleLanguages } from '../../host-edit-cycle'
+  import {
+    claimLegendDecode,
+    DICTIONARY_DECODE_KEY,
+    isLegendDecodeLocked,
+    lockLegendDecode,
+    lockedLegendDecodeKeyIndex,
+    releaseLegendDecode,
+    unlockLegendDecode
+  } from '../../legend-decode-active'
+  import LegendDecodeCard from '../LegendDecodeCard.svelte'
   import { onDestroy } from 'svelte'
 
   interface Props {
@@ -32,6 +53,10 @@
 
   const model = $derived(comboDictionaryIndexModel(layout, combos))
   const coveredCount = $derived(model.hits.size)
+  const hostView = $derived.by(() => {
+    void editor.hostLayoutRevision
+    return editor.hostLegend
+  })
 
   const geometry = $derived.by(() => {
     let minX = Infinity
@@ -82,20 +107,210 @@
   })
 
   function hitActiveId(hit: ComboIndexHit): string {
-    return `${hit.keyId}:${hit.band}`
+    return comboIndexHitActiveId(hit)
   }
 
   function bandsActive(bands: {
     base?: ComboIndexHit
     shift?: ComboIndexHit
+    mods?: ComboIndexHit[]
   }): boolean {
     return (
       (bands.base != null && activeKeyId === hitActiveId(bands.base)) ||
-      (bands.shift != null && activeKeyId === hitActiveId(bands.shift))
+      (bands.shift != null && activeKeyId === hitActiveId(bands.shift)) ||
+      (bands.mods?.some(mod => activeKeyId === hitActiveId(mod)) ?? false)
     )
   }
 
-  onDestroy(() => onHoverHit(null))
+  function bandFace(
+    key: TypewriterIndexKey,
+    band: 'base' | 'shift',
+    split: boolean
+  ): TypewriterIndexBandFace {
+    return typewriterIndexBandFace(key, band, hostView, split)
+  }
+
+  let decode = $state<{
+    card: LegendDecodeCardModel
+    rect: DOMRect
+    zmk: string
+  } | null>(null)
+
+  const inHostSession = $derived(
+    editor.hostEditSession?.keyIndex === DICTIONARY_DECODE_KEY
+  )
+  const decodeModeHint = $derived(
+    decode && hostKeyByZmk(decode.zmk)
+      ? 'Click — combo · Alt+click — host'
+      : 'Click — combo'
+  )
+
+  function hideDecode() {
+    unlockLegendDecode(DICTIONARY_DECODE_KEY)
+    decode = null
+    releaseLegendDecode(DICTIONARY_DECODE_KEY)
+    if (editor.hostEditSession?.keyIndex === DICTIONARY_DECODE_KEY) {
+      editor.endHostEditSession()
+    }
+  }
+
+  function hidePeek() {
+    if (inHostSession) return
+    unlockLegendDecode(DICTIONARY_DECODE_KEY)
+    decode = null
+    releaseLegendDecode(DICTIONARY_DECODE_KEY)
+  }
+
+  function endHostEditSession() {
+    editor.endHostEditSession()
+    unlockLegendDecode(DICTIONARY_DECODE_KEY)
+    decode = null
+    releaseLegendDecode(DICTIONARY_DECODE_KEY)
+  }
+
+  function decodeCardForHit(hit: ComboIndexHit): {
+    card: LegendDecodeCardModel
+    zmk: string
+  } | null {
+    const zmk = typewriterIndexZmk(hit.keyId)
+    if (!zmk) return null
+    try {
+      return {
+        card: composeLegendDecode(parseKeyBinding(`&kp ${zmk}`), editor.hostLegend),
+        zmk
+      }
+    } catch {
+      return null
+    }
+  }
+
+  function openIndexPeek(hit: ComboIndexHit, target: EventTarget | null) {
+    if (!(target instanceof HTMLElement)) return
+    if (inHostSession) return
+    if (isLegendDecodeLocked() && lockedLegendDecodeKeyIndex() !== DICTIONARY_DECODE_KEY) {
+      return
+    }
+    const next = decodeCardForHit(hit)
+    if (!next) return
+    if (!claimLegendDecode(DICTIONARY_DECODE_KEY, 0, hideDecode)) return
+    decode = { ...next, rect: target.getBoundingClientRect() }
+  }
+
+  function openIndexHostEdit(hit: ComboIndexHit, target: EventTarget | null) {
+    if (!(target instanceof HTMLElement)) return
+    if (isLegendDecodeLocked() && lockedLegendDecodeKeyIndex() !== DICTIONARY_DECODE_KEY) {
+      return
+    }
+    const next = decodeCardForHit(hit)
+    if (!next || !hostKeyByZmk(next.zmk)) return
+    if (!claimLegendDecode(DICTIONARY_DECODE_KEY, 0, hideDecode)) return
+    decode = { ...next, rect: target.getBoundingClientRect() }
+    editor.beginHostEditSession(DICTIONARY_DECODE_KEY, 0, next.zmk)
+    const language = hostEditCycleLanguages(editor.hostLegend)[0]
+    if (language) {
+      editor.armHostSymbolEdit({
+        language,
+        zmk: next.zmk,
+        level: hit.band === 'shift' ? 1 : 0
+      })
+    }
+    lockLegendDecode(DICTIONARY_DECODE_KEY)
+    queueMicrotask(() => {
+      const el = document.getElementById(`legend-decode-${DICTIONARY_DECODE_KEY}-0`)
+      if (el instanceof HTMLElement) el.focus()
+    })
+  }
+
+  function handleHalfEnter(hit: ComboIndexHit, event: Event) {
+    onHoverHit(hit)
+    openIndexPeek(hit, event.currentTarget)
+  }
+
+  function handleHalfFocus(hit: ComboIndexHit, event: FocusEvent) {
+    const target = event.currentTarget
+    if (!(target instanceof HTMLElement) || !target.matches(':focus-visible')) return
+    handleHalfEnter(hit, event)
+  }
+
+  function handleHalfLeave(event: MouseEvent | FocusEvent) {
+    if (inHostSession) return
+    const next = 'relatedTarget' in event ? event.relatedTarget : null
+    if (
+      next instanceof Element &&
+      (next.closest('.index-half') || next.closest('.index-mod'))
+    ) {
+      return
+    }
+    hidePeek()
+    onHoverHit(null)
+  }
+
+  function handleIndexKeyLeave(event: MouseEvent) {
+    const next = event.relatedTarget
+    if (next instanceof Element && next.closest('.index-key.covered')) return
+    onHoverHit(null)
+    hidePeek()
+  }
+
+  function handleHitClick(event: MouseEvent, hit: ComboIndexHit | ComboIndexOther) {
+    if (event.altKey && 'keyId' in hit) {
+      event.preventDefault()
+      openIndexHostEdit(hit, event.currentTarget)
+      return
+    }
+    hidePeek()
+    onSelectHit(hit)
+  }
+
+  function armHostCell(
+    language: import('@keymap-editor/keymap-core').HostLanguageId,
+    level: number
+  ) {
+    if (!inHostSession || !decode) return
+    const zmk = stripKcPrefix(decode.card.keycode)
+    if (!zmk) return
+    editor.armHostSymbolEdit({ language, zmk, level })
+  }
+
+  $effect(() => {
+    if (editor.hostEditSession?.keyIndex === DICTIONARY_DECODE_KEY) return
+    if (!decode || !isLegendDecodeLocked() || lockedLegendDecodeKeyIndex() !== DICTIONARY_DECODE_KEY) {
+      return
+    }
+    unlockLegendDecode(DICTIONARY_DECODE_KEY)
+    decode = null
+    releaseLegendDecode(DICTIONARY_DECODE_KEY)
+  })
+
+  $effect(() => {
+    if (!inHostSession || !decode) return
+    const cardId = `legend-decode-${DICTIONARY_DECODE_KEY}-0`
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target
+      if (target instanceof Element && target.closest('.host-symbol-picker')) {
+        return
+      }
+      if (target instanceof Node) {
+        const card = document.getElementById(cardId)
+        if (card?.contains(target)) return
+      }
+      event.preventDefault()
+      event.stopPropagation()
+      endHostEditSession()
+    }
+    window.addEventListener('pointerdown', onPointerDown, true)
+    return () => window.removeEventListener('pointerdown', onPointerDown, true)
+  })
+
+  $effect(() => {
+    if (open) return
+    hideDecode()
+  })
+
+  onDestroy(() => {
+    onHoverHit(null)
+    hideDecode()
+  })
 </script>
 
 <section class="combo-dictionary">
@@ -131,11 +346,12 @@
           {#each geometry.painted as { key, style } (key.id)}
             {@const bands = model.hits.get(key.id)}
             {#if bands}
-              {@const face = typewriterIndexFace(key, bands)}
               {@const split = bands.base != null && bands.shift != null}
+              {@const hasMods = (bands.mods?.length ?? 0) > 0}
               <div
                 class="index-key covered"
                 class:split
+                class:has-mods={hasMods}
                 class:active={bandsActive(bands)}
                 role="group"
                 aria-label="{key.label}"
@@ -145,9 +361,9 @@
                 style:height={style.height}
                 style:transform-origin={style.transformOrigin}
                 style:transform={style.transform}
-                onmouseleave={() => onHoverHit(null)}
+                onmouseleave={handleIndexKeyLeave}
               >
-                {#if bands.shift && face.shift}
+                {#if bands.shift}
                   {@const shiftHit = bands.shift}
                   <button
                     type="button"
@@ -155,15 +371,16 @@
                     class:active={activeKeyId === hitActiveId(shiftHit)}
                     aria-label="{key.label} shift chord"
                     aria-pressed={activeKeyId === hitActiveId(shiftHit)}
-                    onclick={() => onSelectHit(shiftHit)}
-                    onmouseenter={() => onHoverHit(shiftHit)}
-                    onfocus={() => onHoverHit(shiftHit)}
-                    onblur={() => onHoverHit(null)}
+                    onclick={event => handleHitClick(event, shiftHit)}
+                    onmouseenter={event => handleHalfEnter(shiftHit, event)}
+                    onfocus={event => handleHalfFocus(shiftHit, event)}
+                    onmouseleave={handleHalfLeave}
+                    onblur={handleHalfLeave}
                   >
-                    {face.shift}
+                    {@render bandPacks(bandFace(key, 'shift', split))}
                   </button>
                 {/if}
-                {#if bands.base && face.base}
+                {#if bands.base}
                   {@const baseHit = bands.base}
                   <button
                     type="button"
@@ -171,13 +388,34 @@
                     class:active={activeKeyId === hitActiveId(baseHit)}
                     aria-label="{key.label} chord"
                     aria-pressed={activeKeyId === hitActiveId(baseHit)}
-                    onclick={() => onSelectHit(baseHit)}
-                    onmouseenter={() => onHoverHit(baseHit)}
-                    onfocus={() => onHoverHit(baseHit)}
-                    onblur={() => onHoverHit(null)}
+                    onclick={event => handleHitClick(event, baseHit)}
+                    onmouseenter={event => handleHalfEnter(baseHit, event)}
+                    onfocus={event => handleHalfFocus(baseHit, event)}
+                    onmouseleave={handleHalfLeave}
+                    onblur={handleHalfLeave}
                   >
-                    {face.base}
+                    {@render bandPacks(bandFace(key, 'base', split))}
                   </button>
+                {/if}
+                {#if hasMods}
+                  <div class="index-mods" role="group" aria-label="{key.label} modifier chords">
+                    {#each bands.mods ?? [] as modHit (comboIndexHitActiveId(modHit))}
+                      <button
+                        type="button"
+                        class="index-mod"
+                        class:active={activeKeyId === hitActiveId(modHit)}
+                        aria-label="{modHit.label} chord"
+                        aria-pressed={activeKeyId === hitActiveId(modHit)}
+                        onclick={event => handleHitClick(event, modHit)}
+                        onmouseenter={event => handleHalfEnter(modHit, event)}
+                        onfocus={event => handleHalfFocus(modHit, event)}
+                        onmouseleave={handleHalfLeave}
+                        onblur={handleHalfLeave}
+                      >
+                        {modHit.label}
+                      </button>
+                    {/each}
+                  </div>
                 {/if}
               </div>
             {:else}
@@ -205,7 +443,7 @@
             type="button"
             class="dict-chip"
             class:active={activeKeyId === item.comboId}
-            onclick={() => onSelectHit(item)}
+            onclick={event => handleHitClick(event, item)}
             onmouseenter={() => onHoverHit(item)}
             onmouseleave={() => onHoverHit(null)}
           >
@@ -216,6 +454,37 @@
     {/if}
   {/if}
 </section>
+
+{#snippet bandPacks(face: TypewriterIndexBandFace)}
+  {#if face.packs.length > 0}
+    {#each face.packs as pack, packIndex (packIndex)}
+      <span class="pack" class:second={pack.tone === 'second'}>
+        {#each pack.glyphs as glyph, glyphIndex (`${packIndex}-${glyphIndex}`)}
+          <span
+            class="glyph"
+            class:alt={glyph.alt}
+            class:empty={glyph.empty}
+            class:dead={glyph.dead}
+          >{glyph.text}</span>
+        {/each}
+      </span>
+    {/each}
+  {:else}
+    {face.fallback}
+  {/if}
+{/snippet}
+
+{#if decode}
+  <LegendDecodeCard
+    card={decode.card}
+    anchor={decode.rect}
+    tooltipId={`legend-decode-${DICTIONARY_DECODE_KEY}-0`}
+    hostSession={inHostSession}
+    modeHint={decodeModeHint}
+    onArmCell={armHostCell}
+    onEndSession={endHostEditSession}
+  />
+{/if}
 
 <style>
   .combo-dictionary {
@@ -313,6 +582,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 0.25em;
     margin: 0;
     padding: 0;
     border: 0;
@@ -321,6 +591,42 @@
     font: inherit;
     cursor: pointer;
     width: 100%;
+  }
+
+  .pack {
+    display: inline-flex;
+    align-items: baseline;
+    flex: 0 0 auto;
+  }
+
+  .pack.second {
+    color: var(--accent);
+  }
+
+  .glyph {
+    display: inline-block;
+    line-height: 1;
+  }
+
+  .glyph.empty {
+    opacity: 0;
+  }
+
+  .index-half:hover .glyph.empty,
+  .index-half:focus-visible .glyph.empty {
+    opacity: 0.45;
+  }
+
+  .glyph.alt:not(.empty) {
+    opacity: 0.7;
+  }
+
+  .glyph.dead {
+    color: var(--warn-ink);
+    background: var(--warn-wash);
+    border-radius: 2px;
+    box-shadow: inset 0 0 0 1px var(--warn-border);
+    padding: 0 1px;
   }
 
   .index-key.split .index-half.shift {
@@ -333,6 +639,38 @@
   .index-key.split .index-half.base {
     align-items: flex-start;
     padding-top: 1px;
+  }
+
+  .index-key.has-mods .index-half {
+    flex: 1 1 0;
+  }
+
+  .index-mods {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1px;
+    padding: 1px 2px 2px;
+    border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  }
+
+  .index-mod {
+    margin: 0;
+    padding: 0 3px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: color-mix(in srgb, var(--text) 88%, transparent);
+    font: 650 10px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    cursor: pointer;
+  }
+
+  .index-mod:hover,
+  .index-mod:focus-visible,
+  .index-mod.active {
+    background: color-mix(in srgb, var(--accent, #3a7) 22%, var(--surface-sunken, #222));
+    color: var(--text);
   }
 
   .index-half:hover,

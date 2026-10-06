@@ -1,5 +1,5 @@
 import { flushSync, mount, unmount } from 'svelte'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { editor } from '../editor.svelte.js'
 import ComboPanelHarness from './ComboPanelHarness.svelte'
 import LinuxInstallSheet from './LinuxInstallSheet.svelte'
@@ -437,4 +437,37 @@ describe('ComboPanel', () => {
     expect(editor.comboMode).toBe(true)
     expect(document.activeElement).not.toBe(input)
   })
+  it('scrolls the combo list to the active row when selection changes', () => {
+    const combos = Array.from({ length: 40 }, (_, index) => ({
+      id: `combo_${index}`,
+      keyPositions: [0, 1],
+      binding: esc
+    }))
+    const keymap = {
+      layers: [[none, none]],
+      layer_names: ['Base'],
+      combos
+    }
+    editor.baselineKeymap = structuredClone(keymap)
+    editor.draftKeymap = structuredClone(keymap)
+    editor.activeComboId = 'combo_0'
+    mountPanel()
+
+    const scrollIntoView = vi.fn()
+    const proto = HTMLElement.prototype as HTMLElement & {
+      scrollIntoView: typeof scrollIntoView
+    }
+    const previous = proto.scrollIntoView
+    proto.scrollIntoView = scrollIntoView
+    try {
+      editor.activeComboId = 'combo_35'
+      flushSync()
+      expect(scrollIntoView).toHaveBeenCalled()
+      const active = target.querySelector('.combo-item.active .combo-id')
+      expect(active?.textContent).toBe('combo_35')
+    } finally {
+      proto.scrollIntoView = previous
+    }
+  })
+
 })

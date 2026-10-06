@@ -24,6 +24,8 @@
     hostSession?: boolean
     /** Encoded binding before an unpublished edit. Empty string means the key was blank. */
     previous?: string
+    /** Override the peek hint (dictionary halves are combo, not a matrix row). */
+    modeHint?: string
     onArmCell?: (language: HostLanguageId, level: number) => void
     onEndSession?: () => void
   }
@@ -34,6 +36,7 @@
     tooltipId,
     hostSession = false,
     previous,
+    modeHint,
     onArmCell,
     onEndSession
   }: Props = $props()
@@ -236,6 +239,8 @@
   {/if}
   {#if hostSession}
     <DecodeSessionBar />
+  {:else if modeHint}
+    <p class="mode-hint" role="note">{modeHint}</p>
   {:else if hostEditable}
     <p class="mode-hint" role="note">
       Click row — ZMK · Alt+click — host

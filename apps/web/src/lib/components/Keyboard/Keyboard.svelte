@@ -2,6 +2,7 @@
   import {
     absentLayoutIndexes,
     collectUsedKeycodes,
+    comboIndexHitActiveId,
     encodeKeyBinding,
     mergeHoldTapCatalog,
     effectiveShownLayers,
@@ -113,9 +114,7 @@
       : [0]
   )
   const boardCombos = $derived(keymap.combos ?? [])
-  const offerDictionary = $derived(
-    !comboMode && shouldOfferComboDictionary(layout, boardCombos)
-  )
+  const offerDictionary = $derived(shouldOfferComboDictionary(layout, boardCombos))
   let dictionaryOpen = $state(false)
   let dictionaryKeyId = $state<string | null>(null)
   let dictionaryPeek = $state<{
@@ -153,6 +152,18 @@
       editor.comboMode = true
     }
     editor.refreshComboNotice()
+  }
+
+  function openComboFromIndex(hit: {
+    comboIds?: string[]
+    comboId?: string
+    keyId?: string
+    band?: string
+    positions: number[]
+  }) {
+    const comboId = hit.comboIds?.[0] ?? hit.comboId
+    // Select the combo only — KeyEditor opens from Binding in the panel.
+    if (comboId) openComboFromBoard(comboId)
   }
 
   const hiddenKeys = $derived.by(() => {
@@ -367,14 +378,14 @@
               : dictionaryPeek
           }}
           onSelectHit={hit => {
-            dictionaryKeyId = 'keyId' in hit ? `${hit.keyId}:${hit.band}` : hit.comboId
+            dictionaryKeyId =
+              'keyId' in hit ? comboIndexHitActiveId(hit) : hit.comboId
             dictionaryPeek = {
               positions: new Set(hit.positions),
               faceLayer: 0
             }
             comboHoverPeek = dictionaryPeek
-            const comboId = 'comboIds' in hit ? hit.comboIds[0] : hit.comboId
-            if (comboId) editor.activeComboId = comboId
+            openComboFromIndex(hit)
           }}
         />
       </div>
