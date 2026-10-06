@@ -1,5 +1,9 @@
 const baseUrl = 'https://api.github.com'
 
+/** JSON/REST GitHub calls. Artifact zip download uses a longer budget. */
+export const GITHUB_API_TIMEOUT_MS = 15_000
+export const GITHUB_ZIP_TIMEOUT_MS = 120_000
+
 export interface ApiRequestOptions {
   url: string
   method?: string
@@ -7,6 +11,21 @@ export interface ApiRequestOptions {
   token?: string
   data?: unknown
   params?: Record<string, string>
+  timeoutMs?: number
+}
+
+/**
+ * GitHub REST path: encode each segment, keep `/` between branch/content parts.
+ * `githubApiPath('repos', 'acme/lark', 'commits', 'feature/x#y')`
+ * → `/repos/acme/lark/commits/feature/x%23y`
+ */
+export function githubApiPath(...parts: string[]): string {
+  const encoded = parts
+    .flatMap(part => part.split('/'))
+    .filter(segment => segment.length > 0)
+    .map(encodeURIComponent)
+    .join('/')
+  return `/${encoded}`
 }
 
 function prepare(options: ApiRequestOptions | string): { url: string; init: RequestInit } {
@@ -37,7 +56,8 @@ function prepare(options: ApiRequestOptions | string): { url: string; init: Requ
 
   const init: RequestInit = {
     method: opts.method || (opts.data ? 'POST' : 'GET'),
-    headers
+    headers,
+    signal: AbortSignal.timeout(opts.timeoutMs ?? GITHUB_API_TIMEOUT_MS)
   }
 
   if (opts.data !== undefined) {
@@ -48,30 +68,23 @@ function prepare(options: ApiRequestOptions | string): { url: string; init: Requ
   return { url, init }
 }
 
-function noteRateLimit(response: Response) {
-  const limitRemaining = response.headers.get('x-ratelimit-remaining')
-  if (limitRemaining) {
-    console.log('GitHub API ratelimit remaining requests:', limitRemaining)
-  }
-}
-
 async function throwIfNotOk(response: Response): Promise<void> {
   if (response.ok) return
-  let data: unknown
+  const raw = await response.text()
+  let data: unknown = raw
   try {
-    data = await response.json()
+    data = JSON.parse(raw) as unknown
   } catch {
-    data = await response.text()
+    data = raw
   }
   throw Object.assign(new Error(`GitHub API ${response.status}`), {
-    response: { status: response.status, data }
+    response: { status: response.status, data, url: response.url }
   })
 }
 
 export async function request(options: ApiRequestOptions | string) {
   const { url, init } = prepare(options)
   const response = await fetch(url, init)
-  noteRateLimit(response)
   await throwIfNotOk(response)
 
   const contentType = response.headers.get('content-type') || ''
@@ -89,11 +102,14 @@ export async function request(options: ApiRequestOptions | string) {
   }
 }
 
-/** Follows GitHub's artifact redirect and returns the zip bytes. */
-export async function requestBuffer(options: ApiRequestOptions | string): Promise<Uint8Array> {
-  const { url, init } = prepare(options)
+/** Follows GitHub's artifact redirect and returns the zip response (body streamed). */
+export async function requestZip(options: ApiRequestOptions | string): Promise<Response> {
+  const opts: ApiRequestOptions =
+    typeof options === 'string'
+      ? { url: options, timeoutMs: GITHUB_ZIP_TIMEOUT_MS }
+      : { ...options, timeoutMs: options.timeoutMs ?? GITHUB_ZIP_TIMEOUT_MS }
+  const { url, init } = prepare(opts)
   const response = await fetch(url, init)
-  noteRateLimit(response)
   await throwIfNotOk(response)
-  return new Uint8Array(await response.arrayBuffer())
+  return response
 }

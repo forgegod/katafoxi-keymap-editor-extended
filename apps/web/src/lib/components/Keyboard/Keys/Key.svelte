@@ -7,6 +7,9 @@
     hostKeyByZmk,
     isBlankLayerBinding,
     isComplex,
+    blankRowMark,
+    layerRowAriaLabel,
+    stripKcPrefix,
     multilangKeycapLines,
     isHoldTapBinding,
     isSimple,
@@ -24,7 +27,7 @@
   } from '@keymap-editor/keymap-core'
   import { currentBinding } from '../../../binding-tree'
   import { getSearchContext } from '../../../context'
-  import { editor, hostLegendAnchorIndex } from '../../../editor.svelte.js'
+  import { editor } from '../../../editor.svelte.js'
   import { getBehaviourParams } from '../../../hydrate'
   import { createKeyEditSession } from '../../../key-edit-session.svelte'
   import { getKeyStyles } from '../../../key-units'
@@ -40,8 +43,7 @@
   import LegendDecodeCard from '../../LegendDecodeCard.svelte'
   import { layerToneStyle } from '../../../layer-tone'
   import './Key.css'
-  import Modal from '../../Common/Modal.svelte'
-  import KeyEditor from '../../KeyEditor/KeyEditor.svelte'
+  import KeyEditorHost from '../../KeyEditorHost.svelte'
   import ZmkLegend from './ZmkLegend.svelte'
 
   interface Props {
@@ -57,6 +59,7 @@
     hostView?: HostLegendView
     layerView?: LayerView
     legendHover?: LegendHover | null
+    isLegendAnchor?: boolean
     layerBindings?: KeyBindingNode[]
     usedKeycodes?: ReadonlyMap<string, readonly number[]>
     usedRevision?: string
@@ -81,6 +84,7 @@
     hostView,
     layerView,
     legendHover = null,
+    isLegendAnchor = false,
     layerBindings,
     usedKeycodes = new Map(),
     usedRevision = '',
@@ -94,9 +98,6 @@
   const searchBox = getSearchContext()
   const search = $derived(searchBox.current)
   const sources = $derived(search?.sources ?? {})
-  const isLegendAnchor = $derived(
-    hostLegendAnchorIndex(editor.draftKeymap) === keyIndex
-  )
   const stackBindings = $derived(
     layerBindings?.length ? layerBindings : [currentBinding(value, params)]
   )
@@ -169,7 +170,13 @@
     if (!claimLegendDecode(keyIndex, layer, hideDecode)) return
     decode = { layer, rect }
     // Same layer preview as the host-legend strip row.
-    editor.legendHover = { kind: 'layer', layer }
+    editor.setLegendHover({ kind: 'layer', layer })
+  }
+
+  function openDecodeOnFocus(layer: number, event: FocusEvent) {
+    const target = event.currentTarget
+    if (!(target instanceof HTMLElement) || !target.matches(':focus-visible')) return
+    openDecode(layer, target)
   }
 
   function hideDecode() {
@@ -182,7 +189,7 @@
   }
 
   function clearLayerHover() {
-    if (editor.legendHover?.kind === 'layer') editor.legendHover = null
+    if (editor.legendHover?.kind === 'layer') editor.setLegendHover(null)
   }
 
   function endHostEditSession() {
@@ -249,7 +256,7 @@
     level: number
   ) {
     if (!inHostSession || !decode) return
-    const zmkCode = decodeCard?.keycode?.replace(/^KC_/, '') ?? ''
+    const zmkCode = stripKcPrefix(decodeCard?.keycode)
     if (!zmkCode) return
     editor.armHostSymbolEdit({ language, zmk: zmkCode, level })
   }
@@ -270,15 +277,11 @@
     releaseLegendDecode(keyIndex)
   })
 
+  // Escape for the host-edit session lives on LegendDecodeCard (session card).
+  // Key only dismisses on outside pointerdown.
   $effect(() => {
     if (!inHostSession || !decodeTooltipId) return
     const cardId = decodeTooltipId
-    function onKeydown(event: KeyboardEvent) {
-      if (event.key !== 'Escape') return
-      event.preventDefault()
-      event.stopImmediatePropagation()
-      endHostEditSession()
-    }
     function onPointerDown(event: PointerEvent) {
       const target = event.target
       if (target instanceof Element && target.closest('.host-symbol-picker')) {
@@ -294,36 +297,11 @@
       event.stopPropagation()
       endHostEditSession()
     }
-    window.addEventListener('keydown', onKeydown, true)
     window.addEventListener('pointerdown', onPointerDown, true)
     return () => {
-      window.removeEventListener('keydown', onKeydown, true)
       window.removeEventListener('pointerdown', onPointerDown, true)
     }
   })
-  function rowTitle(row: { title: string; binding: KeyBindingNode }): string {
-    return row.title || encodeKeyBinding(row.binding)
-  }
-
-  function rowAriaLabel(
-    row: { layer: number; title: string; binding: KeyBindingNode },
-    occupied: boolean
-  ): string {
-    const title = rowTitle(row)
-    const code = String(row.binding.value)
-    const base =
-      code === '&trans'
-        ? `${title}, layer ${row.layer}, passes through`
-        : code === '&none'
-          ? `${title}, layer ${row.layer}, silent`
-          : `${title}, layer ${row.layer}`
-    return occupied ? `${base}, already held` : base
-  }
-
-  function blankRowMark(binding: KeyBindingNode): string {
-    return String(binding.value) === '&trans' ? '↓' : '∅'
-  }
-
   function slotAlign(binding: KeyBindingNode): {
     moved: boolean
     basic: boolean
@@ -375,7 +353,6 @@
   data-behavior={behaviorRole}
   data-editable={comboMode || session.canEdit}
   data-tour={isLegendAnchor ? 'legend-key' : undefined}
-  data-stacked="true"
   style={Object.entries(positioningStyle)
     .map(([k, v]) => `${k.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`)}:${v}`)
     .join(';')}
@@ -402,7 +379,7 @@
             ? `grid-row: 1 / -1; ${layerToneStyle(0)}`
             : 'grid-row: 1 / -1'
         }
-        aria-label={rowAriaLabel(
+        aria-label={layerRowAriaLabel(
           {
             layer: 0,
             title: encodeKeyBinding(multilangFace.binding),
@@ -415,7 +392,7 @@
         onclick={event => handleRowClick(event, 0)}
         onmouseenter={event => openDecode(0, event.currentTarget)}
         onmouseleave={handleRowLeave}
-        onfocus={event => openDecode(0, event.currentTarget)}
+        onfocus={event => openDecodeOnFocus(0, event)}
         onblur={handleRowBlur}
       >
         {#each multilangFace.lines as line, index (line.language)}
@@ -442,7 +419,7 @@
         class:when-held={occupied}
         data-layer={row.layer}
         style={editor.layerTonesOn ? layerToneStyle(row.layer) : undefined}
-        aria-label={rowAriaLabel(row, occupied)}
+        aria-label={layerRowAriaLabel(row, occupied)}
         aria-describedby={
           decode?.layer === row.layer && !inHostSession ? decodeTooltipId : undefined
         }
@@ -450,7 +427,7 @@
         onclick={event => handleRowClick(event, row.layer)}
         onmouseenter={event => openDecode(row.layer, event.currentTarget)}
         onmouseleave={handleRowLeave}
-        onfocus={event => openDecode(row.layer, event.currentTarget)}
+        onfocus={event => openDecodeOnFocus(row.layer, event)}
         onblur={handleRowBlur}
       >
         {#if row.blank}
@@ -477,29 +454,21 @@
     />
   {/if}
 
-  {#if session.editing && session.canEdit && session.activeSlot}
-    <Modal onBackdrop={session.closeEditor}>
-      <KeyEditor
-        bindingLabel={session.bindingLabel}
-        behaviours={session.behaviours}
-        editorSlots={session.slots}
-        activeCodeIndex={session.activeSlot.codeIndex}
-        choices={session.choices}
-        {usedKeycodes}
-        {usedRevision}
-        {usedLayerLabels}
-        onSelectBehaviour={session.selectBehaviour}
-        onSelectValue={session.selectValue}
-        onToggleHold={session.toggleHold}
-        onActivateSlot={openEditor}
-        onConfirm={staged => {
-          if (staged?.length) editor.armHoldTapsForNextUpdate(staged)
-          session.confirm()
-        }}
-        onCancel={session.closeEditor}
-        holdTaps={editor.draftKeymap?.holdTaps ?? editor.baselineKeymap?.holdTaps}
-        onChangeHoldTaps={next => editor.updateHoldTaps(next)}
-      />
-    </Modal>
-  {/if}
+  <KeyEditorHost
+    open={!!(session.editing && session.canEdit && session.activeSlot)}
+    bindingLabel={session.bindingLabel}
+    behaviours={session.behaviours}
+    editorSlots={session.slots}
+    activeCodeIndex={session.activeSlot?.codeIndex ?? 0}
+    choices={session.choices}
+    {usedKeycodes}
+    {usedRevision}
+    {usedLayerLabels}
+    onSelectBehaviour={session.selectBehaviour}
+    onSelectValue={session.selectValue}
+    onToggleHold={session.toggleHold}
+    onActivateSlot={openEditor}
+    onConfirm={session.confirm}
+    onCancel={session.closeEditor}
+  />
 </div>

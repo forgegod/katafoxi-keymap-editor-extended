@@ -3,107 +3,77 @@
  * A then-layer is active exactly while every if-layer is active.
  */
 
-import { findMatchingBrace } from './dts-keymap.js'
-import type { LegendHover, ZmkConditionalLayer } from './types.js'
+import {
+  findNamedBlock,
+  iterateChildNodes,
+  matchBrace,
+  scanDts,
+  readUintAngleProp,
+  readUintAngleScalar,
+  type DtsScan
+} from './dts-scan.js'
+import {
+  dominantEol,
+  eatPrecedingEol,
+  joinCollapsingExtraBlankLines,
+  type LineEnding
+} from './eol.js'
+import type { LegendHover, ZmkCombo, ZmkConditionalLayer } from './types.js'
 
 /** A conditional layer needs at least two held layers. */
 export const CONDITIONAL_LAYER_MIN_IF = 2
 
-interface DtsConditionalBlock {
-  keywordStart: number
-  openBrace: number
-  closeBrace: number
-  bodyStart: number
-  bodyEnd: number
+function findConditionalBlock(source: string, scan: DtsScan = scanDts(source)) {
+  return findNamedBlock(source, scan, 'conditional_layers', {
+    compatible: 'zmk,conditional-layers'
+  })
 }
 
-function findConditionalBlock(source: string): DtsConditionalBlock | null {
-  const re = /\bconditional_layers\s*\{/g
-  let fallback: DtsConditionalBlock | null = null
-  let m: RegExpExecArray | null
-  while ((m = re.exec(source)) !== null) {
-    const openBrace = m.index + m[0].length - 1
-    const closeBrace = findMatchingBrace(source, openBrace)
-    if (closeBrace < 0) continue
-    const block: DtsConditionalBlock = {
-      keywordStart: m.index,
-      openBrace,
-      closeBrace,
-      bodyStart: openBrace + 1,
-      bodyEnd: closeBrace
-    }
-    const body = source.slice(block.bodyStart, block.bodyEnd)
-    if (/compatible\s*=\s*"zmk,conditional-layers"/.test(body)) return block
-    if (!fallback) fallback = block
-  }
-  return fallback
-}
-
-function findAngleInterior(
-  source: string,
-  from: number,
-  to: number,
-  prop: string
-): { start: number; end: number } | null {
-  const slice = source.slice(from, to)
-  const re = new RegExp(`${prop}\\s*=\\s*<`)
-  const m = re.exec(slice)
-  if (!m) return null
-  const contentStart = from + m.index + m[0].length
-  let depth = 1
-  for (let i = contentStart; i < to; i++) {
-    if (source[i] === '<') depth++
-    else if (source[i] === '>') {
-      depth--
-      if (depth === 0) return { start: contentStart, end: i }
-    }
-  }
-  return null
-}
-
-function parseUintList(interior: string): number[] {
-  const out: number[] = []
-  for (const tok of interior.trim().split(/\s+/)) {
-    if (!tok) continue
-    const n = Number(tok)
-    if (Number.isInteger(n) && n >= 0) out.push(n)
-  }
-  return out
+export interface DtsConditionalLayersParse {
+  rules: ZmkConditionalLayer[]
+  /**
+   * True when a child node was skipped, had a DTS label, or if/then layers
+   * were not fully numeric. Save must omit `conditionalLayers`.
+   */
+  unparsed: boolean
 }
 
 /**
  * Parse conditional-layer nodes. Missing block → [].
- * A node without `if-layers` or `then-layer` is skipped.
+ * A node without `if-layers` or `then-layer` is skipped (and marked unparsed).
  */
 export function parseDtsConditionalLayers(source: string): ZmkConditionalLayer[] {
-  const block = findConditionalBlock(source)
-  if (!block) return []
+  return parseDtsConditionalLayersDetailed(source).rules
+}
+
+export function parseDtsConditionalLayersDetailed(
+  source: string,
+  scan: DtsScan = scanDts(source)
+): DtsConditionalLayersParse {
+  const { masked } = scan
+  const block = findNamedBlock(source, scan, 'conditional_layers', {
+    compatible: 'zmk,conditional-layers'
+  })
+  if (!block) return { rules: [], unparsed: false }
 
   const rules: ZmkConditionalLayer[] = []
-  const body = source.slice(block.bodyStart, block.bodyEnd)
-  const re = /(\w+)\s*\{/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(body)) !== null) {
-    const name = m[1]
-    if (name === 'compatible') continue
-    const openBraceRel = m.index + m[0].length - 1
-    const openBrace = block.bodyStart + openBraceRel
-    const closeBrace = findMatchingBrace(source, openBrace)
-    if (closeBrace < 0 || closeBrace > block.bodyEnd) {
-      re.lastIndex = openBraceRel + 1
+  let unparsed = false
+  for (const child of iterateChildNodes(scan, block)) {
+    const label = child.label
+    const name = child.name
+
+    if (label) unparsed = true
+
+    const range = { start: child.openBrace + 1, end: child.closeBrace }
+    const ifLayers = readUintAngleProp(masked, range, 'if-layers')
+    const thenLayer = readUintAngleScalar(masked, range, 'then-layer')
+    if (ifLayers.kind !== 'ok' || ifLayers.values.length === 0 || thenLayer.kind !== 'ok') {
+      unparsed = true
       continue
     }
-    re.lastIndex = closeBrace - block.bodyStart + 1
-
-    const ifInterior = findAngleInterior(source, openBrace + 1, closeBrace, 'if-layers')
-    const thenInterior = findAngleInterior(source, openBrace + 1, closeBrace, 'then-layer')
-    if (!ifInterior || !thenInterior) continue
-    const ifLayers = parseUintList(source.slice(ifInterior.start, ifInterior.end))
-    const thenParts = parseUintList(source.slice(thenInterior.start, thenInterior.end))
-    if (ifLayers.length === 0 || thenParts.length === 0) continue
-    rules.push({ id: name, ifLayers, thenLayer: thenParts[0] })
+    rules.push({ id: name, ifLayers: ifLayers.values, thenLayer: thenLayer.value })
   }
-  return rules
+  return { rules, unparsed }
 }
 
 function sanitizeNodeId(id: string): string {
@@ -113,7 +83,11 @@ function sanitizeNodeId(id: string): string {
   return cleaned.length > 0 ? cleaned : 'when_layers'
 }
 
-function formatRuleNode(rule: ZmkConditionalLayer, indent = '        '): string {
+function formatRuleNode(
+  rule: ZmkConditionalLayer,
+  indent = '        ',
+  eol: LineEnding = '\n'
+): string {
   const inner = indent + '    '
   const ifLayers = [...rule.ifLayers].sort((a, b) => a - b)
   return [
@@ -121,19 +95,20 @@ function formatRuleNode(rule: ZmkConditionalLayer, indent = '        '): string 
     `${inner}if-layers = <${ifLayers.join(' ')}>;`,
     `${inner}then-layer = <${rule.thenLayer}>;`,
     `${indent}};`
-  ].join('\n')
+  ].join(eol)
 }
 
 function formatConditionalLayersBlock(
   rules: readonly ZmkConditionalLayer[],
-  indent = '    '
+  indent = '    ',
+  eol: LineEnding = '\n'
 ): string {
   const child = indent + '    '
-  const nodes = rules.map(rule => formatRuleNode(rule, child)).join('\n')
+  const nodes = rules.map(rule => formatRuleNode(rule, child, eol)).join(eol)
   return (
-    `${indent}conditional_layers {\n` +
-    `${child}compatible = "zmk,conditional-layers";\n` +
-    (nodes ? `${nodes}\n` : '') +
+    `${indent}conditional_layers {${eol}` +
+    `${child}compatible = "zmk,conditional-layers";${eol}` +
+    (nodes ? `${nodes}${eol}` : '') +
     `${indent}};`
   )
 }
@@ -147,7 +122,9 @@ export function spliceConditionalLayersIntoDts(
   original: string,
   rules: readonly ZmkConditionalLayer[]
 ): string {
-  const block = findConditionalBlock(original)
+  const eol = dominantEol(original)
+  const scan = scanDts(original)
+  const block = findConditionalBlock(original, scan)
 
   if (rules.length === 0) {
     if (!block) return original
@@ -157,27 +134,28 @@ export function spliceConditionalLayersIntoDts(
     while (from > 0 && (original[from - 1] === ' ' || original[from - 1] === '\t')) {
       from--
     }
-    if (from > 0 && original[from - 1] === '\n') from--
-    return (original.slice(0, from) + original.slice(to)).replace(/\n{3,}/g, '\n\n')
+    from = eatPrecedingEol(original, from)
+    return joinCollapsingExtraBlankLines(original.slice(0, from), original.slice(to), eol)
   }
 
-  const formatted = formatConditionalLayersBlock(rules)
+  const formatted = formatConditionalLayersBlock(rules, '    ', eol)
   if (block) {
     let to = block.closeBrace + 1
     if (original[to] === ';') to++
     return original.slice(0, block.keywordStart) + formatted + original.slice(to)
   }
 
-  const root = /\/\s*\{/.exec(original)
+  const { masked } = scan
+  const root = /\/\s*\{/.exec(masked)
   if (root) {
     const openBrace = root.index + root[0].length - 1
-    const closeBrace = findMatchingBrace(original, openBrace)
+    const closeBrace = matchBrace(scan, openBrace)
     if (closeBrace >= 0) {
-      return original.slice(0, closeBrace) + `\n${formatted}\n` + original.slice(closeBrace)
+      return original.slice(0, closeBrace) + `${eol}${formatted}${eol}` + original.slice(closeBrace)
     }
   }
 
-  return `${original.trimEnd()}\n\n/ {\n${formatted}\n};\n`
+  return `${original.trimEnd()}${eol}${eol}/ {${eol}${formatted}${eol}};${eol}`
 }
 
 function sanitizeName(raw: string): string {
@@ -240,6 +218,30 @@ export function remapConditionalLayersAfterDelete(
       ifLayers,
       thenLayer: shift(rule.thenLayer)
     })
+  }
+  return out
+}
+
+/**
+ * Drop or renumber combo `layers` filters after a layer is removed.
+ * A combo dies when the filter listed only the deleted layer (same as
+ * dropping a conditional-layer rule that can no longer fire). An omitted
+ * or empty filter still means every remaining layer.
+ */
+export function remapCombosAfterLayerDelete(
+  combos: readonly ZmkCombo[],
+  deleted: number
+): ZmkCombo[] {
+  const shift = (index: number) => (index > deleted ? index - 1 : index)
+  const out: ZmkCombo[] = []
+  for (const combo of combos) {
+    if (!combo.layers || combo.layers.length === 0) {
+      out.push(combo)
+      continue
+    }
+    const layers = combo.layers.filter(index => index !== deleted).map(shift)
+    if (layers.length === 0) continue
+    out.push({ ...combo, layers })
   }
   return out
 }

@@ -1,3 +1,4 @@
+import path from 'node:path'
 import {
   buildKeymapCode,
   encodeHostKeymapSnapshot,
@@ -15,13 +16,83 @@ import * as api from './api.js'
 import * as auth from './auth.js'
 
 const MODE_FILE = '100644'
+const HOST_KEYMAP_LINUX_PREFIX = 'host_keymap/linux/'
+const HOST_KEYMAP_WINDOWS_PREFIX = 'host_keymap/windows/'
 
-export interface ConfigDirEntry {
+/**
+ * True when a commit blob path is a safe host_keymap deliverable or snapshot.
+ * Rejects traversal (`..`), absolute paths, and anything outside the allowlist.
+ */
+export function isAllowedHostKeymapPath(filePath: string): boolean {
+  if (typeof filePath !== 'string' || !filePath) return false
+  if (filePath.includes('\0')) return false
+  if (filePath.startsWith('/') || path.win32.isAbsolute(filePath)) return false
+  if (filePath.split(/[/\\]/).includes('..')) return false
+
+  const normalized = path.posix.normalize(filePath)
+  if (normalized.startsWith('/') || normalized === '..' || normalized.startsWith('../')) {
+    return false
+  }
+  if (normalized.split('/').includes('..')) return false
+
+  if (normalized === HOST_KEYMAP_SNAPSHOT_PATH) return true
+
+  for (const prefix of [HOST_KEYMAP_LINUX_PREFIX, HOST_KEYMAP_WINDOWS_PREFIX]) {
+    if (!normalized.startsWith(prefix)) continue
+    const rest = normalized.slice(prefix.length)
+    if (rest && !rest.includes('/') && rest !== '.' && rest !== '..') return true
+  }
+  return false
+}
+
+export const HOST_DELIVERABLE_MAX_FILES = 32
+
+export function collectHostDeliverables(
+  files: HostKeymapDeliverableFile[] | null | undefined
+): { files: HostKeymapDeliverableFile[]; warnings: string[] } {
+  const selected: HostKeymapDeliverableFile[] = []
+  const warnings: string[] = []
+  if (!Array.isArray(files)) return { files: selected, warnings }
+
+  const seen = new Set<string>()
+  for (const file of files) {
+    if (!file?.path || typeof file.content !== 'string') {
+      warnings.push('Skipped host deliverable with missing path or content')
+      continue
+    }
+    const normalized = path.posix.normalize(file.path)
+    if (normalized === HOST_KEYMAP_SNAPSHOT_PATH) {
+      warnings.push(`Skipped host deliverable ${normalized}`)
+      continue
+    }
+    if (!isAllowedHostKeymapPath(file.path)) {
+      warnings.push(`Skipped host deliverable ${file.path}`)
+      continue
+    }
+    if (seen.has(normalized)) {
+      warnings.push(`Skipped duplicate host deliverable ${normalized}`)
+      continue
+    }
+    if (selected.length >= HOST_DELIVERABLE_MAX_FILES) {
+      warnings.push(
+        `Skipped host deliverable ${normalized} (limit ${HOST_DELIVERABLE_MAX_FILES})`
+      )
+      continue
+    }
+    seen.add(normalized)
+    selected.push({ path: normalized, content: file.content })
+  }
+  return { files: selected, warnings }
+}
+
+interface ConfigDirEntry {
   name: string
   path: string
 }
 
-export type ConfigDirListing = ReadonlyArray<ConfigDirEntry>
+type ConfigDirListing = ReadonlyArray<ConfigDirEntry>
+
+export const BRANCH_CHANGED_NOTICE = 'Branch changed on GitHub — reload'
 
 export class MissingRepoFile extends Error {
   path: string
@@ -35,16 +106,53 @@ export class MissingRepoFile extends Error {
   }
 }
 
+export class StaleRepoBase extends Error {
+  errors: string[]
+
+  constructor() {
+    super(BRANCH_CHANGED_NOTICE)
+    this.name = 'StaleRepoBase'
+    this.errors = [BRANCH_CHANGED_NOTICE]
+  }
+}
+
+type HeadCommit = { sha: string; treeSha: string }
+
+async function resolveHeadCommit(
+  installationToken: string,
+  repository: string,
+  branch?: string
+): Promise<HeadCommit> {
+  let ref = branch
+  if (!ref) {
+    const { data: repo } = await api.request({
+      url: api.githubApiPath('repos', repository),
+      token: installationToken
+    })
+    ref = (repo as { default_branch?: string }).default_branch
+    if (!ref) throw new Error('Repository has no default branch')
+  }
+  const { data } = await api.request({
+    url: api.githubApiPath('repos', repository, 'commits', ref),
+    token: installationToken
+  })
+  const commit = data as { sha?: string; commit?: { tree?: { sha?: string } } }
+  if (!commit.sha || !commit.commit?.tree?.sha) {
+    throw new Error('Could not resolve repository head')
+  }
+  return { sha: commit.sha, treeSha: commit.commit.tree.sha }
+}
+
 async function fetchFile(
   installationToken: string,
   repository: string,
   filePath: string,
-  options: { raw?: boolean; branch?: string | null } = {}
+  options: { raw?: boolean; ref?: string | null } = {}
 ) {
-  const { raw = false, branch = null } = options
-  const url = `/repos/${repository}/contents/${filePath}`
+  const { raw = false, ref = null } = options
+  const url = api.githubApiPath('repos', repository, 'contents', filePath)
   const params: Record<string, string> = {}
-  if (branch) params.ref = branch
+  if (ref) params.ref = ref
 
   const headers: Record<string, string> = {
     Accept: raw ? 'application/vnd.github.v3.raw' : 'application/json'
@@ -71,10 +179,10 @@ function parseJsonBody(data: unknown): unknown {
 export async function listConfigDir(
   token: string,
   repository: string,
-  branch?: string
+  ref?: string
 ): Promise<ConfigDirEntry[]> {
   const { data: directory } = await fetchFile(token, repository, 'config', {
-    branch
+    ref
   })
   return directory as ConfigDirEntry[]
 }
@@ -91,7 +199,7 @@ async function findCodeKeymapTemplate(
   listing: ConfigDirListing,
   installationToken: string,
   repository: string,
-  branch?: string
+  ref?: string
 ) {
   const template = listing.find(file =>
     file.name.toLowerCase().endsWith('.keymap.template')
@@ -101,7 +209,7 @@ async function findCodeKeymapTemplate(
       installationToken,
       repository,
       template.path,
-      { branch, raw: true }
+      { ref, raw: true }
     )
     return content as string
   }
@@ -111,13 +219,13 @@ async function fetchKeymapFromDts(
   installationToken: string,
   repository: string,
   originalCodeKeymap: ConfigDirEntry,
-  branch?: string
+  ref?: string
 ) {
   const { data: source } = await fetchFile(
     installationToken,
     repository,
     originalCodeKeymap.path,
-    { raw: true, branch }
+    { raw: true, ref }
   )
   const text = typeof source === 'string' ? source : String(source)
   const keymapName = originalCodeKeymap.name.replace(/\.keymap$/i, '')
@@ -132,12 +240,12 @@ async function fetchKeymap(
   installationToken: string,
   repository: string,
   originalCodeKeymap: ConfigDirEntry,
-  branch?: string
+  ref?: string
 ) {
   try {
     const { data } = await fetchFile(installationToken, repository, 'config/keymap.json', {
       raw: true,
-      branch
+      ref
     })
     try {
       const parsed = parseJsonBody(data)
@@ -156,7 +264,7 @@ async function fetchKeymap(
               installationToken,
               repository,
               originalCodeKeymap,
-              branch
+              ref
             )
             return {
               ...record,
@@ -178,25 +286,25 @@ async function fetchKeymap(
     }
   }
 
-  return fetchKeymapFromDts(installationToken, repository, originalCodeKeymap, branch)
+  return fetchKeymapFromDts(installationToken, repository, originalCodeKeymap, ref)
 }
 
 async function fetchHostKeymapSnapshot(
   installationToken: string,
   repository: string,
-  branch?: string
+  ref?: string
 ): Promise<HostKeymapSnapshot | null> {
   try {
     const { data } = await fetchFile(
       installationToken,
       repository,
       HOST_KEYMAP_SNAPSHOT_PATH,
-      { raw: true, branch }
+      { raw: true, ref }
     )
-    const parsed = parseHostKeymapSnapshot(
+    const result = parseHostKeymapSnapshot(
       typeof data === 'string' ? data : parseJsonBody(data)
     )
-    return parsed
+    return result.ok ? result.snapshot : null
   } catch (err) {
     if (err instanceof MissingRepoFile) return null
     throw err
@@ -206,14 +314,14 @@ async function fetchHostKeymapSnapshot(
 async function fetchInfoJson(
   installationToken: string,
   repository: string,
-  branch?: string
+  ref?: string
 ): Promise<unknown | null> {
   try {
     const { data: infoRaw } = await fetchFile(
       installationToken,
       repository,
       'config/info.json',
-      { raw: true, branch }
+      { raw: true, ref }
     )
     return parseJsonBody(infoRaw)
   } catch (err) {
@@ -227,23 +335,23 @@ export async function fetchKeyboardFiles(
   repository: string,
   branch?: string
 ) {
-  const { data } = await auth.createInstallationToken(installationId)
+  const { data } = await auth.createInstallationToken(installationId, { repository })
   const installationToken = (data as { token: string }).token
-  const info = await fetchInfoJson(installationToken, repository, branch)
-  const listing = await listConfigDir(installationToken, repository, branch)
+  const head = await resolveHeadCommit(installationToken, repository, branch)
+  const ref = head.sha
+  const [info, listing, hostSnapshot] = await Promise.all([
+    fetchInfoJson(installationToken, repository, ref),
+    listConfigDir(installationToken, repository, ref),
+    fetchHostKeymapSnapshot(installationToken, repository, ref)
+  ])
   const originalCodeKeymap = findCodeKeymap(listing)
   const keymap = await fetchKeymap(
     installationToken,
     repository,
     originalCodeKeymap,
-    branch
+    ref
   )
-  const hostSnapshot = await fetchHostKeymapSnapshot(
-    installationToken,
-    repository,
-    branch
-  )
-  return { info, keymap, originalCodeKeymap, hostSnapshot }
+  return { info, keymap, hostSnapshot, headSha: head.sha }
 }
 
 export async function commitChanges(
@@ -253,37 +361,32 @@ export async function commitChanges(
   layout: LayoutKey[],
   keymap: ParsedKeymap,
   hostSnapshot?: HostKeymapSnapshot | null,
-  hostDeliverables?: HostKeymapDeliverableFile[] | null
+  hostDeliverables?: HostKeymapDeliverableFile[] | null,
+  baseSha?: string | null
 ) {
-  const { data } = await auth.createInstallationToken(installationId)
+  const { data } = await auth.createInstallationToken(installationId, { repository })
   const installationToken = (data as { token: string }).token
-  const listing = await listConfigDir(installationToken, repository, branch)
-  const template = await findCodeKeymapTemplate(
-    listing,
-    installationToken,
-    repository,
-    branch
-  )
+  const head = await resolveHeadCommit(installationToken, repository, branch)
+  if (typeof baseSha !== 'string' || !baseSha || baseSha !== head.sha) {
+    throw new StaleRepoBase()
+  }
+  const ref = head.sha
+  const listing = await listConfigDir(installationToken, repository, ref)
   const originalCodeKeymap = findCodeKeymap(listing)
-  const { data: originalSourceRaw } = await fetchFile(
-    installationToken,
-    repository,
-    originalCodeKeymap.path,
-    { raw: true, branch }
-  )
+  const [template, originalSourceResult] = await Promise.all([
+    findCodeKeymapTemplate(listing, installationToken, repository, ref),
+    fetchFile(installationToken, repository, originalCodeKeymap.path, {
+      raw: true,
+      ref
+    })
+  ])
+  const originalSourceRaw = originalSourceResult.data
   const originalSource =
     typeof originalSourceRaw === 'string' ? originalSourceRaw : String(originalSourceRaw)
 
   const built = buildKeymapCode(layout, keymap, { template, originalSource })
-
-  const { data: commitData } = await api.request({
-    url: `/repos/${repository}/commits/${branch}`,
-    token: installationToken
-  })
-  const { sha, commit } = commitData as {
-    sha: string
-    commit: { tree: { sha: string } }
-  }
+  const sha = head.sha
+  const treeSha = head.treeSha
 
   const tree: Array<{ path: string; mode: string; type: string; content: string }> = [
     {
@@ -299,6 +402,7 @@ export async function commitChanges(
       content: built.json
     }
   ]
+  const deliverable = collectHostDeliverables(hostDeliverables)
   if (hostSnapshot) {
     tree.push({
       path: HOST_KEYMAP_SNAPSHOT_PATH,
@@ -306,9 +410,7 @@ export async function commitChanges(
       type: 'blob',
       content: encodeHostKeymapSnapshot(hostSnapshot)
     })
-    for (const file of hostDeliverables ?? []) {
-      if (!file?.path || typeof file.content !== 'string') continue
-      if (!file.path.startsWith('host_keymap/')) continue
+    for (const file of deliverable.files) {
       tree.push({
         path: file.path,
         mode: MODE_FILE,
@@ -319,18 +421,18 @@ export async function commitChanges(
   }
 
   const { data: treeData } = await api.request({
-    url: `/repos/${repository}/git/trees`,
+    url: api.githubApiPath('repos', repository, 'git', 'trees'),
     method: 'POST',
     token: installationToken,
     data: {
-      base_tree: commit.tree.sha,
+      base_tree: treeSha,
       tree
     }
   })
   const newTreeSha = (treeData as { sha: string }).sha
 
   const { data: newCommit } = await api.request({
-    url: `/repos/${repository}/git/commits`,
+    url: api.githubApiPath('repos', repository, 'git', 'commits'),
     method: 'POST',
     token: installationToken,
     data: {
@@ -342,11 +444,14 @@ export async function commitChanges(
   const newSha = (newCommit as { sha: string }).sha
 
   await api.request({
-    url: `/repos/${repository}/git/refs/heads/${branch}`,
+    url: api.githubApiPath('repos', repository, 'git', 'refs', 'heads', branch),
     method: 'PATCH',
     token: installationToken,
     data: { sha: newSha }
   })
 
-  return { mode: built.mode, warnings: built.warnings }
+  return {
+    mode: built.mode,
+    warnings: [...built.warnings, ...deliverable.warnings]
+  }
 }

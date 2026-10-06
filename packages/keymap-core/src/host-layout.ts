@@ -47,6 +47,8 @@ export interface HostLayoutFromSymbolsOptions {
   fileId?: string
   /** When set, a missing include throws and names the include spec. */
   strictIncludes?: boolean
+  /** Append-only bag for include cycles and multi-group keys. */
+  warnings?: string[]
 }
 
 /**
@@ -67,7 +69,8 @@ export function hostLayoutFromSymbols(
   for (const [xkb, keysyms] of parseXkbSymbolsSection(source, section, [], {
     files,
     fileId,
-    strictIncludes: options.strictIncludes
+    strictIncludes: options.strictIncludes,
+    warnings: options.warnings
   })) {
     const host = hostKeyByXkb(xkb)
     if (!host) continue
@@ -95,6 +98,62 @@ export function hostLayoutFromKeysyms(
 }
 
 /**
+ * Deep copy of a layout table under a new id. Key level objects are not shared
+ * with `source`, so later edits cannot mutate an earlier generation.
+ */
+export function cloneHostLayoutTable(source: HostLayout, id: string): HostLayout {
+  return { id, byZmk: cloneHostLayoutMap(source) }
+}
+
+function cloneHostLayoutMap(source: HostLayout): Map<string, HostKeyLevels> {
+  const byZmk = new Map<string, HostKeyLevels>()
+  for (const [zmk, levels] of source.byZmk) {
+    byZmk.set(zmk, {
+      keysyms: [levels.keysyms[0], levels.keysyms[1], levels.keysyms[2], levels.keysyms[3]],
+      glyphs: [levels.glyphs[0], levels.glyphs[1], levels.glyphs[2], levels.glyphs[3]]
+    })
+  }
+  return byZmk
+}
+
+function sealHostLayoutMap(map: Map<string, HostKeyLevels>): ReadonlyMap<string, HostKeyLevels> {
+  const blocked = () => {
+    throw new TypeError('Host layout map is frozen')
+  }
+  Object.defineProperties(map, {
+    set: { value: blocked },
+    delete: { value: blocked },
+    clear: { value: blocked }
+  })
+  return Object.freeze(map)
+}
+
+/** Freeze key rows so a builtin table cannot be mutated through the registry. */
+export function freezeHostLayoutTable(layout: HostLayout): HostLayout {
+  const byZmk = new Map<string, HostKeyLevels>()
+  for (const [zmk, levels] of layout.byZmk) {
+    byZmk.set(
+      zmk,
+      Object.freeze({
+        keysyms: Object.freeze([
+          levels.keysyms[0],
+          levels.keysyms[1],
+          levels.keysyms[2],
+          levels.keysyms[3]
+        ]) as HostKeysyms,
+        glyphs: Object.freeze([
+          levels.glyphs[0],
+          levels.glyphs[1],
+          levels.glyphs[2],
+          levels.glyphs[3]
+        ]) as HostLevels
+      })
+    )
+  }
+  return Object.freeze({ id: layout.id, byZmk: sealHostLayoutMap(byZmk) })
+}
+
+/**
  * One level of one key replaced, as a new layout. The source table is left
  * alone and its `byZmk` is not reused. Glyphs come from the keysyms through
  * the same path as parsing, so callers never pass them in. A key the layout
@@ -111,11 +170,11 @@ export function withHostKey(
   const host = hostKeyByZmk(zmk)
   if (!host) return undefined
   if (!Number.isInteger(level) || level < 0 || level > 3) return undefined
+  const byZmk = cloneHostLayoutMap(layout)
   const current =
-    layout.byZmk.get(host.zmk)?.keysyms ?? ['NoSymbol', 'NoSymbol', 'NoSymbol', 'NoSymbol']
+    byZmk.get(host.zmk)?.keysyms ?? ['NoSymbol', 'NoSymbol', 'NoSymbol', 'NoSymbol']
   const keysyms = [...current]
   keysyms[level] = keysym.trim() || 'NoSymbol'
-  const byZmk = new Map(layout.byZmk)
   byZmk.set(host.zmk, levelsFromKeysyms(keysyms))
   return { id: layout.id, byZmk }
 }

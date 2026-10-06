@@ -19,12 +19,17 @@ import { SYSTEM_TR_SYMBOLS } from './system-tr-symbols.js'
 import { SYSTEM_UA_SYMBOLS } from './system-ua-symbols.js'
 import { SYSTEM_US_SYMBOLS } from './system-us-symbols.js'
 
+/** Writing system for host symbol shelves and Caps-pairing hints. */
+export type HostLanguageScript = 'latin' | 'cyrillic' | 'greek'
+
 export interface HostLanguage {
   readonly id: string
   readonly name: string
   readonly flag: string
   /** ISO 3166-1 alpha-2 file name for the vendored rectangular flag SVG. */
   readonly flagCode: string
+  /** Primary alphabet script (symbol picker open shelf, Caps pairing). */
+  readonly script: HostLanguageScript
   /** xkb symbols file name (`us`, `ru`, `ua`, `de`). */
   readonly xkbModule: string
   readonly sections: readonly string[]
@@ -49,6 +54,7 @@ export const HOST_LANGUAGES = [
     name: 'English',
     flag: '🇺🇸',
     flagCode: 'us',
+    script: 'latin',
     xkbModule: 'us',
     sections: ['basic'],
     primarySection: 'basic',
@@ -60,6 +66,7 @@ export const HOST_LANGUAGES = [
     name: 'Russian',
     flag: '🇷🇺',
     flagCode: 'ru',
+    script: 'cyrillic',
     xkbModule: 'ru',
     sections: [
       'winkeys',
@@ -88,6 +95,7 @@ export const HOST_LANGUAGES = [
     name: 'Ukrainian',
     flag: '🇺🇦',
     flagCode: 'ua',
+    script: 'cyrillic',
     xkbModule: 'ua',
     sections: ['unicode', 'macOS', 'legacy', 'winkeys', 'typewriter', 'phonetic', 'homophonic'],
     primarySection: 'unicode',
@@ -99,6 +107,7 @@ export const HOST_LANGUAGES = [
     name: 'German',
     flag: '🇩🇪',
     flagCode: 'de',
+    script: 'latin',
     xkbModule: 'de',
     sections: [
       'basic',
@@ -133,6 +142,7 @@ export const HOST_LANGUAGES = [
     name: 'French',
     flag: '🇫🇷',
     flagCode: 'fr',
+    script: 'latin',
     xkbModule: 'fr',
     sections: [
       'basic',
@@ -158,6 +168,7 @@ export const HOST_LANGUAGES = [
     name: 'Polish',
     flag: '🇵🇱',
     flagCode: 'pl',
+    script: 'latin',
     xkbModule: 'pl',
     sections: [
       'basic',
@@ -178,6 +189,7 @@ export const HOST_LANGUAGES = [
     name: 'Spanish',
     flag: '🇪🇸',
     flagCode: 'es',
+    script: 'latin',
     xkbModule: 'es',
     sections: ['basic', 'winkeys', 'nodeadkeys', 'deadtilde', 'dvorak', 'cat', 'ast'],
     primarySection: 'basic',
@@ -189,6 +201,7 @@ export const HOST_LANGUAGES = [
     name: 'Italian',
     flag: '🇮🇹',
     flagCode: 'it',
+    script: 'latin',
     xkbModule: 'it',
     sections: ['basic', 'nodeadkeys', 'winkeys', 'mac', 'us', 'dvorak'],
     primarySection: 'basic',
@@ -200,6 +213,7 @@ export const HOST_LANGUAGES = [
     name: 'Portuguese',
     flag: '🇵🇹',
     flagCode: 'pt',
+    script: 'latin',
     xkbModule: 'pt',
     sections: ['basic', 'nodeadkeys', 'mac', 'mac_nodeadkeys', 'nativo'],
     primarySection: 'basic',
@@ -211,6 +225,7 @@ export const HOST_LANGUAGES = [
     name: 'Portuguese (Brazil)',
     flag: '🇧🇷',
     flagCode: 'br',
+    script: 'latin',
     xkbModule: 'br',
     sections: ['abnt2', 'nodeadkeys', 'thinkpad', 'dvorak', 'nativo'],
     primarySection: 'abnt2',
@@ -222,6 +237,7 @@ export const HOST_LANGUAGES = [
     name: 'Czech',
     flag: '🇨🇿',
     flagCode: 'cz',
+    script: 'latin',
     xkbModule: 'cz',
     sections: ['basic', 'bksl', 'qwerty', 'qwerty_bksl', 'winkeys', 'winkeys-qwerty', 'prog'],
     primarySection: 'basic',
@@ -233,6 +249,7 @@ export const HOST_LANGUAGES = [
     name: 'Danish',
     flag: '🇩🇰',
     flagCode: 'dk',
+    script: 'latin',
     xkbModule: 'dk',
     sections: ['basic', 'nodeadkeys', 'winkeys', 'mac', 'mac_nodeadkeys'],
     primarySection: 'basic',
@@ -244,6 +261,7 @@ export const HOST_LANGUAGES = [
     name: 'Swedish',
     flag: '🇸🇪',
     flagCode: 'se',
+    script: 'latin',
     xkbModule: 'se',
     sections: ['basic', 'nodeadkeys', 'dvorak', 'mac', 'us'],
     primarySection: 'basic',
@@ -255,6 +273,7 @@ export const HOST_LANGUAGES = [
     name: 'Hungarian',
     flag: '🇭🇺',
     flagCode: 'hu',
+    script: 'latin',
     xkbModule: 'hu',
     sections: ['basic', 'standard', 'nodeadkeys', 'qwerty'],
     primarySection: 'basic',
@@ -266,6 +285,7 @@ export const HOST_LANGUAGES = [
     name: 'Turkish',
     flag: '🇹🇷',
     flagCode: 'tr',
+    script: 'latin',
     xkbModule: 'tr',
     sections: ['basic', 'f', 'alt', 'intl', 'us'],
     primarySection: 'basic',
@@ -277,6 +297,7 @@ export const HOST_LANGUAGES = [
     name: 'Romanian',
     flag: '🇷🇴',
     flagCode: 'ro',
+    script: 'latin',
     xkbModule: 'ro',
     sections: ['basic', 'std', 'winkeys'],
     primarySection: 'basic',
@@ -288,6 +309,7 @@ export const HOST_LANGUAGES = [
     name: 'Finnish',
     flag: '🇫🇮',
     flagCode: 'fi',
+    script: 'latin',
     xkbModule: 'fi',
     sections: ['kotoistus', 'winkeys', 'classic', 'nodeadkeys', 'mac'],
     primarySection: 'kotoistus',
@@ -299,6 +321,7 @@ export const HOST_LANGUAGES = [
     name: 'Norwegian',
     flag: '🇳🇴',
     flagCode: 'no',
+    script: 'latin',
     xkbModule: 'no',
     sections: ['basic', 'nodeadkeys', 'winkeys', 'dvorak', 'mac', 'mac_nodeadkeys'],
     primarySection: 'basic',
@@ -310,6 +333,7 @@ export const HOST_LANGUAGES = [
     name: 'Greek',
     flag: '🇬🇷',
     flagCode: 'gr',
+    script: 'greek',
     xkbModule: 'gr',
     sections: ['basic', 'simple', 'polytonic', 'nodeadkeys'],
     primarySection: 'basic',
@@ -321,6 +345,7 @@ export const HOST_LANGUAGES = [
     name: 'Bulgarian',
     flag: '🇧🇬',
     flagCode: 'bg',
+    script: 'cyrillic',
     xkbModule: 'bg',
     sections: ['bds', 'bekl', 'phonetic', 'bas_phonetic'],
     primarySection: 'bds',
@@ -386,12 +411,12 @@ export function preferredAddableHostLanguage(
 /**
  * Whether Caps Lock pairing with English is the recommended Windows install.
  *
- * Cyrillic alphabets (ru, uk, bg) leave AltGr sparse enough that English letters
- * on the key and the national alphabet on Caps Lock work as one layout.
- * Dense Latin layouts (fr, de, es, pl, …) fill all four levels and often use
- * dead keys — prefer a separate `.klc` per language and Win+Space instead.
- * Greek stays separate (different script, but not Caps-paired today).
+ * Cyrillic alphabets leave AltGr sparse enough that English letters on the key
+ * and the national alphabet on Caps Lock work as one layout. Dense Latin
+ * layouts (fr, de, es, pl, …) fill all four levels and often use dead keys —
+ * prefer a separate `.klc` per language and Win+Space instead. Greek stays
+ * separate (different script, but not Caps-paired today).
  */
 export function windowsCapsPairingRecommended(language: HostLanguageId): boolean {
-  return language === 'ru' || language === 'uk' || language === 'bg'
+  return hostLanguage(language).script === 'cyrillic'
 }

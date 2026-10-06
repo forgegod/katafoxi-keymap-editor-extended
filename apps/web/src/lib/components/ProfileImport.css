@@ -1,0 +1,46 @@
+.profile-import {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  z-index: var(--z-popover);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 16rem;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+}
+
+.profile-import textarea,
+.profile-import select,
+.profile-import input[type='file'] {
+  box-sizing: border-box;
+  width: 100%;
+  font: inherit;
+  font-size: var(--font-sm);
+}
+
+.profile-import textarea {
+  min-height: 7rem;
+  resize: vertical;
+}
+
+.profile-import-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.profile-import-error {
+  margin: 0;
+  color: var(--danger-ink);
+  font-size: var(--font-sm);
+}
+
+.profile-import-actions {
+  display: flex;
+  gap: 6px;
+}

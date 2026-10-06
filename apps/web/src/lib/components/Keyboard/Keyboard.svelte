@@ -173,34 +173,52 @@
   let stageEl: HTMLDivElement | undefined = $state()
   let stageW = $state(0)
   let stageH = $state(0)
+  let measureRaf = 0
 
   function measureStage() {
     const el = stageEl
     if (!el) return
     const box = el.getBoundingClientRect()
+    if (stageW === box.width && stageH === box.height) return
     stageW = box.width
     stageH = box.height
+  }
+
+  function cancelMeasureRaf() {
+    if (measureRaf === 0) return
+    cancelAnimationFrame(measureRaf)
+    measureRaf = 0
+  }
+
+  function scheduleMeasure() {
+    if (measureRaf !== 0) return
+    measureRaf = requestAnimationFrame(() => {
+      measureRaf = 0
+      measureStage()
+    })
   }
 
   $effect(() => {
     const el = stageEl
     if (!el || typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(entries => {
-      const box = entries[0]?.contentRect
-      if (!box) return
-      stageW = box.width
-      stageH = box.height
+    const observer = new ResizeObserver(() => {
+      cancelMeasureRaf()
+      measureStage()
     })
     observer.observe(el)
     measureStage()
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      cancelMeasureRaf()
+    }
   })
 
   // Panel mount/unmount changes stage width; remeasure after layout.
   $effect(() => {
     void comboMode
     if (!stageEl) return
-    requestAnimationFrame(measureStage)
+    scheduleMeasure()
+    return cancelMeasureRaf
   })
 
   const scale = $derived.by(() => {
@@ -269,6 +287,7 @@
             {hostView}
             {layerView}
             {legendHover}
+            legendAnchorIndex={editor.legendAnchorIndex}
             {usedKeycodes}
             {usedRevision}
             {usedLayerLabels}

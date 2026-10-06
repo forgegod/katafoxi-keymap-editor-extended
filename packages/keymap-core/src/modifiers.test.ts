@@ -4,11 +4,30 @@ import {
   ALT_GR_SHIFT_COLUMN_LABEL,
   modifierHoldLegend,
   modifierRoleGlyph,
+  modifierSide,
   MODIFIER_HOLDS,
   readModifierChain,
   toggleModifierWraps,
   writeModifierChain
 } from './modifiers.js'
+
+describe('modifierSide', () => {
+  it('reads left/right only on modifier key names', () => {
+    expect(modifierSide('LCTRL')).toBe('L')
+    expect(modifierSide('RIGHT_SHIFT')).toBe('R')
+    expect(modifierSide('RCMD')).toBe('R')
+    expect(modifierSide('LGUI')).toBe('L')
+    expect(modifierSide('RC')).toBe('R')
+    expect(modifierSide('LC')).toBe('L')
+  })
+
+  it('does not treat RET, brackets, or LEFT as a modifier side', () => {
+    expect(modifierSide('RET')).toBe('')
+    expect(modifierSide('RBKT')).toBe('')
+    expect(modifierSide('LEFT')).toBe('')
+    expect(modifierSide('LBKT')).toBe('')
+  })
+})
 
 describe('modifierRoleGlyph', () => {
   it('maps every hold role to its TARGET_SYSTEM glyph', () => {

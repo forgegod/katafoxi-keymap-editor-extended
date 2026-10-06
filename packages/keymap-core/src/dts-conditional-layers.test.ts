@@ -13,10 +13,12 @@ import {
   parseDtsKeymap,
   parseKeymap,
   remapConditionalLayersAfterDelete,
+  remapCombosAfterLayerDelete,
+  remapLayerRefBindingAfterDelete,
   spliceConditionalLayersIntoDts,
   summarizeKeymapDiff
 } from './index.js'
-import type { LayoutKey, ParsedKeymap, ZmkConditionalLayer } from './types.js'
+import type { LayoutKey, ParsedKeymap, ZmkCombo, ZmkConditionalLayer } from './types.js'
 
 const TINY: LayoutKey[] = [
   { x: 0, y: 0, row: 0, col: 0 },
@@ -69,6 +71,22 @@ describe('parseDtsConditionalLayers', () => {
     ).toEqual([])
   })
 
+  it('ignores braces inside conditional-layer comments', () => {
+    const src = `/ {
+    conditional_layers {
+        compatible = "zmk,conditional-layers";
+        tri_layer {
+            // { decoy
+            /* } */
+            if-layers = <1 2>;
+            then-layer = <3>;
+        };
+    };
+};
+`
+    expect(parseDtsConditionalLayers(src)).toEqual([rule('tri_layer', [1, 2], 3)])
+  })
+
   it('attaches rules on DTS import and round-trips through keymap JSON', () => {
     const raw = parseDtsKeymap(WITH_RULE)
     expect(raw.conditionalLayers).toEqual([rule('tri_layer', [1, 2], 3)])
@@ -76,6 +94,82 @@ describe('parseDtsConditionalLayers', () => {
     expect(parsed.conditionalLayers).toEqual([rule('tri_layer', [1, 2], 3)])
     const again = parseKeymap(encodeKeymap(parsed))
     expect(again.conditionalLayers).toEqual(parsed.conditionalLayers)
+  })
+
+  it('omits rules when if-layers use macros so Save keeps the block', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        default_layer { bindings = <&kp A &kp B>; };
+    };
+
+    conditional_layers {
+        compatible = "zmk,conditional-layers";
+        // keep this comment
+        tri {
+            if-layers = <LOWER RAISE>;
+            then-layer = <3>;
+        };
+        numeric {
+            if-layers = <1 2>;
+            then-layer = <3>;
+        };
+    };
+};
+`
+    const raw = parseDtsKeymap(src)
+    expect(raw.conditionalLayers).toBeUndefined()
+    expect(raw.warnings).toContain('conditional_layers_unparsed')
+    const built = buildKeymapCode(TINY, parseKeymap(raw), { originalSource: src })
+    expect(built.code).toContain('if-layers = <LOWER RAISE>;')
+    expect(built.code).toContain('if-layers = <1 2>;')
+    expect(built.code).toContain('// keep this comment')
+  })
+
+  it('omits rules when a list mixes a number and a macro', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        default_layer { bindings = <&kp A &kp B>; };
+    };
+
+    conditional_layers {
+        compatible = "zmk,conditional-layers";
+        mixed {
+            if-layers = <1 RAISE>;
+            then-layer = <3>;
+        };
+    };
+};
+`
+    const raw = parseDtsKeymap(src)
+    expect(raw.conditionalLayers).toBeUndefined()
+    expect(raw.warnings).toContain('conditional_layers_unparsed')
+    const built = buildKeymapCode(TINY, parseKeymap(raw), { originalSource: src })
+    expect(built.code).toContain('if-layers = <1 RAISE>;')
+  })
+
+  it('omits rules when a node has a DTS label', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        default_layer { bindings = <&kp A &kp B>; };
+    };
+
+    conditional_layers {
+        compatible = "zmk,conditional-layers";
+        tri_lbl: tri {
+            if-layers = <1 2>;
+            then-layer = <3>;
+        };
+    };
+};
+`
+    const raw = parseDtsKeymap(src)
+    expect(raw.conditionalLayers).toBeUndefined()
+    expect(raw.warnings).toContain('conditional_layers_unparsed')
+    const built = buildKeymapCode(TINY, parseKeymap(raw), { originalSource: src })
+    expect(built.code).toContain('tri_lbl: tri {')
   })
 })
 
@@ -104,6 +198,13 @@ describe('spliceConditionalLayersIntoDts', () => {
     expect(next).not.toContain('conditional_layers')
     expect(next).toContain('&kp A')
     expect(parseDtsConditionalLayers(next)).toEqual([])
+  })
+
+  it('rewrites conditional layers with CRLF when the source uses CRLF', () => {
+    const crlf = WITH_RULE.replace(/\n/g, '\r\n')
+    const next = spliceConditionalLayersIntoDts(crlf, [rule('tri_layer', [1, 2], 3)])
+    expect(next).toContain('then-layer = <3>;')
+    expect(next.replace(/\r\n/g, '')).not.toContain('\n')
   })
 
   it('writes the block on save and drops it after the rules are cleared', () => {
@@ -137,6 +238,87 @@ describe('remapConditionalLayersAfterDelete', () => {
     expect(
       remapConditionalLayersAfterDelete([rule('wide', [1, 2, 4], 3)], 4)
     ).toEqual([rule('wide', [1, 2], 3)])
+  })
+})
+
+describe('remapCombosAfterLayerDelete', () => {
+  const binding = { value: '&kp', params: [{ value: 'ESC', params: [] }] }
+  const combo = (
+    id: string,
+    layers?: number[]
+  ): ZmkCombo => ({ id, keyPositions: [0, 1], binding, ...(layers ? { layers } : {}) })
+
+  it('shifts a combo filter when a lower layer is removed', () => {
+    expect(remapCombosAfterLayerDelete([combo('on_raise', [2])], 1)).toEqual([
+      combo('on_raise', [1])
+    ])
+  })
+
+  it('drops a combo whose only remaining layer was the deleted index', () => {
+    expect(remapCombosAfterLayerDelete([combo('on_lower', [1])], 1)).toEqual([])
+  })
+
+  it('keeps a combo that still lists another layer, and leaves an unfiltered combo', () => {
+    expect(
+      remapCombosAfterLayerDelete(
+        [combo('split', [1, 3]), combo('everywhere')],
+        1
+      )
+    ).toEqual([combo('split', [2]), combo('everywhere')])
+  })
+})
+
+describe('remapLayerRefBindingAfterDelete', () => {
+  const mo = (layer: string | number) => ({
+    value: '&mo',
+    params: [{ value: layer, params: [] }]
+  })
+  const trans = { value: '&trans', params: [] }
+
+  it('shifts &mo / &lt / &to / &tog / &sl when a lower layer is removed', () => {
+    expect(remapLayerRefBindingAfterDelete(mo('2'), 1)).toEqual({
+      node: mo('1'),
+      cleared: false
+    })
+    expect(
+      remapLayerRefBindingAfterDelete(
+        {
+          value: '&lt',
+          params: [
+            { value: '2', params: [] },
+            { value: 'A', params: [] }
+          ]
+        },
+        1
+      )
+    ).toEqual({
+      node: {
+        value: '&lt',
+        params: [
+          { value: '1', params: [] },
+          { value: 'A', params: [] }
+        ]
+      },
+      cleared: false
+    })
+    expect(remapLayerRefBindingAfterDelete({ value: '&to', params: [{ value: '3', params: [] }] }, 1).node.params[0]?.value).toBe('2')
+    expect(remapLayerRefBindingAfterDelete({ value: '&tog', params: [{ value: '2', params: [] }] }, 0).node.params[0]?.value).toBe('1')
+    expect(remapLayerRefBindingAfterDelete({ value: '&sl', params: [{ value: '2', params: [] }] }, 1).node.params[0]?.value).toBe('1')
+  })
+
+  it('replaces a layer-ref that named the deleted layer with &trans', () => {
+    expect(remapLayerRefBindingAfterDelete(mo('1'), 1)).toEqual({
+      node: trans,
+      cleared: true
+    })
+  })
+
+  it('leaves ordinary keycodes alone', () => {
+    const kp = { value: '&kp', params: [{ value: 'A', params: [] }] }
+    expect(remapLayerRefBindingAfterDelete(kp, 1)).toEqual({
+      node: kp,
+      cleared: false
+    })
   })
 })
 

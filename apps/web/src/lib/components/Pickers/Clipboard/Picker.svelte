@@ -3,20 +3,11 @@
     loadClipboardBundle,
     type ClipboardBundle
   } from '../../../clipboard/load'
+  import type { ClipboardKeyboardSelection } from '../../../editor/types'
   import Button from '../../Common/Button.svelte'
 
-  interface KeymapEvent {
-    source?: string
-    layout?: unknown
-    keymap?: unknown
-    clipboardOriginalSource?: string | null
-    clipboardInferredLayout?: boolean
-    warnings?: string[]
-    [key: string]: unknown
-  }
-
   interface Props {
-    onSelect: (event: KeymapEvent) => void
+    onSelect: (event: ClipboardKeyboardSelection) => void
   }
 
   let { onSelect }: Props = $props()
@@ -49,7 +40,8 @@
       keymap: bundle.keymap,
       clipboardOriginalSource: bundle.originalSource,
       clipboardInferredLayout: bundle.inferredLayout,
-      warnings: bundle.warnings
+      warnings: bundle.warnings,
+      userInitiated: true
     })
   }
 

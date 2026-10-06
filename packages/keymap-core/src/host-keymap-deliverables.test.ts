@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildHostKeymapDeliverableFiles,
-  HOST_KEYMAP_DIR,
-  safeHostKeymapFileStem
+  HOST_KEYMAP_DIR
 } from './host-keymap-deliverables.js'
 import type { HostLayout } from './host-layout.js'
 import type { HostLegendView } from './types.js'
@@ -43,11 +42,6 @@ const VIEW: HostLegendView = {
 }
 
 describe('host-keymap-deliverables', () => {
-  it('sanitizes file stems', () => {
-    expect(safeHostKeymapFileStem('My Layout / v2')).toBe('My-Layout-_-v2')
-    expect(safeHostKeymapFileStem('   ')).toBe('host-layout')
-  })
-
   it('writes linux xkb and windows klc for user columns plus en-ru combined', () => {
     const map = new Map([
       [

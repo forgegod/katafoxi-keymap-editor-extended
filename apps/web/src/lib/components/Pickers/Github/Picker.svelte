@@ -1,15 +1,17 @@
 <script lang="ts">
   import { untrack } from 'svelte'
+  import type { HostKeymapSnapshot, LayoutKey, ParsedKeymap } from '@keymap-editor/keymap-core'
+  import type { HostSnapshotLoadError } from '../../../editor/types.js'
   import * as config from '../../../config'
+  import { editor } from '../../../editor.svelte.js'
   import github from '../../../github/api.svelte.js'
-  import { githubChipLabel, githubGateAction, manageReposUrl } from '../../../github/chrome-label.js'
+  import { manageReposUrl } from '../../../github/chrome-label.js'
   import * as storage from '../../../github/storage'
   import { findBy, mapProp } from '../../../utils'
   import ValidationErrors from './ValidationErrors.svelte'
   import IconButton from '../../Common/IconButton.svelte'
   import Button from '../../Common/Button.svelte'
   import Selector from '../../Common/Selector.svelte'
-  import SourceMenu from '../SourceMenu.svelte'
 
   export interface GithubChromeStatus {
     ready: boolean
@@ -23,19 +25,22 @@
 
   interface Props {
     onSelect: (event: {
-      github: { repository: string; branch: string }
-      layout: unknown
-      keymap: unknown
+      github: { repository: string; branch: string; headSha?: string }
+      layout: LayoutKey[]
+      keymap: ParsedKeymap
+      hostSnapshot?: HostKeymapSnapshot | null
+      hostSnapshotError?: HostSnapshotLoadError
+      warnings?: string[]
       /** Keep unpublished edits + Host legend when switching after Create branch. */
       preserveSession?: boolean
+      /** True for Reload / repo-or-branch change, not the automatic mount load. */
+      userInitiated?: boolean
     }) => void
-    /** Parent draws the chip; this picker only fills the menu and keeps loading. */
-    embedded?: boolean
     onStatus?: (status: GithubChromeStatus) => void
     onLogout?: () => void
   }
 
-  let { onSelect, embedded = false, onStatus, onLogout }: Props = $props()
+  let { onSelect, onStatus, onLogout }: Props = $props()
 
   let branchForm = $state(false)
   let branchDraft = $state('')
@@ -51,6 +56,10 @@
   let loadingKeyboard = $state(false)
   let loadError: { name?: string; errors?: string[] } | null = $state(null)
   let loadWarnings: string[] | null = $state(null)
+  /** Shared by effect loads and Reload so a late response cannot overwrite a newer one. */
+  let keyboardLoadGeneration = 0
+  /** Next keymap fetch was started by Reload, repo/branch change, or Create branch. */
+  let nextLoadUserInitiated = false
 
   function clearSelection() {
     selectedBranchName = null
@@ -58,7 +67,7 @@
     loadWarnings = null
   }
 
-  function lintKeyboard({ layout }: { layout: Array<Record<string, unknown>> }) {
+  function lintKeyboard({ layout }: { layout: LayoutKey[] }) {
     const noKeyHasPosition = layout.every(
       key => key.row === undefined && key.col === undefined
     )
@@ -70,6 +79,43 @@
     }
   }
 
+  /** Surface non-validation load failures; 400s arrive via repo-validation-error. */
+  function applyLoadFailure(err: unknown) {
+    const requestErr = err as {
+      message?: string
+      response?: { status?: number; data?: unknown }
+    }
+    if (requestErr.response?.status === 400) return
+
+    const data = requestErr.response?.data
+    if (data && typeof data === 'object') {
+      const payload = data as { name?: string; errors?: unknown[]; message?: string }
+      if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+        loadError = {
+          name: payload.name || 'Error',
+          errors: payload.errors.map(String)
+        }
+        return
+      }
+      if (typeof payload.message === 'string' && payload.message) {
+        loadError = {
+          name: payload.name || 'Error',
+          errors: [payload.message]
+        }
+        return
+      }
+    }
+
+    loadError = {
+      name: 'Error',
+      errors: [
+        typeof requestErr.message === 'string' && requestErr.message
+          ? requestErr.message
+          : 'Failed to load keyboard from GitHub.'
+      ]
+    }
+  }
+
   async function reloadKeyboard() {
     const repository = findBy(github.repositories ?? [], {
       id: selectedRepoId
@@ -77,19 +123,25 @@
     const branch = selectedBranchName
     if (!repository || !branch) return
 
+    const generation = ++keyboardLoadGeneration
     loadingKeyboard = true
     loadError = null
     try {
       const response = await github.fetchLayoutAndKeymap(repository, branch)
-      lintKeyboard(response as { layout: Array<Record<string, unknown>> })
+      if (generation !== keyboardLoadGeneration) return
+      lintKeyboard(response)
       onSelect({
-        github: { repository, branch },
-        ...response
+        github: { repository, branch, headSha: response.headSha },
+        ...response,
+        userInitiated: true
       })
-    } catch {
-      /* validation errors arrive via repo-validation-error */
+    } catch (err) {
+      if (generation !== keyboardLoadGeneration) return
+      applyLoadFailure(err)
     } finally {
-      loadingKeyboard = false
+      if (generation === keyboardLoadGeneration) {
+        loadingKeyboard = false
+      }
     }
   }
 
@@ -115,7 +167,9 @@
   })
 
   $effect(() => {
-    const onAuthFailed = () => github.beginLoginFlow()
+    const onAuthFailed = () => {
+      void beginLoginFlow()
+    }
     github.on('authentication-failed', onAuthFailed)
     return () => github.off('authentication-failed', onAuthFailed)
   })
@@ -163,8 +217,11 @@
             break
           }
         }
-      } catch {
-        if (!cancelled) loadingBranches = false
+      } catch (err) {
+        if (!cancelled) {
+          loadingBranches = false
+          applyLoadFailure(err)
+        }
       }
     })()
 
@@ -176,10 +233,13 @@
   $effect(() => {
     const repoId = selectedRepoId
     const branch = selectedBranchName
-    if (!repoId || !branch) return
+    if (!repoId || !branch) {
+      loadingKeyboard = false
+      return
+    }
 
     storage.setPersistedBranch(repoId, branch)
-    let cancelled = false
+    const generation = ++keyboardLoadGeneration
 
     loadingKeyboard = true
     loadError = null
@@ -187,33 +247,37 @@
     const repository = findBy(github.repositories ?? [], { id: repoId })
       ?.full_name
     if (!repository) {
-      loadingKeyboard = false
+      if (generation === keyboardLoadGeneration) loadingKeyboard = false
       return
     }
 
     github
       .fetchLayoutAndKeymap(repository, branch)
       .then(response => {
-        if (cancelled) return
+        if (generation !== keyboardLoadGeneration) return
         loadingKeyboard = false
-        lintKeyboard(response as { layout: Array<Record<string, unknown>> })
+        lintKeyboard(response)
         const preserveSession = preserveSessionOnLoad
         preserveSessionOnLoad = false
+        const userInitiated = nextLoadUserInitiated
+        nextLoadUserInitiated = false
         onSelect({
-          github: { repository, branch },
+          github: { repository, branch, headSha: response.headSha },
           ...(preserveSession ? { preserveSession: true } : {}),
+          ...(userInitiated ? { userInitiated: true } : {}),
           ...response
         })
       })
-      .catch(() => {
-        if (!cancelled) {
-          loadingKeyboard = false
-          preserveSessionOnLoad = false
-        }
+      .catch(err => {
+        if (generation !== keyboardLoadGeneration) return
+        loadingKeyboard = false
+        preserveSessionOnLoad = false
+        nextLoadUserInitiated = false
+        applyLoadFailure(err)
       })
 
     return () => {
-      cancelled = true
+      keyboardLoadGeneration += 1
     }
   })
 
@@ -242,34 +306,9 @@
   const appInstalled = $derived(github.isAppInstalled())
   const ready = $derived(github.initialized)
 
-  const gate = $derived(
-    githubGateAction({
-      onlySource: true,
-      ready,
-      authorized,
-      appInstalled
-    })
-  )
-
-  const triggerLabel = $derived.by(() => {
-    if (gate === 'login') return 'Login with GitHub'
-    if (gate === 'install') return 'Add Repository'
-    if (!ready || !authorized || !appInstalled) return 'GitHub'
-    return githubChipLabel(selectedRepo?.full_name ?? null, repoFullNames, selectedBranchName)
-  })
-
-  const triggerTitle = $derived.by(() => {
-    if (!ready || !authorized) return 'Login with GitHub'
-    if (!appInstalled) return 'Add a GitHub repository'
-    const full = selectedRepo?.full_name
-    if (full && selectedBranchName) return `${full} · ${selectedBranchName}`
-    if (full) return full
-    return 'GitHub'
-  })
-
-  function runGate() {
-    if (gate === 'login') github.beginLoginFlow()
-    else if (gate === 'install') github.beginInstallAppFlow()
+  async function beginLoginFlow() {
+    await editor.flushPendingPersist()
+    github.beginLoginFlow()
   }
 
   function beginBranchForm() {
@@ -290,6 +329,7 @@
         branches = [...branches, { name: created.name }]
       }
       preserveSessionOnLoad = true
+      nextLoadUserInitiated = true
       selectedBranchName = created.name
       branchForm = false
       branchDraft = ''
@@ -331,7 +371,7 @@
       collection="brands"
       icon="github"
       text="Login with GitHub"
-      onclick={() => github.beginLoginFlow()}
+      onclick={() => beginLoginFlow()}
     />
   {:else if ready && !appInstalled}
     <IconButton
@@ -354,7 +394,10 @@
         label="Repository"
         value={selectedRepoId}
         choices={repositoryChoices}
-        onUpdate={id => (selectedRepoId = id as number)}
+        onUpdate={id => {
+          nextLoadUserInitiated = true
+          selectedRepoId = id as number
+        }}
       />
     {/if}
 
@@ -369,7 +412,10 @@
         label="Branch"
         value={selectedBranchName}
         choices={branchChoices}
-        onUpdate={name => (selectedBranchName = String(name))}
+        onUpdate={name => {
+          nextLoadUserInitiated = true
+          selectedBranchName = String(name)
+        }}
       />
     {/if}
 
@@ -452,19 +498,7 @@
   {/if}
 {/snippet}
 
-{#if embedded}
-  {@render fields()}
-{:else}
-  <SourceMenu
-    label={triggerLabel}
-    title={triggerTitle}
-    busy={!ready || loadingBranches || loadingKeyboard}
-    popup={gate === null}
-    onActivate={runGate}
-  >
-    {@render fields()}
-  </SourceMenu>
-{/if}
+{@render fields()}
 
 <style>
   .identity-line {

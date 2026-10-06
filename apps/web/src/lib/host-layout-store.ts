@@ -7,6 +7,7 @@ import {
   addHostLanguage,
   assignHostLanguageLayout,
   catalogLayoutsForLanguage,
+  cloneHostLayoutTable,
   HOST_ASSEMBLY_LIMIT,
   HOST_LANGUAGE_IDS,
   hostLayout,
@@ -15,15 +16,19 @@ import {
   primarySystemLayoutId,
   reservedHostProfileNames,
   standardHostLegendView,
+  cloneHostLegendView,
   type HostKeyLevels,
   type HostLanguageId,
   type HostLayout,
   type HostLegendView
 } from '@keymap-editor/keymap-core'
 
+import { idbRequest, openDb, txDone } from './idb'
+
 export const HOST_LAYOUT_DB_NAME = 'keymap-editor-host-profiles'
 export const UNKNOWN_HOST_LAYOUT_NOTE =
   'Unknown layout was replaced with the primary system layout.'
+export const HOST_LAYOUT_SAVE_FAIL_NOTE = 'Could not save host layout locally'
 
 const DB_NAME = HOST_LAYOUT_DB_NAME
 const LAYOUTS_STORE = 'layouts'
@@ -98,10 +103,15 @@ export function isUserHostLayoutId(id: string): boolean {
   return id.startsWith('user:')
 }
 
+/** Case-fold profile names for uniqueness (English UI; Unicode-aware via `en`). */
+export function foldHostProfileName(name: string): string {
+  return name.toLocaleLowerCase('en')
+}
+
 export function reservedProfileName(name: string): boolean {
-  const key = name.toLocaleLowerCase('ru')
+  const key = foldHostProfileName(name)
   return reservedHostProfileNames().some(
-    reserved => reserved.toLocaleLowerCase('ru') === key
+    reserved => foldHostProfileName(reserved) === key
   )
 }
 
@@ -114,27 +124,16 @@ export function uniqueUserHostLayoutName(
   const taken = new Set(
     existing
       .filter(layout => layout.language === language)
-      .map(layout => layout.name.toLocaleLowerCase('ru'))
+      .map(layout => foldHostProfileName(layout.name))
   )
   const used = (name: string) =>
-    reservedProfileName(name) || taken.has(name.toLocaleLowerCase('ru'))
+    reservedProfileName(name) || taken.has(foldHostProfileName(name))
   if (!used(base)) return base
   for (let n = 2; n < 1000; n++) {
     const name = `${base} ${n}`
     if (!used(name)) return name
   }
   return `${base} ${crypto.randomUUID()}`
-}
-
-export function cloneHostLayoutTable(source: HostLayout, id: string): HostLayout {
-  const byZmk = new Map<string, HostKeyLevels>()
-  for (const [zmk, levels] of source.byZmk) {
-    byZmk.set(zmk, {
-      keysyms: [levels.keysyms[0], levels.keysyms[1], levels.keysyms[2], levels.keysyms[3]],
-      glyphs: [levels.glyphs[0], levels.glyphs[1], levels.glyphs[2], levels.glyphs[3]]
-    })
-  }
-  return { id, byZmk }
 }
 
 function serializeLayout(layout: HostLayout): StoredKeyRow[] {
@@ -160,8 +159,16 @@ function deserializeLayout(id: string, keys: StoredKeyRow[]): HostLayout {
   }
 }
 
+const LEGACY_PROFILE_LANGUAGE_ALT = HOST_LANGUAGE_IDS.map(id =>
+  id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+).join('|')
+
+const LEGACY_PROFILE_ID_RE = new RegExp(
+  `^(${LEGACY_PROFILE_LANGUAGE_ALT}):(in-layout|system)(?::([A-Za-z0-9_-]+))?$`
+)
+
 function layoutIdFromLegacyProfile(id: string): string | undefined {
-  const match = /^(en|ru|uk|de):(in-layout|system)(?::([A-Za-z0-9_-]+))?$/.exec(id)
+  const match = LEGACY_PROFILE_ID_RE.exec(id)
   if (!match || !isHostLanguageId(match[1])) return undefined
   const language = match[1]
   const kind = match[2]
@@ -280,43 +287,58 @@ export function sanitizeHostLegendView(view: HostLegendView): {
   return { view: next, replaced }
 }
 
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    if (typeof indexedDB === 'undefined') {
-      reject(new Error('IndexedDB unavailable'))
-      return
-    }
-    const request = indexedDB.open(DB_NAME, DB_VERSION)
-    request.onerror = () => reject(request.error ?? new Error('IDB open failed'))
-    request.onsuccess = () => {
-      const db = request.result
-      void migrateLegacyProfiles(db).then(() => resolve(db), reject)
-    }
-    request.onupgradeneeded = () => {
-      const db = request.result
+/** Skip `afterOpen` migration work after the first successful check this module load. */
+let legacyMigrationChecked = false
+
+export function resetHostLayoutMigrationChecked() {
+  legacyMigrationChecked = false
+}
+
+function openHostDb(): Promise<IDBDatabase> {
+  return openDb({
+    name: DB_NAME,
+    version: DB_VERSION,
+    upgrade(db) {
       if (!db.objectStoreNames.contains(LAYOUTS_STORE)) {
         db.createObjectStore(LAYOUTS_STORE, { keyPath: 'id' })
       }
       if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
         db.createObjectStore(SETTINGS_STORE, { keyPath: 'id' })
       }
-    }
+    },
+    afterOpen: maybeMigrateLegacyProfiles
   })
 }
 
-function idbRequest<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error ?? new Error('IDB request failed'))
-  })
+/** Skip the readwrite migrate when the legacy store is empty and the view is already present. */
+async function legacyMigrationNeeded(db: IDBDatabase): Promise<boolean> {
+  if (!db.objectStoreNames.contains(LEGACY_PROFILES_STORE)) return false
+  const tx = db.transaction([LEGACY_PROFILES_STORE, SETTINGS_STORE], 'readonly')
+  const profileCount = await idbRequest(tx.objectStore(LEGACY_PROFILES_STORE).count())
+  if (profileCount > 0) {
+    await txDone(tx)
+    return true
+  }
+  const viewRow = await idbRequest<StoredView | undefined>(
+    tx.objectStore(SETTINGS_STORE).get(VIEW_SETTING_ID)
+  )
+  if (viewRow) {
+    await txDone(tx)
+    return false
+  }
+  const active = await idbRequest<LegacyActive | undefined>(
+    tx.objectStore(SETTINGS_STORE).get(LEGACY_ACTIVE_SETTING_ID)
+  )
+  await txDone(tx)
+  return !!active
 }
 
-function txDone(tx: IDBTransaction): Promise<void> {
-  return new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error ?? new Error('IDB transaction failed'))
-    tx.onabort = () => reject(tx.error ?? new Error('IDB transaction aborted'))
-  })
+async function maybeMigrateLegacyProfiles(db: IDBDatabase): Promise<void> {
+  if (legacyMigrationChecked) return
+  if (await legacyMigrationNeeded(db)) {
+    await migrateLegacyProfiles(db)
+  }
+  legacyMigrationChecked = true
 }
 
 async function migrateLegacyProfiles(db: IDBDatabase): Promise<void> {
@@ -379,7 +401,7 @@ async function migrateLegacyProfiles(db: IDBDatabase): Promise<void> {
 }
 
 export async function loadUserHostLayouts(): Promise<UserHostLayoutRecord[]> {
-  const db = await openDb()
+  const db = await openHostDb()
   try {
     const tx = db.transaction(LAYOUTS_STORE, 'readonly')
     const rows = await idbRequest(tx.objectStore(LAYOUTS_STORE).getAll())
@@ -412,7 +434,7 @@ export async function saveUserHostLayout(record: UserHostLayoutRecord): Promise<
     updatedAt: record.updatedAt,
     keys: serializeLayout(record.layout)
   }
-  const db = await openDb()
+  const db = await openHostDb()
   try {
     const tx = db.transaction(LAYOUTS_STORE, 'readwrite')
     await idbRequest(tx.objectStore(LAYOUTS_STORE).put(stored))
@@ -423,7 +445,7 @@ export async function saveUserHostLayout(record: UserHostLayoutRecord): Promise<
 }
 
 export async function deleteUserHostLayout(id: string): Promise<void> {
-  const db = await openDb()
+  const db = await openHostDb()
   try {
     const tx = db.transaction(LAYOUTS_STORE, 'readwrite')
     await idbRequest(tx.objectStore(LAYOUTS_STORE).delete(id))
@@ -436,7 +458,7 @@ export async function deleteUserHostLayout(id: string): Promise<void> {
 export async function loadHostLegendView(
   settingId: string = VIEW_SETTING_ID
 ): Promise<HostLegendView | null> {
-  const db = await openDb()
+  const db = await openHostDb()
   try {
     const tx = db.transaction(SETTINGS_STORE, 'readonly')
     const row = await idbRequest<StoredView | undefined>(
@@ -455,7 +477,7 @@ export async function loadHostLegendView(
 }
 
 export async function deleteHostLegendView(settingId: string = VIEW_SETTING_ID): Promise<void> {
-  const db = await openDb()
+  const db = await openHostDb()
   try {
     const tx = db.transaction(SETTINGS_STORE, 'readwrite')
     await idbRequest(tx.objectStore(SETTINGS_STORE).delete(settingId))
@@ -475,7 +497,7 @@ export async function saveHostLegendView(
     open: view.open,
     ...(view.keycap ? { keycap: [...view.keycap] } : {})
   }
-  const db = await openDb()
+  const db = await openHostDb()
   try {
     const tx = db.transaction(SETTINGS_STORE, 'readwrite')
     await idbRequest(tx.objectStore(SETTINGS_STORE).put(record))
@@ -491,16 +513,8 @@ function isStoredAssembly(value: unknown): value is StoredHostAssembly {
   return typeof item.id === 'string' && item.id.length > 0 && isHostLegendView(item.view)
 }
 
-function cloneStoredView(view: HostLegendView): HostLegendView {
-  return {
-    columns: view.columns.map(column => ({ ...column })),
-    open: view.open,
-    ...(view.keycap ? { keycap: [...view.keycap] } : {})
-  }
-}
-
 export async function loadHostAssemblies(settingId: string): Promise<StoredHostAssembly[]> {
-  const db = await openDb()
+  const db = await openHostDb()
   try {
     const tx = db.transaction(SETTINGS_STORE, 'readonly')
     const row = await idbRequest<{ id: string; items?: unknown } | undefined>(
@@ -512,7 +526,7 @@ export async function loadHostAssemblies(settingId: string): Promise<StoredHostA
     for (const item of row.items) {
       if (!isStoredAssembly(item)) continue
       if (items.some(kept => kept.id === item.id)) continue
-      items.push({ id: item.id, view: cloneStoredView(item.view) })
+      items.push({ id: item.id, view: cloneHostLegendView(item.view) })
       if (items.length >= HOST_ASSEMBLY_LIMIT) break
     }
     return items
@@ -529,10 +543,10 @@ export async function saveHostAssemblies(
     id: settingId,
     items: items.slice(0, HOST_ASSEMBLY_LIMIT).map(item => ({
       id: item.id,
-      view: cloneStoredView(item.view)
+      view: cloneHostLegendView(item.view)
     }))
   }
-  const db = await openDb()
+  const db = await openHostDb()
   try {
     const tx = db.transaction(SETTINGS_STORE, 'readwrite')
     await idbRequest(tx.objectStore(SETTINGS_STORE).put(record))
@@ -543,7 +557,8 @@ export async function saveHostAssemblies(
 }
 
 export async function clearHostLayoutStore(): Promise<void> {
-  const db = await openDb()
+  legacyMigrationChecked = false
+  const db = await openHostDb()
   try {
     const stores = [LAYOUTS_STORE, SETTINGS_STORE]
     if (db.objectStoreNames.contains(LEGACY_PROFILES_STORE)) {

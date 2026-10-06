@@ -99,4 +99,15 @@ describe('local-source LARK fixture', () => {
     expect(binds.some(b => b.includes('C_VOL_UP'))).toBe(true)
     expect(binds.some(b => b === '&kp M' || b.startsWith('&kp M'))).toBe(true)
   })
+
+  it('loadLayout throws a path-free ENOENT when info.json is missing', () => {
+    fs.rmSync(path.join(tmpRoot, 'config', 'info.json'))
+    expect(() => zmk.loadLayout()).toThrow(/Layout info\.json not found/)
+    try {
+      zmk.loadLayout()
+    } catch (err) {
+      expect((err as NodeJS.ErrnoException).code).toBe('ENOENT')
+      expect(String(err)).not.toContain(tmpRoot)
+    }
+  })
 })

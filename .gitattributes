@@ -2,6 +2,9 @@
 # Windows Git still checks out LF; editors follow .editorconfig.
 * text=auto eol=lf
 
+# Native CRLF fixture for keymap splice round-trips (T1-3).
+packages/keymap-core/fixtures/corpus/crlf.keymap text eol=crlf
+
 *.png binary
 *.jpg binary
 *.jpeg binary

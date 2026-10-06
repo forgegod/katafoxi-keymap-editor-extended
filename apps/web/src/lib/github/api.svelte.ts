@@ -1,10 +1,57 @@
-import { inferRectangularLayout } from '@keymap-editor/keymap-core'
+import {
+  loadKeyboardBundle,
+  parseHostKeymapSnapshot,
+  type HostKeymapSnapshot,
+  type LayoutKey,
+  type ParsedKeymap
+} from '@keymap-editor/keymap-core'
 import * as config from '../config'
+import type { HostSnapshotLoadError } from '../editor/types.js'
+
+export interface KeyboardFilesResult {
+  layout: LayoutKey[]
+  keymap: ParsedKeymap
+  hostSnapshot: HostKeymapSnapshot | null
+  /** Why a repo snapshot was not applied. Absent when the file is missing or ok. */
+  hostSnapshotError?: HostSnapshotLoadError
+  warnings: string[]
+  headSha: string
+}
+
+export const HOST_SNAPSHOT_UNSUPPORTED_WARNING = 'host_snapshot_unsupported_version'
+export const HOST_SNAPSHOT_INVALID_WARNING = 'host_snapshot_invalid'
+
+/** Accept a validated snapshot at the SPA boundary; keep parse errors for Commit. */
+function hostSnapshotFromResponse(raw: unknown): {
+  hostSnapshot: HostKeymapSnapshot | null
+  hostSnapshotError?: HostSnapshotLoadError
+  warnings: string[]
+} {
+  const parsed = parseHostKeymapSnapshot(raw)
+  if (parsed.ok) {
+    return { hostSnapshot: parsed.snapshot, warnings: [] }
+  }
+  if (parsed.error === 'missing') {
+    return { hostSnapshot: null, warnings: [] }
+  }
+  if (parsed.error === 'unsupported_version') {
+    return {
+      hostSnapshot: null,
+      hostSnapshotError: 'unsupported_version',
+      warnings: [HOST_SNAPSHOT_UNSUPPORTED_WARNING]
+    }
+  }
+  return {
+    hostSnapshot: null,
+    hostSnapshotError: 'invalid',
+    warnings: [HOST_SNAPSHOT_INVALID_WARNING]
+  }
+}
 
 type Listener = (...args: unknown[]) => void
 
 /** Minimal EventEmitter (replaces eventemitter3). */
-export class EventEmitter {
+class EventEmitter {
   private listeners = new Map<string, Set<Listener>>()
 
   on(event: string, fn: Listener): this {
@@ -138,7 +185,11 @@ export class API extends EventEmitter {
     }
 
     // Migrate away from legacy client JWT storage.
-    localStorage.removeItem('auth_token')
+    try {
+      localStorage.removeItem('auth_token')
+    } catch {
+      /* blocked storage must not stall init */
+    }
 
     try {
       const { data } = (await this._request('/github/installation', {
@@ -234,7 +285,10 @@ export class API extends EventEmitter {
     return { name: created.name }
   }
 
-  async fetchLayoutAndKeymap(repo: string, branch?: string | null) {
+  async fetchLayoutAndKeymap(
+    repo: string,
+    branch?: string | null
+  ): Promise<KeyboardFilesResult> {
     const installation = encodeURIComponent(this.repoInstallationMap![repo])
     const repository = encodeURIComponent(repo)
     let path = `/github/keyboard-files/${installation}/${repository}`
@@ -245,47 +299,49 @@ export class API extends EventEmitter {
     try {
       const { data } = (await this._request(path)) as {
         data: {
-          info: { layouts: Record<string, { layout: unknown }> } | null
-          keymap: { layers?: unknown[] }
+          info: { layouts: Record<string, { layout: LayoutKey[] }> } | null
+          keymap: ParsedKeymap
           hostSnapshot?: unknown
+          headSha?: unknown
         }
       }
-      const warnings: string[] = []
-      if (data.info?.layouts && Object.keys(data.info.layouts).length > 0) {
-        const defaultLayout =
-          data.info.layouts.default ||
-          data.info.layouts[Object.keys(data.info.layouts)[0]]
-        return {
-          layout: defaultLayout.layout,
+      const loaded = hostSnapshotFromResponse(data.hostSnapshot ?? null)
+      const headSha = typeof data.headSha === 'string' ? data.headSha : ''
+      try {
+        const bundle = loadKeyboardBundle({
+          infoJson: data.info,
           keymap: data.keymap,
-          hostSnapshot: data.hostSnapshot ?? null,
-          warnings
+          inferredLayoutWarning: 'github_inferred_layout',
+          fallbackKeyboard: 'github',
+          missingLayoutMessage:
+            'Missing file config/info.json and keymap has no bindings to infer a layout from'
+        })
+        return {
+          layout: bundle.layout,
+          keymap: bundle.keymap,
+          hostSnapshot: loaded.hostSnapshot,
+          ...(loaded.hostSnapshotError
+            ? { hostSnapshotError: loaded.hostSnapshotError }
+            : {}),
+          warnings: [...bundle.warnings, ...loaded.warnings],
+          headSha
         }
-      }
-
-      const layer0 = Array.isArray(data.keymap?.layers) ? data.keymap.layers[0] : null
-      const keyCount = Array.isArray(layer0) ? layer0.length : 0
-      if (keyCount <= 0) {
-        const err = new Error('Request failed: 400') as RequestError
-        err.response = {
-          status: 400,
-          data: {
-            name: 'MissingRepoFile',
-            path: 'config/info.json',
-            errors: [
-              'Missing file config/info.json and keymap has no bindings to infer a layout from'
-            ]
+      } catch (bundleErr) {
+        const message =
+          bundleErr instanceof Error ? bundleErr.message : String(bundleErr)
+        if (/no bindings to infer/i.test(message)) {
+          const err = new Error('Request failed: 400') as RequestError
+          err.response = {
+            status: 400,
+            data: {
+              name: 'MissingRepoFile',
+              path: 'config/info.json',
+              errors: [message]
+            }
           }
+          throw err
         }
-        throw err
-      }
-
-      warnings.push('github_inferred_layout')
-      return {
-        layout: inferRectangularLayout(keyCount),
-        keymap: data.keymap,
-        hostSnapshot: data.hostSnapshot ?? null,
-        warnings
+        throw bundleErr
       }
     } catch (err) {
       const requestErr = err as RequestError
@@ -327,7 +383,8 @@ export class API extends EventEmitter {
     layout: unknown,
     keymap: unknown,
     hostSnapshot?: unknown,
-    hostDeliverables?: unknown
+    hostDeliverables?: unknown,
+    baseSha?: string | null
   ) {
     const installation = encodeURIComponent(this.repoInstallationMap![repo])
     const repository = encodeURIComponent(repo)
@@ -340,7 +397,8 @@ export class API extends EventEmitter {
         layout,
         keymap,
         hostSnapshot: hostSnapshot ?? null,
-        hostDeliverables: hostDeliverables ?? null
+        hostDeliverables: hostDeliverables ?? null,
+        baseSha: baseSha ?? null
       }
     })
   }

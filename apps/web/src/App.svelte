@@ -1,15 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { parseDtsKeymap, parseKeymap } from '@keymap-editor/keymap-core'
   import * as config from './lib/config'
   import { setDefinitionsContext } from './lib/context'
-  import { editor, type KeyboardSelection } from './lib/editor.svelte.js'
+  import { editor } from './lib/editor.svelte.js'
   import { handleEditorShortcut } from './lib/editor-shortcuts'
+  import { hasEscapeOverlay } from './lib/escape-stack'
   import { publishKeymap } from './lib/publish-keymap'
   import { reloadLocalKeyboard } from './lib/api'
-  import { buildClipboardExport } from './lib/clipboard/export'
-  import { formatKeymapSaveWarnings } from './lib/keymap-save-warnings'
-  import { writeClipboardOriginalSource } from './lib/clipboard/session'
+  import { copyClipboardKeymap } from './lib/editor/clipboard-copy'
   import KeyboardPicker from './lib/components/Pickers/KeyboardPicker.svelte'
   import ClipboardExportSheet from './lib/components/Pickers/Clipboard/ExportSheet.svelte'
   import Spinner from './lib/components/Common/Spinner.svelte'
@@ -87,10 +85,24 @@
   })
 
   onMount(() => {
-    const onKeyDown = (event: KeyboardEvent) =>
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (hasEscapeOverlay()) return
       handleEditorShortcut(event, editor)
+    }
+    const flushDraft = () => {
+      void editor.flushPendingPersist()
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flushDraft()
+    }
     window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('pagehide', flushDraft)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener('pagehide', flushDraft)
+    }
   })
 
   async function initialize() {
@@ -99,12 +111,12 @@
   }
 
   async function handleWriteFiles() {
-    const ok = await publishKeymap(editor, {
-      write: async () => {
+    await publishKeymap(editor, {
+      write: async sentDraft => {
         const response = await fetch(`${config.apiBaseUrl}/keymap`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(editor.draftKeymap)
+          body: JSON.stringify(sentDraft)
         })
         const contentType = response.headers.get('content-type') || ''
         const data = contentType.includes('application/json')
@@ -125,14 +137,15 @@
     const gh = editor.githubMeta
     if (!gh || !editor.layout || !editor.draftKeymap) return
     const ok = await publishKeymap(editor, {
-      write: async () => {
+      write: async sentDraft => {
         const result = await github.commitChanges(
           gh.repository,
           gh.branch,
           editor.layout,
-          editor.draftKeymap,
+          sentDraft,
           editor.buildCurrentHostKeymapSnapshot(),
-          editor.buildCurrentHostKeymapDeliverables()
+          editor.buildCurrentHostKeymapDeliverables(),
+          gh.headSha
         )
         return result.data
       },
@@ -142,54 +155,8 @@
   }
 
   async function handleCopyClipboard() {
-    if (!editor.layout || !editor.draftKeymap || editor.saving) return
-    editor.saving = true
-    try {
-      const built = buildClipboardExport(
-        editor.layout,
-        editor.draftKeymap,
-        editor.clipboardOriginalSource
-      )
-      let copied = false
-      try {
-        await navigator.clipboard.writeText(built.code)
-        copied = true
-      } catch {
-        copied = false
-      }
-
-      editor.clipboardOriginalSource = built.code
-      const identity = editor.currentDraftIdentity()
-      if (identity) writeClipboardOriginalSource(identity, built.code)
-
-      const km = editor.draftKeymap
-      const raw = parseDtsKeymap(built.code, {
-        keyboard: typeof km.keyboard === 'string' ? km.keyboard : 'clipboard',
-        keymap: typeof km.keymap === 'string' ? km.keymap : 'clipboard',
-        layout: typeof km.layout === 'string' ? km.layout : 'LAYOUT'
-      })
-      const reloaded = parseKeymap(raw)
-      if (editor.isDirty) {
-        editor.applyClipboardCopied(reloaded, {
-          mode: built.mode,
-          warnings: built.warnings
-        })
-      } else {
-        editor.saveNotice = null
-      }
-
-      clipboardExport = {
-        code: built.code,
-        copied,
-        warnings: formatKeymapSaveWarnings(built.warnings)
-      }
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Could not build the .keymap export'
-      editor.saveNotice = { kind: 'error', messages: [message] }
-    } finally {
-      editor.saving = false
-    }
+    const sheet = await copyClipboardKeymap(editor)
+    if (sheet) clipboardExport = sheet
   }
 </script>
 
@@ -249,7 +216,7 @@
               openSource={openSourceRequest}
               onOpenSourceConsumed={() => (openSourceRequest = null)}
               onSelect={event => {
-                void editor.selectKeyboard(event as KeyboardSelection)
+                void editor.selectKeyboard(event)
               }}
               onLogout={() => editor.clearLoadedKeymap()}
             />

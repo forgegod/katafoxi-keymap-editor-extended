@@ -11,8 +11,7 @@
   import { getDefinitionsContext, getSearchContext } from '../../context'
   import { editor } from '../../editor.svelte.js'
   import { createKeyEditSession } from '../../key-edit-session.svelte'
-  import Modal from '../Common/Modal.svelte'
-  import KeyEditor from '../KeyEditor/KeyEditor.svelte'
+  import KeyEditorHost from '../KeyEditorHost.svelte'
 
   const definitionsBox = getDefinitionsContext()
   const searchBox = getSearchContext()
@@ -111,6 +110,7 @@
       <p class="encoder-empty">No encoder on this layer.</p>
     {:else}
       <div class="encoder-row">
+        <!-- Index key: sensor-binding slots are positional; no stable encoder id in the keymap. -->
         {#each turns as binding, index (index)}
           {@const cw = binding.params[0]}
           {@const ccw = binding.params[1]}
@@ -154,36 +154,31 @@
   </div>
 {/if}
 
-{#if session.editing && session.canEdit && session.activeSlot}
-  <Modal onBackdrop={closeEditor}>
-    <KeyEditor
-      bindingLabel={session.bindingLabel}
-      behaviours={activeBinding
-        ? [
-            {
-              code: activeBinding.value,
-              name: 'Encoder',
-              params: activeBinding.params.map(() => 'code')
-            }
-          ]
-        : session.behaviours}
-      editorSlots={session.slots}
-      activeCodeIndex={session.activeSlot.codeIndex}
-      choices={session.choices}
-      onSelectBehaviour={session.selectBehaviour}
-      onSelectValue={session.selectValue}
-      onToggleHold={session.toggleHold}
-      onActivateSlot={slot => session.openEditor(slot, 0)}
-      onConfirm={() => {
-        session.confirm()
-        editing = null
-      }}
-      onCancel={closeEditor}
-      holdTaps={editor.draftKeymap?.holdTaps ?? editor.baselineKeymap?.holdTaps}
-      onChangeHoldTaps={next => editor.updateHoldTaps(next)}
-    />
-  </Modal>
-{/if}
+<KeyEditorHost
+  open={!!(session.editing && session.canEdit && session.activeSlot)}
+  bindingLabel={session.bindingLabel}
+  behaviours={activeBinding
+    ? [
+        {
+          code: activeBinding.value,
+          name: 'Encoder',
+          params: activeBinding.params.map(() => 'code')
+        }
+      ]
+    : session.behaviours}
+  editorSlots={session.slots}
+  activeCodeIndex={session.activeSlot?.codeIndex ?? 0}
+  choices={session.choices}
+  onSelectBehaviour={session.selectBehaviour}
+  onSelectValue={session.selectValue}
+  onToggleHold={session.toggleHold}
+  onActivateSlot={slot => session.openEditor(slot, 0)}
+  onConfirm={() => {
+    session.confirm()
+    editing = null
+  }}
+  onCancel={closeEditor}
+/>
 
 <style>
   .encoder-bar {

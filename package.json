@@ -8,7 +8,9 @@
     "build": "pnpm --filter @keymap-editor/keymap-core build && pnpm --filter @keymap-editor/web build && pnpm --filter @keymap-editor/api build",
     "start": "pnpm --filter @keymap-editor/api start",
     "test": "pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/api test && pnpm --filter @keymap-editor/web test",
+    "test:coverage": "pnpm --filter @keymap-editor/keymap-core test:coverage && pnpm --filter @keymap-editor/api test:coverage && pnpm --filter @keymap-editor/web test:coverage",
     "test:e2e": "playwright test",
+    "test:e2e:prod": "playwright test -c playwright.prod.config.ts",
     "lint": "pnpm -r lint"
   },
   "engines": {

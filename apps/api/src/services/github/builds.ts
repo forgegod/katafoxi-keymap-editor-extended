@@ -4,7 +4,7 @@ import { createInstallationToken } from './auth.js'
 /** How long a new commit may wait for its workflow run to appear. */
 const PENDING_WINDOW_MS = 10 * 60 * 1000
 
-export type FirmwareBuildStatus =
+type FirmwareBuildStatus =
   | 'none'
   | 'pending'
   | 'queued'
@@ -14,7 +14,7 @@ export type FirmwareBuildStatus =
   | 'cancelled'
   | 'unavailable'
 
-export interface FirmwareBuild {
+interface FirmwareBuild {
   status: FirmwareBuildStatus
   sha: string | null
   shortSha: string | null
@@ -46,6 +46,16 @@ interface Artifact {
   expired: boolean
 }
 
+/** Firmware zips are small; refuse anything larger before buffering a download. */
+export const FIRMWARE_ARTIFACT_MAX_BYTES = 50_000_000
+
+export class ArtifactTooLargeError extends Error {
+  readonly name = 'ArtifactTooLargeError'
+  constructor(readonly sizeInBytes: number) {
+    super('Firmware artifact is too large')
+  }
+}
+
 const EMPTY: FirmwareBuild = {
   status: 'none',
   sha: null,
@@ -57,10 +67,6 @@ const EMPTY: FirmwareBuild = {
   detail: null
 }
 
-function repoApiPath(repository: string): string {
-  return repository.split('/').map(encodeURIComponent).join('/')
-}
-
 function shortSha(sha: string | null | undefined): string | null {
   if (!sha) return null
   return sha.slice(0, 7)
@@ -68,6 +74,11 @@ function shortSha(sha: string | null | undefined): string | null {
 
 function githubStatus(err: unknown): number | undefined {
   return (err as { response?: { status?: number } }).response?.status
+}
+
+function isActionsDenied(err: unknown): boolean {
+  const status = githubStatus(err)
+  return status === 403 || status === 422
 }
 
 function unavailable(detail: string): FirmwareBuild {
@@ -115,8 +126,8 @@ function pickArtifact(artifacts: Artifact[]): Artifact | null {
   )
 }
 
-async function installationToken(installationId: string): Promise<string> {
-  const { data } = await createInstallationToken(installationId)
+async function installationToken(installationId: string, repository: string): Promise<string> {
+  const { data } = await createInstallationToken(installationId, { repository })
   return (data as { token: string }).token
 }
 
@@ -128,23 +139,22 @@ export async function fetchFirmwareBuild(
 ): Promise<FirmwareBuild> {
   let token: string
   try {
-    token = await installationToken(installationId)
+    token = await installationToken(installationId, repository)
   } catch (err) {
-    if (githubStatus(err) === 403) return unavailable('actions_permission')
+    if (isActionsDenied(err)) return unavailable('actions_permission')
     throw err
   }
 
-  const repo = repoApiPath(repository)
   let commit: CommitPayload
   let runs: WorkflowRun[]
   try {
     const [commitRes, runsRes] = await Promise.all([
       api.request({
-        url: `/repos/${repo}/commits/${encodeURIComponent(branch)}`,
+        url: api.githubApiPath('repos', repository, 'commits', branch),
         token
       }),
       api.request({
-        url: `/repos/${repo}/actions/runs`,
+        url: api.githubApiPath('repos', repository, 'actions', 'runs'),
         token,
         params: { branch, per_page: '10' }
       })
@@ -153,7 +163,7 @@ export async function fetchFirmwareBuild(
     runs = ((runsRes.data as { workflow_runs?: WorkflowRun[] }).workflow_runs ?? [])
   } catch (err) {
     const status = githubStatus(err)
-    if (status === 403) return unavailable('actions_permission')
+    if (isActionsDenied(err)) return unavailable('actions_permission')
     if (status === 404) return { ...EMPTY }
     throw err
   }
@@ -199,7 +209,7 @@ export async function fetchFirmwareBuild(
 
   try {
     const { data } = await api.request({
-      url: `/repos/${repo}/actions/runs/${run.id}/artifacts`,
+      url: api.githubApiPath('repos', repository, 'actions', 'runs', String(run.id), 'artifacts'),
       token,
       params: { per_page: '20' }
     })
@@ -211,7 +221,7 @@ export async function fetchFirmwareBuild(
       build.artifactName = artifact.name
     }
   } catch (err) {
-    if (githubStatus(err) === 403) return unavailable('actions_permission')
+    if (isActionsDenied(err)) return unavailable('actions_permission')
     throw err
   }
 
@@ -222,11 +232,31 @@ export async function downloadFirmwareArtifact(
   installationId: string,
   repository: string,
   artifactId: string
-): Promise<Uint8Array> {
-  const token = await installationToken(installationId)
-  const repo = repoApiPath(repository)
-  return api.requestBuffer({
-    url: `/repos/${repo}/actions/artifacts/${encodeURIComponent(artifactId)}/zip`,
+): Promise<Response> {
+  const token = await installationToken(installationId, repository)
+  const { data } = await api.request({
+    url: api.githubApiPath('repos', repository, 'actions', 'artifacts', artifactId),
     token
   })
+  const size = (data as { size_in_bytes?: unknown }).size_in_bytes
+  if (
+    typeof size !== 'number' ||
+    !Number.isFinite(size) ||
+    size < 0 ||
+    size > FIRMWARE_ARTIFACT_MAX_BYTES
+  ) {
+    throw new ArtifactTooLargeError(typeof size === 'number' ? size : -1)
+  }
+  const zip = await api.requestZip({
+    url: api.githubApiPath('repos', repository, 'actions', 'artifacts', artifactId, 'zip'),
+    token
+  })
+  const zipLength = zip.headers.get('content-length')
+  if (zipLength) {
+    const bytes = Number.parseInt(zipLength, 10)
+    if (Number.isFinite(bytes) && bytes > FIRMWARE_ARTIFACT_MAX_BYTES) {
+      throw new ArtifactTooLargeError(bytes)
+    }
+  }
+  return zip
 }

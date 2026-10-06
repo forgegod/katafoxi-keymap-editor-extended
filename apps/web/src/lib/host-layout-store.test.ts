@@ -1,6 +1,8 @@
 import {
   addHostLanguage,
+  cloneHostLegendView,
   composeKey,
+  sameHostLegendView,
   composeLegendDecode,
   encodeKlc,
   hostLayout,
@@ -10,22 +12,26 @@ import {
   hostLayoutFromXkb,
   windowsLocale,
   parseKeyBinding,
+  primarySystemLayoutId,
   setHostColumnAlt,
-  SYSTEM_RU_LAYOUT_ID,
-  SYSTEM_US_LAYOUT_ID,
   type HostKeyLevels,
   type HostLayout,
   type HostLegendView
 } from '@keymap-editor/keymap-core'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildDraftIdentity, draftIdentityKey } from './draft-storage'
 import { EditorState, editor, type KeyboardSelection } from './editor.svelte.js'
+import * as hostLayoutStore from './host-layout-store'
 import {
   clearHostLayoutStore,
   HOST_LAYOUT_DB_NAME,
+  hostLegendSettingId,
+  loadHostLegendView,
   loadUserHostLayouts,
   saveHostLegendView,
   UNKNOWN_HOST_LAYOUT_NOTE,
-  uniqueUserHostLayoutName
+  uniqueUserHostLayoutName,
+  resetHostLayoutMigrationChecked
 } from './host-layout-store'
 
 const BOARD: KeyboardSelection = {
@@ -42,6 +48,24 @@ async function openBoard(state: EditorState = editor) {
   await state.selectKeyboard(BOARD)
 }
 
+function localBoard(keyboard: string): KeyboardSelection {
+  return {
+    source: 'local',
+    layout: [],
+    keymap: {
+      keyboard,
+      layers: [[{ value: '&none', params: [] }]],
+      layer_names: ['base']
+    }
+  }
+}
+
+function legendSettingIdFor(keyboard: string): string {
+  return hostLegendSettingId(
+    draftIdentityKey(buildDraftIdentity({ source: 'local', keyboard })!)
+  )
+}
+
 function openLayoutId(view: HostLegendView): string | null {
   if (view.open == null) return null
   return view.columns.find(column => column.language === view.open)?.layoutId ?? null
@@ -54,6 +78,7 @@ function byZmkRecord(layout: HostLayout): Record<string, HostKeyLevels> {
 }
 
 function deleteHostLayoutDb(): Promise<void> {
+  resetHostLayoutMigrationChecked()
   return new Promise((resolve, reject) => {
     const request = indexedDB.deleteDatabase(HOST_LAYOUT_DB_NAME)
     request.onsuccess = () => resolve()
@@ -109,10 +134,10 @@ describe('host layout store', () => {
   })
 
   it('switches a language column without asking for a name', async () => {
-    await editor.selectLanguageProfile('ru', SYSTEM_RU_LAYOUT_ID)
-    expect(openLayoutId(editor.hostLegend)).toBe(SYSTEM_RU_LAYOUT_ID)
+    await editor.selectLanguageProfile('ru', primarySystemLayoutId('ru')!)
+    expect(openLayoutId(editor.hostLegend)).toBe(primarySystemLayoutId('ru')!)
     expect(editor.hostProfilePrompt).toBeNull()
-    expect(editor.activeProfileId('ru')).toBe(SYSTEM_RU_LAYOUT_ID)
+    expect(editor.activeProfileId('ru')).toBe(primarySystemLayoutId('ru')!)
     expect(
       composeKey({
         binding: parseKeyBinding('&kp Q'),
@@ -122,25 +147,25 @@ describe('host layout store', () => {
   })
 
   it('puts system US in the English column', async () => {
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
-    expect(editor.hostLegend.columns[0].layoutId).toBe(SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
+    expect(editor.hostLegend.columns[0].layoutId).toBe(primarySystemLayoutId('en')!)
     expect(
       composeKey({
         binding: parseKeyBinding('&kp N1'),
         hostView: editor.hostLegend
       })?.columns[0]?.pair
     ).toEqual(['1', '!'])
-    expect(editor.activeProfileId('en')).toBe(SYSTEM_US_LAYOUT_ID)
+    expect(editor.activeProfileId('en')).toBe(primarySystemLayoutId('en')!)
   })
 
   it('stores a named user layout and restores it', async () => {
-    await editor.selectLanguageProfile('ru', SYSTEM_RU_LAYOUT_ID)
+    await editor.selectLanguageProfile('ru', primarySystemLayoutId('ru')!)
     editor.beginSaveHostProfile('ru')
     expect(await editor.confirmHostProfileName('Домашняя')).toBeNull()
     expect(editor.activeProfileId('ru')).toMatch(/^user:/)
     expect(openLayoutId(editor.hostLegend)).toBe(editor.activeProfileId('ru'))
     expect(hostLayout(editor.activeProfileId('ru'))?.byZmk.get('Q')?.glyphs).toEqual(
-      hostLayout(SYSTEM_RU_LAYOUT_ID)?.byZmk.get('Q')?.glyphs
+      hostLayout(primarySystemLayoutId('ru')!)?.byZmk.get('Q')?.glyphs
     )
 
     editor.resetForTests()
@@ -149,15 +174,15 @@ describe('host layout store', () => {
     expect(editor.userLayouts.map(layout => layout.name)).toEqual(['Домашняя'])
     expect(editor.userLayouts[0]?.language).toBe('ru')
     expect(openLayoutId(editor.hostLegend)).toBe(editor.activeProfileId('ru'))
-    expect(editor.activeProfileId('en')).toBe(SYSTEM_US_LAYOUT_ID)
+    expect(editor.activeProfileId('en')).toBe(primarySystemLayoutId('en')!)
   })
 
   it('keeps English when a Russian layout is saved', async () => {
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     editor.beginSaveHostProfile('ru')
     await editor.confirmHostProfileName('Домашняя')
-    expect(editor.hostLegend.columns[0].layoutId).toBe(SYSTEM_US_LAYOUT_ID)
-    expect(editor.activeProfileId('en')).toBe(SYSTEM_US_LAYOUT_ID)
+    expect(editor.hostLegend.columns[0].layoutId).toBe(primarySystemLayoutId('en')!)
+    expect(editor.activeProfileId('en')).toBe(primarySystemLayoutId('en')!)
   })
 
   it('rejects an empty name and reserved builtin names', async () => {
@@ -192,14 +217,86 @@ describe('host layout store', () => {
     editor.beginDeleteHostProfile('ru')
     expect(editor.hostProfilePrompt?.kind).toBe('delete')
     await editor.deleteActiveHostProfile()
-    expect(editor.activeProfileId('ru')).toBe(SYSTEM_RU_LAYOUT_ID)
+    expect(editor.activeProfileId('ru')).toBe(primarySystemLayoutId('ru')!)
     expect(editor.userLayouts).toHaveLength(0)
     expect(await loadUserHostLayouts()).toHaveLength(0)
-    expect(openLayoutId(editor.hostLegend)).toBe(SYSTEM_RU_LAYOUT_ID)
+    expect(openLayoutId(editor.hostLegend)).toBe(primarySystemLayoutId('ru')!)
+  })
+
+  it('does not write keyboard A legend under B during a delayed saveUserHostLayout', async () => {
+    const boardA = localBoard('board-a')
+    const boardB = localBoard('board-b')
+    const settingB = legendSettingIdFor('board-b')
+
+    await editor.selectKeyboard(boardB)
+    await editor.commitHostMap(addHostLanguage(editor.hostLegend, 'uk'))
+    const legendB = cloneHostLegendView(editor.hostLegend)
+    expect(await loadHostLegendView(settingB)).toEqual(legendB)
+
+    await editor.selectKeyboard(boardA)
+    expect(editor.hostLegend.columns.some(column => column.language === 'uk')).toBe(
+      false
+    )
+
+    let releaseSave!: () => void
+    const saveGate = new Promise<void>(resolve => {
+      releaseSave = resolve
+    })
+    let enteredSave!: () => void
+    const saveEntered = new Promise<void>(resolve => {
+      enteredSave = resolve
+    })
+    const originalSave = hostLayoutStore.saveUserHostLayout
+    const saveSpy = vi
+      .spyOn(hostLayoutStore, 'saveUserHostLayout')
+      .mockImplementation(async record => {
+        enteredSave()
+        await saveGate
+        return originalSave(record)
+      })
+
+    let releaseLoad!: () => void
+    const loadGate = new Promise<void>(resolve => {
+      releaseLoad = resolve
+    })
+    let enteredLoad!: () => void
+    const loadEntered = new Promise<void>(resolve => {
+      enteredLoad = resolve
+    })
+    const originalLoad = hostLayoutStore.loadHostLegendView
+    const loadSpy = vi
+      .spyOn(hostLayoutStore, 'loadHostLegendView')
+      .mockImplementation(async (settingId?: string) => {
+        if (settingId === settingB) {
+          enteredLoad()
+          await loadGate
+        }
+        return originalLoad(settingId)
+      })
+
+    try {
+      editor.beginSaveHostProfile('en')
+      const saving = editor.confirmHostProfileName('Alpha')
+      await saveEntered
+      const switching = editor.selectKeyboard(boardB)
+      await loadEntered
+      releaseSave()
+      await saving
+
+      const storedB = await originalLoad(settingB)
+      expect(storedB).not.toBeNull()
+      expect(sameHostLegendView(storedB!, legendB)).toBe(true)
+
+      releaseLoad()
+      await switching
+    } finally {
+      saveSpy.mockRestore()
+      loadSpy.mockRestore()
+    }
   })
 
   it('copies a named system variant, not only the open layout', async () => {
-    await editor.selectLanguageProfile('ru', SYSTEM_RU_LAYOUT_ID)
+    await editor.selectLanguageProfile('ru', primarySystemLayoutId('ru')!)
     editor.beginCopyHostProfile('ru', 'system-ru-phonetic')
     expect(await editor.confirmHostProfileName('Фонетика')).toBeNull()
     expect(openLayoutId(editor.hostLegend)).toBe(editor.activeProfileId('ru'))
@@ -250,13 +347,13 @@ describe('host layout store', () => {
   })
 
   it('copies the open layout under a new name', async () => {
-    await editor.selectLanguageProfile('ru', SYSTEM_RU_LAYOUT_ID)
+    await editor.selectLanguageProfile('ru', primarySystemLayoutId('ru')!)
     editor.beginCopyHostProfile('ru')
     expect(editor.hostProfilePrompt?.kind).toBe('copy')
     expect(await editor.confirmHostProfileName('Копия ru')).toBeNull()
     expect(editor.activeProfileId('ru')).toMatch(/^user:/)
     expect(hostLayout(editor.activeProfileId('ru'))?.byZmk.get('Q')?.keysyms).toEqual(
-      hostLayout(SYSTEM_RU_LAYOUT_ID)?.byZmk.get('Q')?.keysyms
+      hostLayout(primarySystemLayoutId('ru')!)?.byZmk.get('Q')?.keysyms
     )
     expect(editor.userLayouts.map(layout => layout.name)).toEqual(['Копия ru'])
 
@@ -274,10 +371,10 @@ describe('host layout store', () => {
   it('keeps layer visibility when switching the English layout', async () => {
     editor.layerView = { ...editor.layerView, shown: [0, 2] }
     await editor.commitHostMap(setHostColumnAlt(editor.hostLegend, 'en', 'altGr', false))
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     expect(editor.layerView.shown).toEqual([0, 2])
     expect(editor.hostLegend.columns[0].altGr).toBe(false)
-    expect(editor.hostLegend.columns[0].layoutId).toBe(SYSTEM_US_LAYOUT_ID)
+    expect(editor.hostLegend.columns[0].layoutId).toBe(primarySystemLayoutId('en')!)
   })
 
   it('replaces an unknown layout id with the primary system layout once', async () => {
@@ -292,7 +389,7 @@ describe('host layout store', () => {
         },
         {
           language: 'ru',
-          layoutId: SYSTEM_RU_LAYOUT_ID,
+          layoutId: primarySystemLayoutId('ru')!,
           visible: true,
           altGr: true,
           altGrShift: true
@@ -303,7 +400,7 @@ describe('host layout store', () => {
     editor.resetForTests()
     await editor.restoreHostProfiles()
     await openBoard()
-    expect(editor.hostLegend.columns[0].layoutId).toBe(SYSTEM_US_LAYOUT_ID)
+    expect(editor.hostLegend.columns[0].layoutId).toBe(primarySystemLayoutId('en')!)
     expect(editor.hostProfileNote).toBe(UNKNOWN_HOST_LAYOUT_NOTE)
   })
 
@@ -316,7 +413,7 @@ describe('host layout store', () => {
           id: 'legacy-ru',
           name: 'Домашняя',
           language: 'ru',
-          layoutId: SYSTEM_RU_LAYOUT_ID,
+          layoutId: primarySystemLayoutId('ru')!,
           updatedAt: 1
         }
       ],
@@ -335,12 +432,12 @@ describe('host layout store', () => {
     expect(next.userLayouts[0]?.id).toBe('user:legacy-ru')
     expect(next.userLayouts[0]?.origin).toEqual({
       from: 'copy',
-      layoutId: SYSTEM_RU_LAYOUT_ID
+      layoutId: primarySystemLayoutId('ru')!
     })
-    expect(next.hostLegend.columns[0].layoutId).toBe(SYSTEM_US_LAYOUT_ID)
+    expect(next.hostLegend.columns[0].layoutId).toBe(primarySystemLayoutId('en')!)
     expect(next.activeProfileId('ru')).toBe('user:legacy-ru')
     expect(hostLayout('user:legacy-ru')?.byZmk.get('Q')?.glyphs).toEqual(
-      hostLayout(SYSTEM_RU_LAYOUT_ID)?.byZmk.get('Q')?.glyphs
+      hostLayout(primarySystemLayoutId('ru')!)?.byZmk.get('Q')?.glyphs
     )
     expect(next.hostLegend.columns.some(column => column.language === 'uk')).toBe(false)
   })
@@ -390,7 +487,7 @@ describe('host layout store', () => {
   })
 
   it('imports a one-language klc into the column that asked', async () => {
-    const text = hostLayoutToKlc(hostLayout(SYSTEM_RU_LAYOUT_ID)!, {
+    const text = hostLayoutToKlc(hostLayout(primarySystemLayoutId('ru')!)!, {
       name: 'My Russian',
       locale: windowsLocale('ru')
     })
@@ -403,14 +500,14 @@ describe('host layout store', () => {
     expect(editor.userLayouts[0]?.language).toBe('en')
     expect(editor.userLayouts[0]?.name).toBe('My Russian')
     expect(hostLayout(editor.activeProfileId('en'))?.byZmk.get('Q')?.glyphs).toEqual(
-      hostLayout(SYSTEM_RU_LAYOUT_ID)?.byZmk.get('Q')?.glyphs
+      hostLayout(primarySystemLayoutId('ru')!)?.byZmk.get('Q')?.glyphs
     )
   })
 
   it('imports a paired klc into the base language and the Caps Lock language', async () => {
     const text = hostLayoutsToCapsKlc(
-      hostLayout(SYSTEM_US_LAYOUT_ID)!,
-      hostLayout(SYSTEM_RU_LAYOUT_ID)!,
+      hostLayout(primarySystemLayoutId('en')!)!,
+      hostLayout(primarySystemLayoutId('ru')!)!,
       { name: 'English + Russian', locale: windowsLocale('en') }
     )
     expect(await editor.importHostLayoutFromKlc('en', encodeKlc(text), 'paired.klc')).toBeNull()
@@ -426,7 +523,7 @@ describe('host layout store', () => {
       'Q'
     ])
     expect(hostLayout(editor.activeProfileId('ru'))?.byZmk.get('Q')?.glyphs[0]).toBe(
-      hostLayout(SYSTEM_RU_LAYOUT_ID)?.byZmk.get('Q')?.glyphs[0]
+      hostLayout(primarySystemLayoutId('ru')!)?.byZmk.get('Q')?.glyphs[0]
     )
     expect(editor.hostProfileNote).toBe(
       'Imported English and Russian from a paired layout. AltGr is on Russian.'
@@ -438,46 +535,73 @@ describe('host layout store', () => {
     expect(next.activeProfileId('en')).toBe(editor.activeProfileId('en'))
     expect(next.activeProfileId('ru')).toBe(editor.activeProfileId('ru'))
     expect(hostLayout(next.activeProfileId('ru'))?.byZmk.get('Q')?.glyphs[0]).toBe(
-      hostLayout(SYSTEM_RU_LAYOUT_ID)?.byZmk.get('Q')?.glyphs[0]
+      hostLayout(primarySystemLayoutId('ru')!)?.byZmk.get('Q')?.glyphs[0]
+    )
+  })
+
+  it('imports a Latin paired klc into the destination column', async () => {
+    editor.hostLegend = addHostLanguage(editor.hostLegend, 'fr')
+    const text = hostLayoutsToCapsKlc(
+      hostLayout(primarySystemLayoutId('en')!)!,
+      hostLayout(primarySystemLayoutId('cs')!)!,
+      { name: 'English + Czech', locale: windowsLocale('en') }
+    )
+    expect(await editor.importHostLayoutFromKlc('fr', encodeKlc(text), 'paired.klc')).toBeNull()
+    expect(editor.userLayouts.map(layout => layout.language)).toEqual(['en', 'fr'])
+    expect(editor.hostLegend.open).toBe('fr')
+  })
+
+  it('imports xkb with a skipped level3(ralt_switch) include and warns', async () => {
+    const text = `
+      xkb_symbols "basic" {
+        include "level3(ralt_switch)"
+        key <AC01> {[ a, A ]};
+      };
+    `
+    expect(await editor.importHostLayoutFromXkb('en', text, 'basic', 'imported.xkb')).toBeNull()
+    expect(editor.userLayouts).toHaveLength(1)
+    expect(hostLayout(editor.userLayouts[0]!.id)?.byZmk.get('A')?.keysyms[0]).toBe('a')
+    expect(editor.hostProfileNote).toBe(
+      'Skipped xkb include "level3(ralt_switch)": non-character module.'
     )
   })
 
   it('names an unresolved include when importing xkb', async () => {
     const text = `
       xkb_symbols "broken" {
-        include "level3(ralt_switch)"
+        include "missing(nope)"
         key <AC01> {[ a, A ]};
       };
     `
     expect(await editor.importHostLayoutFromXkb('en', text, 'broken', 'broken.xkb')).toBe(
-      'Unresolved xkb include "level3(ralt_switch)"'
+      'Unresolved xkb include "missing(nope)"'
     )
     expect(editor.userLayouts).toHaveLength(0)
   })
 
   it('forks a system layout into a user copy before edit', async () => {
-    await editor.selectLanguageProfile('ru', SYSTEM_RU_LAYOUT_ID)
-    const system = hostLayout(SYSTEM_RU_LAYOUT_ID)!
+    await editor.selectLanguageProfile('ru', primarySystemLayoutId('ru')!)
+    const system = hostLayout(primarySystemLayoutId('ru')!)!
     const byZmkRef = system.byZmk
     const qKeysyms = system.byZmk.get('Q')!.keysyms
     const expectedName = uniqueUserHostLayoutName('ru', 'System', [])
 
     const id = await editor.ensureEditableUserHostLayout('ru')
     expect(id).toMatch(/^user:/)
-    expect(id).not.toBe(SYSTEM_RU_LAYOUT_ID)
+    expect(id).not.toBe(primarySystemLayoutId('ru')!)
     expect(editor.activeProfileId('ru')).toBe(id)
     expect(openLayoutId(editor.hostLegend)).toBe(id)
     expect(editor.userLayouts).toHaveLength(1)
     expect(editor.userLayouts[0]?.name).toBe(expectedName)
     expect(editor.userLayouts[0]?.origin).toEqual({
       from: 'copy',
-      layoutId: SYSTEM_RU_LAYOUT_ID
+      layoutId: primarySystemLayoutId('ru')!
     })
     expect(editor.hostProfileNote).toBe(
       `Created copy “${expectedName}” for edits. The system layout is unchanged.`
     )
-    expect(hostLayout(SYSTEM_RU_LAYOUT_ID)?.byZmk).toBe(byZmkRef)
-    expect(hostLayout(SYSTEM_RU_LAYOUT_ID)?.byZmk.get('Q')?.keysyms).toBe(qKeysyms)
+    expect(hostLayout(primarySystemLayoutId('ru')!)?.byZmk).toBe(byZmkRef)
+    expect(hostLayout(primarySystemLayoutId('ru')!)?.byZmk.get('Q')?.keysyms).toBe(qKeysyms)
     expect(hostLayout(id)?.byZmk.get('Q')?.keysyms).toEqual([...qKeysyms])
 
     const again = await editor.ensureEditableUserHostLayout('ru')
@@ -493,9 +617,9 @@ describe('host layout store', () => {
   })
 
   it('edits one host key level and forks a system column first', async () => {
-    await editor.selectLanguageProfile('ru', SYSTEM_RU_LAYOUT_ID)
-    const beforeQ = [...hostLayout(SYSTEM_RU_LAYOUT_ID)!.byZmk.get('Q')!.keysyms]
-    const beforeA = [...hostLayout(SYSTEM_RU_LAYOUT_ID)!.byZmk.get('A')!.keysyms]
+    await editor.selectLanguageProfile('ru', primarySystemLayoutId('ru')!)
+    const beforeQ = [...hostLayout(primarySystemLayoutId('ru')!)!.byZmk.get('Q')!.keysyms]
+    const beforeA = [...hostLayout(primarySystemLayoutId('ru')!)!.byZmk.get('A')!.keysyms]
     const noteBefore = editor.hostProfileNote
 
     const edited = await editor.setHostKeyLevel('ru', 'Q', 0, 'ё')
@@ -507,7 +631,7 @@ describe('host layout store', () => {
     if (!edited.ok) throw new Error('edit failed')
     expect(edited.layoutId).toMatch(/^user:/)
     expect(editor.activeProfileId('ru')).toBe(edited.layoutId)
-    expect(hostLayout(SYSTEM_RU_LAYOUT_ID)?.byZmk.get('Q')?.keysyms).toEqual(beforeQ)
+    expect(hostLayout(primarySystemLayoutId('ru')!)?.byZmk.get('Q')?.keysyms).toEqual(beforeQ)
     expect(hostLayout(edited.layoutId)?.byZmk.get('Q')?.keysyms).toEqual([
       'Cyrillic_io',
       beforeQ[1],
@@ -526,7 +650,7 @@ describe('host layout store', () => {
   })
 
   it('rejects multi-code-point host level input without changing the layout', async () => {
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     const forked = await editor.ensureEditableUserHostLayout('en')
     const before = [...hostLayout(forked)!.byZmk.get('A')!.keysyms]
     const note = 'keep this note'
@@ -544,7 +668,7 @@ describe('host layout store', () => {
   })
 
   it('stores NoSymbol for empty host level input', async () => {
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     const result = await editor.setHostKeyLevel('en', 'A', 2, '')
     expect(result).toMatchObject({ ok: true, keysym: 'NoSymbol' })
     if (!result.ok) throw new Error('edit failed')
@@ -553,8 +677,8 @@ describe('host layout store', () => {
   })
 
   it('reverts a host level to the system primary and clears the differ', async () => {
-    await editor.selectLanguageProfile('ru', SYSTEM_RU_LAYOUT_ID)
-    const systemKeysym = hostLayout(SYSTEM_RU_LAYOUT_ID)!.byZmk.get('Q')!.keysyms[0]
+    await editor.selectLanguageProfile('ru', primarySystemLayoutId('ru')!)
+    const systemKeysym = hostLayout(primarySystemLayoutId('ru')!)!.byZmk.get('Q')!.keysyms[0]
     const edited = await editor.setHostKeyLevel('ru', 'Q', 0, 'ё')
     expect(edited.ok).toBe(true)
     if (!edited.ok) throw new Error('edit failed')
@@ -570,7 +694,7 @@ describe('host layout store', () => {
   })
 
   it('persists a host key level edit across reset and restore', async () => {
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     const edited = await editor.setHostKeyLevel('en', 'A', 0, 'α')
     expect(edited.ok).toBe(true)
     if (!edited.ok) throw new Error('edit failed')
@@ -586,7 +710,7 @@ describe('host layout store', () => {
   })
 
   it('warns when the base host level becomes a non-character keysym', async () => {
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     const result = await editor.setHostKeyLevel('en', 'A', 0, 'dead_acute')
     expect(result).toEqual({
       ok: true,
@@ -597,7 +721,7 @@ describe('host layout store', () => {
   })
 
   it('bumps hostLayoutRevision on in-place register without changing view or layout id', async () => {
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     const layoutId = await editor.ensureEditableUserHostLayout('en')
     const viewBefore = {
       open: editor.hostLegend.open,
@@ -615,7 +739,7 @@ describe('host layout store', () => {
   })
 
   it('does not bump hostLayoutRevision on hover-only editor state', async () => {
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     const before = editor.hostLayoutRevision
     editor.legendHover = { kind: 'altGr' }
     expect(editor.hostLayoutRevision).toBe(before)
@@ -624,7 +748,7 @@ describe('host layout store', () => {
   })
 
   it('exports a user host layout as xkb that round-trips through parse', async () => {
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     const edited = await editor.setHostKeyLevel('en', 'A', 0, 'α')
     expect(edited.ok).toBe(true)
     if (!edited.ok) throw new Error('edit failed')
@@ -647,7 +771,7 @@ describe('host layout store', () => {
     expect(byZmkRecord(viaXkb)).toEqual(byZmkRecord(original))
     expect(byZmkRecord(viaSymbols)).toEqual(byZmkRecord(original))
 
-    expect(editor.exportUserHostLayoutXkb(SYSTEM_US_LAYOUT_ID)).toBeNull()
+    expect(editor.exportUserHostLayoutXkb(primarySystemLayoutId('en')!)).toBeNull()
   })
 
   it('treats undelivered user-layout edits as host-dirty until export', async () => {
@@ -673,8 +797,39 @@ describe('host layout store', () => {
     expect(again.ok).toBe(true)
     expect(editor.isHostDirty).toBe(true)
 
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     expect(editor.isHostDirty).toBe(false)
     expect(editor.exportActiveHostLayoutsXkb()).toBeNull()
+  })
+
+  it('marks host dirty when assigning an existing user layout to a column', async () => {
+    editor.beginSaveHostProfile('en')
+    expect(await editor.confirmHostProfileName('Home A')).toBeNull()
+    const idA = editor.activeProfileId('en')
+    expect(idA).toMatch(/^user:/)
+
+    editor.beginCopyHostProfile('en', idA)
+    expect(await editor.confirmHostProfileName('Home B')).toBeNull()
+    const idB = editor.activeProfileId('en')
+    expect(idB).toMatch(/^user:/)
+    expect(idB).not.toBe(idA)
+
+    editor.markHostDelivered()
+    expect(editor.isHostDirty).toBe(false)
+    expect(editor.hostDeliverableLayoutIds).toEqual([idB])
+
+    const revisionBefore = editor.hostLayoutRevision
+    await editor.selectLanguageProfile('en', idA)
+    expect(editor.hostLayoutRevision).toBe(revisionBefore)
+    expect(editor.activeProfileId('en')).toBe(idA)
+    expect(editor.hostDeliverableLayoutIds).toEqual([idA])
+    expect(editor.isHostDirty).toBe(true)
+
+    editor.markHostDelivered()
+    expect(editor.isHostDirty).toBe(false)
+
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
+    expect(editor.isHostDirty).toBe(false)
+    expect(editor.hostDeliverableLayoutIds).toEqual([])
   })
 })

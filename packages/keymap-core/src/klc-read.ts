@@ -9,6 +9,7 @@
  * names, and custom dead-key compositions are not stored.
  */
 
+import { guessHostLanguageFromLetters } from './host-basic-glyphs.js'
 import { HOST_KEY_IDS } from './host-key-id.js'
 import { hostLayoutFromKeysyms, type HostLayout } from './host-layout.js'
 import { HOST_LANGUAGE_IDS, type HostLanguageId } from './host-languages.js'
@@ -16,7 +17,7 @@ import { WINDOWS_DEAD_KEYS, windowsDeadKey } from './klc-dead.js'
 import { windowsLocale } from './klc-locale.js'
 import { glyphToKeysym } from './xkb-keysyms.js'
 
-export class KlcParseError extends Error {
+class KlcParseError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'KlcParseError'
@@ -34,8 +35,8 @@ export interface KlcLayoutImport {
   /** Caps Lock alphabet. Present only when `kind` is `paired`. */
   caps?: HostLayout
   /**
-   * Russian, Ukrainian, or German when those letters are on Caps Lock.
-   * Null for a single layout, or when the second alphabet is not one of those.
+   * Catalog language guessed from Caps Lock letters (`LETTERS` coverage).
+   * Null for a single layout, or when those letters match none of the catalog.
    */
   capsLanguage: HostLanguageId | null
   warnings: string[]
@@ -50,6 +51,8 @@ const KEYWORDS = new Set([
   'VERSION',
   'SHIFTSTATE',
   'LAYOUT',
+  'LIGATURE',
+  'ATTRIBUTES',
   'DEADKEY',
   'KEYNAME',
   'KEYNAME_EXT',
@@ -71,11 +74,6 @@ for (const key of HOST_KEY_IDS) {
 
 const DEAD_BY_ID = new Map<number, string>()
 for (const item of WINDOWS_DEAD_KEYS) DEAD_BY_ID.set(item.id, item.keysym)
-for (const language of HOST_LANGUAGE_IDS) {
-  for (const [keysym, id] of Object.entries(windowsLocale(language).deadIdByKeysym ?? {})) {
-    DEAD_BY_ID.set(id, keysym)
-  }
-}
 
 interface RawRow {
   scan: number
@@ -117,11 +115,25 @@ function leadingKeyword(line: string): string | null {
   return match[1]
 }
 
+function stripCommentOutsideQuotes(line: string): string {
+  let inQuote = false
+  for (let index = 0; index < line.length; index++) {
+    const ch = line[index]
+    if (ch === '"') inQuote = !inQuote
+    else if (!inQuote && ch === '/' && line[index + 1] === '/') return line.slice(0, index)
+  }
+  return line
+}
+
 function splitFields(line: string): string[] {
-  const bare = line.split('//')[0].trimEnd()
-  if (!bare.trim()) return []
-  const parts = bare.includes('\t') ? bare.split('\t') : bare.trim().split(/\s+/)
-  return parts.map(part => part.trim())
+  const bare = stripCommentOutsideQuotes(line).trim()
+  if (!bare) return []
+  return bare.split(/\s+/)
+}
+
+function kbdQuotedDescription(rawLine: string): string {
+  const quoted = /"([^"]*)"/.exec(rawLine)
+  return quoted ? quoted[1] : ''
 }
 
 function unquote(value: string): string {
@@ -228,32 +240,6 @@ function filled(keysyms: readonly string[]): boolean {
   return keysyms.some(keysym => keysym !== 'NoSymbol')
 }
 
-function guessCapsLanguage(layout: HostLayout): HostLanguageId | null {
-  let text = ''
-  for (const levels of layout.byZmk.values()) {
-    text += levels.glyphs[0] + levels.glyphs[1]
-  }
-  if (/[іїєґІЇЄҐ]/.test(text)) return 'uk'
-  // Bulgarian BDS places ѝ (U+045D) on soft-sign / ISO keys; check before ru.
-  if (/[ѝЍ]/.test(text)) return 'bg'
-  if (/[\u0400-\u04FF]/.test(text)) return 'ru'
-  if (/[α-ωΑ-Ω]/.test(text)) return 'el'
-  if (/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/.test(text)) return 'pl'
-  if (/[ěščřžýáíéďťňúůĚŠČŘŽÝÁÍÉĎŤŇÚŮ]/.test(text)) return 'cs'
-  if (/[șțăîâȘȚĂÎÂ]/.test(text)) return 'ro'
-  if (/[őűŐŰ]/.test(text)) return 'hu'
-  if (/[ıİğĞşŞ]/.test(text)) return 'tr'
-  if (/[œæŒÆçÇ]/.test(text)) return 'fr'
-  if (/[ãõÃÕ]/.test(text)) return 'pt'
-  if (/[ñÑ¿¡]/.test(text)) return 'es'
-  // æ/ø → Danish; å without æ/ø → Swedish; ü/ß → German (äö alone are ambiguous).
-  if (/[æøÆØ]/.test(text)) return 'da'
-  if (/[åÅ]/.test(text)) return 'sv'
-  if (/[àèéìòùÀÈÉÌÒÙ]/.test(text)) return 'it'
-  if (/[äöüÄÖÜß]/.test(text)) return 'de'
-  return null
-}
-
 function languageByLocaleId(localeId: string): HostLanguageId | null {
   const id = localeId.trim().toLowerCase()
   if (!id) return null
@@ -318,13 +304,14 @@ export function parseKlc(text: string): KlcLayoutImport {
         else mode = 'skip'
       } else if (keyword === 'KBD') {
         mode = 'none'
-        const fields = splitFields(trimmed)
-        kbdId = fields[1] ?? ''
-        description = unquote(fields.slice(2).join('\t'))
+        kbdId = splitFields(trimmed)[1] ?? ''
+        description = kbdQuotedDescription(line)
       } else if (keyword === 'LOCALEID') {
         mode = 'none'
         localeId = unquote(splitFields(trimmed)[1] ?? '')
       } else if (
+        keyword === 'LIGATURE' ||
+        keyword === 'ATTRIBUTES' ||
         keyword === 'KEYNAME' ||
         keyword === 'KEYNAME_EXT' ||
         keyword === 'KEYNAME_DEAD' ||
@@ -348,8 +335,8 @@ export function parseKlc(text: string): KlcLayoutImport {
         if (pending) pending.continuation = fields.slice(3)
         continue
       }
+      if (!/^[0-9a-f]{2}$/i.test(fields[0])) continue
       const scan = Number.parseInt(fields[0], 16)
-      if (!Number.isInteger(scan)) continue
       finishRow()
       pending = { scan, cells: fields.slice(3) }
       continue
@@ -422,7 +409,7 @@ export function parseKlc(text: string): KlcLayoutImport {
     kind,
     base,
     ...(caps ? { caps } : {}),
-    capsLanguage: caps ? guessCapsLanguage(caps) : null,
+    capsLanguage: caps ? guessHostLanguageFromLetters(caps) : null,
     warnings
   }
 }

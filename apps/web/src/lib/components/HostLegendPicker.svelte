@@ -6,7 +6,8 @@
     hostLegendColumns,
     type HostLanguageId
   } from '@keymap-editor/keymap-core'
-  import { editor, hostLegendAnchorIndex } from '../editor.svelte.js'
+  import { editor } from '../editor.svelte.js'
+  import { clickOutside } from '../actions/click-outside'
   import HostAssemblyBar from './HostAssemblyBar.svelte'
   import HostLegendLanguageHead from './HostLegendLanguageHead.svelte'
   import HostSymbolCatalog from './HostSymbolCatalog.svelte'
@@ -28,7 +29,7 @@
   const addable = $derived(hostLanguagesAvailable(view))
   const markedLayers = $derived(layers.shown)
   const layerNames = $derived(editor.hostLegendLayerNames)
-  const anchorIndex = $derived(hostLegendAnchorIndex(editor.draftKeymap))
+  const anchorIndex = $derived(editor.legendAnchorIndex)
 
   interface Props {
     /** Keep the layer table expanded (coach tour). */
@@ -47,8 +48,20 @@
   let pendingDelete = $state<{ index: number; name: string } | null>(null)
   let editingWhen = $state(false)
   let stripEl: HTMLDivElement | undefined = $state()
+  let panelEl: HTMLDivElement | undefined = $state()
+  let confirmDeleteBtn: HTMLButtonElement | undefined = $state()
+  /** Resting strip size while the overlay is expanded (panel is position:absolute). */
+  let sizerWidth = $state(0)
+  let sizerHeight = $state(0)
   const busy = $derived(renamingIndex != null || pendingDelete != null || editingWhen)
   const open = $derived(forceOpen || hovered || focused || busy)
+
+  function captureRestingSize() {
+    const body = panelEl?.querySelector('.legend-body')
+    if (!(body instanceof HTMLElement)) return
+    sizerWidth = body.offsetWidth
+    sizerHeight = body.offsetHeight
+  }
 
   const conditionalRules = $derived(editor.draftKeymap?.conditionalLayers ?? [])
   const allRows = $derived(
@@ -109,6 +122,16 @@
     pendingDelete = null
   }
 
+  $effect(() => {
+    if (!pendingDelete || !confirmDeleteBtn) return
+    const previous =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+    confirmDeleteBtn.focus({ preventScroll: true })
+    return () => {
+      if (previous && document.contains(previous)) previous.focus({ preventScroll: true })
+    }
+  })
+
   function handleKeydown(event: KeyboardEvent) {
     if (event.key !== 'Escape') return
     if (pickingNew || pickingFor) {
@@ -130,27 +153,35 @@
     hovered = false
   }
 
+  function dismissStripChrome() {
+    cancelRename()
+    cancelDelete()
+    editingWhen = false
+  }
+
+  /** Keep the empty sizer in sync with the in-flow panel while collapsed. */
   $effect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      const target = event.target
-      // A control that replaces itself (Add conditional layer) is already
-      // detached by the time this click reaches the document.
-      if (!(target instanceof Node) || !target.isConnected) return
-      if (!stripEl || stripEl.contains(target)) return
-      cancelRename()
-      cancelDelete()
-      editingWhen = false
+    if (!panelEl || open) return
+    const body = panelEl.querySelector('.legend-body')
+    if (!(body instanceof HTMLElement)) return
+    const sync = () => {
+      // Skip if we already expanded this tick (observer can fire before effect cleanup).
+      if (open) return
+      sizerWidth = body.offsetWidth
+      sizerHeight = body.offsetHeight
     }
-    document.addEventListener('click', handleClickOutside)
-    return () => document.removeEventListener('click', handleClickOutside)
+    sync()
+    const observer = new ResizeObserver(sync)
+    observer.observe(body)
+    return () => observer.disconnect()
   })
 
 </script>
 
-{#snippet legendTable(rows: HostLegendLayerRowModel[], interactive: boolean)}
+{#snippet legendTable(rows: HostLegendLayerRowModel[])}
   <div class="legend-body">
     <HostLegendView />
-    <div class="legend-main" data-tour={interactive ? 'legend-main' : undefined}>
+    <div class="legend-main" data-tour="legend-main">
       <HostAssemblyBar />
       <div class="legend-table-row">
         <table>
@@ -160,7 +191,7 @@
               {#each columns as column, index (column.language)}
                 <HostLegendLanguageHead
                   {column}
-                  {interactive}
+                  interactive
                   groupStart={index > 0}
                   languagesStacked={multilang}
                   bind:pickingFor
@@ -168,9 +199,9 @@
                   bind:openProfile
                 />
               {/each}
-              {#if interactive && (pickingNew || addable.length > 0)}
+              {#if pickingNew || addable.length > 0}
                 <HostLegendLanguageHead
-                  {interactive}
+                  interactive
                   bind:pickingFor
                   bind:pickingNew
                   bind:openProfile
@@ -178,21 +209,21 @@
               {/if}
             </tr>
           </thead>
-          <tbody id={interactive ? 'host-legend-layers' : undefined}>
+          <tbody id="host-legend-layers">
             {#each rows as row (row.index)}
               <HostLegendLayerRow
                 {row}
                 {columns}
-                {interactive}
+                interactive
                 canDelete={layerNames.length > 1}
-                showAddColumn={interactive && (pickingNew || addable.length > 0)}
+                showAddColumn={pickingNew || addable.length > 0}
                 bind:renamingIndex
                 bind:editing
                 bind:pendingDelete
               />
             {/each}
           </tbody>
-          {#if interactive && open}
+          {#if open}
             <tfoot>
               <tr>
                 <th colspan={columnCount}>
@@ -209,9 +240,7 @@
             </tfoot>
           {/if}
         </table>
-        {#if interactive}
-          <HostSymbolCatalog />
-        {/if}
+        <HostSymbolCatalog />
       </div>
     </div>
   </div>
@@ -224,23 +253,41 @@
   class:expanded={open}
   role="region"
   aria-label="Host legend"
-  onmouseenter={() => (hovered = true)}
+  use:clickOutside={{ event: 'click', handler: dismissStripChrome }}
+  onmouseenter={() => {
+    captureRestingSize()
+    hovered = true
+  }}
   onmouseleave={handleMouseLeave}
-  onfocusin={() => (focused = true)}
+  onfocusin={() => {
+    captureRestingSize()
+    focused = true
+  }}
   onfocusout={handleFocusOut}
   onkeydown={handleKeydown}
 >
-  <div class="legend-sizer" aria-hidden="true" inert>
-    {@render legendTable(restingRows, false)}
-  </div>
-  <div class="legend-panel" style="position: absolute">
-    {@render legendTable(visibleRows, true)}
+  <!-- Empty box holds resting size while the live panel overlays as position:absolute. -->
+  <div
+    class="legend-sizer"
+    class:holding={open}
+    aria-hidden="true"
+    inert
+    style:width={open && sizerWidth ? `${sizerWidth}px` : undefined}
+    style:height={open && sizerHeight ? `${sizerHeight}px` : undefined}
+  ></div>
+  <div class="legend-panel" class:overlay={open} bind:this={panelEl}>
+    {@render legendTable(visibleRows)}
     <HostProfileBar />
     {#if pendingDelete}
-      <div class="delete-confirm" role="alertdialog" aria-label="Delete layer">
+      <div class="delete-confirm" role="alertdialog" aria-modal="true" aria-label="Delete layer">
         <p>Delete layer {pendingDelete.name}?</p>
         <div class="delete-confirm-actions">
-          <button type="button" class="confirm-delete" onclick={confirmDelete}>
+          <button
+            type="button"
+            class="confirm-delete"
+            bind:this={confirmDeleteBtn}
+            onclick={confirmDelete}
+          >
             Delete
           </button>
           <button type="button" class="cancel-delete" onclick={cancelDelete}>
@@ -267,16 +314,25 @@
   }
 
   .legend-sizer {
-    visibility: hidden;
+    display: none;
     pointer-events: none;
   }
 
+  .legend-sizer.holding {
+    display: block;
+    visibility: hidden;
+  }
+
   .legend-panel {
+    position: relative;
+    z-index: 4;
+    background: transparent;
+  }
+
+  .legend-panel.overlay {
     position: absolute;
     top: 0;
     left: 0;
-    z-index: 4;
-    background: transparent;
   }
 
   .host-legend-strip.expanded .legend-panel {

@@ -8,88 +8,106 @@
  * Per-layer `sensor-bindings` are parsed into `sensorBindings` (encoders).
  */
 
-import { parseDtsCombos, type DtsComboJson } from './dts-combos.js'
-import { parseDtsConditionalLayers } from './dts-conditional-layers.js'
-import { parseDtsHoldTaps } from './dts-behaviors.js'
+import {
+  findCombosBlock,
+  parseDtsCombosDetailed,
+  type DtsComboJson
+} from './dts-combos.js'
+import { parseDtsConditionalLayersDetailed } from './dts-conditional-layers.js'
+import { parseDtsHoldTapsDetailed } from './dts-behaviors.js'
+import {
+  findAngleProp,
+  findNamedBlock,
+  findNamedBlocks,
+  hasPreprocessorConditional,
+  escapeRegExp,
+  iterateChildNodes,
+  maskDts,
+  scanDts,
+  tokenizeBindings,
+  tokenizeBindingsDetailed,
+  type DtsNamedBlock,
+  type DtsScan
+} from './dts-scan.js'
+import { KeymapValidationError } from './errors.js'
 import type { ZmkConditionalLayer, ZmkHoldTap } from './types.js'
 
-const DEFINE_RE = /^#define\s+(\w+)\s+(.+)$/gm
+const DEFINE_RE = /^#define[ \t]+(\w+)(?:[ \t]+(.+))?$/gm
+const MAX_MACRO_EXPAND_DEPTH = 32
 
-/** Index of matching `}` for `{` at openIndex, or -1. */
-export function findMatchingBrace(source: string, openIndex: number): number {
-  if (source[openIndex] !== '{') return -1
-  let depth = 0
-  for (let i = openIndex; i < source.length; i++) {
-    const c = source[i]
-    if (c === '{') depth++
-    else if (c === '}') {
-      depth--
-      if (depth === 0) return i
-    }
+/** Compiled `#define` table: patterns built once per parse/save. */
+export interface CompiledMacros {
+  macros: Record<string, string>
+  /** Longest keys first; each `re` is `\bkey\b` with the `g` flag. */
+  entries: { key: string; re: RegExp; value: string; multiBinding: boolean }[]
+}
+
+/** Compile whole-word replace patterns once for a `#define` map. */
+export function compileMacros(macros: Record<string, string>): CompiledMacros {
+  const keys = Object.keys(macros).sort((a, b) => b.length - a.length)
+  return {
+    macros: { ...macros },
+    entries: keys.map(key => ({
+      key,
+      re: new RegExp(`\\b${escapeRegExp(key)}\\b`, 'g'),
+      value: macros[key]!,
+      multiBinding: tokenizeBindings(macros[key]!).length > 1
+    }))
   }
-  return -1
+}
+
+const ZMK_KEYMAP_BLOCK = {
+  compatible: 'zmk,keymap',
+  requireCompatible: true
+} as const
+
+/**
+ * Locate `keymap { compatible = "zmk,keymap"; … }` blocks. Search uses a
+ * DTS-name lookbehind so `my-keymap {` is not a hit.
+ */
+export function findZmkKeymapBlocks(source: string, scan: DtsScan = scanDts(source)): DtsNamedBlock[] {
+  return findNamedBlocks(source, scan, 'keymap', ZMK_KEYMAP_BLOCK)
 }
 
 /**
  * Locate the `keymap { ... }` block that contains `compatible = "zmk,keymap"`.
  * Returns absolute indices into `source`: body is exclusive of the braces.
+ * Several such nodes → the first (Save refuses via assertCanSpliceKeymap).
  */
-export function findZmkKeymapBlock(source: string): {
-  keywordStart: number
-  openBrace: number
-  closeBrace: number
-  bodyStart: number
-  bodyEnd: number
-} | null {
-  const re = /\bkeymap\s*\{/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(source)) !== null) {
-    const openBrace = m.index + m[0].length - 1
-    const closeBrace = findMatchingBrace(source, openBrace)
-    if (closeBrace < 0) continue
-    const body = source.slice(openBrace + 1, closeBrace)
-    if (/compatible\s*=\s*"zmk,keymap"/.test(body)) {
-      return {
-        keywordStart: m.index,
-        openBrace,
-        closeBrace,
-        bodyStart: openBrace + 1,
-        bodyEnd: closeBrace
-      }
-    }
-  }
-  return null
+export function findZmkKeymapBlock(source: string, scan?: DtsScan): DtsNamedBlock | null {
+  return findZmkKeymapBlocks(source, scan ?? scanDts(source))[0] ?? null
 }
 
-/**
- * Absolute range of `bindings = <...>` interior (content between `<` and `>`).
- * `sensor-bindings` is a different property; the token before `bindings` must
- * not be a word character or a hyphen.
- */
-export function findBindingsInterior(
-  source: string,
-  from: number,
-  to: number
-): { start: number; end: number } | null {
-  const slice = source.slice(from, to)
-  const m = /(?<![\w-])bindings\s*=\s*</.exec(slice)
-  if (!m) return null
-  const contentStart = from + m.index + m[0].length
-  let depth = 1
-  for (let i = contentStart; i < to; i++) {
-    if (source[i] === '<') depth++
-    else if (source[i] === '>') {
-      depth--
-      if (depth === 0) return { start: contentStart, end: i }
-    }
+/** Throw when Save must not rewrite layers (preprocessor or several keymap nodes). */
+export function assertCanSpliceKeymap(source: string, scan: DtsScan = scanDts(source)): DtsNamedBlock {
+  const blocks = findNamedBlocks(source, scan, 'keymap', ZMK_KEYMAP_BLOCK)
+  if (blocks.length === 0) {
+    throw new KeymapValidationError([
+      'Cannot splice: no keymap block with compatible = "zmk,keymap" found'
+    ])
   }
-  return null
+  if (blocks.length > 1) {
+    throw new KeymapValidationError(['Cannot splice: multiple keymap nodes'])
+  }
+  const block = blocks[0]!
+  if (hasPreprocessorConditional(scan.masked, { start: block.bodyStart, end: block.bodyEnd })) {
+    throw new KeymapValidationError([
+      'Cannot splice: preprocessor conditionals in the keymap block'
+    ])
+  }
+  return block
+}
+
+function addWarning(warnings: string[], code: string): void {
+  if (!warnings.includes(code)) warnings.push(code)
 }
 
 export interface DtsLayerNode {
+  /** Absolute start of `label:` when present, otherwise the node name. */
+  labelStart: number
   /** Absolute start of the node id (e.g. `layer_0`). */
   nameStart: number
-  /** Absolute end after the closing `};` (or `}`). */
+  /** Absolute end after the closing `};` plus a trailing newline. */
   nodeEnd: number
   name: string
   openBrace: number
@@ -103,107 +121,142 @@ export interface DtsLayerNode {
  */
 export function findKeymapLayerNodes(
   source: string,
-  block: NonNullable<ReturnType<typeof findZmkKeymapBlock>>
+  block: DtsNamedBlock,
+  scan: DtsScan = scanDts(source)
 ): DtsLayerNode[] {
-  const body = source.slice(block.bodyStart, block.bodyEnd)
+  const { masked } = scan
   const nodes: DtsLayerNode[] = []
-  const re = /(\w+)\s*\{/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(body)) !== null) {
-    const name = m[1]
-    if (name === 'compatible') continue
-    const openBraceRel = m.index + m[0].length - 1
-    const openBrace = block.bodyStart + openBraceRel
-    const closeBrace = findMatchingBrace(source, openBrace)
-    if (closeBrace < 0 || closeBrace > block.bodyEnd) {
-      // Avoid re-matching the same `{` forever on malformed input
-      re.lastIndex = openBraceRel + 1
-      continue
-    }
-
-    // Skip past this node so nested braces aren't re-scanned as siblings
-    re.lastIndex = closeBrace - block.bodyStart + 1
-
-    const bindingsInterior = findBindingsInterior(source, openBrace + 1, closeBrace)
+  for (const child of iterateChildNodes(scan, block)) {
+    const bindingsInterior = findAngleProp(
+      masked,
+      { start: child.openBrace + 1, end: child.closeBrace },
+      'bindings'
+    )
     if (!bindingsInterior) continue
 
-    // Include trailing `;` and following whitespace up to next sibling / end
-    let nodeEnd = closeBrace + 1
-    if (source[nodeEnd] === ';') nodeEnd++
-    while (nodeEnd < block.bodyEnd && /[ \t\r\n]/.test(source[nodeEnd])) {
-      nodeEnd++
-    }
-
     nodes.push({
-      nameStart: block.bodyStart + m.index,
-      nodeEnd,
-      name,
-      openBrace,
-      closeBrace,
+      labelStart: child.labelStart,
+      nameStart: child.nameStart,
+      nodeEnd: child.end,
+      name: child.name,
+      openBrace: child.openBrace,
+      closeBrace: child.closeBrace,
       bindingsInterior
     })
   }
   return nodes
 }
 
-function expandMacros(text: string, macros: Record<string, string>): string {
-  const keys = Object.keys(macros).sort((a, b) => b.length - a.length)
+function expandMacros(
+  text: string,
+  compiled: CompiledMacros,
+  warnings: string[]
+): string {
   let out = text
-  for (const key of keys) {
-    out = out.replace(new RegExp(`\\b${key}\\b`, 'g'), macros[key])
+  for (let depth = 0; depth < MAX_MACRO_EXPAND_DEPTH; depth++) {
+    let changed = false
+    for (const { re, value, multiBinding } of compiled.entries) {
+      if (multiBinding) {
+        re.lastIndex = 0
+        if (re.test(out)) addWarning(warnings, 'macros_multi_binding')
+        continue
+      }
+      re.lastIndex = 0
+      const next = out.replace(re, () => value)
+      if (next !== out) {
+        out = next
+        changed = true
+      }
+    }
+    if (!changed) break
   }
   return out
 }
 
 /** True if any #define name appears as a whole word in `text`. */
-export function macrosAppearInText(text: string, macros: Record<string, string>): boolean {
-  const keys = Object.keys(macros).sort((a, b) => b.length - a.length)
-  for (const key of keys) {
-    if (new RegExp(`\\b${key}\\b`).test(text)) return true
+export function macrosAppearInText(
+  text: string,
+  macros: Record<string, string> | CompiledMacros
+): boolean {
+  const compiled = isCompiledMacros(macros) ? macros : compileMacros(macros)
+  for (const { re } of compiled.entries) {
+    re.lastIndex = 0
+    if (re.test(text)) return true
   }
   return false
 }
 
-/** Concatenated bindings interiors inside the ZMK keymap block (unexpanded). */
-export function keymapBindingsText(source: string): string | null {
-  const block = findZmkKeymapBlock(source)
-  if (!block) return null
-  const layers = findKeymapLayerNodes(source, block)
-  return layers.map(n => source.slice(n.bindingsInterior.start, n.bindingsInterior.end)).join('\n')
+function isCompiledMacros(
+  value: Record<string, string> | CompiledMacros
+): value is CompiledMacros {
+  return Array.isArray((value as CompiledMacros).entries)
 }
 
-const SENSOR_STATEMENT = /sensor-bindings\s*=\s*<[\s\S]*?>\s*;/
+/**
+ * Concatenated interiors Save may rewrite with expanded tokens: layer
+ * `bindings`, combo `bindings`, and per-layer `sensor-bindings`.
+ */
+export function keymapBindingsText(source: string): string | null {
+  const scan = scanDts(source)
+  const { masked } = scan
+  const parts: string[] = []
 
-/** Bind strings inside one layer's `sensor-bindings`, or null when the property is absent. */
-function readSensorBindingStrings(
-  source: string,
-  openBrace: number,
-  closeBrace: number
-): string[] | null {
-  const body = source.slice(openBrace + 1, closeBrace)
-  const match = SENSOR_STATEMENT.exec(body)
-  if (!match) return null
-  const open = match[0].indexOf('<')
-  const close = match[0].lastIndexOf('>')
-  if (open < 0 || close < 0 || close < open) return []
-  return tokenizeBindings(match[0].slice(open + 1, close))
+  const block = findNamedBlock(source, scan, 'keymap', {
+    compatible: 'zmk,keymap',
+    requireCompatible: true
+  })
+  if (block) {
+    for (const node of findKeymapLayerNodes(source, block, scan)) {
+      parts.push(masked.slice(node.bindingsInterior.start, node.bindingsInterior.end))
+      const sensor = findAngleProp(
+        masked,
+        { start: node.openBrace + 1, end: node.closeBrace },
+        'sensor-bindings'
+      )
+      if (sensor) parts.push(masked.slice(sensor.start, sensor.end))
+    }
+  }
+
+  const combosBlock = findCombosBlock(source, scan)
+  if (combosBlock) {
+    for (const child of iterateChildNodes(scan, combosBlock)) {
+      const bindings = findAngleProp(
+        masked,
+        { start: child.openBrace + 1, end: child.closeBrace },
+        'bindings'
+      )
+      if (bindings) parts.push(masked.slice(bindings.start, bindings.end))
+    }
+  }
+
+  if (parts.length === 0) return null
+  return parts.join('\n')
 }
 
 /** Split a bindings block into individual bind strings (each starts with &). */
-export function tokenizeBindings(block: string): string[] {
-  const normalized = block.replace(/\r\n/g, '\n').replace(/\n/g, ' ')
-  return normalized
-    .split(/(?=&)/)
-    .map(s => s.trim())
-    .filter(s => s.startsWith('&'))
+export { tokenizeBindings } from './dts-scan.js'
+
+/** Join `\` + EOL so a continued `#define` is one logical line. */
+function joinBackslashEol(text: string): string {
+  return text.replace(/\\(?:\r\n|\n|\r)/g, '')
 }
 
+/**
+ * Collect simple `#define NAME replacement` aliases. Searches the masked
+ * view so defines inside comments are ignored. Values come from the mask
+ * (comments already spaces). `[ \t]+` does not steal the next line.
+ */
 export function parseDefines(source: string): Record<string, string> {
+  const masked = maskDts(joinBackslashEol(source))
   const macros: Record<string, string> = {}
   let match: RegExpExecArray | null
   const re = new RegExp(DEFINE_RE)
-  while ((match = re.exec(source)) !== null) {
-    macros[match[1]] = match[2].replace(/\/\/.*$/, '').trim()
+  while ((match = re.exec(masked)) !== null) {
+    const raw = match[2]
+    if (raw == null) continue
+    const value = raw.replace(/[ \t]+/g, ' ').trim()
+    if (!value) continue
+    macros[match[1]] = value
   }
   return macros
 }
@@ -214,11 +267,23 @@ export interface DtsKeymapJson {
   layout: string
   layer_names: string[]
   layers: string[][]
-  /** Raw combo nodes (string bindings); converted in parseKeymap. */
+  /**
+   * Raw combo nodes (string bindings); converted in parseKeymap.
+   * Omitted when the file has no `combos` block, or when a block is present
+   * but not fully parsed (`combos_unparsed`: skipped node, DTS label, or
+   * non-numeric token). An explicit empty array means the file owns an empty
+   * combos list (Save may remove the block).
+   */
   combos?: DtsComboJson[]
-  /** Omitted when the file has no conditional-layer rules. */
+  /**
+   * Omitted when the file has no conditional-layer rules, or when a rule is
+   * not fully parsed (`conditional_layers_unparsed`).
+   */
   conditionalLayers?: ZmkConditionalLayer[]
-  /** Omitted when the file has no hold-tap nodes or timing blocks. */
+  /**
+   * Omitted when the file has no hold-tap nodes, or when timing is not fully
+   * numeric (`hold_tap_timing_unparsed`).
+   */
   holdTaps?: ZmkHoldTap[]
   /**
    * One string array per layer. Omitted when no layer has `sensor-bindings`.
@@ -226,69 +291,125 @@ export interface DtsKeymapJson {
    */
   sensorBindings?: string[][]
   warnings: string[]
-  [key: string]: unknown
 }
 
 export function parseDtsKeymap(
   source: string,
   meta: { keyboard?: string; keymap?: string; layout?: string } = {}
 ): DtsKeymapJson {
-  const macros = parseDefines(source)
+  const compiled = compileMacros(parseDefines(source))
   const layers: string[][] = []
   const layer_names: string[] = []
   const warnings: string[] = []
+  const scan = scanDts(source)
+  const { masked } = scan
 
-  const block = findZmkKeymapBlock(source)
+  const keymapBlocks = findNamedBlocks(source, scan, 'keymap', ZMK_KEYMAP_BLOCK)
+  if (keymapBlocks.length > 1) {
+    addWarning(warnings, 'multiple_keymap_nodes')
+  }
+  const block = keymapBlocks[0]
   if (!block) {
-    throw new Error('No layers with bindings found in .keymap')
+    throw new KeymapValidationError(['No layers with bindings found in .keymap'])
+  }
+  if (hasPreprocessorConditional(masked, { start: block.bodyStart, end: block.bodyEnd })) {
+    addWarning(warnings, 'preprocessor_conditional')
   }
 
-  const layerNodes = findKeymapLayerNodes(source, block)
+  const layerNodes = findKeymapLayerNodes(source, block, scan)
   let anyMacroExpanded = false
+  let anyUnparsedFragment = false
   const sensorRows: string[][] = []
   let anySensor = false
 
   for (const node of layerNodes) {
-    const rawBlock = source.slice(node.bindingsInterior.start, node.bindingsInterior.end)
-    if (macrosAppearInText(rawBlock, macros)) {
+    const rawBlock = masked.slice(node.bindingsInterior.start, node.bindingsInterior.end)
+    if (macrosAppearInText(rawBlock, compiled)) {
       anyMacroExpanded = true
     }
-    const blockExpanded = expandMacros(rawBlock, macros)
-    const binds = tokenizeBindings(blockExpanded).map(b => expandMacros(b, macros))
+    const { binds, hasUnparsedFragment } = tokenizeBindingsDetailed(
+      expandMacros(rawBlock, compiled, warnings)
+    )
+    if (hasUnparsedFragment) anyUnparsedFragment = true
     layers.push(binds)
     layer_names.push(node.name === 'default_layer' ? 'default' : node.name)
 
-    const sensorRaw = readSensorBindingStrings(source, node.openBrace, node.closeBrace)
-    if (!sensorRaw) {
+    const sensorInterior = findAngleProp(
+      masked,
+      { start: node.openBrace + 1, end: node.closeBrace },
+      'sensor-bindings'
+    )
+    if (!sensorInterior) {
       sensorRows.push([])
       continue
     }
     anySensor = true
-    if (macrosAppearInText(sensorRaw.join(' '), macros)) anyMacroExpanded = true
-    sensorRows.push(sensorRaw.map(binding => expandMacros(binding, macros)))
+    const sensorRaw = masked.slice(sensorInterior.start, sensorInterior.end)
+    if (macrosAppearInText(sensorRaw, compiled)) anyMacroExpanded = true
+    const sensorTok = tokenizeBindingsDetailed(
+      expandMacros(sensorRaw, compiled, warnings)
+    )
+    if (sensorTok.hasUnparsedFragment) anyUnparsedFragment = true
+    sensorRows.push(sensorTok.binds)
   }
 
   if (layers.length === 0) {
-    throw new Error('No layers with bindings found in .keymap')
+    throw new KeymapValidationError(['No layers with bindings found in .keymap'])
   }
 
-  const combosRaw = parseDtsCombos(source)
+  const combosBlock = findCombosBlock(source, scan)
+  const combosParsed = parseDtsCombosDetailed(source, scan)
   const combos: DtsComboJson[] = []
-  for (const c of combosRaw) {
-    if (macrosAppearInText(c.binding, macros)) {
+  for (const c of combosParsed.combos) {
+    if (macrosAppearInText(c.binding, compiled)) {
       anyMacroExpanded = true
-      combos.push({ ...c, binding: expandMacros(c.binding, macros) })
+      combos.push({ ...c, binding: expandMacros(c.binding, compiled, warnings) })
     } else {
       combos.push(c)
     }
   }
 
   if (anyMacroExpanded) {
-    warnings.push('macros_expanded')
+    addWarning(warnings, 'macros_expanded')
+  }
+  if (anyUnparsedFragment) {
+    addWarning(warnings, 'unparsed_binding_fragment')
   }
 
-  const conditionalLayers = parseDtsConditionalLayers(source)
-  const holdTaps = parseDtsHoldTaps(source)
+  let ownedCombos: DtsComboJson[] | undefined
+  if (combosParsed.preprocessorConditional) {
+    addWarning(warnings, 'preprocessor_conditional')
+  } else if (combosParsed.unparsed) {
+    addWarning(warnings, 'combos_unparsed')
+  } else if (combos.length > 0) {
+    ownedCombos = combos
+  } else if (combosBlock) {
+    const body = source.slice(combosBlock.bodyStart, combosBlock.bodyEnd).trim()
+    if (body.length > 0) {
+      // Block present but nothing parsed — do not claim ownership with [].
+      addWarning(warnings, 'combos_unparsed')
+    } else {
+      ownedCombos = []
+    }
+  }
+
+  const conditionalParsed = parseDtsConditionalLayersDetailed(source, scan)
+  let ownedConditional: ZmkConditionalLayer[] | undefined
+  if (conditionalParsed.unparsed) {
+    addWarning(warnings, 'conditional_layers_unparsed')
+  } else if (conditionalParsed.rules.length > 0) {
+    ownedConditional = conditionalParsed.rules
+  }
+
+  const holdParsed = parseDtsHoldTapsDetailed(source, scan)
+  let ownedHoldTaps: ZmkHoldTap[] | undefined
+  if (holdParsed.preprocessorConditional) {
+    addWarning(warnings, 'preprocessor_conditional')
+  } else if (holdParsed.unparsed) {
+    addWarning(warnings, 'hold_tap_timing_unparsed')
+  } else if (holdParsed.holdTaps.length > 0) {
+    ownedHoldTaps = holdParsed.holdTaps
+  }
 
   return {
     keyboard: meta.keyboard ?? 'unknown',
@@ -296,9 +417,9 @@ export function parseDtsKeymap(
     layout: meta.layout ?? 'LAYOUT',
     layer_names,
     layers,
-    combos,
-    ...(conditionalLayers.length > 0 ? { conditionalLayers } : {}),
-    ...(holdTaps.length > 0 ? { holdTaps } : {}),
+    ...(ownedCombos !== undefined ? { combos: ownedCombos } : {}),
+    ...(ownedConditional !== undefined ? { conditionalLayers: ownedConditional } : {}),
+    ...(ownedHoldTaps !== undefined ? { holdTaps: ownedHoldTaps } : {}),
     ...(anySensor ? { sensorBindings: sensorRows } : {}),
     warnings
   }

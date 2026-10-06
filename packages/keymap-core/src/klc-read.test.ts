@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { builtinHostLayoutSpecs } from './host-layout-catalog.js'
+import { builtinHostLayoutSpecs, primarySystemLayoutId } from './host-layout-catalog.js'
+import { HOST_KEY_IDS } from './host-key-id.js'
 import { hostLayoutFromSymbols, withHostKey, type HostLayout } from './host-layout.js'
+import { HOST_LANGUAGE_IDS } from './host-languages.js'
 import { decodeKlc, parseKlc } from './klc-read.js'
 import { windowsLocale, type WindowsLocale } from './klc-locale.js'
 import { encodeKlc, hostLayoutsToCapsKlc, hostLayoutToKlc } from './klc-write.js'
@@ -108,9 +110,91 @@ describe('parseKlc', () => {
     expect(glyphs(parsed.caps!, 'SEMI')?.[0]).toBe(glyphs(systemLayout('system-de'), 'SEMI')?.[0])
   })
 
+  it('guesses each catalog language from a paired English export', () => {
+    const english = systemLayout(primarySystemLayoutId('en')!)
+    for (const language of HOST_LANGUAGE_IDS) {
+      const layoutId = primarySystemLayoutId(language)
+      if (!layoutId || language === 'en') continue
+      const parsed = parseKlc(
+        hostLayoutsToCapsKlc(english, systemLayout(layoutId), {
+          name: `English + ${language}`,
+          locale: windowsLocale('en')
+        })
+      )
+      if (parsed.kind !== 'paired') continue
+      expect(parsed.capsLanguage, language).toBe(language)
+    }
+  })
+
   it('rejects a file with no shift states', () => {
     expect(() => parseKlc('KBD\tX\t"X"\r\nLAYOUT\r\n10\tQ\t1\tq\tQ\r\n')).toThrow(
       'This .klc file has no SHIFTSTATE table.'
     )
+  })
+
+  it('leaves N1 and N9 alone when a LIGATURE block follows LAYOUT', () => {
+    const parsed = parseKlc(`KBD\tX\t"X"
+SHIFTSTATE
+0
+1
+LAYOUT
+02	1	0	1	!
+0a	9	0	9	(
+LIGATURE
+2	1	0061	0062
+9	1	0063	0064
+ENDKBD
+`)
+    expect(glyphs(parsed.base, 'N1')).toEqual(['1', '!', '', ''])
+    expect(glyphs(parsed.base, 'N9')).toEqual(['9', '(', '', ''])
+  })
+
+  it('round-trips every builtin layout through .klc without glyph differences', () => {
+    const klcGlyphs = (values: readonly string[] | undefined): string[] =>
+      (values ?? ['', '', '', '']).map(glyph => {
+        const chars = [...glyph]
+        if (chars.length !== 1) return ''
+        const codepoint = chars[0].codePointAt(0)
+        return codepoint != null && codepoint <= 0xffff ? glyph : ''
+      })
+    for (const spec of builtinHostLayoutSpecs) {
+      const source = systemLayout(spec.id)
+      const hasScannedKeys = [...source.byZmk.keys()].some(zmk =>
+        HOST_KEY_IDS.some(key => key.zmk === zmk && key.scan !== undefined)
+      )
+      if (!hasScannedKeys) continue
+      const parsed = parseKlc(
+        hostLayoutToKlc(source, { name: spec.name, locale: windowsLocale(spec.language) })
+      )
+      for (const [zmk, levels] of source.byZmk) {
+        expect(klcGlyphs(glyphs(parsed.base, zmk)), `${spec.id} ${zmk}`).toEqual(klcGlyphs(levels.glyphs))
+      }
+    }
+  })
+
+  it('reads a LAYOUT row with double tabs the same as with single tabs', () => {
+    const header = `KBD\tX\t"X"
+SHIFTSTATE
+0
+1
+LAYOUT
+`
+    const single = parseKlc(`${header}02\t1\t0\t1\t!\nENDKBD\n`)
+    const doubled = parseKlc(`${header}02\t\t1\t0\t1\t!\nENDKBD\n`)
+    expect(glyphs(doubled.base, 'N1')).toEqual(glyphs(single.base, 'N1'))
+    expect(glyphs(doubled.base, 'N1')).toEqual(['1', '!', '', ''])
+  })
+
+  it('keeps a KBD description that has spaces and a // comment inside quotes', () => {
+    const parsed = parseKlc(`KBD MyKbd "My Layout // draft"
+SHIFTSTATE
+0
+1
+LAYOUT
+02	1	0	1	!
+ENDKBD
+`)
+    expect(parsed.kbdId).toBe('MyKbd')
+    expect(parsed.description).toBe('My Layout // draft')
   })
 })

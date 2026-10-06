@@ -8,9 +8,18 @@ export interface CatalogChoice {
   context?: string
   symbol?: string
   params?: unknown[]
+  aliases?: Array<string | number>
+  isModifier?: boolean
+  faIcon?: string
+  additionalParams?: unknown[]
+  holdTap?: boolean
+  tappingTermMs?: number
+  quickTapMs?: number
+  requirePriorIdleMs?: number
+  flavor?: string
+  commands?: CatalogChoice[]
   /** ZMK HID OS table when the binder passed it through. */
   os?: unknown
-  [key: string]: unknown
 }
 
 export function choiceHasParams(choice: CatalogChoice): boolean {
@@ -57,7 +66,7 @@ export function uniqueCatalogChoices(choices: CatalogChoice[]): CatalogChoice[] 
 }
 
 /** Codes that name the same catalog chip (`RET` / `ENTER` / `RETURN`). */
-export function choiceAliasKeys(choice: CatalogChoice): string[] {
+function choiceAliasKeys(choice: CatalogChoice): string[] {
   const keys = new Set<string>()
   if (choice.code != null && choice.code !== '') keys.add(String(choice.code))
   if (Array.isArray(choice.aliases)) {

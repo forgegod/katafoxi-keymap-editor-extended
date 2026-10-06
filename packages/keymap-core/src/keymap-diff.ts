@@ -104,7 +104,8 @@ function conditionalLayerMap(keymap: ParsedKeymap): Map<string, string> {
   return map
 }
 
-function holdTapFingerprint(node: ZmkHoldTap): string {
+/** Stable fingerprint for dirty detection (code is keyed separately). */
+export function encodeHoldTapFingerprint(node: ZmkHoldTap): string {
   return [
     node.override ? 'override' : 'node',
     node.nodeName ?? '',
@@ -120,7 +121,7 @@ function holdTapFingerprint(node: ZmkHoldTap): string {
 function holdTapMap(keymap: ParsedKeymap): Map<string, string> {
   const map = new Map<string, string>()
   for (const node of keymap.holdTaps ?? []) {
-    map.set(node.code, holdTapFingerprint(node))
+    map.set(node.code, encodeHoldTapFingerprint(node))
   }
   return map
 }
@@ -211,7 +212,10 @@ export function diffKeymaps(
     }
   }
 
-  for (let layer = 0; layer < shared; layer++) {
+  // Include added/removed layers so the dirty summary counts encoder
+  // turns that arrive with layer_add or clear with layer_remove.
+  const sensorLayers = Math.max(baseCount, draftCount)
+  for (let layer = 0; layer < sensorLayers; layer++) {
     const beforeRow = baseline.sensorBindings?.[layer] ?? []
     const afterRow = draft.sensorBindings?.[layer] ?? []
     const turns = Math.max(beforeRow.length, afterRow.length)

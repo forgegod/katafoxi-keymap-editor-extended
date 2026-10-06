@@ -1,12 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ParsedKeymap } from '@keymap-editor/keymap-core'
+import { addHostLanguage, cloneHostLegendView, type ParsedKeymap } from '@keymap-editor/keymap-core'
+import * as draftStorage from './draft-storage'
 import {
   buildDraftIdentity,
   deleteStoredDraft,
+  draftIdentityKey,
   loadStoredDraft,
   saveStoredDraft
 } from './draft-storage'
 import { editor } from './editor.svelte.js'
+import {
+  hostAssembliesSettingId,
+  hostLegendSettingId,
+  loadHostAssemblies,
+  loadHostLegendView
+} from './host-layout-store'
 
 function km(code: string, keyboard = 'lark'): ParsedKeymap {
   return {
@@ -102,6 +110,58 @@ describe('editor publish / draft persistence', () => {
     expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('A')
     expect(editor.canUndo).toBe(false)
     expect(await loadStoredDraft(identity)).toBeNull()
+  })
+
+  it('warns and skips restore when a stored draft has fewer keys than the layout', async () => {
+    const identity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
+    const fourKey = {
+      keyboard: 'lark',
+      layer_names: ['default'],
+      layers: [
+        Array.from({ length: 4 }, () => ({
+          value: '&kp',
+          params: [{ value: 'Z', params: [] }]
+        }))
+      ]
+    } satisfies ParsedKeymap
+    const sixKey = {
+      keyboard: 'lark',
+      layer_names: ['default'],
+      layers: [
+        Array.from({ length: 6 }, () => ({
+          value: '&kp',
+          params: [{ value: 'A', params: [] }]
+        }))
+      ]
+    } satisfies ParsedKeymap
+    const layout6 = Array.from({ length: 6 }, (_, i) => ({
+      x: i,
+      y: 0,
+      row: 0,
+      col: i
+    }))
+
+    await saveStoredDraft(identity, fourKey)
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    await expect(
+      editor.selectKeyboard({
+        source: 'local',
+        layout: layout6,
+        keymap: sixKey
+      })
+    ).resolves.toBeUndefined()
+
+    expect(editor.draftKeymap!.layers[0]).toHaveLength(6)
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('A')
+    expect(editor.isDirty).toBe(false)
+    expect(editor.saveNotice?.kind).toBe('warning')
+    expect(editor.saveNotice?.messages[0]).toMatch(/does not match the current keyboard layout/)
+    expect(confirm).toHaveBeenCalled()
+    expect(confirm.mock.calls[0]?.[0]).toMatch(/Discard/)
+    expect(await loadStoredDraft(identity)).toBeNull()
+
+    confirm.mockRestore()
   })
 
   it('persists dirty draft to IndexedDB and offers restore', async () => {
@@ -238,13 +298,42 @@ describe('editor publish / draft persistence', () => {
     confirm.mockRestore()
   })
 
+  it('ignores Restore when confirm runs after a newer keyboard select', async () => {
+    const larkIdentity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
+    await saveStoredDraft(larkIdentity, km('Z'))
+
+    let nestedSelect: Promise<void> | undefined
+    const confirm = vi.spyOn(window, 'confirm').mockImplementation(() => {
+      nestedSelect = editor.selectKeyboard({
+        source: 'local',
+        layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+        keymap: km('A', 'other')
+      })
+      return true
+    })
+
+    await editor.selectKeyboard({
+      source: 'local',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A')
+    })
+    await nestedSelect
+
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(editor.draftKeymap!.keyboard).toBe('other')
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('A')
+    expect(editor.isDirty).toBe(false)
+
+    confirm.mockRestore()
+  })
+
   it('keeps live dirty edits when reselecting the same keyboard', async () => {
     const identity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
     await saveStoredDraft(identity, km('Z'))
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
 
     const selection = {
-      source: 'local',
+      source: 'local' as const,
       layout: [{ x: 0, y: 0, row: 0, col: 0 }],
       keymap: km('A')
     }
@@ -263,6 +352,93 @@ describe('editor publish / draft persistence', () => {
     expect(editor.isDirty).toBe(true)
 
     confirm.mockRestore()
+  })
+
+  it('does not keep a clipboard draft when pasting a different keymap', async () => {
+    const identity = buildDraftIdentity({
+      source: 'clipboard',
+      keyboard: 'clipboard'
+    })!
+    await saveStoredDraft(identity, km('Z', 'clipboard'))
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    await editor.selectKeyboard({
+      source: 'clipboard',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A', 'clipboard'),
+      clipboardOriginalSource: 'bindings = <&kp A>;'
+    })
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('Z')
+
+    editor.updateKeymap(km('M', 'clipboard'))
+    expect(editor.isDirty).toBe(true)
+
+    await editor.selectKeyboard({
+      source: 'clipboard',
+      keymap: km('B', 'clipboard'),
+      clipboardOriginalSource: 'bindings = <&kp B>;',
+      warnings: ['clipboard_inferred_layout']
+    })
+
+    expect(editor.draftKeymap).toEqual(km('B', 'clipboard'))
+    expect(editor.isDirty).toBe(false)
+
+    confirm.mockRestore()
+    await deleteStoredDraft(identity)
+  })
+
+  it('prompts restore and reapplies host snapshot after logout on the same GitHub identity', async () => {
+    const identity = buildDraftIdentity({
+      source: 'github',
+      repo: 'acme/lark',
+      branch: 'main',
+      keyboard: 'lark'
+    })!
+    await saveStoredDraft(identity, km('Z'))
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const layout = [{ x: 0, y: 0, row: 0, col: 0 }]
+    const hostSnapshot = {
+      version: 1 as const,
+      view: {
+        columns: [
+          {
+            language: 'en' as const,
+            layoutId: 'system-us',
+            visible: true,
+            altGr: true,
+            altGrShift: true
+          }
+        ],
+        open: null
+      },
+      layouts: []
+    }
+    const selection = {
+      source: 'github' as const,
+      github: { repository: 'acme/lark', branch: 'main' },
+      layout,
+      keymap: km('A'),
+      hostSnapshot
+    }
+
+    await editor.selectKeyboard(selection)
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('Z')
+    expect(editor._hostRepoBaselineEncoded).not.toBeNull()
+
+    editor.clearLoadedKeymap()
+    expect(editor._handledDraftIdentityKey).toBeNull()
+    expect(editor._hostRepoBaselineEncoded).toBeNull()
+
+    await editor.selectKeyboard(selection)
+    expect(confirm).toHaveBeenCalledTimes(2)
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('Z')
+    expect(editor._hostRepoBaselineEncoded).not.toBeNull()
+    expect(editor.isHostRepoDirty).toBe(false)
+
+    confirm.mockRestore()
+    await deleteStoredDraft(identity)
   })
 
   it('deletes a stale clean IDB record without prompting', async () => {
@@ -417,5 +593,259 @@ describe('editor publish / draft persistence', () => {
 
     await deleteStoredDraft(mainId)
     await deleteStoredDraft(topicId)
+  })
+
+  it('keeps the in-memory draft when IndexedDB persist fails, then saves on retry', async () => {
+    await editor.selectKeyboard({
+      source: 'local',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A')
+    })
+    editor.updateKeymap(km('M'))
+    const identity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
+
+    const save = vi
+      .spyOn(draftStorage, 'saveStoredDraft')
+      .mockRejectedValueOnce(new Error('quota'))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await editor.flushPendingPersist()
+
+    expect(editor.saveNotice?.kind).toBe('error')
+    expect(editor.saveNotice?.messages).toEqual([
+      'Could not save your draft locally. Changes may be lost if you close this tab.'
+    ])
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('M')
+    expect(editor.isDirty).toBe(true)
+    expect(await loadStoredDraft(identity)).toBeNull()
+
+    await editor.flushPendingPersist()
+
+    expect(save).toHaveBeenCalledTimes(2)
+    expect((await loadStoredDraft(identity))!.draftKeymap.layers[0][0].params[0].value).toBe(
+      'M'
+    )
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('M')
+
+    save.mockRestore()
+    warn.mockRestore()
+  })
+
+  it('warns when a stored draft shape passes but diffKeymaps throws', async () => {
+    const identity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
+    await saveStoredDraft(identity, { layers: [[{}]] } as unknown as ParsedKeymap)
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    await expect(
+      editor.selectKeyboard({
+        source: 'local',
+        layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+        keymap: km('A')
+      })
+    ).resolves.toBeUndefined()
+
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('A')
+    expect(editor.saveNotice?.kind).toBe('warning')
+    expect(editor.saveNotice?.messages[0]).toMatch(/does not match the current keyboard layout/)
+    expect(confirm).toHaveBeenCalled()
+
+    confirm.mockRestore()
+  })
+
+  it('deletes a mismatched stored draft when Discard is confirmed', async () => {
+    const identity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
+    const fourKey = {
+      keyboard: 'lark',
+      layer_names: ['default'],
+      layers: [
+        Array.from({ length: 4 }, () => ({
+          value: '&kp',
+          params: [{ value: 'Z', params: [] }]
+        }))
+      ]
+    } satisfies ParsedKeymap
+    await saveStoredDraft(identity, fourKey)
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    await editor.selectKeyboard({
+      source: 'local',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A')
+    })
+
+    expect(confirm.mock.calls[0]?.[0]).toMatch(/Discard/)
+    expect(await loadStoredDraft(identity)).toBeNull()
+
+    confirm.mockRestore()
+  })
+
+  it('keeps a mismatched stored draft when Discard is cancelled and does not ask again', async () => {
+    const identity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
+    const fourKey = {
+      keyboard: 'lark',
+      layer_names: ['default'],
+      layers: [
+        Array.from({ length: 4 }, () => ({
+          value: '&kp',
+          params: [{ value: 'Z', params: [] }]
+        }))
+      ]
+    } satisfies ParsedKeymap
+    await saveStoredDraft(identity, fourKey)
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const selection = {
+      source: 'local' as const,
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A')
+    }
+
+    await editor.selectKeyboard(selection)
+
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('A')
+    expect(await loadStoredDraft(identity)).not.toBeNull()
+
+    await editor.selectKeyboard(selection)
+
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(await loadStoredDraft(identity)).not.toBeNull()
+
+    confirm.mockRestore()
+  })
+
+  it('moves draft and host settings to the new GitHub branch on preserveSession', async () => {
+    const mainId = buildDraftIdentity({
+      source: 'github',
+      repo: 'acme/lark',
+      branch: 'main',
+      keyboard: 'lark'
+    })!
+    const featureId = buildDraftIdentity({
+      source: 'github',
+      repo: 'acme/lark',
+      branch: 'feature/x',
+      keyboard: 'lark'
+    })!
+    await deleteStoredDraft(mainId)
+    await deleteStoredDraft(featureId)
+
+    await editor.selectKeyboard({
+      source: 'github',
+      github: { repository: 'acme/lark', branch: 'main' },
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A')
+    })
+    editor.updateKeymap(km('Z'))
+    editor.hostLegend = addHostLanguage(editor.hostLegend, 'ru')
+    editor.hostAssemblies = [
+      { id: 'asm-1', view: cloneHostLegendView(editor.hostLegend) }
+    ]
+
+    await editor.selectKeyboard({
+      source: 'github',
+      github: { repository: 'acme/lark', branch: 'feature/x' },
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A'),
+      preserveSession: true
+    })
+
+    expect(editor.githubMeta?.branch).toBe('feature/x')
+    expect(await loadStoredDraft(mainId)).toBeNull()
+    expect(
+      (await loadStoredDraft(featureId))!.draftKeymap.layers[0][0].params[0].value
+    ).toBe('Z')
+
+    const nextLegend = await loadHostLegendView(
+      hostLegendSettingId(draftIdentityKey(featureId))
+    )
+    expect(nextLegend?.columns.map(c => c.language)).toEqual(['en', 'ru'])
+    const nextAssemblies = await loadHostAssemblies(
+      hostAssembliesSettingId(draftIdentityKey(featureId))
+    )
+    expect(nextAssemblies).toHaveLength(1)
+    expect(nextAssemblies[0]?.id).toBe('asm-1')
+
+    await deleteStoredDraft(mainId)
+    await deleteStoredDraft(featureId)
+  })
+
+  it('retargets githubMeta.branch when migrating the draft to IndexedDB fails', async () => {
+    const mainId = buildDraftIdentity({
+      source: 'github',
+      repo: 'acme/lark',
+      branch: 'main',
+      keyboard: 'lark'
+    })!
+    const featureId = buildDraftIdentity({
+      source: 'github',
+      repo: 'acme/lark',
+      branch: 'feature/x',
+      keyboard: 'lark'
+    })!
+    await deleteStoredDraft(mainId)
+    await deleteStoredDraft(featureId)
+
+    await editor.selectKeyboard({
+      source: 'github',
+      github: { repository: 'acme/lark', branch: 'main' },
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A')
+    })
+    editor.updateKeymap(km('Z'))
+
+    const save = vi
+      .spyOn(draftStorage, 'saveStoredDraft')
+      .mockRejectedValueOnce(new Error('quota'))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await editor.selectKeyboard({
+      source: 'github',
+      github: { repository: 'acme/lark', branch: 'feature/x' },
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A'),
+      preserveSession: true
+    })
+
+    expect(editor.githubMeta).toEqual({ repository: 'acme/lark', branch: 'feature/x' })
+    expect(editor.saveNotice?.kind).toBe('error')
+    expect(editor.saveNotice?.messages).toEqual([
+      'Could not save your draft locally. Changes may be lost if you close this tab.'
+    ])
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('Z')
+
+    save.mockRestore()
+    warn.mockRestore()
+    await deleteStoredDraft(mainId)
+    await deleteStoredDraft(featureId)
+  })
+
+  it('clears the draft and persist timer when selectKeyboard receives a null keymap', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const save = vi.spyOn(draftStorage, 'saveStoredDraft')
+
+    await editor.selectKeyboard({
+      source: 'local',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A')
+    })
+    editor.updateKeymap(km('M'))
+    expect(editor.canUndo).toBe(true)
+    expect(vi.getTimerCount()).toBeGreaterThan(0)
+
+    await editor.selectKeyboard({
+      source: 'local',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: null
+    })
+
+    expect(editor.draftKeymap).toBeNull()
+    expect(editor.undoStack).toEqual([])
+    expect(editor.canUndo).toBe(false)
+    expect(vi.getTimerCount()).toBe(0)
+
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(save).not.toHaveBeenCalled()
+
+    save.mockRestore()
   })
 })

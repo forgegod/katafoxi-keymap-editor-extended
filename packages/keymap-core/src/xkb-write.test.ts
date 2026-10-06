@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { HOST_KEY_IDS } from './host-key-id.js'
-import { builtinHostLayoutSpecs, SYSTEM_US_LAYOUT_ID } from './host-layout-catalog.js'
+import { builtinHostLayoutSpecs, primarySystemLayoutId } from './host-layout-catalog.js'
 import {
   hostLayoutFromSymbols,
   withHostKey,
@@ -91,6 +91,25 @@ describe('hostLayoutToXkbSection', () => {
     expect(text).toContain('key <AC01> { [ a, A, at, Greek_alpha ] };')
   })
 
+  it('replaces non-keysym tokens with NoSymbol so inject payloads cannot leave the key', () => {
+    const hostile: HostLayout = {
+      id: 'hostile',
+      byZmk: new Map([
+        [
+          'A',
+          {
+            keysyms: ['a ] }; include "evil"', 'A', 'NoSymbol', 'NoSymbol'],
+            glyphs: ['', '', '', '']
+          }
+        ]
+      ])
+    }
+    const text = hostLayoutToXkbSection(hostile, { section: 'basic', name: 'Hostile' })
+    expect(text).toContain('key <AC01> { [ NoSymbol, A, NoSymbol, NoSymbol ] };')
+    expect(text).not.toMatch(/\binclude\b/)
+    expect(text).not.toContain('evil')
+  })
+
   it('round-trips the sample through parse → write → parse', () => {
     const written = hostLayoutToXkbSection(layout, { section: 'basic', name: 'Sample' })
     const again = hostLayoutFromSymbols(written, 'basic', 'sample')
@@ -148,7 +167,7 @@ describe('xkb host layout round-trip', () => {
   })
 
   it('keeps withHostKey edits through write and reparse', () => {
-    const spec = builtinHostLayoutSpecs.find(item => item.id === SYSTEM_US_LAYOUT_ID)
+    const spec = builtinHostLayoutSpecs.find(item => item.id === primarySystemLayoutId('en')!)
     expect(spec).toBeDefined()
     let edited = hostLayoutFromSymbols(spec!.source, spec!.section, 'edited-us', spec!.files)
     expect(edited.byZmk.has('NON_US_BSLH')).toBe(false)

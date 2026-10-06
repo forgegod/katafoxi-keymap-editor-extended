@@ -1,6 +1,7 @@
 import { flushSync, mount, tick, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ParsedKeymap } from '@keymap-editor/keymap-core'
+import * as draftStorage from './lib/draft-storage'
 import { buildDraftIdentity, deleteStoredDraft } from './lib/draft-storage'
 import { editor, type KeyboardSelection } from './lib/editor.svelte.js'
 import github from './lib/github/api.svelte.js'
@@ -8,7 +9,6 @@ import App from './App.svelte'
 
 vi.mock('./lib/config', () => ({
   apiBaseUrl: '',
-  appBaseUrl: '',
   githubAppName: 'test-app',
   enableGitHub: true,
   enableLocal: true
@@ -50,11 +50,12 @@ function localSelection(
 
 function githubSelection(
   code = 'A',
-  keyboard = 'lark'
+  keyboard = 'lark',
+  headSha = 'abc123'
 ): KeyboardSelection {
   return {
     source: 'github',
-    github: { repository: 'owner/repo', branch: 'main' },
+    github: { repository: 'owner/repo', branch: 'main', headSha },
     layout: oneKeyLayout,
     keymap: km(code, keyboard)
   }
@@ -114,7 +115,10 @@ describe('App chrome', () => {
     vi.spyOn(github, 'commitChanges').mockResolvedValue({ data: {} })
     vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
       layout: oneKeyLayout,
-      keymap: km('A')
+      keymap: km('A'),
+      hostSnapshot: null,
+      warnings: [],
+      headSha: 'abc123'
     })
     vi.spyOn(github, 'init').mockResolvedValue(undefined)
     github.initialized = true
@@ -139,6 +143,7 @@ describe('App chrome', () => {
     github.repositories = null
     github.repoInstallationMap = null
     github.installations = null
+    vi.useRealTimers()
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
@@ -268,6 +273,151 @@ describe('App chrome', () => {
     expect((githubDiscard as HTMLButtonElement).disabled).toBe(true)
   })
 
+  it('shows a reload notice when GitHub Commit fails because the branch moved', async () => {
+    await renderApp()
+    await loadKeyboard(githubSelection())
+    editor.updateKeymap(km('M'))
+    flushSync()
+
+    vi.mocked(github.commitChanges).mockRejectedValue({
+      response: {
+        status: 409,
+        data: { name: 'StaleRepoBase', errors: ['Branch changed on GitHub — reload'] }
+      }
+    })
+
+    const commit = buttonMatching(target, /^\s*Commit\s*$/)
+    expect(commit).toBeInstanceOf(HTMLButtonElement)
+    commit!.click()
+    flushSync()
+    await tick()
+    await vi.waitFor(() => {
+      expect(target.querySelector('.save-notice.error')?.textContent).toMatch(
+        /Branch changed on GitHub — reload/
+      )
+    })
+  })
+
+  it('retries Commit with the reloaded GitHub head sha', async () => {
+    await renderApp()
+    await loadKeyboard(githubSelection('A', 'lark', 'old-sha'))
+    editor.updateKeymap(km('M'))
+    flushSync()
+
+    vi.mocked(github.commitChanges).mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: { name: 'StaleRepoBase', errors: ['Branch changed on GitHub — reload'] }
+      }
+    })
+
+    const commit = buttonMatching(target, /^\s*Commit\s*$/)
+    expect(commit).toBeInstanceOf(HTMLButtonElement)
+    commit!.click()
+    flushSync()
+    await tick()
+    await vi.waitFor(() => {
+      expect(target.querySelector('.save-notice.error')?.textContent).toMatch(
+        /Branch changed on GitHub — reload/
+      )
+    })
+    expect(github.commitChanges).toHaveBeenLastCalledWith(
+      'owner/repo',
+      'main',
+      oneKeyLayout,
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      'old-sha'
+    )
+
+    await loadKeyboard(githubSelection('A', 'lark', 'new-sha'))
+    expect(editor.githubMeta?.headSha).toBe('new-sha')
+    editor.updateKeymap(km('M'))
+    flushSync()
+
+    vi.mocked(github.commitChanges).mockResolvedValue({ data: {} })
+    commit!.click()
+    flushSync()
+    await tick()
+    await vi.waitFor(() => {
+      expect(github.commitChanges).toHaveBeenLastCalledWith(
+        'owner/repo',
+        'main',
+        oneKeyLayout,
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        'new-sha'
+      )
+    })
+  })
+
+  it('keeps the current board when GitHub branch listing fails', async () => {
+    localStorage.setItem('selectedSource', 'local')
+    await renderApp()
+    await vi.waitFor(() => {
+      expect(editor.source).toBe('local')
+      expect(editor.draftKeymap?.layers[0][0].params[0].value).toBe('Z')
+    })
+    expect(target.querySelector('.key')).toBeTruthy()
+
+    github.authorized = true
+    github.installations = [{ id: 1 }]
+    github.repositories = [{ id: 11, full_name: 'owner/repo', default_branch: 'main' }]
+    github.repoInstallationMap = { 'owner/repo': '1' }
+    vi.spyOn(github, 'fetchRepoBranches').mockRejectedValue(
+      Object.assign(new Error('Request failed: 502'), {
+        response: { status: 502, data: { message: 'Bad gateway' } }
+      })
+    )
+
+    const trigger = target.querySelector('.source-trigger')
+    if (!(trigger instanceof HTMLButtonElement)) throw new Error('missing source trigger')
+    trigger.click()
+    flushSync()
+    const githubCard = target.querySelector('[data-source="github"]')
+    if (!(githubCard instanceof HTMLButtonElement)) throw new Error('missing GitHub source')
+    githubCard.click()
+    flushSync()
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('Bad gateway')
+    })
+    expect(editor.source).toBe('local')
+    expect(editor.githubMeta).toBeNull()
+    expect(editor.draftKeymap?.layers[0][0].params[0].value).toBe('Z')
+    expect(target.querySelector('.key')).toBeTruthy()
+  })
+
+  it('does not undo from Ctrl+Z on Apply while the key editor is open', async () => {
+    await renderApp()
+    await loadKeyboard(localSelection())
+    editor.updateKeymap(km('M'))
+    flushSync()
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('M')
+
+    const slot = target.querySelector('.key .layer-slot')
+    if (!(slot instanceof HTMLElement)) throw new Error('missing .layer-slot')
+    slot.click()
+    flushSync()
+    await tick()
+    const apply = document.querySelector('[aria-label="Apply"]')
+    if (!(apply instanceof HTMLButtonElement)) throw new Error('missing Apply')
+
+    apply.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'z',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true
+      })
+    )
+    flushSync()
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('M')
+    expect(document.querySelector('[aria-label="Apply"]')).toBeInstanceOf(HTMLButtonElement)
+  })
+
   it('undoes with Ctrl+Z while mounted and ignores the chord after unmount', async () => {
     await renderApp()
     await loadKeyboard(localSelection())
@@ -301,6 +451,27 @@ describe('App chrome', () => {
     expect(undo).not.toHaveBeenCalled()
   })
 
+  it('writes a pending draft on visibilitychange before the 400ms debounce', async () => {
+    await renderApp()
+    await loadKeyboard(localSelection())
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const save = vi.spyOn(draftStorage, 'saveStoredDraft')
+
+    editor.updateKeymap(km('M'))
+    expect(save).not.toHaveBeenCalled()
+
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'hidden'
+    })
+    document.dispatchEvent(new Event('visibilitychange'))
+
+    await Promise.resolve()
+    expect(save).toHaveBeenCalled()
+    await save.mock.results[0]?.value
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it('clears the unpublished row when another keyboard is loaded', async () => {
     await renderApp()
     await loadKeyboard(localSelection())
@@ -311,5 +482,48 @@ describe('App chrome', () => {
     await loadKeyboard(localSelection('A', 'other'))
     expect(target.querySelector('.layer-slot.unpublished')).toBeNull()
     expect(target.querySelector('.publish-status')?.getAttribute('title')).toMatch(/Up to date/)
+  })
+
+  it('omits host_keymap/snapshot.json on Commit when the repo snapshot is version 2', async () => {
+    await renderApp()
+    await loadKeyboard({
+      source: 'github',
+      github: { repository: 'owner/repo', branch: 'main', headSha: 'abc123' },
+      layout: oneKeyLayout,
+      keymap: km('A'),
+      hostSnapshot: null,
+      hostSnapshotError: 'unsupported_version',
+      warnings: ['host_snapshot_unsupported_version']
+    })
+
+    expect(target.querySelector('.save-notice.warning')?.textContent).toMatch(
+      /newer host_keymap\/snapshot\.json than this editor can read/
+    )
+
+    editor.updateKeymap(km('M'))
+    flushSync()
+    const commit = buttonMatching(target, /^\s*Commit\s*$/)
+    expect(commit).toBeInstanceOf(HTMLButtonElement)
+    commit!.click()
+    flushSync()
+    await tick()
+    await vi.waitFor(() => {
+      expect(github.commitChanges).toHaveBeenCalled()
+    })
+
+    expect(github.commitChanges).toHaveBeenCalledWith(
+      'owner/repo',
+      'main',
+      oneKeyLayout,
+      expect.objectContaining({
+        layers: km('M').layers
+      }),
+      null,
+      [],
+      'abc123'
+    )
+    expect(target.querySelector('.save-notice.warning')?.textContent).toMatch(
+      /newer host_keymap\/snapshot\.json than this editor can read/
+    )
   })
 })

@@ -12,7 +12,11 @@
  */
 
 import records from '../data/host-symbols.json' with { type: 'json' }
-import type { HostLanguageId } from './host-languages.js'
+import {
+  hostLanguage,
+  type HostLanguageId,
+  type HostLanguageScript
+} from './host-languages.js'
 import { primarySystemLayoutId } from './host-layout-catalog.js'
 import { hostLayout } from './host-layout-registry.js'
 import { hostSymbolByCodepoint } from './host-symbols.js'
@@ -31,11 +35,21 @@ export interface HostSymbolShelfEntry {
   dead?: boolean
 }
 
+/**
+ * Value written when the picker selects an entry.
+ * Dead accents and non-character modifiers store the keysym; ordinary glyphs
+ * store the Unicode scalar so spacing `^` is never mistaken for `asciicircum`.
+ */
+export function hostSymbolPickValue(entry: HostSymbolShelfEntry): string {
+  if (entry.dead || !entry.glyph) return entry.keysym
+  return entry.glyph
+}
+
 export interface HostSymbolShelf {
   id: string
   title: string
   open: boolean
-  entries: HostSymbolShelfEntry[]
+  entries: readonly HostSymbolShelfEntry[]
 }
 
 type Range = readonly [number, number]
@@ -108,7 +122,7 @@ const STRUCTURAL_MODIFIER_KEYSYMS = [
  * Language-typical dead keys (from the primary system layout) sit on the open
  * Modifiers shelf; the rest are under collapsed "More dead keys".
  */
-export const HOST_SYMBOL_MODIFIER_KEYSYMS: readonly string[] = [
+const HOST_SYMBOL_MODIFIER_KEYSYMS: readonly string[] = Object.freeze([
   ...STRUCTURAL_MODIFIER_KEYSYMS,
   'dead_grave',
   'dead_acute',
@@ -152,12 +166,24 @@ export const HOST_SYMBOL_MODIFIER_KEYSYMS: readonly string[] = [
   'dead_belowcircumflex',
   'dead_belowbreve',
   'dead_capital_schwa'
-]
+])
 
-type LanguageFamily = 'latin' | 'cyrillic'
+type LanguageFamily = HostLanguageScript
+
+const FAMILY_TITLES: Record<LanguageFamily, string> = {
+  latin: 'Latin',
+  cyrillic: 'Cyrillic',
+  greek: 'Greek'
+}
+
+const FAMILY_RANGES: Record<LanguageFamily, readonly Range[]> = {
+  latin: LATIN_RANGES,
+  cyrillic: CYRILLIC_RANGES,
+  greek: GREEK_RANGES
+}
 
 function languageFamily(language: HostLanguageId): LanguageFamily {
-  return language === 'ru' || language === 'uk' ? 'cyrillic' : 'latin'
+  return hostLanguage(language).script
 }
 
 function inRanges(codepoint: number, ranges: readonly Range[]): boolean {
@@ -249,12 +275,12 @@ interface Bucket {
   entries: HostSymbolShelfEntry[]
 }
 
-function buildShelves(language: HostLanguageId): HostSymbolShelf[] {
+function buildShelves(language: HostLanguageId): readonly HostSymbolShelf[] {
   const family = languageFamily(language)
 
   const languageBucket: Bucket = {
     id: family,
-    title: family === 'latin' ? 'Latin' : 'Cyrillic',
+    title: FAMILY_TITLES[family],
     open: true,
     entries: []
   }
@@ -280,7 +306,7 @@ function buildShelves(language: HostLanguageId): HostSymbolShelf[] {
     open: false,
     entries: []
   }
-  const greekBucket: Bucket = { id: 'greek', title: 'Greek', open: false, entries: [] }
+  const greekCollapsed: Bucket = { id: 'greek', title: 'Greek', open: false, entries: [] }
   const arabicBucket: Bucket = { id: 'arabic', title: 'Arabic', open: false, entries: [] }
   const combiningBucket: Bucket = {
     id: 'combining',
@@ -296,7 +322,7 @@ function buildShelves(language: HostLanguageId): HostSymbolShelf[] {
     entries: []
   }
 
-  const languageRanges = family === 'latin' ? LATIN_RANGES : CYRILLIC_RANGES
+  const languageRanges = FAMILY_RANGES[family]
 
   for (const row of records as readonly { cp: number }[]) {
     const entry = entryForCodepoint(row.cp)
@@ -323,7 +349,9 @@ function buildShelves(language: HostLanguageId): HostSymbolShelf[] {
     }
 
     if (inRanges(cp, GREEK_RANGES)) {
-      greekBucket.entries.push(entry)
+      // Open Greek already claimed letters; leftover block glyphs go to Other.
+      if (family === 'greek') otherBucket.entries.push(entry)
+      else greekCollapsed.entries.push(entry)
       continue
     }
 
@@ -357,29 +385,39 @@ function buildShelves(language: HostLanguageId): HostSymbolShelf[] {
   ]
   if (moreDeadBucket.entries.length > 0) shelves.push(moreDeadBucket)
 
-  if (family === 'latin') {
-    if (cyrillicCollapsed.entries.length > 0) {
-      shelves.push({
-        ...cyrillicCollapsed,
-        entries: sortEntries(cyrillicCollapsed.entries)
-      })
-    }
-  } else if (latinCollapsed.entries.length > 0) {
+  // Collapsed letter shelves for scripts that are not the open language family.
+  if (family !== 'latin' && latinCollapsed.entries.length > 0) {
     shelves.push({ ...latinCollapsed, entries: sortEntries(latinCollapsed.entries) })
   }
+  if (family !== 'cyrillic' && cyrillicCollapsed.entries.length > 0) {
+    shelves.push({
+      ...cyrillicCollapsed,
+      entries: sortEntries(cyrillicCollapsed.entries)
+    })
+  }
+  if (family !== 'greek' && greekCollapsed.entries.length > 0) {
+    shelves.push({ ...greekCollapsed, entries: sortEntries(greekCollapsed.entries) })
+  }
 
-  for (const bucket of [greekBucket, arabicBucket, combiningBucket, emojiBucket, otherBucket]) {
+  for (const bucket of [arabicBucket, combiningBucket, emojiBucket, otherBucket]) {
     if (bucket.entries.length === 0) continue
     shelves.push({ ...bucket, entries: sortEntries(bucket.entries) })
   }
 
-  return shelves
+  return Object.freeze(
+    shelves.map(shelf =>
+      Object.freeze({
+        ...shelf,
+        entries: Object.freeze(shelf.entries.map(entry => Object.freeze({ ...entry })))
+      })
+    )
+  )
 }
 
-const cache = new Map<HostLanguageId, HostSymbolShelf[]>()
+const cache = new Map<HostLanguageId, readonly HostSymbolShelf[]>()
 
 /** Ordered shelves for the host symbol picker for a column language. */
-export function hostSymbolShelves(language: HostLanguageId): HostSymbolShelf[] {
+export function hostSymbolShelves(language: HostLanguageId): readonly HostSymbolShelf[] {
   let shelves = cache.get(language)
   if (!shelves) {
     shelves = buildShelves(language)

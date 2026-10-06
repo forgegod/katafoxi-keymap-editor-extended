@@ -59,7 +59,8 @@ export function lockedLegendDecodeKeyIndex(): number | null {
   return active?.locked ? active.keyIndex : null
 }
 
-/** Test helper. */
+/** Test helper (no-op outside test/dev). */
 export function resetLegendDecodeActive(): void {
+  if (import.meta.env.MODE !== 'test' && !import.meta.env.DEV) return
   active = null
 }

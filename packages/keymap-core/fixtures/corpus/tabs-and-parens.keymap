@@ -1,0 +1,35 @@
+/*
+ * Hard .keymap corpus: tabs between bind parameters and LS( A ) in a combo.
+ * Covers R2-8 (tokenize on any whitespace and parenthesis depth).
+ */
+
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+
+/ {
+    combos {
+        compatible = "zmk,combos";
+        combo_shift_a {
+            bindings = <&kp LS( A )>;
+            key-positions = <0 1>;
+        };
+    };
+
+    keymap {
+        compatible = "zmk,keymap";
+
+        layer_0 {
+            bindings = <
+&mt	LSHIFT	A &kp B
+&kp C &kp D
+            >;
+        };
+
+        layer_1 {
+            bindings = <
+&trans &trans
+&trans &trans
+            >;
+        };
+    };
+};

@@ -1,0 +1,27 @@
+/*
+ * Hard .keymap corpus: CRLF line endings, preserved on a no-op Save.
+ * Covers splice EOL (dominantEol / bindings interior).
+ */
+
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+
+/ {
+    keymap {
+        compatible = "zmk,keymap";
+
+        layer_0 {
+            bindings = <
+&kp A &kp B
+&kp C &kp D
+            >;
+        };
+
+        layer_1 {
+            bindings = <
+&trans &trans
+&trans &trans
+            >;
+        };
+    };
+};

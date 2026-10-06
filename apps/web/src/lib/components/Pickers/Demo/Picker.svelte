@@ -7,18 +7,11 @@
     type DemoCatalogEntry
   } from '../../../demo/catalog'
   import type { LayoutKey } from '@keymap-editor/keymap-core'
+  import type { DemoKeyboardSelection } from '../../../editor/types'
   import LayoutThumb from './LayoutThumb.svelte'
 
-  interface KeymapEvent {
-    source?: string
-    layout?: unknown
-    keymap?: unknown
-    demo?: { id: string; name: string }
-    [key: string]: unknown
-  }
-
   interface Props {
-    onSelect: (event: KeymapEvent) => void
+    onSelect: (event: DemoKeyboardSelection) => void
     /** Ask the source menu to switch to Clipboard. */
     onConnectClipboard?: () => void
     /** Ask the source menu to switch to GitHub. */
@@ -33,49 +26,65 @@
     showGithubCta = true
   }: Props = $props()
 
-  const cards: {
-    entry: DemoCatalogEntry
-    layout: LayoutKey[]
-  }[] = DEMO_CATALOG.map(entry => {
-    const bundle = loadDemo(entry.id)
-    return {
-      entry,
-      layout: bundle.layout
-    }
-  })
+  let cards = $state<
+    {
+      entry: DemoCatalogEntry
+      layout: LayoutKey[]
+    }[]
+  >([])
 
   let selectedId = $state(readStoredDemoId())
   let error = $state<string | null>(null)
   let loadedId = $state<string | null>(null)
+  let emitGeneration = 0
 
   const selectedEntry = $derived(
     DEMO_CATALOG.find(entry => entry.id === selectedId) ?? DEMO_CATALOG[0]
   )
 
-  function emitDemo(id: string) {
-    if (loadedId === id) return
+  async function emitDemo(id: string, userInitiated = false) {
+    const generation = ++emitGeneration
     error = null
     try {
-      const bundle = loadDemo(id)
+      const bundle = await loadDemo(id)
+      if (generation !== emitGeneration) return
+      const already = loadedId === id
       selectedId = id
       loadedId = id
       writeStoredDemoId(id)
+      if (already && !userInitiated) return
       onSelect({
         source: 'demo',
         layout: bundle.layout,
         keymap: bundle.keymap,
         demo: { id: bundle.entry.id, name: bundle.entry.name },
-        demoHost: bundle.hostSeeds
+        demoHost: bundle.hostSeeds,
+        ...(userInitiated ? { userInitiated: true } : {})
       })
     } catch (err) {
+      if (generation !== emitGeneration) return
       error = err instanceof Error ? err.message : 'Failed to load demo'
       console.error(err)
     }
   }
 
+  $effect(() => {
+    let cancelled = false
+    void Promise.all(
+      DEMO_CATALOG.map(async entry => {
+        const bundle = await loadDemo(entry.id)
+        return { entry, layout: bundle.layout }
+      })
+    ).then(next => {
+      if (!cancelled) cards = next
+    })
+    return () => {
+      cancelled = true
+    }
+  })
+
   function choose(id: string) {
-    selectedId = id
-    emitDemo(id)
+    void emitDemo(id, true)
   }
 
   $effect(() => {
@@ -90,8 +99,8 @@
   </p>
 
   <ul class="demo-list" role="listbox" aria-label="Demo keyboards">
-    {#each cards as card}
-      <li>
+    {#each cards as card (card.entry.id)}
+      <li class="demo-item" role="none">
         <button
           type="button"
           class="demo-card"
@@ -107,17 +116,16 @@
           <span class="demo-meta">
             <span class="demo-name">{card.entry.name}</span>
             <span class="demo-blurb">{card.entry.blurb}</span>
-            <a
-              class="demo-repo"
-              href={card.entry.repoUrl}
-              target="_blank"
-              rel="noreferrer"
-              onclick={event => event.stopPropagation()}
-            >
-              Hardware repo
-            </a>
           </span>
         </button>
+        <a
+          class="demo-repo"
+          href={card.entry.repoUrl}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Hardware repo
+        </a>
       </li>
     {/each}
   </ul>
@@ -175,6 +183,10 @@
     list-style: none;
   }
 
+  .demo-item {
+    position: relative;
+  }
+
   .demo-card {
     display: grid;
     grid-template-columns: 132px minmax(0, 1fr);
@@ -209,6 +221,7 @@
     flex-direction: column;
     justify-content: center;
     gap: 2px;
+    padding-bottom: 1.15em;
   }
 
   .demo-name {
@@ -225,9 +238,14 @@
     line-height: 1.3;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 
   .demo-repo {
+    position: absolute;
+    left: calc(8px + 132px + 10px);
+    bottom: 8px;
+    z-index: 1;
     width: fit-content;
     color: var(--accent, #2a9d8f);
     font-size: var(--font-sm, 0.85rem);

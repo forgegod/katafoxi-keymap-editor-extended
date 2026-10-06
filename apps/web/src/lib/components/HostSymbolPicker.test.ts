@@ -1,8 +1,8 @@
 import {
   addHostLanguage,
   hostSymbolShelves,
-  SYSTEM_US_LAYOUT_ID,
   hostLayout,
+  primarySystemLayoutId,
   type HostLanguageId
 } from '@keymap-editor/keymap-core'
 import { flushSync, mount, unmount } from 'svelte'
@@ -10,11 +10,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { editor } from '../editor.svelte.js'
 import { clearHostLayoutStore } from '../host-layout-store'
 import HostSymbolCatalog from './HostSymbolCatalog.svelte'
-import HostSymbolPicker, {
+import HostSymbolPicker from './HostSymbolPicker.svelte'
+import {
   hostSymbolExpandedByLanguage,
   hostSymbolPickerFrame,
   placePickerClearOf
-} from './HostSymbolPicker.svelte'
+} from './host-symbol-geometry'
 import Harness from './Keyboard/Keys/KeyHarness.svelte'
 
 function stackRows(): HTMLButtonElement[] {
@@ -27,7 +28,7 @@ function catalog(): HTMLElement | null {
   return document.querySelector('[role="dialog"][aria-label="Host symbol catalog"]')
 }
 
-function openDecodeCell(levelLabel = 'Edit en level 0'): HTMLButtonElement {
+function openDecodeCell(levelLabel = 'Edit English tap'): HTMLButtonElement {
   const row = stackRows()[0]
   row.dispatchEvent(
     new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true })
@@ -144,6 +145,18 @@ describe('HostSymbolPicker', () => {
     expect(onPick).toHaveBeenCalledWith('NoSymbol')
   })
 
+  it('picks dead accents by keysym, not the spacing glyph', () => {
+    const { onPick } = mountPicker('fr')
+    const dialog = catalog()
+    const dead = dialog?.querySelector(
+      'button.glyph[aria-label="Dead key ^ dead_circumflex"]'
+    )
+    expect(dead).toBeInstanceOf(HTMLButtonElement)
+    ;(dead as HTMLButtonElement).click()
+    flushSync()
+    expect(onPick).toHaveBeenCalledWith('dead_circumflex')
+  })
+
   it('keeps an expanded collapsed shelf after remount', () => {
     mountPicker('en')
     const collapsed = hostSymbolShelves('en').find(shelf => !shelf.open)
@@ -212,9 +225,9 @@ describe('LegendDecodeCard host symbol catalog', () => {
 
   it('opens a catalog dialog from a level cell without a text field', async () => {
     openKey('A')
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     flushSync()
-    openDecodeCell('Edit en level 0')
+    openDecodeCell('Edit English tap')
 
     expect(catalog()).toBeInstanceOf(HTMLElement)
     expect(document.querySelector('.cell-input')).toBeNull()
@@ -224,7 +237,7 @@ describe('LegendDecodeCard host symbol catalog', () => {
 
   it('arms AltGr by default when the host-edit session opens', async () => {
     openKey('A')
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     flushSync()
     const row = stackRows()[0]
     row.dispatchEvent(
@@ -252,7 +265,7 @@ describe('LegendDecodeCard host symbol catalog', () => {
     flushSync()
     expect(editor.hostSymbolEditTarget).toEqual({ language: 'en', zmk: 'G', level: 2 })
 
-    catalog()?.querySelector('button.clear-slot')?.click()
+    ;(catalog()?.querySelector('button.clear-slot') as HTMLElement | null)?.click()
     flushSync()
     await vi.waitFor(() => {
       expect(editor.hostSymbolEditTarget).toEqual({ language: 'ru', zmk: 'G', level: 3 })
@@ -264,7 +277,7 @@ describe('LegendDecodeCard host symbol catalog', () => {
 
   it('moves the armed cell with Tab without writing', async () => {
     openKey('A')
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     flushSync()
     const row = stackRows()[0]
     row.dispatchEvent(
@@ -293,11 +306,36 @@ describe('LegendDecodeCard host symbol catalog', () => {
     expect(editor.hostSymbolEditTarget).toEqual({ language: 'en', zmk: 'A', level: 2 })
   })
 
+  it('lets Tab from a glyph reach the next glyph without stepping the armed level', async () => {
+    openKey('A')
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
+    flushSync()
+    const row = stackRows()[0]
+    row.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true })
+    )
+    flushSync()
+    const level = editor.hostSymbolEditTarget?.level
+    const glyphs = [...(catalog()?.querySelectorAll('button.glyph') ?? [])].filter(
+      (el): el is HTMLButtonElement => el instanceof HTMLButtonElement && !el.disabled
+    )
+    expect(glyphs.length).toBeGreaterThan(1)
+    glyphs[0].focus()
+    flushSync()
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    glyphs[0].dispatchEvent(tab)
+    flushSync()
+    expect(tab.defaultPrevented).toBe(false)
+    expect(editor.hostSymbolEditTarget?.level).toBe(level)
+    if (document.activeElement === glyphs[0]) glyphs[1].focus()
+    expect(document.activeElement).toBe(glyphs[1])
+  })
+
   it('applies an open-shelf glyph through setHostKeyLevel and keeps the catalog open', async () => {
     openKey('A')
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     flushSync()
-    openDecodeCell('Edit en level 0')
+    openDecodeCell('Edit English tap')
 
     const glyph = catalog()?.querySelector('button.glyph[aria-label="b b"]')
     expect(glyph).toBeInstanceOf(HTMLButtonElement)
@@ -313,12 +351,12 @@ describe('LegendDecodeCard host symbol catalog', () => {
 
   it('clears a level when NoSymbol is chosen from modifiers', async () => {
     openKey('A')
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     flushSync()
     await editor.setHostKeyLevel('en', 'A', 1, 'B')
     flushSync()
 
-    openDecodeCell('Edit en level 1')
+    openDecodeCell('Edit English ⇧')
     const noSymbol = catalog()?.querySelector('button.glyph[aria-label="NoSymbol"]')
     expect(noSymbol).toBeInstanceOf(HTMLButtonElement)
     ;(noSymbol as HTMLButtonElement).click()
@@ -332,9 +370,9 @@ describe('LegendDecodeCard host symbol catalog', () => {
 
   it('closes the catalog on Escape and ends the host-edit session', async () => {
     openKey('A')
-    await editor.selectLanguageProfile('en', SYSTEM_US_LAYOUT_ID)
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
     flushSync()
-    openDecodeCell('Edit en level 0')
+    openDecodeCell('Edit English tap')
     expect(catalog()).toBeInstanceOf(HTMLElement)
     expect(editor.hostEditSession).not.toBeNull()
 

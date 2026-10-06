@@ -258,4 +258,60 @@ describe('summarizeKeymapDiff', () => {
     ])
     expect(summarizeKeymapDiff(changes)).toBe('1 encoder')
   })
+
+  it('reports encoder turns on an added layer', () => {
+    const before = parseKeymap({
+      layer_names: ['Base'],
+      layers: [['&kp A']],
+      sensorBindings: [['&inc_dec_kp C_VOL_UP C_VOL_DN']]
+    })
+    const after = parseKeymap({
+      layer_names: ['Base', 'Nav'],
+      layers: [['&kp A'], ['&trans']],
+      sensorBindings: [
+        ['&inc_dec_kp C_VOL_UP C_VOL_DN'],
+        ['&inc_dec_kp PG_UP PG_DN']
+      ]
+    })
+    const changes = diffKeymaps(before, after)
+    expect(changes).toEqual([
+      { type: 'layer_add', layer: 1, name: 'Nav' },
+      {
+        type: 'sensor',
+        layer: 1,
+        index: 0,
+        before: '',
+        after: '&inc_dec_kp PG_UP PG_DN'
+      }
+    ])
+    expect(summarizeKeymapDiff(changes)).toBe('1 layer added, 1 encoder')
+  })
+
+  it('reports encoder clears on a removed layer', () => {
+    const before = parseKeymap({
+      layer_names: ['Base', 'Nav'],
+      layers: [['&kp A'], ['&trans']],
+      sensorBindings: [
+        ['&inc_dec_kp C_VOL_UP C_VOL_DN'],
+        ['&inc_dec_kp PG_UP PG_DN']
+      ]
+    })
+    const after = parseKeymap({
+      layer_names: ['Base'],
+      layers: [['&kp A']],
+      sensorBindings: [['&inc_dec_kp C_VOL_UP C_VOL_DN']]
+    })
+    const changes = diffKeymaps(before, after)
+    expect(changes).toEqual([
+      { type: 'layer_remove', layer: 1, name: 'Nav' },
+      {
+        type: 'sensor',
+        layer: 1,
+        index: 0,
+        before: '&inc_dec_kp PG_UP PG_DN',
+        after: ''
+      }
+    ])
+    expect(summarizeKeymapDiff(changes)).toBe('1 layer removed, 1 encoder')
+  })
 })

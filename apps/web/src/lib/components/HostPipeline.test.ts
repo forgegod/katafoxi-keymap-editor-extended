@@ -1,6 +1,6 @@
 import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { addHostLanguage, SYSTEM_US_LAYOUT_ID } from '@keymap-editor/keymap-core'
+import { addHostLanguage, primarySystemLayoutId } from '@keymap-editor/keymap-core'
 import { editor } from '../editor.svelte.js'
 import { clearHostLayoutStore } from '../host-layout-store'
 import HostPipeline from './HostPipeline.svelte'
@@ -82,7 +82,7 @@ describe('HostPipeline', () => {
       'Open Linux install guide',
       'Open Windows install guide'
     ])
-    expect(editor.activeProfileId('en')).not.toBe(SYSTEM_US_LAYOUT_ID)
+    expect(editor.activeProfileId('en')).not.toBe(primarySystemLayoutId('en')!)
   })
 
   it('opens a Linux install dialog with copy/download actions', async () => {

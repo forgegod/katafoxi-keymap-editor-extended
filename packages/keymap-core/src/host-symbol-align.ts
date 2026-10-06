@@ -1,5 +1,5 @@
 import { isBasicAlignGlyph } from './host-basic-glyphs.js'
-import type { HostKeyLevels, HostLayout } from './host-layout.js'
+import { hostLevelDisplay, type HostKeyLevels, type HostLayout } from './host-layout.js'
 import { hostKeycapLanguages } from './host-legend-view.js'
 import type { HostLanguageId } from './host-languages.js'
 import type { HostLegendView } from './types.js'
@@ -95,7 +95,7 @@ export function symbolAlignPairFromView(view: HostLegendView): SymbolAlignViewPa
   const leftCol = view.columns.find(column => column.language === leftLanguage)
   const rightCol = view.columns.find(column => column.language === rightLanguage)
   if (!leftCol || !rightCol) return null
-  const baseCol = view.columns[0]
+  const baseCol = view.columns.find(column => column.language === 'en')
   const open = view.open
   const openCol = open ? view.columns.find(column => column.language === open) : undefined
   const winMerge =
@@ -137,6 +137,15 @@ function levelGlyph(row: HostKeyLevels | undefined, level: number): string {
   return row?.glyphs[level] ?? ''
 }
 
+/**
+ * Glyph Differences compares: same spacing mark the face / decode / table show.
+ * Stored `glyphs` stay empty for `dead_*` (composition), so align must not use them.
+ */
+function levelAlignGlyph(row: HostKeyLevels | undefined, level: number): string {
+  if (!row) return ''
+  return hostLevelDisplay(row.keysyms[level] ?? 'NoSymbol').text
+}
+
 function placeKey(place: GlyphPlace): string {
   return `${place.zmk}:${place.level}`
 }
@@ -163,7 +172,7 @@ function placesFor(
   const map = new Map<string, GlyphPlace[]>()
   for (const [zmk, row] of layout.byZmk) {
     for (const level of levels) {
-      const glyph = row.glyphs[level]
+      const glyph = levelAlignGlyph(row, level)
       if (!glyph || isLetterGlyph(glyph)) continue
       const place: GlyphPlace = { zmk, level: level as GlyphPlace['level'] }
       const list = map.get(glyph)
@@ -184,7 +193,7 @@ function basicGlyphsOnKey(
   const row = layout.byZmk.get(zmk)
   if (!row) return found
   for (const level of levels) {
-    const glyph = row.glyphs[level]
+    const glyph = levelAlignGlyph(row, level)
     if (glyph && isBasicAlignGlyph(glyph)) found.add(glyph)
   }
   return found

@@ -7,10 +7,16 @@ import {
   bindingSendsShift,
   composeKey,
   composeLayerRows,
+  blankRowMark,
   composeLegendDecode,
   encodeKeyBinding,
   formatDecodeWord,
+  layerRowAriaLabel,
+  legendColumnTone,
+  stripKcPrefix,
   hostComposeGlyphs,
+  hostLayout,
+  cloneHostLayoutTable,
   hostLevels,
   legendHoverHit,
   conditionalOccupiedLayers,
@@ -102,6 +108,39 @@ describe('parseKeyBinding', () => {
       params: [
         { value: 'LSHFT', params: [] },
         { value: 'A', params: [] }
+      ]
+    })
+  })
+
+  it('parses unary nested wraps', () => {
+    expect(parseKeyBinding('&kp LC(LS(A))')).toEqual({
+      value: '&kp',
+      params: [
+        {
+          value: 'LC',
+          params: [{ value: 'LS', params: [{ value: 'A', params: [] }] }]
+        }
+      ]
+    })
+  })
+
+  it('parses multi-arg nests with commas inside parentheses', () => {
+    expect(parseKeyBinding('&kp FOO(BAR(A,B),C)')).toEqual({
+      value: '&kp',
+      params: [
+        {
+          value: 'FOO',
+          params: [
+            {
+              value: 'BAR',
+              params: [
+                { value: 'A', params: [] },
+                { value: 'B', params: [] }
+              ]
+            },
+            { value: 'C', params: [] }
+          ]
+        }
       ]
     })
   })
@@ -253,6 +292,34 @@ describe('resolveBinding / composeKey', () => {
       { tone: 'base', glyphs: ['m', 'M', ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY] },
       { tone: 'second', glyphs: ['ь', 'Ь', 'ъ', 'Ъ'] }
     ])
+  })
+
+  it('keeps an on-keycap language with four ˬ slots when the layout has no GRAVE', () => {
+    const id = 'user:no-grave-ru'
+    const source = cloneHostLayoutTable(hostLayout('system-ru')!, id)
+    ;(source.byZmk as Map<string, unknown>).delete('GRAVE')
+    registerHostLayout(
+      { id, language: 'ru', name: 'No GRAVE', flag: '🇷🇺', origin: 'user' },
+      source
+    )
+    try {
+      const hostView = assignHostLanguageLayout(
+        addHostLanguage(standardHostLegendView(), 'ru'),
+        'ru',
+        id
+      )
+      const legend = hostLegendFor('GRAVE', hostView)
+      expect(keycapFace(legend!).packs.length).toBe(2)
+      expect(facePacks(legend!)).toEqual([
+        { tone: 'base', glyphs: ['`', '~', ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY] },
+        {
+          tone: 'second',
+          glyphs: [ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY]
+        }
+      ])
+    } finally {
+      unregisterHostLayout(id)
+    }
   })
 
   it('keeps matching letters on the second pack when AltGr diverges', () => {
@@ -886,6 +953,7 @@ describe('composeLegendDecode', () => {
     expect(card.vk).toBe('VK_OEM_MINUS')
     expect(card.evdevName).toBe('KEY_MINUS')
     expect(card.current.map(column => column.language)).toEqual(['en', 'ru'])
+    expect(card.current.map(column => column.tone)).toEqual(['base', 'second'])
     expect(card.current.map(column => column.flag)).toEqual(['🇦🇺', '🇷🇺'])
     expect(card.current.map(formatDecodeWord)).toEqual(['-_ˬˬ', 'бБˬˬ'])
     expect(card.system?.map(formatDecodeWord)).toEqual(['-_ˬˬ', '-_ˬˬ'])
@@ -931,6 +999,7 @@ describe('composeLegendDecode', () => {
     )
     const circumflex = composeLegendDecode(parseKeyBinding('&kp LBKT'), view)
     const frDead = circumflex.current.find(column => column.language === 'fr')
+    expect(frDead?.tone).toBe('second')
     expect(frDead?.slots.map(slot => slot.text)).toEqual(['^', '¨', '¨', '°'])
     expect(frDead?.slots.map(slot => slot.dead)).toEqual([true, true, true, true])
 
@@ -1010,6 +1079,83 @@ describe('composeLegendDecode', () => {
     } finally {
       unregisterHostLayout('user:empty-en')
     }
+  })
+
+  it('rebuilds system decode columns for every shown language when filling a gap', () => {
+    const id = 'user:no-grave-ru'
+    const source = cloneHostLayoutTable(hostLayout('system-ru')!, id)
+    ;(source.byZmk as Map<string, unknown>).delete('GRAVE')
+    registerHostLayout(
+      { id, language: 'ru', name: 'No GRAVE', flag: '🇷🇺', origin: 'user' },
+      source
+    )
+    try {
+      const hostView = assignHostLanguageLayout(
+        addHostLanguage(standardHostLegendView(), 'ru'),
+        'ru',
+        id
+      )
+      const base = composeLegendDecode(parseKeyBinding('&kp GRAVE'), hostView)
+      expect(base.current.map(column => column.language)).toEqual(['en'])
+      const card = withEditableLegendDecodeGaps(base, hostView)
+      expect(card.current.map(column => column.language)).toEqual(['en', 'ru'])
+      expect(card.current.map(column => column.tone)).toEqual(['base', 'second'])
+      expect(card.system?.map(column => column.language)).toEqual(['en', 'ru'])
+      expect(card.current.find(column => column.language === 'ru')?.slots.map(slot => slot.text)).toEqual([
+        ALT_LEVEL_EMPTY,
+        ALT_LEVEL_EMPTY,
+        ALT_LEVEL_EMPTY,
+        ALT_LEVEL_EMPTY
+      ])
+      expect(
+        card.system?.find(column => column.language === 'en')?.slots.map(slot => slot.text)
+      ).toEqual(['`', '~', ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY])
+      expect(
+        card.system?.find(column => column.language === 'ru')?.slots.map(slot => slot.text)
+      ).toEqual(['ё', 'Ё', ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY])
+    } finally {
+      unregisterHostLayout(id)
+    }
+  })
+})
+
+describe('blankRowMark', () => {
+  it('marks passthrough and silent blanks', () => {
+    expect(blankRowMark(parseKeyBinding('&trans'))).toBe('↓')
+    expect(blankRowMark(parseKeyBinding('&none'))).toBe('∅')
+  })
+})
+
+describe('layerRowAriaLabel', () => {
+  it('names passthrough, silent, and occupied rows', () => {
+    const trans = parseKeyBinding('&trans')
+    const none = parseKeyBinding('&none')
+    const tap = parseKeyBinding('&kp A')
+    expect(layerRowAriaLabel({ layer: 1, title: '&trans', binding: trans }, false)).toBe(
+      '&trans, layer 1, passes through'
+    )
+    expect(layerRowAriaLabel({ layer: 2, title: '', binding: none }, false)).toBe(
+      '&none, layer 2, silent'
+    )
+    expect(layerRowAriaLabel({ layer: 0, title: 'A', binding: tap }, true)).toBe(
+      'A, layer 0, already held'
+    )
+  })
+})
+
+describe('stripKcPrefix', () => {
+  it('drops the decode-card KC_ prefix', () => {
+    expect(stripKcPrefix('KC_MINUS')).toBe('MINUS')
+    expect(stripKcPrefix('MINUS')).toBe('MINUS')
+    expect(stripKcPrefix(undefined)).toBe('')
+  })
+})
+
+describe('legendColumnTone', () => {
+  it('marks every language after the first as second', () => {
+    expect(legendColumnTone(0)).toBe('base')
+    expect(legendColumnTone(1)).toBe('second')
+    expect(legendColumnTone(4)).toBe('second')
   })
 })
 

@@ -5,7 +5,7 @@ const CODE_CHAR_PX = 8
 const CODE_CELL_PAD_PX = 16
 
 /** Typical label length: longest when `fitLongest`, otherwise the 90th percentile. */
-export function typicalCodeLabelChars(
+function typicalCodeLabelChars(
   labels: Iterable<string>,
   fitLongest = false
 ): number {

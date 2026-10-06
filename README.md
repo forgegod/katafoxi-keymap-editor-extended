@@ -43,7 +43,7 @@ Hover peeks at host levels; **Alt+click** locks an edit session (Accept / Cancel
 
 ### Several national layouts
 
-Legend strip: show/hide languages, pick system or user profiles, stack or highlight symbol differences. Up to two languages on the keycap; more columns in the table.
+Legend strip: show/hide languages and pick system or user profiles. **Stack** and **Differences** sit on the assembly line (left of remembered chips), not in the Host lane. Up to two languages on the keycap; more columns in the table.
 
 ![Legend strip with multiple languages and layers](docs/screenshots/host-legend-languages.png)
 

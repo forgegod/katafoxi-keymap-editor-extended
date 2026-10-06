@@ -11,11 +11,9 @@ import {
 import { registerLarkHostFixture } from './testing/lark-host.js'
 import { hostLegendFor, keycapFace } from './compose.js'
 import {
+  builtinHostLayoutSpecs,
   catalogLayoutsForLanguage,
-  SYSTEM_DE_LAYOUT_ID,
-  SYSTEM_RU_LAYOUT_ID,
-  SYSTEM_UA_LAYOUT_ID,
-  SYSTEM_US_LAYOUT_ID
+  primarySystemLayoutId
 } from './host-layout-catalog.js'
 import { hostLayout, hostLevels } from './host-layout-registry.js'
 import {
@@ -78,6 +76,182 @@ describe('parseXkbSymbolsSection', () => {
       'NoSymbol',
       'NoSymbol'
     ])
+  })
+
+  it('throws on cyclic includes when strictIncludes is set', () => {
+    const source = `
+      xkb_symbols "a" {
+        include "cycle(b)"
+        key <AC01> {[ a, A ]};
+      };
+      xkb_symbols "b" {
+        include "cycle(a)"
+        key <AC02> {[ s, S ]};
+      };
+    `
+    expect(() =>
+      parseXkbSymbolsSection(source, 'a', [], { fileId: 'cycle', strictIncludes: true })
+    ).toThrow('Cyclic xkb include: cycle:a → cycle:b → cycle:a')
+  })
+
+  it('warns on cyclic includes without strictIncludes', () => {
+    const source = `
+      xkb_symbols "loop" {
+        include "self(loop)"
+        key <AC01> {[ a, A ]};
+      };
+    `
+    const warnings: string[] = []
+    const keys = parseXkbSymbolsSection(source, 'loop', [], {
+      fileId: 'self',
+      warnings
+    })
+    expect(keys.get('AC01')).toEqual(['a', 'A'])
+    expect(warnings).toEqual(['Cyclic xkb include: self:loop → self:loop'])
+  })
+
+  it('escapes section names used in RegExp lookup', () => {
+    const source = `
+      xkb_symbols "basic+extra" {
+        key <AC01> {[ a, A ]};
+      };
+    `
+    expect(parseXkbSymbolsSection(source, 'basic+extra').get('AC01')).toEqual(['a', 'A'])
+  })
+
+  it('warns when a key keeps only the first of several keysym groups', () => {
+    const source = `
+      xkb_symbols "basic" {
+        key <AC01> {
+          [ a, A ],
+          [ b, B ]
+        };
+      };
+    `
+    const warnings: string[] = []
+    const keys = parseXkbSymbolsSection(source, 'basic', [], { warnings })
+    expect(keys.get('AC01')).toEqual(['a', 'A'])
+    expect(warnings).toEqual(['Key <AC01> has 2 keysym groups; using the first.'])
+  })
+
+  it('merges include then override per level, keeping any and NoSymbol', () => {
+    const source = `
+      xkb_symbols "base" {
+        key <AD01> {[ semicolon, colon, NoSymbol, NoSymbol ]};
+        key <AD02> {[ a, A, at, Greek_alpha ]};
+      };
+      xkb_symbols "basic" {
+        include "self(base)"
+        key <AD01> {[ any, any, periodcentered ]};
+        key <AD02> {[ NoSymbol, B, NoSymbol, NoSymbol ]};
+      };
+    `
+    const keys = parseXkbSymbolsSection(source, 'basic', [], { fileId: 'self' })
+    expect(keys.get('AD01')).toEqual([
+      'semicolon',
+      'colon',
+      'periodcentered',
+      'NoSymbol'
+    ])
+    expect(keys.get('AD02')).toEqual(['a', 'B', 'at', 'Greek_alpha'])
+  })
+
+  it('resolves ru(common) from the same file before a vendored ru module', () => {
+    const vendored = `
+      xkb_symbols "common" {
+        key <AC01> {[ Cyrillic_ef, Cyrillic_EF ]};
+      };
+    `
+    const source = `
+      xkb_symbols "common" {
+        key <AC01> {[ x, X ]};
+      };
+      xkb_symbols "winkeys" {
+        include "ru(common)"
+      };
+    `
+    const keys = parseXkbSymbolsSection(source, 'winkeys', [], {
+      fileId: 'ru',
+      files: { ru: vendored }
+    })
+    expect(keys.get('AC01')).toEqual(['x', 'X'])
+  })
+
+  it('maps unresolved any to NoSymbol when nothing was included', () => {
+    const source = `
+      xkb_symbols "basic" {
+        key <AD01> {[ any, any, periodcentered ]};
+      };
+    `
+    expect(parseXkbSymbolsSection(source, 'basic').get('AD01')).toEqual([
+      'NoSymbol',
+      'NoSymbol',
+      'periodcentered'
+    ])
+  })
+
+  it('parses adversarial unclosed comments and keys in under 1s', () => {
+    const openKeys = Array.from({ length: 2500 }, (_, i) => `key <K${i}> { [ a, A ]`).join('\n')
+    const source = `
+      xkb_symbols "basic" {
+        key <AC01> [ a, A ];
+        ${openKeys}
+        ${'/* unclosed '.repeat(2500)}
+      };
+    `
+    const started = Date.now()
+    const keys = parseXkbSymbolsSection(source, 'basic')
+    expect(Date.now() - started).toBeLessThan(1000)
+    expect(keys.get('AC01')).toEqual(['a', 'A'])
+  })
+
+  it('skips eurosign, nbsp, and kpdl includes with a warning', () => {
+    const source = `
+      xkb_symbols "basic" {
+        include "eurosign(e)"
+        include "nbsp(level3n)"
+        include "kpdl(comma)"
+        key <AC01> {[ a, A ]};
+      };
+    `
+    const warnings: string[] = []
+    const keys = parseXkbSymbolsSection(source, 'basic', [], { warnings, strictIncludes: true })
+    expect(keys.get('AC01')).toEqual(['a', 'A'])
+    expect(warnings).toEqual([
+      'Skipped xkb include "eurosign(e)": non-character module.',
+      'Skipped xkb include "nbsp(level3n)": non-character module.',
+      'Skipped xkb include "kpdl(comma)": non-character module.'
+    ])
+  })
+
+  it('warns on augment and override and still applies the include', () => {
+    const source = `
+      xkb_symbols "base" {
+        key <AC01> {[ a, A ]};
+      };
+      xkb_symbols "basic" {
+        override "self(base)"
+        augment "self(base)"
+      };
+    `
+    const warnings: string[] = []
+    const keys = parseXkbSymbolsSection(source, 'basic', [], { fileId: 'self', warnings })
+    expect(keys.get('AC01')).toEqual(['a', 'A'])
+    expect(warnings).toEqual([
+      'xkb include uses override; treated as include.',
+      'xkb include uses augment; treated as include.'
+    ])
+  })
+
+  it('caps include depth at 16', () => {
+    const sections = Array.from({ length: 18 }, (_, i) => {
+      const next = i < 17 ? `include "deep(s${i + 1})"` : ''
+      return `xkb_symbols "s${i}" { ${next} key <AC01> {[ a, A ]}; };`
+    }).join('\n')
+    const warnings: string[] = []
+    const keys = parseXkbSymbolsSection(sections, 's0', [], { fileId: 'deep', warnings })
+    expect(keys.get('AC01')).toEqual(['a', 'A'])
+    expect(warnings.some(message => message.startsWith('xkb include depth exceeds 16:'))).toBe(true)
   })
 })
 
@@ -217,8 +391,8 @@ describe('system English us(basic)', () => {
   })
 
   it('uses US letters and punctuation, without AltGr', () => {
-    const systemEnglishLayout = hostLayout(SYSTEM_US_LAYOUT_ID)!
-    expect(systemEnglishLayout.id).toBe(SYSTEM_US_LAYOUT_ID)
+    const systemEnglishLayout = hostLayout(primarySystemLayoutId('en')!)!
+    expect(systemEnglishLayout.id).toBe(primarySystemLayoutId('en')!)
     expect(systemEnglishLayout.byZmk.get('A')?.glyphs).toEqual(['a', 'A', '', ''])
     expect(systemEnglishLayout.byZmk.get('E')?.glyphs).toEqual(['e', 'E', '', ''])
     expect(systemEnglishLayout.byZmk.get('N1')?.glyphs).toEqual(['1', '!', '', ''])
@@ -231,9 +405,9 @@ describe('system English us(basic)', () => {
     const view = assignHostLanguageLayout(
       standardHostLegendView(),
       'en',
-      SYSTEM_US_LAYOUT_ID
+      primarySystemLayoutId('en')!
     )
-    expect(view.columns[0].layoutId).toBe(SYSTEM_US_LAYOUT_ID)
+    expect(view.columns[0].layoutId).toBe(primarySystemLayoutId('en')!)
     expect(hostLegendFor('E', view)?.columns[0]?.pair).toEqual(['e', 'E'])
     expect(extraPair(hostLegendFor('E', view)!)).toBeNull()
     expect(hostLegendFor('N1', view)?.columns[0]?.pair).toEqual(['1', '!'])
@@ -279,11 +453,11 @@ function openLayoutId(view: HostLegendView): string | null {
 
 describe('system Russian winkeys', () => {
   const view = hideAllAlt(
-    assignHostLanguageLayout(withRussian(), 'ru', SYSTEM_RU_LAYOUT_ID)
+    assignHostLanguageLayout(withRussian(), 'ru', primarySystemLayoutId('ru')!)
   )
 
   it('uses common letters and winkeys punctuation', () => {
-    const systemRussianLayout = hostLayout(SYSTEM_RU_LAYOUT_ID)!
+    const systemRussianLayout = hostLayout(primarySystemLayoutId('ru')!)!
     expect(systemRussianLayout.byZmk.get('Q')?.glyphs).toEqual(['й', 'Й', '', ''])
     expect(systemRussianLayout.byZmk.get('A')?.glyphs).toEqual(['ф', 'Ф', '', ''])
     expect(systemRussianLayout.byZmk.get('GRAVE')?.glyphs).toEqual(['ё', 'Ё', '', ''])
@@ -296,7 +470,7 @@ describe('system Russian winkeys', () => {
   })
 
   it('shows English first and system Russian second, both visible', () => {
-    expect(view.columns[0].layoutId).toBe(SYSTEM_US_LAYOUT_ID)
+    expect(view.columns[0].layoutId).toBe(primarySystemLayoutId('en')!)
     expect(openLayoutId(view)).toBe('system-ru')
     expect(view.columns[0].visible).toBe(true)
     expect(view.columns.find(column => column.language === 'ru')?.visible).toBe(true)
@@ -313,7 +487,7 @@ describe('system Russian winkeys', () => {
 
   it('shows both AltGr pairs when the English fixture and winkeys differ', () => {
     const shown = hideAllAlt(larkView())
-    const withWinkeys = assignHostLanguageLayout(shown, 'ru', SYSTEM_RU_LAYOUT_ID)
+    const withWinkeys = assignHostLanguageLayout(shown, 'ru', primarySystemLayoutId('ru')!)
     const withAlt = withWinkeys.columns.reduce(
       (next, column) =>
         setHostColumnAlt(setHostColumnAlt(next, column.language, 'altGr', true), column.language, 'altGrShift', true),
@@ -329,7 +503,7 @@ describe('system Russian winkeys', () => {
 
 describe('Ukrainian system layout', () => {
   it('uses Ukrainian letters on the quote key', () => {
-    const systemUkrainianLayout = hostLayout(SYSTEM_UA_LAYOUT_ID)!
+    const systemUkrainianLayout = hostLayout(primarySystemLayoutId('uk')!)!
     expect(systemUkrainianLayout.byZmk.get('SQT')?.glyphs[0]).toBe('є')
     expect(systemUkrainianLayout.byZmk.get('Q')?.glyphs[0]).toBe('й')
   })
@@ -404,9 +578,25 @@ describe('Ukrainian system layout', () => {
   })
 })
 
+describe('Greek system layout', () => {
+  it('keeps gr(simple) letters under gr(basic) any overrides', () => {
+    expect(hostLevels('system-gr', 'Q')?.keysyms[0]).toBe('semicolon')
+  })
+
+  it('resolves every builtin so no keysym any remains', () => {
+    for (const spec of builtinHostLayoutSpecs) {
+      const layout = hostLayout(spec.id)
+      expect(layout, spec.id).toBeDefined()
+      for (const [zmk, levels] of layout!.byZmk) {
+        expect(levels.keysyms, `${spec.id}:${zmk}`).not.toContain('any')
+      }
+    }
+  })
+})
+
 describe('German system layout', () => {
   it('uses QWERTZ letters and ß on the minus key', () => {
-    const systemGermanLayout = hostLayout(SYSTEM_DE_LAYOUT_ID)!
+    const systemGermanLayout = hostLayout(primarySystemLayoutId('de')!)!
     expect(systemGermanLayout.byZmk.get('A')?.glyphs.slice(0, 2)).toEqual(['a', 'A'])
     expect(systemGermanLayout.byZmk.get('Y')?.glyphs[0]).toBe('z')
     expect(systemGermanLayout.byZmk.get('Z')?.glyphs[0]).toBe('y')
@@ -416,13 +606,13 @@ describe('German system layout', () => {
   })
 
   it('keeps dead_* keysyms on de(basic) and winkeys AC01 names from source', () => {
-    const grave = hostLevels(SYSTEM_DE_LAYOUT_ID, 'GRAVE')
+    const grave = hostLevels(primarySystemLayoutId('de')!, 'GRAVE')
     expect(grave?.keysyms).toEqual(['dead_circumflex', 'degree', 'U2032', 'U2033'])
     expect(grave?.glyphs[0]).toBe('')
-    const equal = hostLevels(SYSTEM_DE_LAYOUT_ID, 'EQUAL')
+    const equal = hostLevels(primarySystemLayoutId('de')!, 'EQUAL')
     expect(equal?.keysyms).toEqual(['dead_acute', 'dead_grave', 'dead_cedilla', 'dead_ogonek'])
     expect(equal?.glyphs[0]).toBe('')
-    expect(hostLevels(SYSTEM_RU_LAYOUT_ID, 'A')?.keysyms).toEqual([
+    expect(hostLevels(primarySystemLayoutId('ru')!, 'A')?.keysyms).toEqual([
       'Cyrillic_ef',
       'Cyrillic_EF',
       'NoSymbol',
@@ -432,7 +622,7 @@ describe('German system layout', () => {
       columns: [
         {
           language: 'de',
-          layoutId: SYSTEM_DE_LAYOUT_ID,
+          layoutId: primarySystemLayoutId('de')!,
           visible: true,
           altGr: true,
           altGrShift: true
@@ -517,7 +707,7 @@ describe('German system layout', () => {
       ['en', true],
       ['ru', true]
     ])
-    expect(openLayoutId(gone)).toBe(SYSTEM_RU_LAYOUT_ID)
+    expect(openLayoutId(gone)).toBe(primarySystemLayoutId('ru')!)
   })
 })
 
@@ -627,14 +817,25 @@ describe('withHostKey', () => {
     expect(tableOf(base)).toEqual(before)
     expect(next.byZmk).not.toBe(base.byZmk)
     expect(next.byZmk.get('A')).not.toBe(base.byZmk.get('A'))
+    // Unedited keys are deep-cloned so generations do not share level objects.
+    expect(next.byZmk.get('Q')).not.toBe(base.byZmk.get('Q'))
+    expect(next.byZmk.get('Q')).toEqual(base.byZmk.get('Q'))
+  })
+
+  it('does not share level objects across successive edits', () => {
+    const first = withHostKey(editableLayout(), 'A', 2, 'Cyrillic_io')!
+    const second = withHostKey(first, 'Q', 0, 'b')!
+    expect(second.byZmk.get('A')).not.toBe(first.byZmk.get('A'))
+    expect(second.byZmk.get('A')).toEqual(first.byZmk.get('A'))
+    expect(second.byZmk.get('Q')).not.toBe(first.byZmk.get('Q'))
   })
 
   it('leaves a registered system layout untouched', () => {
-    const system = hostLayout(SYSTEM_US_LAYOUT_ID)!
+    const system = hostLayout(primarySystemLayoutId('en')!)!
     const before = tableOf(system)
     withHostKey(system, 'A', 0, 'Cyrillic_ef')
-    expect(tableOf(hostLayout(SYSTEM_US_LAYOUT_ID)!)).toEqual(before)
-    expect(hostLevels(SYSTEM_US_LAYOUT_ID, 'A')?.glyphs).toEqual(['a', 'A', '', ''])
+    expect(tableOf(hostLayout(primarySystemLayoutId('en')!)!)).toEqual(before)
+    expect(hostLevels(primarySystemLayoutId('en')!, 'A')?.glyphs).toEqual(['a', 'A', '', ''])
   })
 
   it('creates a missing key with NoSymbol on the other three levels', () => {

@@ -67,20 +67,15 @@ const OUTER_ROLE_ORDER: Record<ModifierRole, number> = {
   gui: 3
 }
 
+const MODIFIER_SIDE_RE =
+  /^(LEFT_|RIGHT_|L|R)(CTRL|CONTROL|SHIFT|SHFT|ALT|CMD|GUI|WIN|META)$/i
+
 export function modifierSide(code: string): 'L' | 'R' | '' {
-  if (
-    /^R(IGHT)?([A-Z_]|$)/i.test(code) ||
-    /^(RCMD|RALT|RCTRL|RGUI|RWIN|RMETA|RSHIFT|RSHFT)$/i.test(code)
-  ) {
-    return 'R'
-  }
-  if (
-    /^L(EFT)?([A-Z_]|$)/i.test(code) ||
-    /^(LCMD|LALT|LCTRL|LGUI|LWIN|LMETA|LSHIFT|LSHFT)$/i.test(code)
-  ) {
-    return 'L'
-  }
-  return ''
+  const wrap = modifierHoldForWrap(code)
+  if (wrap) return wrap.side
+  const match = MODIFIER_SIDE_RE.exec(code)
+  if (match) return match[1]!.toUpperCase().startsWith('R') ? 'R' : 'L'
+  return modifierHoldForKey(code)?.side ?? ''
 }
 
 export function isModifierWrapCode(
@@ -102,6 +97,21 @@ export function modifierHoldForKey(
   return HOLD_BY_KEY.get(code) ?? HOLD_BY_KEY.get(MODIFIER_KEY_ALIASES[code])
 }
 
+/** True when the token is right Alt (`RALT` / `RA`). */
+export function isRAltCode(value: string | number | undefined | null): boolean {
+  if (value == null) return false
+  const key = modifierHoldForKey(value)
+  if (key) return key.role === 'alt' && key.side === 'R'
+  const wrap = modifierHoldForWrap(value)
+  return wrap?.role === 'alt' && wrap.side === 'R'
+}
+
+/** True when the token is a Shift key (`LSHFT` / `RSHFT`), not a `LS()` wrap. */
+export function isShiftKeyCode(value: string | number | undefined | null): boolean {
+  if (value == null) return false
+  return modifierHoldForKey(value)?.role === 'shift'
+}
+
 /** AltGr column: this keyboard's AltGr is right Alt. */
 export const ALT_GR_COLUMN_LABEL = `R${MODIFIER_ROLE_GLYPH.alt}`
 
@@ -114,7 +124,7 @@ export function modifierHoldLegend(hold: ModifierHold): string {
   return hold.side === 'R' ? `R${glyph}` : glyph
 }
 
-export function sortModifierWraps(wraps: Iterable<string>): string[] {
+function sortModifierWraps(wraps: Iterable<string>): string[] {
   return [...wraps].sort((a, b) => {
     const ha = modifierHoldForWrap(a)
     const hb = modifierHoldForWrap(b)
@@ -126,7 +136,7 @@ export function sortModifierWraps(wraps: Iterable<string>): string[] {
 }
 
 /** One wrap per role; last side wins. */
-export function normalizeModifierWraps(wraps: Iterable<string>): string[] {
+function normalizeModifierWraps(wraps: Iterable<string>): string[] {
   const byRole = new Map<ModifierRole, string>()
   for (const wrap of wraps) {
     const hold = modifierHoldForWrap(wrap)
@@ -145,7 +155,7 @@ export function canApplyModifierHold(
   return wrapHold.role !== keyHold.role
 }
 
-export function wrapsCompatibleWithTerminal(
+function wrapsCompatibleWithTerminal(
   wraps: Iterable<string>,
   terminal?: string | number
 ): string[] {

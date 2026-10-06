@@ -6,7 +6,6 @@ import KeyboardPicker from './KeyboardPicker.svelte'
 
 vi.mock('../../config', () => ({
   apiBaseUrl: '',
-  appBaseUrl: '',
   githubAppName: '',
   enableGitHub: true,
   enableLocal: true
@@ -120,6 +119,51 @@ describe('KeyboardPicker', () => {
     )
     expect(onOpenSourceConsumed).toHaveBeenCalled()
     expect(target.querySelector('.source-trigger-accent')).toBeNull()
+  })
+
+  it('keeps the source menu open after clicking Demo, then closes on a keyboard', async () => {
+    localStorage.setItem('selectedSource', 'github')
+    const onSelect = open()
+
+    const trigger = target.querySelector('.source-trigger')
+    if (!(trigger instanceof HTMLButtonElement)) {
+      throw new Error('missing source trigger')
+    }
+    trigger.click()
+    flushSync()
+
+    const popover = target.querySelector('.source-popover')
+    if (!(popover instanceof HTMLElement)) {
+      throw new Error('missing source popover')
+    }
+    expect(popover.hasAttribute('hidden')).toBe(false)
+
+    clickSource('demo')
+    await vi.waitFor(() => {
+      expect(onSelect).toHaveBeenCalledWith(
+        expect.objectContaining({ source: 'demo' })
+      )
+    })
+    expect(popover.hasAttribute('hidden')).toBe(false)
+
+    await vi.waitFor(() => {
+      expect(
+        [...target.querySelectorAll('.demo-card')].some(card =>
+          card.textContent?.includes('Lily58')
+        )
+      ).toBe(true)
+    })
+    const lily = [...target.querySelectorAll('.demo-card')].find(card =>
+      card.textContent?.includes('Lily58')
+    )
+    if (!(lily instanceof HTMLButtonElement)) {
+      throw new Error('missing Lily58 demo')
+    }
+    lily.click()
+    await vi.waitFor(() => {
+      expect(popover.hasAttribute('hidden')).toBe(true)
+    })
+    expect(getComputedStyle(popover).display).toBe('none')
   })
 
   it('keeps the Demo trigger pulsing while Demo is selected', async () => {
@@ -264,5 +308,104 @@ describe('KeyboardPicker', () => {
     )
     expect(loadLayout).toHaveBeenCalled()
     expect(loadKeymap).toHaveBeenCalled()
+  })
+
+  it('ignores a stale local load after switching source', async () => {
+    function deferred<T>() {
+      let resolve!: (value: T) => void
+      const promise = new Promise<T>(res => {
+        resolve = res
+      })
+      return { promise, resolve }
+    }
+
+    localStorage.setItem('selectedSource', 'local')
+    const layoutGate = deferred<Array<{ row: number; col: number }>>()
+    const keymapGate = deferred<{ layers: Array<Array<{ value: string; params: never[] }>> }>()
+    vi.mocked(loadLayout).mockReturnValue(layoutGate.promise as never)
+    vi.mocked(loadKeymap).mockReturnValue(keymapGate.promise as never)
+
+    const onSelect = open()
+    expect(loadLayout).toHaveBeenCalled()
+    expect(loadKeymap).toHaveBeenCalled()
+    expect(onSelect).not.toHaveBeenCalled()
+
+    clickSource('demo')
+    await vi.waitFor(() => {
+      expect(onSelect).toHaveBeenCalledWith(
+        expect.objectContaining({ source: 'demo' })
+      )
+    })
+    const callsAfterDemo = onSelect.mock.calls.length
+
+    layoutGate.resolve([{ row: 0, col: 0 }])
+    keymapGate.resolve({
+      layers: [[{ value: '&kp', params: [] }]]
+    })
+    await Promise.resolve()
+    flushSync()
+    await Promise.resolve()
+    flushSync()
+
+    expect(onSelect.mock.calls.length).toBe(callsAfterDemo)
+    expect(onSelect).not.toHaveBeenCalledWith(
+      expect.objectContaining({ source: 'local' })
+    )
+  })
+
+  it('moves the source radiogroup with arrow keys and a roving tabindex', async () => {
+    open()
+    const trigger = target.querySelector('.source-trigger')
+    if (!(trigger instanceof HTMLButtonElement)) throw new Error('missing source trigger')
+    trigger.click()
+    flushSync()
+
+    const group = target.querySelector('[role="radiogroup"]')
+    if (!(group instanceof HTMLElement)) throw new Error('missing radiogroup')
+    const demo = target.querySelector('[data-source="demo"]')
+    const clipboard = target.querySelector('[data-source="clipboard"]')
+    if (!(demo instanceof HTMLButtonElement) || !(clipboard instanceof HTMLButtonElement)) {
+      throw new Error('missing source radios')
+    }
+    expect(demo.tabIndex).toBe(0)
+    expect(clipboard.tabIndex).toBe(-1)
+
+    demo.focus()
+    group.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })
+    )
+    await vi.waitFor(() => {
+      expect(selectedSourceCard().dataset.source).toBe('clipboard')
+      expect(document.activeElement).toBe(
+        target.querySelector('[data-source="clipboard"]')
+      )
+    })
+    const focused = document.activeElement
+    expect(focused).toBeInstanceOf(HTMLButtonElement)
+    expect((focused as HTMLButtonElement).dataset.source).toBe('clipboard')
+    expect((focused as HTMLButtonElement).tabIndex).toBe(0)
+    const demoRadio = target.querySelector('[data-source="demo"]')
+    expect(demoRadio).toBeInstanceOf(HTMLButtonElement)
+    expect((demoRadio as HTMLButtonElement).tabIndex).toBe(-1)
+  })
+
+  it('keeps the demo hardware repo outside the option button', async () => {
+    open()
+    const trigger = target.querySelector('.source-trigger')
+    if (!(trigger instanceof HTMLButtonElement)) throw new Error('missing source trigger')
+    trigger.click()
+    flushSync()
+    await vi.waitFor(() => {
+      expect(target.querySelector('.demo-card')).toBeTruthy()
+    })
+    const option = target.querySelector('.demo-card[role="option"]')
+    const repo = target.querySelector('a.demo-repo')
+    const item = repo?.closest('li')
+    expect(option).toBeInstanceOf(HTMLButtonElement)
+    expect(repo).toBeInstanceOf(HTMLAnchorElement)
+    expect(option?.contains(repo)).toBe(false)
+    expect(item?.getAttribute('role')).toBe('none')
+    expect(item?.contains(option)).toBe(true)
+    expect(item?.contains(repo)).toBe(true)
   })
 })

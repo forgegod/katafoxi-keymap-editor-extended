@@ -1,0 +1,9 @@
+/*
+ * Hard .keymap corpus: hold-tap and combo nodes on one line.
+ * Covers R2-9 (header and properties scanned from `{`, not line starts).
+ */
+
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+
+/ { behaviors { hm: hm { compatible = "zmk,behavior-hold-tap"; tapping-term-ms = <280>; bindings = <&kp>, <&kp>; #binding-cells = <2>; }; }; combos { compatible = "zmk,combos"; combo_esc { bindings = <&kp ESC>; key-positions = <0 1>; }; }; keymap { compatible = "zmk,keymap"; layer_0 { bindings = <&hm LCTRL A &kp B &kp C &kp D>; }; layer_1 { bindings = <&trans &trans &trans &trans>; }; }; };

@@ -62,7 +62,6 @@ describe('spliceBindingsIntoDts', () => {
         ['&kp Z', '&kp B'],
         ['&kp C_VOL_UP', '&trans']
       ],
-      layerNames: ['layer_0', 'layer_1']
     })
 
     expect(spliced).toContain('#define VU C_VOL_UP')
@@ -72,6 +71,25 @@ describe('spliceBindingsIntoDts', () => {
     expect(spliced).toContain('bindings = <&kp ESC>')
     expect(spliced).toContain('&kp Z')
     expect(spliced).not.toContain('&kp A &kp B')
+  })
+
+  it('keeps a bindings interior byte-identical when tokens already match', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        layer_0 {
+            bindings = <
+&kp A  &kp B
+            >;
+        };
+    };
+};
+`
+    const spliced = spliceBindingsIntoDts(src, {
+      layout: TINY_LAYOUT,
+      layers: [['&kp A', '&kp B']]
+    })
+    expect(spliced).toBe(src)
   })
 
   it('writes expanded macros (C_VOL_UP) not VU inside bindings', () => {
@@ -99,7 +117,6 @@ describe('spliceBindingsIntoDts', () => {
         ['&kp C', '&trans'],
         ['&none', '&none']
       ],
-      layerNames: ['base', 'lower', 'raise']
     })
     expect(spliced).toMatch(/layer_0\s*\{/)
     expect(spliced).toMatch(/layer_1\s*\{/)
@@ -116,7 +133,6 @@ describe('spliceBindingsIntoDts', () => {
         ['&kp C', '&trans'],
         ['&none', '&none']
       ],
-      layerNames: ['a', 'b', 'c']
     })
     const back = spliceBindingsIntoDts(withThree, {
       layout: TINY_LAYOUT,
@@ -124,26 +140,22 @@ describe('spliceBindingsIntoDts', () => {
         ['&kp A', '&kp B'],
         ['&kp C', '&trans']
       ],
-      layerNames: ['a', 'b']
     })
     expect(back).toMatch(/layer_0\s*\{/)
     expect(back).toMatch(/layer_1\s*\{/)
     expect(back).not.toMatch(/layer_2\s*\{/)
   })
 
-  it('does not rename DTS node ids when layerNames change', () => {
+  it('preserves existing DTS layer node ids', () => {
     const spliced = spliceBindingsIntoDts(LARK_LIKE, {
       layout: TINY_LAYOUT,
       layers: [
         ['&kp A', '&kp B'],
         ['&kp C_VOL_UP', '&trans']
-      ],
-      layerNames: ['base', 'lower']
+      ]
     })
     expect(spliced).toMatch(/layer_0\s*\{/)
     expect(spliced).toMatch(/layer_1\s*\{/)
-    expect(spliced).not.toMatch(/\bbase\s*\{/)
-    expect(spliced).not.toMatch(/\blower\s*\{/)
   })
 
   it('does not modify combo bindings text', () => {
@@ -153,10 +165,27 @@ describe('spliceBindingsIntoDts', () => {
         ['&kp Z', '&kp Y'],
         ['&none', '&none']
       ],
-      layerNames: ['layer_0', 'layer_1']
     })
     expect(spliced).toContain('bindings = <&kp ESC>')
     expect(spliced).toContain('key-positions = <0 1>')
+  })
+
+  it('throws KeymapValidationError when no keymap block is present', () => {
+    expect(() =>
+      spliceBindingsIntoDts('/* no keymap */', {
+        layout: TINY_LAYOUT,
+        layers: [['&kp A', '&kp B']],
+      })
+    ).toThrow(KeymapValidationError)
+    try {
+      spliceBindingsIntoDts('/* no keymap */', {
+        layout: TINY_LAYOUT,
+        layers: [['&kp A', '&kp B']],
+      })
+    } catch (e) {
+      expect(e).toBeInstanceOf(KeymapValidationError)
+      expect((e as KeymapValidationError).errors[0]).toMatch(/no keymap block/)
+    }
   })
 
   it('throws KeymapValidationError for too-short and too-long layers', () => {
@@ -168,7 +197,6 @@ describe('spliceBindingsIntoDts', () => {
       spliceBindingsIntoDts(LARK_LIKE, {
         layout,
         layers: [short],
-        layerNames: ['x']
       })
     ).toThrow(KeymapValidationError)
 
@@ -176,7 +204,6 @@ describe('spliceBindingsIntoDts', () => {
       spliceBindingsIntoDts(LARK_LIKE, {
         layout,
         layers: [long],
-        layerNames: ['x']
       })
     ).toThrow(KeymapValidationError)
 
@@ -184,7 +211,6 @@ describe('spliceBindingsIntoDts', () => {
       spliceBindingsIntoDts(LARK_LIKE, {
         layout,
         layers: [short],
-        layerNames: ['x']
       })
     } catch (e) {
       expect(e).toBeInstanceOf(KeymapValidationError)
@@ -194,12 +220,123 @@ describe('spliceBindingsIntoDts', () => {
       expect(err.errors[0]).toMatch(/0/)
     }
   })
+
+  it('deletes a labeled layer without leaving raise: };', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        default_layer {
+            bindings = <&kp A &kp B>;
+        };
+        raise: layer_1 {
+            bindings = <&kp C &kp D>;
+        };
+    };
+};
+`
+    const spliced = spliceBindingsIntoDts(src, {
+      layout: TINY_LAYOUT,
+      layers: [['&kp A', '&kp B']]
+    })
+    expect(spliced).not.toMatch(/raise:/)
+    expect(spliced).not.toMatch(/layer_1/)
+    const km = parseDtsKeymap(spliced)
+    expect(km.layers).toHaveLength(1)
+    expect(km.layer_names).toEqual(['default'])
+    expect(spliced).toMatch(/\n        \};\n    \};\n\};\n?$/)
+  })
+
+  it('deletes a hyphenated layer and keeps layer-base', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        layer-base {
+            bindings = <&kp A &kp B>;
+        };
+        layer-raise {
+            bindings = <&kp C &kp D>;
+        };
+    };
+};
+`
+    const spliced = spliceBindingsIntoDts(src, {
+      layout: TINY_LAYOUT,
+      layers: [['&kp A', '&kp B']]
+    })
+    expect(spliced).not.toContain('layer-}')
+    expect(spliced).not.toContain('layer-raise')
+    const km = parseDtsKeymap(spliced)
+    expect(km.layers).toHaveLength(1)
+    expect(km.layer_names).toEqual(['layer-base'])
+    expect(spliced).toMatch(/\n        \};\n    \};\n\};\n?$/)
+  })
+
+  it('does not write a second layer_2 when base and layer_2 already exist', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        base {
+            bindings = <&kp A &kp B>;
+        };
+        layer_2 {
+            bindings = <&kp C &kp D>;
+        };
+    };
+};
+`
+    const spliced = spliceBindingsIntoDts(src, {
+      layout: TINY_LAYOUT,
+      layers: [
+        ['&kp A', '&kp B'],
+        ['&kp C', '&kp D'],
+        ['&none', '&none']
+      ]
+    })
+    expect(spliced.match(/\blayer_2\s*\{/g)?.length).toBe(1)
+    expect(spliced).toMatch(/\blayer_2_2\s*\{/)
+    const km = parseDtsKeymap(spliced)
+    expect(km.layers).toHaveLength(3)
+    expect(km.layer_names).toEqual(['base', 'layer_2', 'layer_2_2'])
+  })
 })
 
 describe('buildKeymapCode paths', () => {
   const parsed = parseKeymap({
     layer_names: ['default'],
     layers: [['&kp A', '&trans']]
+  })
+
+  it('preserves CRLF endings when splicing into a CRLF keymap', () => {
+    const crlf = LARK_LIKE.replace(/\n/g, '\r\n')
+    expect(crlf).toContain('\r\n')
+    const spliced = spliceBindingsIntoDts(crlf, {
+      layout: TINY_LAYOUT,
+      layers: [
+        ['&kp Z', '&kp B'],
+        ['&kp C_VOL_UP', '&trans']
+      ],
+    })
+    expect(spliced).toContain('&kp Z')
+    expect(spliced).toContain('\r\n')
+    // Inserted bindings must not introduce bare LF (mixed endings).
+    expect(spliced.replace(/\r\n/g, '')).not.toContain('\n')
+  })
+
+  it('rejects duplicate matrix cells on the splice save path', () => {
+    const dupLayout: LayoutKey[] = [
+      { x: 0, y: 0, row: 0, col: 0 },
+      { x: 1, y: 0, row: 0, col: 0 }
+    ]
+    expect(() =>
+      buildKeymapCode(
+        dupLayout,
+        parseKeymap({
+          layers: [['&kp A', '&kp B']],
+          layer_names: ['default']
+        }),
+        { originalSource: LARK_LIKE }
+      )
+    ).toThrow(KeymapValidationError)
   })
 
   it('path 1: template wins over originalSource', () => {

@@ -13,7 +13,7 @@ export interface KeycapNode {
   params?: KeycapNode[]
 }
 
-export function keycapNodeLegend(node: KeycapNode | undefined): string {
+function keycapNodeLegend(node: KeycapNode | undefined): string {
   if (!node) return ''
   return keycapLegend(
     (node.source?.code ?? node.value) as string | number | undefined,

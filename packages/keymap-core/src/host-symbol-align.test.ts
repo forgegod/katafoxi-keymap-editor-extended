@@ -1,3 +1,4 @@
+import { primarySystemLayoutId } from './host-layout-catalog.js'
 import { describe, expect, it } from 'vitest'
 import {
   addHostLanguage,
@@ -9,9 +10,6 @@ import {
   symbolAlignHasBasic,
   symbolAlignHasOrnament,
   symbolAlignPairFromView,
-  SYSTEM_FR_LAYOUT_ID,
-  SYSTEM_RU_LAYOUT_ID,
-  SYSTEM_US_LAYOUT_ID,
   toggleHostLanguage,
   withHostKey,
   type HostLayout
@@ -36,8 +34,8 @@ function layout(id: string, rows: Record<string, readonly string[]>): HostLayout
 }
 
 describe('symbolAlign', () => {
-  const us = hostLayout(SYSTEM_US_LAYOUT_ID)!
-  const ru = hostLayout(SYSTEM_RU_LAYOUT_ID)!
+  const us = hostLayout(primarySystemLayoutId('en')!)!
+  const ru = hostLayout(primarySystemLayoutId('ru')!)!
 
   it('marks punctuation with no shared key and skips letters', () => {
     const align = symbolAlign(us, ru)
@@ -154,12 +152,12 @@ describe('symbolAlign', () => {
     expect(pair).toEqual({
       leftLanguage: 'fr',
       rightLanguage: 'ru',
-      leftLayoutId: SYSTEM_FR_LAYOUT_ID,
-      rightLayoutId: SYSTEM_RU_LAYOUT_ID,
+      leftLayoutId: primarySystemLayoutId('fr')!,
+      rightLayoutId: primarySystemLayoutId('ru')!,
       winMerge: null
     })
-    const fr = hostLayout(SYSTEM_FR_LAYOUT_ID)!
-    const ruLayout = hostLayout(SYSTEM_RU_LAYOUT_ID)!
+    const fr = hostLayout(primarySystemLayoutId('fr')!)!
+    const ruLayout = hostLayout(primarySystemLayoutId('ru')!)!
     const align = symbolAlign(fr, ruLayout, { winMerge: null })
     expect(align.conflictByZmk.size).toBe(0)
     expect(symbolAlignCaption('DOT', align).length).toBeGreaterThan(0)
@@ -170,12 +168,44 @@ describe('symbolAlign', () => {
     expect(symbolAlignPairFromView(view)).toEqual({
       leftLanguage: 'en',
       rightLanguage: 'ru',
-      leftLayoutId: SYSTEM_US_LAYOUT_ID,
-      rightLayoutId: SYSTEM_RU_LAYOUT_ID,
+      leftLayoutId: primarySystemLayoutId('en')!,
+      rightLayoutId: primarySystemLayoutId('ru')!,
       winMerge: {
-        baseLayoutId: SYSTEM_US_LAYOUT_ID,
-        extraLayoutId: SYSTEM_RU_LAYOUT_ID
+        baseLayoutId: primarySystemLayoutId('en')!,
+        extraLayoutId: primarySystemLayoutId('ru')!
       }
     })
+  })
+
+  it('aligns dead-key spacing marks the face shows, not empty stored glyphs', () => {
+    const base = layout('en', {
+      GRAVE: ['grave', 'asciitilde', 'NoSymbol', 'NoSymbol'],
+      EQUAL: ['equal', 'plus', 'NoSymbol', 'NoSymbol']
+    })
+    const extra = layout('de', {
+      GRAVE: ['dead_circumflex', 'degree', 'NoSymbol', 'NoSymbol'],
+      EQUAL: ['dead_acute', 'dead_grave', 'NoSymbol', 'NoSymbol']
+    })
+    expect(extra.byZmk.get('GRAVE')?.glyphs[0]).toBe('')
+    expect(extra.byZmk.get('EQUAL')?.glyphs[0]).toBe('')
+
+    const align = symbolAlign(base, extra, { winMerge: null })
+    expect(symbolAlignCaption('GRAVE', align)).toMatch(/Different position: `|Only in one language/)
+    expect(symbolAlignCaption('GRAVE', align)).toMatch(/\^|°/)
+    expect(symbolAlignHasBasic('EQUAL', align)).toBe(true)
+    expect(symbolAlignCaption('EQUAL', align)).toContain('`')
+    expect(symbolAlignCaption('EQUAL', align)).toMatch(/´|Only in one language/)
+  })
+
+  it('stays quiet when both layouts share the same dead spacing mark on a key', () => {
+    const left = layout('a', {
+      EQUAL: ['dead_grave', 'NoSymbol', 'NoSymbol', 'NoSymbol']
+    })
+    const right = layout('b', {
+      EQUAL: ['dead_grave', 'NoSymbol', 'NoSymbol', 'NoSymbol']
+    })
+    const align = symbolAlign(left, right, { winMerge: null })
+    expect(symbolAlignCaption('EQUAL', align)).toBe('')
+    expect(left.byZmk.get('EQUAL')?.glyphs[0]).toBe('')
   })
 })

@@ -5,7 +5,9 @@
 
 import type { ParsedKeymap } from '@keymap-editor/keymap-core'
 
-export const DRAFT_SCHEMA_VERSION = 1
+import { idbRequest, openDb, txDone } from './idb'
+
+const DRAFT_SCHEMA_VERSION = 1
 
 const DB_NAME = 'keymap-editor-drafts'
 const STORE_NAME = 'drafts'
@@ -24,8 +26,6 @@ export type StoredDraft = DraftIdentity & {
   id: string
   draftKeymap: ParsedKeymap
   updatedAt: number
-  /** Cheap fingerprint of baseline at last write (future conflict UX). */
-  baselineHint?: string
 }
 
 export type DraftIdentityInput = {
@@ -60,31 +60,18 @@ export function buildDraftIdentity(
   return identity
 }
 
-export function draftIdentitiesMatch(
+function draftIdentitiesMatch(
   a: DraftIdentity,
   b: DraftIdentity
 ): boolean {
   return draftIdentityKey(a) === draftIdentityKey(b)
 }
 
-/** Lightweight baseline fingerprint for optional conflict signals. */
-export function baselineFingerprint(km: ParsedKeymap): string {
-  const names = (km.layer_names ?? []).join(',')
-  const sizes = km.layers.map(layer => layer.length).join(',')
-  return `${names}|${km.layers.length}|${sizes}`
-}
-
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    if (typeof indexedDB === 'undefined') {
-      reject(new Error('IndexedDB unavailable'))
-      return
-    }
-    const request = indexedDB.open(DB_NAME, DB_VERSION)
-    request.onerror = () => reject(request.error ?? new Error('IDB open failed'))
-    request.onsuccess = () => resolve(request.result)
-    request.onupgradeneeded = () => {
-      const db = request.result
+function openDraftDb(): Promise<IDBDatabase> {
+  return openDb({
+    name: DB_NAME,
+    version: DB_VERSION,
+    upgrade(db) {
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME, { keyPath: 'id' })
       }
@@ -92,17 +79,10 @@ function openDb(): Promise<IDBDatabase> {
   })
 }
 
-function idbRequest<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error ?? new Error('IDB request failed'))
-  })
-}
-
 export async function loadStoredDraft(
   identity: DraftIdentity
 ): Promise<StoredDraft | null> {
-  const db = await openDb()
+  const db = await openDraftDb()
   try {
     const tx = db.transaction(STORE_NAME, 'readonly')
     const store = tx.objectStore(STORE_NAME)
@@ -119,8 +99,7 @@ export async function loadStoredDraft(
 
 export async function saveStoredDraft(
   identity: DraftIdentity,
-  draftKeymap: ParsedKeymap,
-  options?: { baselineHint?: string }
+  draftKeymap: ParsedKeymap
 ): Promise<void> {
   const record: StoredDraft = {
     ...identity,
@@ -128,20 +107,13 @@ export async function saveStoredDraft(
     draftKeymap,
     updatedAt: Date.now()
   }
-  if (options?.baselineHint != null) {
-    record.baselineHint = options.baselineHint
-  }
 
-  const db = await openDb()
+  const db = await openDraftDb()
   try {
     const tx = db.transaction(STORE_NAME, 'readwrite')
     const store = tx.objectStore(STORE_NAME)
     await idbRequest(store.put(record))
-    await new Promise<void>((resolve, reject) => {
-      tx.oncomplete = () => resolve()
-      tx.onerror = () => reject(tx.error ?? new Error('IDB put failed'))
-      tx.onabort = () => reject(tx.error ?? new Error('IDB put aborted'))
-    })
+    await txDone(tx)
   } finally {
     db.close()
   }
@@ -150,16 +122,12 @@ export async function saveStoredDraft(
 export async function deleteStoredDraft(
   identity: DraftIdentity
 ): Promise<void> {
-  const db = await openDb()
+  const db = await openDraftDb()
   try {
     const tx = db.transaction(STORE_NAME, 'readwrite')
     const store = tx.objectStore(STORE_NAME)
     await idbRequest(store.delete(draftIdentityKey(identity)))
-    await new Promise<void>((resolve, reject) => {
-      tx.oncomplete = () => resolve()
-      tx.onerror = () => reject(tx.error ?? new Error('IDB delete failed'))
-      tx.onabort = () => reject(tx.error ?? new Error('IDB delete aborted'))
-    })
+    await txDone(tx)
   } finally {
     db.close()
   }

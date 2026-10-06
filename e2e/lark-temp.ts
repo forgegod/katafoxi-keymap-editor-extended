@@ -1,9 +1,15 @@
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 
 const REPO_ROOT = process.cwd()
 
-export const LARK_FIXTURE_DIR = path.join(
+/** Shared fixture root. Does not create the directory. */
+export function resolveE2eZmkConfig(): string {
+  return process.env.E2E_ZMK_CONFIG ?? path.join(os.tmpdir(), 'keymap-e2e')
+}
+
+const LARK_FIXTURE_DIR = path.join(
   REPO_ROOT,
   'packages/keymap-core/fixtures/lark'
 )
@@ -29,12 +35,12 @@ export function tempKeymapPath(destRoot: string) {
   return path.join(destRoot, 'config', 'lark.keymap')
 }
 
-/** Bytes before the firmware `keymap {` node (preamble / splice boundary). */
+/** Bytes before the firmware root `/ {` node (#define, includes, behavior stubs). */
 export function preambleBeforeKeymap(source: string) {
-  const marker = 'keymap {'
+  const marker = '/ {'
   const idx = source.indexOf(marker)
   if (idx === -1) {
-    throw new Error('keymap source has no "keymap {" marker')
+    throw new Error('keymap source has no "/ {" root node')
   }
   return source.slice(0, idx)
 }

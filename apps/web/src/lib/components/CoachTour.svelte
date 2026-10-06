@@ -155,13 +155,25 @@
     }
   })
 
+  function isInteractiveInCoachTip(target: EventTarget | null): boolean {
+    if (!(target instanceof Element)) return false
+    if (!target.closest('.coach-tip')) return false
+    return Boolean(
+      target.closest('button, a[href], input, select, textarea, [role="button"]')
+    )
+  }
+
   $effect(() => {
     if (!active) return
     function onKey(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         event.preventDefault()
         skip()
-      } else if (event.key === 'ArrowRight' || event.key === 'Enter') {
+        return
+      }
+      // Let tip buttons (Skip / Next / CTAs) own Enter and arrows.
+      if (isInteractiveInCoachTip(event.target)) return
+      if (event.key === 'ArrowRight' || event.key === 'Enter') {
         if (isLast) return
         event.preventDefault()
         go(1)
@@ -269,7 +281,7 @@
   .coach-tour {
     position: fixed;
     inset: 0;
-    z-index: 60;
+    z-index: var(--z-tour);
     pointer-events: none;
   }
 

@@ -1,3 +1,5 @@
+import { hasEscapeOverlay } from './escape-stack'
+
 export function isEditableFocus(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   const tag = target.tagName
@@ -10,6 +12,7 @@ export function handleEditorShortcut(
   event: KeyboardEvent,
   history: { canUndo: boolean; canRedo: boolean; undo(): void; redo(): void }
 ): boolean {
+  if (hasEscapeOverlay()) return false
   if (isEditableFocus(event.target)) return false
   const mod = event.metaKey || event.ctrlKey
   if (!mod) return false

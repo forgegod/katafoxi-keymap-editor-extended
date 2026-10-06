@@ -1,5 +1,6 @@
+import { hostLayout, primarySystemLayoutId } from '@keymap-editor/keymap-core'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { SYSTEM_US_LAYOUT_ID } from '@keymap-editor/keymap-core'
+
 import { editor } from '../editor.svelte.js'
 import { clearHostLayoutStore } from '../host-layout-store'
 import { loadDemo } from './catalog'
@@ -13,7 +14,7 @@ describe('Lark demo host seed', () => {
   })
 
   it('opens English and Russian Lark host layouts on first demo load', async () => {
-    const bundle = loadDemo('lark')
+    const bundle = await loadDemo('lark')
     await editor.selectKeyboard({
       source: 'demo',
       layout: bundle.layout,
@@ -39,7 +40,7 @@ describe('Lark demo host seed', () => {
   })
 
   it('does not overwrite a customized legend', async () => {
-    const bundle = loadDemo('lark')
+    const bundle = await loadDemo('lark')
     await editor.selectKeyboard({
       source: 'demo',
       layout: bundle.layout,
@@ -50,7 +51,7 @@ describe('Lark demo host seed', () => {
       columns: [
         {
           language: 'en',
-          layoutId: SYSTEM_US_LAYOUT_ID,
+          layoutId: primarySystemLayoutId('en')!,
           visible: true,
           altGr: true,
           altGrShift: true
@@ -71,5 +72,25 @@ describe('Lark demo host seed', () => {
       'en',
       'ru'
     ])
+  })
+
+  it('keeps in-place host key edits when selecting the demo again', async () => {
+    const bundle = await loadDemo('lark')
+    const selection = {
+      source: 'demo' as const,
+      layout: bundle.layout,
+      keymap: bundle.keymap,
+      demoHost: bundle.hostSeeds
+    }
+    await editor.selectKeyboard(selection)
+
+    const edited = await editor.setHostKeyLevel('en', 'A', 0, 'α')
+    expect(edited).toMatchObject({ ok: true, layoutId: DEMO_LARK_EN_ID })
+    expect(hostLayout(DEMO_LARK_EN_ID)?.byZmk.get('A')?.keysyms[0]).toBe('Greek_alpha')
+
+    await editor.selectKeyboard(selection)
+
+    expect(editor.activeProfileId('en')).toBe(DEMO_LARK_EN_ID)
+    expect(hostLayout(DEMO_LARK_EN_ID)?.byZmk.get('A')?.keysyms[0]).toBe('Greek_alpha')
   })
 })

@@ -6,6 +6,7 @@
 
 import { HOST_KEY_IDS } from './host-key-id.js'
 import type { HostLayout } from './host-layout.js'
+import { KEYSYM } from './xkb-symbols.js'
 
 export interface HostLayoutXkbSectionOptions {
   section: string
@@ -17,7 +18,7 @@ function quoteXkb(value: string): string {
 }
 
 function keysymName(name: string): string {
-  return name || 'NoSymbol'
+  return name && KEYSYM.test(name) ? name : 'NoSymbol'
 }
 
 /** One standalone section with no `include`. */

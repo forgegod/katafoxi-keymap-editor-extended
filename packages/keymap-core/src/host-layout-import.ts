@@ -1,6 +1,8 @@
 /**
  * Import a user host layout from an xkb symbols file.
  * Includes resolve against vendored modules (`us`, `ru`, `latin`, …).
+ * When the include names this file (`ru.xkb` + `include "ru(common)"`)
+ * and the section exists here, that local section wins.
  */
 
 import { HOST_LANGUAGES } from './host-languages.js'
@@ -10,9 +12,14 @@ import { SYSTEM_US_XKB_SYMBOLS } from './system-us-xkb-symbols.js'
 
 export interface HostLayoutFromXkbOptions {
   fileName: string
+  /** Append-only bag for multi-group keys (cycles throw under strictIncludes). */
+  warnings?: string[]
 }
 
+let vendoredXkbFilesCache: Record<string, string> | undefined
+
 function vendoredXkbFiles(): Record<string, string> {
+  if (vendoredXkbFilesCache) return vendoredXkbFilesCache
   const files: Record<string, string> = {
     latin: SYSTEM_LATIN_SYMBOLS,
     us: SYSTEM_US_XKB_SYMBOLS
@@ -20,6 +27,7 @@ function vendoredXkbFiles(): Record<string, string> {
   for (const language of HOST_LANGUAGES) {
     if (files[language.xkbModule] == null) files[language.xkbModule] = language.symbols
   }
+  vendoredXkbFilesCache = files
   return files
 }
 
@@ -30,6 +38,8 @@ function fileIdFromName(fileName: string): string {
 
 /**
  * Parse one section. Unresolvable `include` throws and names the include.
+ * Known non-character modules (`level3`, `eurosign`, `nbsp`, `kpdl`) are
+ * skipped with a warning instead of failing the import.
  */
 export function hostLayoutFromXkb(
   text: string,
@@ -40,6 +50,7 @@ export function hostLayoutFromXkb(
   const fileId = fileIdFromName(options.fileName)
   return hostLayoutFromSymbols(text, section, `xkb:${fileId}:${section}`, files, {
     fileId,
-    strictIncludes: true
+    strictIncludes: true,
+    warnings: options.warnings
   })
 }

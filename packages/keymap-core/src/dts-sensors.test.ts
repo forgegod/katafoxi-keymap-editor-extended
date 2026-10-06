@@ -47,6 +47,22 @@ describe('sensor-bindings', () => {
     ])
   })
 
+  it('still finds bindings when sensor-bindings sits beside them in a layer', () => {
+    const src = `/ {
+  keymap {
+    compatible = "zmk,keymap";
+    default_layer {
+      sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN>;
+      bindings = <&kp A &kp B>;
+    };
+  };
+};
+`
+    const raw = parseDtsKeymap(src)
+    expect(raw.layers).toEqual([['&kp A', '&kp B']])
+    expect(raw.sensorBindings).toEqual([['&inc_dec_kp C_VOL_UP C_VOL_DN']])
+  })
+
   it('keeps a sensor line when the editor does not know about encoders', () => {
     const spliced = spliceBindingsIntoDts(WITH_SENSORS, {
       layout: TWO,
@@ -54,7 +70,6 @@ describe('sensor-bindings', () => {
         ['&kp Z', '&kp B'],
         ['&kp C', '&kp D']
       ],
-      layerNames: ['default', 'lower_layer']
     })
     expect(spliced).toContain('sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN>;')
     expect(spliced).toContain('&kp Z')
@@ -89,6 +104,45 @@ describe('sensor-bindings', () => {
     expect(turns).toHaveLength(3)
     expect(turns[2]).toContain('PG_UP')
     expect(built.code).toContain('&trans')
+  })
+
+  it('clears sensor-bindings on trailing layers when the model lists fewer rows', () => {
+    const parsed = parseKeymap(parseDtsKeymap(WITH_SENSORS))
+    expect(parsed.sensorBindings).toHaveLength(2)
+
+    const shorter = {
+      ...parsed,
+      sensorBindings: [parsed.sensorBindings![0]]
+    }
+    const built = buildKeymapCode(TWO, shorter, { originalSource: WITH_SENSORS })
+    const turns = built.code.match(/sensor-bindings = <[^;]*>;/g) ?? []
+    expect(turns).toEqual(['sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN>;'])
+    expect(built.code).not.toContain('PG_UP')
+
+    const again = parseDtsKeymap(built.code)
+    expect(again.sensorBindings).toEqual([['&inc_dec_kp C_VOL_UP C_VOL_DN'], []])
+  })
+
+  it('inserts sensor-bindings with CRLF when the source uses CRLF', () => {
+    const bare = `/ {
+  keymap {
+    compatible = "zmk,keymap";
+    default_layer {
+      bindings = <
+&kp A &kp B
+      >;
+    };
+  };
+};
+`
+    const crlf = bare.replace(/\n/g, '\r\n')
+    const parsed = parseKeymap(parseDtsKeymap(bare))
+    parsed.sensorBindings = [
+      [{ value: '&inc_dec_kp', params: [{ value: 'C_VOL_UP', params: [] }, { value: 'C_VOL_DN', params: [] }] }]
+    ]
+    const built = buildKeymapCode(TWO, parsed, { originalSource: crlf })
+    expect(built.code).toContain('sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN>;')
+    expect(built.code.replace(/\r\n/g, '')).not.toContain('\n')
   })
 
   it('keeps Lily58 volume turns on every layer', () => {

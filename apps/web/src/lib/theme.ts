@@ -7,7 +7,7 @@ export type ColorScheme = 'light' | 'dark'
 
 export const THEME_STORAGE_KEY = 'color-scheme-preference'
 /** First visit / empty storage — dark reads better for the dense keymap UI. */
-export const DEFAULT_COLOR_SCHEME: ColorScheme = 'dark'
+const DEFAULT_COLOR_SCHEME: ColorScheme = 'dark'
 
 export function isColorScheme(value: unknown): value is ColorScheme {
   return value === 'light' || value === 'dark'

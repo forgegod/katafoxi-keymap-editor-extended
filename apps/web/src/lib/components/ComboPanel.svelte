@@ -3,11 +3,7 @@
     COMBO_MAX_KEYS,
     COMBO_MIN_KEYS,
     COMBO_PRIOR_IDLE_MS_DEFAULT,
-    COMBO_PRIOR_IDLE_MS_MAX,
-    COMBO_PRIOR_IDLE_MS_MIN,
     COMBO_TIMEOUT_MS_DEFAULT,
-    COMBO_TIMEOUT_MS_MAX,
-    COMBO_TIMEOUT_MS_MIN,
     clampComboPriorIdleMs,
     clampComboTimeoutMs,
     comboChordOverlapPartners,
@@ -15,21 +11,25 @@
     comboKeysIssue,
     comboKeysMessage,
     comboOverlapMessage,
-    comboListMeta,
     createEmptyCombo,
-    encodeKeyBinding,
     mergeHoldTapCatalog,
     isPlaceholderComboId,
-    layerLegendSymbol,
     nextComboIdFromBinding,
+    patchCombo,
+    renameCombo,
+    toggleComboLayer,
     type ZmkCombo
   } from '@keymap-editor/keymap-core'
   import { getDefinitionsContext, getSearchContext } from '../context'
   import { isEditableFocus } from '../editor-shortcuts'
   import { editor } from '../editor.svelte.js'
+  import { pushEscapeHandler } from '../escape-stack'
   import { createKeyEditSession } from '../key-edit-session.svelte'
-  import Modal from './Common/Modal.svelte'
-  import KeyEditor from './KeyEditor/KeyEditor.svelte'
+  import ComboLayerChips from './ComboLayerChips.svelte'
+  import ComboList from './ComboList.svelte'
+  import ComboTimeoutControls from './ComboTimeoutControls.svelte'
+  import KeyEditorHost from './KeyEditorHost.svelte'
+  import './Combo.css'
 
   const definitionsBox = getDefinitionsContext()
   const searchBox = getSearchContext()
@@ -115,30 +115,7 @@
 
   function patchActive(patch: Partial<ZmkCombo>) {
     if (!active) return
-    const next = combos.map(c => {
-      if (c.id !== active.id) return c
-      const merged: ZmkCombo = { ...c, ...patch }
-      if ('timeoutMs' in patch && patch.timeoutMs === undefined) {
-        delete merged.timeoutMs
-      }
-      if (
-        'requirePriorIdleMs' in patch &&
-        patch.requirePriorIdleMs === undefined
-      ) {
-        delete merged.requirePriorIdleMs
-      }
-      if (
-        'layers' in patch &&
-        (patch.layers === undefined || patch.layers.length === 0)
-      ) {
-        delete merged.layers
-      }
-      if ('slowRelease' in patch && !patch.slowRelease) {
-        delete merged.slowRelease
-      }
-      return merged
-    })
-    editor.updateCombos(next)
+    editor.updateCombos(patchCombo(combos, active.id, patch))
     editor.refreshComboNotice()
   }
 
@@ -165,14 +142,14 @@
   function renameActive(event: Event) {
     if (!active) return
     const input = event.currentTarget as HTMLInputElement
-    const id = input.value.trim().replace(/[^a-zA-Z0-9_]/g, '_') || active.id
-    if (id === active.id) return
-    if (combos.some(c => c.id === id)) {
+    const result = renameCombo(combos, active.id, input.value)
+    if (!result) {
       input.value = active.id
       return
     }
-    patchActive({ id })
-    editor.activeComboId = id
+    editor.updateCombos(result.combos)
+    editor.activeComboId = result.id
+    editor.refreshComboNotice()
   }
 
   function setTimeoutMs(ms: number) {
@@ -211,18 +188,7 @@
 
   function toggleLayer(index: number) {
     if (!active) return
-    if (layersAreGlobal) {
-      patchActive({ layers: [index] })
-      return
-    }
-    const set = new Set(active.layers)
-    if (set.has(index)) set.delete(index)
-    else set.add(index)
-    if (set.size === 0 || set.size >= layerCount) {
-      patchActive({ layers: undefined })
-      return
-    }
-    patchActive({ layers: [...set].sort((a, b) => a - b) })
+    patchActive({ layers: toggleComboLayer(active, index, layerCount) })
   }
 
   function editBinding() {
@@ -234,40 +200,23 @@
     session.openEditor(slotCodeIndex, 0)
   }
 
-  function bindingLabel(combo: ZmkCombo): string {
-    try {
-      return encodeKeyBinding(combo.binding)
-    } catch {
-      return String(combo.binding.value)
-    }
-  }
-
   function closePanel() {
     editor.tryExitComboMode()
   }
 
   /** Escape = Done: close binding editor first, blur fields, then leave combo mode. */
   $effect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== 'Escape' || event.defaultPrevented || event.repeat) return
+    return pushEscapeHandler(event => {
       if (session.editing) {
-        event.preventDefault()
-        // Capture + stop so KeyEditor's window listener does not also run, then
-        // a second handler would see editing=false and exit combo mode.
-        event.stopImmediatePropagation()
         session.closeEditor()
         return
       }
       if (isEditableFocus(event.target)) {
-        event.preventDefault()
         if (event.target instanceof HTMLElement) event.target.blur()
         return
       }
-      event.preventDefault()
       editor.tryExitComboMode()
-    }
-    window.addEventListener('keydown', onKeyDown, true)
-    return () => window.removeEventListener('keydown', onKeyDown, true)
+    })
   })
 </script>
 
@@ -326,151 +275,27 @@
         </label>
       </div>
 
-      <div class="combo-timeout" role="group" aria-label="Combo timeout">
-        <div class="timeout-label-row">
-          <span class="timeout-label">
-            Timeout <strong>{timeoutMs}ms</strong>
-            {#if !timeoutIsCustom}
-              <span class="timeout-default">def</span>
-            {/if}
-          </span>
-          <div class="timeout-presets">
-            <button
-              type="button"
-              class="combo-btn quiet"
-              class:on={timeoutMs === 30 && timeoutIsCustom}
-              onclick={() => setTimeoutMs(30)}
-            >
-              Fast
-            </button>
-            <button
-              type="button"
-              class="combo-btn quiet"
-              class:on={timeoutMs === 50}
-              onclick={() => setTimeoutMs(50)}
-              title="Firmware default when unmarked"
-            >
-              Norm
-            </button>
-            <button
-              type="button"
-              class="combo-btn quiet"
-              class:on={timeoutMs === 100 && timeoutIsCustom}
-              onclick={() => setTimeoutMs(100)}
-            >
-              Slow
-            </button>
-            {#if timeoutIsCustom}
-              <button
-                type="button"
-                class="combo-btn quiet"
-                onclick={clearTimeoutMs}
-                title="Omit timeout-ms"
-              >
-                Def
-              </button>
-            {/if}
-          </div>
-        </div>
-        <input
-          class="timeout-range"
-          type="range"
-          min={COMBO_TIMEOUT_MS_MIN}
-          max={COMBO_TIMEOUT_MS_MAX}
-          step="5"
-          value={timeoutMs}
-          aria-label="Combo timeout in milliseconds"
-          oninput={onTimeoutInput}
-        />
-      </div>
+      <ComboTimeoutControls
+        {timeoutMs}
+        {timeoutIsCustom}
+        {priorIdleOn}
+        {priorIdleMs}
+        onTimeoutMs={setTimeoutMs}
+        onTimeoutInput={onTimeoutInput}
+        onClearTimeout={clearTimeoutMs}
+        onPriorIdleMs={setPriorIdleMs}
+        onPriorIdleInput={onPriorIdleInput}
+        onClearPriorIdle={clearPriorIdleMs}
+      />
 
-      <div class="combo-timeout" role="group" aria-label="Require prior idle">
-        <div class="timeout-label-row">
-          <span class="timeout-label">
-            {#if priorIdleOn}
-              Prior idle <strong>{priorIdleMs}ms</strong>
-            {:else}
-              Prior idle <span class="timeout-default">off</span>
-            {/if}
-          </span>
-          <div class="timeout-presets">
-            <button
-              type="button"
-              class="combo-btn quiet"
-              class:on={!priorIdleOn}
-              onclick={clearPriorIdleMs}
-              title="Omit require-prior-idle-ms"
-            >
-              Off
-            </button>
-            <button
-              type="button"
-              class="combo-btn quiet"
-              class:on={priorIdleOn && priorIdleMs === 50}
-              onclick={() => setPriorIdleMs(50)}
-            >
-              50
-            </button>
-            <button
-              type="button"
-              class="combo-btn quiet"
-              class:on={priorIdleOn && priorIdleMs === 100}
-              onclick={() => setPriorIdleMs(100)}
-            >
-              100
-            </button>
-            <button
-              type="button"
-              class="combo-btn quiet"
-              class:on={priorIdleOn && priorIdleMs === 200}
-              onclick={() => setPriorIdleMs(200)}
-            >
-              200
-            </button>
-          </div>
-        </div>
-        {#if priorIdleOn}
-          <input
-            class="timeout-range"
-            type="range"
-            min={COMBO_PRIOR_IDLE_MS_MIN}
-            max={COMBO_PRIOR_IDLE_MS_MAX}
-            step="10"
-            value={priorIdleMs}
-            aria-label="Require prior idle in milliseconds"
-            oninput={onPriorIdleInput}
-          />
-        {/if}
-      </div>
-
-      <div class="combo-layers" role="group" aria-label="Active layers">
-        <div class="timeout-label-row">
-          <span class="timeout-label">Layers</span>
-          <button
-            type="button"
-            class="combo-btn quiet"
-            class:on={layersAreGlobal}
-            onclick={setAllLayers}
-            title="Combo works on every layer"
-          >
-            All
-          </button>
-        </div>
-        <div class="layer-chips">
-          {#each Array.from({ length: layerCount }, (_, i) => i) as index (index)}
-            <button
-              type="button"
-              class="combo-btn quiet layer-chip"
-              class:on={!layersAreGlobal && selectedLayers.has(index)}
-              title={layerNames[index] ?? `Layer ${index}`}
-              aria-pressed={!layersAreGlobal && selectedLayers.has(index)}
-              onclick={() => toggleLayer(index)}
-            >
-              {layerLegendSymbol(index)}
-            </button>
-          {/each}
-        </div>
-      </div>
+      <ComboLayerChips
+        {layerCount}
+        {layerNames}
+        {layersAreGlobal}
+        {selectedLayers}
+        onAllLayers={setAllLayers}
+        onToggleLayer={toggleLayer}
+      />
 
       <div class="combo-actions">
         <button type="button" class="combo-btn" onclick={editBinding}>
@@ -494,63 +319,28 @@
     {/if}
   </section>
 
-  {#if combos.length === 0}
-    <p class="combo-empty">No combos yet.</p>
-  {:else}
-    <ul class="combo-list" role="listbox" aria-label="Combo list">
-      {#each combos as combo (combo.id)}
-        {@const issue = comboKeysIssue(combo.keyPositions)}
-        {@const partner = overlapPartners.get(combo.id) ?? null}
-        {@const soft =
-          issue == null &&
-          partner == null &&
-          comboDesignHint(combo.keyPositions, layer0, combo.binding)}
-        <li>
-          <button
-            type="button"
-            class="combo-item"
-            class:active={combo.id === editor.activeComboId}
-            class:invalid={issue != null || partner != null}
-            class:soft-warn={!!soft}
-            title={comboOverlapMessage(partner) ?? undefined}
-            role="option"
-            aria-selected={combo.id === editor.activeComboId}
-            onclick={() => selectCombo(combo.id)}
-          >
-            <span class="combo-main">
-              <span class="combo-id">{combo.id}</span>
-              <span class="combo-bind">{bindingLabel(combo)}</span>
-            </span>
-            <span class="combo-meta">{comboListMeta(combo)}</span>
-          </button>
-        </li>
-      {/each}
-    </ul>
-  {/if}
+  <ComboList
+    {combos}
+    activeComboId={editor.activeComboId}
+    {layer0}
+    onSelect={selectCombo}
+  />
 </aside>
 
-{#if session.editing && session.canEdit && session.activeSlot}
-  <Modal onBackdrop={session.closeEditor}>
-    <KeyEditor
-      bindingLabel={session.bindingLabel}
-      behaviours={session.behaviours}
-      editorSlots={session.slots}
-      activeCodeIndex={session.activeSlot.codeIndex}
-      choices={session.choices}
-      onSelectBehaviour={session.selectBehaviour}
-      onSelectValue={session.selectValue}
-      onToggleHold={session.toggleHold}
-      onActivateSlot={openEditor}
-      onConfirm={staged => {
-        if (staged?.length) editor.armHoldTapsForNextUpdate(staged)
-        session.confirm()
-      }}
-      onCancel={session.closeEditor}
-      holdTaps={editor.draftKeymap?.holdTaps ?? editor.baselineKeymap?.holdTaps}
-      onChangeHoldTaps={next => editor.updateHoldTaps(next)}
-    />
-  </Modal>
-{/if}
+<KeyEditorHost
+  open={!!(session.editing && session.canEdit && session.activeSlot)}
+  bindingLabel={session.bindingLabel}
+  behaviours={session.behaviours}
+  editorSlots={session.slots}
+  activeCodeIndex={session.activeSlot?.codeIndex ?? 0}
+  choices={session.choices}
+  onSelectBehaviour={session.selectBehaviour}
+  onSelectValue={session.selectValue}
+  onToggleHold={session.toggleHold}
+  onActivateSlot={openEditor}
+  onConfirm={session.confirm}
+  onCancel={session.closeEditor}
+/>
 
 <style>
   .combo-panel {
@@ -633,17 +423,6 @@
     margin: 0;
   }
 
-  .combo-btn {
-    height: 22px;
-    padding: 0 7px;
-    border: 1px solid var(--border);
-    border-radius: 5px;
-    background: var(--surface-sunken);
-    color: var(--text);
-    font: inherit;
-    cursor: pointer;
-  }
-
   .combo-btn.done {
     display: inline-flex;
     align-items: center;
@@ -663,99 +442,15 @@
     line-height: 1.4;
   }
 
-  .combo-btn.quiet {
-    height: 20px;
-    padding: 0 5px;
-    font-size: 0.9em;
-  }
-
-  .combo-btn.quiet.on {
-    border-color: var(--accent, #3a7);
-    background: color-mix(in srgb, var(--accent, #3a7) 16%, transparent);
-  }
-
   .combo-btn.danger {
     color: var(--danger, #b33);
   }
 
-  .combo-empty,
   .combo-hint {
     margin: 0;
     color: var(--text-muted);
     line-height: 1.3;
     font-size: 0.92em;
-  }
-
-  .combo-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-height: 0;
-    flex: 1 1 auto;
-    overflow: auto;
-  }
-
-  .combo-item {
-    width: 100%;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 6px;
-    align-items: start;
-    margin: 0;
-    padding: 5px 7px;
-    text-align: left;
-    border: 1px solid transparent;
-    border-radius: 5px;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    cursor: pointer;
-  }
-
-  .combo-item:hover {
-    background: color-mix(in srgb, var(--hover-selection) 35%, transparent);
-  }
-
-  .combo-item.active {
-    border-color: var(--accent, #3a7);
-    background: color-mix(in srgb, var(--accent, #3a7) 14%, transparent);
-  }
-
-  .combo-item.invalid .combo-meta {
-    color: var(--danger, #b33);
-  }
-
-  .combo-item.soft-warn .combo-meta {
-    color: var(--warning, #b8860b);
-  }
-
-  .combo-main {
-    display: grid;
-    gap: 1px;
-    min-width: 0;
-  }
-
-  .combo-id {
-    font-weight: 600;
-  }
-
-  .combo-bind {
-    color: var(--text-muted);
-    font-size: 0.9em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .combo-meta {
-    color: var(--text-muted);
-    font-size: 0.82em;
-    line-height: 1.25;
-    text-align: right;
-    max-width: 6.5rem;
   }
 
   .combo-field {
@@ -784,52 +479,6 @@
     background: var(--surface-sunken);
     color: var(--text);
     font: inherit;
-  }
-
-  .combo-timeout,
-  .combo-layers {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-  }
-
-  .timeout-label-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 4px;
-  }
-
-  .timeout-label {
-    color: var(--text-muted);
-    font-size: 0.9em;
-  }
-
-  .timeout-label strong {
-    color: var(--text);
-    font-weight: 600;
-  }
-
-  .timeout-default {
-    opacity: 0.7;
-  }
-
-  .timeout-range {
-    width: 100%;
-    margin: 0;
-    accent-color: var(--accent, #3a7);
-  }
-
-  .timeout-presets,
-  .layer-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 3px;
-  }
-
-  .layer-chip {
-    min-width: 1.75rem;
-    justify-content: center;
   }
 
   .slow-compact {

@@ -1,7 +1,8 @@
 import { primarySystemLayoutId } from './host-layout-catalog.js'
-import type { HostLanguageId } from './host-languages.js'
+import { HOST_LANGUAGE_IDS, type HostLanguageId } from './host-languages.js'
 import type { HostLayout } from './host-layout.js'
 import { hostLayout } from './host-layout-registry.js'
+import { foldLetterKey } from './letter-case.js'
 import type { KeyBindingNode, ParsedKeymap } from './types.js'
 
 /**
@@ -107,7 +108,7 @@ const MARKS = [
  * Digits stay out; national marks (`№`, …) stay ornament. Grave and tilde join the
  * punct half of `MARKS`.
  */
-export const BASIC_ALIGN_GLYPHS: ReadonlySet<string> = new Set([
+const BASIC_ALIGN_GLYPHS: ReadonlySet<string> = new Set([
   ';',
   ':',
   '/',
@@ -148,10 +149,10 @@ function glyphsOf(layout: HostLayout): Set<string> {
   return found
 }
 
-function hasLetter(found: Set<string>, letter: string): boolean {
-  const lower = letter.toLowerCase()
+function hasLetter(found: Set<string>, letter: string, language: HostLanguageId): boolean {
+  const want = foldLetterKey(letter, language)
   for (const glyph of found) {
-    if (glyph.toLowerCase() === lower) return true
+    if (foldLetterKey(glyph, language) === want) return true
   }
   return false
 }
@@ -210,7 +211,7 @@ export function missingBasicGlyphs(
   const stock = stockOf(language)
   const missing: string[] = []
   for (const letter of LETTERS[language]) {
-    if (!hasLetter(stock, letter) || hasLetter(found, letter)) continue
+    if (!hasLetter(stock, letter, language) || hasLetter(found, letter, language)) continue
     missing.push(letter)
   }
   for (const mark of MARKS) {
@@ -218,4 +219,63 @@ export function missingBasicGlyphs(
     missing.push(mark)
   }
   return missing
+}
+
+const requiredLettersCache = new Map<HostLanguageId, readonly string[]>()
+
+/** Letters in `LETTERS` that the primary system layout actually produces. */
+function requiredLetters(language: HostLanguageId): readonly string[] {
+  const cached = requiredLettersCache.get(language)
+  if (cached) return cached
+  const stock = stockOf(language)
+  const required = [...LETTERS[language]].filter(letter => hasLetter(stock, letter, language))
+  requiredLettersCache.set(language, required)
+  return required
+}
+
+function glyphJaccard(found: ReadonlySet<string>, stock: ReadonlySet<string>): number {
+  let hit = 0
+  for (const glyph of found) {
+    if (stock.has(glyph)) hit++
+  }
+  let union = found.size
+  for (const glyph of stock) {
+    if (!found.has(glyph)) union++
+  }
+  return union === 0 ? 0 : hit / union
+}
+
+/**
+ * Catalog language whose `LETTERS` best match this layout. Coverage of the
+ * letters the primary layout types comes first; a larger alphabet wins a
+ * tie, then glyph overlap with that primary layout (fi/sv, da/no, pt/br).
+ */
+export function guessHostLanguageFromLetters(layout: HostLayout): HostLanguageId | null {
+  const found = glyphsOf(layout)
+  if (found.size === 0) return null
+  let best: HostLanguageId | null = null
+  let bestCoverage = -1
+  let bestRequired = -1
+  let bestOverlap = -1
+  for (const language of HOST_LANGUAGE_IDS) {
+    const required = requiredLetters(language)
+    if (required.length === 0) continue
+    let present = 0
+    for (const letter of required) {
+      if (hasLetter(found, letter, language)) present++
+    }
+    const coverage = present / required.length
+    const overlap = glyphJaccard(found, stockOf(language))
+    if (
+      coverage > bestCoverage ||
+      (coverage === bestCoverage && required.length > bestRequired) ||
+      (coverage === bestCoverage && required.length === bestRequired && overlap > bestOverlap)
+    ) {
+      best = language
+      bestCoverage = coverage
+      bestRequired = required.length
+      bestOverlap = overlap
+    }
+  }
+  return bestCoverage > 0 ? best : null
 }

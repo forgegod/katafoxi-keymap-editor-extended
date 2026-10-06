@@ -1,0 +1,38 @@
+/*
+ * Hard .keymap corpus: sensor-bindings on some layers and a #define in combo bindings.
+ * Covers R2-2/R2-3 (macros_expanded without rewriting the combo block on a no-op Save).
+ */
+
+#define ESC_KEY ESC
+
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+
+/ {
+    combos {
+        compatible = "zmk,combos";
+        combo_esc {
+            bindings = <&kp ESC_KEY>;
+            key-positions = <0 1>;
+        };
+    };
+
+    keymap {
+        compatible = "zmk,keymap";
+
+        layer_0 {
+            bindings = <
+&kp A &kp B
+&kp C &kp D
+            >;
+            sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN>;
+        };
+
+        layer_1 {
+            bindings = <
+&trans &trans
+&trans &trans
+            >;
+        };
+    };
+};

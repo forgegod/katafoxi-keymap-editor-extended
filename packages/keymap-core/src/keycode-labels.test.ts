@@ -93,6 +93,7 @@ describe('displayChoiceLabel', () => {
     expect(displayChoiceLabel(peers[1], peers)).toBe('-')
     expect(displayChoiceLabel(peers[3], peers)).toBe('=')
     expect(displayChoiceLabel(peers[5], peers)).toBe('7')
+    expect(displayChoiceLabel(peers[6], peers)).not.toBe('R⮐')
     expect(displayChoiceLabel(peers[7], peers)).toBe('⮐')
   })
 

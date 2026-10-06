@@ -1,18 +1,12 @@
 import {
+  loadKeyboardBundle,
   parseDtsKeymap,
   parseKeymap,
+  pickInfoLayout,
   type LayoutKey,
   type ParsedKeymap
 } from '@keymap-editor/keymap-core'
 import catalogJson from '../../../../../packages/keymap-core/fixtures/demo/catalog.json'
-import larkInfo from '../../../../../packages/keymap-core/fixtures/lark/info.json'
-import larkKeymapSource from '../../../../../packages/keymap-core/fixtures/lark/lark.keymap?raw'
-import corneInfo from '../../../../../packages/keymap-core/fixtures/demo/corne/info.json'
-import corneKeymapSource from '../../../../../packages/keymap-core/fixtures/demo/corne/corne.keymap?raw'
-import lily58Info from '../../../../../packages/keymap-core/fixtures/demo/lily58/info.json'
-import lily58KeymapSource from '../../../../../packages/keymap-core/fixtures/demo/lily58/lily58.keymap?raw'
-import cradioInfo from '../../../../../packages/keymap-core/fixtures/demo/cradio/info.json'
-import cradioKeymapSource from '../../../../../packages/keymap-core/fixtures/demo/cradio/cradio.keymap?raw'
 import { demoHostSeeds, type DemoHostLayoutSeed } from './host-seeds.js'
 
 export type DemoCatalogEntry = {
@@ -36,11 +30,37 @@ type InfoJson = {
   layouts: Record<string, { layout: LayoutKey[] }>
 }
 
-const DEMO_FILES: Record<string, { info: InfoJson; keymapSource: string }> = {
-  lark: { info: larkInfo as InfoJson, keymapSource: larkKeymapSource },
-  corne: { info: corneInfo as InfoJson, keymapSource: corneKeymapSource },
-  lily58: { info: lily58Info as InfoJson, keymapSource: lily58KeymapSource },
-  cradio: { info: cradioInfo as InfoJson, keymapSource: cradioKeymapSource }
+type DemoFiles = { info: InfoJson; keymapSource: string }
+
+const DEMO_LOADERS: Record<string, () => Promise<DemoFiles>> = {
+  lark: async () => {
+    const [{ default: info }, { default: keymapSource }] = await Promise.all([
+      import('../../../../../packages/keymap-core/fixtures/lark/info.json'),
+      import('../../../../../packages/keymap-core/fixtures/lark/lark.keymap?raw')
+    ])
+    return { info: info as InfoJson, keymapSource }
+  },
+  corne: async () => {
+    const [{ default: info }, { default: keymapSource }] = await Promise.all([
+      import('../../../../../packages/keymap-core/fixtures/demo/corne/info.json'),
+      import('../../../../../packages/keymap-core/fixtures/demo/corne/corne.keymap?raw')
+    ])
+    return { info: info as InfoJson, keymapSource }
+  },
+  lily58: async () => {
+    const [{ default: info }, { default: keymapSource }] = await Promise.all([
+      import('../../../../../packages/keymap-core/fixtures/demo/lily58/info.json'),
+      import('../../../../../packages/keymap-core/fixtures/demo/lily58/lily58.keymap?raw')
+    ])
+    return { info: info as InfoJson, keymapSource }
+  },
+  cradio: async () => {
+    const [{ default: info }, { default: keymapSource }] = await Promise.all([
+      import('../../../../../packages/keymap-core/fixtures/demo/cradio/info.json'),
+      import('../../../../../packages/keymap-core/fixtures/demo/cradio/cradio.keymap?raw')
+    ])
+    return { info: info as InfoJson, keymapSource }
+  }
 }
 
 export const DEMO_CATALOG: DemoCatalogEntry[] = (
@@ -48,6 +68,7 @@ export const DEMO_CATALOG: DemoCatalogEntry[] = (
 ).demos
 
 const DEMO_STORAGE_KEY = 'selectedDemo'
+const DEMO_CACHE = new Map<string, Promise<DemoBundle>>()
 
 export function defaultDemoId(): string {
   return DEMO_CATALOG.find(entry => entry.default)?.id ?? DEMO_CATALOG[0]?.id ?? 'corne'
@@ -71,25 +92,42 @@ export function writeStoredDemoId(id: string) {
   }
 }
 
-function layoutFromInfo(info: InfoJson): { layout: LayoutKey[]; layoutName: string } {
-  const layoutName = Object.keys(info.layouts)[0]
-  if (!layoutName) throw new Error('Demo info.json has no layouts')
-  return { layout: info.layouts[layoutName].layout, layoutName }
+/** Load a bundled demo keyboard (layout + parsed keymap). */
+export function loadDemo(id: string): Promise<DemoBundle> {
+  const cached = DEMO_CACHE.get(id)
+  if (cached) return cached
+  const pending = loadDemoUncached(id)
+  DEMO_CACHE.set(id, pending)
+  pending.catch(() => {
+    DEMO_CACHE.delete(id)
+  })
+  return pending
 }
 
-/** Load a bundled demo keyboard (layout + parsed keymap). */
-export function loadDemo(id: string): DemoBundle {
+async function loadDemoUncached(id: string): Promise<DemoBundle> {
   const entry = DEMO_CATALOG.find(item => item.id === id)
   if (!entry) throw new Error(`Unknown demo: ${id}`)
-  const files = DEMO_FILES[id]
-  if (!files) throw new Error(`Demo files missing for: ${id}`)
+  const loader = DEMO_LOADERS[id]
+  if (!loader) throw new Error(`Demo files missing for: ${id}`)
+  const files = await loader()
 
-  const { layout, layoutName } = layoutFromInfo(files.info)
+  const { keyboard, layoutName } = pickInfoLayout(files.info, {
+    fallbackKeyboard: id
+  })
   const raw = parseDtsKeymap(files.keymapSource, {
-    keyboard: files.info.id ?? id,
+    keyboard,
     keymap: id,
     layout: layoutName
   })
-  const keymap = parseKeymap(raw)
-  return { entry, layout, keymap, hostSeeds: demoHostSeeds(id) }
+  const bundle = loadKeyboardBundle({
+    infoJson: files.info,
+    keymap: parseKeymap(raw),
+    fallbackKeyboard: keyboard
+  })
+  return {
+    entry,
+    layout: bundle.layout,
+    keymap: bundle.keymap,
+    hostSeeds: demoHostSeeds(id)
+  }
 }

@@ -6,7 +6,13 @@ import {
   type HostLayoutChoice
 } from './host-layout-catalog.js'
 import { hostLanguage, type HostLanguageId } from './host-languages.js'
-import { hostLayoutFromSymbols, type HostKeyLevels, type HostLayout } from './host-layout.js'
+import {
+  cloneHostLayoutTable,
+  freezeHostLayoutTable,
+  hostLayoutFromSymbols,
+  type HostKeyLevels,
+  type HostLayout
+} from './host-layout.js'
 
 export interface HostLayoutMeta {
   id: string
@@ -43,7 +49,9 @@ function metaFromSpec(spec: BuiltinHostLayoutSpec): HostLayoutMeta {
 function parseBuiltin(spec: BuiltinHostLayoutSpec): HostLayout {
   const cached = parsedBuiltins.get(spec.id)
   if (cached) return cached
-  const layout = hostLayoutFromSymbols(spec.source, spec.section, spec.id, spec.files)
+  const layout = freezeHostLayoutTable(
+    hostLayoutFromSymbols(spec.source, spec.section, spec.id, spec.files)
+  )
   parsedBuiltins.set(spec.id, layout)
   return layout
 }
@@ -95,7 +103,7 @@ function registeredChoices(language: HostLanguageId): HostLayoutChoice[] {
   for (const { meta } of registered.values()) {
     if (meta.language === language) rows.push(choiceFromMeta(meta))
   }
-  return rows.sort((a, b) => a.layoutName.localeCompare(b.layoutName, 'ru'))
+  return rows.sort((a, b) => a.layoutName.localeCompare(b.layoutName, 'en'))
 }
 
 /** Catalog rows plus registered user layouts for one language. */
@@ -126,7 +134,7 @@ export function registerHostLayout(meta: HostLayoutMeta, layout: HostLayout): vo
   }
   registered.set(meta.id, {
     meta: { ...meta, origin: 'user' },
-    layout
+    layout: cloneHostLayoutTable(layout, layout.id)
   })
 }
 

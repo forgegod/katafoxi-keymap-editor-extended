@@ -9,7 +9,11 @@
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
   import { isUserHostLayoutId } from '../host-layout-store.js'
-  import Button from './Common/Button.svelte'
+  import { clickOutside } from '../actions/click-outside'
+  import { pushEscapeHandler } from '../escape-stack'
+  import ProfileImportKlc from './ProfileImportKlc.svelte'
+  import ProfileImportXkb from './ProfileImportXkb.svelte'
+  import { downloadFileName, downloadText } from '../download'
 
   interface Props {
     language: HostLanguageId
@@ -27,7 +31,6 @@
   })
   const customs = $derived(shelves.users)
   const activeId = $derived(editor.activeProfileId(language))
-  const canStore = true
 
   type XkbSectionChoice = { section: string; name: string }
 
@@ -37,6 +40,10 @@
   let importSections = $state<XkbSectionChoice[]>([])
   let importSection = $state('')
   let importError = $state('')
+  let importPaneEl = $state<HTMLDivElement | undefined>()
+
+  const IMPORT_FOCUSABLE =
+    'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
   $effect(() => {
     if (open) return
@@ -46,6 +53,24 @@
     importSections = []
     importSection = ''
     importError = ''
+  })
+
+  $effect(() => {
+    if (!open) return
+    return pushEscapeHandler(() => {
+      if (importKind) {
+        importKind = null
+        return
+      }
+      onClose()
+    })
+  })
+
+  $effect(() => {
+    if (!open || importKind == null || !importPaneEl) return
+    const focusable = importPaneEl.querySelector(IMPORT_FOCUSABLE)
+    if (focusable instanceof HTMLElement) focusable.focus({ preventScroll: true })
+    else importPaneEl.focus({ preventScroll: true })
   })
 
   function beginImport(kind: 'xkb' | 'klc', event: MouseEvent) {
@@ -195,28 +220,10 @@
     editor.beginDeleteHostProfile(language, id)
   }
 
-  function exportFileName(name: string): string {
-    const safe = name.replace(/[\\/:*?"<>|]+/g, '_').trim() || 'layout'
-    return `${safe}.xkb`
-  }
-
-  function downloadXkb(text: string, name: string) {
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = exportFileName(name)
-    link.rel = 'noopener'
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
-  }
-
   function exportLayout(id: string) {
     const exported = editor.exportUserHostLayoutXkb(id)
     if (!exported) return
-    downloadXkb(exported.text, exported.name)
+    downloadText(exported.text, downloadFileName(exported.name, 'xkb', 'layout'))
     onClose()
   }
 
@@ -231,115 +238,72 @@
     exportLayout(activeId)
   }
 
-  let menuEl = $state<HTMLDivElement | undefined>()
-
-  $effect(() => {
-    if (!open) return
-    function handle(event: PointerEvent) {
-      if (event.target instanceof Node && menuEl?.contains(event.target)) return
-      onClose()
-    }
-    document.addEventListener('pointerdown', handle)
-    return () => document.removeEventListener('pointerdown', handle)
-  })
 </script>
 
-<div class="profile-menu" bind:this={menuEl}>
+<div
+  class="profile-menu"
+  use:clickOutside={{ enabled: open, handler: onClose }}
+>
   <button
     type="button"
     class="profile-trigger"
     aria-label="Profile {languageName}: {currentFullLabel()}"
     title={currentFullLabel()}
-    aria-haspopup="listbox"
+    aria-haspopup="menu"
     aria-expanded={open}
     onclick={onToggle}
   >
     {currentLabel()}
   </button>
   {#if open && importKind === 'xkb'}
-    <div class="profile-import" role="dialog" aria-label="Import xkb">
-      <input
-        type="file"
-        aria-label="xkb file"
-        onchange={event => void onImportFile(event)}
-      />
-      <p class="profile-import-hint">xkb symbol files often have no extension, for example au or ru.</p>
-      <textarea
-        aria-label="xkb text"
-        placeholder="Paste xkb…"
-        bind:value={importText}
-        oninput={() => {
-          importError = ''
-          const sections = listXkbSections(importText)
-          importSections = sections
-          if (sections.length > 0 && !sections.some(item => item.section === importSection)) {
-            importSection = sections[0].section
-          }
-          if (importFileName === '') importFileName = 'paste'
-        }}
-      ></textarea>
-      {#if importSections.length > 1}
-        <select
-          aria-label="xkb section"
-          value={importSection}
-          onchange={event => (importSection = event.currentTarget.value)}
-        >
-          {#each importSections as item (item.section)}
-            <option value={item.section}>{item.name}</option>
-          {/each}
-        </select>
-      {/if}
-      {#if importError}
-        <p class="profile-import-error" role="alert">{importError}</p>
-      {/if}
-      <div class="profile-import-actions">
-        <Button variant="accent" onclick={() => void submitImport()}>Import</Button>
-        <Button variant="outline" onclick={() => (importKind = null)}>Back</Button>
-      </div>
-    </div>
+    <ProfileImportXkb
+      bind:importText
+      bind:importSection
+      bind:importPaneEl
+      {importSections}
+      {importError}
+      onFile={event => void onImportFile(event)}
+      onTextInput={() => {
+        importError = ''
+        const sections = listXkbSections(importText)
+        importSections = sections
+        if (sections.length > 0 && !sections.some(item => item.section === importSection)) {
+          importSection = sections[0].section
+        }
+        if (importFileName === '') importFileName = 'paste'
+      }}
+      onSectionChange={section => (importSection = section)}
+      onSubmit={() => void submitImport()}
+      onBack={() => (importKind = null)}
+    />
   {:else if open && importKind === 'klc'}
-    <div class="profile-import" role="dialog" aria-label="Import klc">
-      <input
-        type="file"
-        accept=".klc"
-        aria-label="klc file"
-        onchange={event => void onImportKlcFile(event)}
-      />
-      <p class="profile-import-hint">
-        A one-language file fills this column. A Caps Lock alphabet also fills that language.
-      </p>
-      <textarea
-        aria-label="klc text"
-        placeholder="Paste klc…"
-        bind:value={importText}
-        oninput={() => (importError = '')}
-      ></textarea>
-      {#if importError}
-        <p class="profile-import-error" role="alert">{importError}</p>
-      {/if}
-      <div class="profile-import-actions">
-        <Button variant="accent" onclick={() => void submitKlcImport()}>Import</Button>
-        <Button variant="outline" onclick={() => (importKind = null)}>Back</Button>
-      </div>
-    </div>
+    <ProfileImportKlc
+      bind:importText
+      bind:importPaneEl
+      {importError}
+      onFile={event => void onImportKlcFile(event)}
+      onTextInput={() => (importError = '')}
+      onSubmit={() => void submitKlcImport()}
+      onBack={() => (importKind = null)}
+    />
   {:else if open}
-    <ul class="profile-list" role="listbox" aria-label="Profile {languageName}">
+    <ul class="profile-list" role="menu" aria-label="Profile {languageName}">
       {#each customs as profile (profile.id)}
-        <li class="profile-row">
+        <li class="profile-row" role="none">
           <button
             type="button"
             class="profile-item"
             class:selected={profile.id === activeId}
-            role="option"
-            aria-selected={profile.id === activeId}
+            role="menuitem"
+            aria-current={profile.id === activeId ? 'true' : undefined}
             onclick={() => selectLayout(profile.id)}
           >
             {profile.layoutName}
           </button>
-          {#if canStore}
           <button
             type="button"
             class="profile-icon"
+            role="menuitem"
             title="Export xkb"
             aria-label="Export {profile.layoutName}"
             onclick={event => exportCustom(profile.id, event)}
@@ -353,6 +317,7 @@
           <button
             type="button"
             class="profile-icon"
+            role="menuitem"
             title="Copy profile"
             aria-label="Copy {profile.layoutName}"
             onclick={event => copyCustom(profile.id, event)}
@@ -365,6 +330,7 @@
           <button
             type="button"
             class="profile-icon stub"
+            role="menuitem"
             title="Rename profile"
             aria-label="Rename {profile.layoutName}"
             onclick={event => renameCustom(profile.id, event)}
@@ -377,6 +343,7 @@
           <button
             type="button"
             class="profile-icon stub danger"
+            role="menuitem"
             title="Delete profile"
             aria-label="Delete {profile.layoutName}"
             onclick={event => deleteCustom(profile.id, event)}
@@ -386,29 +353,28 @@
               <path d="M18 6L6 18" />
             </svg>
           </button>
-          {/if}
         </li>
       {/each}
       {#if customs.length > 0 && (shelves.primary || shelves.systems.length > 0)}
-        <li class="profile-sep" aria-hidden="true"></li>
+        <li class="profile-sep" role="separator"></li>
       {/if}
       {#if shelves.primary}
         {@const primary = shelves.primary}
-        <li class="profile-row">
+        <li class="profile-row" role="none">
           <button
             type="button"
             class="profile-item"
             class:selected={primary.id === activeId}
-            role="option"
-            aria-selected={primary.id === activeId}
+            role="menuitem"
+            aria-current={primary.id === activeId ? 'true' : undefined}
             onclick={() => selectLayout(primary.id)}
           >
             {hostLayoutChoiceLabel(primary)}
           </button>
-          {#if canStore}
           <button
             type="button"
             class="profile-icon"
+            role="menuitem"
             title="Copy profile"
             aria-label="Copy {hostLayoutChoiceLabel(primary)}"
             onclick={event => copyLayout(primary, event)}
@@ -418,25 +384,24 @@
               <path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4H5.5A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8" />
             </svg>
           </button>
-          {/if}
         </li>
       {/if}
       {#each shelves.systems as choice (choice.id)}
-        <li class="profile-row">
+        <li class="profile-row" role="none">
           <button
             type="button"
             class="profile-item"
             class:selected={choice.id === activeId}
-            role="option"
-            aria-selected={choice.id === activeId}
+            role="menuitem"
+            aria-current={choice.id === activeId ? 'true' : undefined}
             onclick={() => selectLayout(choice.id)}
           >
             {hostLayoutChoiceLabel(choice)}
           </button>
-          {#if canStore}
           <button
             type="button"
             class="profile-icon"
+            role="menuitem"
             title="Copy profile"
             aria-label="Copy {hostLayoutChoiceLabel(choice)}"
             onclick={event => copyLayout(choice, event)}
@@ -446,24 +411,33 @@
               <path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4H5.5A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8" />
             </svg>
           </button>
-          {/if}
         </li>
       {/each}
-      <li class="profile-sep" aria-hidden="true"></li>
+      <li class="profile-sep" role="separator"></li>
       {#if isUserHostLayoutId(activeId)}
-        <li class="profile-row">
-          <button type="button" class="profile-action" onclick={exportActive}>
+        <li class="profile-row" role="none">
+          <button type="button" class="profile-action" role="menuitem" onclick={exportActive}>
             Export xkb
           </button>
         </li>
       {/if}
-      <li class="profile-row">
-        <button type="button" class="profile-action" onclick={event => beginImport('xkb', event)}>
+      <li class="profile-row" role="none">
+        <button
+          type="button"
+          class="profile-action"
+          role="menuitem"
+          onclick={event => beginImport('xkb', event)}
+        >
           Import xkb…
         </button>
       </li>
-      <li class="profile-row">
-        <button type="button" class="profile-action" onclick={event => beginImport('klc', event)}>
+      <li class="profile-row" role="none">
+        <button
+          type="button"
+          class="profile-action"
+          role="menuitem"
+          onclick={event => beginImport('klc', event)}
+        >
           Import klc…
         </button>
       </li>
@@ -502,7 +476,7 @@
     position: absolute;
     top: calc(100% + 2px);
     left: 0;
-    z-index: 8;
+    z-index: var(--z-popover);
     min-width: 14rem;
     max-height: min(48rem, 90vh);
     margin: 0;
@@ -603,52 +577,5 @@
 
   .profile-action:hover {
     background: color-mix(in srgb, var(--accent) 8%, transparent);
-  }
-
-  .profile-import {
-    position: absolute;
-    top: calc(100% + 2px);
-    left: 0;
-    z-index: 8;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    min-width: 16rem;
-    padding: 8px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
-  }
-
-  .profile-import textarea,
-  .profile-import select,
-  .profile-import input[type='file'] {
-    box-sizing: border-box;
-    width: 100%;
-    font: inherit;
-    font-size: var(--font-sm);
-  }
-
-  .profile-import textarea {
-    min-height: 7rem;
-    resize: vertical;
-  }
-
-  .profile-import-hint {
-    margin: 0;
-    color: var(--text-muted);
-    font-size: var(--font-xs);
-  }
-
-  .profile-import-error {
-    margin: 0;
-    color: var(--danger-ink);
-    font-size: var(--font-sm);
-  }
-
-  .profile-import-actions {
-    display: flex;
-    gap: 6px;
   }
 </style>

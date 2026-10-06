@@ -1,6 +1,6 @@
 /** ZMK HID OS compatibility (from the keycode catalog / docs table). */
 
-export const KEYCODE_OS_IDS = [
+const KEYCODE_OS_IDS = [
   'windows',
   'linux',
   'android',

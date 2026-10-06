@@ -6,7 +6,26 @@
  * `KeyBindingNode` so this module does not import keymap.ts.
  */
 
-import { findMatchingBrace } from './dts-keymap.js'
+import {
+  findAngleProp,
+  findNamedBlock,
+  hasBoolProp,
+  hasPreprocessorConditional,
+  iterateChildNodes,
+  matchBrace,
+  scanDts,
+  readUintAngleProp,
+  readUintAngleScalar,
+  tokenizeBindings,
+  type DtsNamedBlock,
+  type DtsScan
+} from './dts-scan.js'
+import {
+  dominantEol,
+  eatPrecedingEol,
+  joinCollapsingExtraBlankLines,
+  type LineEnding
+} from './eol.js'
 import {
   isModifierWrapCode,
   modifierHoldForKey,
@@ -14,84 +33,14 @@ import {
 } from './modifiers.js'
 import type { KeyBindingNode, ZmkCombo } from './types.js'
 
-interface DtsCombosBlock {
-  /** Absolute start of the `combos` keyword. */
-  keywordStart: number
-  openBrace: number
-  closeBrace: number
-  bodyStart: number
-  bodyEnd: number
-}
+export type DtsCombosBlock = DtsNamedBlock
 
 /**
  * Locate a `combos { … }` block. Prefers one that declares
  * `compatible = "zmk,combos"` when several exist.
  */
-function findCombosBlock(source: string): DtsCombosBlock | null {
-  const re = /\bcombos\s*\{/g
-  let fallback: DtsCombosBlock | null = null
-  let m: RegExpExecArray | null
-  while ((m = re.exec(source)) !== null) {
-    const openBrace = m.index + m[0].length - 1
-    const closeBrace = findMatchingBrace(source, openBrace)
-    if (closeBrace < 0) continue
-    const bodyStart = openBrace + 1
-    const bodyEnd = closeBrace
-    const block: DtsCombosBlock = {
-      keywordStart: m.index,
-      openBrace,
-      closeBrace,
-      bodyStart,
-      bodyEnd
-    }
-    const body = source.slice(bodyStart, bodyEnd)
-    if (/compatible\s*=\s*"zmk,combos"/.test(body)) return block
-    if (!fallback) fallback = block
-  }
-  return fallback
-}
-
-function findAngleInterior(
-  source: string,
-  from: number,
-  to: number,
-  prop: string
-): { start: number; end: number } | null {
-  const slice = source.slice(from, to)
-  const re = new RegExp(`${prop}\\s*=\\s*<`)
-  const m = re.exec(slice)
-  if (!m) return null
-  const contentStart = from + m.index + m[0].length
-  let depth = 1
-  for (let i = contentStart; i < to; i++) {
-    if (source[i] === '<') depth++
-    else if (source[i] === '>') {
-      depth--
-      if (depth === 0) return { start: contentStart, end: i }
-    }
-  }
-  return null
-}
-
-function parseUintList(interior: string): number[] {
-  const out: number[] = []
-  for (const tok of interior.trim().split(/\s+/)) {
-    if (!tok) continue
-    const n = Number(tok)
-    if (Number.isInteger(n) && n >= 0) out.push(n)
-  }
-  return out
-}
-
-function parseOptionalUintProp(body: string, prop: string): number | undefined {
-  const m = new RegExp(`${prop}\\s*=\\s*<\\s*(\\d+)\\s*>`).exec(body)
-  if (!m) return undefined
-  return Number(m[1])
-}
-
-function parseOptionalBoolProp(body: string, prop: string): boolean | undefined {
-  const m = new RegExp(`${prop}\\s*;`).exec(body)
-  return m ? true : undefined
+export function findCombosBlock(source: string, scan: DtsScan = scanDts(source)): DtsCombosBlock | null {
+  return findNamedBlock(source, scan, 'combos', { compatible: 'zmk,combos' })
 }
 
 /** Raw combo as stored in DtsKeymapJson before parseKeymap. */
@@ -106,59 +55,91 @@ export interface DtsComboJson {
   layers?: number[]
 }
 
+export interface DtsCombosParse {
+  combos: DtsComboJson[]
+  /**
+   * True when a child node was skipped, had a DTS label, or a uint property
+   * was not fully numeric. Save must omit `combos` so the block is left alone.
+   */
+  unparsed: boolean
+  /**
+   * True when `#if` / `#ifdef` / `#else` sit inside the combos block.
+   * Save must omit `combos` (`preprocessor_conditional`).
+   */
+  preprocessorConditional: boolean
+}
+
 /**
  * Parse combo nodes from a .keymap source. Missing / empty block → [].
  * Macros in combo bindings are left as written (caller may expand separately).
  */
 export function parseDtsCombos(source: string): DtsComboJson[] {
-  const block = findCombosBlock(source)
-  if (!block) return []
+  return parseDtsCombosDetailed(source).combos
+}
 
-  const body = source.slice(block.bodyStart, block.bodyEnd)
+export function parseDtsCombosDetailed(source: string, scan: DtsScan = scanDts(source)): DtsCombosParse {
+  const { masked } = scan
+  const block = findNamedBlock(source, scan, 'combos', { compatible: 'zmk,combos' })
+  if (!block) return { combos: [], unparsed: false, preprocessorConditional: false }
+  if (hasPreprocessorConditional(masked, { start: block.bodyStart, end: block.bodyEnd })) {
+    return { combos: [], unparsed: false, preprocessorConditional: true }
+  }
+
   const combos: DtsComboJson[] = []
-  const re = /(\w+)\s*\{/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(body)) !== null) {
-    const name = m[1]
-    if (name === 'compatible') continue
-    const openBraceRel = m.index + m[0].length - 1
-    const openBrace = block.bodyStart + openBraceRel
-    const closeBrace = findMatchingBrace(source, openBrace)
-    if (closeBrace < 0 || closeBrace > block.bodyEnd) {
-      re.lastIndex = openBraceRel + 1
+  let unparsed = false
+  for (const child of iterateChildNodes(scan, block)) {
+    const label = child.label
+    const name = child.name
+    const openBrace = child.openBrace
+    const closeBrace = child.closeBrace
+
+    if (label) unparsed = true
+
+    const range = { start: openBrace + 1, end: closeBrace }
+    const nodeBody = masked.slice(openBrace + 1, closeBrace)
+    const bindings = findAngleProp(masked, range, 'bindings')
+    const positions = readUintAngleProp(masked, range, 'key-positions')
+    if (!bindings || positions.kind !== 'ok') {
+      unparsed = true
       continue
     }
-    re.lastIndex = closeBrace - block.bodyStart + 1
 
-    const nodeBody = source.slice(openBrace + 1, closeBrace)
-    const bindings = findAngleInterior(source, openBrace + 1, closeBrace, 'bindings')
-    const positions = findAngleInterior(source, openBrace + 1, closeBrace, 'key-positions')
-    if (!bindings || !positions) continue
-
-    const bindingText = source.slice(bindings.start, bindings.end).trim()
-    // One binding per combo (ZMK allows one); take the first &… token.
-    const bindMatch = bindingText.match(/&\S+(?:\s+\S+)*/)
-    if (!bindMatch) continue
+    // One binding per combo (ZMK allows one); tokenizeBindings tolerates spaces in ().
+    const binds = tokenizeBindings(masked.slice(bindings.start, bindings.end))
+    if (binds.length === 0) {
+      unparsed = true
+      continue
+    }
 
     const combo: DtsComboJson = {
       id: name,
-      keyPositions: parseUintList(source.slice(positions.start, positions.end)),
-      binding: bindMatch[0].trim()
+      keyPositions: positions.values,
+      binding: binds[0]
     }
 
-    const timeoutMs = parseOptionalUintProp(nodeBody, 'timeout-ms')
-    if (timeoutMs !== undefined) combo.timeoutMs = timeoutMs
-    const idle = parseOptionalUintProp(nodeBody, 'require-prior-idle-ms')
-    if (idle !== undefined) combo.requirePriorIdleMs = idle
-    if (parseOptionalBoolProp(nodeBody, 'slow-release')) combo.slowRelease = true
-    const layersInterior = findAngleInterior(source, openBrace + 1, closeBrace, 'layers')
-    if (layersInterior) {
-      combo.layers = parseUintList(source.slice(layersInterior.start, layersInterior.end))
+    const timeoutMs = readUintAngleScalar(masked, range, 'timeout-ms')
+    if (timeoutMs.kind === 'unparsed') {
+      unparsed = true
+      continue
     }
+    if (timeoutMs.kind === 'ok') combo.timeoutMs = timeoutMs.value
+    const idle = readUintAngleScalar(masked, range, 'require-prior-idle-ms')
+    if (idle.kind === 'unparsed') {
+      unparsed = true
+      continue
+    }
+    if (idle.kind === 'ok') combo.requirePriorIdleMs = idle.value
+    if (hasBoolProp(nodeBody, 'slow-release')) combo.slowRelease = true
+    const layers = readUintAngleProp(masked, range, 'layers')
+    if (layers.kind === 'unparsed') {
+      unparsed = true
+      continue
+    }
+    if (layers.kind === 'ok') combo.layers = layers.values
 
     combos.push(combo)
   }
-  return combos
+  return { combos, unparsed, preprocessorConditional: false }
 }
 
 function sanitizeComboId(id: string): string {
@@ -167,7 +148,11 @@ function sanitizeComboId(id: string): string {
 }
 
 /** Format one combo node (encoded binding string already on the raw). */
-function formatComboNode(combo: DtsComboJson, indent = '        '): string {
+function formatComboNode(
+  combo: DtsComboJson,
+  indent = '        ',
+  eol: LineEnding = '\n'
+): string {
   const inner = indent + '    '
   const lines: string[] = [`${indent}${sanitizeComboId(combo.id)} {`]
   lines.push(`${inner}bindings = <${combo.binding}>;`)
@@ -185,16 +170,20 @@ function formatComboNode(combo: DtsComboJson, indent = '        '): string {
     lines.push(`${inner}layers = <${combo.layers.join(' ')}>;`)
   }
   lines.push(`${indent}};`)
-  return lines.join('\n')
+  return lines.join(eol)
 }
 
-export function formatCombosBlock(combos: DtsComboJson[], indent = '    '): string {
+export function formatCombosBlock(
+  combos: DtsComboJson[],
+  indent = '    ',
+  eol: LineEnding = '\n'
+): string {
   const child = indent + '    '
-  const nodes = combos.map(c => formatComboNode(c, child)).join('\n')
+  const nodes = combos.map(c => formatComboNode(c, child, eol)).join(eol)
   return (
-    `${indent}combos {\n` +
-    `${child}compatible = "zmk,combos";\n` +
-    (nodes ? `${nodes}\n` : '') +
+    `${indent}combos {${eol}` +
+    `${child}compatible = "zmk,combos";${eol}` +
+    (nodes ? `${nodes}${eol}` : '') +
     `${indent}};`
   )
 }
@@ -205,7 +194,9 @@ export function formatCombosBlock(combos: DtsComboJson[], indent = '    '): stri
  * aside from the inserted/removed region.
  */
 export function spliceCombosIntoDts(original: string, combos: DtsComboJson[]): string {
-  const block = findCombosBlock(original)
+  const eol = dominantEol(original)
+  const scan = scanDts(original)
+  const block = findCombosBlock(original, scan)
 
   if (combos.length === 0) {
     if (!block) return original
@@ -215,13 +206,11 @@ export function spliceCombosIntoDts(original: string, combos: DtsComboJson[]): s
     while (from > 0 && (original[from - 1] === ' ' || original[from - 1] === '\t')) {
       from--
     }
-    if (from > 0 && original[from - 1] === '\n') from--
-    let next = original.slice(0, from) + original.slice(to)
-    next = next.replace(/\n{3,}/g, '\n\n')
-    return next
+    from = eatPrecedingEol(original, from)
+    return joinCollapsingExtraBlankLines(original.slice(0, from), original.slice(to), eol)
   }
 
-  const formatted = formatCombosBlock(combos)
+  const formatted = formatCombosBlock(combos, '    ', eol)
 
   if (block) {
     let to = block.closeBrace + 1
@@ -229,17 +218,18 @@ export function spliceCombosIntoDts(original: string, combos: DtsComboJson[]): s
     return original.slice(0, block.keywordStart) + formatted + original.slice(to)
   }
 
-  const root = /\/\s*\{/.exec(original)
+  const { masked } = scan
+  const root = /\/\s*\{/.exec(masked)
   if (root) {
     const openBrace = root.index + root[0].length - 1
-    const closeBrace = findMatchingBrace(original, openBrace)
+    const closeBrace = matchBrace(scan, openBrace)
     if (closeBrace >= 0) {
-      const insertion = `\n${formatted}\n`
+      const insertion = `${eol}${formatted}${eol}`
       return original.slice(0, closeBrace) + insertion + original.slice(closeBrace)
     }
   }
 
-  return `${original.trimEnd()}\n\n/ {\n${formatted}\n};\n`
+  return `${original.trimEnd()}${eol}${eol}/ {${eol}${formatted}${eol}};${eol}`
 }
 
 function sanitizeComboIdPart(raw: string): string {
@@ -262,7 +252,7 @@ function flattenBindingForId(node: KeyBindingNode): string {
  * Stem from the combo binding (`&kp ESC` → `combo_esc`, `&mo 1` → `combo_mo_1`).
  * Always a legal DTS node id fragment.
  */
-export function suggestComboIdStem(binding: KeyBindingNode): string {
+function suggestComboIdStem(binding: KeyBindingNode): string {
   const behavior = sanitizeComboIdPart(String(binding.value ?? '').replace(/^&/, ''))
   const paramBits = (binding.params ?? []).map(flattenBindingForId).filter(Boolean)
   let body: string
@@ -354,11 +344,6 @@ export function comboKeysMessage(issue: ComboKeysIssue | null): string | null {
   return null
 }
 
-/** True when this combo's key count is in range. Shared chords are list-level. */
-export function isComboReady(combo: { keyPositions: readonly number[] }): boolean {
-  return comboKeysIssue(combo.keyPositions) === null
-}
-
 export interface ComboChordRef {
   id: string
   keyPositions: readonly number[]
@@ -435,7 +420,7 @@ export function comboOverlapMessage(otherId: string | null | undefined): string 
  * True when layer0 at this index is a standalone modifier key
  * (`&kp LSHIFT`, `&sk LCTRL`, hold side of `&mt LALT A`).
  */
-export function bindingIsModifierKey(node: KeyBindingNode | undefined): boolean {
+function bindingIsModifierKey(node: KeyBindingNode | undefined): boolean {
   if (!node) return false
   const behavior = String(node.value)
   if (behavior === '&kp' || behavior === '&sk') {
@@ -448,7 +433,7 @@ export function bindingIsModifierKey(node: KeyBindingNode | undefined): boolean 
 }
 
 /** True when the bind is a mod key or nests a wrap like `LS(CAPS)` / `LC(BSPC)`. */
-export function bindingCarriesModifier(node: KeyBindingNode | undefined): boolean {
+function bindingCarriesModifier(node: KeyBindingNode | undefined): boolean {
   if (!node) return false
   if (bindingIsModifierKey(node)) return true
   if (isModifierWrapCode(node.value)) return true

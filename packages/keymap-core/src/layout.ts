@@ -1,5 +1,6 @@
 import type { LayoutKey } from './types.js'
-import { InfoValidationError } from './errors.js'
+import type { LineEnding } from './eol.js'
+import { InfoValidationError, KeymapValidationError } from './errors.js'
 
 export { InfoValidationError } from './errors.js'
 
@@ -13,6 +14,8 @@ export interface RenderTableOpts {
    * lines up the same matrix column.
    */
   columnWidths?: number[]
+  /** Newline used between matrix rows. Defaults to LF. */
+  eol?: LineEnding
 }
 
 /** Place bindings into physical rows/cols from the layout. */
@@ -24,12 +27,26 @@ function layerBindingGrid(
   // holes in a JS array. Spreading those holes into Math.max yields NaN and an
   // empty bindings block on save.
   const rowsByIndex = new Map<number, (string | undefined)[]>()
+  // First layout index that claimed each (row,col); detect silent overwrites.
+  const claimed = new Map<string, number>()
 
   layer.forEach((code, i) => {
     if (layout[i]) {
+      if (code.trim() === '') {
+        throw new KeymapValidationError([`Empty encoded binding at layout index ${i}`])
+      }
       const { row = 0, col } = layout[i]
       const rowCells = rowsByIndex.get(row) ?? []
-      rowCells[col ?? rowCells.length] = code
+      const colIndex = col ?? rowCells.length
+      const cellKey = `${row},${colIndex}`
+      const prior = claimed.get(cellKey)
+      if (prior !== undefined) {
+        throw new KeymapValidationError([
+          `Duplicate matrix cell at row ${row}, col ${colIndex} (layout indexes ${prior} and ${i})`
+        ])
+      }
+      claimed.set(cellKey, i)
+      rowCells[colIndex] = code
       rowsByIndex.set(row, rowCells)
     }
   })
@@ -89,7 +106,8 @@ export function renderTable(
   const {
     useQuotes = false,
     linePrefix = '',
-    columnSeparator = ','
+    columnSeparator = ',',
+    eol = '\n'
   } = opts
   const minWidth = useQuotes ? 9 : 7
 
@@ -122,7 +140,7 @@ export function renderTable(
           .join('')
       )
     })
-    .join('\n')
+    .join(eol)
 }
 
 function isNumber(val: unknown): val is number {
@@ -133,9 +151,9 @@ function isNumber(val: unknown): val is number {
  * Pick a column count for an inferred board: prefer a divisor of `keyCount`,
  * else 12 (last row may be short).
  */
-export function inferRectangularColumns(keyCount: number): number {
+function inferRectangularColumns(keyCount: number): number {
   if (!Number.isInteger(keyCount) || keyCount <= 0) {
-    throw new Error('keyCount must be a positive integer')
+    throw new KeymapValidationError(['keyCount must be a positive integer'])
   }
   if (keyCount <= 12) {
     for (const cols of [12, 10, 8, 7, 6, 5, 4, 3, 2]) {
@@ -159,10 +177,10 @@ export function inferRectangularLayout(
 ): LayoutKey[] {
   const columns = options?.columns ?? inferRectangularColumns(keyCount)
   if (!Number.isInteger(columns) || columns <= 0) {
-    throw new Error('columns must be a positive integer')
+    throw new KeymapValidationError(['columns must be a positive integer'])
   }
   if (!Number.isInteger(keyCount) || keyCount <= 0) {
-    throw new Error('keyCount must be a positive integer')
+    throw new KeymapValidationError(['keyCount must be a positive integer'])
   }
   return Array.from({ length: keyCount }, (_, i) => {
     const row = Math.floor(i / columns)
@@ -178,7 +196,7 @@ export function inferRectangularLayout(
 }
 
 /** True when the layout slot exists only to hold a matrix/keymap index. */
-export function isAbsentLayoutKey(key: LayoutKey): boolean {
+function isAbsentLayoutKey(key: LayoutKey): boolean {
   return key.absent === true
 }
 
@@ -211,7 +229,7 @@ export function validateInfoJson(info: unknown): void {
     errors.push('info.json root must be an object')
   } else {
     const root = info as Record<string, unknown>
-    if (!root.layouts) {
+    if (!('layouts' in root) || root.layouts === undefined) {
       errors.push('info must define "layouts"')
     } else if (typeof root.layouts !== 'object' || root.layouts === null) {
       errors.push('layouts must be an object')

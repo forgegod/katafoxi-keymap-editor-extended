@@ -1,3 +1,4 @@
+import { primarySystemLayoutId } from './host-layout-catalog.js'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -13,8 +14,6 @@ import {
   parseKeyBinding,
   setHostColumnAlt,
   standardHostLegendView,
-  SYSTEM_RU_LAYOUT_ID,
-  SYSTEM_US_LAYOUT_ID,
   toggleHostLanguage,
   type HostLegendView,
   type KeycapFace,
@@ -43,15 +42,15 @@ const VIEW_BUILDERS: ReadonlyArray<{ id: string; build: () => HostLegendView }> 
   { id: 'lark-en-ru', build: () => assignColumns('lark-en', 'lark-ru') },
   {
     id: 'system-en-ru',
-    build: () => assignColumns(SYSTEM_US_LAYOUT_ID, SYSTEM_RU_LAYOUT_ID)
+    build: () => assignColumns(primarySystemLayoutId('en')!, primarySystemLayoutId('ru')!)
   },
   {
     id: 'system-en-ru-uk',
-    build: () => addHostLanguage(assignColumns(SYSTEM_US_LAYOUT_ID, SYSTEM_RU_LAYOUT_ID), 'uk')
+    build: () => addHostLanguage(assignColumns(primarySystemLayoutId('en')!, primarySystemLayoutId('ru')!), 'uk')
   },
   {
     id: 'system-en-ru-de',
-    build: () => addHostLanguage(assignColumns(SYSTEM_US_LAYOUT_ID, SYSTEM_RU_LAYOUT_ID), 'de')
+    build: () => addHostLanguage(assignColumns(primarySystemLayoutId('en')!, primarySystemLayoutId('ru')!), 'de')
   },
   {
     id: 'lark-hidden-base',
@@ -63,10 +62,9 @@ const VIEW_BUILDERS: ReadonlyArray<{ id: string; build: () => HostLegendView }> 
   },
   {
     id: 'system-en-ru-legacy',
-    build: () => assignColumns(SYSTEM_US_LAYOUT_ID, 'system-ru-legacy')
+    build: () => assignColumns(primarySystemLayoutId('en')!, 'system-ru-legacy')
   }
 ]
-
 
 interface GoldenRecord {
   view: string

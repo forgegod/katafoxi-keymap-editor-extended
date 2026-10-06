@@ -160,6 +160,23 @@ describe('Key click editor', () => {
     ).toBe(true)
   })
 
+  it('opens the editor when clicking ZMK legend .code inside the layer slot', () => {
+    open({
+      layerBindings: [
+        { value: '&kp', params: [{ value: 'A', params: [] }] },
+        { value: '&kp', params: [{ value: 'B', params: [] }] }
+      ],
+      layerView: { shown: [0, 1], layer0Raw: true }
+    })
+    const code = document.querySelector('.layer-slot .code')
+    expect(code).toBeInstanceOf(HTMLElement)
+    expect(code?.tagName).toBe('SPAN')
+    code?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    flushSync()
+
+    expect(editorDialog()).toBeInstanceOf(HTMLElement)
+  })
+
   it('applies a picked key and closes the dialog', () => {
     const onUpdate = open()
     clickKey()
@@ -182,6 +199,7 @@ describe('Key click editor', () => {
 
     expect(onUpdate).not.toHaveBeenCalled()
     expect(editorDialog()).toBeNull()
+    expect(document.querySelector('.legend-decode')).toBeNull()
   })
 
   it('closes on backdrop click without applying', () => {
@@ -656,7 +674,7 @@ describe('Key click editor', () => {
       layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
     })
     const row = stackRows()[0]
-    row.focus()
+    row.focus({ focusVisible: true } as FocusOptions)
     flushSync()
     expect(document.querySelector('[role="tooltip"].legend-decode')).toBeInstanceOf(HTMLElement)
 

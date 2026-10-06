@@ -6,6 +6,7 @@ import {
   isUserKeymapFilename,
   parseDtsKeymap,
   parseKeymap,
+  pickInfoLayout,
   type BuildKeymapCodeResult,
   type LayoutKey,
   type ParsedKeymap
@@ -22,7 +23,17 @@ const EMPTY_KEYMAP = {
 
 export function loadLayout(layoutName = 'LAYOUT'): LayoutKey[] {
   const layoutPath = path.join(config.ZMK_CONFIG_PATH, 'config', 'info.json')
-  return JSON.parse(fs.readFileSync(layoutPath, 'utf8')).layouts[layoutName].layout
+  let raw: string
+  try {
+    raw = fs.readFileSync(layoutPath, 'utf8')
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw Object.assign(new Error('Layout info.json not found'), { code: 'ENOENT' })
+    }
+    throw err
+  }
+  const info = JSON.parse(raw)
+  return pickInfoLayout(info, { layoutName }).layout
 }
 
 function findKeymapFile(): string | null {

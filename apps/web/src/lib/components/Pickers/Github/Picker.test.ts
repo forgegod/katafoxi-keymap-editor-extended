@@ -2,7 +2,7 @@ import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import github from '../../../github/api.svelte.js'
 import * as storage from '../../../github/storage'
-import type { GitHubRepo } from '../../../github/api.svelte.js'
+import type { GitHubRepo, KeyboardFilesResult } from '../../../github/api.svelte.js'
 import Picker from './Picker.svelte'
 
 // happy-dom comment nodes are not `instanceof Comment`. Svelte skips empty
@@ -74,8 +74,20 @@ describe('Github Picker', () => {
     github.installations = null
   })
 
-  function open(onSelect = vi.fn(), onLogout?: () => void) {
-    view = mount(Picker, { target, props: { onSelect, onLogout } })
+  function open(
+    onSelect = vi.fn(),
+    onLogout?: () => void,
+    onStatus?: (status: {
+      ready: boolean
+      authorized: boolean
+      appInstalled: boolean
+      loading: boolean
+      repoFullName: string | null
+      repoFullNames: string[]
+      branch: string | null
+    }) => void
+  ) {
+    view = mount(Picker, { target, props: { onSelect, onLogout, onStatus } })
     flushSync()
     return onSelect
   }
@@ -93,32 +105,24 @@ describe('Github Picker', () => {
     storage.setPersistedBranch(repo.id, 'main')
     vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'only' }])
     vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
-      layout: [{ row: 0, col: 0 }],
-      keymap: { layers: [] }
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: { layers: [] },
+      hostSnapshot: null,
+      warnings: [],
+      headSha: 'abc123'
     })
 
     const onSelect = open()
 
     await vi.waitFor(() => {
-      expect(target.querySelector('.source-trigger-label')?.textContent?.trim()).toBe('only')
+      expect(target.querySelector('.branch-value')?.textContent?.trim()).toBe('only')
     })
-    expect(target.querySelector('.source-trigger')?.getAttribute('title')).toBe(
-      'acme/lark · only'
-    )
-    expect(target.querySelector('.branch-value')?.textContent?.trim()).toBe('only')
+    expect(target.querySelector('.source-trigger')).toBeNull()
     expect(target.querySelector('#branch')).toBeNull()
     expect(target.querySelector('#repo')).toBeNull()
-    const popover = target.querySelector('.source-popover')
-    expect(popover).toBeInstanceOf(HTMLElement)
-    expect((popover as HTMLElement).hidden).toBe(true)
-    target.querySelector('.source-trigger')?.dispatchEvent(
-      new MouseEvent('click', { bubbles: true })
-    )
-    flushSync()
-    expect((popover as HTMLElement).hidden).toBe(false)
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({
-        github: { repository: repo.full_name, branch: 'only' }
+        github: expect.objectContaining({ repository: repo.full_name, branch: 'only' })
       })
     )
   })
@@ -131,8 +135,11 @@ describe('Github Picker', () => {
       { name: 'feat' }
     ])
     vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
-      layout: [{ row: 0, col: 0 }],
-      keymap: { layers: [] }
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: { layers: [] },
+      hostSnapshot: null,
+      warnings: [],
+      headSha: 'abc123'
     })
 
     const onSelect = open()
@@ -142,12 +149,12 @@ describe('Github Picker', () => {
     })
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({
-        github: { repository: repo.full_name, branch: 'dev' }
+        github: expect.objectContaining({ repository: repo.full_name, branch: 'dev' })
       })
     )
     expect(onSelect).not.toHaveBeenCalledWith(
       expect.objectContaining({
-        github: { repository: repo.full_name, branch: 'main' }
+        github: expect.objectContaining({ repository: repo.full_name, branch: 'main' })
       })
     )
   })
@@ -159,8 +166,11 @@ describe('Github Picker', () => {
       { name: 'feat' }
     ])
     vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
-      layout: [{ row: 0, col: 0 }],
-      keymap: { layers: [] }
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: { layers: [] },
+      hostSnapshot: null,
+      warnings: [],
+      headSha: 'abc123'
     })
 
     const onSelect = open()
@@ -170,7 +180,7 @@ describe('Github Picker', () => {
     })
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({
-        github: { repository: repo.full_name, branch: 'main' }
+        github: expect.objectContaining({ repository: repo.full_name, branch: 'main' })
       })
     )
   })
@@ -192,7 +202,7 @@ describe('Github Picker', () => {
       [newRepo.full_name]: '1'
     }
 
-    const oldLayout = deferred<{ layout: unknown; keymap: unknown }>()
+    const oldLayout = deferred<KeyboardFilesResult>()
     const newBranches = deferred<Array<{ name: string }>>()
 
     vi.spyOn(github, 'fetchRepoBranches').mockImplementation(async next => {
@@ -201,10 +211,17 @@ describe('Github Picker', () => {
     })
     vi.spyOn(github, 'fetchLayoutAndKeymap').mockImplementation(async name => {
       if (name === oldRepo.full_name) return oldLayout.promise
-      return { layout: [{ row: 0, col: 0 }], keymap: { layers: [] } }
+      return {
+        layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+        keymap: { layers: [] },
+        hostSnapshot: null,
+        warnings: [],
+        headSha: 'abc123'
+      }
     })
 
-    const onSelect = open()
+    const onStatus = vi.fn()
+    const onSelect = open(vi.fn(), undefined, onStatus)
 
     await vi.waitFor(() => {
       expect(github.fetchLayoutAndKeymap).toHaveBeenCalledWith(
@@ -212,6 +229,9 @@ describe('Github Picker', () => {
         'main'
       )
     })
+    expect(onStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ loading: true, branch: 'main' })
+    )
     expect(target.querySelector('.branch-value')?.textContent?.trim()).toBe('main')
     expect(target.querySelector('#branch')).toBeNull()
 
@@ -230,9 +250,19 @@ describe('Github Picker', () => {
 
     expect(target.querySelector('#branch')).toBeNull()
 
+    newBranches.resolve([])
+    await vi.waitFor(() => {
+      expect(onStatus).toHaveBeenCalledWith(
+        expect.objectContaining({ loading: false, branch: null })
+      )
+    })
+
     oldLayout.resolve({
-      layout: [{ row: 0, col: 0 }],
-      keymap: { layers: [] }
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: { layers: [] },
+      hostSnapshot: null,
+      warnings: [],
+      headSha: 'abc123'
     })
     await Promise.resolve()
     flushSync()
@@ -267,11 +297,63 @@ describe('Github Picker', () => {
     expect(target.querySelector('.branch-value')?.textContent?.trim()).toBe('main')
   })
 
+  it('shows loadError when listing branches fails', async () => {
+    const err = Object.assign(new Error('Request failed: 502'), {
+      response: { status: 502, data: { message: 'Bad gateway' } }
+    })
+    vi.spyOn(github, 'fetchRepoBranches').mockRejectedValue(err)
+
+    const onSelect = open()
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('Bad gateway')
+    })
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('shows a StaleRepoBase branch-list error and does not select a keyboard', async () => {
+    const err = Object.assign(new Error('Request failed: 409'), {
+      response: {
+        status: 409,
+        data: {
+          name: 'StaleRepoBase',
+          errors: ['Branch changed on GitHub — reload']
+        }
+      }
+    })
+    vi.spyOn(github, 'fetchRepoBranches').mockRejectedValue(err)
+
+    const onSelect = open()
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('Branch changed on GitHub — reload')
+    })
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('shows loadError for non-validation fetch failures', async () => {
+    vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }])
+    const err = Object.assign(new Error('Request failed: 502'), {
+      response: { status: 502, data: { message: 'Bad gateway' } }
+    })
+    vi.spyOn(github, 'fetchLayoutAndKeymap').mockRejectedValue(err)
+
+    open()
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('Bad gateway')
+    })
+    expect(target.querySelector('.branch-value')?.textContent?.trim()).toBe('main')
+  })
+
   it('warns when the layout has no row/col and still calls onSelect', async () => {
     vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }])
     vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
       layout: [{ x: 0, y: 0 }, { x: 1, y: 0 }],
-      keymap: { layers: [] }
+      keymap: { layers: [] },
+      hostSnapshot: null,
+      warnings: [],
+      headSha: 'abc123'
     })
 
     const onSelect = open()
@@ -284,7 +366,7 @@ describe('Github Picker', () => {
     )
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({
-        github: { repository: repo.full_name, branch: 'main' },
+        github: expect.objectContaining({ repository: repo.full_name, branch: 'main' }),
         layout: [{ x: 0, y: 0 }, { x: 1, y: 0 }]
       })
     )
@@ -297,8 +379,11 @@ describe('Github Picker', () => {
       { name: 'dev' }
     ])
     vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
-      layout: [{ row: 0, col: 0 }],
-      keymap: { layers: [] }
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: { layers: [] },
+      hostSnapshot: null,
+      warnings: [],
+      headSha: 'abc123'
     })
     const create = vi.spyOn(github, 'createBranch').mockResolvedValue({ name: 'topic' })
 
@@ -323,7 +408,7 @@ describe('Github Picker', () => {
     await vi.waitFor(() => {
       expect(onSelect).toHaveBeenCalledWith(
         expect.objectContaining({
-          github: { repository: 'acme/lark', branch: 'topic' },
+          github: expect.objectContaining({ repository: 'acme/lark', branch: 'topic' }),
           preserveSession: true
         })
       )
@@ -337,8 +422,11 @@ describe('Github Picker', () => {
   it('shows a create-branch error and logs out without keeping the keymap', async () => {
     vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }, { name: 'dev' }])
     vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
-      layout: [{ row: 0, col: 0 }],
-      keymap: { layers: [] }
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: { layers: [] },
+      hostSnapshot: null,
+      warnings: [],
+      headSha: 'abc123'
     })
     vi.spyOn(github, 'createBranch').mockRejectedValue(
       Object.assign(new Error('conflict'), {
@@ -374,5 +462,89 @@ describe('Github Picker', () => {
       expect(logout).toHaveBeenCalled()
       expect(onLogout).toHaveBeenCalled()
     })
+  })
+
+  it('ignores a stale Reload after the branch changes', async () => {
+    vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([
+      { name: 'main' },
+      { name: 'dev' }
+    ])
+
+    const initial = deferred<KeyboardFilesResult>()
+    const reload = deferred<KeyboardFilesResult>()
+    let fetchCount = 0
+    vi.spyOn(github, 'fetchLayoutAndKeymap').mockImplementation(async (_repo, _branch) => {
+      fetchCount += 1
+      if (fetchCount === 1) return initial.promise
+      if (fetchCount === 2) return reload.promise
+      return {
+        layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+        keymap: { layers: [[{ value: '&kp', params: [{ value: 'D', params: [] }] }]] },
+        hostSnapshot: null,
+        warnings: [],
+        headSha: 'abc123'
+      }
+    })
+
+    const onSelect = open()
+    initial.resolve({
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: { layers: [[{ value: '&kp', params: [{ value: 'M', params: [] }] }]] },
+      hostSnapshot: null,
+      warnings: [],
+      headSha: 'abc123'
+    })
+    await vi.waitFor(() => {
+      expect(onSelect).toHaveBeenCalledWith(
+        expect.objectContaining({
+          github: { repository: repo.full_name, branch: 'main', headSha: 'abc123' }
+        })
+      )
+    })
+
+    clickButton('Reload')
+    await vi.waitFor(() => {
+      expect(fetchCount).toBe(2)
+    })
+
+    const branchSelect = target.querySelector('#branch')
+    if (!(branchSelect instanceof HTMLSelectElement)) {
+      throw new Error('missing branch select')
+    }
+    // Selector option values are choice indexes, not branch names.
+    branchSelect.value = '1'
+    branchSelect.dispatchEvent(new Event('change', { bubbles: true }))
+    flushSync()
+
+    await vi.waitFor(() => {
+      expect(onSelect).toHaveBeenCalledWith(
+        expect.objectContaining({
+          github: expect.objectContaining({ repository: repo.full_name, branch: 'dev' })
+        })
+      )
+    })
+    const callsAfterDev = onSelect.mock.calls.length
+
+    reload.resolve({
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: {
+        layers: [[{ value: '&kp', params: [{ value: 'STALE', params: [] }] }]]
+      },
+      hostSnapshot: null,
+      warnings: [],
+      headSha: 'abc123'
+    })
+    await Promise.resolve()
+    flushSync()
+    await Promise.resolve()
+    flushSync()
+
+    expect(onSelect.mock.calls.length).toBe(callsAfterDev)
+    expect(
+      onSelect.mock.calls.some(call => {
+        const keymap = (call[0] as { keymap?: { layers?: unknown } }).keymap
+        return JSON.stringify(keymap).includes('STALE')
+      })
+    ).toBe(false)
   })
 })

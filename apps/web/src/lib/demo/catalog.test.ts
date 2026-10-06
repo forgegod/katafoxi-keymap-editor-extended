@@ -21,9 +21,9 @@ describe('demo catalog', () => {
     ])
   })
 
-  it('loads each demo with matching layout and keymap sizes', () => {
+  it('loads each demo with matching layout and keymap sizes', async () => {
     for (const entry of DEMO_CATALOG) {
-      const bundle = loadDemo(entry.id)
+      const bundle = await loadDemo(entry.id)
       expect(bundle.entry.id).toBe(entry.id)
       expect(bundle.layout.length).toBeGreaterThan(0)
       expect(bundle.keymap.layers.length).toBeGreaterThan(0)
@@ -37,8 +37,8 @@ describe('demo catalog', () => {
     }
   })
 
-  it('seeds Corne with a J+K Esc combo so Combos beads show on first visit', () => {
-    const { keymap } = loadDemo('corne')
+  it('seeds Corne with a J+K Esc combo so Combos beads show on first visit', async () => {
+    const { keymap } = await loadDemo('corne')
     expect(keymap.combos).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -54,9 +54,9 @@ describe('demo catalog', () => {
     )
   })
 
-  it('seeds each demo with gap and anchor combos on layers 1 and 2', () => {
+  it('seeds each demo with gap and anchor combos on layers 1 and 2', async () => {
     for (const entry of DEMO_CATALOG) {
-      const { keymap } = loadDemo(entry.id)
+      const { keymap } = await loadDemo(entry.id)
       const combos = keymap.combos ?? []
       expect(combos.length, entry.id).toBeGreaterThanOrEqual(4)
 
@@ -76,8 +76,8 @@ describe('demo catalog', () => {
     }
   })
 
-  it('keeps Lark phantom matrix slots in the keymap but marks them absent', () => {
-    const { layout } = loadDemo('lark')
+  it('keeps Lark phantom matrix slots in the keymap but marks them absent', async () => {
+    const { layout } = await loadDemo('lark')
     const absent = layout.filter(key => key.absent)
     expect(absent.map(key => key.label)).toEqual([
       '0,0',

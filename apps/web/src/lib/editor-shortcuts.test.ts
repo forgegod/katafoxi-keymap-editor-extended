@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { handleEditorShortcut } from './editor-shortcuts'
+import { pushEscapeHandler, resetEscapeStackForTests } from './escape-stack'
 
 function mockHistory(
   overrides: Partial<{ canUndo: boolean; canRedo: boolean }> = {}
@@ -44,6 +45,7 @@ describe('handleEditorShortcut', () => {
   afterEach(() => {
     for (const el of mounted) el.remove()
     mounted.length = 0
+    resetEscapeStackForTests()
   })
 
   function mount<T extends HTMLElement>(el: T): T {
@@ -114,6 +116,17 @@ describe('handleEditorShortcut', () => {
     expect(history.redo).not.toHaveBeenCalled()
     expect(history.undo).not.toHaveBeenCalled()
     expect(event.defaultPrevented).toBe(false)
+  })
+
+  it('does not undo or redo when an overlay owns the escape stack', () => {
+    const pop = pushEscapeHandler(() => {})
+    const history = mockHistory({ canUndo: true, canRedo: true })
+    const event = shortcutEvent({ key: 'z', ctrlKey: true })
+    expect(handleEditorShortcut(event, history)).toBe(false)
+    expect(history.undo).not.toHaveBeenCalled()
+    expect(history.redo).not.toHaveBeenCalled()
+    expect(event.defaultPrevented).toBe(false)
+    pop()
   })
 
   it('does not undo or redo when the target is an input, textarea, or contenteditable', () => {

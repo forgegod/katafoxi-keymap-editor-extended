@@ -1,5 +1,13 @@
 <script lang="ts">
-  import github, { type FirmwareBuild, type FirmwareBuildStatus } from '../github/api.svelte.js'
+  import github, { type FirmwareBuild } from '../github/api.svelte.js'
+  import {
+    firmwareBuildLabel,
+    firmwareBuildSecondary,
+    firmwareBuildTitle,
+    formatAge,
+    isTrustedFirmwareHref,
+    startFirmwareBuildPoll
+  } from '../firmware-build.js'
   import Spinner from './Common/Spinner.svelte'
 
   interface Props {
@@ -14,26 +22,6 @@
   let build = $state<FirmwareBuild | null>(null)
   let now = $state(Date.now())
 
-  function pollDelay(status: FirmwareBuildStatus | undefined): number {
-    if (status === 'pending' || status === 'queued' || status === 'in_progress') return 5000
-    if (!status) return 8000
-    return 20000
-  }
-
-  function formatAge(iso: string | null, at: number): string {
-    if (!iso) return ''
-    const parsed = Date.parse(iso)
-    if (Number.isNaN(parsed)) return ''
-    const seconds = Math.max(0, Math.round((at - parsed) / 1000))
-    if (seconds < 45) return 'just now'
-    const minutes = Math.round(seconds / 60)
-    if (minutes < 60) return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`
-    const hours = Math.round(minutes / 60)
-    if (hours < 36) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`
-    const days = Math.round(hours / 24)
-    return `${days} ${days === 1 ? 'day' : 'days'} ago`
-  }
-
   const age = $derived(formatAge(build?.at ?? null, now))
   const busy = $derived(
     build?.status === 'pending' ||
@@ -42,76 +30,30 @@
   )
   const visible = $derived(!!build && build.status !== 'none')
 
-  const secondary = $derived.by(() => {
-    if (!build) return ''
-    if (build.status === 'pending' || build.status === 'queued') return 'Waiting'
-    if (build.status === 'in_progress') return 'Building'
-    if (build.status === 'failure') return 'Failed'
-    if (build.status === 'cancelled') return 'Cancelled'
-    if (build.status === 'unavailable') return 'Needs Actions access'
-    if (build.status === 'success' && !build.artifactId) return 'Log'
-    // Success with artifact: age stays in the title, not on the chip.
-    return ''
-  })
+  const secondary = $derived(firmwareBuildSecondary(build))
+  const label = $derived(firmwareBuildLabel(build))
+  const title = $derived(firmwareBuildTitle(build, age))
 
-  const label = $derived.by(() => {
-    if (!build) return ''
-    if (build.status === 'unavailable') return 'Build status'
-    return 'Latest'
+  const downloadUrl = $derived.by(() => {
+    if (build?.status !== 'success' || !build.artifactId) return ''
+    const url = github.firmwareDownloadUrl(repository, build.artifactId, build.artifactName)
+    return isTrustedFirmwareHref(url) ? url : ''
   })
-
-  const title = $derived.by(() => {
-    if (!build) return ''
-    if (build.status === 'unavailable') {
-      return 'The GitHub App needs Actions: Read. Accept the updated app permissions, then reload.'
-    }
-    if (build.status === 'failure') return 'Firmware build failed. Open the Actions log.'
-    if (build.status === 'cancelled') return 'Firmware build was cancelled. Open the Actions log.'
-    if (build.status === 'success' && build.artifactId) {
-      return age
-        ? `Download the firmware archive (${age}).`
-        : 'Download the firmware archive.'
-    }
-    if (build.status === 'success') return 'Build succeeded. Open the Actions log.'
-    if (build.status === 'in_progress') return 'Firmware build is running.'
-    return 'Waiting for GitHub Actions to start.'
-  })
-
-  const downloadUrl = $derived(
-    build?.status === 'success' && build.artifactId
-      ? github.firmwareDownloadUrl(repository, build.artifactId, build.artifactName)
-      : ''
+  const htmlUrl = $derived(
+    build?.htmlUrl && isTrustedFirmwareHref(build.htmlUrl) ? build.htmlUrl : ''
   )
 
   $effect(() => {
-    const repo = repository
-    const br = branch
     void refreshKey
-    let cancelled = false
-    let timer = 0
-
-    async function tick() {
-      if (typeof document !== 'undefined' && document.hidden) {
-        timer = window.setTimeout(tick, 15000)
-        return
-      }
-      try {
-        const next = await github.fetchFirmwareBuild(repo, br)
-        if (cancelled) return
+    return startFirmwareBuildPoll({
+      repository,
+      branch,
+      fetchBuild: (repo, br) => github.fetchFirmwareBuild(repo, br),
+      onUpdate: (next, at) => {
         build = next
-        now = Date.now()
-        timer = window.setTimeout(tick, pollDelay(next.status))
-      } catch {
-        if (cancelled) return
-        timer = window.setTimeout(tick, pollDelay(undefined))
+        now = at
       }
-    }
-
-    void tick()
-    return () => {
-      cancelled = true
-      window.clearTimeout(timer)
-    }
+    })
   })
 </script>
 
@@ -126,8 +68,8 @@
         <path d="M5 21h14" />
       </svg>
     </a>
-  {:else if build.htmlUrl && (build.status === 'failure' || build.status === 'cancelled' || build.status === 'success')}
-    <a class={chipClass} href={build.htmlUrl} target="_blank" rel="noreferrer" {title}>
+  {:else if htmlUrl && (build.status === 'failure' || build.status === 'cancelled' || build.status === 'success')}
+    <a class={chipClass} href={htmlUrl} target="_blank" rel="noreferrer" {title}>
       {@render chip()}
     </a>
   {:else}

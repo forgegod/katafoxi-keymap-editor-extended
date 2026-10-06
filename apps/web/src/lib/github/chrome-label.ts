@@ -3,13 +3,13 @@ export type GithubGate = 'login' | 'install'
 const KEYBOARD_PREFIX = 'zmk-keyboard-'
 
 /** Repo name, without `owner/`. */
-export function repoName(fullName: string): string {
+function repoName(fullName: string): string {
   const slash = fullName.lastIndexOf('/')
   return slash === -1 ? fullName : fullName.slice(slash + 1)
 }
 
 /**
- * Closed-chrome label. `zmk-keyboard-lark` shows `lark`.
+ * Closed-chrome label. `zmk-keyboard-foo` shows `foo`.
  * `zmk-config` stays whole. A short label shared by two repos falls back to `owner/name`.
  */
 export function repoChoiceLabel(fullName: string, fullNames: string[]): string {

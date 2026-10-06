@@ -5,9 +5,8 @@
  * language does not need a VK map for QWERTY / AZERTY / QWERTZ letters.
  * `vkByZmk` is only for punctuation keys whose VK is not the US one
  * (German `ß` is `OEM_4`, not `OEM_MINUS`). Dead-key accents live in
- * `klc-dead.ts`. `deadIdByKeysym` overrides the spacing character when
- * Windows uses a different one for the same accent. `sgcapByZmk` is the
- * caps-lock character when it is not the shift glyph (Czech number row).
+ * `klc-dead.ts`. `sgcapByZmk` is the caps-lock character when it is not
+ * the shift glyph (Czech number row).
  */
 
 import type { HostLanguageId } from './host-languages.js'
@@ -27,8 +26,6 @@ export interface WindowsLocale {
   readonly shiftStates: readonly number[]
   /** VK spelling without the `VK_` prefix, keyed by ZMK name. */
   readonly vkByZmk?: Readonly<Record<string, string>>
-  /** Spacing character for a `dead_*` keysym, when it differs from the shared table. */
-  readonly deadIdByKeysym?: Readonly<Record<string, number>>
   /** Caps-lock character that replaces the shift glyph. Codepoint. */
   readonly sgcapByZmk?: Readonly<Record<string, number>>
 }

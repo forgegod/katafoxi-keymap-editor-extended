@@ -68,7 +68,7 @@ export function keypadGlyphLabel(code?: string | number | null): string | null {
   return KEYPAD_GLYPH_LABELS.get(normalizeKeycodeName(code)) ?? null
 }
 
-export function keypadCompactPunctLabel(choice: CatalogChoice): string | null {
+function keypadCompactPunctLabel(choice: CatalogChoice): string | null {
   return keypadGlyphLabel(choice.code)
 }
 
@@ -105,7 +105,7 @@ const KEYBOARD_CHIP_SHORT = new Map<string, string>([
   ['KP_EQUAL_AS400', 'AS400=']
 ])
 
-export function keyboardChipShortLabel(choice: CatalogChoice): string | null {
+function keyboardChipShortLabel(choice: CatalogChoice): string | null {
   const code = String(choice.code ?? '').toUpperCase()
   return KEYBOARD_CHIP_SHORT.get(code) ?? null
 }

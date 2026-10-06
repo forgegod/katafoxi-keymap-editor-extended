@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
+  import { clickOutside } from '../../actions/click-outside'
   import Button from '../Common/Button.svelte'
   import Spinner from '../Common/Spinner.svelte'
 
@@ -26,26 +27,18 @@
     onActivate,
     children
   }: Props = $props()
-
-  let menuEl = $state<HTMLDivElement | undefined>()
-
-  $effect(() => {
-    if (!open) return
-    function handle(event: PointerEvent) {
-      if (event.target instanceof Node && menuEl?.contains(event.target)) return
-      open = false
-    }
-    document.addEventListener('pointerdown', handle)
-    return () => document.removeEventListener('pointerdown', handle)
-  })
 </script>
 
-<div class="source-menu" bind:this={menuEl}>
+<div
+  class="source-menu"
+  use:clickOutside={{ enabled: open, handler: () => { open = false } }}
+>
   <Button
     variant="outline"
     class="source-trigger{accent ? ' source-trigger-accent' : ''}"
     {title}
     aria-label={title}
+    data-testid="source-menu-trigger"
     aria-haspopup={popup ? 'dialog' : undefined}
     aria-expanded={popup ? open : undefined}
     onclick={() => {
@@ -142,7 +135,7 @@
     position: absolute;
     top: calc(100% + 4px);
     left: 0;
-    z-index: 8;
+    z-index: var(--z-popover);
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -162,8 +155,9 @@
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
   }
 
+  /* Author `display: flex` would otherwise override the UA [hidden] rule. */
   .source-popover[hidden] {
-    display: none !important;
+    display: none;
   }
 
   .source-popover :global(.selector) {
