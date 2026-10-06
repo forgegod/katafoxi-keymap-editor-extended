@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as api from './api.js'
 import * as auth from './auth.js'
 import {
+  ArtifactTooLargeError,
   downloadFirmwareArtifact,
   fetchFirmwareBuild,
   firmwareArchiveName
@@ -143,20 +144,48 @@ describe('fetchFirmwareBuild', () => {
 })
 
 describe('downloadFirmwareArtifact', () => {
-  it('downloads the artifact zip with the installation token', async () => {
+  it('streams the artifact zip after checking size_in_bytes', async () => {
     vi.spyOn(auth, 'createInstallationToken').mockResolvedValue({
       data: { token: 'install-token' }
     } as Awaited<ReturnType<typeof auth.createInstallationToken>>)
-    const bytes = new Uint8Array([1, 2, 3])
-    const requestBuffer = vi.spyOn(api, 'requestBuffer').mockResolvedValue(bytes)
+    const zip = new Response(new Uint8Array([1, 2, 3]), {
+      headers: { 'Content-Type': 'application/zip' }
+    })
+    vi.spyOn(api, 'request').mockResolvedValue({
+      data: { size_in_bytes: 3 },
+      headers: {},
+      status: 200
+    })
+    const requestZip = vi.spyOn(api, 'requestZip').mockResolvedValue(zip)
 
     const result = await downloadFirmwareArtifact('9', 'acme/keymap', '22')
 
-    expect(result).toBe(bytes)
-    expect(requestBuffer).toHaveBeenCalledWith({
+    expect(result).toBe(zip)
+    expect(api.request).toHaveBeenCalledWith({
+      url: '/repos/acme/keymap/actions/artifacts/22',
+      token: 'install-token'
+    })
+    expect(requestZip).toHaveBeenCalledWith({
       url: '/repos/acme/keymap/actions/artifacts/22/zip',
       token: 'install-token'
     })
+  })
+
+  it('refuses an artifact larger than the size cap', async () => {
+    vi.spyOn(auth, 'createInstallationToken').mockResolvedValue({
+      data: { token: 'install-token' }
+    } as Awaited<ReturnType<typeof auth.createInstallationToken>>)
+    vi.spyOn(api, 'request').mockResolvedValue({
+      data: { size_in_bytes: 50_000_001 },
+      headers: {},
+      status: 200
+    })
+    const requestZip = vi.spyOn(api, 'requestZip')
+
+    await expect(downloadFirmwareArtifact('9', 'acme/keymap', '22')).rejects.toBeInstanceOf(
+      ArtifactTooLargeError
+    )
+    expect(requestZip).not.toHaveBeenCalled()
   })
 })
 

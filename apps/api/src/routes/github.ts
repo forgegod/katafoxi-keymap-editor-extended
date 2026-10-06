@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { bodyLimit } from 'hono/body-limit'
 import { getCookie } from 'hono/cookie'
 import {
   KeymapValidationError,
@@ -35,6 +36,13 @@ type Variables = {
 export const githubRoutes = new Hono<{ Variables: Variables }>()
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+const POST_BODY_MAX_BYTES = 2_000_000
+const limitPostBody = bodyLimit({ maxSize: POST_BODY_MAX_BYTES })
+
+githubRoutes.use('*', async (c, next) => {
+  if (c.req.method === 'POST') return limitPostBody(c, next)
+  await next()
+})
 
 githubRoutes.use('*', async (c, next) => {
   if (!SAFE_METHODS.has(c.req.method) && !auth.isTrustedAppOrigin(c)) {
@@ -312,18 +320,22 @@ githubRoutes.get('/builds/:installationId/:repository/artifact/:artifactId', asy
       repository,
       c.get('session')
     )
-    const bytes = await builds.downloadFirmwareArtifact(
+    const zip = await builds.downloadFirmwareArtifact(
       installationId,
       repository,
       artifactId
     )
-    return c.body(bytes, 200, {
+    if (!zip.body) return c.body(null, 502)
+    return c.body(zip.body, 200, {
       'Content-Type': 'application/zip',
       'Content-Disposition': `attachment; filename="${archiveName}"`
     })
   } catch (err) {
     if (err instanceof InstallationAccessError) {
       return c.body(null, 403)
+    }
+    if (err instanceof builds.ArtifactTooLargeError) {
+      return c.body(null, 413)
     }
     if (err instanceof installations.RepositoryNameError) {
       return c.json({ name: err.name, errors: err.errors }, 400)

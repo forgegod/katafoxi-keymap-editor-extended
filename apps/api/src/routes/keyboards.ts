@@ -1,4 +1,5 @@
 import { Hono, type Context } from 'hono'
+import { bodyLimit } from 'hono/body-limit'
 import {
   InfoValidationError,
   KeymapValidationError,
@@ -11,6 +12,8 @@ import * as zmk from '../services/zmk/local-source.js'
 export const keyboardsRoutes = new Hono()
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+const POST_BODY_MAX_BYTES = 2_000_000
+const limitPostBody = bodyLimit({ maxSize: POST_BODY_MAX_BYTES })
 
 function isLoopbackHostHeader(host: string | undefined): boolean {
   if (!host || /[\s\\]/.test(host)) return false
@@ -50,6 +53,7 @@ keyboardsRoutes.use('*', async (c, next) => {
   if (!SAFE_METHODS.has(c.req.method) && !isTrustedAppOrigin(c)) {
     return c.body(null, 403)
   }
+  if (c.req.method === 'POST') return limitPostBody(c, next)
   await next()
 })
 

@@ -46,6 +46,16 @@ interface Artifact {
   expired: boolean
 }
 
+/** Firmware zips are small; refuse anything larger before buffering a download. */
+export const FIRMWARE_ARTIFACT_MAX_BYTES = 50_000_000
+
+export class ArtifactTooLargeError extends Error {
+  readonly name = 'ArtifactTooLargeError'
+  constructor(readonly sizeInBytes: number) {
+    super('Firmware artifact is too large')
+  }
+}
+
 const EMPTY: FirmwareBuild = {
   status: 'none',
   sha: null,
@@ -217,10 +227,31 @@ export async function downloadFirmwareArtifact(
   installationId: string,
   repository: string,
   artifactId: string
-): Promise<Uint8Array> {
+): Promise<Response> {
   const token = await installationToken(installationId)
-  return api.requestBuffer({
+  const { data } = await api.request({
+    url: api.githubApiPath('repos', repository, 'actions', 'artifacts', artifactId),
+    token
+  })
+  const size = (data as { size_in_bytes?: unknown }).size_in_bytes
+  if (
+    typeof size !== 'number' ||
+    !Number.isFinite(size) ||
+    size < 0 ||
+    size > FIRMWARE_ARTIFACT_MAX_BYTES
+  ) {
+    throw new ArtifactTooLargeError(typeof size === 'number' ? size : -1)
+  }
+  const zip = await api.requestZip({
     url: api.githubApiPath('repos', repository, 'actions', 'artifacts', artifactId, 'zip'),
     token
   })
+  const zipLength = zip.headers.get('content-length')
+  if (zipLength) {
+    const bytes = Number.parseInt(zipLength, 10)
+    if (Number.isFinite(bytes) && bytes > FIRMWARE_ARTIFACT_MAX_BYTES) {
+      throw new ArtifactTooLargeError(bytes)
+    }
+  }
+  return zip
 }

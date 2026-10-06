@@ -1,5 +1,9 @@
 const baseUrl = 'https://api.github.com'
 
+/** JSON/REST GitHub calls. Artifact zip download uses a longer budget. */
+export const GITHUB_API_TIMEOUT_MS = 15_000
+export const GITHUB_ZIP_TIMEOUT_MS = 120_000
+
 export interface ApiRequestOptions {
   url: string
   method?: string
@@ -7,6 +11,7 @@ export interface ApiRequestOptions {
   token?: string
   data?: unknown
   params?: Record<string, string>
+  timeoutMs?: number
 }
 
 /**
@@ -51,7 +56,8 @@ function prepare(options: ApiRequestOptions | string): { url: string; init: Requ
 
   const init: RequestInit = {
     method: opts.method || (opts.data ? 'POST' : 'GET'),
-    headers
+    headers,
+    signal: AbortSignal.timeout(opts.timeoutMs ?? GITHUB_API_TIMEOUT_MS)
   }
 
   if (opts.data !== undefined) {
@@ -95,10 +101,14 @@ export async function request(options: ApiRequestOptions | string) {
   }
 }
 
-/** Follows GitHub's artifact redirect and returns the zip bytes. */
-export async function requestBuffer(options: ApiRequestOptions | string): Promise<Uint8Array> {
-  const { url, init } = prepare(options)
+/** Follows GitHub's artifact redirect and returns the zip response (body streamed). */
+export async function requestZip(options: ApiRequestOptions | string): Promise<Response> {
+  const opts: ApiRequestOptions =
+    typeof options === 'string'
+      ? { url: options, timeoutMs: GITHUB_ZIP_TIMEOUT_MS }
+      : { ...options, timeoutMs: options.timeoutMs ?? GITHUB_ZIP_TIMEOUT_MS }
+  const { url, init } = prepare(opts)
   const response = await fetch(url, init)
   await throwIfNotOk(response)
-  return new Uint8Array(await response.arrayBuffer())
+  return response
 }

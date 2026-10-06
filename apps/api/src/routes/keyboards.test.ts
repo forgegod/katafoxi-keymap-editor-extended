@@ -169,6 +169,17 @@ describe('keyboards routes when ENABLE_LOCAL is true', () => {
     expect(save).not.toHaveBeenCalled()
   })
 
+  it('POST /keymap with a 5 MB body returns 413 and does not save', async () => {
+    const save = vi.spyOn(zmk, 'saveLocalKeymap')
+    const res = await app.request('/keymap', {
+      method: 'POST',
+      headers: jsonPostHeaders(),
+      body: 'x'.repeat(5_000_000)
+    })
+    expect(res.status).toBe(413)
+    expect(save).not.toHaveBeenCalled()
+  })
+
   it('POST /keymap with text/plain returns 415 and does not save', async () => {
     const save = vi.spyOn(zmk, 'saveLocalKeymap')
     const res = await app.request('/keymap', {

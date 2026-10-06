@@ -678,7 +678,9 @@ describe('session and errors', () => {
   })
 
   it('GET /github/builds artifact downloads a zip', async () => {
-    vi.spyOn(builds, 'downloadFirmwareArtifact').mockResolvedValue(new Uint8Array([1, 2, 3]))
+    vi.spyOn(builds, 'downloadFirmwareArtifact').mockResolvedValue(
+      new Response(new Uint8Array([1, 2, 3]))
+    )
     const { res } = await authedRequest(
       '/github/builds/1/acme%2Fkeymap/artifact/22?name=firmware'
     )
@@ -686,6 +688,16 @@ describe('session and errors', () => {
     expect(res.headers.get('content-type')).toContain('application/zip')
     expect(res.headers.get('content-disposition')).toBe('attachment; filename="firmware.zip"')
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]))
+  })
+
+  it('POST with a 5 MB body returns 413', async () => {
+    const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark/main', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: 'x'.repeat(5_000_000)
+    })
+    expect(res.status).toBe(413)
+    expect(files.commitChanges).not.toHaveBeenCalled()
   })
 })
 
