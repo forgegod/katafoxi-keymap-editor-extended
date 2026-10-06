@@ -1,0 +1,37 @@
+/*
+ * Hard .keymap corpus: label = "a \" b" so an escaped quote does not end the string.
+ * Covers R2-7 (maskDts treats \\ as masking the next character).
+ */
+
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+
+/ {
+    behaviors {
+        hm: homerow_mods {
+            compatible = "zmk,behavior-hold-tap";
+            label = "a \" b";
+            tapping-term-ms = <280>;
+            bindings = <&kp>, <&kp>;
+            #binding-cells = <2>;
+        };
+    };
+
+    keymap {
+        compatible = "zmk,keymap";
+
+        layer_0 {
+            bindings = <
+&hm LCTRL A &kp B
+&kp C &kp D
+            >;
+        };
+
+        layer_1 {
+            bindings = <
+&trans &trans
+&trans &trans
+            >;
+        };
+    };
+};

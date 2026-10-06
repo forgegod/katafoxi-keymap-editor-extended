@@ -12,7 +12,7 @@
  * do not look like extra splice damage.
  */
 
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import fc from 'fast-check'
@@ -24,10 +24,12 @@ import {
 } from './dts-keymap.js'
 import { findNamedBlock, scanDts, tokenizeBindings } from './dts-scan.js'
 import {
+  KeymapValidationError,
   buildKeymapCode,
   cloneParsedKeymap,
   diffKeymaps,
   encodeKeyBinding,
+  inferRectangularLayout,
   parseKeymap,
   type LayoutKey,
   type ParsedKeymap
@@ -36,6 +38,8 @@ import { bindingArb } from './testing/binding-arbitraries.js'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../fixtures')
 const CATALOG = join(ROOT, 'demo/catalog.json')
+const CORPUS_DIR = join(ROOT, 'corpus')
+const CORPUS_MANIFEST = join(CORPUS_DIR, 'manifest.json')
 const LARK_ID = 'lark'
 
 interface DemoCatalog {
@@ -46,23 +50,31 @@ interface InfoJson {
   layouts: Record<string, { layout: LayoutKey[] }>
 }
 
+interface CorpusManifestEntry {
+  file: string
+  layout: number | string
+  warnings: string[]
+  expect: 'splice' | 'reject'
+  rejectError?: string
+}
+
+interface CorpusManifest {
+  files: CorpusManifestEntry[]
+}
+
 interface FixtureCase {
   id: string
-  dir: string
+  sourcePath: string
+  layout: LayoutKey[]
 }
 
 function fixtureDirFor(id: string): string {
   return id === LARK_ID ? join(ROOT, 'lark') : join(ROOT, 'demo', id)
 }
 
-function loadCases(): FixtureCase[] {
-  const catalog = JSON.parse(readFileSync(CATALOG, 'utf8')) as DemoCatalog
-  const byId = new Map<string, FixtureCase>()
-  byId.set(LARK_ID, { id: LARK_ID, dir: fixtureDirFor(LARK_ID) })
-  for (const demo of catalog.demos) {
-    byId.set(demo.id, { id: demo.id, dir: fixtureDirFor(demo.id) })
-  }
-  return [...byId.values()]
+function loadCorpusManifest(): CorpusManifestEntry[] {
+  const manifest = JSON.parse(readFileSync(CORPUS_MANIFEST, 'utf8')) as CorpusManifest
+  return manifest.files
 }
 
 function layoutFromInfo(info: InfoJson): LayoutKey[] {
@@ -73,10 +85,53 @@ function layoutFromInfo(info: InfoJson): LayoutKey[] {
   return first.layout
 }
 
+function layoutFromManifest(layout: number | string): LayoutKey[] {
+  if (typeof layout === 'number') return inferRectangularLayout(layout)
+  const info = JSON.parse(readFileSync(join(ROOT, layout), 'utf8')) as InfoJson
+  return layoutFromInfo(info)
+}
+
+function loadBoardCases(): FixtureCase[] {
+  const catalog = JSON.parse(readFileSync(CATALOG, 'utf8')) as DemoCatalog
+  const byId = new Map<string, FixtureCase>()
+  const addBoard = (id: string) => {
+    const dir = fixtureDirFor(id)
+    const info = JSON.parse(readFileSync(join(dir, 'info.json'), 'utf8')) as InfoJson
+    byId.set(id, {
+      id,
+      sourcePath: join(dir, `${id}.keymap`),
+      layout: layoutFromInfo(info)
+    })
+  }
+  addBoard(LARK_ID)
+  for (const demo of catalog.demos) addBoard(demo.id)
+  return [...byId.values()]
+}
+
+function corpusId(file: string): string {
+  return file.replace(/\.keymap$/, '')
+}
+
+function loadCorpusCases(expectKind: 'splice' | 'reject'): FixtureCase[] {
+  return loadCorpusManifest()
+    .filter(entry => entry.expect === expectKind)
+    .map(entry => ({
+      id: corpusId(entry.file),
+      sourcePath: join(CORPUS_DIR, entry.file),
+      layout: layoutFromManifest(entry.layout)
+    }))
+}
+
+function loadCases(): FixtureCase[] {
+  return [...loadBoardCases(), ...loadCorpusCases('splice')]
+}
+
 function loadFixture(c: FixtureCase): { source: string; layout: LayoutKey[] } {
-  const source = readFileSync(join(c.dir, `${c.id}.keymap`), 'utf8')
-  const info = JSON.parse(readFileSync(join(c.dir, 'info.json'), 'utf8')) as InfoJson
-  return { source, layout: layoutFromInfo(info) }
+  return { source: readFileSync(c.sourcePath, 'utf8'), layout: c.layout }
+}
+
+function warningSet(warnings: string[]): string[] {
+  return [...new Set(warnings)].sort()
 }
 
 function firstDiff(a: string, b: string): string {
@@ -149,23 +204,64 @@ function expectLarkMacroExpansionDiff(
 const cases = loadCases()
 
 describe('no-op Save round-trip on fixtures', () => {
-  it('covers fixtures/lark and every catalog demo', () => {
+  it('covers fixtures/lark, every catalog demo, and splice corpus files', () => {
     const catalog = JSON.parse(readFileSync(CATALOG, 'utf8')) as DemoCatalog
+    const spliceIds = loadCorpusManifest()
+      .filter(entry => entry.expect === 'splice')
+      .map(entry => corpusId(entry.file))
     expect(cases.some(c => c.id === LARK_ID)).toBe(true)
     expect(cases.map(c => c.id).sort()).toEqual(
-      [...new Set([LARK_ID, ...catalog.demos.map(d => d.id)])].sort()
+      [...new Set([LARK_ID, ...catalog.demos.map(d => d.id), ...spliceIds])].sort()
     )
   })
 
-  it.each(cases)('$id: no-op splice is byte-identical (LF and CRLF)', ({ id, dir }) => {
-    const { source, layout } = loadFixture({ id, dir })
-    expectNoOpRoundTrip(id, source, layout)
+  it.each(cases)('$id: no-op splice is byte-identical (LF and CRLF)', c => {
+    const { source, layout } = loadFixture(c)
+    expectNoOpRoundTrip(c.id, source, layout)
 
-    const crlf = source.replace(/\n/g, '\r\n')
+    const crlf = source.includes('\r\n') ? source : source.replace(/\n/g, '\r\n')
     expect(crlf.includes('\r\n')).toBe(true)
-    expectNoOpRoundTrip(id, crlf, layout)
+    expectNoOpRoundTrip(c.id, crlf, layout)
     const { built } = roundTrip(layout, crlf)
     expect(built.code.includes('\r\n')).toBe(true)
+  })
+})
+
+describe('hard .keymap corpus', () => {
+  const manifest = loadCorpusManifest()
+  const spliceEntries = manifest.filter(entry => entry.expect === 'splice')
+  const rejectEntries = manifest.filter(entry => entry.expect === 'reject')
+
+  it('lists every *.keymap beside manifest.json', () => {
+    const onDisk = readdirSync(CORPUS_DIR)
+      .filter(name => name.endsWith('.keymap'))
+      .sort()
+    expect(manifest.map(entry => entry.file).sort()).toEqual(onDisk)
+    expect(manifest.length).toBeGreaterThanOrEqual(8)
+    expect(manifest.length).toBeLessThanOrEqual(12)
+  })
+
+  it.each(spliceEntries)('$file: parse warnings match the manifest', entry => {
+    const source = readFileSync(join(CORPUS_DIR, entry.file), 'utf8')
+    const parsed = parseDtsKeymap(source)
+    expect(warningSet(parsed.warnings)).toEqual(warningSet(entry.warnings))
+  })
+
+  it.each(rejectEntries)('$file: splice throws KeymapValidationError', entry => {
+    const source = readFileSync(join(CORPUS_DIR, entry.file), 'utf8')
+    const layout = layoutFromManifest(entry.layout)
+    const dts = parseDtsKeymap(source)
+    expect(warningSet(dts.warnings)).toEqual(warningSet(entry.warnings))
+    expect(entry.rejectError).toBeTruthy()
+    expect(() =>
+      buildKeymapCode(layout, parseKeymap(dts), { originalSource: source })
+    ).toThrow(KeymapValidationError)
+    try {
+      buildKeymapCode(layout, parseKeymap(dts), { originalSource: source })
+    } catch (e) {
+      expect(e).toBeInstanceOf(KeymapValidationError)
+      expect((e as KeymapValidationError).errors[0]).toMatch(entry.rejectError!)
+    }
   })
 })
 

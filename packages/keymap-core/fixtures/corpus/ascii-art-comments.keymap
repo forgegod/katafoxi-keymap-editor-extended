@@ -1,0 +1,30 @@
+/*
+ * Hard .keymap corpus: // and /* & */ inside bindings, ASCII-art grid.
+ * Covers R2-1 (tokenize bindings from the comment mask).
+ */
+
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+
+/ {
+    keymap {
+        compatible = "zmk,keymap";
+
+        layer_0 {
+            bindings = <
+/*  +---+---+
+ *  | & | & |
+ *  +---+---+ */
+&kp A &kp B
+&kp C &kp D
+            >;
+        };
+
+        layer_1 {
+            bindings = <
+&kp E &kp F // tail &kp FAKE
+/* L & R */ &kp G &kp H
+            >;
+        };
+    };
+};
