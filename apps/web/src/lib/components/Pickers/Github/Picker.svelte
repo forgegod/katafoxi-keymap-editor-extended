@@ -31,6 +31,8 @@
       warnings?: string[]
       /** Keep unpublished edits + Host legend when switching after Create branch. */
       preserveSession?: boolean
+      /** True for Reload / repo-or-branch change, not the automatic mount load. */
+      userInitiated?: boolean
     }) => void
     /** Parent draws the chip; this picker only fills the menu and keeps loading. */
     embedded?: boolean
@@ -56,6 +58,8 @@
   let loadWarnings: string[] | null = $state(null)
   /** Shared by effect loads and Reload so a late response cannot overwrite a newer one. */
   let keyboardLoadGeneration = 0
+  /** Next keymap fetch was started by Reload, repo/branch change, or Create branch. */
+  let nextLoadUserInitiated = false
 
   function clearSelection() {
     selectedBranchName = null
@@ -128,7 +132,8 @@
       lintKeyboard(response)
       onSelect({
         github: { repository, branch },
-        ...response
+        ...response,
+        userInitiated: true
       })
     } catch (err) {
       if (generation !== keyboardLoadGeneration) return
@@ -246,9 +251,12 @@
         lintKeyboard(response)
         const preserveSession = preserveSessionOnLoad
         preserveSessionOnLoad = false
+        const userInitiated = nextLoadUserInitiated
+        nextLoadUserInitiated = false
         onSelect({
           github: { repository, branch },
           ...(preserveSession ? { preserveSession: true } : {}),
+          ...(userInitiated ? { userInitiated: true } : {}),
           ...response
         })
       })
@@ -256,6 +264,7 @@
         if (generation !== keyboardLoadGeneration) return
         loadingKeyboard = false
         preserveSessionOnLoad = false
+        nextLoadUserInitiated = false
         applyLoadFailure(err)
       })
 
@@ -337,6 +346,7 @@
         branches = [...branches, { name: created.name }]
       }
       preserveSessionOnLoad = true
+      nextLoadUserInitiated = true
       selectedBranchName = created.name
       branchForm = false
       branchDraft = ''
@@ -401,7 +411,10 @@
         label="Repository"
         value={selectedRepoId}
         choices={repositoryChoices}
-        onUpdate={id => (selectedRepoId = id as number)}
+        onUpdate={id => {
+          nextLoadUserInitiated = true
+          selectedRepoId = id as number
+        }}
       />
     {/if}
 
@@ -416,7 +429,10 @@
         label="Branch"
         value={selectedBranchName}
         choices={branchChoices}
-        onUpdate={name => (selectedBranchName = String(name))}
+        onUpdate={name => {
+          nextLoadUserInitiated = true
+          selectedBranchName = String(name)
+        }}
       />
     {/if}
 

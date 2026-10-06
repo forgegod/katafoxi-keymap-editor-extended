@@ -45,20 +45,22 @@
     DEMO_CATALOG.find(entry => entry.id === selectedId) ?? DEMO_CATALOG[0]
   )
 
-  function emitDemo(id: string) {
-    if (loadedId === id) return
+  function emitDemo(id: string, userInitiated = false) {
     error = null
     try {
       const bundle = loadDemo(id)
+      const already = loadedId === id
       selectedId = id
       loadedId = id
       writeStoredDemoId(id)
+      if (already && !userInitiated) return
       onSelect({
         source: 'demo',
         layout: bundle.layout,
         keymap: bundle.keymap,
         demo: { id: bundle.entry.id, name: bundle.entry.name },
-        demoHost: bundle.hostSeeds
+        demoHost: bundle.hostSeeds,
+        ...(userInitiated ? { userInitiated: true } : {})
       })
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load demo'
@@ -68,7 +70,7 @@
 
   function choose(id: string) {
     selectedId = id
-    emitDemo(id)
+    emitDemo(id, true)
   }
 
   $effect(() => {

@@ -154,6 +154,11 @@
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
   }
 
+  /* Author `display: flex` would otherwise override the UA [hidden] rule. */
+  .source-popover[hidden] {
+    display: none;
+  }
+
   .source-popover :global(.selector) {
     width: 100%;
   }

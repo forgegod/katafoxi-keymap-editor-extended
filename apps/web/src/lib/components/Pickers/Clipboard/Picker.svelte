@@ -40,7 +40,8 @@
       keymap: bundle.keymap,
       clipboardOriginalSource: bundle.originalSource,
       clipboardInferredLayout: bundle.inferredLayout,
-      warnings: bundle.warnings
+      warnings: bundle.warnings,
+      userInitiated: true
     })
   }
 

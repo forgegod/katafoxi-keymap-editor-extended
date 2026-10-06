@@ -182,6 +182,7 @@
     const selection = stampSelection(event)
     if (!selection) return
     // layer_names: normalizeParsedKeymap at editor accept (cloneParsedKeymap)
+    if (event.userInitiated) menuOpen = false
     onSelect(selection)
   }
 

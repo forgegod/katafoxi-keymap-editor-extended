@@ -44,6 +44,8 @@ type KeyboardSelectionBase = {
   layout?: LayoutKey[] | null
   keymap?: ParsedKeymap | null
   warnings?: string[]
+  /** True when the user chose this load (picker action), not an automatic mount/effect. */
+  userInitiated?: boolean
 }
 
 export type DemoKeyboardSelection = KeyboardSelectionBase & {

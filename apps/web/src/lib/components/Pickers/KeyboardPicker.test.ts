@@ -121,6 +121,44 @@ describe('KeyboardPicker', () => {
     expect(target.querySelector('.source-trigger-accent')).toBeNull()
   })
 
+  it('keeps the source menu open after clicking Demo, then closes on a keyboard', async () => {
+    localStorage.setItem('selectedSource', 'github')
+    const onSelect = open()
+
+    const trigger = target.querySelector('.source-trigger')
+    if (!(trigger instanceof HTMLButtonElement)) {
+      throw new Error('missing source trigger')
+    }
+    trigger.click()
+    flushSync()
+
+    const popover = target.querySelector('.source-popover')
+    if (!(popover instanceof HTMLElement)) {
+      throw new Error('missing source popover')
+    }
+    expect(popover.hasAttribute('hidden')).toBe(false)
+
+    clickSource('demo')
+    await vi.waitFor(() => {
+      expect(onSelect).toHaveBeenCalledWith(
+        expect.objectContaining({ source: 'demo' })
+      )
+    })
+    expect(popover.hasAttribute('hidden')).toBe(false)
+
+    const lily = [...target.querySelectorAll('.demo-card')].find(card =>
+      card.textContent?.includes('Lily58')
+    )
+    if (!(lily instanceof HTMLButtonElement)) {
+      throw new Error('missing Lily58 demo')
+    }
+    lily.click()
+    flushSync()
+
+    expect(popover.hasAttribute('hidden')).toBe(true)
+    expect(getComputedStyle(popover).display).toBe('none')
+  })
+
   it('keeps the Demo trigger pulsing while Demo is selected', async () => {
     open()
 
