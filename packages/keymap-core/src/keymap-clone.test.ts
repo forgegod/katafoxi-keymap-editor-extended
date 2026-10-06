@@ -81,7 +81,7 @@ describe('adoptHoldTaps', () => {
     expect(next.layers[0][0].params[0].value).toBe('B')
   })
 
-  it('keeps an explicit draft list, including empty', () => {
+  it('keeps an explicit draft hold-tap list, including empty', () => {
     expect(adoptHoldTaps({ layers: [[kp('A')]], holdTaps: [] }, loaded).holdTaps).toEqual(
       []
     )
@@ -105,7 +105,7 @@ describe('adoptSensorBindings', () => {
     expect(next.sensorBindings).toEqual(loaded.sensorBindings)
   })
 
-  it('keeps an explicit draft list, including empty', () => {
+  it('keeps an explicit draft sensor-binding list, including empty', () => {
     expect(
       adoptSensorBindings({ layers: [[kp('A')]], sensorBindings: [] }, loaded)
         .sensorBindings
