@@ -21,6 +21,7 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage --coverage.include=src/** --coverage.exclude=**/*.test.ts",
     "lint": "tsc -p tsconfig.json --noEmit"
   },
   "engines": {
@@ -28,6 +29,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "2.1.9",
     "fast-check": "^4.10.2",
     "typescript": "~5.7.2",
     "vitest": "^2.1.8"

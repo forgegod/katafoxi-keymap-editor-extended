@@ -76,11 +76,14 @@ Do not commit a Write files result into the LARK firmware repo (`zmk-keyboard-la
 
 ```bash
 pnpm test
+pnpm test:coverage
 pnpm exec playwright install chromium   # once, for the smoke only
 pnpm test:e2e
 ```
 
 `pnpm test` is Vitest: `packages/keymap-core`, `apps/api`, and `apps/web`. It does not start a server.
+
+`pnpm test:coverage` is the same Vitest run with a v8 summary (no thresholds, not in CI).
 
 `pnpm test:e2e` is Playwright (Chromium only). `globalSetup` copies `packages/keymap-core/fixtures/lark` into a temp directory and starts the API and Vite on free ports (preferring 18080 and 15173). Specs open Source **Local** from the source menu, splice a binding with **Write files** while keeping the `.keymap` preamble, edit a composed layer-2 row, restore an IndexedDB draft after reload (dismiss confirm), and Alt+click a keycap to change a host glyph. They do not use ports 5173 or 8080 and do not write the repo `zmk-config`.
 

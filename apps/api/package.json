@@ -9,6 +9,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage --coverage.include=src/** --coverage.exclude=**/*.test.ts",
     "lint": "tsc -p tsconfig.json --noEmit"
   },
   "engines": {
@@ -25,6 +26,7 @@
     "@types/http-link-header": "^1.0.7",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "2.1.9",
     "tsx": "^4.19.2",
     "typescript": "~5.7.2",
     "vitest": "^2.1.8"

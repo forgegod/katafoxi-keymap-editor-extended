@@ -9,6 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage --coverage.include=src/** --coverage.exclude=**/*.test.ts",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "lint": "svelte-check --tsconfig ./tsconfig.app.json"
   },
@@ -23,6 +24,7 @@
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
     "@tsconfig/svelte": "^5.0.4",
     "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "2.1.9",
     "fake-indexeddb": "^6.0.0",
     "happy-dom": "^15.11.7",
     "svelte": "^5.17.0",

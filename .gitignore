@@ -15,7 +15,7 @@ docs/plans/
 packages/keymap-core/src/__golden__/
 
 # Coverage
-coverage
+coverage/
 
 # Env and secrets
 .env
