@@ -10,6 +10,8 @@
     layerLegendSymbol,
     shouldOfferComboDictionary,
     usedKeycodesRevision,
+    type ComboIndexHit,
+    type ComboIndexOther,
     type HostLegendView,
     type LayerView,
     type LegendHover,
@@ -154,14 +156,8 @@
     editor.refreshComboNotice()
   }
 
-  function openComboFromIndex(hit: {
-    comboIds?: string[]
-    comboId?: string
-    keyId?: string
-    band?: string
-    positions: number[]
-  }) {
-    const comboId = hit.comboIds?.[0] ?? hit.comboId
+  function openComboFromIndex(hit: ComboIndexHit | ComboIndexOther) {
+    const comboId = 'comboIds' in hit ? hit.comboIds[0] : hit.comboId
     // Select the combo only — KeyEditor opens from Binding in the panel.
     if (comboId) openComboFromBoard(comboId)
   }

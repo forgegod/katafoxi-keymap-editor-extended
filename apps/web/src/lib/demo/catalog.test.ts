@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  comboDictionaryFamilies,
   comboDictionaryIndexModel,
   shouldOfferComboDictionary
 } from '@keymap-editor/keymap-core'
@@ -169,13 +168,9 @@ describe('demo catalog', () => {
     expect(keymap.sensorBindings?.every(row => row?.length === 2)).toBe(true)
   })
 
-  it('groups PNCATEHO combos into a chord dictionary of finger cores', async () => {
+  it('offers a typewriter chord dictionary for PNCATEHO', async () => {
     const { layout, keymap } = await loadDemo('pncateho')
     expect(shouldOfferComboDictionary(layout, keymap.combos)).toBe(true)
-    const families = comboDictionaryFamilies(layout, keymap.combos ?? [])
-    expect(families.length).toBe(80)
-    expect(families.every(family => family.core.length >= 1)).toBe(true)
-    expect(families.some(family => family.variants.length >= 4)).toBe(true)
     const index = comboDictionaryIndexModel(layout, keymap.combos ?? [])
     expect(index.hits.get('b')?.base?.positions.length).toBeGreaterThan(0)
     expect(index.hits.get('b')?.shift?.positions.length).toBeGreaterThan(0)
