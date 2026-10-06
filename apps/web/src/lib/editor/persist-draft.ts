@@ -39,6 +39,13 @@ export function schedulePersist(this: EditorState) {
   }, PERSIST_DEBOUNCE_MS)
 }
 
+/** Cancel the debounce and write now (tab hide, GitHub login redirect). */
+export function flushPendingPersist(this: EditorState) {
+  const token = this._persistGeneration
+  this._cancelPersistTimer()
+  return this._flushPersist(token)
+}
+
 export async function _flushPersist(this: EditorState, token: number) {
   if (token !== this._persistGeneration) return
   const identity = this.currentDraftIdentity()

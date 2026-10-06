@@ -302,6 +302,7 @@ export class EditorState {
   declare currentDraftIdentity: () => DraftIdentity | null
   declare _cancelPersistTimer: () => void
   declare schedulePersist: () => void
+  declare flushPendingPersist: () => Promise<void>
   declare _flushPersist: (token: number) => Promise<void>
   declare clearPersistedDraft: () => Promise<void>
   declare _maybeRestorePersistedDraft: (selectToken: number) => Promise<void>

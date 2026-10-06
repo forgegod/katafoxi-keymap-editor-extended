@@ -89,8 +89,20 @@
   onMount(() => {
     const onKeyDown = (event: KeyboardEvent) =>
       handleEditorShortcut(event, editor)
+    const flushDraft = () => {
+      void editor.flushPendingPersist()
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flushDraft()
+    }
     window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('pagehide', flushDraft)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener('pagehide', flushDraft)
+    }
   })
 
   async function initialize() {

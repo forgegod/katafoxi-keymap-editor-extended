@@ -2,6 +2,7 @@
   import { untrack } from 'svelte'
   import type { HostKeymapSnapshot, LayoutKey, ParsedKeymap } from '@keymap-editor/keymap-core'
   import * as config from '../../../config'
+  import { editor } from '../../../editor.svelte.js'
   import github from '../../../github/api.svelte.js'
   import { githubChipLabel, githubGateAction, manageReposUrl } from '../../../github/chrome-label.js'
   import * as storage from '../../../github/storage'
@@ -167,7 +168,9 @@
   })
 
   $effect(() => {
-    const onAuthFailed = () => github.beginLoginFlow()
+    const onAuthFailed = () => {
+      void beginLoginFlow()
+    }
     github.on('authentication-failed', onAuthFailed)
     return () => github.off('authentication-failed', onAuthFailed)
   })
@@ -323,8 +326,13 @@
     return 'GitHub'
   })
 
+  async function beginLoginFlow() {
+    await editor.flushPendingPersist()
+    github.beginLoginFlow()
+  }
+
   function runGate() {
-    if (gate === 'login') github.beginLoginFlow()
+    if (gate === 'login') void beginLoginFlow()
     else if (gate === 'install') github.beginInstallAppFlow()
   }
 
@@ -388,7 +396,7 @@
       collection="brands"
       icon="github"
       text="Login with GitHub"
-      onclick={() => github.beginLoginFlow()}
+      onclick={() => beginLoginFlow()}
     />
   {:else if ready && !appInstalled}
     <IconButton

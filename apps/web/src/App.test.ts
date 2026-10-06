@@ -1,6 +1,7 @@
 import { flushSync, mount, tick, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ParsedKeymap } from '@keymap-editor/keymap-core'
+import * as draftStorage from './lib/draft-storage'
 import { buildDraftIdentity, deleteStoredDraft } from './lib/draft-storage'
 import { editor, type KeyboardSelection } from './lib/editor.svelte.js'
 import github from './lib/github/api.svelte.js'
@@ -141,6 +142,7 @@ describe('App chrome', () => {
     github.repositories = null
     github.repoInstallationMap = null
     github.installations = null
+    vi.useRealTimers()
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
@@ -326,6 +328,27 @@ describe('App chrome', () => {
       })
     )
     expect(undo).not.toHaveBeenCalled()
+  })
+
+  it('writes a pending draft on visibilitychange before the 400ms debounce', async () => {
+    await renderApp()
+    await loadKeyboard(localSelection())
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const save = vi.spyOn(draftStorage, 'saveStoredDraft')
+
+    editor.updateKeymap(km('M'))
+    expect(save).not.toHaveBeenCalled()
+
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'hidden'
+    })
+    document.dispatchEvent(new Event('visibilitychange'))
+
+    await Promise.resolve()
+    expect(save).toHaveBeenCalled()
+    await save.mock.results[0]?.value
+    expect(vi.getTimerCount()).toBe(0)
   })
 
   it('clears the unpublished row when another keyboard is loaded', async () => {
