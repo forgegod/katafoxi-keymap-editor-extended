@@ -136,14 +136,51 @@ export function findAnglePropStatement(
   return { statement: { start: stmtStart, end: stmtEnd }, interior }
 }
 
-export function parseUintList(interior: string): number[] {
+/**
+ * Non-negative integers from an angle-bracket interior.
+ * Returns null when any token is not a decimal integer (macros, signs, junk).
+ * Empty interior → `[]` (fully parsed, no values).
+ */
+export function parseUintList(interior: string): number[] | null {
   const out: number[] = []
   for (const tok of interior.trim().split(/\s+/)) {
     if (!tok) continue
-    const n = Number(tok)
-    if (Number.isInteger(n) && n >= 0) out.push(n)
+    if (!/^\d+$/.test(tok)) return null
+    out.push(Number(tok))
   }
   return out
+}
+
+export type UintAngleProp =
+  | { kind: 'absent' }
+  | { kind: 'ok'; values: number[] }
+  | { kind: 'unparsed' }
+
+/** Angle-bracket uint list, or unparsed when a token is not a decimal integer. */
+export function readUintAngleProp(
+  masked: string,
+  bodyRange: DtsRange,
+  prop: string
+): UintAngleProp {
+  const interior = findAngleProp(masked, bodyRange, prop)
+  if (!interior) return { kind: 'absent' }
+  const values = parseUintList(masked.slice(interior.start, interior.end))
+  if (values == null) return { kind: 'unparsed' }
+  return { kind: 'ok', values }
+}
+
+/** Single uint property (`timeout-ms = <40>`). Empty or multi-value interiors are unparsed. */
+export function readUintAngleScalar(
+  masked: string,
+  bodyRange: DtsRange,
+  prop: string
+): { kind: 'absent' } | { kind: 'ok'; value: number } | { kind: 'unparsed' } {
+  const propValue = readUintAngleProp(masked, bodyRange, prop)
+  if (propValue.kind === 'absent') return propValue
+  if (propValue.kind === 'unparsed' || propValue.values.length !== 1) {
+    return { kind: 'unparsed' }
+  }
+  return { kind: 'ok', value: propValue.values[0] }
 }
 
 /** True when `prop;` appears as its own token (not inside `not-prop;`). */

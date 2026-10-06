@@ -360,9 +360,11 @@ export function generateKeymap(
  * | `holdTaps` | Leave alone | (timing cleared per list) | Rewrite / insert |
  * | `sensorBindings` | Leave alone | Clear per-layer props as listed | Rewrite per layer |
  *
- * DTS parse omits `combos` when there is no block, or when a block yields zero
- * parsed nodes from a non-empty body (`combos_unparsed`). UI clear-all must set
- * `combos: []` explicitly so Save can drop the block.
+ * DTS parse omits `combos` when there is no block, or when a block is not
+ * fully parsed (`combos_unparsed`: skipped node, DTS label, or non-numeric
+ * token). The same omit+warn rule applies to `conditionalLayers`
+ * (`conditional_layers_unparsed`) and `holdTaps` (`hold_tap_timing_unparsed`).
+ * UI clear-all must set `combos: []` explicitly so Save can drop the block.
  */
 export function buildKeymapCode(
   layout: LayoutKey[],

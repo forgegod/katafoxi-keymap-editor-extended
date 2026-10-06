@@ -4,11 +4,11 @@
  */
 
 import {
-  findAngleProp,
   findNamedBlock,
   maskDts,
   matchBrace,
-  parseUintList
+  readUintAngleProp,
+  readUintAngleScalar
 } from './dts-scan.js'
 import {
   collapseExtraBlankLines,
@@ -28,23 +28,38 @@ function findConditionalBlock(source: string) {
   })
 }
 
+export interface DtsConditionalLayersParse {
+  rules: ZmkConditionalLayer[]
+  /**
+   * True when a child node was skipped, had a DTS label, or if/then layers
+   * were not fully numeric. Save must omit `conditionalLayers`.
+   */
+  unparsed: boolean
+}
+
 /**
  * Parse conditional-layer nodes. Missing block → [].
- * A node without `if-layers` or `then-layer` is skipped.
+ * A node without `if-layers` or `then-layer` is skipped (and marked unparsed).
  */
 export function parseDtsConditionalLayers(source: string): ZmkConditionalLayer[] {
+  return parseDtsConditionalLayersDetailed(source).rules
+}
+
+export function parseDtsConditionalLayersDetailed(source: string): DtsConditionalLayersParse {
   const masked = maskDts(source)
   const block = findNamedBlock(source, masked, 'conditional_layers', {
     compatible: 'zmk,conditional-layers'
   })
-  if (!block) return []
+  if (!block) return { rules: [], unparsed: false }
 
   const rules: ZmkConditionalLayer[] = []
+  let unparsed = false
   const body = masked.slice(block.bodyStart, block.bodyEnd)
-  const re = /(\w+)\s*\{/g
+  const re = /(?:([A-Za-z_]\w*)\s*:\s*)?([A-Za-z_]\w*)\s*\{/g
   let m: RegExpExecArray | null
   while ((m = re.exec(body)) !== null) {
-    const name = m[1]
+    const label = m[1]
+    const name = m[2]
     const openBraceRel = m.index + m[0].length - 1
     const openBrace = block.bodyStart + openBraceRel
     const closeBrace = matchBrace(masked, openBrace)
@@ -54,16 +69,18 @@ export function parseDtsConditionalLayers(source: string): ZmkConditionalLayer[]
     }
     re.lastIndex = closeBrace - block.bodyStart + 1
 
+    if (label) unparsed = true
+
     const range = { start: openBrace + 1, end: closeBrace }
-    const ifInterior = findAngleProp(masked, range, 'if-layers')
-    const thenInterior = findAngleProp(masked, range, 'then-layer')
-    if (!ifInterior || !thenInterior) continue
-    const ifLayers = parseUintList(source.slice(ifInterior.start, ifInterior.end))
-    const thenParts = parseUintList(source.slice(thenInterior.start, thenInterior.end))
-    if (ifLayers.length === 0 || thenParts.length === 0) continue
-    rules.push({ id: name, ifLayers, thenLayer: thenParts[0] })
+    const ifLayers = readUintAngleProp(masked, range, 'if-layers')
+    const thenLayer = readUintAngleScalar(masked, range, 'then-layer')
+    if (ifLayers.kind !== 'ok' || ifLayers.values.length === 0 || thenLayer.kind !== 'ok') {
+      unparsed = true
+      continue
+    }
+    rules.push({ id: name, ifLayers: ifLayers.values, thenLayer: thenLayer.value })
   }
-  return rules
+  return { rules, unparsed }
 }
 
 function sanitizeNodeId(id: string): string {

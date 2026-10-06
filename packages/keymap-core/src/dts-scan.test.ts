@@ -78,9 +78,11 @@ describe('tokenizeBindings', () => {
 })
 
 describe('parseUintList', () => {
-  it('reads non-negative integers', () => {
+  it('reads non-negative integers and rejects mixed tokens', () => {
     expect(parseUintList(' 0 2 10 ')).toEqual([0, 2, 10])
-    expect(parseUintList('1 -2 x 3')).toEqual([1, 3])
+    expect(parseUintList('')).toEqual([])
+    expect(parseUintList('1 -2 x 3')).toBeNull()
+    expect(parseUintList('LT0 LT1')).toBeNull()
   })
 })
 

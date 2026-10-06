@@ -6,7 +6,7 @@
  * Save rewrites timing in those nodes and inserts nodes the model added.
  */
 
-import { maskDts, matchBrace } from './dts-scan.js'
+import { maskDts, matchBrace, readUintAngleScalar } from './dts-scan.js'
 import {
   dominantEol,
   eatFollowingEol,
@@ -111,12 +111,6 @@ export function autoshiftBindingParams(keycode: string): Array<{
   ]
 }
 
-function readIntProp(body: string, name: string): number | undefined {
-  const match = new RegExp(`(?<![\\w-])${name}\\s*=\\s*<\\s*(\\d+)\\s*>`).exec(body)
-  if (!match) return undefined
-  return Number(match[1])
-}
-
 function readFlavor(source: string, masked: string, from: number, to: number): string | undefined {
   const slice = masked.slice(from, to)
   const match = /flavor\s*=\s*"/.exec(slice)
@@ -149,29 +143,35 @@ function paramsForHoldTapBindings(bindings: string[], cells?: number): string[] 
   return Array.from({ length: count }, () => 'code')
 }
 
+type HoldTapTimingFields = Pick<
+  ZmkHoldTap,
+  'tappingTermMs' | 'quickTapMs' | 'requirePriorIdleMs' | 'flavor'
+>
+
 function readTiming(
   source: string,
   masked: string,
   from: number,
   to: number
-): Pick<ZmkHoldTap, 'tappingTermMs' | 'quickTapMs' | 'requirePriorIdleMs' | 'flavor'> {
-  const body = masked.slice(from, to)
-  const timing: Pick<
-    ZmkHoldTap,
-    'tappingTermMs' | 'quickTapMs' | 'requirePriorIdleMs' | 'flavor'
-  > = {}
-  const tappingTermMs = readIntProp(body, 'tapping-term-ms')
-  const quickTapMs = readIntProp(body, 'quick-tap-ms')
-  const requirePriorIdleMs = readIntProp(body, 'require-prior-idle-ms')
+): { timing: HoldTapTimingFields; unparsed: boolean } {
+  const range = { start: from, end: to }
+  const timing: HoldTapTimingFields = {}
+  let unparsed = false
+  const tappingTermMs = readUintAngleScalar(masked, range, 'tapping-term-ms')
+  const quickTapMs = readUintAngleScalar(masked, range, 'quick-tap-ms')
+  const requirePriorIdleMs = readUintAngleScalar(masked, range, 'require-prior-idle-ms')
+  if (tappingTermMs.kind === 'unparsed') unparsed = true
+  else if (tappingTermMs.kind === 'ok') timing.tappingTermMs = tappingTermMs.value
+  if (quickTapMs.kind === 'unparsed') unparsed = true
+  else if (quickTapMs.kind === 'ok') timing.quickTapMs = quickTapMs.value
+  if (requirePriorIdleMs.kind === 'unparsed') unparsed = true
+  else if (requirePriorIdleMs.kind === 'ok') timing.requirePriorIdleMs = requirePriorIdleMs.value
   const flavor = readFlavor(source, masked, from, to)
-  if (tappingTermMs != null) timing.tappingTermMs = tappingTermMs
-  if (quickTapMs != null) timing.quickTapMs = quickTapMs
-  if (requirePriorIdleMs != null) timing.requirePriorIdleMs = requirePriorIdleMs
   if (flavor) timing.flavor = flavor
-  return timing
+  return { timing, unparsed }
 }
 
-function hasTiming(timing: ReturnType<typeof readTiming>): boolean {
+function hasTiming(timing: HoldTapTimingFields): boolean {
   return (
     timing.tappingTermMs != null ||
     timing.quickTapMs != null ||
@@ -224,8 +224,12 @@ function pack(partial: ZmkHoldTap): ZmkHoldTap {
   return out
 }
 
-function parseNamedHoldTaps(source: string, masked: string): ZmkHoldTap[] {
+function parseNamedHoldTaps(
+  source: string,
+  masked: string
+): { nodes: ZmkHoldTap[]; unparsed: boolean } {
   const out: ZmkHoldTap[] = []
+  let unparsed = false
   const re = /compatible\s*=\s*"/g
   let match: RegExpExecArray | null
   while ((match = re.exec(masked)) !== null) {
@@ -238,30 +242,42 @@ function parseNamedHoldTaps(source: string, masked: string): ZmkHoldTap[] {
     const closeBrace = matchBrace(masked, openBrace)
     if (closeBrace < 0) continue
     const header = readNodeHeader(source, openBrace)
-    if (!header) continue
+    if (!header) {
+      unparsed = true
+      re.lastIndex = closeBrace + 1
+      continue
+    }
     const body = masked.slice(openBrace + 1, closeBrace)
     const bindings = readBindingRefs(body)
     const cells = readBindingCells(body)
+    const { timing, unparsed: timingUnparsed } = readTiming(
+      source,
+      masked,
+      openBrace + 1,
+      closeBrace
+    )
+    if (timingUnparsed) unparsed = true
     out.push(
       pack({
         code: `&${header.label ?? header.name}`,
         nodeName: header.name,
-        ...readTiming(source, masked, openBrace + 1, closeBrace),
+        ...timing,
         bindings,
         params: paramsForHoldTapBindings(bindings, cells)
       })
     )
     re.lastIndex = closeBrace + 1
   }
-  return out
+  return { nodes: out, unparsed }
 }
 
 function parseHoldTapOverrides(
   source: string,
   masked: string,
   defined: Set<string>
-): ZmkHoldTap[] {
+): { nodes: ZmkHoldTap[]; unparsed: boolean } {
   const out: ZmkHoldTap[] = []
+  let unparsed = false
   const re = /(?<![A-Za-z0-9_])&([A-Za-z_][\w]*)\s*\{/g
   let match: RegExpExecArray | null
   while ((match = re.exec(masked)) !== null) {
@@ -270,13 +286,23 @@ function parseHoldTapOverrides(
     if (closeBrace < 0) continue
     const body = masked.slice(openBrace + 1, closeBrace)
     if (/compatible\s*=/.test(body)) continue
-    const timing = readTiming(source, masked, openBrace + 1, closeBrace)
-    if (!hasTiming(timing)) continue
+    const { timing, unparsed: timingUnparsed } = readTiming(
+      source,
+      masked,
+      openBrace + 1,
+      closeBrace
+    )
+    if (timingUnparsed) unparsed = true
+    if (!hasTiming(timing) && !timingUnparsed) continue
+    if (!hasTiming(timing)) {
+      re.lastIndex = closeBrace + 1
+      continue
+    }
     const code = `&${match[1]}`
     out.push(pack({ code, override: !defined.has(code), ...timing }))
     re.lastIndex = closeBrace + 1
   }
-  return out
+  return { nodes: out, unparsed }
 }
 
 function applyTiming(target: ZmkHoldTap, timing: ZmkHoldTap): ZmkHoldTap {
@@ -289,23 +315,36 @@ function applyTiming(target: ZmkHoldTap, timing: ZmkHoldTap): ZmkHoldTap {
   })
 }
 
+export interface DtsHoldTapsParse {
+  holdTaps: ZmkHoldTap[]
+  /**
+   * True when a timing property was not a decimal integer (e.g. `#define` token)
+   * or a hold-tap node could not be fully read. Save must omit `holdTaps`.
+   */
+  unparsed: boolean
+}
+
 /**
  * Hold-tap nodes in source order. Named nodes first; a later `&code { … }`
  * block fills in timing on that code. Overrides of built-ins stay `override`.
  * No hold-tap nodes → [].
  */
 export function parseDtsHoldTaps(source: string): ZmkHoldTap[] {
+  return parseDtsHoldTapsDetailed(source).holdTaps
+}
+
+export function parseDtsHoldTapsDetailed(source: string): DtsHoldTapsParse {
   const masked = maskDts(source)
   const named = parseNamedHoldTaps(source, masked)
-  const defined = new Set(named.map(node => node.code))
+  const defined = new Set(named.nodes.map(node => node.code))
   const overrides = parseHoldTapOverrides(source, masked, defined)
   const byCode = new Map<string, ZmkHoldTap>()
   const order: string[] = []
-  for (const node of named) {
+  for (const node of named.nodes) {
     if (!byCode.has(node.code)) order.push(node.code)
     byCode.set(node.code, node)
   }
-  for (const node of overrides) {
+  for (const node of overrides.nodes) {
     const prev = byCode.get(node.code)
     if (prev) {
       byCode.set(node.code, applyTiming(prev, node))
@@ -314,7 +353,10 @@ export function parseDtsHoldTaps(source: string): ZmkHoldTap[] {
     order.push(node.code)
     byCode.set(node.code, node)
   }
-  return order.map(code => byCode.get(code)!)
+  return {
+    holdTaps: order.map(code => byCode.get(code)!),
+    unparsed: named.unparsed || overrides.unparsed
+  }
 }
 
 function readOptionalInt(value: unknown): number | undefined {
@@ -522,10 +564,8 @@ function collectHoldTapSpans(source: string, masked: string): HoldTapSpan[] {
       continue
     }
     const body = masked.slice(open + 1, close)
-    if (
-      /compatible\s*=/.test(body) ||
-      !hasTiming(readTiming(source, masked, open + 1, close))
-    ) {
+    const { timing } = readTiming(source, masked, open + 1, close)
+    if (/compatible\s*=/.test(body) || !hasTiming(timing)) {
       overrideRe.lastIndex = close + 1
       continue
     }
@@ -584,6 +624,44 @@ function setAssign(
   return `${trimmed}${needsNl ? eol : ''}${indent}${statement}${eol}`
 }
 
+function patchUintAssign(
+  body: string,
+  dtsName: string,
+  modelValue: number | undefined,
+  indent: string,
+  eol: LineEnding
+): string {
+  const masked = maskDts(body)
+  const current = readUintAngleScalar(masked, { start: 0, end: masked.length }, dtsName)
+  if (current.kind === 'unparsed') {
+    if (modelValue == null) return body
+    return setAssign(body, dtsName, `${dtsName} = <${modelValue}>;`, indent, eol)
+  }
+  if (current.kind === 'absent') {
+    if (modelValue == null) return body
+    return setAssign(body, dtsName, `${dtsName} = <${modelValue}>;`, indent, eol)
+  }
+  if (modelValue == null) return setAssign(body, dtsName, null, indent, eol)
+  if (current.value === modelValue) return body
+  return setAssign(body, dtsName, `${dtsName} = <${modelValue}>;`, indent, eol)
+}
+
+function patchFlavorAssign(
+  body: string,
+  modelValue: string | undefined,
+  indent: string,
+  eol: LineEnding
+): string {
+  const masked = maskDts(body)
+  const current = readFlavor(body, masked, 0, body.length)
+  if (modelValue) {
+    if (current === modelValue) return body
+    return setAssign(body, 'flavor', `flavor = "${modelValue}";`, indent, eol)
+  }
+  if (!current) return body
+  return setAssign(body, 'flavor', null, indent, eol)
+}
+
 function patchTiming(
   body: string,
   node: ZmkHoldTap,
@@ -591,30 +669,10 @@ function patchTiming(
   eol: LineEnding
 ): string {
   let next = body
-  next = setAssign(next, 'flavor', node.flavor ? `flavor = "${node.flavor}";` : null, indent, eol)
-  next = setAssign(
-    next,
-    'tapping-term-ms',
-    node.tappingTermMs != null ? `tapping-term-ms = <${node.tappingTermMs}>;` : null,
-    indent,
-    eol
-  )
-  next = setAssign(
-    next,
-    'quick-tap-ms',
-    node.quickTapMs != null ? `quick-tap-ms = <${node.quickTapMs}>;` : null,
-    indent,
-    eol
-  )
-  next = setAssign(
-    next,
-    'require-prior-idle-ms',
-    node.requirePriorIdleMs != null
-      ? `require-prior-idle-ms = <${node.requirePriorIdleMs}>;`
-      : null,
-    indent,
-    eol
-  )
+  next = patchFlavorAssign(next, node.flavor, indent, eol)
+  next = patchUintAssign(next, 'tapping-term-ms', node.tappingTermMs, indent, eol)
+  next = patchUintAssign(next, 'quick-tap-ms', node.quickTapMs, indent, eol)
+  next = patchUintAssign(next, 'require-prior-idle-ms', node.requirePriorIdleMs, indent, eol)
   return next
 }
 

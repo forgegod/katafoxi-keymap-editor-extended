@@ -287,4 +287,71 @@ describe('parseDtsHoldTaps', () => {
       '&as LS(Q) Q'
     )
   })
+
+  it('omits holdTaps when tapping-term-ms is a macro so Save keeps <TT>', () => {
+    const src = `/ {
+    behaviors {
+        hm: hm {
+            compatible = "zmk,behavior-hold-tap";
+            #binding-cells = <2>;
+            tapping-term-ms = <TT>;
+            flavor = "balanced";
+            bindings = <&kp>, <&kp>;
+        };
+    };
+
+    keymap {
+        compatible = "zmk,keymap";
+        default_layer { bindings = <&hm LCTRL A &kp B>; };
+    };
+};
+`
+    const raw = parseDtsKeymap(src)
+    expect(raw.holdTaps).toBeUndefined()
+    expect(raw.warnings).toContain('hold_tap_timing_unparsed')
+    const built = buildKeymapCode(TINY, parseKeymap(raw), { originalSource: src })
+    expect(built.code).toContain('tapping-term-ms = <TT>;')
+    expect(built.code).toContain('flavor = "balanced";')
+  })
+
+  it('does not delete an unparsed tapping-term when splicing a partial model', () => {
+    const source = `hm: hm {
+    compatible = "zmk,behavior-hold-tap";
+    #binding-cells = <2>;
+    tapping-term-ms = <TT>;
+    flavor = "balanced";
+    bindings = <&kp>, <&kp>;
+};
+`
+    const spliced = spliceHoldTapsIntoDts(source, [
+      {
+        code: '&hm',
+        nodeName: 'hm',
+        flavor: 'balanced',
+        bindings: ['&kp', '&kp'],
+        params: ['code', 'code']
+      }
+    ])
+    expect(spliced).toContain('tapping-term-ms = <TT>;')
+    expect(spliced).toContain('flavor = "balanced";')
+  })
+
+  it('leaves a numeric tapping-term line unchanged when the model matches', () => {
+    const source = `hm: hm {
+    compatible = "zmk,behavior-hold-tap";
+    tapping-term-ms = <280>; // keep
+    bindings = <&kp>, <&kp>;
+};
+`
+    const spliced = spliceHoldTapsIntoDts(source, [
+      {
+        code: '&hm',
+        nodeName: 'hm',
+        tappingTermMs: 280,
+        bindings: ['&kp', '&kp'],
+        params: ['code', 'code']
+      }
+    ])
+    expect(spliced).toContain('tapping-term-ms = <280>; // keep')
+  })
 })

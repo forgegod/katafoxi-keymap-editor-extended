@@ -60,16 +60,21 @@ export interface ParsedKeymap {
   layout?: string
   layer_names?: string[]
   layers: KeyBindingNode[][]
-  /** ZMK combos from the .keymap; absent when the source had none. */
+  /**
+   * ZMK combos from the .keymap; absent when the source had none or the
+   * `combos` block was not fully parsed (`combos_unparsed`).
+   */
   combos?: ZmkCombo[]
   /**
-   * ZMK conditional layers. Absent when the source had none.
+   * ZMK conditional layers. Absent when the source had none or a rule was
+   * not fully parsed (`conditional_layers_unparsed`).
    * An empty array means the user removed them and Save should drop the block.
    */
   conditionalLayers?: ZmkConditionalLayer[]
   /**
    * Hold-tap nodes and `&mt` / `&lt` timing blocks.
-   * Absent when the source had none and Save should leave those nodes alone.
+   * Absent when the source had none, timing was not fully numeric
+   * (`hold_tap_timing_unparsed`), or Save should leave those nodes alone.
    * An array, including empty, is the editor's list and Save rewrites it.
    */
   holdTaps?: ZmkHoldTap[]

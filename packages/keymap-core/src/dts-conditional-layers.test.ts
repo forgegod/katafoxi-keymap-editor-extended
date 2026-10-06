@@ -93,6 +93,82 @@ describe('parseDtsConditionalLayers', () => {
     const again = parseKeymap(encodeKeymap(parsed))
     expect(again.conditionalLayers).toEqual(parsed.conditionalLayers)
   })
+
+  it('omits rules when if-layers use macros so Save keeps the block', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        default_layer { bindings = <&kp A &kp B>; };
+    };
+
+    conditional_layers {
+        compatible = "zmk,conditional-layers";
+        // keep this comment
+        tri {
+            if-layers = <LOWER RAISE>;
+            then-layer = <3>;
+        };
+        numeric {
+            if-layers = <1 2>;
+            then-layer = <3>;
+        };
+    };
+};
+`
+    const raw = parseDtsKeymap(src)
+    expect(raw.conditionalLayers).toBeUndefined()
+    expect(raw.warnings).toContain('conditional_layers_unparsed')
+    const built = buildKeymapCode(TINY, parseKeymap(raw), { originalSource: src })
+    expect(built.code).toContain('if-layers = <LOWER RAISE>;')
+    expect(built.code).toContain('if-layers = <1 2>;')
+    expect(built.code).toContain('// keep this comment')
+  })
+
+  it('omits rules when a list mixes a number and a macro', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        default_layer { bindings = <&kp A &kp B>; };
+    };
+
+    conditional_layers {
+        compatible = "zmk,conditional-layers";
+        mixed {
+            if-layers = <1 RAISE>;
+            then-layer = <3>;
+        };
+    };
+};
+`
+    const raw = parseDtsKeymap(src)
+    expect(raw.conditionalLayers).toBeUndefined()
+    expect(raw.warnings).toContain('conditional_layers_unparsed')
+    const built = buildKeymapCode(TINY, parseKeymap(raw), { originalSource: src })
+    expect(built.code).toContain('if-layers = <1 RAISE>;')
+  })
+
+  it('omits rules when a node has a DTS label', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        default_layer { bindings = <&kp A &kp B>; };
+    };
+
+    conditional_layers {
+        compatible = "zmk,conditional-layers";
+        tri_lbl: tri {
+            if-layers = <1 2>;
+            then-layer = <3>;
+        };
+    };
+};
+`
+    const raw = parseDtsKeymap(src)
+    expect(raw.conditionalLayers).toBeUndefined()
+    expect(raw.warnings).toContain('conditional_layers_unparsed')
+    const built = buildKeymapCode(TINY, parseKeymap(raw), { originalSource: src })
+    expect(built.code).toContain('tri_lbl: tri {')
+  })
 })
 
 describe('spliceConditionalLayersIntoDts', () => {

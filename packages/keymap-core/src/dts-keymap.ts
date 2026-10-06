@@ -10,11 +10,11 @@
 
 import {
   findCombosBlock,
-  parseDtsCombos,
+  parseDtsCombosDetailed,
   type DtsComboJson
 } from './dts-combos.js'
-import { parseDtsConditionalLayers } from './dts-conditional-layers.js'
-import { parseDtsHoldTaps } from './dts-behaviors.js'
+import { parseDtsConditionalLayersDetailed } from './dts-conditional-layers.js'
+import { parseDtsHoldTapsDetailed } from './dts-behaviors.js'
 import {
   findAngleProp,
   findNamedBlock,
@@ -244,14 +244,20 @@ export interface DtsKeymapJson {
   /**
    * Raw combo nodes (string bindings); converted in parseKeymap.
    * Omitted when the file has no `combos` block, or when a block is present
-   * but yields zero parsed nodes from a non-empty body (`combos_unparsed`).
-   * An explicit empty array means the file owns an empty combos list
-   * (Save may remove the block).
+   * but not fully parsed (`combos_unparsed`: skipped node, DTS label, or
+   * non-numeric token). An explicit empty array means the file owns an empty
+   * combos list (Save may remove the block).
    */
   combos?: DtsComboJson[]
-  /** Omitted when the file has no conditional-layer rules. */
+  /**
+   * Omitted when the file has no conditional-layer rules, or when a rule is
+   * not fully parsed (`conditional_layers_unparsed`).
+   */
   conditionalLayers?: ZmkConditionalLayer[]
-  /** Omitted when the file has no hold-tap nodes or timing blocks. */
+  /**
+   * Omitted when the file has no hold-tap nodes, or when timing is not fully
+   * numeric (`hold_tap_timing_unparsed`).
+   */
   holdTaps?: ZmkHoldTap[]
   /**
    * One string array per layer. Omitted when no layer has `sensor-bindings`.
@@ -319,9 +325,9 @@ export function parseDtsKeymap(
   }
 
   const combosBlock = findCombosBlock(source)
-  const combosRaw = parseDtsCombos(source)
+  const combosParsed = parseDtsCombosDetailed(source)
   const combos: DtsComboJson[] = []
-  for (const c of combosRaw) {
+  for (const c of combosParsed.combos) {
     if (macrosAppearInText(c.binding, compiled)) {
       anyMacroExpanded = true
       combos.push({ ...c, binding: expandMacros(c.binding, compiled) })
@@ -338,7 +344,9 @@ export function parseDtsKeymap(
   }
 
   let ownedCombos: DtsComboJson[] | undefined
-  if (combos.length > 0) {
+  if (combosParsed.unparsed) {
+    warnings.push('combos_unparsed')
+  } else if (combos.length > 0) {
     ownedCombos = combos
   } else if (combosBlock) {
     const body = source.slice(combosBlock.bodyStart, combosBlock.bodyEnd).trim()
@@ -350,8 +358,21 @@ export function parseDtsKeymap(
     }
   }
 
-  const conditionalLayers = parseDtsConditionalLayers(source)
-  const holdTaps = parseDtsHoldTaps(source)
+  const conditionalParsed = parseDtsConditionalLayersDetailed(source)
+  let ownedConditional: ZmkConditionalLayer[] | undefined
+  if (conditionalParsed.unparsed) {
+    warnings.push('conditional_layers_unparsed')
+  } else if (conditionalParsed.rules.length > 0) {
+    ownedConditional = conditionalParsed.rules
+  }
+
+  const holdParsed = parseDtsHoldTapsDetailed(source)
+  let ownedHoldTaps: ZmkHoldTap[] | undefined
+  if (holdParsed.unparsed) {
+    warnings.push('hold_tap_timing_unparsed')
+  } else if (holdParsed.holdTaps.length > 0) {
+    ownedHoldTaps = holdParsed.holdTaps
+  }
 
   return {
     keyboard: meta.keyboard ?? 'unknown',
@@ -360,8 +381,8 @@ export function parseDtsKeymap(
     layer_names,
     layers,
     ...(ownedCombos !== undefined ? { combos: ownedCombos } : {}),
-    ...(conditionalLayers.length > 0 ? { conditionalLayers } : {}),
-    ...(holdTaps.length > 0 ? { holdTaps } : {}),
+    ...(ownedConditional !== undefined ? { conditionalLayers: ownedConditional } : {}),
+    ...(ownedHoldTaps !== undefined ? { holdTaps: ownedHoldTaps } : {}),
     ...(anySensor ? { sensorBindings: sensorRows } : {}),
     warnings
   }

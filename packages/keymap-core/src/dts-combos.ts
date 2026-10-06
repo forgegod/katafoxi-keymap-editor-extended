@@ -12,7 +12,8 @@ import {
   hasBoolProp,
   maskDts,
   matchBrace,
-  parseUintList,
+  readUintAngleProp,
+  readUintAngleScalar,
   tokenizeBindings,
   type DtsNamedBlock
 } from './dts-scan.js'
@@ -40,12 +41,6 @@ export function findCombosBlock(source: string): DtsCombosBlock | null {
   return findNamedBlock(source, masked, 'combos', { compatible: 'zmk,combos' })
 }
 
-function parseOptionalUintProp(body: string, prop: string): number | undefined {
-  const m = new RegExp(`(?<![\\w-])${prop}\\s*=\\s*<\\s*(\\d+)\\s*>`).exec(body)
-  if (!m) return undefined
-  return Number(m[1])
-}
-
 /** Raw combo as stored in DtsKeymapJson before parseKeymap. */
 export interface DtsComboJson {
   id: string
@@ -58,21 +53,36 @@ export interface DtsComboJson {
   layers?: number[]
 }
 
+export interface DtsCombosParse {
+  combos: DtsComboJson[]
+  /**
+   * True when a child node was skipped, had a DTS label, or a uint property
+   * was not fully numeric. Save must omit `combos` so the block is left alone.
+   */
+  unparsed: boolean
+}
+
 /**
  * Parse combo nodes from a .keymap source. Missing / empty block → [].
  * Macros in combo bindings are left as written (caller may expand separately).
  */
 export function parseDtsCombos(source: string): DtsComboJson[] {
+  return parseDtsCombosDetailed(source).combos
+}
+
+export function parseDtsCombosDetailed(source: string): DtsCombosParse {
   const masked = maskDts(source)
   const block = findNamedBlock(source, masked, 'combos', { compatible: 'zmk,combos' })
-  if (!block) return []
+  if (!block) return { combos: [], unparsed: false }
 
   const body = masked.slice(block.bodyStart, block.bodyEnd)
   const combos: DtsComboJson[] = []
-  const re = /(\w+)\s*\{/g
+  let unparsed = false
+  const re = /(?:([A-Za-z_]\w*)\s*:\s*)?([A-Za-z_]\w*)\s*\{/g
   let m: RegExpExecArray | null
   while ((m = re.exec(body)) !== null) {
-    const name = m[1]
+    const label = m[1]
+    const name = m[2]
     const openBraceRel = m.index + m[0].length - 1
     const openBrace = block.bodyStart + openBraceRel
     const closeBrace = matchBrace(masked, openBrace)
@@ -82,35 +92,53 @@ export function parseDtsCombos(source: string): DtsComboJson[] {
     }
     re.lastIndex = closeBrace - block.bodyStart + 1
 
+    if (label) unparsed = true
+
     const range = { start: openBrace + 1, end: closeBrace }
     const nodeBody = masked.slice(openBrace + 1, closeBrace)
     const bindings = findAngleProp(masked, range, 'bindings')
-    const positions = findAngleProp(masked, range, 'key-positions')
-    if (!bindings || !positions) continue
+    const positions = readUintAngleProp(masked, range, 'key-positions')
+    if (!bindings || positions.kind !== 'ok') {
+      unparsed = true
+      continue
+    }
 
     // One binding per combo (ZMK allows one); tokenizeBindings tolerates spaces in ().
     const binds = tokenizeBindings(masked.slice(bindings.start, bindings.end))
-    if (binds.length === 0) continue
+    if (binds.length === 0) {
+      unparsed = true
+      continue
+    }
 
     const combo: DtsComboJson = {
       id: name,
-      keyPositions: parseUintList(source.slice(positions.start, positions.end)),
+      keyPositions: positions.values,
       binding: binds[0]
     }
 
-    const timeoutMs = parseOptionalUintProp(nodeBody, 'timeout-ms')
-    if (timeoutMs !== undefined) combo.timeoutMs = timeoutMs
-    const idle = parseOptionalUintProp(nodeBody, 'require-prior-idle-ms')
-    if (idle !== undefined) combo.requirePriorIdleMs = idle
-    if (hasBoolProp(nodeBody, 'slow-release')) combo.slowRelease = true
-    const layersInterior = findAngleProp(masked, range, 'layers')
-    if (layersInterior) {
-      combo.layers = parseUintList(source.slice(layersInterior.start, layersInterior.end))
+    const timeoutMs = readUintAngleScalar(masked, range, 'timeout-ms')
+    if (timeoutMs.kind === 'unparsed') {
+      unparsed = true
+      continue
     }
+    if (timeoutMs.kind === 'ok') combo.timeoutMs = timeoutMs.value
+    const idle = readUintAngleScalar(masked, range, 'require-prior-idle-ms')
+    if (idle.kind === 'unparsed') {
+      unparsed = true
+      continue
+    }
+    if (idle.kind === 'ok') combo.requirePriorIdleMs = idle.value
+    if (hasBoolProp(nodeBody, 'slow-release')) combo.slowRelease = true
+    const layers = readUintAngleProp(masked, range, 'layers')
+    if (layers.kind === 'unparsed') {
+      unparsed = true
+      continue
+    }
+    if (layers.kind === 'ok') combo.layers = layers.values
 
     combos.push(combo)
   }
-  return combos
+  return { combos, unparsed }
 }
 
 function sanitizeComboId(id: string): string {

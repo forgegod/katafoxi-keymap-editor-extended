@@ -242,6 +242,88 @@ describe('parseDtsKeymap combos', () => {
     expect(built.code).not.toContain('combos')
     expect(built.code).toContain('&kp A')
   })
+
+  it('omits combos when key-positions, layers, or timeout use macros', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        layer_0 { bindings = <&kp A &kp B>; };
+    };
+
+    combos {
+        compatible = "zmk,combos";
+
+        /* keep this comment */
+        combo_esc {
+            bindings = <&kp ESC>;
+            key-positions = <LT0 LT1>;
+            timeout-ms = <COMBO_T>;
+            layers = <BASE>;
+        };
+    };
+};
+`
+    const raw = parseDtsKeymap(src)
+    expect(raw.combos).toBeUndefined()
+    expect(raw.warnings).toContain('combos_unparsed')
+    const built = buildKeymapCode(TINY_LAYOUT, parseKeymap(raw), { originalSource: src })
+    expect(built.code).toContain('key-positions = <LT0 LT1>;')
+    expect(built.code).toContain('layers = <BASE>;')
+    expect(built.code).toContain('timeout-ms = <COMBO_T>;')
+    expect(built.code).toContain('/* keep this comment */')
+  })
+
+  it('omits combos when a node has a DTS label so Save keeps the label', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        layer_0 { bindings = <&kp A &kp B>; };
+    };
+
+    combos {
+        compatible = "zmk,combos";
+        lbl: c_esc {
+            bindings = <&kp ESC>;
+            key-positions = <0 1>;
+        };
+    };
+};
+`
+    const raw = parseDtsKeymap(src)
+    expect(raw.combos).toBeUndefined()
+    expect(raw.warnings).toContain('combos_unparsed')
+    const built = buildKeymapCode(TINY_LAYOUT, parseKeymap(raw), { originalSource: src })
+    expect(built.code).toContain('lbl: c_esc {')
+    expect(built.code).toContain('key-positions = <0 1>;')
+  })
+
+  it('omits the whole combos list when one node is numeric and another is not', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        layer_0 { bindings = <&kp A &kp B>; };
+    };
+
+    combos {
+        compatible = "zmk,combos";
+        combo_esc {
+            bindings = <&kp ESC>;
+            key-positions = <0 1>;
+        };
+        combo_tab {
+            bindings = <&kp TAB>;
+            key-positions = <LT0 LT1>;
+        };
+    };
+};
+`
+    const raw = parseDtsKeymap(src)
+    expect(raw.combos).toBeUndefined()
+    expect(raw.warnings).toContain('combos_unparsed')
+    const built = buildKeymapCode(TINY_LAYOUT, parseKeymap(raw), { originalSource: src })
+    expect(built.code).toContain('combo_esc')
+    expect(built.code).toContain('key-positions = <LT0 LT1>;')
+  })
 })
 
 describe('spliceCombosIntoDts', () => {
