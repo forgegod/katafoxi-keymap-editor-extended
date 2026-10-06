@@ -36,10 +36,16 @@ export interface DtsChildNode {
 
 const CHILD_NODE_RE = /(?:([A-Za-z_]\w*)\s*:\s*)?([A-Za-z0-9,._+@-]+)\s*\{/g
 
+/** Escape `value` so it can be embedded in a `RegExp` source. */
+export function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, ch => `\\${ch}`)
+}
+
 /**
  * Replace // and /* comments, and double-quoted string interiors, with spaces
  * of the same length. Newlines in comments stay so line structure is stable.
  * Quote characters stay so callers can recover string values from the original.
+ * Inside a string, `\\` also masks the next character so `\"` does not end it.
  */
 export function maskDts(source: string): string {
   const out = new Array<string>(source.length)
@@ -76,6 +82,12 @@ export function maskDts(source: string): string {
       out[i] = '"'
       i++
       while (i < source.length && source[i] !== '"') {
+        if (source[i] === '\\' && i + 1 < source.length) {
+          out[i] = ' '
+          out[i + 1] = source[i + 1] === '\n' ? '\n' : ' '
+          i += 2
+          continue
+        }
         out[i] = source[i] === '\n' ? '\n' : ' '
         i++
       }
@@ -345,10 +357,6 @@ function blockHasCompatible(
     if (source.slice(contentStart, contentEnd) === compatible) return true
   }
   return false
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 export interface TokenizeBindingsResult {

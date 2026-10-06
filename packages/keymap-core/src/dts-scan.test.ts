@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  escapeRegExp,
   findAngleProp,
   findNamedBlock,
   hasBoolProp,
@@ -21,6 +22,14 @@ describe('maskDts', () => {
     // Quotes stay so callers can recover string values from the original.
     expect(masked.includes('"')).toBe(true)
     expect(masked).toMatch(/^a + \n b + c " + " d$/)
+  })
+
+  it('masks an escaped quote and the following character inside a string', () => {
+    const src = 'label = "a \\" b"; keymap { }'
+    const masked = maskDts(src)
+    expect(masked.length).toBe(src.length)
+    expect(masked).toBe('label = "      "; keymap { }')
+    expect(masked.indexOf('{')).toBe(src.indexOf('{'))
   })
 })
 
@@ -184,5 +193,12 @@ describe('hasPreprocessorConditional', () => {
       true
     )
     expect(hasPreprocessorConditional(maskDts('// #ifdef FOO\nkeymap { };'))).toBe(false)
+  })
+})
+
+describe('escapeRegExp', () => {
+  it('escapes metacharacters so a literal $& matches', () => {
+    expect(escapeRegExp('a.b+c')).toBe('a\\.b\\+c')
+    expect(new RegExp(`^${escapeRegExp('$&')}$`).test('$&')).toBe(true)
   })
 })

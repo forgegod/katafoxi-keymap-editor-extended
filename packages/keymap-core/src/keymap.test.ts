@@ -97,6 +97,19 @@ describe('generateKeymap mouse includes', () => {
     expect(cyrillic).toMatch(/\blayer____2\s*\{/)
     expect(cyrillic.match(/\blayer___\s*\{/g)?.length).toBe(1)
   })
+
+  it('inserts $& from a binding as a literal in code and json', () => {
+    const layout = [{ x: 0, y: 0 }, { x: 1, y: 0 }]
+    const { code, json } = generateKeymap(
+      layout,
+      parseKeymap({ layers: [['&kp $&', '&trans']] })
+    )
+    expect(code).toContain('&kp $&')
+    expect(code).not.toContain('{{rendered_layers}}')
+    expect(code).not.toContain('{{ rendered_layers }}')
+    expect(json).toContain('&kp $&')
+    expect(json).not.toMatch(/"layers": null/)
+  })
 })
 
 describe('isUserKeymapFilename', () => {

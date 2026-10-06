@@ -20,26 +20,25 @@ import {
   findNamedBlock,
   findNamedBlocks,
   hasPreprocessorConditional,
+  escapeRegExp,
   iterateChildNodes,
   maskDts,
   matchBrace,
+  tokenizeBindings,
   tokenizeBindingsDetailed,
   type DtsNamedBlock
 } from './dts-scan.js'
 import { KeymapValidationError } from './errors.js'
 import type { ZmkConditionalLayer, ZmkHoldTap } from './types.js'
 
-const DEFINE_RE = /^#define\s+(\w+)\s+(.+)$/gm
+const DEFINE_RE = /^#define[ \t]+(\w+)(?:[ \t]+(.+))?$/gm
+const MAX_MACRO_EXPAND_DEPTH = 32
 
 /** Compiled `#define` table: patterns built once per parse/save. */
 export interface CompiledMacros {
   macros: Record<string, string>
   /** Longest keys first; each `re` is `\bkey\b` with the `g` flag. */
-  entries: { key: string; re: RegExp; value: string }[]
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  entries: { key: string; re: RegExp; value: string; multiBinding: boolean }[]
 }
 
 /** Compile whole-word replace patterns once for a `#define` map. */
@@ -50,7 +49,8 @@ export function compileMacros(macros: Record<string, string>): CompiledMacros {
     entries: keys.map(key => ({
       key,
       re: new RegExp(`\\b${escapeRegExp(key)}\\b`, 'g'),
-      value: macros[key]
+      value: macros[key],
+      multiBinding: tokenizeBindings(macros[key]).length > 1
     }))
   }
 }
@@ -152,11 +152,28 @@ export function findKeymapLayerNodes(
   return nodes
 }
 
-function expandMacros(text: string, compiled: CompiledMacros): string {
+function expandMacros(
+  text: string,
+  compiled: CompiledMacros,
+  warnings: string[]
+): string {
   let out = text
-  for (const { re, value } of compiled.entries) {
-    re.lastIndex = 0
-    out = out.replace(re, value)
+  for (let depth = 0; depth < MAX_MACRO_EXPAND_DEPTH; depth++) {
+    let changed = false
+    for (const { re, value, multiBinding } of compiled.entries) {
+      if (multiBinding) {
+        re.lastIndex = 0
+        if (re.test(out)) addWarning(warnings, 'macros_multi_binding')
+        continue
+      }
+      re.lastIndex = 0
+      const next = out.replace(re, () => value)
+      if (next !== out) {
+        out = next
+        changed = true
+      }
+    }
+    if (!changed) break
   }
   return out
 }
@@ -223,21 +240,26 @@ export function keymapBindingsText(source: string): string | null {
 /** Split a bindings block into individual bind strings (each starts with &). */
 export { tokenizeBindings, tokenizeBindingsDetailed } from './dts-scan.js'
 
+/** Join `\` + EOL so a continued `#define` is one logical line. */
+function joinBackslashEol(text: string): string {
+  return text.replace(/\\(?:\r\n|\n|\r)/g, '')
+}
+
 /**
  * Collect simple `#define NAME replacement` aliases. Searches the masked
- * view so defines inside comments are ignored.
+ * view so defines inside comments are ignored. Values come from the mask
+ * (comments already spaces). `[ \t]+` does not steal the next line.
  */
 export function parseDefines(source: string): Record<string, string> {
-  const masked = maskDts(source)
+  const masked = maskDts(joinBackslashEol(source))
   const macros: Record<string, string> = {}
   let match: RegExpExecArray | null
   const re = new RegExp(DEFINE_RE)
   while ((match = re.exec(masked)) !== null) {
-    // Slice the replacement from the original so string interiors stay intact.
-    const value = source
-      .slice(match.index + match[0].length - match[2].length, match.index + match[0].length)
-      .replace(/\/\/.*$/, '')
-      .trim()
+    const raw = match[2]
+    if (raw == null) continue
+    const value = raw.replace(/[ \t]+/g, ' ').trim()
+    if (!value) continue
     macros[match[1]] = value
   }
   return macros
@@ -309,7 +331,7 @@ export function parseDtsKeymap(
       anyMacroExpanded = true
     }
     const { binds, hasUnparsedFragment } = tokenizeBindingsDetailed(
-      expandMacros(rawBlock, compiled)
+      expandMacros(rawBlock, compiled, warnings)
     )
     if (hasUnparsedFragment) anyUnparsedFragment = true
     layers.push(binds)
@@ -327,7 +349,9 @@ export function parseDtsKeymap(
     anySensor = true
     const sensorRaw = masked.slice(sensorInterior.start, sensorInterior.end)
     if (macrosAppearInText(sensorRaw, compiled)) anyMacroExpanded = true
-    const sensorTok = tokenizeBindingsDetailed(expandMacros(sensorRaw, compiled))
+    const sensorTok = tokenizeBindingsDetailed(
+      expandMacros(sensorRaw, compiled, warnings)
+    )
     if (sensorTok.hasUnparsedFragment) anyUnparsedFragment = true
     sensorRows.push(sensorTok.binds)
   }
@@ -342,7 +366,7 @@ export function parseDtsKeymap(
   for (const c of combosParsed.combos) {
     if (macrosAppearInText(c.binding, compiled)) {
       anyMacroExpanded = true
-      combos.push({ ...c, binding: expandMacros(c.binding, compiled) })
+      combos.push({ ...c, binding: expandMacros(c.binding, compiled, warnings) })
     } else {
       combos.push(c)
     }

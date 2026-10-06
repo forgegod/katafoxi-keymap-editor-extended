@@ -297,8 +297,8 @@ ${rendered}
   })
 
   return template
-    .replace(includesPattern, params.behaviourHeaders.join('\n'))
-    .replace(layersPattern, renderedLayers.join(''))
+    .replace(includesPattern, () => params.behaviourHeaders.join('\n'))
+    .replace(layersPattern, () => renderedLayers.join(''))
 }
 
 function generateKeymapCode(
@@ -340,7 +340,10 @@ function generateKeymapJSON(
     return `[\n${body}\n    ]`
   })
 
-  return base.replace('"layers": null', `"layers": [\n    ${rendered.join(', ')}\n  ]`)
+  return base.replace(
+    '"layers": null',
+    () => `"layers": [\n    ${rendered.join(', ')}\n  ]`
+  )
 }
 
 export function generateKeymap(

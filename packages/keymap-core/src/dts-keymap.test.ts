@@ -189,6 +189,90 @@ ORPHAN &kp A
     expect(km.warnings).toContain('macros_expanded')
     expect(km.warnings).not.toContain('unparsed_binding_fragment')
   })
+
+  it('joins a backslash-newline continued #define before parsing', () => {
+    const src = `#define VU C_VOL_\\
+UP
+/ {
+  keymap {
+    compatible = "zmk,keymap";
+    layer_0 {
+      bindings = <&kp VU &kp A>;
+    };
+  };
+};
+`
+    expect(parseDefines(src)).toEqual({ VU: 'C_VOL_UP' })
+    const km = parseDtsKeymap(src)
+    expect(km.layers[0]).toEqual(['&kp C_VOL_UP', '&kp A'])
+  })
+
+  it('takes the #define value from the mask so a block comment is not a token', () => {
+    const src = `#define VOL &kp /* skip */ C_VOL_UP
+/ {
+  keymap {
+    compatible = "zmk,keymap";
+    layer_0 {
+      bindings = <VOL &kp A>;
+    };
+  };
+};
+`
+    expect(parseDefines(src)).toEqual({ VOL: '&kp C_VOL_UP' })
+    const km = parseDtsKeymap(src)
+    expect(km.layers[0]).toEqual(['&kp C_VOL_UP', '&kp A'])
+  })
+
+  it('does not treat the next line as a value of an empty #define', () => {
+    const src = `#define FOO
+&kp STOLEN
+/ {
+  keymap {
+    compatible = "zmk,keymap";
+    layer_0 {
+      bindings = <&kp A &kp B>;
+    };
+  };
+};
+`
+    expect(parseDefines(src)).toEqual({})
+    const km = parseDtsKeymap(src)
+    expect(km.layers[0]).toEqual(['&kp A', '&kp B'])
+  })
+
+  it('expands chained #define aliases regardless of declaration order', () => {
+    const src = `#define A B
+#define B X
+/ {
+  keymap {
+    compatible = "zmk,keymap";
+    layer_0 {
+      bindings = <&kp A &kp C>;
+    };
+  };
+};
+`
+    const km = parseDtsKeymap(src)
+    expect(km.layers[0]).toEqual(['&kp X', '&kp C'])
+    expect(km.warnings).toContain('macros_expanded')
+  })
+
+  it('does not expand a #define whose value is several & bindings', () => {
+    const src = `#define KEYS &kp A &kp B
+/ {
+  keymap {
+    compatible = "zmk,keymap";
+    layer_0 {
+      bindings = <KEYS>;
+    };
+  };
+};
+`
+    const km = parseDtsKeymap(src)
+    expect(km.layers[0]).not.toEqual(['&kp A', '&kp B'])
+    expect(km.layers[0]).toEqual([])
+    expect(km.warnings).toContain('macros_multi_binding')
+  })
 })
 
 describe('buildKeymapCode macros_expanded regions', () => {
