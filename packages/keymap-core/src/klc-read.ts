@@ -9,6 +9,7 @@
  * names, and custom dead-key compositions are not stored.
  */
 
+import { guessHostLanguageFromLetters } from './host-basic-glyphs.js'
 import { HOST_KEY_IDS } from './host-key-id.js'
 import { hostLayoutFromKeysyms, type HostLayout } from './host-layout.js'
 import { HOST_LANGUAGE_IDS, type HostLanguageId } from './host-languages.js'
@@ -34,8 +35,8 @@ export interface KlcLayoutImport {
   /** Caps Lock alphabet. Present only when `kind` is `paired`. */
   caps?: HostLayout
   /**
-   * Russian, Ukrainian, or German when those letters are on Caps Lock.
-   * Null for a single layout, or when the second alphabet is not one of those.
+   * Catalog language guessed from Caps Lock letters (`LETTERS` coverage).
+   * Null for a single layout, or when those letters match none of the catalog.
    */
   capsLanguage: HostLanguageId | null
   warnings: string[]
@@ -244,32 +245,6 @@ function filled(keysyms: readonly string[]): boolean {
   return keysyms.some(keysym => keysym !== 'NoSymbol')
 }
 
-function guessCapsLanguage(layout: HostLayout): HostLanguageId | null {
-  let text = ''
-  for (const levels of layout.byZmk.values()) {
-    text += levels.glyphs[0] + levels.glyphs[1]
-  }
-  if (/[іїєґІЇЄҐ]/.test(text)) return 'uk'
-  // Bulgarian BDS places ѝ (U+045D) on soft-sign / ISO keys; check before ru.
-  if (/[ѝЍ]/.test(text)) return 'bg'
-  if (/[\u0400-\u04FF]/.test(text)) return 'ru'
-  if (/[α-ωΑ-Ω]/.test(text)) return 'el'
-  if (/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/.test(text)) return 'pl'
-  if (/[ěščřžýáíéďťňúůĚŠČŘŽÝÁÍÉĎŤŇÚŮ]/.test(text)) return 'cs'
-  if (/[șțăîâȘȚĂÎÂ]/.test(text)) return 'ro'
-  if (/[őűŐŰ]/.test(text)) return 'hu'
-  if (/[ıİğĞşŞ]/.test(text)) return 'tr'
-  if (/[œæŒÆçÇ]/.test(text)) return 'fr'
-  if (/[ãõÃÕ]/.test(text)) return 'pt'
-  if (/[ñÑ¿¡]/.test(text)) return 'es'
-  // æ/ø → Danish; å without æ/ø → Swedish; ü/ß → German (äö alone are ambiguous).
-  if (/[æøÆØ]/.test(text)) return 'da'
-  if (/[åÅ]/.test(text)) return 'sv'
-  if (/[àèéìòùÀÈÉÌÒÙ]/.test(text)) return 'it'
-  if (/[äöüÄÖÜß]/.test(text)) return 'de'
-  return null
-}
-
 function languageByLocaleId(localeId: string): HostLanguageId | null {
   const id = localeId.trim().toLowerCase()
   if (!id) return null
@@ -439,7 +414,7 @@ export function parseKlc(text: string): KlcLayoutImport {
     kind,
     base,
     ...(caps ? { caps } : {}),
-    capsLanguage: caps ? guessCapsLanguage(caps) : null,
+    capsLanguage: caps ? guessHostLanguageFromLetters(caps) : null,
     warnings
   }
 }

@@ -526,8 +526,13 @@ export async function importHostLayoutFromKlc(this: EditorState,
     return null
   }
   const baseLanguage = parsed.baseLanguage ?? 'en'
-  const capsLanguage =
-    parsed.capsLanguage ?? (language !== baseLanguage ? language : null)
+  const destination = language !== baseLanguage ? language : null
+  const guessed = parsed.capsLanguage
+  const preferDestination =
+    destination != null &&
+    hostLanguage(destination).script === 'latin' &&
+    (guessed == null || hostLanguage(guessed).script === 'latin')
+  const capsLanguage = preferDestination ? destination : (guessed ?? destination)
   if (!capsLanguage || !parsed.caps) {
     return "This file puts another alphabet on Caps Lock. Import it from that language's column."
   }

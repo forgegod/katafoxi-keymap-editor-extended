@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { builtinHostLayoutSpecs } from './host-layout-catalog.js'
+import { builtinHostLayoutSpecs, primarySystemLayoutId } from './host-layout-catalog.js'
 import { hostLayoutFromSymbols, withHostKey, type HostLayout } from './host-layout.js'
+import { HOST_LANGUAGE_IDS } from './host-languages.js'
 import { decodeKlc, parseKlc } from './klc-read.js'
 import { windowsLocale, type WindowsLocale } from './klc-locale.js'
 import { encodeKlc, hostLayoutsToCapsKlc, hostLayoutToKlc } from './klc-write.js'
@@ -106,6 +107,22 @@ describe('parseKlc', () => {
     expect(parsed.kind).toBe('paired')
     expect(parsed.capsLanguage).toBe('de')
     expect(glyphs(parsed.caps!, 'SEMI')?.[0]).toBe(glyphs(systemLayout('system-de'), 'SEMI')?.[0])
+  })
+
+  it('guesses each catalog language from a paired English export', () => {
+    const english = systemLayout(primarySystemLayoutId('en')!)
+    for (const language of HOST_LANGUAGE_IDS) {
+      const layoutId = primarySystemLayoutId(language)
+      if (!layoutId || language === 'en') continue
+      const parsed = parseKlc(
+        hostLayoutsToCapsKlc(english, systemLayout(layoutId), {
+          name: `English + ${language}`,
+          locale: windowsLocale('en')
+        })
+      )
+      if (parsed.kind !== 'paired') continue
+      expect(parsed.capsLanguage, language).toBe(language)
+    }
   })
 
   it('rejects a file with no shift states', () => {

@@ -441,6 +441,18 @@ describe('host layout store', () => {
     )
   })
 
+  it('imports a Latin paired klc into the destination column', async () => {
+    editor.hostLegend = addHostLanguage(editor.hostLegend, 'fr')
+    const text = hostLayoutsToCapsKlc(
+      hostLayout(primarySystemLayoutId('en')!)!,
+      hostLayout(primarySystemLayoutId('cs')!)!,
+      { name: 'English + Czech', locale: windowsLocale('en') }
+    )
+    expect(await editor.importHostLayoutFromKlc('fr', encodeKlc(text), 'paired.klc')).toBeNull()
+    expect(editor.userLayouts.map(layout => layout.language)).toEqual(['en', 'fr'])
+    expect(editor.hostLegend.open).toBe('fr')
+  })
+
   it('names an unresolved include when importing xkb', async () => {
     const text = `
       xkb_symbols "broken" {
