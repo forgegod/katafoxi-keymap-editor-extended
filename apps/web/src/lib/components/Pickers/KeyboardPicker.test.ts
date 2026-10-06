@@ -146,6 +146,13 @@ describe('KeyboardPicker', () => {
     })
     expect(popover.hasAttribute('hidden')).toBe(false)
 
+    await vi.waitFor(() => {
+      expect(
+        [...target.querySelectorAll('.demo-card')].some(card =>
+          card.textContent?.includes('Lily58')
+        )
+      ).toBe(true)
+    })
     const lily = [...target.querySelectorAll('.demo-card')].find(card =>
       card.textContent?.includes('Lily58')
     )
@@ -153,9 +160,9 @@ describe('KeyboardPicker', () => {
       throw new Error('missing Lily58 demo')
     }
     lily.click()
-    flushSync()
-
-    expect(popover.hasAttribute('hidden')).toBe(true)
+    await vi.waitFor(() => {
+      expect(popover.hasAttribute('hidden')).toBe(true)
+    })
     expect(getComputedStyle(popover).display).toBe('none')
   })
 

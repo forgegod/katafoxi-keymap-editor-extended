@@ -14,7 +14,7 @@ describe('Lark demo host seed', () => {
   })
 
   it('opens English and Russian Lark host layouts on first demo load', async () => {
-    const bundle = loadDemo('lark')
+    const bundle = await loadDemo('lark')
     await editor.selectKeyboard({
       source: 'demo',
       layout: bundle.layout,
@@ -40,7 +40,7 @@ describe('Lark demo host seed', () => {
   })
 
   it('does not overwrite a customized legend', async () => {
-    const bundle = loadDemo('lark')
+    const bundle = await loadDemo('lark')
     await editor.selectKeyboard({
       source: 'demo',
       layout: bundle.layout,
@@ -75,7 +75,7 @@ describe('Lark demo host seed', () => {
   })
 
   it('keeps in-place host key edits when selecting the demo again', async () => {
-    const bundle = loadDemo('lark')
+    const bundle = await loadDemo('lark')
     const selection = {
       source: 'demo' as const,
       layout: bundle.layout,

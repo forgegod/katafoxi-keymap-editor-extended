@@ -9,11 +9,11 @@ import {
 import { loadDemo } from './catalog'
 
 describe('demo host seeds', () => {
-  it('attaches Lark EN+RU fixtures only to the Lark demo', () => {
+  it('attaches Lark EN+RU fixtures only to the Lark demo', async () => {
     expect(demoHostSeeds('corne')).toEqual([])
     const seeds = demoHostSeeds('lark')
     expect(seeds.map(seed => seed.id)).toEqual([DEMO_LARK_EN_ID, DEMO_LARK_RU_ID])
-    expect(loadDemo('lark').hostSeeds).toEqual(seeds)
+    expect((await loadDemo('lark')).hostSeeds).toEqual(seeds)
   })
 
   it('parses Lark host tables with Cyrillic on Q', () => {

@@ -26,29 +26,28 @@
     showGithubCta = true
   }: Props = $props()
 
-  const cards: {
-    entry: DemoCatalogEntry
-    layout: LayoutKey[]
-  }[] = DEMO_CATALOG.map(entry => {
-    const bundle = loadDemo(entry.id)
-    return {
-      entry,
-      layout: bundle.layout
-    }
-  })
+  let cards = $state<
+    {
+      entry: DemoCatalogEntry
+      layout: LayoutKey[]
+    }[]
+  >([])
 
   let selectedId = $state(readStoredDemoId())
   let error = $state<string | null>(null)
   let loadedId = $state<string | null>(null)
+  let emitGeneration = 0
 
   const selectedEntry = $derived(
     DEMO_CATALOG.find(entry => entry.id === selectedId) ?? DEMO_CATALOG[0]
   )
 
-  function emitDemo(id: string, userInitiated = false) {
+  async function emitDemo(id: string, userInitiated = false) {
+    const generation = ++emitGeneration
     error = null
     try {
-      const bundle = loadDemo(id)
+      const bundle = await loadDemo(id)
+      if (generation !== emitGeneration) return
       const already = loadedId === id
       selectedId = id
       loadedId = id
@@ -63,14 +62,29 @@
         ...(userInitiated ? { userInitiated: true } : {})
       })
     } catch (err) {
+      if (generation !== emitGeneration) return
       error = err instanceof Error ? err.message : 'Failed to load demo'
       console.error(err)
     }
   }
 
+  $effect(() => {
+    let cancelled = false
+    void Promise.all(
+      DEMO_CATALOG.map(async entry => {
+        const bundle = await loadDemo(entry.id)
+        return { entry, layout: bundle.layout }
+      })
+    ).then(next => {
+      if (!cancelled) cards = next
+    })
+    return () => {
+      cancelled = true
+    }
+  })
+
   function choose(id: string) {
-    selectedId = id
-    emitDemo(id, true)
+    void emitDemo(id, true)
   }
 
   $effect(() => {

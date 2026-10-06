@@ -19,7 +19,7 @@ describe('preferred demo host language', () => {
       language: 'ru-RU',
       languages: ['ru-RU', 'en-US']
     })
-    const bundle = loadDemo('corne')
+    const bundle = await loadDemo('corne')
     await editor.selectKeyboard({
       source: 'demo',
       layout: bundle.layout,
@@ -40,7 +40,7 @@ describe('preferred demo host language', () => {
       language: 'en-US',
       languages: ['en-US', 'ja-JP']
     })
-    const bundle = loadDemo('corne')
+    const bundle = await loadDemo('corne')
     await editor.selectKeyboard({
       source: 'demo',
       layout: bundle.layout,
@@ -56,7 +56,7 @@ describe('preferred demo host language', () => {
       language: 'ru-RU',
       languages: ['ru-RU']
     })
-    const bundle = loadDemo('corne')
+    const bundle = await loadDemo('corne')
     await editor.selectKeyboard({
       source: 'demo',
       layout: bundle.layout,
