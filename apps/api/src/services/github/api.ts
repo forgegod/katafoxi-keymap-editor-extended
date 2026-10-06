@@ -70,11 +70,12 @@ function prepare(options: ApiRequestOptions | string): { url: string; init: Requ
 
 async function throwIfNotOk(response: Response): Promise<void> {
   if (response.ok) return
-  let data: unknown
+  const raw = await response.text()
+  let data: unknown = raw
   try {
-    data = await response.json()
+    data = JSON.parse(raw) as unknown
   } catch {
-    data = await response.text()
+    data = raw
   }
   throw Object.assign(new Error(`GitHub API ${response.status}`), {
     response: { status: response.status, data, url: response.url }
