@@ -16,6 +16,7 @@ describe('demo catalog', () => {
   it('lists demos alphabetically by name and keeps Corne as the default', () => {
     expect(DEMO_CATALOG.map(entry => entry.name)).toEqual([
       'Corne',
+      'Glove80',
       'Kabarga',
       'Lark',
       'Lily58',
@@ -27,6 +28,7 @@ describe('demo catalog', () => {
     ])
     expect(DEMO_CATALOG.map(entry => entry.id)).toEqual([
       'corne',
+      'glove80',
       'kabarga',
       'lark',
       'lily58',
@@ -148,6 +150,13 @@ describe('demo catalog', () => {
     const { layout, keymap } = await loadDemo('nice60')
     expect(layout).toHaveLength(61)
     expect(keymap.layers).toHaveLength(2)
+    expect(keymap.combos?.length).toBeGreaterThanOrEqual(4)
+  })
+
+  it('loads Glove80 as an 80-key contoured split with three layers', async () => {
+    const { layout, keymap } = await loadDemo('glove80')
+    expect(layout).toHaveLength(80)
+    expect(keymap.layers).toHaveLength(3)
     expect(keymap.combos?.length).toBeGreaterThanOrEqual(4)
   })
 

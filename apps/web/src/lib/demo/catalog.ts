@@ -95,6 +95,13 @@ const DEMO_LOADERS: Record<string, () => Promise<DemoFiles>> = {
       import('../../../../../packages/keymap-core/fixtures/demo/nice60/nice60.keymap?raw')
     ])
     return { info: info as InfoJson, keymapSource }
+  },
+  glove80: async () => {
+    const [{ default: info }, { default: keymapSource }] = await Promise.all([
+      import('../../../../../packages/keymap-core/fixtures/demo/glove80/info.json'),
+      import('../../../../../packages/keymap-core/fixtures/demo/glove80/glove80.keymap?raw')
+    ])
+    return { info: info as InfoJson, keymapSource }
   }
 }
 

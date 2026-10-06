@@ -8,6 +8,12 @@
       "default": true
     },
     {
+      "id": "glove80",
+      "name": "Glove80",
+      "blurb": "80-key split · contoured · commercial ZMK",
+      "repoUrl": "https://github.com/moergo-sc/glove80-zmk-config"
+    },
+    {
       "id": "kabarga",
       "name": "Kabarga",
       "blurb": "42-key split · angled columns · 3×6 + thumbs",
