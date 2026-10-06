@@ -355,6 +355,11 @@ describe('KeyboardPicker', () => {
 
   it('moves the source radiogroup with arrow keys and a roving tabindex', async () => {
     open()
+    const trigger = target.querySelector('.source-trigger')
+    if (!(trigger instanceof HTMLButtonElement)) throw new Error('missing source trigger')
+    trigger.click()
+    flushSync()
+
     const group = target.querySelector('[role="radiogroup"]')
     if (!(group instanceof HTMLElement)) throw new Error('missing radiogroup')
     const demo = target.querySelector('[data-source="demo"]')
