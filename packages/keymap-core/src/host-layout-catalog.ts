@@ -1,6 +1,5 @@
 import {
   HOST_LANGUAGES,
-  hostLanguage,
   type HostLanguage,
   type HostLanguageId
 } from './host-languages.js'

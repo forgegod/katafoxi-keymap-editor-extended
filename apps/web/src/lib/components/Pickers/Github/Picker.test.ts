@@ -439,7 +439,7 @@ describe('Github Picker', () => {
     const initial = deferred<KeyboardFilesResult>()
     const reload = deferred<KeyboardFilesResult>()
     let fetchCount = 0
-    vi.spyOn(github, 'fetchLayoutAndKeymap').mockImplementation(async (_repo, branch) => {
+    vi.spyOn(github, 'fetchLayoutAndKeymap').mockImplementation(async (_repo, _branch) => {
       fetchCount += 1
       if (fetchCount === 1) return initial.promise
       if (fetchCount === 2) return reload.promise

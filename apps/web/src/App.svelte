@@ -114,7 +114,7 @@
   }
 
   async function handleWriteFiles() {
-    const ok = await publishKeymap(editor, {
+    await publishKeymap(editor, {
       write: async sentDraft => {
         const response = await fetch(`${config.apiBaseUrl}/keymap`, {
           method: 'POST',

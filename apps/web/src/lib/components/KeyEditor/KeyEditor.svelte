@@ -94,10 +94,6 @@
   let query = $state('')
   let pinnedContexts = $state<string[] | null>(null)
   let pinnedForKey = $state('')
-  let pulseIndex = $state<number | null>(null)
-  let pulseOn = $state(false)
-  let pulseTimer = 0
-  let pulseFrame = 0
 
   const used = $derived(usedKeycodes ?? new Map<string, readonly number[]>())
   const activeSlot = $derived(
@@ -295,20 +291,6 @@
     terminalKeySlot(editorSlots, keySlot?.codeIndex ?? activeCodeIndex)?.value
   )
 
-  function pulseMissing(codeIndex: number) {
-    window.clearTimeout(pulseTimer)
-    if (pulseFrame) cancelAnimationFrame(pulseFrame)
-    pulseOn = false
-    pulseIndex = codeIndex
-    pulseFrame = requestAnimationFrame(() => {
-      pulseFrame = 0
-      pulseOn = true
-      pulseTimer = window.setTimeout(() => {
-        pulseOn = false
-      }, 1000)
-    })
-  }
-
   function handleApply() {
     if (canConfirm) {
       const staged = stagedHoldTaps
@@ -319,7 +301,6 @@
     const missing = firstMissingSlot(editorSlots)
     if (!missing) return
     onActivateSlot(missing.codeIndex)
-    pulseMissing(missing.codeIndex)
   }
 
   function selectTaxonomy(chipId: string) {
@@ -346,8 +327,6 @@
     window.addEventListener('keydown', onKey)
     return () => {
       window.removeEventListener('keydown', onKey)
-      if (pulseFrame) cancelAnimationFrame(pulseFrame)
-      window.clearTimeout(pulseTimer)
     }
   })
 </script>
