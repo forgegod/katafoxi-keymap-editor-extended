@@ -89,4 +89,21 @@ describe('collectUsedKeycodes', () => {
     expect(after.get('F12')).toEqual([1])
     expect(usedKeycodesRevision(after)).not.toBe(usedKeycodesRevision(before))
   })
+
+  it('counts combo taps on the combo layers, or every layer when unfiltered', () => {
+    const none = { value: '&none', params: [] }
+    const kp = (code: string) => ({
+      value: '&kp',
+      params: [{ value: code, params: [] }]
+    })
+    const used = collectUsedKeycodes(
+      [[none, none], [none, none]],
+      [
+        { binding: kp('T') },
+        { binding: kp('R'), layers: [1] }
+      ]
+    )
+    expect(used.get('T')).toEqual([0, 1])
+    expect(used.get('R')).toEqual([1])
+  })
 })

@@ -306,7 +306,9 @@ export function comboListMeta(combo: {
     bits.push(`idle${combo.requirePriorIdleMs}`)
   }
   const n = combo.keyPositions.length
-  if (n < 2) bits.push(n === 0 ? 'no keys' : 'need 2+')
+  if (n === 0) bits.push('no keys')
+  else if (n === 1) bits.push('1-key')
+  else if (n > COMBO_MAX_KEYS) bits.push(`${n} keys`)
   return bits.join(' · ')
 }
 
@@ -320,13 +322,14 @@ export function comboAppliesToAnyLayer(
   return combo.layers.some(l => layers.includes(l))
 }
 
-/** ZMK combos are chords — one key is just a normal binding. */
+/** Usual chord size for new combos. ZMK still accepts 1-key and longer sets. */
 export const COMBO_MIN_KEYS = 2
-/** Soft cap: more than a handful is awkward to press and usually a mistake. */
+/** Soft cap: more than a handful is awkward to press. Not a ZMK limit. */
 export const COMBO_MAX_KEYS = 5
 
 export type ComboKeysIssue = 'too_few' | 'too_many'
 
+/** Advisory key-count hint. Does not mean the .keymap is invalid. */
 export function comboKeysIssue(
   keyPositions: readonly number[]
 ): ComboKeysIssue | null {
@@ -336,10 +339,16 @@ export function comboKeysIssue(
   return null
 }
 
-export function comboKeysMessage(issue: ComboKeysIssue | null): string | null {
-  if (issue === 'too_few') return 'A combo needs at least 2 keys.'
+export function comboKeysMessage(
+  issue: ComboKeysIssue | null,
+  keyCount?: number
+): string | null {
+  if (issue === 'too_few') {
+    if ((keyCount ?? 1) === 0) return 'Click keys on the board.'
+    return 'ZMK allows a 1-key combo; it usually belongs on the layer.'
+  }
   if (issue === 'too_many') {
-    return `A combo can use at most ${COMBO_MAX_KEYS} keys.`
+    return `More than ${COMBO_MAX_KEYS} keys is awkward to press; ZMK still allows this.`
   }
   return null
 }

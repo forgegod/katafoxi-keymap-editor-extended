@@ -96,12 +96,18 @@ export function hydrateTree(
     const { value: nodeValue, params: nodeParams = [] } = node
     const source = getSourceValue(nodeValue, as) as Record<string, unknown> | undefined
     const sourceParams = (get(source, 'params', []) as unknown[]) || []
+    // Prefer catalog arity; keep extra children when the binding nest is longer
+    // than the catalogue (or the source map missed the wrap entry).
+    const childCount = Math.max(sourceParams.length, nodeParams.length)
 
     return {
       value: nodeValue,
       source: source ?? null,
-      params: sourceParams.map((paramAs, i) =>
-        hydrateNode(nodeParams[i] as { value?: string | number; params?: unknown[] }, paramAs)
+      params: Array.from({ length: childCount }, (_, i) =>
+        hydrateNode(
+          nodeParams[i] as { value?: string | number; params?: unknown[] } | undefined,
+          sourceParams[i] ?? 'code'
+        )
       )
     }
   }

@@ -38,6 +38,7 @@
 
   const sources = $derived.by(() => {
     const defs = definitionsBox?.current
+    const searchSources = searchBox?.current?.sources ?? {}
     const holdTaps = editor.draftKeymap?.holdTaps ?? editor.baselineKeymap?.holdTaps
     const catalog = defs
       ? mergeHoldTapCatalog(defs.behaviours, holdTaps).byCode
@@ -55,10 +56,10 @@
       }
     }
     return {
-      keycodes: (defs?.keycodes.byCode ?? getKeycodeCatalog().byCode) as Record<
-        string,
-        unknown
-      >,
+      ...searchSources,
+      code: (searchSources.code ??
+        defs?.keycodes.byCode ??
+        getKeycodeCatalog().byCode) as Record<string, unknown>,
       behaviours
     }
   })
@@ -189,13 +190,17 @@
     gap: 8px 12px;
     width: 100%;
     box-sizing: border-box;
+    /* Match the filled turn-row height so layer hover does not shift the board. */
+    min-height: 28px;
     padding: 2px 8px 6px;
   }
 
   .encoder-row {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 8px;
+    min-height: 20px;
   }
 
   .encoder {
@@ -213,6 +218,7 @@
     color: var(--text);
     font: inherit;
     font-size: var(--font-sm, 12px);
+    line-height: 1.2;
     cursor: pointer;
     padding: 2px 4px;
     border-radius: 6px;
@@ -238,6 +244,13 @@
   .encoder-code {
     margin: 0;
     font-size: var(--font-sm, 12px);
+    line-height: 1.2;
     opacity: 0.75;
+  }
+
+  .encoder-empty {
+    display: flex;
+    align-items: center;
+    min-height: 20px;
   }
 </style>

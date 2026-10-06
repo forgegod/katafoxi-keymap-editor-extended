@@ -310,3 +310,9 @@ export function usShiftAlias(
 ): { base: string; symbol: string; rank: number } | null {
   return firstNamedEntry(choiceNames(choice), US_SHIFT_BY_NAME)
 }
+
+/** HID key that a US-shift alias (`EXCL`, `PRCNT`) reports. */
+export function usShiftBaseCode(code?: string | number | null): string | null {
+  const upper = normalizeKeycodeName(code)
+  return US_SHIFT_BY_NAME.get(upper)?.base ?? null
+}

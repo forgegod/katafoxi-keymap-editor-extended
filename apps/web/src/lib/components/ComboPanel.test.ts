@@ -1,5 +1,6 @@
+import { parseKeyBinding } from '@keymap-editor/keymap-core'
 import { flushSync, mount, unmount } from 'svelte'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { editor } from '../editor.svelte.js'
 import ComboPanelHarness from './ComboPanelHarness.svelte'
 import LinuxInstallSheet from './LinuxInstallSheet.svelte'
@@ -143,7 +144,7 @@ describe('ComboPanel', () => {
     flushSync()
     expect(editor.draftKeymap?.combos).toHaveLength(2)
     expect(editor.activeComboId).toBeTruthy()
-    expect(editor.comboNotice).toMatch(/2/)
+    expect(editor.comboNotice).toMatch(/Click keys/)
   })
 
   it('keeps combo mode when Escape closes the Linux install sheet', () => {
@@ -189,7 +190,7 @@ describe('ComboPanel', () => {
     expect(editor.comboMode).toBe(false)
   })
 
-  it('keeps combo mode on Escape when the active combo is incomplete', () => {
+  it('leaves combo mode on Escape with a 1-key combo', () => {
     mountPanel()
     const add = [...target.querySelectorAll('.combo-btn')].find(
       el => el.textContent?.trim() === 'New'
@@ -197,7 +198,6 @@ describe('ComboPanel', () => {
     if (!(add instanceof HTMLButtonElement)) throw new Error('missing New')
     add.click()
     flushSync()
-    // Empty drafts are dropped on exit; one key is incomplete and blocks.
     editor.toggleComboPosition(0)
     flushSync()
     expect(editor.comboMode).toBe(true)
@@ -206,8 +206,10 @@ describe('ComboPanel', () => {
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
     )
     flushSync()
-    expect(editor.comboMode).toBe(true)
-    expect(editor.comboNotice).toBeTruthy()
+    expect(editor.comboMode).toBe(false)
+    expect(editor.draftKeymap?.combos?.some(c => c.keyPositions.length === 1)).toBe(
+      true
+    )
   })
 
   it('closes the binding editor on Escape without leaving combo mode', () => {
@@ -291,6 +293,77 @@ describe('ComboPanel', () => {
     expect(editor.draftKeymap?.combos?.[0]?.id).toBe('combo_esc')
     expect(editor.activeComboId).toBe('combo_esc')
     expect(target.querySelector('.combo-id')?.textContent).toBe('combo_esc')
+  })
+
+  it('opens Binding for LC(TAB) with a nested preview and value bands', () => {
+    const keymap = {
+      layers: [[none, none]],
+      layer_names: ['Base'],
+      combos: [
+        {
+          id: 'combo_ctrl_tab',
+          keyPositions: [0, 1],
+          binding: parseKeyBinding('&kp LC(TAB)')
+        }
+      ]
+    }
+    editor.baselineKeymap = structuredClone(keymap)
+    editor.draftKeymap = structuredClone(keymap)
+    editor.activeComboId = 'combo_ctrl_tab'
+    mountPanel()
+
+    const binding = [...target.querySelectorAll('.combo-btn')].find(
+      el => el.textContent?.trim() === 'Binding'
+    )
+    if (!(binding instanceof HTMLButtonElement)) throw new Error('missing Binding')
+    binding.click()
+    flushSync()
+
+    const dialog = document.querySelector('[role=dialog][aria-label="Edit key"]')
+    expect(dialog).toBeTruthy()
+    expect(dialog?.querySelector('.key-editor-preview .binding')?.textContent).toBe(
+      '&kp LC(TAB)'
+    )
+    expect(dialog?.querySelector('.key-editor-band')).toBeTruthy()
+    expect(dialog?.querySelector('.key-editor-values > .key-editor-grid')).toBeNull()
+  })
+
+  it('marks keycodes already used by other combo bindings', () => {
+    const a = {
+      value: '&kp',
+      params: [{ value: 'A', params: [] }]
+    }
+    const keymap = {
+      layers: [[none, none]],
+      layer_names: ['Base'],
+      combos: [
+        { id: 'combo_esc', keyPositions: [0, 1], binding: esc },
+        { id: 'combo_a', keyPositions: [0, 1], binding: a, layers: [0] }
+      ]
+    }
+    editor.baselineKeymap = structuredClone(keymap)
+    editor.draftKeymap = structuredClone(keymap)
+    editor.activeComboId = 'combo_esc'
+    mountPanel()
+
+    const binding = [...target.querySelectorAll('.combo-btn')].find(
+      el => el.textContent?.trim() === 'Binding'
+    )
+    if (!(binding instanceof HTMLButtonElement)) throw new Error('missing Binding')
+    binding.click()
+    flushSync()
+
+    const filter = document.querySelector('.key-editor-filter')
+    if (!(filter instanceof HTMLInputElement)) throw new Error('missing filter')
+    filter.value = 'A'
+    filter.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+
+    const aChoice = [...document.querySelectorAll('.key-editor-choice')].find(
+      el => (el.textContent ?? '').trim() === 'A'
+    )
+    if (!(aChoice instanceof HTMLButtonElement)) throw new Error('missing A')
+    expect(aChoice.classList.contains('used')).toBe(true)
   })
 
   it('reverts the id field when the new name is already taken', () => {
@@ -398,4 +471,37 @@ describe('ComboPanel', () => {
     expect(editor.comboMode).toBe(true)
     expect(document.activeElement).not.toBe(input)
   })
+  it('scrolls the combo list to the active row when selection changes', () => {
+    const combos = Array.from({ length: 40 }, (_, index) => ({
+      id: `combo_${index}`,
+      keyPositions: [0, 1],
+      binding: esc
+    }))
+    const keymap = {
+      layers: [[none, none]],
+      layer_names: ['Base'],
+      combos
+    }
+    editor.baselineKeymap = structuredClone(keymap)
+    editor.draftKeymap = structuredClone(keymap)
+    editor.activeComboId = 'combo_0'
+    mountPanel()
+
+    const scrollIntoView = vi.fn()
+    const proto = HTMLElement.prototype as HTMLElement & {
+      scrollIntoView: typeof scrollIntoView
+    }
+    const previous = proto.scrollIntoView
+    proto.scrollIntoView = scrollIntoView
+    try {
+      editor.activeComboId = 'combo_35'
+      flushSync()
+      expect(scrollIntoView).toHaveBeenCalled()
+      const active = target.querySelector('.combo-item.active .combo-id')
+      expect(active?.textContent).toBe('combo_35')
+    } finally {
+      proto.scrollIntoView = previous
+    }
+  })
+
 })

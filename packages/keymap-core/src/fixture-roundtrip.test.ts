@@ -382,7 +382,9 @@ function assertFc(label: string, property: Parameters<typeof fc.assert>[0], numR
   }
 }
 
-const loadedFixtures = cases.map(loadForEdit)
+/** Chord-dense demos make locality runs too slow (hundreds of combo nodes). */
+const LOCALITY_SKIP = new Set(['pncateho'])
+const loadedFixtures = cases.filter(c => !LOCALITY_SKIP.has(c.id)).map(loadForEdit)
 const fixtureArb = fc.constantFrom(...loadedFixtures)
 
 describe('fixture splice locality', () => {

@@ -8,6 +8,24 @@
       "default": true
     },
     {
+      "id": "glove80",
+      "name": "Glove80",
+      "blurb": "80-key split · contoured · commercial ZMK",
+      "repoUrl": "https://github.com/moergo-sc/glove80-zmk-config"
+    },
+    {
+      "id": "kabarga",
+      "name": "Kabarga",
+      "blurb": "42-key split · angled columns · 3×6 + thumbs",
+      "repoUrl": "https://github.com/aroum/zmk-kabarga"
+    },
+    {
+      "id": "kyria",
+      "name": "Kyria",
+      "blurb": "50-key split · dual encoders · large thumbs",
+      "repoUrl": "https://github.com/splitkb/kyria"
+    },
+    {
       "id": "lark",
       "name": "Lark",
       "blurb": "60-key split · two 5-way sticks · en2 + ru2",
@@ -18,6 +36,30 @@
       "name": "Lily58",
       "blurb": "58-key split · more keys, same idea",
       "repoUrl": "https://github.com/kata0510/Lily58"
+    },
+    {
+      "id": "nice60",
+      "name": "nice!60",
+      "blurb": "61-key unibody · wireless 60%",
+      "repoUrl": "https://github.com/Nicell/nice60"
+    },
+    {
+      "id": "planck",
+      "name": "Planck",
+      "blurb": "48-key unibody · ortholinear 4×12",
+      "repoUrl": "https://github.com/olkb/planck"
+    },
+    {
+      "id": "pncateho",
+      "name": "PNCATEHO",
+      "blurb": "20-key split · 2×4 + thumbs · chord firmware",
+      "repoUrl": "https://github.com/aroum/zmk-PNCATEHO"
+    },
+    {
+      "id": "sofle",
+      "name": "Sofle",
+      "blurb": "60-key split · dual encoders · 3×6 + numbers",
+      "repoUrl": "https://github.com/josefadamcik/SofleKeyboard"
     },
     {
       "id": "cradio",

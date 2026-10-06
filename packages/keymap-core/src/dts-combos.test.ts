@@ -16,6 +16,7 @@ import {
   comboChordOverlapPartners,
   comboDesignHint,
   comboKeysIssue,
+  comboKeysMessage,
   comboListMeta,
   comboOverlapMessage,
   comboLooksLikeModifierChord,
@@ -673,7 +674,7 @@ describe('createEmptyCombo / formatCombosBlock', () => {
 })
 
 describe('combo key counts', () => {
-  it('requires 2–5 keys', () => {
+  it('treats 1-key and 6-key sets as advisory, not illegal', () => {
     expect(COMBO_MIN_KEYS).toBe(2)
     expect(COMBO_MAX_KEYS).toBe(5)
     expect(comboKeysIssue([])).toBe('too_few')
@@ -681,6 +682,9 @@ describe('combo key counts', () => {
     expect(comboKeysIssue([0, 1])).toBeNull()
     expect(comboKeysIssue([0, 1, 2, 3, 4])).toBeNull()
     expect(comboKeysIssue([0, 1, 2, 3, 4, 5])).toBe('too_many')
+    expect(comboKeysMessage('too_few', 1)).toMatch(/1-key combo/)
+    expect(comboKeysMessage('too_few', 0)).toMatch(/Click keys/)
+    expect(comboKeysMessage('too_many')).toMatch(/awkward/)
   })
 })
 

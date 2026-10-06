@@ -21,6 +21,7 @@
   let { combos, activeComboId, layer0, onSelect }: Props = $props()
 
   const overlapPartners = $derived(comboChordOverlapPartners([...combos]))
+  let listEl: HTMLUListElement | undefined = $state()
 
   function bindingLabel(combo: ZmkCombo): string {
     try {
@@ -29,25 +30,37 @@
       return String(combo.binding.value)
     }
   }
+
+  // Keep the active row in view when selection comes from outside the list
+  // (index half, bead, Create). `nearest` skips a jump when already visible.
+  $effect(() => {
+    const id = activeComboId
+    const list = listEl
+    if (!id || !list) return
+    const item = list.querySelector('.combo-item.active')
+    if (!(item instanceof HTMLElement)) return
+    item.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  })
 </script>
 
 {#if combos.length === 0}
   <p class="combo-empty">No combos yet.</p>
 {:else}
-  <ul class="combo-list" aria-label="Combo list">
+  <ul class="combo-list" aria-label="Combo list" bind:this={listEl}>
     {#each combos as combo (combo.id)}
       {@const issue = comboKeysIssue(combo.keyPositions)}
       {@const partner = overlapPartners.get(combo.id) ?? null}
+      {@const hard = partner != null}
       {@const soft =
-        issue == null &&
-        partner == null &&
-        comboDesignHint(combo.keyPositions, layer0, combo.binding)}
+        !hard &&
+        (issue != null ||
+          comboDesignHint(combo.keyPositions, layer0, combo.binding))}
       <li>
         <button
           type="button"
           class="combo-item"
           class:active={combo.id === activeComboId}
-          class:invalid={issue != null || partner != null}
+          class:invalid={hard}
           class:soft-warn={!!soft}
           title={comboOverlapMessage(partner) ?? undefined}
           aria-current={combo.id === activeComboId ? 'true' : undefined}

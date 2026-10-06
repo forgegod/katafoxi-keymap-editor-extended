@@ -31,6 +31,18 @@
   import KeyEditorHost from './KeyEditorHost.svelte'
   import './Combo.css'
 
+  interface Props {
+    usedKeycodes?: ReadonlyMap<string, readonly number[]>
+    usedRevision?: string
+    usedLayerLabels?: readonly string[]
+  }
+
+  let {
+    usedKeycodes,
+    usedRevision = '',
+    usedLayerLabels = []
+  }: Props = $props()
+
   const definitionsBox = getDefinitionsContext()
   const searchBox = getSearchContext()
 
@@ -58,16 +70,12 @@
   )
   const activeHint = $derived(
     editor.comboNotice ??
-      comboKeysMessage(activeIssue) ??
+      comboKeysMessage(activeIssue, active?.keyPositions.length) ??
       comboOverlapMessage(activeOverlapId) ??
       designHint
   )
-  const hintIsSoft = $derived(
-    !editor.comboNotice &&
-      activeIssue == null &&
-      activeOverlapId == null &&
-      designHint != null
-  )
+  const hintIsHard = $derived(activeOverlapId != null)
+  const hintIsSoft = $derived(!hintIsHard && activeHint != null)
   const timeoutMs = $derived(active?.timeoutMs ?? COMBO_TIMEOUT_MS_DEFAULT)
   const timeoutIsCustom = $derived(active?.timeoutMs !== undefined)
   const priorIdleOn = $derived(active?.requirePriorIdleMs !== undefined)
@@ -79,8 +87,11 @@
   )
   const selectedLayers = $derived(new Set(active?.layers ?? []))
 
+  // Same shape as search.sources (`code` / `mod` / `layer`) so hydrateTree can
+  // resolve LC(TAB) nests. Hold-tap chips stay merged into behaviours.
   const sources = $derived.by(() => {
     const defs = definitionsBox.current
+    const searchSources = searchBox.current?.sources ?? {}
     const behaviours = defs
       ? mergeHoldTapCatalog(
           defs.behaviours,
@@ -88,7 +99,7 @@
         ).byCode
       : {}
     return {
-      keycodes: (defs?.keycodes.byCode ?? {}) as Record<string, unknown>,
+      ...searchSources,
       behaviours: behaviours as Record<string, unknown>
     }
   })
@@ -334,6 +345,9 @@
   editorSlots={session.slots}
   activeCodeIndex={session.activeSlot?.codeIndex ?? 0}
   choices={session.choices}
+  {usedKeycodes}
+  {usedRevision}
+  {usedLayerLabels}
   onSelectBehaviour={session.selectBehaviour}
   onSelectValue={session.selectValue}
   onToggleHold={session.toggleHold}

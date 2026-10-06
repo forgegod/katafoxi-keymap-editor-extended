@@ -19,7 +19,7 @@ Monorepo: Svelte 5 + Vite (`apps/web`), thin Hono API (`apps/api`), shared domai
 
 ### Demo — real board layout
 
-First visit opens **Demo · Corne** (also Lark, Lily58, Sweep). A short spotlight tour covers click / Alt+click, layers, and bringing your own keymap. If the browser prefers Russian, Ukrainian, or German, that language is added as a second host column. Edits stay in the browser until you use **Clipboard**, **GitHub**, or **Local**. Replay the tour anytime with **Tour** in the top-right corner.
+First visit opens **Demo · Corne** (plus other boards from the [Demo catalog](packages/keymap-core/fixtures/demo/catalog.json)). A short spotlight tour covers click / Alt+click, layers, and bringing your own keymap. If the browser prefers Russian, Ukrainian, or German, that language is added as a second host column. Edits stay in the browser until you use **Clipboard**, **GitHub**, or **Local**. Replay the tour anytime with **Tour** in the top-right corner.
 
 ![Demo board with composed legends (Lark example with EN + RU)](docs/screenshots/demo-lark.png)
 
