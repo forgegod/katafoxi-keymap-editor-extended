@@ -117,7 +117,7 @@ describe('host-keymap-snapshot', () => {
     const text = encodeHostKeymapSnapshot(snapshot)
     expect(text.endsWith('\n')).toBe(true)
     const parsed = parseHostKeymapSnapshot(text)
-    expect(parsed).toEqual({ ok: true, snapshot })
+    expect(parsed).toEqual({ ok: true, snapshot, warnings: [] })
     if (!parsed.ok) return
     const layout = hostLayoutFromKeymapSnapshotKeys(
       parsed.snapshot.layouts[0]!.id,
@@ -148,6 +148,7 @@ describe('host-keymap-snapshot', () => {
     })
     expect(parsed.ok).toBe(true)
     if (!parsed.ok) return
+    expect(parsed.warnings).toEqual([])
     expect(parsed.snapshot.layouts[0]?.keys[0]?.glyphs).toEqual(['й', 'Й', '', ''])
   })
 
@@ -219,5 +220,96 @@ describe('host-keymap-snapshot', () => {
         layouts: []
       })
     ).toEqual({ ok: false, error: 'invalid' })
+  })
+
+  it('rejects keysyms that would break xkb text', () => {
+    const payload = (keysym: string) => ({
+      version: 1,
+      view: VIEW,
+      layouts: [
+        {
+          id: 'user:ru-1',
+          name: 'a',
+          language: 'ru',
+          origin: { from: 'copy', layoutId: 'system-ru-legacy' },
+          keys: [
+            {
+              zmk: 'Q',
+              keysyms: [keysym, 'NoSymbol', 'NoSymbol', 'NoSymbol']
+            }
+          ]
+        }
+      ]
+    })
+    for (const keysym of [
+      'a ] }; include "evil"',
+      'foo;bar',
+      'quote"mark',
+      'line\nbreak'
+    ]) {
+      expect(parseHostKeymapSnapshot(payload(keysym)), keysym).toEqual({
+        ok: false,
+        error: 'invalid'
+      })
+    }
+  })
+
+  it('rejects duplicate column languages', () => {
+    const duplicateRu: HostLegendView = {
+      columns: [
+        VIEW.columns[0]!,
+        VIEW.columns[1]!,
+        { ...VIEW.columns[1]!, layoutId: 'user:ru-2' }
+      ],
+      open: 'ru',
+      keycap: ['en', 'ru']
+    }
+    expect(
+      parseHostKeymapSnapshot({ version: 1, view: duplicateRu, layouts: [] })
+    ).toEqual({ ok: false, error: 'invalid' })
+  })
+
+  it('canonicalizes zmk, drops unknown keys, and copies keysym tuples', () => {
+    const shared = ['a', 'A', 'NoSymbol', 'NoSymbol'] as [string, string, string, string]
+    const parsed = parseHostKeymapSnapshot({
+      version: 1,
+      view: VIEW,
+      layouts: [
+        {
+          id: 'user:ru-1',
+          name: 'a',
+          language: 'ru',
+          origin: { from: 'copy', layoutId: 'system-ru-legacy' },
+          keys: [
+            { zmk: 'kc_a', keysyms: shared },
+            { zmk: '__proto__', keysyms: ['a', 'A', 'NoSymbol', 'NoSymbol'] },
+            { zmk: 'A', keysyms: ['b', 'B', 'NoSymbol', 'NoSymbol'] }
+          ]
+        }
+      ]
+    })
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    expect(parsed.warnings).toEqual(['unknown_zmk:__proto__', 'duplicate_zmk:A'])
+    expect(parsed.snapshot.layouts[0]?.keys).toEqual([
+      {
+        zmk: 'A',
+        keysyms: ['a', 'A', 'NoSymbol', 'NoSymbol'],
+        glyphs: ['a', 'A', '', '']
+      }
+    ])
+    shared[0] = 'evil'
+    expect(parsed.snapshot.layouts[0]?.keys[0]?.keysyms[0]).toBe('a')
+  })
+
+  it('dedupes keycap against columns', () => {
+    const parsed = parseHostKeymapSnapshot({
+      version: 1,
+      view: { ...VIEW, keycap: ['en', 'ru', 'en', 'uk'] },
+      layouts: []
+    })
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    expect(parsed.snapshot.view.keycap).toEqual(['en', 'ru'])
   })
 })

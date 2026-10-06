@@ -91,6 +91,25 @@ describe('hostLayoutToXkbSection', () => {
     expect(text).toContain('key <AC01> { [ a, A, at, Greek_alpha ] };')
   })
 
+  it('replaces non-keysym tokens with NoSymbol so inject payloads cannot leave the key', () => {
+    const hostile: HostLayout = {
+      id: 'hostile',
+      byZmk: new Map([
+        [
+          'A',
+          {
+            keysyms: ['a ] }; include "evil"', 'A', 'NoSymbol', 'NoSymbol'],
+            glyphs: ['', '', '', '']
+          }
+        ]
+      ])
+    }
+    const text = hostLayoutToXkbSection(hostile, { section: 'basic', name: 'Hostile' })
+    expect(text).toContain('key <AC01> { [ NoSymbol, A, NoSymbol, NoSymbol ] };')
+    expect(text).not.toMatch(/\binclude\b/)
+    expect(text).not.toContain('evil')
+  })
+
   it('round-trips the sample through parse → write → parse', () => {
     const written = hostLayoutToXkbSection(layout, { section: 'basic', name: 'Sample' })
     const again = hostLayoutFromSymbols(written, 'basic', 'sample')

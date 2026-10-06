@@ -6,7 +6,8 @@
  * `latin(basic)`. Includes of missing files stay unresolved.
  */
 
-const KEYSYM =
+/** One X11 keysym name token (safe to embed in `xkb_symbols` text). */
+export const KEYSYM =
   /^(?:[A-Za-z_][A-Za-z0-9_]*|[0-9]|U[0-9A-Fa-f]{4,6}|0x[0-9A-Fa-f]+)$/
 
 function stripXkbComments(source: string): string {
