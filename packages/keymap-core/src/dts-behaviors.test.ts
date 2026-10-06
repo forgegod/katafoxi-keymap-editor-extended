@@ -336,6 +336,42 @@ describe('parseDtsHoldTaps', () => {
     expect(spliced).toContain('flavor = "balanced";')
   })
 
+  it('parses a single-line named hold-tap and rewrites its term in place', () => {
+    const source =
+      '/ { behaviors { hm: hm { compatible = "zmk,behavior-hold-tap"; tapping-term-ms = <280>; bindings = <&kp>, <&kp>; } } keymap { compatible = "zmk,keymap"; default_layer { bindings = <&hm LCTRL A &kp B>; }; }; };'
+    expect(parseDtsHoldTaps(source)).toEqual([
+      {
+        code: '&hm',
+        nodeName: 'hm',
+        tappingTermMs: 280,
+        bindings: ['&kp', '&kp'],
+        params: ['code', 'code']
+      }
+    ])
+    const next = replaceHoldTapTiming(parseDtsHoldTaps(source), '&hm', { tappingTermMs: 100 })
+    const spliced = spliceHoldTapsIntoDts(source, next)
+    expect(spliced).toContain('tapping-term-ms = <100>')
+    expect(spliced).not.toContain('tapping-term-ms = <280>')
+    expect(spliced.match(/tapping-term-ms/g)).toHaveLength(1)
+    expect(parseDtsHoldTaps(spliced)[0]).toMatchObject({ tappingTermMs: 100, nodeName: 'hm' })
+  })
+
+  it('parses a single-line &mt override and rewrites its term in place', () => {
+    const source = `&mt { tapping-term-ms = <300>; flavor = "tap-preferred"; };\n`
+    expect(parseDtsHoldTaps(source)).toEqual([
+      { code: '&mt', override: true, tappingTermMs: 300, flavor: 'tap-preferred' }
+    ])
+    const next = replaceHoldTapTiming(parseDtsHoldTaps(source), '&mt', {
+      tappingTermMs: 180,
+      flavor: 'tap-preferred'
+    })
+    const spliced = spliceHoldTapsIntoDts(source, next)
+    expect(spliced).toContain('tapping-term-ms = <180>')
+    expect(spliced).not.toContain('tapping-term-ms = <300>')
+    expect(spliced.match(/tapping-term-ms/g)).toHaveLength(1)
+    expect(parseDtsHoldTaps(spliced)).toEqual(next)
+  })
+
   it('leaves a numeric tapping-term line unchanged when the model matches', () => {
     const source = `hm: hm {
     compatible = "zmk,behavior-hold-tap";

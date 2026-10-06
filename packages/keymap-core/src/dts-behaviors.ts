@@ -199,22 +199,41 @@ function nodeOpenBrace(masked: string, inside: number): number {
   return -1
 }
 
+function skipWsBack(masked: string, i: number): number {
+  while (i >= 0 && /\s/.test(masked[i])) i--
+  return i
+}
+
+function identSpanEndingAt(masked: string, last: number): { start: number; end: number } | null {
+  if (last < 0 || !/\w/.test(masked[last])) return null
+  let start = last
+  while (start > 0 && /\w/.test(masked[start - 1])) start--
+  if (!/[A-Za-z_]/.test(masked[start])) return null
+  return { start, end: last + 1 }
+}
+
+/** Name (and optional `label:`) immediately before `{`, read on the mask. */
 function readNodeHeader(
   source: string,
+  masked: string,
   openBrace: number
-): { label?: string; name: string } | null {
-  let lineEnd = openBrace
-  let lineStart = source.lastIndexOf('\n', openBrace - 1) + 1
-  let header = source.slice(lineStart, lineEnd).trim()
-  if (!header) {
-    const prevEnd = lineStart - 1
-    if (prevEnd <= 0) return null
-    const prevStart = source.lastIndexOf('\n', prevEnd - 1) + 1
-    header = source.slice(prevStart, prevEnd).trim()
+): { label?: string; name: string; start: number } | null {
+  const nameSpan = identSpanEndingAt(masked, skipWsBack(masked, openBrace - 1))
+  if (!nameSpan) return null
+  const name = source.slice(nameSpan.start, nameSpan.end)
+  let start = nameSpan.start
+  let i = skipWsBack(masked, nameSpan.start - 1)
+  let label: string | undefined
+  if (i >= 0 && masked[i] === ':') {
+    const labelSpan = identSpanEndingAt(masked, skipWsBack(masked, i - 1))
+    if (labelSpan) {
+      label = source.slice(labelSpan.start, labelSpan.end)
+      start = labelSpan.start
+      i = skipWsBack(masked, labelSpan.start - 1)
+    }
   }
-  const match = /^(?:([A-Za-z_][\w]*)\s*:\s*)?([A-Za-z_][\w]*)$/.exec(header)
-  if (!match) return null
-  return { label: match[1], name: match[2] }
+  if (i >= 0 && masked[i] === '&') start = i
+  return { label, name, start }
 }
 
 function pack(partial: ZmkHoldTap): ZmkHoldTap {
@@ -228,87 +247,6 @@ function pack(partial: ZmkHoldTap): ZmkHoldTap {
   if (partial.bindings?.length) out.bindings = [...partial.bindings]
   if (partial.params?.length) out.params = [...partial.params]
   return out
-}
-
-function parseNamedHoldTaps(
-  source: string,
-  masked: string
-): { nodes: ZmkHoldTap[]; unparsed: boolean } {
-  const out: ZmkHoldTap[] = []
-  let unparsed = false
-  const re = /compatible\s*=\s*"/g
-  let match: RegExpExecArray | null
-  while ((match = re.exec(masked)) !== null) {
-    const contentStart = match.index + match[0].length
-    const contentEnd = masked.indexOf('"', contentStart)
-    if (contentEnd < 0) continue
-    if (source.slice(contentStart, contentEnd) !== HOLD_TAP_COMPATIBLE) continue
-    const openBrace = nodeOpenBrace(masked, match.index - 1)
-    if (openBrace < 0) continue
-    const closeBrace = matchBrace(masked, openBrace)
-    if (closeBrace < 0) continue
-    const header = readNodeHeader(source, openBrace)
-    if (!header) {
-      unparsed = true
-      re.lastIndex = closeBrace + 1
-      continue
-    }
-    const body = masked.slice(openBrace + 1, closeBrace)
-    const bindings = readBindingRefs(body)
-    const cells = readBindingCells(body)
-    const { timing, unparsed: timingUnparsed } = readTiming(
-      source,
-      masked,
-      openBrace + 1,
-      closeBrace
-    )
-    if (timingUnparsed) unparsed = true
-    out.push(
-      pack({
-        code: `&${header.label ?? header.name}`,
-        nodeName: header.name,
-        ...timing,
-        bindings,
-        params: paramsForHoldTapBindings(bindings, cells)
-      })
-    )
-    re.lastIndex = closeBrace + 1
-  }
-  return { nodes: out, unparsed }
-}
-
-function parseHoldTapOverrides(
-  source: string,
-  masked: string,
-  defined: Set<string>
-): { nodes: ZmkHoldTap[]; unparsed: boolean } {
-  const out: ZmkHoldTap[] = []
-  let unparsed = false
-  const re = /(?<![A-Za-z0-9_])&([A-Za-z_][\w]*)\s*\{/g
-  let match: RegExpExecArray | null
-  while ((match = re.exec(masked)) !== null) {
-    const openBrace = match.index + match[0].length - 1
-    const closeBrace = matchBrace(masked, openBrace)
-    if (closeBrace < 0) continue
-    const body = masked.slice(openBrace + 1, closeBrace)
-    if (/compatible\s*=/.test(body)) continue
-    const { timing, unparsed: timingUnparsed } = readTiming(
-      source,
-      masked,
-      openBrace + 1,
-      closeBrace
-    )
-    if (timingUnparsed) unparsed = true
-    if (!hasTiming(timing) && !timingUnparsed) continue
-    if (!hasTiming(timing)) {
-      re.lastIndex = closeBrace + 1
-      continue
-    }
-    const code = `&${match[1]}`
-    out.push(pack({ code, override: !defined.has(code), ...timing }))
-    re.lastIndex = closeBrace + 1
-  }
-  return { nodes: out, unparsed }
 }
 
 function applyTiming(target: ZmkHoldTap, timing: ZmkHoldTap): ZmkHoldTap {
@@ -346,27 +284,65 @@ export function parseDtsHoldTaps(source: string): ZmkHoldTap[] {
 
 export function parseDtsHoldTapsDetailed(source: string): DtsHoldTapsParse {
   const masked = maskDts(source)
-  const named = parseNamedHoldTaps(source, masked)
-  const defined = new Set(named.nodes.map(node => node.code))
-  const overrides = parseHoldTapOverrides(source, masked, defined)
+  const { spans, unparsed: scanUnparsed } = collectHoldTapSpans(source, masked)
+  let unparsed = scanUnparsed
   const byCode = new Map<string, ZmkHoldTap>()
   const order: string[] = []
-  for (const node of named.nodes) {
-    if (!byCode.has(node.code)) order.push(node.code)
-    byCode.set(node.code, node)
+  const defined = new Set<string>()
+
+  for (const span of spans) {
+    if (span.kind !== 'named') continue
+    defined.add(span.code)
+    const body = masked.slice(span.open + 1, span.close)
+    const bindings = readBindingRefs(body)
+    const cells = readBindingCells(body)
+    const { timing, unparsed: timingUnparsed } = readTiming(
+      source,
+      masked,
+      span.open + 1,
+      span.close
+    )
+    if (timingUnparsed) unparsed = true
+    if (!byCode.has(span.code)) order.push(span.code)
+    byCode.set(
+      span.code,
+      pack({
+        code: span.code,
+        nodeName: span.nodeName,
+        ...timing,
+        bindings,
+        params: paramsForHoldTapBindings(bindings, cells)
+      })
+    )
   }
-  for (const node of overrides.nodes) {
-    const prev = byCode.get(node.code)
+
+  for (const span of spans) {
+    if (span.kind !== 'override') continue
+    const { timing, unparsed: timingUnparsed } = readTiming(
+      source,
+      masked,
+      span.open + 1,
+      span.close
+    )
+    if (timingUnparsed) unparsed = true
+    if (!hasTiming(timing)) continue
+    const node = pack({
+      code: span.code,
+      override: !defined.has(span.code),
+      ...timing
+    })
+    const prev = byCode.get(span.code)
     if (prev) {
-      byCode.set(node.code, applyTiming(prev, node))
+      byCode.set(span.code, applyTiming(prev, node))
       continue
     }
-    order.push(node.code)
-    byCode.set(node.code, node)
+    order.push(span.code)
+    byCode.set(span.code, node)
   }
+
   return {
     holdTaps: order.map(code => byCode.get(code)!),
-    unparsed: named.unparsed || overrides.unparsed,
+    unparsed,
     preprocessorConditional: holdTapRegionsHavePreprocessor(source, masked)
   }
 }
@@ -522,6 +498,7 @@ type HoldTapSpan = {
   close: number
   blockStart: number
   blockEnd: number
+  nodeName?: string
 }
 
 type TextEdit = { start: number; end: number; text: string }
@@ -532,17 +509,12 @@ function blockEndAt(source: string, close: number): number {
   return end
 }
 
-function headerStartAt(source: string, openBrace: number): number {
-  let lineStart = source.lastIndexOf('\n', openBrace - 1) + 1
-  if (!source.slice(lineStart, openBrace).trim()) {
-    const prevEnd = lineStart - 1
-    if (prevEnd > 0) lineStart = source.lastIndexOf('\n', prevEnd - 1) + 1
-  }
-  return lineStart
-}
-
-function collectHoldTapSpans(source: string, masked: string): HoldTapSpan[] {
+function collectHoldTapSpans(
+  source: string,
+  masked: string
+): { spans: HoldTapSpan[]; unparsed: boolean } {
   const spans: HoldTapSpan[] = []
+  let unparsed = false
   const namedRe = /compatible\s*=\s*"/g
   let match: RegExpExecArray | null
   while ((match = namedRe.exec(masked)) !== null) {
@@ -554,14 +526,21 @@ function collectHoldTapSpans(source: string, masked: string): HoldTapSpan[] {
     if (open < 0) continue
     const close = matchBrace(masked, open)
     if (close < 0) continue
-    const header = readNodeHeader(source, open)
-    if (!header) continue
+    const header = readNodeHeader(source, masked, open)
+    if (!header) {
+      unparsed = true
+      namedRe.lastIndex = close + 1
+      continue
+    }
+    const { unparsed: timingUnparsed } = readTiming(source, masked, open + 1, close)
+    if (timingUnparsed) unparsed = true
     spans.push({
       code: `&${header.label ?? header.name}`,
       kind: 'named',
+      nodeName: header.name,
       open,
       close,
-      blockStart: headerStartAt(source, open),
+      blockStart: header.start,
       blockEnd: blockEndAt(source, close)
     })
     namedRe.lastIndex = close + 1
@@ -576,7 +555,8 @@ function collectHoldTapSpans(source: string, masked: string): HoldTapSpan[] {
       continue
     }
     const body = masked.slice(open + 1, close)
-    const { timing } = readTiming(source, masked, open + 1, close)
+    const { timing, unparsed: timingUnparsed } = readTiming(source, masked, open + 1, close)
+    if (timingUnparsed) unparsed = true
     if (/compatible\s*=/.test(body) || !hasTiming(timing)) {
       overrideRe.lastIndex = close + 1
       continue
@@ -591,7 +571,7 @@ function collectHoldTapSpans(source: string, masked: string): HoldTapSpan[] {
     })
     overrideRe.lastIndex = close + 1
   }
-  return spans
+  return { spans, unparsed }
 }
 
 function holdTapRegionsHavePreprocessor(source: string, masked: string): boolean {
@@ -602,7 +582,7 @@ function holdTapRegionsHavePreprocessor(source: string, masked: string): boolean
   ) {
     return true
   }
-  const spans = collectHoldTapSpans(source, masked)
+  const { spans } = collectHoldTapSpans(source, masked)
   const byCode = new Map<string, HoldTapSpan[]>()
   for (const span of spans) {
     if (hasPreprocessorConditional(masked, { start: span.open + 1, end: span.close })) {
@@ -643,24 +623,22 @@ function setAssign(
   indent: string,
   eol: LineEnding
 ): string {
-  const re = new RegExp(`^([ \\t]*)${key}\\s*=\\s*[^;\\n]*;`, 'm')
-  const found = re.exec(body)
+  const masked = maskDts(body)
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp(`(?<![A-Za-z0-9_-])${escaped}\\s*=\\s*[^;]*;`)
+  const found = re.exec(masked)
   if (found) {
     if (statement == null) {
       let start = found.index
-      let end = found.index + found[0].length
-      end = eatFollowingEol(body, end)
-      if (end === found.index + found[0].length) {
+      while (start > 0 && (body[start - 1] === ' ' || body[start - 1] === '\t')) start--
+      const stmtEnd = found.index + found[0].length
+      let end = eatFollowingEol(body, stmtEnd)
+      if (end === stmtEnd) {
         start = eatPrecedingEol(body, start)
       }
       return body.slice(0, start) + body.slice(end)
     }
-    return (
-      body.slice(0, found.index) +
-      found[1] +
-      statement +
-      body.slice(found.index + found[0].length)
-    )
+    return body.slice(0, found.index) + statement + body.slice(found.index + found[0].length)
   }
   if (statement == null) return body
   const trimmed = body.replace(/[ \t]*$/, '')
@@ -777,7 +755,7 @@ function insertAtLine(source: string, closeBrace: number, text: string, eol: Lin
 export function spliceHoldTapsIntoDts(source: string, holdTaps: readonly ZmkHoldTap[]): string {
   const eol = dominantEol(source)
   const masked = maskDts(source)
-  const spans = collectHoldTapSpans(source, masked)
+  const { spans } = collectHoldTapSpans(source, masked)
   const byCode = new Map(holdTaps.map(node => [node.code, node]))
   const edits: TextEdit[] = []
   const patchedNamed = new Set<string>()
