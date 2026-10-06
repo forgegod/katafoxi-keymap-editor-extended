@@ -45,6 +45,46 @@ export function isAllowedHostKeymapPath(filePath: string): boolean {
   return false
 }
 
+export const HOST_DELIVERABLE_MAX_FILES = 32
+
+export function collectHostDeliverables(
+  files: HostKeymapDeliverableFile[] | null | undefined
+): { files: HostKeymapDeliverableFile[]; warnings: string[] } {
+  const selected: HostKeymapDeliverableFile[] = []
+  const warnings: string[] = []
+  if (!Array.isArray(files)) return { files: selected, warnings }
+
+  const seen = new Set<string>()
+  for (const file of files) {
+    if (!file?.path || typeof file.content !== 'string') {
+      warnings.push('Skipped host deliverable with missing path or content')
+      continue
+    }
+    const normalized = path.posix.normalize(file.path)
+    if (normalized === HOST_KEYMAP_SNAPSHOT_PATH) {
+      warnings.push(`Skipped host deliverable ${normalized}`)
+      continue
+    }
+    if (!isAllowedHostKeymapPath(file.path)) {
+      warnings.push(`Skipped host deliverable ${file.path}`)
+      continue
+    }
+    if (seen.has(normalized)) {
+      warnings.push(`Skipped duplicate host deliverable ${normalized}`)
+      continue
+    }
+    if (selected.length >= HOST_DELIVERABLE_MAX_FILES) {
+      warnings.push(
+        `Skipped host deliverable ${normalized} (limit ${HOST_DELIVERABLE_MAX_FILES})`
+      )
+      continue
+    }
+    seen.add(normalized)
+    selected.push({ path: normalized, content: file.content })
+  }
+  return { files: selected, warnings }
+}
+
 export interface ConfigDirEntry {
   name: string
   path: string
@@ -362,6 +402,7 @@ export async function commitChanges(
       content: built.json
     }
   ]
+  const deliverable = collectHostDeliverables(hostDeliverables)
   if (hostSnapshot) {
     tree.push({
       path: HOST_KEYMAP_SNAPSHOT_PATH,
@@ -369,11 +410,9 @@ export async function commitChanges(
       type: 'blob',
       content: encodeHostKeymapSnapshot(hostSnapshot)
     })
-    for (const file of hostDeliverables ?? []) {
-      if (!file?.path || typeof file.content !== 'string') continue
-      if (!isAllowedHostKeymapPath(file.path)) continue
+    for (const file of deliverable.files) {
       tree.push({
-        path: path.posix.normalize(file.path),
+        path: file.path,
         mode: MODE_FILE,
         type: 'blob',
         content: file.content
@@ -411,5 +450,8 @@ export async function commitChanges(
     data: { sha: newSha }
   })
 
-  return { mode: built.mode, warnings: built.warnings }
+  return {
+    mode: built.mode,
+    warnings: [...built.warnings, ...deliverable.warnings]
+  }
 }

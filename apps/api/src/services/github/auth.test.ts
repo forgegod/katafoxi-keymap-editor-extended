@@ -67,16 +67,29 @@ describe('isTrustedAppOrigin', () => {
 
   it('matches Origin against APP_BASE_URL', () => {
     expect(isTrustedAppOrigin(fakeContext({ Origin: expected }))).toBe(true)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     expect(isTrustedAppOrigin(fakeContext({ Origin: 'https://evil.example' }))).toBe(false)
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('https://evil.example')
+    )
+    warn.mockRestore()
   })
 
   it('falls back to Referer when Origin is absent', () => {
     expect(isTrustedAppOrigin(fakeContext({ Referer: `${expected}/path` }))).toBe(true)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     expect(isTrustedAppOrigin(fakeContext({ Referer: 'https://evil.example/x' }))).toBe(false)
+    warn.mockRestore()
   })
 
   it('rejects when both Origin and Referer are missing', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     expect(isTrustedAppOrigin(fakeContext({}))).toBe(false)
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining(`expected ${expected}`)
+    )
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('received (none)'))
+    warn.mockRestore()
   })
 
   it('uses the same origin as config.APP_BASE_URL', () => {

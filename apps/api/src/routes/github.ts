@@ -5,9 +5,14 @@ import { getCookie } from 'hono/cookie'
 import {
   KeymapValidationError,
   InfoValidationError,
+  parseHostKeymapSnapshot,
   parseKeymap,
   validateKeymapJson,
-  validateInfoJson
+  validateInfoJson,
+  type HostKeymapDeliverableFile,
+  type HostKeymapSnapshot,
+  type LayoutKey,
+  type ParsedKeymap
 } from '@keymap-editor/keymap-core'
 import * as auth from '../services/github/auth.js'
 import {
@@ -458,21 +463,35 @@ githubRoutes.post('/keyboard-files/:installationId/:repository/:branch', async c
       c.get('session'),
       { requirePush: true }
     )
-    const { keymap, layout, hostSnapshot, hostDeliverables, baseSha } = body as {
-      keymap: Parameters<typeof files.commitChanges>[4]
-      layout: Parameters<typeof files.commitChanges>[3]
-      hostSnapshot?: Parameters<typeof files.commitChanges>[5]
-      hostDeliverables?: Parameters<typeof files.commitChanges>[6]
-      baseSha?: unknown
+    const { keymap, layout, hostSnapshot, hostDeliverables, baseSha } = body
+    if (!Array.isArray(layout)) {
+      return c.json({ errors: ['layout must be an array'] }, 400)
+    }
+    if (
+      keymap == null ||
+      typeof keymap !== 'object' ||
+      !Array.isArray((keymap as { layers?: unknown }).layers)
+    ) {
+      return c.json({ errors: ['keymap must include a layers array'] }, 400)
+    }
+    let snapshot: HostKeymapSnapshot | null = null
+    if (hostSnapshot != null) {
+      const parsed = parseHostKeymapSnapshot(hostSnapshot)
+      if (!parsed.ok) {
+        return c.json({ errors: ['Invalid host snapshot'] }, 400)
+      }
+      snapshot = parsed.snapshot
     }
     const { mode, warnings } = await files.commitChanges(
       installationId,
       repository,
       branch,
-      layout,
-      keymap,
-      hostSnapshot ?? null,
-      hostDeliverables ?? null,
+      layout as LayoutKey[],
+      keymap as ParsedKeymap,
+      snapshot,
+      Array.isArray(hostDeliverables)
+        ? (hostDeliverables as HostKeymapDeliverableFile[])
+        : null,
       typeof baseSha === 'string' ? baseSha : null
     )
     return c.json({ ok: true, mode, warnings })
@@ -496,24 +515,57 @@ githubRoutes.post('/keyboard-files/:installationId/:repository/:branch', async c
   }
 })
 
-function handleGithubError(
-  c: {
-    body: (data: null, status: 401 | 500) => Response
-    json: (data: unknown, status: 409) => Response
-  },
-  err: unknown
-) {
-  const e = err as { response?: { status: number; data: unknown } }
-  if (e.response?.status === 401) {
-    console.error('Received upstream authentication error', e.response.data)
+const GITHUB_ERROR_LOG_MAX = 1000
+
+function stringifyGithubErrorData(data: unknown): string {
+  let text: string
+  try {
+    text = typeof data === 'string' ? data : (JSON.stringify(data) ?? 'null')
+  } catch {
+    text = String(data)
+  }
+  return text.length > GITHUB_ERROR_LOG_MAX ? `${text.slice(0, GITHUB_ERROR_LOG_MAX)}…` : text
+}
+
+function isAppInstallationTokenUrl(url: unknown): boolean {
+  if (typeof url !== 'string' || !url) return false
+  try {
+    const parsed = new URL(url, 'https://api.github.com')
+    return /\/app\/installations\/[^/]+\/access_tokens$/.test(parsed.pathname)
+  } catch {
+    return false
+  }
+}
+
+function handleGithubError(c: Context, err: unknown) {
+  const e = err as { response?: { status?: number; data?: unknown; url?: string } }
+  const status = e.response?.status
+  const dataLog = e.response ? stringifyGithubErrorData(e.response.data) : null
+  if (status === 401) {
+    console.error('Received upstream authentication error', dataLog)
+    if (isAppInstallationTokenUrl(e.response?.url)) {
+      return c.body(null, 502)
+    }
     return c.body(null, 401)
   }
-  if (e.response?.status === 422) {
+  if (status === 404) {
+    console.error(`[404] ${dataLog}`, err)
+    return c.body(null, 404)
+  }
+  if (status === 429) {
+    console.error(`[429] ${dataLog}`, err)
+    return c.body(null, 429)
+  }
+  if (status === 403) {
+    console.error(`[403] ${dataLog}`, err)
+    return c.body(null, 502)
+  }
+  if (status === 409 || status === 422) {
     return c.json(
       { name: 'StaleRepoBase', errors: [files.BRANCH_CHANGED_NOTICE] },
       409
     )
   }
-  console.error(e.response ? `[${e.response.status}] ${e.response.data}` : err, err)
+  console.error(status ? `[${status}] ${dataLog}` : err, err)
   return c.body(null, 500)
 }

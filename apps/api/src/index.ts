@@ -7,7 +7,7 @@ import { secureHeaders } from 'hono/secure-headers'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { assertLocalDevAdapterAllowed, config } from './config.js'
+import { assertLocalDevAdapterAllowed, config, originFromBaseUrl } from './config.js'
 import { keyboardsRoutes } from './routes/keyboards.js'
 import { githubRoutes } from './routes/github.js'
 import { startSessionPruneTimer } from './services/github/sessions.js'
@@ -19,12 +19,16 @@ export type CreateAppOptions = {
   enableDevServer?: boolean
 }
 
-function originFromBaseUrl(appBaseUrl: string): string {
-  try {
-    return new URL(appBaseUrl).origin
-  } catch {
-    return 'http://localhost:5173'
-  }
+/** Hono's logger includes `?query`; strip it so OAuth `code`/`state` stay out of logs. */
+export function stripQueryFromRequestLog(line: string): string {
+  return line.replace(
+    /^((?:<--|-->) [A-Z]+ )([^?\s]+)(?:\?[^\s]*)?/,
+    (_all, prefix: string, pathname: string) => `${prefix}${pathname}`
+  )
+}
+
+function printRequestLog(line: string) {
+  console.log(stripQueryFromRequestLog(line))
 }
 
 function isHttpsBaseUrl(appBaseUrl: string): boolean {
@@ -54,7 +58,7 @@ export function createApp(options: CreateAppOptions = {}): Hono {
   const app = new Hono()
 
   app.use('*', cors({ origin, credentials: true }))
-  app.use('*', logger())
+  app.use('*', logger(printRequestLog))
   app.use(
     '*',
     secureHeaders({

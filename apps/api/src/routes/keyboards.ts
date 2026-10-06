@@ -69,7 +69,6 @@ function isNotFoundError(err: unknown): boolean {
 function isBadRequestError(err: unknown): boolean {
   return (
     err instanceof SyntaxError ||
-    err instanceof TypeError ||
     err instanceof KeymapValidationError ||
     err instanceof InfoValidationError
   )
@@ -111,11 +110,21 @@ keyboardsRoutes.post('/keymap', async c => {
     return c.body(null, 415)
   }
 
-  const keymap = (await c.req.json()) as ParsedKeymap
   try {
+    const keymap = (await c.req.json()) as ParsedKeymap
+    if (
+      keymap == null ||
+      typeof keymap !== 'object' ||
+      !Array.isArray(keymap.layers)
+    ) {
+      return c.json({ errors: ['keymap must include a layers array'] }, 400)
+    }
     const { mode, warnings } = zmk.saveLocalKeymap(keymap)
     return c.json({ ok: true, mode, warnings })
   } catch (err) {
+    if (err instanceof SyntaxError) {
+      return c.json({ error: 'invalid' }, 400)
+    }
     if (err instanceof KeymapValidationError) {
       return c.json({ name: err.name, errors: err.errors }, 400)
     }

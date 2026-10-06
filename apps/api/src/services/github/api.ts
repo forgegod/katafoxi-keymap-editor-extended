@@ -77,7 +77,7 @@ async function throwIfNotOk(response: Response): Promise<void> {
     data = await response.text()
   }
   throw Object.assign(new Error(`GitHub API ${response.status}`), {
-    response: { status: response.status, data }
+    response: { status: response.status, data, url: response.url }
   })
 }
 

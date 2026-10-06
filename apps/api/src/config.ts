@@ -53,6 +53,14 @@ export function assertLocalDevAdapterAllowed(
   }
 }
 
+export function originFromBaseUrl(appBaseUrl: string): string {
+  try {
+    return new URL(appBaseUrl).origin
+  } catch {
+    return 'http://localhost:5173'
+  }
+}
+
 export const config = {
   /** Bind address. Override with HOST; default loopback locally, all interfaces in production. */
   HOST: env('HOST', isProduction ? '0.0.0.0' : '127.0.0.1'),

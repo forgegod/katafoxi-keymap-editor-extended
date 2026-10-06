@@ -437,9 +437,57 @@ describe('session and errors', () => {
   })
 
   it('returns 500 when fetchInstallationRepos throws any other error', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.mocked(installations.fetchInstallationRepos).mockRejectedValue(new Error('boom'))
     const { res } = await authedRequest('/github/installation')
     expect(res.status).toBe(500)
+  })
+
+  it('maps GitHub 404/403/429 and App-token 401 to client statuses', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    vi.mocked(installations.fetchInstallationRepos).mockRejectedValueOnce(
+      Object.assign(new Error('GitHub API 404'), { response: { status: 404, data: { message: 'Not Found' } } })
+    )
+    expect((await authedRequest('/github/installation')).res.status).toBe(404)
+
+    vi.mocked(installations.fetchInstallationRepos).mockRejectedValueOnce(
+      Object.assign(new Error('GitHub API 403'), { response: { status: 403, data: { message: 'forbidden' } } })
+    )
+    expect((await authedRequest('/github/installation')).res.status).toBe(502)
+
+    vi.mocked(installations.fetchInstallationRepos).mockRejectedValueOnce(
+      Object.assign(new Error('GitHub API 429'), { response: { status: 429, data: { message: 'rate' } } })
+    )
+    expect((await authedRequest('/github/installation')).res.status).toBe(429)
+
+    vi.mocked(files.fetchKeyboardFiles).mockRejectedValueOnce(
+      Object.assign(new Error('GitHub API 401'), {
+        response: {
+          status: 401,
+          data: { message: 'A JSON web token could not be decoded' },
+          url: 'https://api.github.com/app/installations/1/access_tokens'
+        }
+      })
+    )
+    expect((await authedRequest('/github/keyboard-files/1/acme%2Flark')).res.status).toBe(502)
+  })
+
+  it('stringifies GitHub error bodies in logs instead of [object Object]', async () => {
+    const logged: string[] = []
+    vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      logged.push(args.map(String).join(' '))
+    })
+    vi.mocked(installations.fetchInstallationRepos).mockRejectedValue(
+      Object.assign(new Error('GitHub API 500'), {
+        response: { status: 500, data: { message: 'server exploded' } }
+      })
+    )
+    const { res } = await authedRequest('/github/installation')
+    expect(res.status).toBe(500)
+    const text = logged.join('\n')
+    expect(text).toContain('{"message":"server exploded"}')
+    expect(text).not.toContain('[object Object]')
   })
 
   it('GET /github/keyboard-files returns 400 JSON for MissingRepoFile', async () => {
@@ -578,6 +626,44 @@ describe('session and errors', () => {
     })
     expect(res.status).toBe(400)
     expect(await res.json()).toEqual({ errors: ['Request body must be valid JSON'] })
+    expect(commit).not.toHaveBeenCalled()
+  })
+
+  it('POST /github/keyboard-files returns 400 for an invalid host snapshot', async () => {
+    const commit = vi.mocked(files.commitChanges)
+    const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark/main', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        keymap: parseKeymap(VALID_KEYMAP),
+        layout: [{ x: 0, y: 0 }],
+        hostSnapshot: { version: 99 }
+      })
+    })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ errors: ['Invalid host snapshot'] })
+    expect(commit).not.toHaveBeenCalled()
+  })
+
+  it('POST /github/keyboard-files returns 400 when layout or keymap is not an array payload', async () => {
+    const commit = vi.mocked(files.commitChanges)
+    const badLayout = await authedRequest('/github/keyboard-files/1/acme%2Flark/main', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keymap: parseKeymap(VALID_KEYMAP), layout: { x: 0 } })
+    })
+    expect(badLayout.res.status).toBe(400)
+    expect(await badLayout.res.json()).toEqual({ errors: ['layout must be an array'] })
+
+    const badKeymap = await authedRequest('/github/keyboard-files/1/acme%2Flark/main', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keymap: { layers: 'nope' }, layout: [{ x: 0, y: 0 }] })
+    })
+    expect(badKeymap.res.status).toBe(400)
+    expect(await badKeymap.res.json()).toEqual({
+      errors: ['keymap must include a layers array']
+    })
     expect(commit).not.toHaveBeenCalled()
   })
 
@@ -754,6 +840,16 @@ describe('installation access control', () => {
     const createToken = vi.spyOn(auth, 'createInstallationToken')
 
     const { res } = await authedRequest('/github/keyboard-files/999/acme%2Flark')
+    expect(res.status).toBe(403)
+    expect(fetchFiles).not.toHaveBeenCalled()
+    expect(createToken).not.toHaveBeenCalled()
+  })
+
+  it('rejects a non-digit installationId with 403 before minting a token', async () => {
+    const fetchFiles = vi.mocked(files.fetchKeyboardFiles)
+    const createToken = vi.spyOn(auth, 'createInstallationToken')
+
+    const { res } = await authedRequest('/github/keyboard-files/1e2/acme%2Flark')
     expect(res.status).toBe(403)
     expect(fetchFiles).not.toHaveBeenCalled()
     expect(createToken).not.toHaveBeenCalled()

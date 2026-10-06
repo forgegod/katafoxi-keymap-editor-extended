@@ -33,8 +33,11 @@ export async function assertInstallationAccess(
   session: Session,
   options?: { requirePush?: boolean }
 ): Promise<void> {
+  if (!/^\d+$/.test(installationId) || !repository.includes('/')) {
+    throw new InstallationAccessError()
+  }
   const installId = Number(installationId)
-  if (!Number.isFinite(installId) || installId <= 0 || !repository.includes('/')) {
+  if (!Number.isFinite(installId) || installId <= 0) {
     throw new InstallationAccessError()
   }
 

@@ -4,7 +4,7 @@ import type { Context } from 'hono'
 import { deleteCookie, setCookie } from 'hono/cookie'
 import type { CookieOptions } from 'hono/utils/cookie'
 import jwt from 'jsonwebtoken'
-import { config, REPO_ROOT } from '../../config.js'
+import { config, originFromBaseUrl, REPO_ROOT } from '../../config.js'
 import * as api from './api.js'
 import { SESSION_COOKIE_MAX_AGE_SEC } from './sessions.js'
 
@@ -111,10 +111,15 @@ function cookieOptions(overrides: CookieOptions = {}): CookieOptions {
 }
 
 export function appOrigin(): string {
+  return originFromBaseUrl(config.APP_BASE_URL)
+}
+
+function headerOrigin(value: string | undefined): string | undefined {
+  if (!value) return undefined
   try {
-    return new URL(config.APP_BASE_URL).origin
+    return new URL(value).origin
   } catch {
-    return 'http://localhost:5173'
+    return value
   }
 }
 
@@ -125,22 +130,16 @@ export function appOrigin(): string {
 export function isTrustedAppOrigin(c: Context): boolean {
   const expected = appOrigin()
   const originHeader = c.req.header('Origin')
-  if (originHeader) {
-    try {
-      return new URL(originHeader).origin === expected
-    } catch {
-      return false
-    }
+  const received = originHeader
+    ? headerOrigin(originHeader)
+    : headerOrigin(c.req.header('Referer'))
+  const trusted = received === expected
+  if (!trusted && process.env.NODE_ENV !== 'production') {
+    console.warn(
+      `Rejected untrusted origin: expected ${expected}, received ${received ?? '(none)'}`
+    )
   }
-  const referer = c.req.header('Referer')
-  if (referer) {
-    try {
-      return new URL(referer).origin === expected
-    } catch {
-      return false
-    }
-  }
-  return false
+  return trusted
 }
 
 export function setSidCookie(c: Context, sid: string) {

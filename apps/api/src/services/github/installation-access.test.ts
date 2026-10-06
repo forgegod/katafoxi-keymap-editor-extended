@@ -58,6 +58,26 @@ describe('assertInstallationAccess', () => {
     expect(installations.fetchInstallationRepos).toHaveBeenCalledTimes(1)
   })
 
+  it('rejects a non-numeric installation id', async () => {
+    vi.mocked(installations.fetchInstallationRepos).mockResolvedValue({
+      installations: [{ id: 1 }],
+      repositories: [{ full_name: 'acme/lark' }],
+      repoInstallationMap: { 'acme/lark': 1 },
+      repoAccess: { 'acme/lark': { installationId: 1, push: true } }
+    })
+    const session = sessionWithToken()
+
+    await expect(
+      assertInstallationAccess(
+        { oauth_access_token: 'user-token' },
+        '1e2',
+        'acme/lark',
+        session
+      )
+    ).rejects.toBeInstanceOf(InstallationAccessError)
+    expect(installations.fetchInstallationRepos).not.toHaveBeenCalled()
+  })
+
   it('rejects a foreign installation id', async () => {
     vi.mocked(installations.fetchInstallationRepos).mockResolvedValue({
       installations: [{ id: 1 }],

@@ -1,8 +1,8 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
-import { createApp } from './index.js'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createApp, stripQueryFromRequestLog } from './index.js'
 
 function parseCsp(header: string | null): Map<string, string[]> {
   const map = new Map<string, string[]>()
@@ -82,5 +82,34 @@ describe('production static security headers', () => {
     const res = await app.request('/assets/app.js')
     expect(res.status).toBe(200)
     expect(res.headers.get('cache-control')).toBe('public, max-age=31536000, immutable')
+  })
+})
+
+describe('request logs', () => {
+  it('stripQueryFromRequestLog drops the search string', () => {
+    expect(
+      stripQueryFromRequestLog('<-- GET /github/authorize?code=secret&state=abc')
+    ).toBe('<-- GET /github/authorize')
+    expect(
+      stripQueryFromRequestLog('--> GET /github/authorize?code=secret 302 12ms')
+    ).toBe('--> GET /github/authorize 302 12ms')
+  })
+
+  it('GET /health with a query does not log code or state', async () => {
+    const lines: string[] = []
+    const log = vi.spyOn(console, 'log').mockImplementation((msg: unknown) => {
+      if (typeof msg === 'string') lines.push(msg)
+    })
+    const app = createApp({
+      webDist: path.join(os.tmpdir(), 'keymap-missing-web-dist'),
+      enableGithub: false,
+      enableDevServer: true
+    })
+    await app.request('/health?code=oauth-secret&state=csrf')
+    log.mockRestore()
+    const joined = lines.join('\n')
+    expect(joined).toMatch(/GET \/health/)
+    expect(joined).not.toContain('oauth-secret')
+    expect(joined).not.toContain('code=')
   })
 })

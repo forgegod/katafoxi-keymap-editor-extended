@@ -5,8 +5,10 @@ import * as api from './api.js'
 import * as auth from './auth.js'
 import {
   commitChanges,
+  collectHostDeliverables,
   fetchKeyboardFiles,
   findCodeKeymap,
+  HOST_DELIVERABLE_MAX_FILES,
   isAllowedHostKeymapPath,
   listConfigDir,
   MissingRepoFile
@@ -226,6 +228,36 @@ describe('isAllowedHostKeymapPath', () => {
     expect(isAllowedHostKeymapPath('host_keymap/extra/ru.xkb')).toBe(false)
     expect(isAllowedHostKeymapPath('host_keymap/linux/nested/ru.xkb')).toBe(false)
     expect(isAllowedHostKeymapPath('evil/../escape.txt')).toBe(false)
+  })
+})
+
+describe('collectHostDeliverables', () => {
+  const linux = {
+    path: 'host_keymap/linux/ru.xkb',
+    content: 'xkb\n'
+  }
+
+  it('drops the snapshot path, duplicates, and over-limit files with warnings', () => {
+    const extra = Array.from({ length: HOST_DELIVERABLE_MAX_FILES }, (_, i) => ({
+      path: `host_keymap/linux/f${i}.xkb`,
+      content: `${i}\n`
+    }))
+    const { files, warnings } = collectHostDeliverables([
+      { path: HOST_KEYMAP_SNAPSHOT_PATH, content: '{}\n' },
+      linux,
+      { ...linux },
+      { path: 'evil/../escape.txt', content: 'nope' },
+      ...extra
+    ])
+
+    expect(files).toHaveLength(HOST_DELIVERABLE_MAX_FILES)
+    expect(files[0]).toEqual(linux)
+    expect(files.some(file => file.path === HOST_KEYMAP_SNAPSHOT_PATH)).toBe(false)
+    expect(warnings.some(w => w.includes(HOST_KEYMAP_SNAPSHOT_PATH))).toBe(true)
+    expect(warnings.some(w => w.includes('duplicate'))).toBe(true)
+    expect(warnings.some(w => w.includes(`limit ${HOST_DELIVERABLE_MAX_FILES}`))).toBe(
+      true
+    )
   })
 })
 
@@ -751,10 +783,14 @@ describe('commitChanges', () => {
       {
         path: '/host_keymap/linux/abs.xkb',
         content: 'absolute'
+      },
+      {
+        path: HOST_KEYMAP_SNAPSHOT_PATH,
+        content: '{"version":1}\n'
       }
     ]
 
-    await commitChanges(
+    const result = await commitChanges(
       '1',
       REPO,
       'main',
@@ -773,6 +809,7 @@ describe('commitChanges', () => {
       'host_keymap/linux/ru.xkb',
       'host_keymap/windows/ru.klc'
     ])
+    expect(result.warnings.some(w => w.includes(HOST_KEYMAP_SNAPSHOT_PATH))).toBe(true)
   })
 
   it('rejects when baseSha does not match the current head', async () => {

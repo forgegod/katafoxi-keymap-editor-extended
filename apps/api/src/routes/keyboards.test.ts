@@ -224,15 +224,27 @@ describe('keyboards routes when ENABLE_LOCAL is true', () => {
     expect(leak).toHaveBeenCalled()
   })
 
-  it('GET /keymap returns 400 JSON when keymap parsing fails', async () => {
+  it('GET /keymap returns 500 JSON when keymap parsing throws TypeError', async () => {
     const leak = vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(zmk, 'loadKeymap').mockImplementation(() => {
       throw new TypeError('Cannot read properties of undefined')
     })
 
     const res = await app.request('/keymap')
+    expect(res.status).toBe(500)
+    expect(await res.json()).toEqual({ error: 'internal' })
+    expect(leak).toHaveBeenCalled()
+  })
+
+  it('POST /keymap returns 400 when the body is not JSON', async () => {
+    const save = vi.spyOn(zmk, 'saveLocalKeymap')
+    const res = await app.request('/keymap', {
+      method: 'POST',
+      headers: jsonPostHeaders(),
+      body: '{not-json'
+    })
     expect(res.status).toBe(400)
     expect(await res.json()).toEqual({ error: 'invalid' })
-    expect(leak).toHaveBeenCalled()
+    expect(save).not.toHaveBeenCalled()
   })
 })
