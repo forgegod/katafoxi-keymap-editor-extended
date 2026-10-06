@@ -17,6 +17,7 @@
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
   import { clickOutside } from '../actions/click-outside'
+  import { pushEscapeHandler } from '../escape-stack'
   import EyeToggle from './EyeToggle.svelte'
   import PressToggle from './Common/PressToggle.svelte'
   import HostProfileMenu from './HostProfileMenu.svelte'
@@ -55,18 +56,12 @@
   const addable = $derived(hostLanguagesAvailable(editor.hostLegend))
 
   $effect(() => {
-    // Only this head owns the open menu: column heads watch replace, the add cell watches add.
     const open = column ? choosing : pickingNew
     if (!open) return
-    function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        if (column) pickingFor = null
-        else pickingNew = false
-        event.stopPropagation()
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    return pushEscapeHandler(() => {
+      if (column) pickingFor = null
+      else pickingNew = false
+    })
   })
 
   /** Keep the document outside-close listener from seeing presses on menu items. */

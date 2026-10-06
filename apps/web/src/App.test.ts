@@ -297,6 +297,34 @@ describe('App chrome', () => {
     })
   })
 
+  it('does not undo from Ctrl+Z on Apply while the key editor is open', async () => {
+    await renderApp()
+    await loadKeyboard(localSelection())
+    editor.updateKeymap(km('M'))
+    flushSync()
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('M')
+
+    const slot = target.querySelector('.key .layer-slot')
+    if (!(slot instanceof HTMLElement)) throw new Error('missing .layer-slot')
+    slot.click()
+    flushSync()
+    await tick()
+    const apply = document.querySelector('[aria-label="Apply"]')
+    if (!(apply instanceof HTMLButtonElement)) throw new Error('missing Apply')
+
+    apply.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'z',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true
+      })
+    )
+    flushSync()
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('M')
+    expect(document.querySelector('[aria-label="Apply"]')).toBeInstanceOf(HTMLButtonElement)
+  })
+
   it('undoes with Ctrl+Z while mounted and ignores the chord after unmount', async () => {
     await renderApp()
     await loadKeyboard(localSelection())

@@ -5,6 +5,7 @@
   import { setDefinitionsContext } from './lib/context'
   import { editor } from './lib/editor.svelte.js'
   import { handleEditorShortcut } from './lib/editor-shortcuts'
+  import { hasEscapeOverlay } from './lib/escape-stack'
   import { publishKeymap } from './lib/publish-keymap'
   import { reloadLocalKeyboard } from './lib/api'
   import { buildClipboardExport } from './lib/clipboard/export'
@@ -87,8 +88,10 @@
   })
 
   onMount(() => {
-    const onKeyDown = (event: KeyboardEvent) =>
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (hasEscapeOverlay()) return
       handleEditorShortcut(event, editor)
+    }
     const flushDraft = () => {
       void editor.flushPendingPersist()
     }

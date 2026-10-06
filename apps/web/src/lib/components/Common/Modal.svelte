@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
+  import { pushEscapeHandler } from '../../escape-stack'
 
   interface Props {
     children: Snippet
@@ -34,16 +35,12 @@
       (content?.querySelector(FOCUSABLE) as HTMLElement | null) ?? wrapperEl
     target.focus({ preventScroll: true })
 
-    function onKey(event: KeyboardEvent) {
-      if (event.key !== 'Escape') return
-      if (!onBackdrop) return
-      event.preventDefault()
-      event.stopPropagation()
-      onBackdrop()
-    }
-    window.addEventListener('keydown', onKey)
+    const dismiss = onBackdrop
+    const popEscape = pushEscapeHandler(() => {
+      dismiss?.()
+    })
     return () => {
-      window.removeEventListener('keydown', onKey)
+      popEscape()
       if (previous && document.contains(previous)) previous.focus({ preventScroll: true })
     }
   })

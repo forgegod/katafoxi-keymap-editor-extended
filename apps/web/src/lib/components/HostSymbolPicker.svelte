@@ -8,6 +8,7 @@
     type HostSymbolShelfEntry
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
+  import { pushEscapeHandler } from '../escape-stack'
   import GlyphShelf from './GlyphShelf.svelte'
   import {
     DEFAULT_PICKER_HEIGHT,
@@ -63,6 +64,16 @@
 
   $effect(() => {
     element = el ?? null
+  })
+
+  $effect(() => {
+    return pushEscapeHandler(() => {
+      if (editor.hostEditSession) {
+        editor.endHostEditSession()
+        return
+      }
+      editor.closeHostSymbolCatalog()
+    })
   })
 
   $effect(() => {
@@ -294,6 +305,7 @@
   }
 </script>
 
+<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div
   bind:this={el}
   class="host-symbol-picker"
@@ -305,13 +317,6 @@
   tabindex="-1"
   style="position:fixed;left:8px;top:48px;z-index:45"
   onclick={event => event.stopPropagation()}
-  onkeydown={event => {
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      event.stopPropagation()
-      editor.closeHostSymbolCatalog()
-    }
-  }}
 >
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div

@@ -1,18 +1,9 @@
-<script lang="ts">
-  interface Props {
-    onEndSession?: () => void
-  }
-
-  let { onEndSession }: Props = $props()
-</script>
-
 <div class="session-bar" role="group" aria-label="Host edit session">
   <button
     type="button"
     class="session-accept"
     data-host-accept
     title="Enter"
-    onclick={() => onEndSession?.()}
   >
     Accept <kbd>Enter</kbd>
   </button>
@@ -21,7 +12,6 @@
     class="session-cancel"
     data-host-cancel
     title="Edits are already saved — Escape only closes the session"
-    onclick={() => onEndSession?.()}
   >
     Cancel <kbd>Esc</kbd>
   </button>

@@ -20,6 +20,7 @@
   import { getDefinitionsContext, getSearchContext } from '../context'
   import { isEditableFocus } from '../editor-shortcuts'
   import { editor } from '../editor.svelte.js'
+  import { pushEscapeHandler } from '../escape-stack'
   import { createKeyEditSession } from '../key-edit-session.svelte'
   import ComboLayerChips from './ComboLayerChips.svelte'
   import ComboList from './ComboList.svelte'
@@ -235,26 +236,17 @@
 
   /** Escape = Done: close binding editor first, blur fields, then leave combo mode. */
   $effect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== 'Escape' || event.defaultPrevented || event.repeat) return
+    return pushEscapeHandler(event => {
       if (session.editing) {
-        event.preventDefault()
-        // Capture + stop so KeyEditor's window listener does not also run, then
-        // a second handler would see editing=false and exit combo mode.
-        event.stopImmediatePropagation()
         session.closeEditor()
         return
       }
       if (isEditableFocus(event.target)) {
-        event.preventDefault()
         if (event.target instanceof HTMLElement) event.target.blur()
         return
       }
-      event.preventDefault()
       editor.tryExitComboMode()
-    }
-    window.addEventListener('keydown', onKeyDown, true)
-    return () => window.removeEventListener('keydown', onKeyDown, true)
+    })
   })
 </script>
 

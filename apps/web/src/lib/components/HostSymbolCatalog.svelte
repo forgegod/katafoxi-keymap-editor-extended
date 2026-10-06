@@ -19,17 +19,7 @@
         event.preventDefault()
         event.stopImmediatePropagation()
         editor.stepHostSymbolEdit(event.shiftKey ? -1 : 1)
-        return
       }
-      if (event.key !== 'Escape') return
-      event.preventDefault()
-      event.stopImmediatePropagation()
-      if (editor.hostEditSession) {
-        // Instant writes already applied; Escape ends the whole host-edit session.
-        editor.endHostEditSession()
-        return
-      }
-      editor.closeHostSymbolCatalog()
     }
     window.addEventListener('keydown', onKeydown, true)
     return () => window.removeEventListener('keydown', onKeydown, true)

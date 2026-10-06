@@ -326,12 +326,6 @@
 
   function handleKeyDown(event: KeyboardEvent) {
     if (event.isComposing || event.repeat) return
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      event.stopPropagation()
-      onCancel()
-      return
-    }
     if (event.key !== 'Enter') return
     const choosing =
       !canConfirm &&

@@ -10,6 +10,7 @@
   import { editor } from '../editor.svelte.js'
   import { isUserHostLayoutId } from '../host-layout-store.js'
   import { clickOutside } from '../actions/click-outside'
+  import { pushEscapeHandler } from '../escape-stack'
   import Button from './Common/Button.svelte'
   import ProfileImportKlc from './ProfileImportKlc.svelte'
   import ProfileImportXkb from './ProfileImportXkb.svelte'
@@ -56,18 +57,13 @@
 
   $effect(() => {
     if (!open) return
-    function onKey(event: KeyboardEvent) {
-      if (event.key !== 'Escape') return
-      event.preventDefault()
-      event.stopPropagation()
+    return pushEscapeHandler(() => {
       if (importKind) {
         importKind = null
         return
       }
       onClose()
-    }
-    document.addEventListener('keydown', onKey, true)
-    return () => document.removeEventListener('keydown', onKey, true)
+    })
   })
 
   $effect(() => {

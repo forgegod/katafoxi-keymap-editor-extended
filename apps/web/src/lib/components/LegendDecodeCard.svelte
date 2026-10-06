@@ -11,6 +11,7 @@
     type LegendDecodeCard
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
+  import { pushEscapeHandler } from '../escape-stack'
   import DecodeLevelGrid from './DecodeLevelGrid.svelte'
   import DecodeSessionBar from './DecodeSessionBar.svelte'
 
@@ -134,16 +135,16 @@
         event.preventDefault()
         event.stopImmediatePropagation()
         onEndSession?.()
-        return
-      }
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        event.stopImmediatePropagation()
-        onEndSession?.()
       }
     }
     window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
+    const popEscape = pushEscapeHandler(() => {
+      onEndSession?.()
+    })
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+      popEscape()
+    }
   })
 
   $effect(() => {
@@ -233,7 +234,7 @@
     />
   {/if}
   {#if hostSession}
-    <DecodeSessionBar {onEndSession} />
+    <DecodeSessionBar />
   {:else if hostEditable}
     <p class="mode-hint" role="note">
       Click row — ZMK · Alt+click — host

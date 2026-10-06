@@ -2,6 +2,7 @@ import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { editor } from '../editor.svelte.js'
 import ComboPanelHarness from './ComboPanelHarness.svelte'
+import LinuxInstallSheet from './LinuxInstallSheet.svelte'
 
 const esc = {
   value: '&kp',
@@ -12,6 +13,7 @@ const none = { value: '&none', params: [] }
 describe('ComboPanel', () => {
   let target: HTMLDivElement
   let view: ReturnType<typeof mount> | undefined
+  let sheetView: ReturnType<typeof mount> | undefined
 
   beforeEach(() => {
     editor.resetForTests()
@@ -44,6 +46,8 @@ describe('ComboPanel', () => {
   afterEach(() => {
     if (view) unmount(view)
     view = undefined
+    if (sheetView) unmount(sheetView)
+    sheetView = undefined
     target.remove()
     document.getElementById('modal-root')?.remove()
     editor.resetForTests()
@@ -140,6 +144,36 @@ describe('ComboPanel', () => {
     expect(editor.draftKeymap?.combos).toHaveLength(2)
     expect(editor.activeComboId).toBeTruthy()
     expect(editor.comboNotice).toMatch(/2/)
+  })
+
+  it('keeps combo mode when Escape closes the Linux install sheet', () => {
+    mountPanel()
+    sheetView = mount(LinuxInstallSheet, {
+      target,
+      props: {
+        exports: [],
+        copyNote: '',
+        onCopyText: () => {},
+        onDownloadSection: () => {},
+        onDownloadAll: () => {},
+        onClose: () => {
+          if (sheetView) {
+            unmount(sheetView)
+            sheetView = undefined
+          }
+        }
+      }
+    })
+    flushSync()
+    expect(document.querySelector('#linux-install-title')).toBeTruthy()
+    expect(editor.comboMode).toBe(true)
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    )
+    flushSync()
+    expect(editor.comboMode).toBe(true)
+    expect(document.querySelector('#linux-install-title')).toBeNull()
   })
 
   it('leaves combo mode on Escape when every combo is complete', () => {
