@@ -32,9 +32,6 @@
   transition: 200ms;
   z-index: 1;
 }
-.key > .code {
-  padding: 5px;
-}
 
 .key[data-simple='true'] {
   font-size: 140%;
@@ -44,11 +41,6 @@
 }
 .key[data-long='true'] {
   font-size: 85%;
-}
-.key[data-hold-tap='true'] > .params {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
 }
 .key[data-hold-tap='true'] .param[data-slot='hold'] > .code {
   background: var(--shade-wash);
@@ -103,15 +95,6 @@
   min-width: 0.5em;
   text-align: center;
   border-radius: 4px;
-}
-
-button.code {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
 }
 
 .code.keypad {
@@ -214,8 +197,8 @@ button.code {
   background-color: var(--hover-selection);
   color: var(--on-accent);
 }
-.key .layer-slot:hover :is(.zmk-row, .col, .hold, .code, .layer-empty, .lang, .slot, .face, .glyph, .pack),
-.key .layer-slot:focus-visible :is(.zmk-row, .col, .hold, .code, .layer-empty, .lang, .slot, .face, .glyph, .pack) {
+.key .layer-slot:hover :is(.zmk-row, .hold, .code, .layer-empty, .face, .glyph, .pack),
+.key .layer-slot:focus-visible :is(.zmk-row, .hold, .code, .layer-empty, .face, .glyph, .pack) {
   color: var(--on-accent);
 }
 
@@ -257,15 +240,6 @@ button.code {
 .key:hover .layer-empty,
 .key:focus-within .layer-empty {
   opacity: 1;
-}
-
-/* Empty AltGr placeholders (ˬ) stay out of the way until the key is hovered. */
-.key .empty-mark {
-  display: none;
-}
-.key:hover .empty-mark,
-.key:focus-within .empty-mark {
-  display: inline;
 }
 
 .key .layer-stack .keycap.stacked {

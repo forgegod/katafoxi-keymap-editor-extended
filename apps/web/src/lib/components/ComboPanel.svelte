@@ -26,6 +26,7 @@
   import ComboList from './ComboList.svelte'
   import ComboTimeoutControls from './ComboTimeoutControls.svelte'
   import KeyEditorHost from './KeyEditorHost.svelte'
+  import './Combo.css'
 
   const definitionsBox = getDefinitionsContext()
   const searchBox = getSearchContext()
@@ -453,17 +454,6 @@
     margin: 0;
   }
 
-  .combo-btn {
-    height: 22px;
-    padding: 0 7px;
-    border: 1px solid var(--border);
-    border-radius: 5px;
-    background: var(--surface-sunken);
-    color: var(--text);
-    font: inherit;
-    cursor: pointer;
-  }
-
   .combo-btn.done {
     display: inline-flex;
     align-items: center;
@@ -487,7 +477,6 @@
     color: var(--danger, #b33);
   }
 
-  .combo-empty,
   .combo-hint {
     margin: 0;
     color: var(--text-muted);

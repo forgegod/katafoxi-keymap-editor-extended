@@ -147,6 +147,24 @@
   const render = $derived(!skipShifted && !skipCodesCollapsed)
 </script>
 
+{#snippet choiceButton(item: Choice, extraClass = '')}
+  <button
+    type="button"
+    class="key-editor-choice {extraClass}"
+    class:active={isActiveChoice(item)}
+    class:used={isUsedChoice(item) && !isActiveChoice(item)}
+    class:os-limited={choiceOsSupportLimited(item)}
+    class:keypad={isKeypadChoice(item)}
+    title={valueTooltip(item)}
+    onclick={() => onChoose(item)}
+  >
+    {#if item.faIcon}
+      <Icon name={String(item.faIcon)} />
+    {/if}
+    {choiceLabel(item)}
+  </button>
+{/snippet}
+
 {#if render}
   <div
     class="key-editor-band"
@@ -211,21 +229,7 @@
         >
           {#each band.items as choice}
             {@const item = choice as Choice}
-            <button
-              type="button"
-              class="key-editor-choice"
-              class:active={isActiveChoice(item)}
-              class:used={isUsedChoice(item) && !isActiveChoice(item)}
-              class:os-limited={choiceOsSupportLimited(item)}
-              class:keypad={isKeypadChoice(item)}
-              title={valueTooltip(item)}
-              onclick={() => onChoose(item)}
-            >
-              {#if item.faIcon}
-                <Icon name={String(item.faIcon)} />
-              {/if}
-              {choiceLabel(item)}
-            </button>
+            {@render choiceButton(item)}
           {/each}
         </div>
       </div>
@@ -256,17 +260,7 @@
         <div class="key-editor-grid" data-band="shifted">
           {#each band.items as choice}
             {@const item = choice as Choice}
-            <button
-              type="button"
-              class="key-editor-choice"
-              class:active={isActiveChoice(item)}
-              class:used={isUsedChoice(item) && !isActiveChoice(item)}
-              class:os-limited={choiceOsSupportLimited(item)}
-              title={valueTooltip(item)}
-              onclick={() => onChoose(item)}
-            >
-              {choiceLabel(item)}
-            </button>
+            {@render choiceButton(item)}
           {/each}
         </div>
       </div>
@@ -276,32 +270,12 @@
       <div class="key-editor-grid" data-band="function">
         {#each band.items as choice}
           {@const item = choice as Choice}
-          <button
-            type="button"
-            class="key-editor-choice"
-            class:active={isActiveChoice(item)}
-            class:used={isUsedChoice(item) && !isActiveChoice(item)}
-            class:os-limited={choiceOsSupportLimited(item)}
-            title={valueTooltip(item)}
-            onclick={() => onChoose(item)}
-          >
-            {choiceLabel(item)}
-          </button>
+          {@render choiceButton(item)}
         {/each}
         {#if fKeysOpen}
           {#each moreFKeys as choice}
             {@const item = choice as Choice}
-            <button
-              type="button"
-              class="key-editor-choice"
-              class:active={isActiveChoice(item)}
-              class:used={isUsedChoice(item) && !isActiveChoice(item)}
-              class:os-limited={choiceOsSupportLimited(item)}
-              title={valueTooltip(item)}
-              onclick={() => onChoose(item)}
-            >
-              {choiceLabel(item)}
-            </button>
+            {@render choiceButton(item)}
           {/each}
           {#if moreFKeys.length > 0 && !searching && !choicesHaveActive(moreFKeys)}
             <button
@@ -335,37 +309,13 @@
       <div class="key-editor-grid" data-band="punct">
         {#each band.items as choice}
           {@const item = choice as Choice}
-          <button
-            type="button"
-            class="key-editor-choice"
-            class:active={isActiveChoice(item)}
-            class:used={isUsedChoice(item) && !isActiveChoice(item)}
-            class:os-limited={choiceOsSupportLimited(item)}
-            class:keypad={isKeypadChoice(item)}
-            title={valueTooltip(item)}
-            onclick={() => onChoose(item)}
-          >
-            {#if item.faIcon}
-              <Icon name={String(item.faIcon)} />
-            {/if}
-            {choiceLabel(item)}
-          </button>
+          {@render choiceButton(item)}
         {/each}
         {#if shiftedOnPunct}
           {#if shiftedOpen}
             {#each shiftedOnPunct.items as choice}
               {@const item = choice as Choice}
-              <button
-                type="button"
-                class="key-editor-choice shifted-alias"
-                class:active={isActiveChoice(item)}
-                class:used={isUsedChoice(item) && !isActiveChoice(item)}
-                class:os-limited={choiceOsSupportLimited(item)}
-                title={valueTooltip(item)}
-                onclick={() => onChoose(item)}
-              >
-                {choiceLabel(item)}
-              </button>
+              {@render choiceButton(item, 'shifted-alias')}
             {/each}
             {#if !searching && !bandHasActive(shiftedOnPunct)}
               <button
@@ -398,21 +348,7 @@
         <div class="key-editor-grid" data-band={band.kind}>
           {#each band.items as choice}
             {@const item = choice as Choice}
-            <button
-              type="button"
-              class="key-editor-choice"
-              class:active={isActiveChoice(item)}
-              class:used={isUsedChoice(item) && !isActiveChoice(item)}
-              class:os-limited={choiceOsSupportLimited(item)}
-              class:keypad={isKeypadChoice(item)}
-              title={valueTooltip(item)}
-              onclick={() => onChoose(item)}
-            >
-              {#if item.faIcon}
-                <Icon name={String(item.faIcon)} />
-              {/if}
-              {choiceLabel(item)}
-            </button>
+            {@render choiceButton(item)}
           {/each}
           {#if codesOnExtras && !codesOpen}
             <button
@@ -436,22 +372,7 @@
           >
             {#each row as choice}
               {@const item = choice as Choice}
-              <button
-                type="button"
-                class="key-editor-choice"
-                class:active={isActiveChoice(item)}
-                class:used={isUsedChoice(item) && !isActiveChoice(item)}
-                class:os-limited={choiceOsSupportLimited(item)}
-                class:keypad={isKeypadChoice(item)}
-                class:media-alt={band.kind === 'media'}
-                title={valueTooltip(item)}
-                onclick={() => onChoose(item)}
-              >
-                {#if item.faIcon}
-                  <Icon name={String(item.faIcon)} />
-                {/if}
-                {choiceLabel(item)}
-              </button>
+              {@render choiceButton(item, band.kind === 'media' ? 'media-alt' : '')}
             {/each}
           </div>
         {/each}

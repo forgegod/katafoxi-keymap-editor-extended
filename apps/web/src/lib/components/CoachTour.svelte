@@ -281,7 +281,7 @@
   .coach-tour {
     position: fixed;
     inset: 0;
-    z-index: 60;
+    z-index: var(--z-tour);
     pointer-events: none;
   }
 

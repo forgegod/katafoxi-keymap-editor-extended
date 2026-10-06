@@ -200,7 +200,7 @@
   class:peek={!hostSession}
   class:has-table={displayCard.current.length > 0}
   class:has-note={Boolean(behaviorNote)}
-  style="position:fixed;left:{anchor.left}px;top:{anchor.top}px;z-index:40"
+  style="position:fixed;left:{anchor.left}px;top:{anchor.top}px;z-index:var(--z-decode)"
 >
   {#if previous !== undefined}
     <div class="was">{previous ? `Was ${previous}` : 'Was empty'}</div>

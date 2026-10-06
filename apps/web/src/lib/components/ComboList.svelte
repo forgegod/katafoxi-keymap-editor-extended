@@ -9,6 +9,7 @@
     type KeyBindingNode,
     type ZmkCombo
   } from '@keymap-editor/keymap-core'
+  import './Combo.css'
 
   interface Props {
     combos: readonly ZmkCombo[]
@@ -64,13 +65,6 @@
 {/if}
 
 <style>
-  .combo-empty {
-    margin: 0;
-    color: var(--text-muted);
-    line-height: 1.3;
-    font-size: 0.92em;
-  }
-
   .combo-list {
     list-style: none;
     margin: 0;

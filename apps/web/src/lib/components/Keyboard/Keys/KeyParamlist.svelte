@@ -13,14 +13,6 @@
     parentCodeIndex: number
     params: unknown[]
     values: HydratedNode[]
-    /** When true, each KeyValue is a clickable control; otherwise display-only. */
-    interactive?: boolean
-    onSelect?: (event: {
-      target: EventTarget | null
-      codeIndex: number
-      code: string | number | undefined
-      param: unknown
-    }) => void
     root?: boolean
     compact?: boolean
     holdTap?: boolean
@@ -30,8 +22,6 @@
     parentCodeIndex,
     params,
     values,
-    interactive = false,
-    onSelect,
     root = false,
     compact = false,
     holdTap = false
@@ -73,15 +63,11 @@
         {param}
         value={get(values[i], 'value') as string | number | undefined}
         source={get(values[i], 'source') as Record<string, unknown> | null}
-        {interactive}
-        {onSelect}
       />{#if ((get(values[i], 'source.params.length') as number) || 0) > 0}<KeyParamlist
           parentCodeIndex={codeIndex}
           params={get(values[i], 'source.params') as unknown[]}
           values={get(values[i], 'params') as HydratedNode[]}
           compact={nestedCompact}
-          {interactive}
-          {onSelect}
         />{/if}
     </span>
   {/each}

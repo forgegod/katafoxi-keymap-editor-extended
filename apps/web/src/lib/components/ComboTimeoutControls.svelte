@@ -5,6 +5,7 @@
     COMBO_TIMEOUT_MS_MAX,
     COMBO_TIMEOUT_MS_MIN
   } from '@keymap-editor/keymap-core'
+  import './Combo.css'
 
   interface Props {
     timeoutMs: number
@@ -157,23 +158,6 @@
     gap: 3px;
   }
 
-  .timeout-label-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 4px;
-  }
-
-  .timeout-label {
-    color: var(--text-muted);
-    font-size: 0.9em;
-  }
-
-  .timeout-label strong {
-    color: var(--text);
-    font-weight: 650;
-  }
-
   .timeout-default {
     margin-left: 2px;
     font-size: 0.85em;
@@ -185,28 +169,6 @@
     flex-wrap: wrap;
     gap: 3px;
     justify-content: flex-end;
-  }
-
-  .combo-btn {
-    height: 22px;
-    padding: 0 7px;
-    border: 1px solid var(--border);
-    border-radius: 5px;
-    background: var(--surface-sunken);
-    color: var(--text);
-    font: inherit;
-    cursor: pointer;
-  }
-
-  .combo-btn.quiet {
-    height: 20px;
-    padding: 0 5px;
-    font-size: 0.9em;
-  }
-
-  .combo-btn.quiet.on {
-    border-color: var(--accent, #3a7);
-    background: color-mix(in srgb, var(--accent, #3a7) 16%, transparent);
   }
 
   .timeout-range {

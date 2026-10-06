@@ -13,6 +13,7 @@
   import { pushEscapeHandler } from '../escape-stack'
   import ProfileImportKlc from './ProfileImportKlc.svelte'
   import ProfileImportXkb from './ProfileImportXkb.svelte'
+  import { downloadFileName, downloadText } from '../download'
 
   interface Props {
     language: HostLanguageId
@@ -219,28 +220,10 @@
     editor.beginDeleteHostProfile(language, id)
   }
 
-  function exportFileName(name: string): string {
-    const safe = name.replace(/[\\/:*?"<>|]+/g, '_').trim() || 'layout'
-    return `${safe}.xkb`
-  }
-
-  function downloadXkb(text: string, name: string) {
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = exportFileName(name)
-    link.rel = 'noopener'
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
-  }
-
   function exportLayout(id: string) {
     const exported = editor.exportUserHostLayoutXkb(id)
     if (!exported) return
-    downloadXkb(exported.text, exported.name)
+    downloadText(exported.text, downloadFileName(exported.name, 'xkb', 'layout'))
     onClose()
   }
 
@@ -493,7 +476,7 @@
     position: absolute;
     top: calc(100% + 2px);
     left: 0;
-    z-index: 8;
+    z-index: var(--z-popover);
     min-width: 14rem;
     max-height: min(48rem, 90vh);
     margin: 0;

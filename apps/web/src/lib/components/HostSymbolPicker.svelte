@@ -316,7 +316,7 @@
   aria-label="Host symbol catalog"
   aria-modal="true"
   tabindex="-1"
-  style="position:fixed;left:8px;top:48px;z-index:45"
+  style="position:fixed;left:8px;top:48px;z-index:var(--z-picker)"
   onclick={event => event.stopPropagation()}
 >
   <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -491,7 +491,7 @@
 
   .loupe {
     position: fixed;
-    z-index: 60;
+    z-index: var(--z-tour);
     transform: translate(-50%, -100%);
     display: flex;
     flex-direction: column;

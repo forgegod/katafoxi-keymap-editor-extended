@@ -135,7 +135,7 @@
     position: absolute;
     top: calc(100% + 4px);
     left: 0;
-    z-index: 8;
+    z-index: var(--z-popover);
     display: flex;
     flex-direction: column;
     gap: 8px;

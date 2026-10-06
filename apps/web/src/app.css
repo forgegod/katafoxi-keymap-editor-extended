@@ -105,8 +105,12 @@
   /* Header control height (buttons, selects, status). Keep chrome siblings in sync. */
   --chrome-h: 30px;
 
-  /* Overlay stack: decode card 40, symbol picker 45, modal 50, coach tour 60. */
+  /* Overlay stack: popovers 8, decode 40, symbol picker 45, modal 50, tour 60. */
+  --z-popover: 8;
+  --z-decode: 40;
+  --z-picker: 45;
   --modal-z: 50;
+  --z-tour: 60;
   --modal-scrim: rgba(28, 32, 42, 0.78);
 
   /* Letters: Inter (Latin, Cyrillic, Greek), then Noto Sans for a script Inter lacks.
@@ -257,7 +261,6 @@ code {
 }
 
 #actions {
-  z-index: 5;
   box-sizing: border-box;
 }
 
@@ -279,37 +282,4 @@ code {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
-}
-
-.chrome-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  box-sizing: border-box;
-  height: var(--chrome-h);
-  padding: 0 8px 0 6px;
-  border-radius: 5px;
-  font-size: var(--font-md);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.chrome-status .status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
-}
-
-/* One pending colour for ZMK Draft and Host Changed. */
-.chrome-status.dirty {
-  color: var(--warn);
-  background: var(--warn-wash);
-}
-
-.chrome-status.clean {
-  color: var(--ok);
-  /* Keep the same padding as .dirty so the status dot does not shift. */
-  background: var(--ok-wash);
 }

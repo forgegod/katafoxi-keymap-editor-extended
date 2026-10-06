@@ -11,6 +11,7 @@
   import Button from './Common/Button.svelte'
   import LinuxInstallSheet from './LinuxInstallSheet.svelte'
   import WindowsInstallSheet from './WindowsInstallSheet.svelte'
+  import { downloadBytes, downloadFileName, downloadText } from '../download'
 
   type InstallSheet = 'linux' | 'windows' | null
 
@@ -18,24 +19,6 @@
   let copyNote = $state('')
   /** Last paired-layout version written for each caps language. The next download uses +1. */
   let pairedVersion = $state<Record<string, number>>({})
-
-  function safeFileName(name: string, ext: string): string {
-    const safe = name.replace(/[\\/:*?"<>|]+/g, '_').trim() || 'host-layout'
-    return `${safe}.${ext}`
-  }
-
-  function downloadText(text: string, fileName: string) {
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = fileName
-    link.rel = 'noopener'
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
-  }
 
   async function copyText(text: string, okMessage: string, markDelivered = false) {
     try {
@@ -119,27 +102,14 @@
   }
 
   function downloadSection(text: string, name: string) {
-    downloadText(text, safeFileName(name, 'symbols.txt'))
+    downloadText(text, downloadFileName(name, 'symbols.txt', 'host-layout'))
     editor.markHostDelivered()
-  }
-
-  function downloadBytes(bytes: Uint8Array, fileName: string) {
-    const blob = new Blob([new Uint8Array(bytes)], { type: 'application/octet-stream' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = fileName
-    link.rel = 'noopener'
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
   }
 
   function downloadKlc(layoutId: string, name: string) {
     const file = editor.exportUserHostLayoutKlc(layoutId)
     if (!file) return
-    downloadBytes(file.bytes, safeFileName(name, 'klc'))
+    downloadBytes(file.bytes, downloadFileName(name, 'klc', 'host-layout'))
     editor.markHostDelivered()
   }
 
@@ -153,14 +123,14 @@
     pairedVersion = { ...pairedVersion, [item.capsLanguage]: version }
     const file = editor.exportCapsAlphabetKlc(item.capsLanguage, version)
     if (!file) return
-    downloadBytes(file.bytes, safeFileName(file.kbdId, 'klc'))
+    downloadBytes(file.bytes, downloadFileName(file.kbdId, 'klc', 'host-layout'))
     editor.markHostDelivered()
   }
 
   function downloadAllLinux() {
     const all = editor.exportActiveHostLayoutsXkb()
     if (!all) return
-    downloadText(all.text, safeFileName(all.name, 'symbols.txt'))
+    downloadText(all.text, downloadFileName(all.name, 'symbols.txt', 'host-layout'))
     editor.markHostDelivered()
   }
 </script>
@@ -169,7 +139,6 @@
   class="host-pipeline"
   class:dirty
   data-host-dirty={dirty ? 'true' : 'false'}
-  title="What the OS types — install host layouts on Linux or Windows"
 >
   <span
     class="lane-label"

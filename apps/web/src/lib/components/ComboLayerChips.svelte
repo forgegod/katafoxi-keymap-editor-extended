@@ -1,5 +1,6 @@
 <script lang="ts">
   import { layerLegendSymbol } from '@keymap-editor/keymap-core'
+  import './Combo.css'
 
   interface Props {
     layerCount: number
@@ -56,40 +57,6 @@
     gap: 3px;
   }
 
-  .timeout-label-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 4px;
-  }
-
-  .timeout-label {
-    color: var(--text-muted);
-    font-size: 0.9em;
-  }
-
-  .combo-btn {
-    height: 22px;
-    padding: 0 7px;
-    border: 1px solid var(--border);
-    border-radius: 5px;
-    background: var(--surface-sunken);
-    color: var(--text);
-    font: inherit;
-    cursor: pointer;
-  }
-
-  .combo-btn.quiet {
-    height: 20px;
-    padding: 0 5px;
-    font-size: 0.9em;
-  }
-
-  .combo-btn.quiet.on {
-    border-color: var(--accent, #3a7);
-    background: color-mix(in srgb, var(--accent, #3a7) 16%, transparent);
-  }
-
   .layer-chips {
     display: flex;
     flex-wrap: wrap;
@@ -98,6 +65,5 @@
 
   .layer-chip {
     min-width: 1.6rem;
-    justify-content: center;
   }
 </style>
