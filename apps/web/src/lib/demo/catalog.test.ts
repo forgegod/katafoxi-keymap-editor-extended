@@ -19,6 +19,7 @@ describe('demo catalog', () => {
       'Kabarga',
       'Lark',
       'Lily58',
+      'nice!60',
       'Planck',
       'PNCATEHO',
       'Sofle',
@@ -29,6 +30,7 @@ describe('demo catalog', () => {
       'kabarga',
       'lark',
       'lily58',
+      'nice60',
       'planck',
       'pncateho',
       'sofle',
@@ -140,6 +142,13 @@ describe('demo catalog', () => {
     expect(layout).toHaveLength(48)
     expect(keymap.layers).toHaveLength(3)
     expect(keymap.sensorBindings).toBeUndefined()
+  })
+
+  it('loads nice!60 as a 61-key wireless unibody', async () => {
+    const { layout, keymap } = await loadDemo('nice60')
+    expect(layout).toHaveLength(61)
+    expect(keymap.layers).toHaveLength(2)
+    expect(keymap.combos?.length).toBeGreaterThanOrEqual(4)
   })
 
   it('groups PNCATEHO combos into a chord dictionary of finger cores', async () => {
