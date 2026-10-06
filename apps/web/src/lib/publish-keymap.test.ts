@@ -434,4 +434,37 @@ describe('publishKeymap', () => {
     expect(editor.isDirty).toBe(false)
     expect(editor.isHostRepoDirty).toBe(true)
   })
+
+  it('does not accept a host baseline when Commit omits an unsupported snapshot', async () => {
+    await editor.selectKeyboard({
+      source: 'github',
+      github: { repository: 'owner/repo', branch: 'main', headSha: 'old' },
+      layout,
+      keymap: km('A'),
+      hostSnapshot: null,
+      hostSnapshotError: 'unsupported_version',
+      warnings: ['host_snapshot_unsupported_version']
+    })
+    editor.updateKeymap(km('M'))
+    expect(editor.buildCurrentHostKeymapSnapshot()).toBeNull()
+
+    await expect(
+      publishKeymap(editor, {
+        write: () => Promise.resolve({}),
+        reload: () =>
+          Promise.resolve({
+            keymap: km('M'),
+            layout,
+            headSha: 'new-sha'
+          })
+      })
+    ).resolves.toBe(true)
+
+    expect(editor.githubMeta?.headSha).toBe('new-sha')
+    expect(editor.buildCurrentHostKeymapSnapshot()).toBeNull()
+    expect(editor.saveNotice?.kind).toBe('warning')
+    expect(editor.saveNotice?.messages[0]).toMatch(
+      /newer host_keymap\/snapshot\.json than this editor can read/
+    )
+  })
 })

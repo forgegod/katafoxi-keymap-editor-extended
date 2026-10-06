@@ -112,7 +112,7 @@ describe('API', () => {
           }
         },
         keymap: { layers: [[{ value: '&kp', params: [{ value: 'A', params: [] }] }]] },
-        hostSnapshot: { version: 99, view: {}, layouts: [] },
+        hostSnapshot: { version: 2, view: {}, layouts: [] },
         headSha: 'abc123'
       })
     )
@@ -120,8 +120,33 @@ describe('API', () => {
     const result = await api.fetchLayoutAndKeymap('acme/lark', 'main')
 
     expect(result.hostSnapshot).toBeNull()
+    expect(result.hostSnapshotError).toBe('unsupported_version')
+    expect(result.warnings).toContain('host_snapshot_unsupported_version')
     expect(result.headSha).toBe('abc123')
     expect(result.layout).toHaveLength(1)
+  })
+
+  it('fetchLayoutAndKeymap flags an invalid hostSnapshot without treating it as missing', async () => {
+    const api = new API()
+    api.repoInstallationMap = { 'acme/lark': '42' }
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        info: {
+          layouts: {
+            default: { layout: [{ x: 0, y: 0, row: 0, col: 0 }] }
+          }
+        },
+        keymap: { layers: [[{ value: '&kp', params: [{ value: 'A', params: [] }] }]] },
+        hostSnapshot: { view: {}, layouts: [] },
+        headSha: 'abc123'
+      })
+    )
+
+    const result = await api.fetchLayoutAndKeymap('acme/lark', 'main')
+
+    expect(result.hostSnapshot).toBeNull()
+    expect(result.hostSnapshotError).toBe('invalid')
+    expect(result.warnings).toContain('host_snapshot_invalid')
   })
 
   it('fetchLayoutAndKeymap infers a rectangular layout when info.json is null', async () => {
@@ -141,6 +166,7 @@ describe('API', () => {
     const result = await api.fetchLayoutAndKeymap('acme/lark', 'main')
 
     expect(result.warnings).toEqual(['github_inferred_layout'])
+    expect(result.hostSnapshotError).toBeUndefined()
     expect(result.layout).toHaveLength(4)
     expect(result.layout[0]).toMatchObject({ row: 0, col: 0, x: 0, y: 0 })
     expect(result.layout[3]).toMatchObject({ row: 0, col: 3, x: 3, y: 0 })

@@ -32,7 +32,8 @@ export type PublishKeymapEditor = {
   applyReloadFailure(source: string | null): void
   applySaveFailure(data: unknown): void
   acceptHostRepoBaseline?(encoded?: string): void
-  buildCurrentHostKeymapSnapshot?(): HostKeymapSnapshot
+  buildCurrentHostKeymapSnapshot?(): HostKeymapSnapshot | null
+  retainHostSnapshotOmitWarning?(): void
 }
 
 export async function publishKeymap(
@@ -52,9 +53,9 @@ export async function publishKeymap(
   const token = editor.beginPublish()
   const sourceAtStart = editor.source
   const githubAtStart = editor.githubMeta
-  const committedHostBaseline = editor.buildCurrentHostKeymapSnapshot
-    ? encodeHostKeymapSnapshot(editor.buildCurrentHostKeymapSnapshot())
-    : undefined
+  const hostSnapshot = editor.buildCurrentHostKeymapSnapshot?.() ?? null
+  const committedHostBaseline =
+    hostSnapshot != null ? encodeHostKeymapSnapshot(hostSnapshot) : undefined
   const sentDraft = cloneParsedKeymap(editor.draftKeymap as ParsedKeymap)
   try {
     const saveMeta = await handlers.write(sentDraft)
@@ -70,7 +71,10 @@ export async function publishKeymap(
         editor.githubMeta = { ...editor.githubMeta, headSha: reloaded.headSha }
       }
       editor.applyPublished(reloaded.keymap, saveMeta, sentDraft)
-      editor.acceptHostRepoBaseline?.(committedHostBaseline)
+      if (committedHostBaseline !== undefined) {
+        editor.acceptHostRepoBaseline?.(committedHostBaseline)
+      }
+      editor.retainHostSnapshotOmitWarning?.()
       return true
     } catch {
       if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {

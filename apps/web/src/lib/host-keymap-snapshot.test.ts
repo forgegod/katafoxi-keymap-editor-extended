@@ -282,7 +282,7 @@ describe('GitHub host keymap snapshot', () => {
       }
     })
     const committed = encodeHostKeymapSnapshot(
-      editor.buildCurrentHostKeymapSnapshot()
+      editor.buildCurrentHostKeymapSnapshot()!
     )
     expect(editor.isHostRepoDirty).toBe(false)
 
@@ -358,7 +358,7 @@ describe('GitHub host keymap snapshot', () => {
       hostSnapshot: snapshot
     })
 
-    const live = encodeHostKeymapSnapshot(editor.buildCurrentHostKeymapSnapshot())
+    const live = encodeHostKeymapSnapshot(editor.buildCurrentHostKeymapSnapshot()!)
     expect(fileEncoded).not.toBe(live)
     expect(editor.isHostRepoDirty).toBe(false)
     expect(editor.isPublishDirty).toBe(false)
@@ -431,7 +431,7 @@ describe('GitHub host keymap snapshot', () => {
       hostSnapshot: snapshot
     })
 
-    const live = encodeHostKeymapSnapshot(editor.buildCurrentHostKeymapSnapshot())
+    const live = encodeHostKeymapSnapshot(editor.buildCurrentHostKeymapSnapshot()!)
     expect(live).toContain('"id": "user:en-1"')
     expect(fileEncoded.indexOf('"id": "user:ru-1"')).toBeLessThan(
       fileEncoded.indexOf('"id": "user:en-1"')
@@ -441,5 +441,37 @@ describe('GitHub host keymap snapshot', () => {
     )
     expect(fileEncoded).not.toBe(live)
     expect(editor.isHostRepoDirty).toBe(false)
+  })
+
+  it('warns and omits the live snapshot when the repo file is version 2', async () => {
+    await editor.selectKeyboard({
+      ...BOARD,
+      hostSnapshot: null,
+      hostSnapshotError: 'unsupported_version',
+      warnings: ['host_snapshot_unsupported_version']
+    })
+
+    expect(editor.saveNotice?.kind).toBe('warning')
+    expect(editor.saveNotice?.messages[0]).toMatch(
+      /newer host_keymap\/snapshot\.json than this editor can read/
+    )
+    expect(editor.buildCurrentHostKeymapSnapshot()).toBeNull()
+    expect(editor.buildCurrentHostKeymapDeliverables()).toEqual([])
+    expect(editor.isHostRepoDirty).toBe(false)
+  })
+
+  it('warns when the repo snapshot is invalid but still allows a host commit', async () => {
+    await editor.selectKeyboard({
+      ...BOARD,
+      hostSnapshot: null,
+      hostSnapshotError: 'invalid',
+      warnings: ['host_snapshot_invalid']
+    })
+
+    expect(editor.saveNotice?.kind).toBe('warning')
+    expect(editor.saveNotice?.messages[0]).toMatch(
+      /host_keymap\/snapshot\.json is invalid/
+    )
+    expect(editor.buildCurrentHostKeymapSnapshot()).not.toBeNull()
   })
 })

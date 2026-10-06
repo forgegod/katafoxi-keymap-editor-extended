@@ -63,6 +63,8 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
 
   this.source = event.source
   this.githubMeta = githubMeta ?? null
+  this._omitHostKeymapSnapshotOnCommit =
+    event.source === 'github' && event.hostSnapshotError === 'unsupported_version'
   if (event.source !== 'github') {
     this._hostRepoBaselineEncoded = null
   }

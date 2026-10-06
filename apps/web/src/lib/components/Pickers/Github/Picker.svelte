@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import type { HostKeymapSnapshot, LayoutKey, ParsedKeymap } from '@keymap-editor/keymap-core'
+  import type { HostSnapshotLoadError } from '../../../editor/types.js'
   import * as config from '../../../config'
   import { editor } from '../../../editor.svelte.js'
   import github from '../../../github/api.svelte.js'
@@ -29,6 +30,7 @@
       layout: LayoutKey[]
       keymap: ParsedKeymap
       hostSnapshot?: HostKeymapSnapshot | null
+      hostSnapshotError?: HostSnapshotLoadError
       warnings?: string[]
       /** Keep unpublished edits + Host legend when switching after Create branch. */
       preserveSession?: boolean

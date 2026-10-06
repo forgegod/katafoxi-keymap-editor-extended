@@ -11,12 +11,16 @@ describe('formatKeymapSaveWarnings', () => {
       formatKeymapSaveWarnings([
         'clipboard_inferred_layout',
         'clipboard_json_no_export_source',
-        'github_inferred_layout'
+        'github_inferred_layout',
+        'host_snapshot_unsupported_version',
+        'host_snapshot_invalid'
       ])
     ).toEqual([
       'No info.json — using a flat rectangular board from the binding count. Paste info.json for the real layout.',
       'Loaded from keymap.json only — Copy .keymap will use the default ZMK template unless you also paste a .keymap under “Export source”.',
-      'No config/info.json — using a flat rectangular board from the binding count. Commit still updates the keymap only; add info.json for the real geometry.'
+      'No config/info.json — using a flat rectangular board from the binding count. Commit still updates the keymap only; add info.json for the real geometry.',
+      'This repository has a newer host_keymap/snapshot.json than this editor can read. Commit will update the keymap only and leave that snapshot unchanged.',
+      'The repository host_keymap/snapshot.json is invalid. Host legends on this device come from the browser until you Commit a new snapshot.'
     ])
   })
 

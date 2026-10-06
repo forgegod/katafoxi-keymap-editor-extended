@@ -171,7 +171,9 @@
         warnings,
         preserveSession:
           'preserveSession' in event ? event.preserveSession : undefined,
-        hostSnapshot: 'hostSnapshot' in event ? event.hostSnapshot : undefined
+        hostSnapshot: 'hostSnapshot' in event ? event.hostSnapshot : undefined,
+        hostSnapshotError:
+          'hostSnapshotError' in event ? event.hostSnapshotError : undefined
       }
     }
 

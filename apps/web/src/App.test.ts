@@ -362,4 +362,47 @@ describe('App chrome', () => {
     expect(target.querySelector('.layer-slot.unpublished')).toBeNull()
     expect(target.querySelector('.publish-status')?.getAttribute('title')).toMatch(/Up to date/)
   })
+
+  it('omits host_keymap/snapshot.json on Commit when the repo snapshot is version 2', async () => {
+    await renderApp()
+    await loadKeyboard({
+      source: 'github',
+      github: { repository: 'owner/repo', branch: 'main', headSha: 'abc123' },
+      layout: oneKeyLayout,
+      keymap: km('A'),
+      hostSnapshot: null,
+      hostSnapshotError: 'unsupported_version',
+      warnings: ['host_snapshot_unsupported_version']
+    })
+
+    expect(target.querySelector('.save-notice.warning')?.textContent).toMatch(
+      /newer host_keymap\/snapshot\.json than this editor can read/
+    )
+
+    editor.updateKeymap(km('M'))
+    flushSync()
+    const commit = buttonMatching(target, /^\s*Commit\s*$/)
+    expect(commit).toBeInstanceOf(HTMLButtonElement)
+    commit!.click()
+    flushSync()
+    await tick()
+    await vi.waitFor(() => {
+      expect(github.commitChanges).toHaveBeenCalled()
+    })
+
+    expect(github.commitChanges).toHaveBeenCalledWith(
+      'owner/repo',
+      'main',
+      oneKeyLayout,
+      expect.objectContaining({
+        layers: km('M').layers
+      }),
+      null,
+      [],
+      'abc123'
+    )
+    expect(target.querySelector('.save-notice.warning')?.textContent).toMatch(
+      /newer host_keymap\/snapshot\.json than this editor can read/
+    )
+  })
 })

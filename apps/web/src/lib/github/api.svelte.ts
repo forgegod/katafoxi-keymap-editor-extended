@@ -6,19 +6,46 @@ import {
   type ParsedKeymap
 } from '@keymap-editor/keymap-core'
 import * as config from '../config'
+import type { HostSnapshotLoadError } from '../editor/types.js'
 
 export interface KeyboardFilesResult {
   layout: LayoutKey[]
   keymap: ParsedKeymap
   hostSnapshot: HostKeymapSnapshot | null
+  /** Why a repo snapshot was not applied. Absent when the file is missing or ok. */
+  hostSnapshotError?: HostSnapshotLoadError
   warnings: string[]
   headSha: string
 }
 
-/** Accept a validated snapshot at the SPA boundary; non-ok → no snapshot. */
-function hostSnapshotFromResponse(raw: unknown): HostKeymapSnapshot | null {
+export const HOST_SNAPSHOT_UNSUPPORTED_WARNING = 'host_snapshot_unsupported_version'
+export const HOST_SNAPSHOT_INVALID_WARNING = 'host_snapshot_invalid'
+
+/** Accept a validated snapshot at the SPA boundary; keep parse errors for Commit. */
+function hostSnapshotFromResponse(raw: unknown): {
+  hostSnapshot: HostKeymapSnapshot | null
+  hostSnapshotError?: HostSnapshotLoadError
+  warnings: string[]
+} {
   const parsed = parseHostKeymapSnapshot(raw)
-  return parsed.ok ? parsed.snapshot : null
+  if (parsed.ok) {
+    return { hostSnapshot: parsed.snapshot, warnings: [] }
+  }
+  if (parsed.error === 'missing') {
+    return { hostSnapshot: null, warnings: [] }
+  }
+  if (parsed.error === 'unsupported_version') {
+    return {
+      hostSnapshot: null,
+      hostSnapshotError: 'unsupported_version',
+      warnings: [HOST_SNAPSHOT_UNSUPPORTED_WARNING]
+    }
+  }
+  return {
+    hostSnapshot: null,
+    hostSnapshotError: 'invalid',
+    warnings: [HOST_SNAPSHOT_INVALID_WARNING]
+  }
 }
 
 type Listener = (...args: unknown[]) => void
@@ -278,7 +305,7 @@ export class API extends EventEmitter {
           headSha?: unknown
         }
       }
-      const hostSnapshot = hostSnapshotFromResponse(data.hostSnapshot ?? null)
+      const loaded = hostSnapshotFromResponse(data.hostSnapshot ?? null)
       const headSha = typeof data.headSha === 'string' ? data.headSha : ''
       try {
         const bundle = loadKeyboardBundle({
@@ -292,8 +319,11 @@ export class API extends EventEmitter {
         return {
           layout: bundle.layout,
           keymap: bundle.keymap,
-          hostSnapshot,
-          warnings: bundle.warnings,
+          hostSnapshot: loaded.hostSnapshot,
+          ...(loaded.hostSnapshotError
+            ? { hostSnapshotError: loaded.hostSnapshotError }
+            : {}),
+          warnings: [...bundle.warnings, ...loaded.warnings],
           headSha
         }
       } catch (bundleErr) {

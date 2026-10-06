@@ -188,6 +188,11 @@ export class EditorState {
    * GitHub repo. Null when this session has no repo host baseline yet.
    */
   _hostRepoBaselineEncoded = $state<string | null>(null)
+  /**
+   * True when Commit must leave `host_keymap/snapshot.json` untouched
+   * (repo snapshot is a newer schema).
+   */
+  _omitHostKeymapSnapshotOnCommit = false
 
   _changes = $derived.by(() => {
     if (!this.baselineKeymap || !this.draftKeymap) return []
@@ -197,6 +202,7 @@ export class EditorState {
   /** Host half differs from the last GitHub load/commit (ADR 0005). */
   isHostRepoDirty = $derived.by(() => {
     if (this.source !== 'github') return false
+    if (this._omitHostKeymapSnapshotOnCommit) return false
     const live = this._encodeLiveHostSnapshot()
     if (this._hostRepoBaselineEncoded === null) {
       return (
@@ -242,6 +248,7 @@ export class EditorState {
     this._selectGeneration += 1
     this._publishGeneration += 1
     this._hostRepoBaselineEncoded = null
+    this._omitHostKeymapSnapshotOnCommit = false
     this._handledDraftIdentityKey = null
     this.endHostEditSession()
     this.legendHover = null
@@ -467,7 +474,11 @@ export class EditorState {
     exampleUserPath: string
   }>
   declare exportActiveHostLayoutsXkb: () => { text: string; name: string } | null
-  declare buildCurrentHostKeymapSnapshot: () => HostKeymapSnapshot
+  declare noteHostSnapshotLoad: (
+    error: import('./types').HostSnapshotLoadError | null | undefined
+  ) => void
+  declare retainHostSnapshotOmitWarning: () => void
+  declare buildCurrentHostKeymapSnapshot: () => HostKeymapSnapshot | null
   declare buildCurrentHostKeymapDeliverables: () => HostKeymapDeliverableFile[]
   declare _encodeLiveHostSnapshot: () => string
   declare acceptHostRepoBaseline: (encoded?: string) => void

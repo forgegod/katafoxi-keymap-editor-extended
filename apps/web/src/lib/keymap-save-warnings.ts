@@ -26,7 +26,11 @@ export const KEYMAP_SAVE_WARNING_MESSAGES: Record<string, string> = {
   clipboard_inferred_layout:
     'No info.json — using a flat rectangular board from the binding count. Paste info.json for the real layout.',
   github_inferred_layout:
-    'No config/info.json — using a flat rectangular board from the binding count. Commit still updates the keymap only; add info.json for the real geometry.'
+    'No config/info.json — using a flat rectangular board from the binding count. Commit still updates the keymap only; add info.json for the real geometry.',
+  host_snapshot_unsupported_version:
+    'This repository has a newer host_keymap/snapshot.json than this editor can read. Commit will update the keymap only and leave that snapshot unchanged.',
+  host_snapshot_invalid:
+    'The repository host_keymap/snapshot.json is invalid. Host legends on this device come from the browser until you Commit a new snapshot.'
 }
 
 const WARNING_LINKS: Partial<Record<string, KeymapWarningLink>> = {

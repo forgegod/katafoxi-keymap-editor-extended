@@ -2,6 +2,8 @@ import type { KeysymRejection, HostKeymapSnapshot, LayoutKey, ParsedKeymap } fro
 import type { DemoHostLayoutSeed } from '../demo/host-seeds.js'
 import type { HostLanguageId } from '../host-layout-store'
 
+export type HostSnapshotLoadError = 'unsupported_version' | 'invalid'
+
 export type HostProfilePrompt =
   | { kind: 'save-as'; language: HostLanguageId }
   | { kind: 'copy'; language: HostLanguageId; layoutId?: string }
@@ -75,6 +77,8 @@ export type GithubKeyboardSelection = KeyboardSelectionBase & {
    * wins over IndexedDB for this keymap identity.
    */
   hostSnapshot?: HostKeymapSnapshot | null
+  /** Repo snapshot was present but not applied (`unsupported_version` / `invalid`). */
+  hostSnapshotError?: HostSnapshotLoadError
 }
 
 export type LocalKeyboardSelection = KeyboardSelectionBase & {
