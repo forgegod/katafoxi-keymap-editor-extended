@@ -18,7 +18,7 @@ import {
   joinCollapsingExtraBlankLines,
   type LineEnding
 } from './eol.js'
-import type { LegendHover, ZmkConditionalLayer } from './types.js'
+import type { LegendHover, ZmkCombo, ZmkConditionalLayer } from './types.js'
 
 /** A conditional layer needs at least two held layers. */
 export const CONDITIONAL_LAYER_MIN_IF = 2
@@ -218,6 +218,30 @@ export function remapConditionalLayersAfterDelete(
       ifLayers,
       thenLayer: shift(rule.thenLayer)
     })
+  }
+  return out
+}
+
+/**
+ * Drop or renumber combo `layers` filters after a layer is removed.
+ * A combo dies when the filter listed only the deleted layer (same as
+ * dropping a conditional-layer rule that can no longer fire). An omitted
+ * or empty filter still means every remaining layer.
+ */
+export function remapCombosAfterLayerDelete(
+  combos: readonly ZmkCombo[],
+  deleted: number
+): ZmkCombo[] {
+  const shift = (index: number) => (index > deleted ? index - 1 : index)
+  const out: ZmkCombo[] = []
+  for (const combo of combos) {
+    if (!combo.layers || combo.layers.length === 0) {
+      out.push(combo)
+      continue
+    }
+    const layers = combo.layers.filter(index => index !== deleted).map(shift)
+    if (layers.length === 0) continue
+    out.push({ ...combo, layers })
   }
   return out
 }

@@ -7,7 +7,10 @@ import {
   comboOverlapMessage,
   isBlankLayerBinding,
   promoteAbsentLayoutKey,
+  LAYER_REF_CLEARED_NOTE,
+  remapCombosAfterLayerDelete,
   remapConditionalLayersAfterDelete,
+  remapLayerRefBindingAfterDelete,
   remapShownLayersAfterDelete,
   type KeyBindingNode,
   type KeymapChange,
@@ -118,11 +121,43 @@ export function deleteLayer(this: EditorState, index: number) {
       index
     )
   }
+  if (km.combos) {
+    next.combos = remapCombosAfterLayerDelete(km.combos, index)
+  }
   if (km.sensorBindings) {
     next.sensorBindings = km.sensorBindings.filter((_, i) => i !== index)
   }
-  this.updateKeymap(next)
+  const remapped = remapKeymapLayerRefsAfterDelete(next, index)
+  this.updateKeymap(remapped.keymap)
+  if (remapped.cleared) {
+    this.saveNotice = { kind: 'warning', messages: [LAYER_REF_CLEARED_NOTE] }
+  }
+  syncActiveComboId.call(this, remapped.keymap.combos)
   this.layerView = remapShownLayersAfterDelete(this.layerView, index, layers.length)
+}
+
+function remapKeymapLayerRefsAfterDelete(
+  keymap: ParsedKeymap,
+  deleted: number
+): { keymap: ParsedKeymap; cleared: boolean } {
+  let cleared = false
+  const walk = (node: KeyBindingNode): KeyBindingNode => {
+    const next = remapLayerRefBindingAfterDelete(node, deleted)
+    if (next.cleared) cleared = true
+    return next.node
+  }
+  const layers = keymap.layers.map(row => row.map(walk))
+  const out: ParsedKeymap = { ...keymap, layers }
+  if (keymap.combos) {
+    out.combos = keymap.combos.map(combo => ({
+      ...combo,
+      binding: walk(combo.binding)
+    }))
+  }
+  if (keymap.sensorBindings) {
+    out.sensorBindings = keymap.sensorBindings.map(row => row.map(walk))
+  }
+  return { keymap: out, cleared }
 }
 
 /** Replace one encoder turn on a layer. */

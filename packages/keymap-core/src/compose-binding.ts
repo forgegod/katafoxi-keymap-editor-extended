@@ -43,6 +43,58 @@ function isUnknownHoldTap(node: KeyBindingNode): boolean {
   return (node.params?.length ?? 0) === 2
 }
 
+const TRANS_BINDING: KeyBindingNode = { value: '&trans', params: [] }
+
+function shiftedLayerToken(
+  value: string | number,
+  nextIndex: number
+): string | number {
+  if (typeof value === 'number') return nextIndex
+  if (/^L\d+$/i.test(String(value))) {
+    const prefix = String(value).startsWith('l') ? 'l' : 'L'
+    return `${prefix}${nextIndex}`
+  }
+  return String(nextIndex)
+}
+
+/**
+ * Shift `&mo` / `&lt` / `&to` / `&tog` / `&sl` layer arguments after a
+ * layer is removed. A ref to the deleted layer becomes `&trans`.
+ */
+export const LAYER_REF_CLEARED_NOTE =
+  'Bindings that pointed at the deleted layer became transparent.'
+
+export function remapLayerRefBindingAfterDelete(
+  node: KeyBindingNode,
+  deleted: number
+): { node: KeyBindingNode; cleared: boolean } {
+  const behavior = String(node.value)
+  if (LAYER_REF_BEHAVIORS.has(behavior)) {
+    const layer = parseHoldLayer(node.params[0]?.value)
+    if (layer === deleted) return { node: TRANS_BINDING, cleared: true }
+    if (layer != null && layer > deleted) {
+      const first = node.params[0]!
+      return {
+        node: {
+          value: node.value,
+          params: [
+            { value: shiftedLayerToken(first.value, layer - 1), params: first.params },
+            ...node.params.slice(1)
+          ]
+        },
+        cleared: false
+      }
+    }
+  }
+  let cleared = false
+  const params = (node.params ?? []).map(child => {
+    const inner = remapLayerRefBindingAfterDelete(child, deleted)
+    if (inner.cleared) cleared = true
+    return inner.node
+  })
+  return { node: { value: node.value, params }, cleared }
+}
+
 /** True when the bind names layer N (`&mo 1`, `&lt 1 A`, `&to 0`). */
 export function bindingReferencesLayer(node: KeyBindingNode, layer: number): boolean {
   const behavior = String(node.value)
