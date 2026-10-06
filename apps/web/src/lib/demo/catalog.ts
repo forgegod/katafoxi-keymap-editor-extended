@@ -81,6 +81,13 @@ const DEMO_LOADERS: Record<string, () => Promise<DemoFiles>> = {
       import('../../../../../packages/keymap-core/fixtures/demo/sofle/sofle.keymap?raw')
     ])
     return { info: info as InfoJson, keymapSource }
+  },
+  planck: async () => {
+    const [{ default: info }, { default: keymapSource }] = await Promise.all([
+      import('../../../../../packages/keymap-core/fixtures/demo/planck/info.json'),
+      import('../../../../../packages/keymap-core/fixtures/demo/planck/planck.keymap?raw')
+    ])
+    return { info: info as InfoJson, keymapSource }
   }
 }
 

@@ -19,6 +19,7 @@ describe('demo catalog', () => {
       'Kabarga',
       'Lark',
       'Lily58',
+      'Planck',
       'PNCATEHO',
       'Sofle',
       'Sweep'
@@ -28,6 +29,7 @@ describe('demo catalog', () => {
       'kabarga',
       'lark',
       'lily58',
+      'planck',
       'pncateho',
       'sofle',
       'cradio'
@@ -131,6 +133,13 @@ describe('demo catalog', () => {
         expect.objectContaining({ ifLayers: [1, 2], thenLayer: 3 })
       ])
     )
+  })
+
+  it('loads Planck as a 48-key ortholinear unibody', async () => {
+    const { layout, keymap } = await loadDemo('planck')
+    expect(layout).toHaveLength(48)
+    expect(keymap.layers).toHaveLength(3)
+    expect(keymap.sensorBindings).toBeUndefined()
   })
 
   it('groups PNCATEHO combos into a chord dictionary of finger cores', async () => {

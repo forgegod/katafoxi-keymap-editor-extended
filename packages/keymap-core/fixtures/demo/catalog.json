@@ -26,6 +26,12 @@
       "repoUrl": "https://github.com/kata0510/Lily58"
     },
     {
+      "id": "planck",
+      "name": "Planck",
+      "blurb": "48-key unibody · ortholinear 4×12",
+      "repoUrl": "https://github.com/olkb/planck"
+    },
+    {
       "id": "pncateho",
       "name": "PNCATEHO",
       "blurb": "20-key split · 2×4 + thumbs · chord firmware",
