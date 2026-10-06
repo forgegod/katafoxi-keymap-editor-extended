@@ -12,12 +12,13 @@ import {
   hasBoolProp,
   hasPreprocessorConditional,
   iterateChildNodes,
-  maskDts,
   matchBrace,
+  scanDts,
   readUintAngleProp,
   readUintAngleScalar,
   tokenizeBindings,
-  type DtsNamedBlock
+  type DtsNamedBlock,
+  type DtsScan
 } from './dts-scan.js'
 import {
   collapseExtraBlankLines,
@@ -38,9 +39,8 @@ export type DtsCombosBlock = DtsNamedBlock
  * Locate a `combos { … }` block. Prefers one that declares
  * `compatible = "zmk,combos"` when several exist.
  */
-export function findCombosBlock(source: string): DtsCombosBlock | null {
-  const masked = maskDts(source)
-  return findNamedBlock(source, masked, 'combos', { compatible: 'zmk,combos' })
+export function findCombosBlock(source: string, scan: DtsScan = scanDts(source)): DtsCombosBlock | null {
+  return findNamedBlock(source, scan, 'combos', { compatible: 'zmk,combos' })
 }
 
 /** Raw combo as stored in DtsKeymapJson before parseKeymap. */
@@ -77,9 +77,9 @@ export function parseDtsCombos(source: string): DtsComboJson[] {
   return parseDtsCombosDetailed(source).combos
 }
 
-export function parseDtsCombosDetailed(source: string): DtsCombosParse {
-  const masked = maskDts(source)
-  const block = findNamedBlock(source, masked, 'combos', { compatible: 'zmk,combos' })
+export function parseDtsCombosDetailed(source: string, scan: DtsScan = scanDts(source)): DtsCombosParse {
+  const { masked } = scan
+  const block = findNamedBlock(source, scan, 'combos', { compatible: 'zmk,combos' })
   if (!block) return { combos: [], unparsed: false, preprocessorConditional: false }
   if (hasPreprocessorConditional(masked, { start: block.bodyStart, end: block.bodyEnd })) {
     return { combos: [], unparsed: false, preprocessorConditional: true }
@@ -87,7 +87,7 @@ export function parseDtsCombosDetailed(source: string): DtsCombosParse {
 
   const combos: DtsComboJson[] = []
   let unparsed = false
-  for (const child of iterateChildNodes(masked, block)) {
+  for (const child of iterateChildNodes(scan, block)) {
     const label = child.label
     const name = child.name
     const openBrace = child.openBrace
@@ -195,7 +195,8 @@ export function formatCombosBlock(
  */
 export function spliceCombosIntoDts(original: string, combos: DtsComboJson[]): string {
   const eol = dominantEol(original)
-  const block = findCombosBlock(original)
+  const scan = scanDts(original)
+  const block = findCombosBlock(original, scan)
 
   if (combos.length === 0) {
     if (!block) return original
@@ -217,11 +218,11 @@ export function spliceCombosIntoDts(original: string, combos: DtsComboJson[]): s
     return original.slice(0, block.keywordStart) + formatted + original.slice(to)
   }
 
-  const masked = maskDts(original)
+  const { masked } = scan
   const root = /\/\s*\{/.exec(masked)
   if (root) {
     const openBrace = root.index + root[0].length - 1
-    const closeBrace = matchBrace(masked, openBrace)
+    const closeBrace = matchBrace(scan, openBrace)
     if (closeBrace >= 0) {
       const insertion = `${eol}${formatted}${eol}`
       return original.slice(0, closeBrace) + insertion + original.slice(closeBrace)

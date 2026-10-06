@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { parseDtsHoldTaps } from './dts-behaviors.js'
+import { parseDtsKeymap } from './dts-keymap.js'
+import { KeymapValidationError } from './errors.js'
 import {
   escapeRegExp,
   findAngleProp,
@@ -9,6 +12,7 @@ import {
   maskDts,
   matchBrace,
   parseUintList,
+  scanDts,
   tokenizeBindings
 } from './dts-scan.js'
 
@@ -215,5 +219,30 @@ describe('escapeRegExp', () => {
   it('escapes metacharacters so a literal $& matches', () => {
     expect(escapeRegExp('a.b+c')).toBe('a\\.b\\+c')
     expect(new RegExp(`^${escapeRegExp('$&')}$`).test('$&')).toBe(true)
+  })
+})
+
+describe('scanDts', () => {
+  it('pairs braces in one pass and records the containing open', () => {
+    const src = 'outer { inner { } }'
+    const scan = scanDts(src)
+    const outer = src.indexOf('{')
+    const inner = src.lastIndexOf('{')
+    expect(matchBrace(scan, outer)).toBe(src.lastIndexOf('}'))
+    expect(matchBrace(scan, inner)).toBe(src.indexOf('}'))
+    expect(scan.braceIndex[src.indexOf('i')]!).toBe(outer)
+    expect(matchBrace(scan, outer)).toBe(scan.braceIndex[outer])
+  })
+})
+
+describe('adversarial DTS scans', () => {
+  it('parses nested unclosed keymap blocks in under 1s', { timeout: 1000 }, () => {
+    const source = 'keymap {'.repeat(80_000)
+    expect(() => parseDtsKeymap(source)).toThrow(KeymapValidationError)
+  })
+
+  it('parses repeated hold-tap compatible strings in under 1s', { timeout: 1000 }, () => {
+    const source = 'compatible = "zmk,behavior-hold-tap";\n'.repeat(20_000)
+    expect(parseDtsHoldTaps(source)).toEqual([])
   })
 })

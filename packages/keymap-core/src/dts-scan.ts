@@ -3,6 +3,9 @@
  * angle-bracket properties, find named blocks. Callers search on the masked
  * view (same length as source). Bindings interiors are tokenized from the
  * mask; other values may still be sliced from the original.
+ *
+ * Prefer `scanDts(source)` once and pass `{ masked, braceIndex }` through
+ * scanners so braces are not rematched and the file is not remasked.
  */
 
 export interface DtsRange {
@@ -34,11 +37,125 @@ export interface DtsChildNode {
   name: string
 }
 
+/**
+ * One-pass DTS view. `braceIndex` at `{` is the matching `}` (or -1 if
+ * unclosed); at `}` it is the matching `{`; elsewhere it is the innermost
+ * containing `{` (or -1).
+ */
+export interface DtsScan {
+  masked: string
+  braceIndex: Int32Array
+}
+
 const CHILD_NODE_RE = /(?:([A-Za-z_]\w*)\s*:\s*)?([A-Za-z0-9,._+@-]+)\s*\{/g
 
 /** Escape `value` so it can be embedded in a `RegExp` source. */
 export function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, ch => `\\${ch}`)
+}
+
+function indexBraces(masked: string): Int32Array {
+  const braceIndex = new Int32Array(masked.length)
+  braceIndex.fill(-1)
+  const stack: number[] = []
+  for (let i = 0; i < masked.length; i++) {
+    const ch = masked[i]
+    if (ch === '{') stack.push(i)
+    else if (ch === '}') {
+      const open = stack.pop()
+      if (open !== undefined) {
+        braceIndex[open] = i
+        braceIndex[i] = open
+      }
+    } else {
+      braceIndex[i] = stack.length > 0 ? stack[stack.length - 1]! : -1
+    }
+  }
+  return braceIndex
+}
+
+function asDtsScan(scan: DtsScan | string): DtsScan {
+  if (typeof scan !== 'string') return scan
+  return { masked: scan, braceIndex: indexBraces(scan) }
+}
+
+/**
+ * Mask comments/strings and pair braces in one stack pass.
+ */
+export function scanDts(source: string): DtsScan {
+  const n = source.length
+  const out = new Array<string>(n)
+  const braceIndex = new Int32Array(n)
+  braceIndex.fill(-1)
+  const stack: number[] = []
+
+  const emit = (i: number, ch: string): void => {
+    out[i] = ch
+    if (ch === '{') stack.push(i)
+    else if (ch === '}') {
+      const open = stack.pop()
+      if (open !== undefined) {
+        braceIndex[open] = i
+        braceIndex[i] = open
+      }
+    } else {
+      braceIndex[i] = stack.length > 0 ? stack[stack.length - 1]! : -1
+    }
+  }
+
+  let i = 0
+  while (i < n) {
+    const ch = source[i]
+    const next = source[i + 1]
+
+    if (ch === '/' && next === '*') {
+      emit(i, ' ')
+      emit(i + 1, ' ')
+      i += 2
+      while (i < n && !(source[i] === '*' && source[i + 1] === '/')) {
+        emit(i, source[i] === '\n' ? '\n' : ' ')
+        i++
+      }
+      if (i < n) {
+        emit(i, ' ')
+        if (i + 1 < n) emit(i + 1, ' ')
+        i += 2
+      }
+      continue
+    }
+
+    if (ch === '/' && next === '/') {
+      while (i < n && source[i] !== '\n') {
+        emit(i, ' ')
+        i++
+      }
+      continue
+    }
+
+    if (ch === '"') {
+      emit(i, '"')
+      i++
+      while (i < n && source[i] !== '"') {
+        if (source[i] === '\\' && i + 1 < n) {
+          emit(i, ' ')
+          emit(i + 1, source[i + 1] === '\n' ? '\n' : ' ')
+          i += 2
+          continue
+        }
+        emit(i, source[i] === '\n' ? '\n' : ' ')
+        i++
+      }
+      if (i < n) {
+        emit(i, '"')
+        i++
+      }
+      continue
+    }
+
+    emit(i, ch)
+    i++
+  }
+  return { masked: out.join(''), braceIndex }
 }
 
 /**
@@ -48,70 +165,18 @@ export function escapeRegExp(value: string): string {
  * Inside a string, `\\` also masks the next character so `\"` does not end it.
  */
 export function maskDts(source: string): string {
-  const out = new Array<string>(source.length)
-  let i = 0
-  while (i < source.length) {
-    const ch = source[i]
-    const next = source[i + 1]
-
-    if (ch === '/' && next === '*') {
-      out[i] = ' '
-      out[i + 1] = ' '
-      i += 2
-      while (i < source.length && !(source[i] === '*' && source[i + 1] === '/')) {
-        out[i] = source[i] === '\n' ? '\n' : ' '
-        i++
-      }
-      if (i < source.length) {
-        out[i] = ' '
-        if (i + 1 < source.length) out[i + 1] = ' '
-        i += 2
-      }
-      continue
-    }
-
-    if (ch === '/' && next === '/') {
-      while (i < source.length && source[i] !== '\n') {
-        out[i] = ' '
-        i++
-      }
-      continue
-    }
-
-    if (ch === '"') {
-      out[i] = '"'
-      i++
-      while (i < source.length && source[i] !== '"') {
-        if (source[i] === '\\' && i + 1 < source.length) {
-          out[i] = ' '
-          out[i + 1] = source[i + 1] === '\n' ? '\n' : ' '
-          i += 2
-          continue
-        }
-        out[i] = source[i] === '\n' ? '\n' : ' '
-        i++
-      }
-      if (i < source.length) {
-        out[i] = '"'
-        i++
-      }
-      continue
-    }
-
-    out[i] = ch
-    i++
-  }
-  return out.join('')
+  return scanDts(source).masked
 }
 
 /**
- * Direct children of `block` (not nested grandchildren). Search on `masked`
- * (same length as source). Skips a match whose braces do not close in the body.
+ * Direct children of `block` (not nested grandchildren). Search on a scan
+ * (or a masked string). Skips a match whose braces do not close in the body.
  */
 export function* iterateChildNodes(
-  masked: string,
+  scan: DtsScan | string,
   block: Pick<DtsNamedBlock, 'bodyStart' | 'bodyEnd'>
 ): Generator<DtsChildNode, void, undefined> {
+  const { masked, braceIndex } = asDtsScan(scan)
   const re = new RegExp(CHILD_NODE_RE.source, 'g')
   re.lastIndex = block.bodyStart
   let m: RegExpExecArray | null
@@ -119,7 +184,7 @@ export function* iterateChildNodes(
     if (m.index >= block.bodyEnd) break
     const openBrace = m.index + m[0].length - 1
     if (openBrace >= block.bodyEnd) break
-    const closeBrace = matchBrace(masked, openBrace)
+    const closeBrace = masked[openBrace] === '{' ? braceIndex[openBrace]! : -1
     if (closeBrace < 0 || closeBrace > block.bodyEnd) {
       re.lastIndex = openBrace + 1
       continue
@@ -148,19 +213,11 @@ export function* iterateChildNodes(
   }
 }
 
-/** Index of matching `}` for `{` at openIndex on a masked string, or -1. */
-export function matchBrace(masked: string, openIndex: number): number {
+/** Index of matching `}` for `{` at openIndex, or -1. */
+export function matchBrace(scan: DtsScan | string, openIndex: number): number {
+  const { masked, braceIndex } = asDtsScan(scan)
   if (masked[openIndex] !== '{') return -1
-  let depth = 0
-  for (let i = openIndex; i < masked.length; i++) {
-    const c = masked[i]
-    if (c === '{') depth++
-    else if (c === '}') {
-      depth--
-      if (depth === 0) return i
-    }
-  }
-  return -1
+  return braceIndex[openIndex]!
 }
 
 /**
@@ -288,25 +345,29 @@ function namedBlockRe(keyword: string): RegExp {
 }
 
 /**
- * Every `keyword { … }` on `masked`. When `compatible` is set, read the
+ * Every `keyword { … }` on the scan. When `compatible` is set, read the
  * string from `source` and keep matching bodies; with `requireCompatible`,
  * skip blocks that lack it. Without a compatible hit, the first name match
  * is the fallback (unless `requireCompatible`).
  */
 export function findNamedBlocks(
   source: string,
-  masked: string,
+  scan: DtsScan | string,
   keyword: string,
   options: FindNamedBlockOptions = {}
 ): DtsNamedBlock[] {
+  const { masked, braceIndex } = asDtsScan(scan)
   const re = namedBlockRe(keyword)
   const all: DtsNamedBlock[] = []
   const compatibleHits: DtsNamedBlock[] = []
   let m: RegExpExecArray | null
   while ((m = re.exec(masked)) !== null) {
     const openBrace = m.index + m[0].length - 1
-    const closeBrace = matchBrace(masked, openBrace)
-    if (closeBrace < 0) continue
+    const closeBrace = masked[openBrace] === '{' ? braceIndex[openBrace]! : -1
+    if (closeBrace < 0) {
+      re.lastIndex = openBrace + 1
+      continue
+    }
     const block: DtsNamedBlock = {
       keywordStart: m.index,
       openBrace,
@@ -328,17 +389,17 @@ export function findNamedBlocks(
 }
 
 /**
- * Locate `keyword { … }`. Search on `masked`; when `compatible` is set, read
+ * Locate `keyword { … }`. Search on the scan; when `compatible` is set, read
  * the string value from `source`. Prefer that block; with `requireCompatible`,
  * skip blocks that lack it.
  */
 export function findNamedBlock(
   source: string,
-  masked: string,
+  scan: DtsScan | string,
   keyword: string,
   options: FindNamedBlockOptions = {}
 ): DtsNamedBlock | null {
-  return findNamedBlocks(source, masked, keyword, options)[0] ?? null
+  return findNamedBlocks(source, scan, keyword, options)[0] ?? null
 }
 
 function blockHasCompatible(

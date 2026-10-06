@@ -11,7 +11,9 @@ import {
   hasPreprocessorConditional,
   maskDts,
   matchBrace,
-  readUintAngleScalar
+  scanDts,
+  readUintAngleScalar,
+  type DtsScan
 } from './dts-scan.js'
 import {
   dominantEol,
@@ -186,17 +188,11 @@ function hasTiming(timing: HoldTapTimingFields): boolean {
   )
 }
 
-function nodeOpenBrace(masked: string, inside: number): number {
-  let depth = 0
-  for (let i = inside; i >= 0; i--) {
-    const ch = masked[i]
-    if (ch === '}') depth++
-    else if (ch === '{') {
-      if (depth === 0) return i
-      depth--
-    }
-  }
-  return -1
+function nodeOpenBrace(scan: DtsScan, inside: number): number {
+  if (inside < 0) return -1
+  const { masked, braceIndex } = scan
+  if (masked[inside] === '{') return inside
+  return braceIndex[inside]!
 }
 
 function skipWsBack(masked: string, i: number): number {
@@ -282,9 +278,12 @@ export function parseDtsHoldTaps(source: string): ZmkHoldTap[] {
   return parseDtsHoldTapsDetailed(source).holdTaps
 }
 
-export function parseDtsHoldTapsDetailed(source: string): DtsHoldTapsParse {
-  const masked = maskDts(source)
-  const { spans, unparsed: scanUnparsed } = collectHoldTapSpans(source, masked)
+export function parseDtsHoldTapsDetailed(
+  source: string,
+  scan: DtsScan = scanDts(source)
+): DtsHoldTapsParse {
+  const { masked } = scan
+  const { spans, unparsed: scanUnparsed } = collectHoldTapSpans(source, scan)
   let unparsed = scanUnparsed
   const byCode = new Map<string, ZmkHoldTap>()
   const order: string[] = []
@@ -343,7 +342,7 @@ export function parseDtsHoldTapsDetailed(source: string): DtsHoldTapsParse {
   return {
     holdTaps: order.map(code => byCode.get(code)!),
     unparsed,
-    preprocessorConditional: holdTapRegionsHavePreprocessor(source, masked)
+    preprocessorConditional: holdTapRegionsHavePreprocessor(source, scan, spans)
   }
 }
 
@@ -511,8 +510,9 @@ function blockEndAt(source: string, close: number): number {
 
 function collectHoldTapSpans(
   source: string,
-  masked: string
+  scan: DtsScan
 ): { spans: HoldTapSpan[]; unparsed: boolean } {
+  const { masked } = scan
   const spans: HoldTapSpan[] = []
   let unparsed = false
   const namedRe = /compatible\s*=\s*"/g
@@ -520,12 +520,19 @@ function collectHoldTapSpans(
   while ((match = namedRe.exec(masked)) !== null) {
     const contentStart = match.index + match[0].length
     const contentEnd = masked.indexOf('"', contentStart)
-    if (contentEnd < 0) continue
+    if (contentEnd < 0) {
+      namedRe.lastIndex = contentStart + 1
+      continue
+    }
+    namedRe.lastIndex = contentEnd + 1
     if (source.slice(contentStart, contentEnd) !== HOLD_TAP_COMPATIBLE) continue
-    const open = nodeOpenBrace(masked, match.index - 1)
+    const open = nodeOpenBrace(scan, match.index - 1)
     if (open < 0) continue
-    const close = matchBrace(masked, open)
-    if (close < 0) continue
+    const close = matchBrace(scan, open)
+    if (close < 0) {
+      namedRe.lastIndex = Math.max(namedRe.lastIndex, open + 1)
+      continue
+    }
     const header = readNodeHeader(source, masked, open)
     if (!header) {
       unparsed = true
@@ -548,17 +555,19 @@ function collectHoldTapSpans(
   const overrideRe = /(?<![A-Za-z0-9_])&([A-Za-z_][\w]*)\s*\{/g
   while ((match = overrideRe.exec(masked)) !== null) {
     const open = match.index + match[0].length - 1
-    const close = matchBrace(masked, open)
-    if (close < 0) continue
+    const close = matchBrace(scan, open)
+    if (close < 0) {
+      overrideRe.lastIndex = open + 1
+      continue
+    }
+    overrideRe.lastIndex = close + 1
     if (spans.some(span => open >= span.open && close <= span.close)) {
-      overrideRe.lastIndex = close + 1
       continue
     }
     const body = masked.slice(open + 1, close)
     const { timing, unparsed: timingUnparsed } = readTiming(source, masked, open + 1, close)
     if (timingUnparsed) unparsed = true
     if (/compatible\s*=/.test(body) || !hasTiming(timing)) {
-      overrideRe.lastIndex = close + 1
       continue
     }
     spans.push({
@@ -569,20 +578,23 @@ function collectHoldTapSpans(
       blockStart: match.index,
       blockEnd: blockEndAt(source, close)
     })
-    overrideRe.lastIndex = close + 1
   }
   return { spans, unparsed }
 }
 
-function holdTapRegionsHavePreprocessor(source: string, masked: string): boolean {
-  const behaviors = findNamedBlock(source, masked, 'behaviors')
+function holdTapRegionsHavePreprocessor(
+  source: string,
+  scan: DtsScan,
+  spans: HoldTapSpan[]
+): boolean {
+  const { masked } = scan
+  const behaviors = findNamedBlock(source, scan, 'behaviors')
   if (
     behaviors &&
     hasPreprocessorConditional(masked, { start: behaviors.bodyStart, end: behaviors.bodyEnd })
   ) {
     return true
   }
-  const { spans } = collectHoldTapSpans(source, masked)
   const byCode = new Map<string, HoldTapSpan[]>()
   for (const span of spans) {
     if (hasPreprocessorConditional(masked, { start: span.open + 1, end: span.close })) {
@@ -754,8 +766,9 @@ function insertAtLine(source: string, closeBrace: number, text: string, eol: Lin
  */
 export function spliceHoldTapsIntoDts(source: string, holdTaps: readonly ZmkHoldTap[]): string {
   const eol = dominantEol(source)
-  const masked = maskDts(source)
-  const { spans } = collectHoldTapSpans(source, masked)
+  const scan = scanDts(source)
+  const { masked } = scan
+  const { spans } = collectHoldTapSpans(source, scan)
   const byCode = new Map(holdTaps.map(node => [node.code, node]))
   const edits: TextEdit[] = []
   const patchedNamed = new Set<string>()
@@ -788,7 +801,7 @@ export function spliceHoldTapsIntoDts(source: string, holdTaps: readonly ZmkHold
   )
 
   if (missingNamed.length > 0) {
-    const found = findNamedBlock(source, masked, 'behaviors')
+    const found = findNamedBlock(source, scan, 'behaviors')
     if (found) {
       const indent = contentIndent(source, found.openBrace)
       const text = missingNamed.map(node => formatNamedHoldTap(node, indent, eol)).join(eol)

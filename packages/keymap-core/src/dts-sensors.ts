@@ -5,7 +5,7 @@
  * without an import cycle.
  */
 
-import { findAnglePropStatement, maskDts } from './dts-scan.js'
+import { findAnglePropStatement, scanDts, type DtsScan } from './dts-scan.js'
 import { dominantEol, type LineEnding } from './eol.js'
 
 interface SensorLayerSpan {
@@ -23,12 +23,13 @@ function bindingsIndent(body: string): string {
 
 function writeLayerSensorBindings(
   source: string,
+  scan: DtsScan,
   openBrace: number,
   closeBrace: number,
   bindings: string[],
   eol: LineEnding
 ): string {
-  const masked = maskDts(source)
+  const { masked } = scan
   const range = { start: openBrace + 1, end: closeBrace }
   const found = findAnglePropStatement(masked, range, 'sensor-bindings')
   if (bindings.length === 0) {
@@ -67,11 +68,13 @@ export function spliceSensorBindingsIntoDts(
   layers: string[][]
 ): string {
   const eol = dominantEol(source)
+  const scan = scanDts(source)
   let result = source
   for (let i = nodes.length - 1; i >= 0; i--) {
     const node = nodes[i]
     result = writeLayerSensorBindings(
       result,
+      scan,
       node.openBrace,
       node.closeBrace,
       layers[i] ?? [],

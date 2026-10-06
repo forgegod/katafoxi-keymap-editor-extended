@@ -8,7 +8,7 @@ import {
   findKeymapLayerNodes,
   findZmkKeymapBlock
 } from './dts-keymap.js'
-import { uniqueDtsNodeId } from './dts-scan.js'
+import { scanDts, uniqueDtsNodeId } from './dts-scan.js'
 import { dominantEol, type LineEnding } from './eol.js'
 import { KeymapValidationError } from './errors.js'
 import { bindingColumnWidths, renderTable } from './layout.js'
@@ -86,9 +86,10 @@ export function spliceBindingsIntoDts(
   assertLayerKeyCounts(layout, layers)
 
   const eol = dominantEol(original)
-  const block = assertCanSpliceKeymap(original)
+  const scan = scanDts(original)
+  const block = assertCanSpliceKeymap(original, scan)
 
-  const existing = findKeymapLayerNodes(original, block)
+  const existing = findKeymapLayerNodes(original, block, scan)
   const indent = inferLayerIndent(original, existing)
   const columnWidths = bindingColumnWidths(layout, layers, { columnSeparator: ' ' })
 

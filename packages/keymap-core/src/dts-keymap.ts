@@ -24,9 +24,11 @@ import {
   iterateChildNodes,
   maskDts,
   matchBrace,
+  scanDts,
   tokenizeBindings,
   tokenizeBindingsDetailed,
-  type DtsNamedBlock
+  type DtsNamedBlock,
+  type DtsScan
 } from './dts-scan.js'
 import { KeymapValidationError } from './errors.js'
 import type { ZmkConditionalLayer, ZmkHoldTap } from './types.js'
@@ -69,9 +71,8 @@ const ZMK_KEYMAP_BLOCK = {
  * Locate `keymap { compatible = "zmk,keymap"; … }` blocks. Search uses a
  * DTS-name lookbehind so `my-keymap {` is not a hit.
  */
-export function findZmkKeymapBlocks(source: string): DtsNamedBlock[] {
-  const masked = maskDts(source)
-  return findNamedBlocks(source, masked, 'keymap', ZMK_KEYMAP_BLOCK)
+export function findZmkKeymapBlocks(source: string, scan: DtsScan = scanDts(source)): DtsNamedBlock[] {
+  return findNamedBlocks(source, scan, 'keymap', ZMK_KEYMAP_BLOCK)
 }
 
 /**
@@ -79,14 +80,13 @@ export function findZmkKeymapBlocks(source: string): DtsNamedBlock[] {
  * Returns absolute indices into `source`: body is exclusive of the braces.
  * Several such nodes → the first (Save refuses via assertCanSpliceKeymap).
  */
-export function findZmkKeymapBlock(source: string): DtsNamedBlock | null {
-  return findZmkKeymapBlocks(source)[0] ?? null
+export function findZmkKeymapBlock(source: string, scan?: DtsScan): DtsNamedBlock | null {
+  return findZmkKeymapBlocks(source, scan ?? scanDts(source))[0] ?? null
 }
 
 /** Throw when Save must not rewrite layers (preprocessor or several keymap nodes). */
-export function assertCanSpliceKeymap(source: string): DtsNamedBlock {
-  const masked = maskDts(source)
-  const blocks = findNamedBlocks(source, masked, 'keymap', ZMK_KEYMAP_BLOCK)
+export function assertCanSpliceKeymap(source: string, scan: DtsScan = scanDts(source)): DtsNamedBlock {
+  const blocks = findNamedBlocks(source, scan, 'keymap', ZMK_KEYMAP_BLOCK)
   if (blocks.length === 0) {
     throw new KeymapValidationError([
       'Cannot splice: no keymap block with compatible = "zmk,keymap" found'
@@ -96,7 +96,7 @@ export function assertCanSpliceKeymap(source: string): DtsNamedBlock {
     throw new KeymapValidationError(['Cannot splice: multiple keymap nodes'])
   }
   const block = blocks[0]!
-  if (hasPreprocessorConditional(masked, { start: block.bodyStart, end: block.bodyEnd })) {
+  if (hasPreprocessorConditional(scan.masked, { start: block.bodyStart, end: block.bodyEnd })) {
     throw new KeymapValidationError([
       'Cannot splice: preprocessor conditionals in the keymap block'
     ])
@@ -127,11 +127,12 @@ export interface DtsLayerNode {
  */
 export function findKeymapLayerNodes(
   source: string,
-  block: DtsNamedBlock
+  block: DtsNamedBlock,
+  scan: DtsScan = scanDts(source)
 ): DtsLayerNode[] {
-  const masked = maskDts(source)
+  const { masked } = scan
   const nodes: DtsLayerNode[] = []
-  for (const child of iterateChildNodes(masked, block)) {
+  for (const child of iterateChildNodes(scan, block)) {
     const bindingsInterior = findAngleProp(
       masked,
       { start: child.openBrace + 1, end: child.closeBrace },
@@ -202,15 +203,16 @@ function isCompiledMacros(
  * `bindings`, combo `bindings`, and per-layer `sensor-bindings`.
  */
 export function keymapBindingsText(source: string): string | null {
-  const masked = maskDts(source)
+  const scan = scanDts(source)
+  const { masked } = scan
   const parts: string[] = []
 
-  const block = findNamedBlock(source, masked, 'keymap', {
+  const block = findNamedBlock(source, scan, 'keymap', {
     compatible: 'zmk,keymap',
     requireCompatible: true
   })
   if (block) {
-    for (const node of findKeymapLayerNodes(source, block)) {
+    for (const node of findKeymapLayerNodes(source, block, scan)) {
       parts.push(masked.slice(node.bindingsInterior.start, node.bindingsInterior.end))
       const sensor = findAngleProp(
         masked,
@@ -221,9 +223,9 @@ export function keymapBindingsText(source: string): string | null {
     }
   }
 
-  const combosBlock = findCombosBlock(source)
+  const combosBlock = findCombosBlock(source, scan)
   if (combosBlock) {
-    for (const child of iterateChildNodes(masked, combosBlock)) {
+    for (const child of iterateChildNodes(scan, combosBlock)) {
       const bindings = findAngleProp(
         masked,
         { start: child.openBrace + 1, end: child.closeBrace },
@@ -305,9 +307,10 @@ export function parseDtsKeymap(
   const layers: string[][] = []
   const layer_names: string[] = []
   const warnings: string[] = []
-  const masked = maskDts(source)
+  const scan = scanDts(source)
+  const { masked } = scan
 
-  const keymapBlocks = findNamedBlocks(source, masked, 'keymap', ZMK_KEYMAP_BLOCK)
+  const keymapBlocks = findNamedBlocks(source, scan, 'keymap', ZMK_KEYMAP_BLOCK)
   if (keymapBlocks.length > 1) {
     addWarning(warnings, 'multiple_keymap_nodes')
   }
@@ -319,7 +322,7 @@ export function parseDtsKeymap(
     addWarning(warnings, 'preprocessor_conditional')
   }
 
-  const layerNodes = findKeymapLayerNodes(source, block)
+  const layerNodes = findKeymapLayerNodes(source, block, scan)
   let anyMacroExpanded = false
   let anyUnparsedFragment = false
   const sensorRows: string[][] = []
@@ -360,8 +363,8 @@ export function parseDtsKeymap(
     throw new KeymapValidationError(['No layers with bindings found in .keymap'])
   }
 
-  const combosBlock = findCombosBlock(source)
-  const combosParsed = parseDtsCombosDetailed(source)
+  const combosBlock = findCombosBlock(source, scan)
+  const combosParsed = parseDtsCombosDetailed(source, scan)
   const combos: DtsComboJson[] = []
   for (const c of combosParsed.combos) {
     if (macrosAppearInText(c.binding, compiled)) {
@@ -396,7 +399,7 @@ export function parseDtsKeymap(
     }
   }
 
-  const conditionalParsed = parseDtsConditionalLayersDetailed(source)
+  const conditionalParsed = parseDtsConditionalLayersDetailed(source, scan)
   let ownedConditional: ZmkConditionalLayer[] | undefined
   if (conditionalParsed.unparsed) {
     addWarning(warnings, 'conditional_layers_unparsed')
@@ -404,7 +407,7 @@ export function parseDtsKeymap(
     ownedConditional = conditionalParsed.rules
   }
 
-  const holdParsed = parseDtsHoldTapsDetailed(source)
+  const holdParsed = parseDtsHoldTapsDetailed(source, scan)
   let ownedHoldTaps: ZmkHoldTap[] | undefined
   if (holdParsed.preprocessorConditional) {
     addWarning(warnings, 'preprocessor_conditional')

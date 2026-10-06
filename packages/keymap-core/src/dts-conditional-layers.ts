@@ -6,10 +6,11 @@
 import {
   findNamedBlock,
   iterateChildNodes,
-  maskDts,
   matchBrace,
+  scanDts,
   readUintAngleProp,
-  readUintAngleScalar
+  readUintAngleScalar,
+  type DtsScan
 } from './dts-scan.js'
 import {
   collapseExtraBlankLines,
@@ -22,9 +23,8 @@ import type { LegendHover, ZmkConditionalLayer } from './types.js'
 /** A conditional layer needs at least two held layers. */
 export const CONDITIONAL_LAYER_MIN_IF = 2
 
-function findConditionalBlock(source: string) {
-  const masked = maskDts(source)
-  return findNamedBlock(source, masked, 'conditional_layers', {
+function findConditionalBlock(source: string, scan: DtsScan = scanDts(source)) {
+  return findNamedBlock(source, scan, 'conditional_layers', {
     compatible: 'zmk,conditional-layers'
   })
 }
@@ -46,16 +46,19 @@ export function parseDtsConditionalLayers(source: string): ZmkConditionalLayer[]
   return parseDtsConditionalLayersDetailed(source).rules
 }
 
-export function parseDtsConditionalLayersDetailed(source: string): DtsConditionalLayersParse {
-  const masked = maskDts(source)
-  const block = findNamedBlock(source, masked, 'conditional_layers', {
+export function parseDtsConditionalLayersDetailed(
+  source: string,
+  scan: DtsScan = scanDts(source)
+): DtsConditionalLayersParse {
+  const { masked } = scan
+  const block = findNamedBlock(source, scan, 'conditional_layers', {
     compatible: 'zmk,conditional-layers'
   })
   if (!block) return { rules: [], unparsed: false }
 
   const rules: ZmkConditionalLayer[] = []
   let unparsed = false
-  for (const child of iterateChildNodes(masked, block)) {
+  for (const child of iterateChildNodes(scan, block)) {
     const label = child.label
     const name = child.name
 
@@ -120,7 +123,8 @@ export function spliceConditionalLayersIntoDts(
   rules: readonly ZmkConditionalLayer[]
 ): string {
   const eol = dominantEol(original)
-  const block = findConditionalBlock(original)
+  const scan = scanDts(original)
+  const block = findConditionalBlock(original, scan)
 
   if (rules.length === 0) {
     if (!block) return original
@@ -141,11 +145,11 @@ export function spliceConditionalLayersIntoDts(
     return original.slice(0, block.keywordStart) + formatted + original.slice(to)
   }
 
-  const masked = maskDts(original)
+  const { masked } = scan
   const root = /\/\s*\{/.exec(masked)
   if (root) {
     const openBrace = root.index + root[0].length - 1
-    const closeBrace = matchBrace(masked, openBrace)
+    const closeBrace = matchBrace(scan, openBrace)
     if (closeBrace >= 0) {
       return original.slice(0, closeBrace) + `${eol}${formatted}${eol}` + original.slice(closeBrace)
     }
