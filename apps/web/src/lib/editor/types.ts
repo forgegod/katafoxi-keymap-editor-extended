@@ -37,7 +37,7 @@ export type SaveNotice = {
   links?: Array<{ href: string; label: string }>
 }
 
-export type GithubMeta = { repository: string; branch: string }
+export type GithubMeta = { repository: string; branch: string; headSha?: string }
 
 /** Shared board payload present on every keymap-selection source. */
 type KeyboardSelectionBase = {

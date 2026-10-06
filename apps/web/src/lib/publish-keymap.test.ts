@@ -152,6 +152,56 @@ describe('publishKeymap', () => {
     expect(editor.saveNotice?.messages[0]).toMatch(/reloading from disk failed/)
   })
 
+  it('shows a reload notice when GitHub reports the branch moved', async () => {
+    await editor.selectKeyboard({
+      source: 'github',
+      github: { repository: 'owner/repo', branch: 'main', headSha: 'old' },
+      layout,
+      keymap: km('A')
+    })
+    editor.updateKeymap(km('M'))
+
+    await expect(
+      publishKeymap(editor, {
+        write: () =>
+          Promise.reject({
+            response: {
+              status: 409,
+              data: { name: 'StaleRepoBase', errors: ['Branch changed on GitHub — reload'] }
+            }
+          }),
+        reload: vi.fn()
+      })
+    ).resolves.toBe(false)
+
+    expect(editor.saveNotice?.kind).toBe('error')
+    expect(editor.saveNotice?.messages).toEqual(['Branch changed on GitHub — reload'])
+  })
+
+  it('stores the reloaded GitHub head sha after a successful commit', async () => {
+    await editor.selectKeyboard({
+      source: 'github',
+      github: { repository: 'owner/repo', branch: 'main', headSha: 'old' },
+      layout,
+      keymap: km('A')
+    })
+    editor.updateKeymap(km('M'))
+
+    await expect(
+      publishKeymap(editor, {
+        write: () => Promise.resolve({}),
+        reload: () =>
+          Promise.resolve({
+            keymap: km('M'),
+            layout,
+            headSha: 'new-sha'
+          })
+      })
+    ).resolves.toBe(true)
+
+    expect(editor.githubMeta?.headSha).toBe('new-sha')
+  })
+
   it('surfaces write errors and never reloads', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
 

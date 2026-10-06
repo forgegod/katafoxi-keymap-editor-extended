@@ -99,13 +99,15 @@ describe('API', () => {
           }
         },
         keymap: { layers: [[{ value: '&kp', params: [{ value: 'A', params: [] }] }]] },
-        hostSnapshot: { version: 99, view: {}, layouts: [] }
+        hostSnapshot: { version: 99, view: {}, layouts: [] },
+        headSha: 'abc123'
       })
     )
 
     const result = await api.fetchLayoutAndKeymap('acme/lark', 'main')
 
     expect(result.hostSnapshot).toBeNull()
+    expect(result.headSha).toBe('abc123')
     expect(result.layout).toHaveLength(1)
   })
 
@@ -157,7 +159,7 @@ describe('API', () => {
     const keymap = { layers: [] }
     fetchMock.mockResolvedValue(jsonResponse(200, { committed: true }))
 
-    await api.commitChanges('acme/lark', 'feature/x', layout, keymap)
+    await api.commitChanges('acme/lark', 'feature/x', layout, keymap, null, null, 'abc123')
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock).toHaveBeenCalledWith(
@@ -169,7 +171,8 @@ describe('API', () => {
           layout,
           keymap,
           hostSnapshot: null,
-          hostDeliverables: null
+          hostDeliverables: null,
+          baseSha: 'abc123'
         })
       })
     )

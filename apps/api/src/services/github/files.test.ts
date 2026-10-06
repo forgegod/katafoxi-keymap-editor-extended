@@ -132,6 +132,14 @@ function mockGithub(
 ) {
   const missing = new Set(options.missing ?? [])
   const errors = options.errors ?? {}
+  const catalog: Record<string, unknown> = {
+    [`GET /repos/${REPO}`]: { default_branch: 'main' },
+    [`GET /repos/${REPO}/commits/main`]: {
+      sha: CURRENT_COMMIT_SHA,
+      commit: { tree: { sha: BASE_TREE_SHA } }
+    },
+    ...files
+  }
   return vi.spyOn(api, 'request').mockImplementation(async options => {
     const url = requestUrl(options)
     const method = requestMethod(options)
@@ -144,8 +152,8 @@ function mockGithub(
     }
 
     const methodUrl = `${method} ${url}`
-    if (methodUrl in files) return ok(resolveMockValue(files[methodUrl], options))
-    if (url in files) return ok(resolveMockValue(files[url], options))
+    if (methodUrl in catalog) return ok(resolveMockValue(catalog[methodUrl], options))
+    if (url in catalog) return ok(resolveMockValue(catalog[url], options))
     if (path !== null && path in files) return ok(resolveMockValue(files[path], options))
 
     throw new Error(`unexpected GitHub request: ${method} ${url}`)
@@ -435,6 +443,33 @@ describe('fetchKeyboardFiles', () => {
     const result = await fetchKeyboardFiles('1', REPO, 'main')
     expect(result.hostSnapshot).toEqual(hostSnapshot)
   })
+
+  it('resolves head first and pins every contents read to that sha', async () => {
+    const request = mockGithub({
+      [`GET /repos/${REPO}/commits/main`]: {
+        sha: CURRENT_COMMIT_SHA,
+        commit: { tree: { sha: BASE_TREE_SHA } }
+      },
+      'config/info.json': JSON.stringify(INFO),
+      config: LISTING,
+      'config/keymap.json': JSON.stringify(KEYMAP_JSON)
+    }, { missing: [HOST_KEYMAP_SNAPSHOT_PATH] })
+
+    const result = await fetchKeyboardFiles('1', REPO, 'main')
+
+    expect(result.headSha).toBe(CURRENT_COMMIT_SHA)
+    expect(requestUrl(request.mock.calls[0][0] as ApiRequestOptions)).toBe(
+      `/repos/${REPO}/commits/main`
+    )
+
+    const contentReads = requestOptions(request).filter(
+      opts => contentsPath(requestUrl(opts)) !== null
+    )
+    expect(contentReads.length).toBeGreaterThan(0)
+    for (const opts of contentReads) {
+      expect(opts.params).toEqual({ ref: CURRENT_COMMIT_SHA })
+    }
+  })
 })
 
 function requestUrls(request: { mock: { calls: unknown[][] } }): string[] {
@@ -456,7 +491,16 @@ describe('commitChanges', () => {
       ...gitCommitEndpoints('main')
     })
 
-    const result = await commitChanges('1', REPO, 'main', ONE_KEY_LAYOUT, EDITED_KEYMAP)
+    const result = await commitChanges(
+      '1',
+      REPO,
+      'main',
+      ONE_KEY_LAYOUT,
+      EDITED_KEYMAP,
+      null,
+      null,
+      CURRENT_COMMIT_SHA
+    )
 
     expect(result.mode).toBe('template')
     expect(
@@ -480,7 +524,16 @@ describe('commitChanges', () => {
       ...gitCommitEndpoints('main')
     })
 
-    const result = await commitChanges('1', REPO, 'main', ONE_KEY_LAYOUT, EDITED_KEYMAP)
+    const result = await commitChanges(
+      '1',
+      REPO,
+      'main',
+      ONE_KEY_LAYOUT,
+      EDITED_KEYMAP,
+      null,
+      null,
+      CURRENT_COMMIT_SHA
+    )
 
     expect(result.mode).toBe('splice')
     expect(
@@ -501,7 +554,16 @@ describe('commitChanges', () => {
       ...gitCommitEndpoints('main')
     })
 
-    await commitChanges('1', REPO, 'main', ONE_KEY_LAYOUT, EDITED_KEYMAP)
+    await commitChanges(
+      '1',
+      REPO,
+      'main',
+      ONE_KEY_LAYOUT,
+      EDITED_KEYMAP,
+      null,
+      null,
+      CURRENT_COMMIT_SHA
+    )
 
     const trees = findRequest(request, 'POST', `/repos/${REPO}/git/trees`)
     expect(trees?.data).toEqual(
@@ -534,7 +596,16 @@ describe('commitChanges', () => {
     })
 
     await expect(
-      commitChanges('1', REPO, 'main', ONE_KEY_LAYOUT, EDITED_KEYMAP)
+      commitChanges(
+        '1',
+        REPO,
+        'main',
+        ONE_KEY_LAYOUT,
+        EDITED_KEYMAP,
+        null,
+        null,
+        CURRENT_COMMIT_SHA
+      )
     ).rejects.toThrow('tree create failed')
 
     expect(findRequest(request, 'PATCH', `/repos/${REPO}/git/refs/heads/main`)).toBeUndefined()
@@ -550,7 +621,16 @@ describe('commitChanges', () => {
       ...gitCommitEndpoints(encoded)
     })
 
-    await commitChanges('1', REPO, branch, ONE_KEY_LAYOUT, EDITED_KEYMAP)
+    await commitChanges(
+      '1',
+      REPO,
+      branch,
+      ONE_KEY_LAYOUT,
+      EDITED_KEYMAP,
+      null,
+      null,
+      CURRENT_COMMIT_SHA
+    )
 
     expect(findRequest(request, 'GET', `/repos/${REPO}/commits/${encoded}`)).toBeDefined()
     expect(
@@ -567,7 +647,16 @@ describe('commitChanges', () => {
     })
 
     await expect(
-      commitChanges('1', REPO, 'main', ONE_KEY_LAYOUT, EDITED_KEYMAP)
+      commitChanges(
+        '1',
+        REPO,
+        'main',
+        ONE_KEY_LAYOUT,
+        EDITED_KEYMAP,
+        null,
+        null,
+        CURRENT_COMMIT_SHA
+      )
     ).rejects.toThrow(/compatible = "zmk,keymap"/)
 
     expect(findRequest(request, 'PATCH', `/repos/${REPO}/git/refs/heads/main`)).toBeUndefined()
@@ -598,7 +687,16 @@ describe('commitChanges', () => {
       layouts: []
     }
 
-    await commitChanges('1', REPO, 'main', ONE_KEY_LAYOUT, EDITED_KEYMAP, hostSnapshot)
+    await commitChanges(
+      '1',
+      REPO,
+      'main',
+      ONE_KEY_LAYOUT,
+      EDITED_KEYMAP,
+      hostSnapshot,
+      null,
+      CURRENT_COMMIT_SHA
+    )
 
     const blobs = treeBlobs(request)
     expect(blobs.tree?.map(blob => blob.path)).toEqual([
@@ -663,7 +761,8 @@ describe('commitChanges', () => {
       ONE_KEY_LAYOUT,
       EDITED_KEYMAP,
       hostSnapshot,
-      hostDeliverables
+      hostDeliverables,
+      CURRENT_COMMIT_SHA
     )
 
     const paths = treeBlobs(request).tree?.map(blob => blob.path) ?? []
@@ -674,5 +773,69 @@ describe('commitChanges', () => {
       'host_keymap/linux/ru.xkb',
       'host_keymap/windows/ru.klc'
     ])
+  })
+
+  it('rejects when baseSha does not match the current head', async () => {
+    const request = mockGithub({
+      config: LISTING_NO_TEMPLATE,
+      [KEYMAP_PATH]: ORIGINAL_SOURCE,
+      ...gitCommitEndpoints('main')
+    })
+
+    await expect(
+      commitChanges(
+        '1',
+        REPO,
+        'main',
+        ONE_KEY_LAYOUT,
+        EDITED_KEYMAP,
+        null,
+        null,
+        'stale-sha'
+      )
+    ).rejects.toMatchObject({
+      name: 'StaleRepoBase',
+      errors: ['Branch changed on GitHub — reload']
+    })
+
+    expect(findRequest(request, 'POST', `/repos/${REPO}/git/trees`)).toBeUndefined()
+    expect(
+      requestOptions(request).filter(opts => contentsPath(requestUrl(opts)) !== null)
+    ).toHaveLength(0)
+  })
+
+  it('pins commit contents reads to the head sha and rethrows PATCH 422', async () => {
+    const request = mockGithub({
+      config: LISTING_NO_TEMPLATE,
+      [KEYMAP_PATH]: ORIGINAL_SOURCE,
+      ...gitCommitEndpoints('main', {
+        [`PATCH /repos/${REPO}/git/refs/heads/main`]: () => {
+          throw Object.assign(new Error('GitHub API 422'), {
+            response: { status: 422, data: 'Update is not a fast forward' }
+          })
+        }
+      })
+    })
+
+    await expect(
+      commitChanges(
+        '1',
+        REPO,
+        'main',
+        ONE_KEY_LAYOUT,
+        EDITED_KEYMAP,
+        null,
+        null,
+        CURRENT_COMMIT_SHA
+      )
+    ).rejects.toMatchObject({ response: { status: 422 } })
+
+    const contentReads = requestOptions(request).filter(
+      opts => contentsPath(requestUrl(opts)) !== null
+    )
+    expect(contentReads.length).toBeGreaterThan(0)
+    for (const opts of contentReads) {
+      expect(opts.params).toEqual({ ref: CURRENT_COMMIT_SHA })
+    }
   })
 })

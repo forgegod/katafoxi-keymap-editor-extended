@@ -115,7 +115,8 @@ describe('App chrome', () => {
       layout: oneKeyLayout,
       keymap: km('A'),
       hostSnapshot: null,
-      warnings: []
+      warnings: [],
+      headSha: 'abc123'
     })
     vi.spyOn(github, 'init').mockResolvedValue(undefined)
     github.initialized = true
@@ -267,6 +268,31 @@ describe('App chrome', () => {
     flushSync()
     expect(commit?.disabled).toBe(true)
     expect((githubDiscard as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('shows a reload notice when GitHub Commit fails because the branch moved', async () => {
+    await renderApp()
+    await loadKeyboard(githubSelection())
+    editor.updateKeymap(km('M'))
+    flushSync()
+
+    vi.mocked(github.commitChanges).mockRejectedValue({
+      response: {
+        status: 409,
+        data: { name: 'StaleRepoBase', errors: ['Branch changed on GitHub — reload'] }
+      }
+    })
+
+    const commit = buttonMatching(target, /^\s*Commit\s*$/)
+    expect(commit).toBeInstanceOf(HTMLButtonElement)
+    commit!.click()
+    flushSync()
+    await tick()
+    await vi.waitFor(() => {
+      expect(target.querySelector('.save-notice.error')?.textContent).toMatch(
+        /Branch changed on GitHub — reload/
+      )
+    })
   })
 
   it('undoes with Ctrl+Z while mounted and ignores the chord after unmount', async () => {

@@ -132,7 +132,8 @@
           editor.layout,
           editor.draftKeymap,
           editor.buildCurrentHostKeymapSnapshot(),
-          editor.buildCurrentHostKeymapDeliverables()
+          editor.buildCurrentHostKeymapDeliverables(),
+          gh.headSha
         )
         return result.data
       },

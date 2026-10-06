@@ -213,7 +213,7 @@ githubRoutes.get('/keyboard-files/:installationId/:repository', async c => {
       repository,
       c.get('session')
     )
-    const { info, keymap, hostSnapshot } = await files.fetchKeyboardFiles(
+    const { info, keymap, hostSnapshot, headSha } = await files.fetchKeyboardFiles(
       installationId,
       repository,
       branch
@@ -223,7 +223,8 @@ githubRoutes.get('/keyboard-files/:installationId/:repository', async c => {
     return c.json({
       info: info ?? null,
       keymap: parseKeymap(keymap as { layers: string[][] }),
-      hostSnapshot: hostSnapshot ?? null
+      hostSnapshot: hostSnapshot ?? null,
+      headSha
     })
   } catch (err) {
     if (err instanceof InstallationAccessError) {
@@ -315,6 +316,7 @@ githubRoutes.post('/keyboard-files/:installationId/:repository/:branch', async c
     layout?: unknown
     hostSnapshot?: unknown
     hostDeliverables?: unknown
+    baseSha?: unknown
   }
   try {
     body = await c.req.json()
@@ -331,11 +333,12 @@ githubRoutes.post('/keyboard-files/:installationId/:repository/:branch', async c
       c.get('session'),
       { requirePush: true }
     )
-    const { keymap, layout, hostSnapshot, hostDeliverables } = body as {
+    const { keymap, layout, hostSnapshot, hostDeliverables, baseSha } = body as {
       keymap: Parameters<typeof files.commitChanges>[4]
       layout: Parameters<typeof files.commitChanges>[3]
       hostSnapshot?: Parameters<typeof files.commitChanges>[5]
       hostDeliverables?: Parameters<typeof files.commitChanges>[6]
+      baseSha?: unknown
     }
     const { mode, warnings } = await files.commitChanges(
       installationId,
@@ -344,7 +347,8 @@ githubRoutes.post('/keyboard-files/:installationId/:repository/:branch', async c
       layout,
       keymap,
       hostSnapshot ?? null,
-      hostDeliverables ?? null
+      hostDeliverables ?? null,
+      typeof baseSha === 'string' ? baseSha : null
     )
     return c.json({ ok: true, mode, warnings })
   } catch (err) {
@@ -360,15 +364,30 @@ githubRoutes.post('/keyboard-files/:installationId/:repository/:branch', async c
     if (err instanceof KeymapValidationError) {
       return c.json({ name: err.name, errors: err.errors }, 400)
     }
+    if (err instanceof files.StaleRepoBase) {
+      return c.json({ name: err.name, errors: err.errors }, 409)
+    }
     return handleGithubError(c, err)
   }
 })
 
-function handleGithubError(c: { body: (data: null, status: 401 | 500) => Response }, err: unknown) {
+function handleGithubError(
+  c: {
+    body: (data: null, status: 401 | 500) => Response
+    json: (data: unknown, status: 409) => Response
+  },
+  err: unknown
+) {
   const e = err as { response?: { status: number; data: unknown } }
   if (e.response?.status === 401) {
     console.error('Received upstream authentication error', e.response.data)
     return c.body(null, 401)
+  }
+  if (e.response?.status === 422) {
+    return c.json(
+      { name: 'StaleRepoBase', errors: [files.BRANCH_CHANGED_NOTICE] },
+      409
+    )
   }
   console.error(e.response ? `[${e.response.status}] ${e.response.data}` : err, err)
   return c.body(null, 500)

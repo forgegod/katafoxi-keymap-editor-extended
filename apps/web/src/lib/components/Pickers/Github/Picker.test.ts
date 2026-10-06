@@ -96,7 +96,8 @@ describe('Github Picker', () => {
       layout: [{ x: 0, y: 0, row: 0, col: 0 }],
       keymap: { layers: [] },
       hostSnapshot: null,
-      warnings: []
+      warnings: [],
+      headSha: 'abc123'
     })
 
     const onSelect = open()
@@ -120,7 +121,7 @@ describe('Github Picker', () => {
     expect((popover as HTMLElement).hidden).toBe(false)
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({
-        github: { repository: repo.full_name, branch: 'only' }
+        github: expect.objectContaining({ repository: repo.full_name, branch: 'only' })
       })
     )
   })
@@ -136,7 +137,8 @@ describe('Github Picker', () => {
       layout: [{ x: 0, y: 0, row: 0, col: 0 }],
       keymap: { layers: [] },
       hostSnapshot: null,
-      warnings: []
+      warnings: [],
+      headSha: 'abc123'
     })
 
     const onSelect = open()
@@ -146,12 +148,12 @@ describe('Github Picker', () => {
     })
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({
-        github: { repository: repo.full_name, branch: 'dev' }
+        github: expect.objectContaining({ repository: repo.full_name, branch: 'dev' })
       })
     )
     expect(onSelect).not.toHaveBeenCalledWith(
       expect.objectContaining({
-        github: { repository: repo.full_name, branch: 'main' }
+        github: expect.objectContaining({ repository: repo.full_name, branch: 'main' })
       })
     )
   })
@@ -166,7 +168,8 @@ describe('Github Picker', () => {
       layout: [{ x: 0, y: 0, row: 0, col: 0 }],
       keymap: { layers: [] },
       hostSnapshot: null,
-      warnings: []
+      warnings: [],
+      headSha: 'abc123'
     })
 
     const onSelect = open()
@@ -176,7 +179,7 @@ describe('Github Picker', () => {
     })
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({
-        github: { repository: repo.full_name, branch: 'main' }
+        github: expect.objectContaining({ repository: repo.full_name, branch: 'main' })
       })
     )
   })
@@ -211,7 +214,8 @@ describe('Github Picker', () => {
         layout: [{ x: 0, y: 0, row: 0, col: 0 }],
         keymap: { layers: [] },
         hostSnapshot: null,
-        warnings: []
+        warnings: [],
+        headSha: 'abc123'
       }
     })
 
@@ -245,7 +249,8 @@ describe('Github Picker', () => {
       layout: [{ x: 0, y: 0, row: 0, col: 0 }],
       keymap: { layers: [] },
       hostSnapshot: null,
-      warnings: []
+      warnings: [],
+      headSha: 'abc123'
     })
     await Promise.resolve()
     flushSync()
@@ -301,7 +306,8 @@ describe('Github Picker', () => {
       layout: [{ x: 0, y: 0 }, { x: 1, y: 0 }],
       keymap: { layers: [] },
       hostSnapshot: null,
-      warnings: []
+      warnings: [],
+      headSha: 'abc123'
     })
 
     const onSelect = open()
@@ -314,7 +320,7 @@ describe('Github Picker', () => {
     )
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({
-        github: { repository: repo.full_name, branch: 'main' },
+        github: expect.objectContaining({ repository: repo.full_name, branch: 'main' }),
         layout: [{ x: 0, y: 0 }, { x: 1, y: 0 }]
       })
     )
@@ -330,7 +336,8 @@ describe('Github Picker', () => {
       layout: [{ x: 0, y: 0, row: 0, col: 0 }],
       keymap: { layers: [] },
       hostSnapshot: null,
-      warnings: []
+      warnings: [],
+      headSha: 'abc123'
     })
     const create = vi.spyOn(github, 'createBranch').mockResolvedValue({ name: 'topic' })
 
@@ -355,7 +362,7 @@ describe('Github Picker', () => {
     await vi.waitFor(() => {
       expect(onSelect).toHaveBeenCalledWith(
         expect.objectContaining({
-          github: { repository: 'acme/lark', branch: 'topic' },
+          github: expect.objectContaining({ repository: 'acme/lark', branch: 'topic' }),
           preserveSession: true
         })
       )
@@ -372,7 +379,8 @@ describe('Github Picker', () => {
       layout: [{ x: 0, y: 0, row: 0, col: 0 }],
       keymap: { layers: [] },
       hostSnapshot: null,
-      warnings: []
+      warnings: [],
+      headSha: 'abc123'
     })
     vi.spyOn(github, 'createBranch').mockRejectedValue(
       Object.assign(new Error('conflict'), {
@@ -427,7 +435,8 @@ describe('Github Picker', () => {
         layout: [{ x: 0, y: 0, row: 0, col: 0 }],
         keymap: { layers: [[{ value: '&kp', params: [{ value: 'D', params: [] }] }]] },
         hostSnapshot: null,
-        warnings: []
+        warnings: [],
+        headSha: 'abc123'
       }
     })
 
@@ -436,12 +445,13 @@ describe('Github Picker', () => {
       layout: [{ x: 0, y: 0, row: 0, col: 0 }],
       keymap: { layers: [[{ value: '&kp', params: [{ value: 'M', params: [] }] }]] },
       hostSnapshot: null,
-      warnings: []
+      warnings: [],
+      headSha: 'abc123'
     })
     await vi.waitFor(() => {
       expect(onSelect).toHaveBeenCalledWith(
         expect.objectContaining({
-          github: { repository: repo.full_name, branch: 'main' }
+          github: { repository: repo.full_name, branch: 'main', headSha: 'abc123' }
         })
       )
     })
@@ -463,7 +473,7 @@ describe('Github Picker', () => {
     await vi.waitFor(() => {
       expect(onSelect).toHaveBeenCalledWith(
         expect.objectContaining({
-          github: { repository: repo.full_name, branch: 'dev' }
+          github: expect.objectContaining({ repository: repo.full_name, branch: 'dev' })
         })
       )
     })
@@ -475,7 +485,8 @@ describe('Github Picker', () => {
         layers: [[{ value: '&kp', params: [{ value: 'STALE', params: [] }] }]]
       },
       hostSnapshot: null,
-      warnings: []
+      warnings: [],
+      headSha: 'abc123'
     })
     await Promise.resolve()
     flushSync()

@@ -24,7 +24,7 @@
 
   interface Props {
     onSelect: (event: {
-      github: { repository: string; branch: string }
+      github: { repository: string; branch: string; headSha?: string }
       layout: LayoutKey[]
       keymap: ParsedKeymap
       hostSnapshot?: HostKeymapSnapshot | null
@@ -131,7 +131,7 @@
       if (generation !== keyboardLoadGeneration) return
       lintKeyboard(response)
       onSelect({
-        github: { repository, branch },
+        github: { repository, branch, headSha: response.headSha },
         ...response,
         userInitiated: true
       })
@@ -254,7 +254,7 @@
         const userInitiated = nextLoadUserInitiated
         nextLoadUserInitiated = false
         onSelect({
-          github: { repository, branch },
+          github: { repository, branch, headSha: response.headSha },
           ...(preserveSession ? { preserveSession: true } : {}),
           ...(userInitiated ? { userInitiated: true } : {}),
           ...response

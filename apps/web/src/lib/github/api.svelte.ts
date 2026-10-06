@@ -12,6 +12,7 @@ export interface KeyboardFilesResult {
   keymap: ParsedKeymap
   hostSnapshot: HostKeymapSnapshot | null
   warnings: string[]
+  headSha: string
 }
 
 /** Accept a validated snapshot at the SPA boundary; non-ok → no snapshot. */
@@ -270,9 +271,11 @@ export class API extends EventEmitter {
           info: { layouts: Record<string, { layout: LayoutKey[] }> } | null
           keymap: ParsedKeymap
           hostSnapshot?: unknown
+          headSha?: unknown
         }
       }
       const hostSnapshot = hostSnapshotFromResponse(data.hostSnapshot ?? null)
+      const headSha = typeof data.headSha === 'string' ? data.headSha : ''
       try {
         const bundle = loadKeyboardBundle({
           infoJson: data.info,
@@ -286,7 +289,8 @@ export class API extends EventEmitter {
           layout: bundle.layout,
           keymap: bundle.keymap,
           hostSnapshot,
-          warnings: bundle.warnings
+          warnings: bundle.warnings,
+          headSha
         }
       } catch (bundleErr) {
         const message =
@@ -345,7 +349,8 @@ export class API extends EventEmitter {
     layout: unknown,
     keymap: unknown,
     hostSnapshot?: unknown,
-    hostDeliverables?: unknown
+    hostDeliverables?: unknown,
+    baseSha?: string | null
   ) {
     const installation = encodeURIComponent(this.repoInstallationMap![repo])
     const repository = encodeURIComponent(repo)
@@ -358,7 +363,8 @@ export class API extends EventEmitter {
         layout,
         keymap,
         hostSnapshot: hostSnapshot ?? null,
-        hostDeliverables: hostDeliverables ?? null
+        hostDeliverables: hostDeliverables ?? null,
+        baseSha: baseSha ?? null
       }
     })
   }

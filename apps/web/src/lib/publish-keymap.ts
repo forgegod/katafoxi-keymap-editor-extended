@@ -7,13 +7,15 @@ import {
 import type { GithubMeta } from './editor.svelte.js'
 import type { KeyboardFilesResult } from './github/api.svelte.js'
 
+const BRANCH_CHANGED_NOTICE = 'Branch changed on GitHub — reload'
+
 export type PublishKeymapEditor = {
   saving: boolean
   readonly isDirty: boolean
   readonly isPublishDirty?: boolean
   readonly draftKeymap: unknown
   readonly source: string | null
-  readonly githubMeta: GithubMeta | null
+  githubMeta: GithubMeta | null
   layout: LayoutKey[] | null
   beginPublish(): number
   isPublishCurrent(
@@ -33,7 +35,8 @@ export async function publishKeymap(
   handlers: {
     write: () => Promise<unknown>
     reload: () => Promise<
-      Pick<KeyboardFilesResult, 'keymap'> & Partial<Pick<KeyboardFilesResult, 'layout'>>
+      Pick<KeyboardFilesResult, 'keymap'> &
+        Partial<Pick<KeyboardFilesResult, 'layout' | 'headSha'>>
     >
   }
 ): Promise<boolean> {
@@ -57,6 +60,9 @@ export async function publishKeymap(
       if (reloaded.layout) {
         editor.layout = reloaded.layout
       }
+      if (reloaded.headSha && editor.githubMeta) {
+        editor.githubMeta = { ...editor.githubMeta, headSha: reloaded.headSha }
+      }
       editor.applyPublished(reloaded.keymap, saveMeta)
       editor.acceptHostRepoBaseline?.(committedHostBaseline)
       return true
@@ -68,8 +74,12 @@ export async function publishKeymap(
       return false
     }
   } catch (err) {
-    const requestErr = err as { response?: { data?: unknown } }
-    editor.applySaveFailure(requestErr.response?.data ?? null)
+    const requestErr = err as { response?: { status?: number; data?: unknown } }
+    if (requestErr.response?.status === 409) {
+      editor.applySaveFailure({ errors: [BRANCH_CHANGED_NOTICE] })
+    } else {
+      editor.applySaveFailure(requestErr.response?.data ?? null)
+    }
     return false
   } finally {
     editor.saving = false

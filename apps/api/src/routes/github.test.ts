@@ -324,14 +324,16 @@ describe('session and errors', () => {
       info: null,
       keymap: VALID_KEYMAP,
       originalCodeKeymap: { name: 'lark.keymap', path: 'config/lark.keymap' },
-      hostSnapshot: null
+      hostSnapshot: null,
+      headSha: 'abc123'
     })
     const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark')
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({
       info: null,
       keymap: parseKeymap(VALID_KEYMAP),
-      hostSnapshot: null
+      hostSnapshot: null,
+      headSha: 'abc123'
     })
   })
 
@@ -352,14 +354,54 @@ describe('session and errors', () => {
       info: VALID_INFO,
       keymap: VALID_KEYMAP,
       originalCodeKeymap: { name: 'lark.keymap', path: 'config/lark.keymap' },
-      hostSnapshot: null
+      hostSnapshot: null,
+      headSha: 'abc123'
     })
     const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark')
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({
       info: VALID_INFO,
       keymap: parseKeymap(VALID_KEYMAP),
-      hostSnapshot: null
+      hostSnapshot: null,
+      headSha: 'abc123'
+    })
+  })
+
+  it('POST /github/keyboard-files returns 409 when GitHub PATCH is not a fast-forward', async () => {
+    vi.mocked(files.commitChanges).mockRejectedValue(
+      Object.assign(new Error('GitHub API 422'), {
+        response: { status: 422, data: 'Update is not a fast forward' }
+      })
+    )
+    const layout = [{ x: 0, y: 0 }]
+    const keymap = parseKeymap(VALID_KEYMAP)
+    const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark/main', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keymap, layout, baseSha: 'abc123' })
+    })
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({
+      name: 'StaleRepoBase',
+      errors: ['Branch changed on GitHub — reload']
+    })
+  })
+
+  it('POST /github/keyboard-files returns 409 when baseSha does not match head', async () => {
+    vi.mocked(files.commitChanges).mockRejectedValue(new files.StaleRepoBase())
+    const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark/main', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        keymap: parseKeymap(VALID_KEYMAP),
+        layout: [{ x: 0, y: 0 }],
+        baseSha: 'stale'
+      })
+    })
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({
+      name: 'StaleRepoBase',
+      errors: ['Branch changed on GitHub — reload']
     })
   })
 
@@ -385,6 +427,7 @@ describe('session and errors', () => {
       'feature/x',
       layout,
       keymap,
+      null,
       null,
       null
     )
@@ -556,7 +599,8 @@ describe('installation access control', () => {
       info: VALID_INFO,
       keymap: VALID_KEYMAP,
       originalCodeKeymap: { name: 'lark.keymap', path: 'config/lark.keymap' },
-      hostSnapshot: null
+      hostSnapshot: null,
+      headSha: 'abc123'
     })
     const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark')
     expect(res.status).toBe(200)
@@ -568,7 +612,8 @@ describe('installation access control', () => {
       info: VALID_INFO,
       keymap: VALID_KEYMAP,
       originalCodeKeymap: { name: 'lark.keymap', path: 'config/lark.keymap' },
-      hostSnapshot: null
+      hostSnapshot: null,
+      headSha: 'abc123'
     })
     const sid = trackSid(createSession({ login: 'octocat', oauthAccessToken: 'user-token' }))
 
@@ -624,7 +669,8 @@ describe('installation access control', () => {
       info: VALID_INFO,
       keymap: VALID_KEYMAP,
       originalCodeKeymap: { name: 'a.keymap', path: 'config/a.keymap' },
-      hostSnapshot: null
+      hostSnapshot: null,
+      headSha: 'abc123'
     })
     const commit = vi.mocked(files.commitChanges)
     const sid = trackSid(createSession({ login: 'octocat', oauthAccessToken: 'user-token' }))
@@ -652,7 +698,8 @@ describe('installation access control', () => {
       info: VALID_INFO,
       keymap: VALID_KEYMAP,
       originalCodeKeymap: { name: 'lark.keymap', path: 'config/lark.keymap' },
-      hostSnapshot: null
+      hostSnapshot: null,
+      headSha: 'abc123'
     })
     const { sid, res } = await authedRequest('/github/installation')
     expect(res.status).toBe(200)
