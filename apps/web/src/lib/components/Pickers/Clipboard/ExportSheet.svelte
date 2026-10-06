@@ -12,14 +12,12 @@
 
   let { code, copied, warnings = [], onClose }: Props = $props()
 
-  let note = $state('')
   let area: HTMLTextAreaElement | undefined = $state()
-
-  $effect(() => {
-    note = copied
+  let note = $derived(
+    copied
       ? 'Copied to the system clipboard. Paste it into your config/*.keymap.'
       : 'Could not write the system clipboard — select the text below and copy manually.'
-  })
+  )
 
   async function copyAgain() {
     try {
@@ -38,8 +36,8 @@
   }
 </script>
 
-<Modal size="wide" onBackdrop={onClose}>
-  <div class="clipboard-export" role="dialog" aria-modal="true" aria-label="Exported keymap">
+<Modal size="wide" onBackdrop={onClose} ariaLabel="Exported keymap">
+  <div class="clipboard-export">
     <h2 class="clipboard-export-title">.keymap ready</h2>
     <p class="clipboard-export-hint">
       Paste this into your firmware repo (for example

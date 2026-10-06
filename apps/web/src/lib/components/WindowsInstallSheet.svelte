@@ -40,13 +40,8 @@
     'https://www.microsoft.com/en-us/download/details.aspx?id=102134'
 </script>
 
-<Modal onBackdrop={onClose}>
-  <div
-    class="install-dialog"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="windows-install-title"
-  >
+<Modal onBackdrop={onClose} ariaLabelledby="windows-install-title">
+  <div class="install-dialog">
     <header class="dialog-head">
       <img class="dialog-logo" src={logoWindows} alt="" width="28" height="28" />
       <div>

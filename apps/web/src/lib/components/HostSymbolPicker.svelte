@@ -77,13 +77,14 @@
   })
 
   $effect(() => {
+    const lang = language
     const root = document.getElementById('modal-root') ?? document.body
     if (!el) return
     root.appendChild(el)
-    const savedScroll = hostSymbolScrollByLanguage.get(language)
+    const savedScroll = hostSymbolScrollByLanguage.get(lang)
     if (bodyEl && savedScroll != null) bodyEl.scrollTop = savedScroll
     return () => {
-      if (bodyEl) hostSymbolScrollByLanguage.set(language, bodyEl.scrollTop)
+      if (bodyEl) hostSymbolScrollByLanguage.set(lang, bodyEl.scrollTop)
       persistGeometry()
       el?.remove()
       positioned = false

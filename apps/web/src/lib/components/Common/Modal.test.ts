@@ -76,6 +76,32 @@ describe('Modal', () => {
     expect(onBackdrop).toHaveBeenCalledTimes(1)
   })
 
+  it('cycles Tab from the last control back to the first', async () => {
+    view = mount(Modal, {
+      target,
+      props: {
+        ariaLabel: 'Sheet',
+        children: body(
+          '<div><button type="button">First</button><button type="button">Last</button></div>'
+        )
+      }
+    })
+    flushSync()
+    await tick()
+
+    const dialog = modalRoot.querySelector('.modal-wrapper')
+    expect(dialog?.getAttribute('aria-label')).toBe('Sheet')
+    const buttons = [...modalRoot.querySelectorAll('button')]
+    expect(buttons).toHaveLength(2)
+    buttons[1].focus()
+    expect(document.activeElement).toBe(buttons[1])
+
+    buttons[1].dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    )
+    expect(document.activeElement).toBe(buttons[0])
+  })
+
   it('ignores Escape when onBackdrop is omitted', async () => {
     view = mount(Modal, {
       target,

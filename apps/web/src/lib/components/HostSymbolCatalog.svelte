@@ -15,11 +15,12 @@
   $effect(() => {
     if (!open) return
     const onKeydown = (event: KeyboardEvent) => {
-      if (event.key === 'Tab' && editor.hostSymbolEditTarget) {
-        event.preventDefault()
-        event.stopImmediatePropagation()
-        editor.stepHostSymbolEdit(event.shiftKey ? -1 : 1)
-      }
+      if (event.key !== 'Tab' || !editor.hostSymbolEditTarget) return
+      const focused = event.target
+      if (focused instanceof Element && focused.closest('.host-symbol-picker')) return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      editor.stepHostSymbolEdit(event.shiftKey ? -1 : 1)
     }
     window.addEventListener('keydown', onKeydown, true)
     return () => window.removeEventListener('keydown', onKeydown, true)

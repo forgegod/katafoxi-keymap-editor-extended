@@ -24,8 +24,8 @@
   }: Props = $props()
 </script>
 
-<Modal onBackdrop={onClose}>
-  <div class="install-dialog" role="dialog" aria-modal="true" aria-labelledby="linux-install-title">
+<Modal onBackdrop={onClose} ariaLabelledby="linux-install-title">
+  <div class="install-dialog">
     <header class="dialog-head">
       <img class="dialog-logo" src={logoLinux} alt="" width="28" height="28" />
       <div>

@@ -97,6 +97,7 @@
   let pulseIndex = $state<number | null>(null)
   let pulseOn = $state(false)
   let pulseTimer = 0
+  let pulseFrame = 0
 
   const used = $derived(usedKeycodes ?? new Map<string, readonly number[]>())
   const activeSlot = $derived(
@@ -296,9 +297,11 @@
 
   function pulseMissing(codeIndex: number) {
     window.clearTimeout(pulseTimer)
+    if (pulseFrame) cancelAnimationFrame(pulseFrame)
     pulseOn = false
     pulseIndex = codeIndex
-    requestAnimationFrame(() => {
+    pulseFrame = requestAnimationFrame(() => {
+      pulseFrame = 0
       pulseOn = true
       pulseTimer = window.setTimeout(() => {
         pulseOn = false
@@ -343,19 +346,13 @@
     window.addEventListener('keydown', onKey)
     return () => {
       window.removeEventListener('keydown', onKey)
+      if (pulseFrame) cancelAnimationFrame(pulseFrame)
       window.clearTimeout(pulseTimer)
     }
   })
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div
-  class="key-editor"
-  role="dialog"
-  aria-label="Edit key"
-  aria-labelledby="key-editor-binding"
-  tabindex="-1"
->
+<div class="key-editor">
   <!-- Result sticker above the panel — not a window title. -->
   <div class="key-editor-preview">
     <code id="key-editor-binding" class="binding">{previewLabel}</code>

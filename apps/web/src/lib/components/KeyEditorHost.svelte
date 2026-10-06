@@ -48,7 +48,7 @@
 </script>
 
 {#if open}
-  <Modal onBackdrop={onCancel}>
+  <Modal onBackdrop={onCancel} ariaLabel="Edit key">
     <KeyEditor
       {bindingLabel}
       {behaviours}

@@ -306,6 +306,31 @@ describe('LegendDecodeCard host symbol catalog', () => {
     expect(editor.hostSymbolEditTarget).toEqual({ language: 'en', zmk: 'A', level: 2 })
   })
 
+  it('lets Tab from a glyph reach the next glyph without stepping the armed level', async () => {
+    openKey('A')
+    await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)
+    flushSync()
+    const row = stackRows()[0]
+    row.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true })
+    )
+    flushSync()
+    const level = editor.hostSymbolEditTarget?.level
+    const glyphs = [...(catalog()?.querySelectorAll('button.glyph') ?? [])].filter(
+      (el): el is HTMLButtonElement => el instanceof HTMLButtonElement && !el.disabled
+    )
+    expect(glyphs.length).toBeGreaterThan(1)
+    glyphs[0].focus()
+    flushSync()
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    glyphs[0].dispatchEvent(tab)
+    flushSync()
+    expect(tab.defaultPrevented).toBe(false)
+    expect(editor.hostSymbolEditTarget?.level).toBe(level)
+    if (document.activeElement === glyphs[0]) glyphs[1].focus()
+    expect(document.activeElement).toBe(glyphs[1])
+  })
+
   it('applies an open-shelf glyph through setHostKeyLevel and keeps the catalog open', async () => {
     openKey('A')
     await editor.selectLanguageProfile('en', primarySystemLayoutId('en')!)

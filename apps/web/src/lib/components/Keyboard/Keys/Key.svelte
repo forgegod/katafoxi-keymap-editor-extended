@@ -170,6 +170,12 @@
     editor.setLegendHover({ kind: 'layer', layer })
   }
 
+  function openDecodeOnFocus(layer: number, event: FocusEvent) {
+    const target = event.currentTarget
+    if (!(target instanceof HTMLElement) || !target.matches(':focus-visible')) return
+    openDecode(layer, target)
+  }
+
   function hideDecode() {
     unlockLegendDecode(keyIndex)
     decode = null
@@ -406,7 +412,7 @@
         onclick={event => handleRowClick(event, 0)}
         onmouseenter={event => openDecode(0, event.currentTarget)}
         onmouseleave={handleRowLeave}
-        onfocus={event => openDecode(0, event.currentTarget)}
+        onfocus={event => openDecodeOnFocus(0, event)}
         onblur={handleRowBlur}
       >
         {#each multilangFace.lines as line, index (line.language)}
@@ -441,7 +447,7 @@
         onclick={event => handleRowClick(event, row.layer)}
         onmouseenter={event => openDecode(row.layer, event.currentTarget)}
         onmouseleave={handleRowLeave}
-        onfocus={event => openDecode(row.layer, event.currentTarget)}
+        onfocus={event => openDecodeOnFocus(row.layer, event)}
         onblur={handleRowBlur}
       >
         {#if row.blank}

@@ -199,6 +199,7 @@ describe('Key click editor', () => {
 
     expect(onUpdate).not.toHaveBeenCalled()
     expect(editorDialog()).toBeNull()
+    expect(document.querySelector('.legend-decode')).toBeNull()
   })
 
   it('closes on backdrop click without applying', () => {
@@ -673,7 +674,7 @@ describe('Key click editor', () => {
       layerBindings: [{ value: '&kp', params: [{ value: 'MINUS', params: [] }] }]
     })
     const row = stackRows()[0]
-    row.focus()
+    row.focus({ focusVisible: true } as FocusOptions)
     flushSync()
     expect(document.querySelector('[role="tooltip"].legend-decode')).toBeInstanceOf(HTMLElement)
 

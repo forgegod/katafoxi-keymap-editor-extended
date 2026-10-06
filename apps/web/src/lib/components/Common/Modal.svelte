@@ -7,14 +7,51 @@
     onBackdrop?: () => void
     /** Wider shell for long fixed-width content (e.g. exported .keymap). */
     size?: 'default' | 'wide'
+    ariaLabel?: string
+    ariaLabelledby?: string
   }
 
-  let { children, onBackdrop, size = 'default' }: Props = $props()
+  let {
+    children,
+    onBackdrop,
+    size = 'default',
+    ariaLabel,
+    ariaLabelledby
+  }: Props = $props()
 
   let wrapperEl: HTMLDivElement | undefined = $state()
 
   const FOCUSABLE =
     'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+  function focusables(root: Element): HTMLElement[] {
+    return [...root.querySelectorAll(FOCUSABLE)].filter(
+      (el): el is HTMLElement => el instanceof HTMLElement
+    )
+  }
+
+  function trapTab(event: KeyboardEvent) {
+    if (event.key !== 'Tab' || event.isComposing) return
+    const content = wrapperEl?.querySelector('.modal-content')
+    if (!content) return
+    const items = focusables(content)
+    if (items.length === 0) {
+      event.preventDefault()
+      return
+    }
+    const first = items[0]
+    const last = items[items.length - 1]
+    const active = document.activeElement
+    if (event.shiftKey) {
+      if (active === first || !content.contains(active)) {
+        event.preventDefault()
+        last.focus()
+      }
+    } else if (active === last || !content.contains(active)) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
 
   // Portal under #app-root so Svelte 5 delegated clicks still reach the dialog.
   $effect(() => {
@@ -39,9 +76,13 @@
     const popEscape = pushEscapeHandler(() => {
       dismiss?.()
     })
+    wrapperEl.addEventListener('keydown', trapTab)
     return () => {
+      wrapperEl?.removeEventListener('keydown', trapTab)
       popEscape()
-      if (previous && document.contains(previous)) previous.focus({ preventScroll: true })
+      if (previous && document.contains(previous)) {
+        previous.focus({ preventScroll: true, focusVisible: false } as FocusOptions)
+      }
     }
   })
 </script>
@@ -52,6 +93,8 @@
   class="modal-wrapper"
   role="dialog"
   aria-modal="true"
+  aria-label={ariaLabel}
+  aria-labelledby={ariaLabelledby}
   tabindex="-1"
   onclick={event => {
     if (onBackdrop && event.target === wrapperEl) onBackdrop()
