@@ -3,9 +3,10 @@ import {
   comboBindingIndexRef,
   comboDictionaryIndexHits,
   comboDictionaryIndexModel,
-  typewriterIndexFace,
+  typewriterIndexBandFace,
   TYPEWRITER_INDEX_KEYS
 } from './combo-dictionary-index.js'
+import { primarySystemLayoutId } from './host-layout-catalog.js'
 import type { KeyBindingNode, LayoutKey, ZmkCombo } from './types.js'
 
 function kp(code: string): KeyBindingNode {
@@ -62,11 +63,48 @@ describe('combo typewriter index', () => {
       keyId: 'left',
       band: 'base'
     })
+    expect(comboBindingIndexRef(kp('LA(TAB)'))).toEqual({
+      kind: 'mod',
+      keyId: 'tab',
+      wrap: 'LA',
+      label: '⎇TAB'
+    })
+    expect(comboBindingIndexRef(kpWrap('LC', 'TAB'))).toEqual({
+      kind: 'mod',
+      keyId: 'tab',
+      wrap: 'LC',
+      label: '⌃TAB'
+    })
+    expect(comboBindingIndexRef(kp('LC(DEL)'))).toEqual({
+      kind: 'mod',
+      keyId: 'del',
+      wrap: 'LC',
+      label: '⌃⌦'
+    })
+    expect(comboBindingIndexRef({ value: '&sk', params: [{ value: 'LCTRL', params: [] }] })).toEqual({
+      kind: 'key',
+      keyId: 'lctrl',
+      band: 'base'
+    })
     expect(comboBindingIndexRef({ value: '&none', params: [] })).toEqual({ kind: 'skip' })
     expect(comboBindingIndexRef({ value: '&bootloader', params: [] })).toEqual({
       kind: 'other',
       label: 'bootloader'
     })
+  })
+
+  it('keeps Alt/Ctrl chords on the terminal key as mod chips beside the plain half', () => {
+    const combos = [
+      combo('tab', [0, 1], kp('TAB')),
+      combo('alt_tab', [0, 1, 2], kp('LA(TAB)')),
+      combo('ctrl_tab', [0, 1, 3], kpWrap('LC', 'TAB')),
+      combo('sk_ctrl', [2], { value: '&sk', params: [{ value: 'LCTRL', params: [] }] })
+    ]
+    const hits = comboDictionaryIndexHits(combos, [2, 3])
+    expect(hits.get('tab')?.base?.positions).toEqual([0, 1])
+    expect(hits.get('tab')?.mods?.map(mod => mod.label)).toEqual(['⌃TAB', '⎇TAB'])
+    expect(hits.get('tab')?.mods?.map(mod => mod.wrap)).toEqual(['LC', 'LA'])
+    expect(hits.get('lctrl')?.base?.positions).toEqual([2])
   })
 
   it('peeks the fewest-extra chords when several variants share a letter', () => {
@@ -86,24 +124,58 @@ describe('combo typewriter index', () => {
     expect(model.other.map(item => item.label)).toEqual(['bootloader'])
   })
 
-  it('shows y/Y and 1/! when a key has both bands', () => {
-    const stub = (keyId: string, band: 'base' | 'shift') => ({
-      keyId,
-      band,
-      positions: [0],
-      comboIds: ['x']
-    })
+  it('shows y/Y and 1/! when a key has both bands and no host view', () => {
     const y = TYPEWRITER_INDEX_KEYS.find(key => key.id === 'y')
     const n1 = TYPEWRITER_INDEX_KEYS.find(key => key.id === 'n1')
-    expect(y && typewriterIndexFace(y, { base: stub('y', 'base'), shift: stub('y', 'shift') })).toEqual({
-      base: 'y',
-      shift: 'Y'
+    expect(y && typewriterIndexBandFace(y, 'base', null, true)).toEqual({
+      packs: [],
+      fallback: 'y'
     })
-    expect(
-      n1 && typewriterIndexFace(n1, { base: stub('n1', 'base'), shift: stub('n1', 'shift') })
-    ).toEqual({
-      base: '1',
-      shift: '!'
+    expect(y && typewriterIndexBandFace(y, 'shift', null, true)).toEqual({
+      packs: [],
+      fallback: 'Y'
     })
+    expect(n1 && typewriterIndexBandFace(n1, 'base', null, true)).toEqual({
+      packs: [],
+      fallback: '1'
+    })
+    expect(n1 && typewriterIndexBandFace(n1, 'shift', null, true)).toEqual({
+      packs: [],
+      fallback: '!'
+    })
+  })
+
+  it('packs D as distinct en+ru faces with AltGr slots, not a joined string', () => {
+    const d = TYPEWRITER_INDEX_KEYS.find(key => key.id === 'd')
+    expect(d).toBeTruthy()
+    const view = {
+      columns: [
+        {
+          language: 'en' as const,
+          layoutId: primarySystemLayoutId('en')!,
+          visible: true,
+          altGr: true,
+          altGrShift: true
+        },
+        {
+          language: 'ru' as const,
+          layoutId: primarySystemLayoutId('ru')!,
+          visible: true,
+          altGr: true,
+          altGrShift: true
+        }
+      ],
+      open: 'ru' as const,
+      keycap: ['en' as const, 'ru' as const]
+    }
+    const base = typewriterIndexBandFace(d!, 'base', view, true)
+    const shift = typewriterIndexBandFace(d!, 'shift', view, true)
+    expect(base.fallback).toBeUndefined()
+    expect(base.packs.map(pack => pack.tone)).toEqual(['base', 'second'])
+    expect(base.packs.map(pack => pack.glyphs[0].text)).toEqual(['d', 'в'])
+    expect(base.packs.every(pack => pack.glyphs[1].alt)).toBe(true)
+    expect(shift.packs.map(pack => pack.glyphs[0].text)).toEqual(['D', 'В'])
+    expect(shift.packs.every(pack => pack.glyphs[1].alt)).toBe(true)
+    expect(JSON.stringify(base)).not.toContain('"dв"')
   })
 })

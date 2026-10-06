@@ -4,9 +4,16 @@
  */
 
 import { usShiftBaseCode } from './keycode-labels.js'
-import { isModifierWrapCode } from './modifiers.js'
+import {
+  isModifierWrapCode,
+  modifierHoldForWrap,
+  modifierRoleGlyph
+} from './modifiers.js'
 import { comboDictionaryLabel, comboDictionaryModifierIndexes } from './combo-dictionary.js'
-import type { KeyBindingNode, LayoutKey, ZmkCombo } from './types.js'
+import { hostLegendFor } from './compose-host.js'
+import { keycapLegend } from './compose-binding.js'
+import { keycapFace, type KeycapFaceGlyph, type KeycapTone } from './keycap-face.js'
+import type { HostLegendView, KeyBindingNode, LayoutKey, ZmkCombo } from './types.js'
 
 export type TypewriterIndexKey = {
   id: string
@@ -17,10 +24,16 @@ export type TypewriterIndexKey = {
   h?: number
 }
 
-export type ComboIndexBand = 'base' | 'shift'
+export type ComboIndexBand = 'base' | 'shift' | 'mod'
 
 export type ComboIndexRef =
-  | { kind: 'key'; keyId: string; band: ComboIndexBand }
+  | { kind: 'key'; keyId: string; band: 'base' | 'shift' }
+  | {
+      kind: 'mod'
+      keyId: string
+      wrap: string
+      label: string
+    }
   | { kind: 'other'; label: string }
   | { kind: 'skip' }
 
@@ -29,12 +42,17 @@ export type ComboIndexHit = {
   band: ComboIndexBand
   positions: number[]
   comboIds: string[]
+  /** Non-shift wrap (`LA`) when `band === 'mod'`. */
+  wrap?: string
+  /** Compact face for a mod chord (`⎇TAB`). */
+  label?: string
 }
 
-/** One typewriter key may hold a plain output and an LS()/US-shift output. */
+/** One typewriter key may hold a plain output, an LS() output, and mod chords. */
 export type ComboIndexKeyBands = {
   base?: ComboIndexHit
   shift?: ComboIndexHit
+  mods?: ComboIndexHit[]
 }
 
 export type ComboIndexOther = {
@@ -47,6 +65,12 @@ export type ComboIndexModel = {
   keys: TypewriterIndexKey[]
   hits: Map<string, ComboIndexKeyBands>
   other: ComboIndexOther[]
+}
+
+/** Active-id token for an index half or mod chip (board highlight / aria-pressed). */
+export function comboIndexHitActiveId(hit: ComboIndexHit): string {
+  if (hit.band === 'mod') return `${hit.keyId}:mod:${hit.wrap ?? hit.label ?? ''}`
+  return `${hit.keyId}:${hit.band}`
 }
 
 function k(
@@ -152,6 +176,67 @@ export const TYPEWRITER_INDEX_KEYS: readonly TypewriterIndexKey[] = [
   k('up', '↑', 17.25, 4.5),
   k('right', '→', 18.25, 5.5)
 ]
+
+/** Canonical ZMK token for a typewriter index key (`a` → `A`, `n1` → `N1`). */
+const KEY_TO_ZMK: Record<string, string> = {
+  esc: 'ESC',
+  del: 'DEL',
+  grave: 'GRAVE',
+  n1: 'N1',
+  n2: 'N2',
+  n3: 'N3',
+  n4: 'N4',
+  n5: 'N5',
+  n6: 'N6',
+  n7: 'N7',
+  n8: 'N8',
+  n9: 'N9',
+  n0: 'N0',
+  minus: 'MINUS',
+  equal: 'EQUAL',
+  bspc: 'BSPC',
+  tab: 'TAB',
+  lbkt: 'LBKT',
+  rbkt: 'RBKT',
+  bslh: 'BSLH',
+  caps: 'CAPS',
+  semi: 'SEMI',
+  sqt: 'SQT',
+  enter: 'ENTER',
+  lshift: 'LSHIFT',
+  rshift: 'RSHIFT',
+  nubs: 'NUBS',
+  comma: 'COMMA',
+  dot: 'DOT',
+  slash: 'SLASH',
+  lctrl: 'LCTRL',
+  rctrl: 'RCTRL',
+  lgui: 'LGUI',
+  rgui: 'RGUI',
+  lalt: 'LALT',
+  ralt: 'RALT',
+  space: 'SPACE',
+  ins: 'INS',
+  home: 'HOME',
+  pgup: 'PG_UP',
+  end: 'END',
+  pgdn: 'PG_DN',
+  left: 'LEFT',
+  down: 'DOWN',
+  up: 'UP',
+  right: 'RIGHT'
+}
+
+for (let i = 1; i <= 12; i++) {
+  KEY_TO_ZMK[`f${i}`] = `F${i}`
+}
+for (const letter of 'abcdefghijklmnopqrstuvwxyz') {
+  KEY_TO_ZMK[letter] = letter.toUpperCase()
+}
+
+export function typewriterIndexZmk(keyId: string): string | null {
+  return KEY_TO_ZMK[keyId] ?? null
+}
 
 const CODE_TO_KEY: Record<string, string> = {
   ESC: 'esc',
@@ -267,31 +352,61 @@ function wrapIsShift(wrap: string): boolean {
   return upper === 'LS' || upper === 'RS'
 }
 
-function unwrapBinding(
-  binding: KeyBindingNode
-): { code: string; shift: boolean } | null {
+/** Compact face for `LA(TAB)` / `LC(DEL)` — same marks as board ZMK legends. */
+const INDEX_INNER_GLYPH: Record<string, string> = {
+  DEL: '⌦',
+  DELETE: '⌦',
+  BSPC: '⌫',
+  BACKSPACE: '⌫',
+  CAPS: '⇪',
+  CAPSLOCK: '⇪'
+}
+
+export function comboIndexModChordLabel(wrap: string, innerCode: string): string {
+  const hold = modifierHoldForWrap(wrap)
+  const roleGlyph = hold ? modifierRoleGlyph(hold.role) : wrap.toUpperCase()
+  const mark = hold?.side === 'R' ? `R${roleGlyph}` : roleGlyph
+  const upper = normalizeCode(innerCode)
+  const inner =
+    INDEX_INNER_GLYPH[upper] ?? (keycapLegend(innerCode) || upper)
+  return `${mark}${inner}`
+}
+
+type UnwrapResult = {
+  code: string
+  shift: boolean
+  /** Outermost non-shift wrap (`LA`, `LC`, …). */
+  modWrap?: string
+}
+
+function unwrapBinding(binding: KeyBindingNode): UnwrapResult | null {
   const behavior = String(binding.value ?? '')
   if (behavior === '&none' || behavior === '&trans') return null
   if (behavior !== '&kp' && behavior !== '&sk') return null
   let node: KeyBindingNode | undefined = binding.params[0]
   if (!node) return null
   let shift = false
+  let modWrap: string | undefined
   while (node) {
     const raw = String(node.value ?? '')
     const inline = WRAP_INLINE.exec(raw)
     if (inline) {
-      if (wrapIsShift(inline[1]!)) shift = true
+      const wrap = inline[1]!.toUpperCase()
+      if (wrapIsShift(wrap)) shift = true
+      else if (!modWrap) modWrap = wrap
       const inner = node.params[0]
       node = inner ?? { value: inline[2]!, params: [] }
       continue
     }
     if (isModifierWrapCode(raw) && node.params[0]) {
-      if (wrapIsShift(raw)) shift = true
+      const wrap = String(raw).toUpperCase()
+      if (wrapIsShift(wrap)) shift = true
+      else if (!modWrap) modWrap = wrap
       node = node.params[0]
       continue
     }
     if (usShiftBaseCode(normalizeCode(raw))) shift = true
-    return { code: raw, shift }
+    return { code: raw, shift, modWrap }
   }
   return null
 }
@@ -306,6 +421,16 @@ export function comboBindingIndexRef(binding: KeyBindingNode): ComboIndexRef {
   }
   const keyId = keyIdForCode(unwrapped.code)
   if (!keyId) return { kind: 'other', label: comboDictionaryLabel(binding) }
+  // Non-shift chords (Alt+Tab, Ctrl+Del) stay on the terminal key as mod chips
+  // so they are not collapsed into the plain base half.
+  if (unwrapped.modWrap) {
+    return {
+      kind: 'mod',
+      keyId,
+      wrap: unwrapped.modWrap,
+      label: comboIndexModChordLabel(unwrapped.modWrap, unwrapped.code)
+    }
+  }
   return { kind: 'key', keyId, band: unwrapped.shift ? 'shift' : 'base' }
 }
 
@@ -318,7 +443,8 @@ type ComboIndexBucket = { combo: ZmkCombo; extras: number }
 function hitFromBucket(
   keyId: string,
   band: ComboIndexBand,
-  list: ComboIndexBucket[]
+  list: ComboIndexBucket[],
+  extra?: { wrap?: string; label?: string }
 ): ComboIndexHit | undefined {
   if (list.length === 0) return undefined
   const min = Math.min(...list.map(item => item.extras))
@@ -330,13 +456,16 @@ function hitFromBucket(
     keyId,
     band,
     positions,
-    comboIds: chosen.map(item => item.combo.id)
+    comboIds: chosen.map(item => item.combo.id),
+    ...(extra?.wrap ? { wrap: extra.wrap } : {}),
+    ...(extra?.label ? { label: extra.label } : {})
   }
 }
 
 /**
  * For each typewriter key, plain and Shift outputs peek separately.
- * Within a band, prefer the fewest thumb extras (left+right letters share a half).
+ * Non-shift wraps (`LA`/`LC`/…) become mod chips on the same key.
+ * Within a band (or mod wrap), prefer the fewest thumb extras.
  */
 export function comboDictionaryIndexHits(
   combos: readonly ZmkCombo[],
@@ -345,23 +474,47 @@ export function comboDictionaryIndexHits(
   const extra = new Set(modifiers)
   const grouped = new Map<
     string,
-    { base: ComboIndexBucket[]; shift: ComboIndexBucket[] }
+    {
+      base: ComboIndexBucket[]
+      shift: ComboIndexBucket[]
+      mods: Map<string, { label: string; buckets: ComboIndexBucket[] }>
+    }
   >()
   for (const combo of combos) {
     const ref = comboBindingIndexRef(combo.binding)
-    if (ref.kind !== 'key') continue
-    const slot = grouped.get(ref.keyId) ?? { base: [], shift: [] }
-    slot[ref.band].push({ combo, extras: extraCount(combo, extra) })
+    if (ref.kind === 'skip' || ref.kind === 'other') continue
+    const slot = grouped.get(ref.keyId) ?? {
+      base: [],
+      shift: [],
+      mods: new Map()
+    }
+    if (ref.kind === 'mod') {
+      const prev = slot.mods.get(ref.wrap) ?? { label: ref.label, buckets: [] }
+      prev.buckets.push({ combo, extras: extraCount(combo, extra) })
+      slot.mods.set(ref.wrap, prev)
+    } else {
+      slot[ref.band].push({ combo, extras: extraCount(combo, extra) })
+    }
     grouped.set(ref.keyId, slot)
   }
 
   const hits = new Map<string, ComboIndexKeyBands>()
   for (const [keyId, slot] of grouped) {
+    const mods: ComboIndexHit[] = []
+    for (const [wrap, group] of slot.mods) {
+      const hit = hitFromBucket(keyId, 'mod', group.buckets, {
+        wrap,
+        label: group.label
+      })
+      if (hit) mods.push(hit)
+    }
+    mods.sort((a, b) => (a.label ?? '').localeCompare(b.label ?? ''))
     const bands: ComboIndexKeyBands = {
       base: hitFromBucket(keyId, 'base', slot.base),
-      shift: hitFromBucket(keyId, 'shift', slot.shift)
+      shift: hitFromBucket(keyId, 'shift', slot.shift),
+      ...(mods.length > 0 ? { mods } : {})
     }
-    if (bands.base || bands.shift) hits.set(keyId, bands)
+    if (bands.base || bands.shift || bands.mods?.length) hits.set(keyId, bands)
   }
   return hits
 }
@@ -390,27 +543,57 @@ const KEY_SHIFT_MARK: Record<string, string> = {
   slash: '?'
 }
 
-/** Labels for an index key: US shift mark on top when both bands exist. */
-export function typewriterIndexFace(
+/** One on-keycap language on a dictionary half: letter + AltGr (or Shift + AltGr+Shift). */
+export type TypewriterIndexBandPack = {
+  tone: KeycapTone
+  glyphs: readonly [KeycapFaceGlyph, KeycapFaceGlyph]
+}
+
+export type TypewriterIndexBandFace = {
+  packs: TypewriterIndexBandPack[]
+  fallback?: string
+}
+
+function ansiFallback(
   key: TypewriterIndexKey,
-  bands: ComboIndexKeyBands
-): { base?: string; shift?: string } {
-  const split = bands.base != null && bands.shift != null
+  band: ComboIndexBand,
+  split: boolean
+): string {
   const letter =
     key.label.length === 1 && key.label >= 'A' && key.label <= 'Z'
   const shiftMark = KEY_SHIFT_MARK[key.id]
-  return {
-    base: bands.base
-      ? split && letter
-        ? key.label.toLowerCase()
-        : key.label
-      : undefined,
-    shift: bands.shift
-      ? split
-        ? (shiftMark ?? (letter ? key.label : `⇧${key.label}`))
-        : key.label
-      : undefined
+  if (band === 'shift') {
+    return split
+      ? (shiftMark ?? (letter ? key.label : `⇧${key.label}`))
+      : key.label
   }
+  return split && letter ? key.label.toLowerCase() : key.label
+}
+
+/**
+ * Host face for one index half. Letter + AltGr (base) or Shift + AltGr+Shift.
+ * Packs come from `keycapFace`; non-host keys keep an ANSI fallback label.
+ */
+export function typewriterIndexBandFace(
+  key: TypewriterIndexKey,
+  band: ComboIndexBand,
+  view?: HostLegendView | null,
+  split = true
+): TypewriterIndexBandFace {
+  const zmk = typewriterIndexZmk(key.id)
+  const legend = zmk && view ? hostLegendFor(zmk, view) : null
+  const face = legend ? keycapFace(legend) : null
+  if (face && face.packs.length > 0) {
+    const letter = band === 'shift' ? 1 : 0
+    const alt = band === 'shift' ? 3 : 2
+    return {
+      packs: face.packs.map(pack => ({
+        tone: pack.tone,
+        glyphs: [pack.glyphs[letter]!, pack.glyphs[alt]!]
+      }))
+    }
+  }
+  return { packs: [], fallback: ansiFallback(key, band, split) }
 }
 
 export function comboDictionaryIndexOther(
