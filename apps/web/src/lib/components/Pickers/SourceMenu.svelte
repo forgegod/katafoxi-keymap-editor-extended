@@ -38,6 +38,7 @@
     class="source-trigger{accent ? ' source-trigger-accent' : ''}"
     {title}
     aria-label={title}
+    data-testid="source-menu-trigger"
     aria-haspopup={popup ? 'dialog' : undefined}
     aria-expanded={popup ? open : undefined}
     onclick={() => {

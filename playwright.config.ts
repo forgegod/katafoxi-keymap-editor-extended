@@ -1,9 +1,6 @@
 import { defineConfig } from '@playwright/test'
-import { execSync, spawnSync } from 'node:child_process'
-import fs from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
-import { copyLarkFixture } from './e2e/lark-temp'
+import { spawnSync } from 'node:child_process'
+import { resolveE2eZmkConfig } from './e2e/lark-temp'
 
 const REPO_ROOT = process.cwd()
 
@@ -37,34 +34,8 @@ function reservePort(preferred: number): number {
   return port
 }
 
-function newestMtime(dir: string): number {
-  let newest = 0
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name)
-    if (entry.isDirectory()) newest = Math.max(newest, newestMtime(full))
-    else newest = Math.max(newest, fs.statSync(full).mtimeMs)
-  }
-  return newest
-}
-
-function ensureKeymapCoreBuilt() {
-  const dist = path.join(REPO_ROOT, 'packages/keymap-core/dist/index.js')
-  const srcDir = path.join(REPO_ROOT, 'packages/keymap-core/src')
-  const distMtime = fs.existsSync(dist) ? fs.statSync(dist).mtimeMs : 0
-  if (!fs.existsSync(dist) || newestMtime(srcDir) > distMtime) {
-    execSync('pnpm --filter @keymap-editor/keymap-core build', {
-      cwd: REPO_ROOT,
-      stdio: 'inherit'
-    })
-  }
-}
-
-const tmpRoot =
-  process.env.E2E_ZMK_CONFIG ??
-  fs.mkdtempSync(path.join(os.tmpdir(), 'keymap-e2e-'))
+const tmpRoot = resolveE2eZmkConfig()
 process.env.E2E_ZMK_CONFIG = tmpRoot
-copyLarkFixture(tmpRoot)
-ensureKeymapCoreBuilt()
 
 const apiPort = process.env.E2E_API_PORT
   ? Number(process.env.E2E_API_PORT)
@@ -86,6 +57,7 @@ export default defineConfig({
   timeout: 60_000,
   forbidOnly: !!process.env.CI,
   retries: 0,
+  globalSetup: './e2e/global-setup.ts',
   use: {
     baseURL: webOrigin,
     browserName: 'chromium',
@@ -104,7 +76,8 @@ export default defineConfig({
         ENABLE_LOCAL: 'true',
         ENABLE_GITHUB: 'false',
         ZMK_CONFIG_PATH: tmpRoot,
-        PORT: String(apiPort)
+        PORT: String(apiPort),
+        APP_BASE_URL: webOrigin
       }
     },
     {

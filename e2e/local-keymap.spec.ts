@@ -26,22 +26,69 @@ function readTempKeymap() {
 }
 
 async function openLocalEditor(page: Page) {
+  await page.addInitScript(() => {
+    localStorage.setItem('coachTourDone', '1')
+  })
   await page.goto('/')
-  const source = page.locator('#source')
-  await expect(source).toBeVisible()
-  await expect(source.locator('option:checked')).toHaveText('Local')
-  await expect(page.locator(ESC_KEY)).toBeVisible()
+  const trigger = page.getByTestId('source-menu-trigger')
+  await expect(trigger).toBeVisible()
+  await trigger.click()
+  const local = page.getByRole('radio', { name: /Local/ })
+  await expect(local).toBeVisible()
+  await local.click()
+  await expect(local).toHaveAttribute('aria-checked', 'true')
+  await expect(trigger).toHaveAccessibleName('Local files')
+  await expect(
+    page.locator(ESC_KEY).getByRole('button', { name: '&kp ESC, layer 0' })
+  ).toBeVisible()
+  const popover = page.locator('.source-popover')
+  if ((await popover.getAttribute('hidden')) === null) {
+    await trigger.click()
+  }
+  await expect(popover).toHaveAttribute('hidden', '')
+}
+
+async function waitForPersistedDraft(page: Page) {
+  await expect
+    .poll(async () => {
+      return page.evaluate(() => {
+        return new Promise<number>((resolve, reject) => {
+          const request = indexedDB.open('keymap-editor-drafts')
+          request.onerror = () => reject(request.error ?? new Error('IDB open failed'))
+          request.onsuccess = () => {
+            const db = request.result
+            if (!db.objectStoreNames.contains('drafts')) {
+              db.close()
+              resolve(0)
+              return
+            }
+            const tx = db.transaction('drafts', 'readonly')
+            const count = tx.objectStore('drafts').count()
+            count.onsuccess = () => {
+              db.close()
+              resolve(count.result)
+            }
+            count.onerror = () => {
+              db.close()
+              reject(count.error ?? new Error('IDB count failed'))
+            }
+          }
+        })
+      })
+    })
+    .toBeGreaterThan(0)
 }
 
 async function applyEscToF13(page: Page) {
-  const key = page.locator(ESC_KEY)
-  await key.scrollIntoViewIfNeeded()
-  await key.locator('button.layer-slot[data-layer="0"]').click()
+  await page
+    .locator(ESC_KEY)
+    .getByRole('button', { name: '&kp ESC, layer 0' })
+    .click()
   await applyF13InEditor(page)
 }
 
 async function applyF13InEditor(page: Page) {
-  const dialog = page.getByRole('dialog', { name: 'Edit key' })
+  const dialog = page.locator('.key-editor[aria-label="Edit key"]')
   await expect(dialog).toBeVisible()
   await dialog.getByPlaceholder('Filter values…').fill(NEW_KEYCODE)
   await dialog.locator('.key-editor-choice', { hasText: NEW_KEYCODE }).first().click()
@@ -80,7 +127,7 @@ test.describe('local adapter smoke', () => {
     await expect(write).toBeEnabled()
     await write.click()
 
-    await expect(page.getByText('Up to date with disk')).toBeVisible()
+    await expect(page.getByTitle('Up to date with disk')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Write files' })).toBeDisabled()
 
     const written = readTempKeymap()
@@ -104,7 +151,6 @@ test.describe('local adapter smoke', () => {
     await openLocalEditor(page)
 
     const key = page.locator(E_KEY)
-    await key.scrollIntoViewIfNeeded()
     const layer2Row = key.locator('button.layer-slot[data-layer="2"]')
     await expect(layer2Row).toBeVisible()
     await layer2Row.click()
@@ -114,7 +160,7 @@ test.describe('local adapter smoke', () => {
     await expect(write).toBeEnabled()
     await write.click()
 
-    await expect(page.getByText('Up to date with disk')).toBeVisible()
+    await expect(page.getByTitle('Up to date with disk')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Write files' })).toBeDisabled()
 
     const written = readTempKeymap()
@@ -135,8 +181,7 @@ test.describe('local adapter smoke', () => {
     await applyEscToF13(page)
     await expect(page.getByRole('button', { name: 'Write files' })).toBeEnabled()
 
-    // Editor persists dirty drafts after PERSIST_DEBOUNCE_MS (400).
-    await page.waitForTimeout(700)
+    await waitForPersistedDraft(page)
 
     const dialogPromise = page.waitForEvent('dialog')
     await page.reload()
@@ -159,13 +204,15 @@ test.describe('local adapter smoke', () => {
     await openLocalEditor(page)
 
     const key = page.locator(E_KEY)
-    await key.scrollIntoViewIfNeeded()
     const layer0Row = key.locator('button.layer-slot[data-layer="0"]')
     await expect(layer0Row).toBeVisible()
     await expect(key.locator('.keycap')).not.toContainText(hostGlyph)
 
-    const hostLanguage = page.getByRole('combobox', { name: 'Computer language' })
-    if (await hostLanguage.isVisible()) await hostLanguage.selectOption('ru')
+    const addLanguage = page.getByRole('button', { name: 'Computer language' })
+    await expect(addLanguage).toBeVisible()
+    await addLanguage.click()
+    await page.getByRole('option', { name: 'Russian' }).click()
+    await expect(page.getByRole('button', { name: /Profile Russian/ })).toBeVisible()
 
     // Alt+click is the only host-edit entry; then arm the open Russian column
     // so the keycap repaints immediately.
@@ -189,7 +236,7 @@ test.describe('local adapter smoke', () => {
     await expect(key.locator('.keycap')).toContainText(hostGlyph)
 
     await page.reload()
-    await expect(page.locator('#source')).toBeVisible()
+    await expect(page.getByTestId('source-menu-trigger')).toHaveAccessibleName('Local files')
     await expect(page.locator(E_KEY)).toBeVisible()
     await expect(page.locator(E_KEY).locator('.keycap')).toContainText(hostGlyph)
   })
