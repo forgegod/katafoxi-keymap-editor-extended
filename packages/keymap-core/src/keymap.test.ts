@@ -3,9 +3,41 @@ import {
   generateKeymap,
   isPrimaryKeymapJson,
   isUserKeymapFilename,
+  KeymapValidationError,
   normalizeParsedKeymap,
+  parseKeyBinding,
   parseKeymap
 } from './keymap.js'
+
+describe('parseKeyBinding', () => {
+  it('splits hold-tap params on tabs', () => {
+    expect(parseKeyBinding('&mt\tLSHIFT\tA')).toEqual({
+      value: '&mt',
+      params: [
+        { value: 'LSHIFT', params: [] },
+        { value: 'A', params: [] }
+      ]
+    })
+  })
+
+  it('keeps spaces inside parentheses as one param', () => {
+    expect(parseKeyBinding('&kp LS( A )')).toEqual({
+      value: '&kp',
+      params: [{ value: 'LS', params: [{ value: 'A', params: [] }] }]
+    })
+  })
+
+  it('throws KeymapValidationError for a lone &', () => {
+    expect(() => parseKeyBinding('&')).toThrow(KeymapValidationError)
+    try {
+      parseKeyBinding('&')
+      expect.unreachable('expected lone & to throw')
+    } catch (e) {
+      expect(e).toBeInstanceOf(KeymapValidationError)
+      expect((e as KeymapValidationError).errors[0]).toMatch(/invalid key binding/i)
+    }
+  })
+})
 
 describe('normalizeParsedKeymap', () => {
   it('fills missing layer_names as Layer N', () => {

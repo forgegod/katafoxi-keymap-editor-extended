@@ -86,6 +86,21 @@ describe('tokenizeBindings', () => {
       tokenizeBindings(' /* L & R */ &kp A // tail\n    &kp B ')
     ).toEqual(['&kp A', '&kp B'])
   })
+
+  it('collapses tabs into spaces inside a bind', () => {
+    expect(tokenizeBindings('&mt\tLSHIFT\tA')).toEqual(['&mt LSHIFT A'])
+  })
+
+  it('does not start a new bind at & nested in parentheses', () => {
+    expect(tokenizeBindings('&kp FOO(&bar, &baz) &kp C')).toEqual([
+      '&kp FOO(&bar, &baz)',
+      '&kp C'
+    ])
+  })
+
+  it('keeps spaces inside parentheses on one bind', () => {
+    expect(tokenizeBindings('&kp LS( A ) &trans')).toEqual(['&kp LS( A )', '&trans'])
+  })
 })
 
 describe('parseUintList', () => {

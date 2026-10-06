@@ -129,12 +129,39 @@ function splitTopLevelArgs(text: string): string[] {
 }
 
 /**
+ * Split bind parameters on whitespace, ignoring spaces nested in parentheses.
+ */
+function splitTopLevelParams(text: string): string[] {
+  const parts: string[] = []
+  let depth = 0
+  let start = -1
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!
+    if (ch === '(') depth++
+    else if (ch === ')') {
+      if (depth > 0) depth--
+    }
+    const isWs = depth === 0 && /\s/.test(ch)
+    if (isWs) {
+      if (start !== -1) {
+        parts.push(text.slice(start, i))
+        start = -1
+      }
+    } else if (start === -1) {
+      start = i
+    }
+  }
+  if (start !== -1) parts.push(text.slice(start))
+  return parts
+}
+
+/**
  * Parse a bind string into a tree of values and parameters
  */
 export function parseKeyBinding(binding: string): KeyBindingNode {
   function parse(code: string): KeyBindingNode {
     const open = code.indexOf('(')
-    if (open === -1) return { value: code, params: [] }
+    if (open === -1) return { value: code.trim(), params: [] }
 
     let depth = 0
     let close = -1
@@ -149,23 +176,20 @@ export function parseKeyBinding(binding: string): KeyBindingNode {
         }
       }
     }
-    if (close === -1) return { value: code, params: [] }
+    if (close === -1) return { value: code.trim(), params: [] }
 
-    const value = code.slice(0, open) + code.slice(close + 1)
+    const value = (code.slice(0, open) + code.slice(close + 1)).trim()
     const params = splitTopLevelArgs(code.slice(open + 1, close)).map(parse)
     return { value, params }
   }
 
-  const valueMatch = binding.match(/^(&.+?)\b/)
+  const trimmed = binding.trim()
+  const valueMatch = trimmed.match(/^(&.+?)\b/)
   if (!valueMatch) {
-    throw new Error(`Invalid key binding: ${binding}`)
+    throw new KeymapValidationError([`Invalid key binding: ${binding}`])
   }
-  const value = valueMatch[1]
-  const params = binding
-    .replace(/^&.+?\b\s*/, '')
-    .split(' ')
-    .filter(Boolean)
-    .map(parse)
+  const value = valueMatch[1]!
+  const params = splitTopLevelParams(trimmed.replace(/^&.+?\b\s*/, '')).map(parse)
 
   return { value, params }
 }

@@ -32,6 +32,9 @@ function layerBindingGrid(
 
   layer.forEach((code, i) => {
     if (layout[i]) {
+      if (code.trim() === '') {
+        throw new KeymapValidationError([`Empty encoded binding at layout index ${i}`])
+      }
       const { row = 0, col } = layout[i]
       const rowCells = rowsByIndex.get(row) ?? []
       const colIndex = col ?? rowCells.length

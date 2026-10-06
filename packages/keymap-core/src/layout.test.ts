@@ -77,6 +77,23 @@ describe('renderTable', () => {
     expect(shortLayer.indexOf('&kp C')).toBe(longLayer.indexOf('&kp D'))
   })
 
+  it('throws KeymapValidationError for an empty encoded binding', () => {
+    const layout: LayoutKey[] = [
+      { x: 0, y: 0, row: 0, col: 0 },
+      { x: 1, y: 0, row: 0, col: 1 }
+    ]
+    expect(() => renderTable(layout, ['', '&kp A'], { columnSeparator: ' ' })).toThrow(
+      KeymapValidationError
+    )
+    try {
+      renderTable(layout, ['', '&kp A'], { columnSeparator: ' ' })
+      expect.unreachable('expected empty encoded binding to throw')
+    } catch (e) {
+      expect(e).toBeInstanceOf(KeymapValidationError)
+      expect((e as KeymapValidationError).errors[0]).toMatch(/empty encoded binding/i)
+    }
+  })
+
   it('throws KeymapValidationError when two keys share the same (row, col)', () => {
     const layout: LayoutKey[] = [
       { x: 0, y: 0, row: 0, col: 0 },

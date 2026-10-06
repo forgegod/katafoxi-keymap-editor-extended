@@ -36,9 +36,123 @@ export interface DtsChildNode {
 
 const CHILD_NODE_RE = /(?:([A-Za-z_]\w*)\s*:\s*)?([A-Za-z0-9,._+@-]+)\s*\{/g
 
+/**
+ * One-pass DTS view. `braceIndex` at `{` is the matching `}` (or -1 if
+ * unclosed); at `}` it is the matching `{`; elsewhere it is the innermost
+ * containing `{` (or -1).
+ */
+export interface DtsScan {
+  masked: string
+  braceIndex: Int32Array
+}
+
 /** Escape `value` so it can be embedded in a `RegExp` source. */
 export function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, ch => `\\${ch}`)
+}
+
+function indexBraces(masked: string): Int32Array {
+  const braceIndex = new Int32Array(masked.length)
+  braceIndex.fill(-1)
+  const stack: number[] = []
+  for (let i = 0; i < masked.length; i++) {
+    const ch = masked[i]
+    if (ch === '{') stack.push(i)
+    else if (ch === '}') {
+      const open = stack.pop()
+      if (open !== undefined) {
+        braceIndex[open] = i
+        braceIndex[i] = open
+      }
+    } else {
+      braceIndex[i] = stack.length > 0 ? stack[stack.length - 1]! : -1
+    }
+  }
+  return braceIndex
+}
+
+function asDtsScan(scan: DtsScan | string): DtsScan {
+  if (typeof scan !== 'string') return scan
+  return { masked: scan, braceIndex: indexBraces(scan) }
+}
+
+/**
+ * Mask comments/strings and pair braces in one stack pass.
+ */
+export function scanDts(source: string): DtsScan {
+  const n = source.length
+  const out = new Array<string>(n)
+  const braceIndex = new Int32Array(n)
+  braceIndex.fill(-1)
+  const stack: number[] = []
+
+  const emit = (i: number, ch: string): void => {
+    out[i] = ch
+    if (ch === '{') stack.push(i)
+    else if (ch === '}') {
+      const open = stack.pop()
+      if (open !== undefined) {
+        braceIndex[open] = i
+        braceIndex[i] = open
+      }
+    } else {
+      braceIndex[i] = stack.length > 0 ? stack[stack.length - 1]! : -1
+    }
+  }
+
+  let i = 0
+  while (i < n) {
+    const ch = source[i]
+    const next = source[i + 1]
+
+    if (ch === '/' && next === '*') {
+      emit(i, ' ')
+      emit(i + 1, ' ')
+      i += 2
+      while (i < n && !(source[i] === '*' && source[i + 1] === '/')) {
+        emit(i, source[i] === '\n' ? '\n' : ' ')
+        i++
+      }
+      if (i < n) {
+        emit(i, ' ')
+        if (i + 1 < n) emit(i + 1, ' ')
+        i += 2
+      }
+      continue
+    }
+
+    if (ch === '/' && next === '/') {
+      while (i < n && source[i] !== '\n') {
+        emit(i, ' ')
+        i++
+      }
+      continue
+    }
+
+    if (ch === '"') {
+      emit(i, '"')
+      i++
+      while (i < n && source[i] !== '"') {
+        if (source[i] === '\\' && i + 1 < n) {
+          emit(i, ' ')
+          emit(i + 1, source[i + 1] === '\n' ? '\n' : ' ')
+          i += 2
+          continue
+        }
+        emit(i, source[i] === '\n' ? '\n' : ' ')
+        i++
+      }
+      if (i < n) {
+        emit(i, '"')
+        i++
+      }
+      continue
+    }
+
+    emit(i, ch)
+    i++
+  }
+  return { masked: out.join(''), braceIndex }
 }
 
 /**
@@ -48,70 +162,18 @@ export function escapeRegExp(value: string): string {
  * Inside a string, `\\` also masks the next character so `\"` does not end it.
  */
 export function maskDts(source: string): string {
-  const out = new Array<string>(source.length)
-  let i = 0
-  while (i < source.length) {
-    const ch = source[i]
-    const next = source[i + 1]
-
-    if (ch === '/' && next === '*') {
-      out[i] = ' '
-      out[i + 1] = ' '
-      i += 2
-      while (i < source.length && !(source[i] === '*' && source[i + 1] === '/')) {
-        out[i] = source[i] === '\n' ? '\n' : ' '
-        i++
-      }
-      if (i < source.length) {
-        out[i] = ' '
-        if (i + 1 < source.length) out[i + 1] = ' '
-        i += 2
-      }
-      continue
-    }
-
-    if (ch === '/' && next === '/') {
-      while (i < source.length && source[i] !== '\n') {
-        out[i] = ' '
-        i++
-      }
-      continue
-    }
-
-    if (ch === '"') {
-      out[i] = '"'
-      i++
-      while (i < source.length && source[i] !== '"') {
-        if (source[i] === '\\' && i + 1 < source.length) {
-          out[i] = ' '
-          out[i + 1] = source[i + 1] === '\n' ? '\n' : ' '
-          i += 2
-          continue
-        }
-        out[i] = source[i] === '\n' ? '\n' : ' '
-        i++
-      }
-      if (i < source.length) {
-        out[i] = '"'
-        i++
-      }
-      continue
-    }
-
-    out[i] = ch
-    i++
-  }
-  return out.join('')
+  return scanDts(source).masked
 }
 
 /**
- * Direct children of `block` (not nested grandchildren). Search on `masked`
- * (same length as source). Skips a match whose braces do not close in the body.
+ * Direct children of `block` (not nested grandchildren). Search on a scan
+ * (or a masked string). Skips a match whose braces do not close in the body.
  */
 export function* iterateChildNodes(
-  masked: string,
+  scan: DtsScan | string,
   block: Pick<DtsNamedBlock, 'bodyStart' | 'bodyEnd'>
 ): Generator<DtsChildNode, void, undefined> {
+  const { masked, braceIndex } = asDtsScan(scan)
   const re = new RegExp(CHILD_NODE_RE.source, 'g')
   re.lastIndex = block.bodyStart
   let m: RegExpExecArray | null
@@ -119,7 +181,7 @@ export function* iterateChildNodes(
     if (m.index >= block.bodyEnd) break
     const openBrace = m.index + m[0].length - 1
     if (openBrace >= block.bodyEnd) break
-    const closeBrace = matchBrace(masked, openBrace)
+    const closeBrace = masked[openBrace] === '{' ? braceIndex[openBrace]! : -1
     if (closeBrace < 0 || closeBrace > block.bodyEnd) {
       re.lastIndex = openBrace + 1
       continue
@@ -148,19 +210,11 @@ export function* iterateChildNodes(
   }
 }
 
-/** Index of matching `}` for `{` at openIndex on a masked string, or -1. */
-export function matchBrace(masked: string, openIndex: number): number {
+/** Index of matching `}` for `{` at openIndex, or -1. */
+export function matchBrace(scan: DtsScan | string, openIndex: number): number {
+  const { masked, braceIndex } = asDtsScan(scan)
   if (masked[openIndex] !== '{') return -1
-  let depth = 0
-  for (let i = openIndex; i < masked.length; i++) {
-    const c = masked[i]
-    if (c === '{') depth++
-    else if (c === '}') {
-      depth--
-      if (depth === 0) return i
-    }
-  }
-  return -1
+  return braceIndex[openIndex]!
 }
 
 /**
@@ -366,20 +420,55 @@ export interface TokenizeBindingsResult {
   hasUnparsedFragment: boolean
 }
 
+function isDtsWhitespace(ch: string): boolean {
+  return ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r' || ch === '\f' || ch === '\v'
+}
+
 /**
  * Split a bindings block into individual bind strings (each starts with `&`).
- * Non-empty scraps without a leading `&` are reported via `hasUnparsedFragment`.
+ * All whitespace collapses to a single space. A new bind starts only at `&`
+ * when parenthesis depth is 0. Non-empty scraps without a leading `&` are
+ * reported via `hasUnparsedFragment`.
  */
 export function tokenizeBindingsDetailed(block: string): TokenizeBindingsResult {
-  const normalized = maskDts(block).replace(/\r\n/g, '\n').replace(/\n/g, ' ')
+  const masked = maskDts(block)
   const binds: string[] = []
   let hasUnparsedFragment = false
-  for (const part of normalized.split(/(?=&)/)) {
-    const s = part.trim()
-    if (!s) continue
+  let current = ''
+  let depth = 0
+
+  const flush = () => {
+    const s = current.trim()
+    current = ''
+    if (!s) return
     if (s.startsWith('&')) binds.push(s)
     else hasUnparsedFragment = true
   }
+
+  for (let i = 0; i < masked.length; i++) {
+    const ch = masked[i]!
+    if (ch === '(') {
+      depth++
+      current += ch
+      continue
+    }
+    if (ch === ')') {
+      if (depth > 0) depth--
+      current += ch
+      continue
+    }
+    if (ch === '&' && depth === 0) {
+      flush()
+      current = '&'
+      continue
+    }
+    if (isDtsWhitespace(ch)) {
+      if (current.length > 0 && current[current.length - 1] !== ' ') current += ' '
+      continue
+    }
+    current += ch
+  }
+  flush()
   return { binds, hasUnparsedFragment }
 }
 

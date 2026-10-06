@@ -26,6 +26,21 @@ describe('tokenizeBindings', () => {
   })
 })
 
+describe('parseDtsKeymap lone &', () => {
+  it('throws KeymapValidationError for bindings = <&>', () => {
+    const src = `/ {
+  keymap {
+    compatible = "zmk,keymap";
+    default_layer {
+      bindings = <&>;
+    };
+  };
+};
+`
+    expect(() => parseKeymap(parseDtsKeymap(src))).toThrow(KeymapValidationError)
+  })
+})
+
 describe('parseDtsKeymap', () => {
   it('throws KeymapValidationError when no keymap block is present', () => {
     expect(() => parseDtsKeymap('/* empty */')).toThrow(KeymapValidationError)
