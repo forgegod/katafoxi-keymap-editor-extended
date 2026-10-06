@@ -471,7 +471,7 @@ export async function revertHostKeyLevel(this: EditorState,
 export function profilesForLanguage(this: EditorState, language: HostLanguageId): UserHostLayout[] {
   return this.userLayouts
     .filter(layout => layout.language === language)
-    .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+    .sort((a, b) => a.name.localeCompare(b.name, 'en'))
 }
 
 /**

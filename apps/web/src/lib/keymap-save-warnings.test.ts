@@ -47,4 +47,11 @@ describe('formatKeymapSaveWarnings', () => {
   it('passes through unknown codes', () => {
     expect(formatKeymapSaveWarnings(['custom_code'])).toEqual(['custom_code'])
   })
+
+  it('does not treat prototype keys as known warning codes', () => {
+    expect(formatKeymapSaveWarnings(['constructor'])).toEqual(['constructor'])
+    expect(formatKeymapSaveWarningNotices(['__proto__'])).toEqual([
+      { message: '__proto__', link: undefined }
+    ])
+  })
 })

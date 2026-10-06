@@ -16,32 +16,17 @@ import {
   standardHostLegendView,
   standardLayerView,
   symbolAlign,
-  type HostKeymapDeliverableFile,
-  type HostKeymapSnapshot,
-  type HostLayout,
   type HostLegendView,
-  type KeyBindingNode,
-  type KeymapChange,
   type LayerView,
   type LegendHover,
   type LayoutKey,
   type ParsedKeymap,
   type SymbolAlign,
-  type ZmkCombo,
-  type ZmkConditionalLayer,
   type ZmkHoldTap
 } from '@keymap-editor/keymap-core'
 import type { Definitions } from '../context'
-import type { DemoHostLayoutSeed } from '../demo/host-seeds.js'
-import type { DraftIdentity } from '../draft-storage'
-import type {
-  HostLanguageId,
-  StoredHostAssembly,
-  UserHostLayout,
-  UserHostLayoutOrigin,
-  UserHostLayoutRecord
-} from '../host-layout-store'
-import { assignEditorApi, GETTER_NAMES } from './assign-api'
+import type { StoredHostAssembly, UserHostLayout } from '../host-layout-store'
+import { assignEditorApi, GETTER_NAMES, type BoundMixin } from './assign-api'
 import { hostLegendAnchorIndex, legendHoversEqual } from './helpers'
 import * as demoHost from './demo-host'
 import * as documentApi from './document.svelte'
@@ -52,15 +37,22 @@ import * as persistDraft from './persist-draft'
 import * as publishBridge from './publish-bridge'
 import * as selectKeyboardApi from './select-keyboard'
 import type {
-  GithubKeyboardSelection,
   GithubMeta,
-  HostKeyLevelEditResult,
   HostProfilePrompt,
   HostSymbolEditTarget,
-  KeyboardSelection,
   KeyboardSelectionSource,
   SaveNotice
 } from './types'
+
+export interface EditorState
+  extends BoundMixin<typeof documentApi>,
+    BoundMixin<typeof persistDraft>,
+    BoundMixin<typeof selectKeyboardApi>,
+    BoundMixin<typeof publishBridge>,
+    BoundMixin<typeof hostLegendApi>,
+    BoundMixin<typeof hostRepo>,
+    BoundMixin<typeof hostEditUi>,
+    BoundMixin<typeof demoHost> {}
 
 export type {
   ClipboardKeyboardSelection,
@@ -300,213 +292,6 @@ export class EditorState {
     this.hostProfilePrompt = null
     this.hostProfileNote = null
   }
-
-  declare promoteAbsentKey: (keyIndex: number, binding: KeyBindingNode) => void
-  declare readonly isDirty: boolean
-  declare readonly changes: KeymapChange[]
-  declare readonly statusText: string
-  declare readonly canUndo: boolean
-  declare readonly canRedo: boolean
-  declare readonly hostLegendLayerNames: string[]
-  declare clearHistory: () => void
-  declare addLayer: () => void
-  declare renameLayer: (index: number, name: string) => void
-  declare deleteLayer: (index: number) => void
-  declare updateSensorBinding: (
-    layer: number,
-    index: number,
-    binding: KeyBindingNode
-  ) => void
-  declare armHoldTapsForNextUpdate: (holdTaps: ZmkHoldTap[] | null) => void
-  declare updateHoldTaps: (holdTaps: ZmkHoldTap[]) => void
-  declare updateConditionalLayers: (conditionalLayers: ZmkConditionalLayer[]) => void
-  declare updateKeymap: (next: ParsedKeymap) => void
-  declare updateCombos: (combos: ZmkCombo[]) => void
-  declare toggleComboMode: () => void
-  declare tryExitComboMode: () => boolean
-  declare refreshComboNotice: () => void
-  declare toggleComboPosition: (keyIndex: number) => void
-  declare undo: () => void
-  declare redo: () => void
-  declare discardDraft: () => Promise<boolean>
-  declare currentDraftIdentity: () => DraftIdentity | null
-  declare _cancelPersistTimer: () => void
-  declare schedulePersist: () => void
-  declare flushPendingPersist: () => Promise<void>
-  declare _flushPersist: (token: number) => Promise<void>
-  declare clearPersistedDraft: () => Promise<void>
-  declare _maybeRestorePersistedDraft: (selectToken: number) => Promise<void>
-  declare _draftIdentityMatches: (identityKey: string) => boolean
-  declare selectKeyboard: (event: KeyboardSelection) => Promise<void>
-  declare _preserveGithubSession: (
-    event: GithubKeyboardSelection,
-    upcomingIdentity: DraftIdentity | null,
-    upcomingKey: string | null,
-    selectToken: number
-  ) => Promise<boolean>
-  declare _migrateSessionIdentity: (
-    previous: DraftIdentity | null,
-    next: DraftIdentity | null
-  ) => Promise<void>
-  declare beginPublish: () => number
-  declare isPublishCurrent: (
-    token: number,
-    source: string | null,
-    github: GithubMeta | null
-  ) => boolean
-  declare readonly isPublishDirty: boolean
-  declare applyPublished: (
-    reloaded: ParsedKeymap,
-    saveMeta?: unknown,
-    sentDraft?: ParsedKeymap | null
-  ) => void
-  declare applyClipboardCopied: (reloaded: ParsedKeymap, _saveMeta?: unknown) => void
-  declare applyReloadFailure: (source?: string | null) => void
-  declare applySaveFailure: (data: unknown) => void
-  declare restoreHostProfiles: () => Promise<void>
-  declare _registerUserLayout: (record: UserHostLayoutRecord) => void
-  declare _materializeUserHostLayoutFromTable: (
-    language: HostLanguageId,
-    preferredName: string,
-    source: HostLayout,
-    origin: UserHostLayoutOrigin
-  ) => Promise<string>
-  declare _hostLegendSettingId: () => string | null
-  declare _noteHostLayoutSaveFailed: () => void
-  declare _persistHostLayoutWrite: (write: () => Promise<void>) => Promise<void>
-  declare _persistHostLegend: (settingId?: string | null, generation?: number) => Promise<void>
-  declare _restoreHostLegend: (selectToken: number) => Promise<void>
-  declare _hostAssembliesSettingId: () => string | null
-  declare _persistHostAssemblies: (settingId?: string | null, generation?: number) => Promise<void>
-  declare _restoreHostAssemblies: (selectToken: number) => Promise<void>
-  declare _layoutShortName: (layoutId: string, language: HostLanguageId) => string
-  declare hostAssemblyParts: (
-    view: HostLegendView
-  ) => { language: HostLanguageId; layoutName: string }[]
-  declare hostAssemblyLabel: (view: HostLegendView) => string
-  declare hostAssemblyActive: (view: HostLegendView) => boolean
-  declare hostAssemblySaved: () => boolean
-  declare hostAssemblyRememberBlocked: () => boolean
-  declare rememberHostAssembly: () => Promise<void>
-  declare showHostAssembly: (id: string) => Promise<void>
-  declare forgetHostAssembly: (id: string) => Promise<void>
-  declare activeProfileId: (language: HostLanguageId) => string
-  declare _alignInputs: () => {
-    left: HostLayout
-    right: HostLayout
-    winMerge: { base: HostLayout; extra: HostLayout } | null
-  } | null
-  declare readonly canAlignHostSymbols: boolean
-  declare readonly symbolAlignShowsWinAltGr: boolean
-  declare readonly multilangViewOn: boolean
-  declare ensureEditableUserHostLayout: (language: HostLanguageId) => Promise<string>
-  declare setHostKeyLevel: (
-    language: HostLanguageId,
-    zmk: string,
-    level: number,
-    text: string
-  ) => Promise<HostKeyLevelEditResult>
-  declare _commitUserHostLayout: (layoutId: string, layout: HostLayout) => Promise<boolean>
-  declare revertHostKeyLevel: (
-    language: HostLanguageId,
-    zmk: string,
-    level: number
-  ) => Promise<HostKeyLevelEditResult>
-  declare profilesForLanguage: (language: HostLanguageId) => UserHostLayout[]
-  declare commitHostMap: (
-    next: HostLegendView,
-    settingId?: string | null,
-    generation?: number
-  ) => Promise<void>
-  declare selectLanguageProfile: (
-    language: HostLanguageId,
-    id: string,
-    settingId?: string | null,
-    generation?: number
-  ) => Promise<void>
-  declare beginSaveHostProfile: (language: HostLanguageId) => void
-  declare beginCopyHostProfile: (language: HostLanguageId, layoutId?: string) => void
-  declare importHostLayoutFromXkb: (
-    language: HostLanguageId,
-    text: string,
-    section: string,
-    fileName: string
-  ) => Promise<string | null>
-  declare _showHostLanguage: (language: HostLanguageId) => void
-  declare importHostLayoutFromKlc: (
-    language: HostLanguageId,
-    source: Uint8Array | string,
-    fileName: string
-  ) => Promise<string | null>
-  declare exportUserHostLayoutXkb: (
-    layoutId: string
-  ) => { text: string; name: string } | null
-  declare exportUserHostLayoutKlc: (
-    layoutId: string
-  ) => { bytes: Uint8Array; name: string } | null
-  declare listCapsAlphabetKlcExports: () => Array<{
-    capsLanguage: HostLanguageId
-    capsLanguageName: string
-    baseLanguageName: string
-    baseLayoutName: string
-    capsLayoutName: string
-    fileStem: string
-  }>
-  declare exportCapsAlphabetKlc: (
-    capsLanguage: HostLanguageId,
-    version?: number
-  ) => { bytes: Uint8Array; name: string; kbdId: string } | null
-  declare _layoutColumnName: (layoutId: string, language: HostLanguageId) => string
-  declare beginRenameHostProfile: (language: HostLanguageId, profileId?: string) => void
-  declare beginDeleteHostProfile: (language: HostLanguageId, profileId?: string) => void
-  declare deleteActiveHostProfile: () => Promise<void>
-  declare cancelHostProfilePrompt: () => void
-  declare confirmHostProfileName: (raw: string) => Promise<string | null>
-  declare _renameHostProfile: (
-    language: HostLanguageId,
-    name: string
-  ) => Promise<string | null>
-  declare readonly hostDeliverableLayoutIds: string[]
-  declare readonly hostDeliverableFingerprint: string
-  declare readonly isHostDirty: boolean
-  declare markHostDelivered: () => void
-  declare listActiveHostLayoutExports: () => Array<{
-    layoutId: string
-    language: HostLanguageId
-    languageName: string
-    flag: string
-    xkbModule: string
-    name: string
-    text: string
-    exampleSystemPath: string
-    exampleUserPath: string
-  }>
-  declare exportActiveHostLayoutsXkb: () => { text: string; name: string } | null
-  declare noteHostSnapshotLoad: (
-    error: import('./types').HostSnapshotLoadError | null | undefined
-  ) => void
-  declare retainHostSnapshotOmitWarning: () => void
-  declare buildCurrentHostKeymapSnapshot: () => HostKeymapSnapshot | null
-  declare buildCurrentHostKeymapDeliverables: () => HostKeymapDeliverableFile[]
-  declare _encodeLiveHostSnapshot: () => string
-  declare acceptHostRepoBaseline: (encoded?: string) => void
-  declare _applyHostKeymapSnapshot: (
-    snapshot: HostKeymapSnapshot,
-    selectToken: number
-  ) => Promise<void>
-  declare _rollbackUserHostLayoutWrites: (ids: string[]) => Promise<void>
-  declare armHostSymbolEdit: (target: HostSymbolEditTarget) => void
-  declare clearHostSymbolEdit: () => void
-  declare beginHostEditSession: (keyIndex: number, layer: number, zmk?: string) => void
-  declare endHostEditSession: () => void
-  declare closeHostSymbolCatalog: () => void
-  declare stepHostSymbolEdit: (delta: number) => void
-  declare pickHostSymbol: (text: string) => Promise<HostKeyLevelEditResult>
-  declare _seedDemoHostLayouts: (
-    seeds: DemoHostLayoutSeed[],
-    selectToken: number
-  ) => Promise<void>
-  declare _maybeAddPreferredDemoLanguage: (selectToken: number) => Promise<void>
 }
 
 for (const mod of [

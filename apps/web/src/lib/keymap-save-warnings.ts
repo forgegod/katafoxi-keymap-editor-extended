@@ -45,8 +45,10 @@ export function formatKeymapSaveWarningNotices(
   return warnings.map(code => {
     const key = String(code)
     return {
-      message: KEYMAP_SAVE_WARNING_MESSAGES[key] ?? key,
-      link: WARNING_LINKS[key]
+      message: Object.hasOwn(KEYMAP_SAVE_WARNING_MESSAGES, key)
+        ? KEYMAP_SAVE_WARNING_MESSAGES[key]
+        : key,
+      link: Object.hasOwn(WARNING_LINKS, key) ? WARNING_LINKS[key] : undefined
     }
   })
 }

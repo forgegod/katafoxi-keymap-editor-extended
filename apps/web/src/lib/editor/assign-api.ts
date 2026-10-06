@@ -16,6 +16,28 @@ export const GETTER_NAMES = [
   'multilangViewOn'
 ] as const
 
+export type GetterName = (typeof GETTER_NAMES)[number]
+
+type ModuleFn = (...args: never[]) => unknown
+
+/**
+ * Instance types for a mixin module: `GETTER_NAMES` become readonly values,
+ * other functions become methods (`OmitThisParameter<typeof documentApi.undo>`).
+ */
+export type BoundMixin<T> = {
+  readonly [K in keyof T as K extends GetterName
+    ? T[K] extends ModuleFn
+      ? K
+      : never
+    : never]: T[K] extends (...args: never[]) => infer R ? R : never
+} & {
+  [K in keyof T as K extends GetterName
+    ? never
+    : T[K] extends ModuleFn
+      ? K
+      : never]: OmitThisParameter<Extract<T[K], ModuleFn>>
+}
+
 export function assignEditorApi(
   proto: object,
   mod: Record<string, unknown>,

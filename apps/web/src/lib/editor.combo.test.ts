@@ -104,4 +104,15 @@ describe('editor combo mode', () => {
     )
     expect(editor.draftKeymap?.combos).toEqual([])
   })
+
+  it('drops activeComboId after undo removes that combo', () => {
+    editor.updateCombos([{ id: 'combo_esc', keyPositions: [0, 1], binding: esc }])
+    editor.toggleComboMode()
+    expect(editor.activeComboId).toBe('combo_esc')
+    editor.undo()
+    expect(editor.draftKeymap?.combos ?? []).toEqual([])
+    expect(editor.activeComboId).toBeNull()
+    editor.redo()
+    expect(editor.draftKeymap?.combos?.map(c => c.id)).toEqual(['combo_esc'])
+  })
 })

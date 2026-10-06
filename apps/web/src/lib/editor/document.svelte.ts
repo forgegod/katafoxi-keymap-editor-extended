@@ -175,14 +175,20 @@ export function updateKeymap(this: EditorState, next: ParsedKeymap) {
   this.schedulePersist()
 }
 
+/** Keep `activeComboId` pointing at a combo that still exists. */
+function syncActiveComboId(this: EditorState, combos: ZmkCombo[] | undefined) {
+  const list = combos ?? []
+  if (this.activeComboId && !list.some(c => c.id === this.activeComboId)) {
+    this.activeComboId = list[0]?.id ?? null
+  }
+}
+
 /** Replace the combos list on the draft (undoable via updateKeymap). */
 export function updateCombos(this: EditorState, combos: ZmkCombo[]) {
   const km = this.draftKeymap
   if (!km) return
   this.updateKeymap({ ...km, combos })
-  if (this.activeComboId && !combos.some(c => c.id === this.activeComboId)) {
-    this.activeComboId = combos[0]?.id ?? null
-  }
+  syncActiveComboId.call(this, combos)
 }
 
 export function toggleComboMode(this: EditorState) {
@@ -283,6 +289,7 @@ export function undo(this: EditorState) {
   this.undoStack = stack.slice(0, -1)
   this.redoStack = [...this.redoStack, cloneParsedKeymap(this.draftKeymap)]
   this.draftKeymap = cloneParsedKeymap(prev)
+  syncActiveComboId.call(this, this.draftKeymap.combos)
   this.schedulePersist()
 }
 
@@ -293,6 +300,7 @@ export function redo(this: EditorState) {
   this.redoStack = stack.slice(0, -1)
   this.undoStack = [...this.undoStack, cloneParsedKeymap(this.draftKeymap)]
   this.draftKeymap = cloneParsedKeymap(next)
+  syncActiveComboId.call(this, this.draftKeymap.combos)
   this.schedulePersist()
 }
 

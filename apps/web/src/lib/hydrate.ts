@@ -9,6 +9,14 @@ export interface HydratedNode {
   params: HydratedNode[]
 }
 
+function ownGet<T>(
+  record: Record<string, T> | undefined | null,
+  key: string
+): T | undefined {
+  if (!record || !Object.hasOwn(record, key)) return undefined
+  return record[key]
+}
+
 function keyBy<T extends Record<string, unknown>>(
   arr: T[] | undefined,
   key: string
@@ -57,9 +65,9 @@ export function hydrateTree(
   params: Array<{ value?: string | number; params?: unknown[] }>,
   sources: Record<string, Record<string, unknown>>
 ): HydratedNode {
-  const bind = value
-  const behaviour = (sources.behaviours?.[String(bind)] ??
-    getBehaviorCatalog().byCode[String(bind)]) as
+  const bind = String(value)
+  const behaviour = (ownGet(sources.behaviours, bind) ??
+    ownGet(getBehaviorCatalog().byCode, bind)) as
     | { commands?: Array<{ code: string }>; params?: unknown[] }
     | undefined
   const behaviourParams = getBehaviourParams(params, behaviour)
@@ -69,13 +77,13 @@ export function hydrateTree(
   )
 
   function getSourceValue(val: string | number | undefined, as: unknown) {
-    if (as === 'command') return commands[String(val)]
+    if (as === 'command') return ownGet(commands, String(val))
     if (as === 'raw' || (as && typeof as === 'object' && 'enum' in (as as object))) {
       return { code: val }
     }
     const key = typeof as === 'string' ? as : undefined
     if (!key) return undefined
-    return sources?.[key]?.[String(val)]
+    return ownGet(ownGet(sources, key), String(val))
   }
 
   function hydrateNode(
