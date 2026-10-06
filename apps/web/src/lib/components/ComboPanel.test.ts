@@ -229,6 +229,156 @@ describe('ComboPanel', () => {
     expect(editor.comboMode).toBe(true)
   })
 
+  it('names a new combo combo_esc after picking &kp ESC and keeps it selected', () => {
+    const keymap = {
+      layers: [[none, none]],
+      layer_names: ['Base'],
+      combos: [] as { id: string; keyPositions: number[]; binding: typeof none }[]
+    }
+    editor.baselineKeymap = structuredClone(keymap)
+    editor.draftKeymap = structuredClone(keymap)
+    editor.activeComboId = null
+    mountPanel()
+
+    const add = [...target.querySelectorAll('.combo-btn')].find(
+      el => el.textContent?.trim() === 'New'
+    )
+    if (!(add instanceof HTMLButtonElement)) throw new Error('missing New')
+    add.click()
+    flushSync()
+
+    // New names from the default ESC binding; a placeholder is what picking ESC renames.
+    const created = editor.draftKeymap?.combos?.[0]
+    expect(created).toBeTruthy()
+    editor.updateCombos([
+      { ...created!, id: 'combo', binding: none, keyPositions: [0, 1] }
+    ])
+    editor.activeComboId = 'combo'
+    flushSync()
+
+    const binding = [...target.querySelectorAll('.combo-btn')].find(
+      el => el.textContent?.trim() === 'Binding'
+    )
+    if (!(binding instanceof HTMLButtonElement)) throw new Error('missing Binding')
+    binding.click()
+    flushSync()
+
+    const kp = [...document.querySelectorAll('.key-editor-chip')].find(
+      el => (el.textContent ?? '').trim() === '&kp'
+    )
+    if (!(kp instanceof HTMLButtonElement)) throw new Error('missing &kp')
+    kp.click()
+    flushSync()
+
+    const filter = document.querySelector('.key-editor-filter')
+    if (!(filter instanceof HTMLInputElement)) throw new Error('missing filter')
+    filter.value = 'ESC'
+    filter.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+
+    const escChoice = [...document.querySelectorAll('.key-editor-choice')].find(
+      el => (el.textContent ?? '').trim() === 'ESC'
+    )
+    if (!(escChoice instanceof HTMLButtonElement)) throw new Error('missing ESC')
+    escChoice.click()
+    flushSync()
+
+    const apply = document.querySelector('[aria-label=Apply]')
+    if (!(apply instanceof HTMLButtonElement)) throw new Error('missing Apply')
+    apply.click()
+    flushSync()
+
+    expect(editor.draftKeymap?.combos?.[0]?.id).toBe('combo_esc')
+    expect(editor.activeComboId).toBe('combo_esc')
+    expect(target.querySelector('.combo-id')?.textContent).toBe('combo_esc')
+  })
+
+  it('reverts the id field when the new name is already taken', () => {
+    const keymap = {
+      layers: [[none, none]],
+      layer_names: ['Base'],
+      combos: [
+        { id: 'combo_esc', keyPositions: [0, 1], binding: esc },
+        { id: 'combo_tab', keyPositions: [0, 1], binding: esc, layers: [0] }
+      ]
+    }
+    editor.baselineKeymap = structuredClone(keymap)
+    editor.draftKeymap = structuredClone(keymap)
+    editor.activeComboId = 'combo_esc'
+    mountPanel()
+
+    const input = target.querySelector('.combo-props input')
+    if (!(input instanceof HTMLInputElement)) throw new Error('missing id input')
+    input.value = 'combo_tab'
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+    flushSync()
+
+    expect(input.value).toBe('combo_esc')
+    expect(editor.draftKeymap?.combos?.map(c => c.id)).toEqual([
+      'combo_esc',
+      'combo_tab'
+    ])
+    expect(editor.activeComboId).toBe('combo_esc')
+  })
+
+  it('selects the next combo after deleting the active one', () => {
+    const keymap = {
+      layers: [[none, none]],
+      layer_names: ['Base'],
+      combos: [
+        { id: 'combo_esc', keyPositions: [0, 1], binding: esc },
+        { id: 'combo_tab', keyPositions: [0, 1], binding: esc, layers: [0] }
+      ]
+    }
+    editor.baselineKeymap = structuredClone(keymap)
+    editor.draftKeymap = structuredClone(keymap)
+    editor.activeComboId = 'combo_esc'
+    mountPanel()
+
+    const del = [...target.querySelectorAll('.combo-btn')].find(
+      el => el.textContent?.trim() === 'Delete'
+    )
+    if (!(del instanceof HTMLButtonElement)) throw new Error('missing Delete')
+    del.click()
+    flushSync()
+
+    expect(editor.draftKeymap?.combos?.map(c => c.id)).toEqual(['combo_tab'])
+    expect(editor.activeComboId).toBe('combo_tab')
+    expect(target.querySelector('.combo-id')?.textContent).toBe('combo_tab')
+  })
+
+  it('shows All layers after the last layer chip is turned off', () => {
+    const keymap = {
+      layers: [
+        [none, none],
+        [none, none]
+      ],
+      layer_names: ['Base', 'Lower'],
+      combos: [
+        { id: 'combo_esc', keyPositions: [0, 1], binding: esc, layers: [1] }
+      ]
+    }
+    editor.baselineKeymap = structuredClone(keymap)
+    editor.draftKeymap = structuredClone(keymap)
+    editor.activeComboId = 'combo_esc'
+    mountPanel()
+
+    const l1 = [...target.querySelectorAll('.layer-chip')].find(
+      el => el.textContent?.trim() === 'L1'
+    )
+    if (!(l1 instanceof HTMLButtonElement)) throw new Error('missing L1')
+    expect(l1.getAttribute('aria-pressed')).toBe('true')
+    l1.click()
+    flushSync()
+
+    expect(editor.draftKeymap?.combos?.[0]?.layers).toBeUndefined()
+    const all = [...target.querySelectorAll('.combo-layers .combo-btn')].find(
+      el => el.textContent?.trim() === 'All'
+    )
+    expect(all?.classList.contains('on')).toBe(true)
+    expect(target.querySelector('.combo-meta')?.textContent).toContain('all')
+  })
+
   it('blurs a focused id field on Escape without leaving combo mode', () => {
     mountPanel()
     const input = target.querySelector('.combo-props input')
