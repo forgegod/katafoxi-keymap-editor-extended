@@ -48,6 +48,7 @@ describe('production static security headers', () => {
     const csp = parseCsp(res.headers.get('content-security-policy'))
     expect(csp.get('default-src')).toEqual(["'self'"])
     expect(csp.get('style-src')).toEqual(["'self'", 'https://fonts.googleapis.com'])
+    expect(csp.get('style-src-attr')).toEqual(["'unsafe-inline'"])
     expect(csp.get('font-src')).toEqual(['https://fonts.gstatic.com'])
     expect(csp.get('img-src')).toEqual(["'self'", 'data:'])
     expect(csp.get('connect-src')).toEqual(["'self'"])

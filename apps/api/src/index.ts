@@ -65,6 +65,9 @@ export function createApp(options: CreateAppOptions = {}): Hono {
       contentSecurityPolicy: {
         defaultSrc: ["'self'"],
         styleSrc: ["'self'", 'https://fonts.googleapis.com'],
+        // Key positions and scale-to-fit set element.style; style-src does not
+        // cover attributes, so Chrome reports style-src-attr without this.
+        styleSrcAttr: ["'unsafe-inline'"],
         fontSrc: ['https://fonts.gstatic.com'],
         imgSrc: ["'self'", 'data:'],
         connectSrc: ["'self'"],
