@@ -8,7 +8,7 @@ import {
   type HostLegendColumn
 } from './host-legend-view.js'
 import { effectiveShownLayers, standardLayerView } from './layer-view.js'
-import { modifierHoldForKey, modifierHoldForWrap } from './modifiers.js'
+import { isRAltCode, isShiftKeyCode } from './modifiers.js'
 import type { HostLanguageId } from './host-languages.js'
 import type {
   ComposedLegend,
@@ -36,19 +36,6 @@ export type LegendHoverHit = 'none' | 'combo' | 'hold'
 
 function hoverLayerTargets(hover: Extract<LegendHover, { kind: 'layers' }>): number[] {
   return hover.source == null ? hover.layers : [...hover.layers, hover.source]
-}
-
-function isRAltCode(value: string | number | undefined | null): boolean {
-  if (value == null) return false
-  const key = modifierHoldForKey(value)
-  if (key) return key.role === 'alt' && key.side === 'R'
-  const wrap = modifierHoldForWrap(value)
-  return wrap?.role === 'alt' && wrap.side === 'R'
-}
-
-function isShiftKeyCode(value: string | number | undefined | null): boolean {
-  if (value == null) return false
-  return modifierHoldForKey(value)?.role === 'shift' === true
 }
 
 function holdRefMatchesHover(hold: HoldRef | undefined, hover: LegendHover): boolean {
@@ -102,11 +89,29 @@ export function resolveHostColumns(view: HostLegendView): ResolvedHostColumn[] {
   }))
 }
 
+function emptyComposeColumn(resolved: ResolvedHostColumn): ComposedLegendColumn {
+  return {
+    language: resolved.language,
+    tone: resolved.tone,
+    pair: ['', ''],
+    pairDead: [false, false],
+    altGr: '',
+    altGrDead: false,
+    altGrShift: '',
+    altGrShiftDead: false,
+    showAltGr: resolved.altGr,
+    showAltGrShift: resolved.altGrShift,
+    onKeycap: resolved.shown
+  }
+}
+
 function composeColumn(
   resolved: ResolvedHostColumn,
   zmk: string
 ): ComposedLegendColumn | null {
-  const levels = hostDisplayLevels(hostLevels(resolved.layoutId, zmk))
+  const raw = hostLevels(resolved.layoutId, zmk)
+  if (!raw) return emptyComposeColumn(resolved)
+  const levels = hostDisplayLevels(raw)
   if (!levels) return null
   return {
     language: resolved.language,
@@ -124,16 +129,18 @@ function composeColumn(
 }
 
 /**
- * N-column host legend for a ZMK token. Unknown ids and non-character
- * keys return null. Hidden extras are omitted; a hidden base stays so
- * the firmware alphabet is still there when its glyphs are off the key.
+ * N-column host legend for a ZMK token. Unknown ids, modifier keys, and
+ * non-character bases return null. A shown column with no key record keeps
+ * four empty slots (`ˬ` on the face) so on-keycap languages stay aligned.
+ * Hidden extras are omitted; a hidden base stays so the firmware alphabet is
+ * still there when its glyphs are off the key.
  */
 export function hostLegendFor(
   token: string,
   view?: HostLegendView
 ): ComposedLegend | null {
   const id = hostKeyByZmk(token)
-  if (!id) return null
+  if (!id || id.scan == null) return null
   const resolved = resolveHostColumns(view ?? standardHostLegendView())
   const base = resolved[0]
   if (!base) return null
@@ -217,7 +224,7 @@ export function multilangKeycapLines(
   const resolved = resolveBinding(binding)
   if (resolved.tap == null) return null
   const id = hostKeyByZmk(resolved.tap)
-  if (!id) return null
+  if (!id || id.scan == null) return null
   const columns = resolveHostColumns(view ?? standardHostLegendView())
   if (columns.length === 0) return null
   const hold = resolved.hold ? formatHoldBadge(resolved.hold) : undefined

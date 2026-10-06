@@ -158,4 +158,30 @@ describe('host layout registry', () => {
     expect(hostLayoutsForLanguage('ru').some(choice => choice.id === USER_RU_ID)).toBe(true)
     expect(hostLayoutShelves('ru').users.map(choice => choice.id)).toContain(USER_RU_ID)
   })
+
+  it('freezes builtin tables and clones registered layouts', () => {
+    const builtin = hostLayout(BUILTIN_RU)!
+    expect(() => {
+      ;(builtin.byZmk.get('A')!.glyphs as string[])[0] = 'x'
+    }).toThrow()
+    expect(() => {
+      ;(builtin.byZmk as Map<string, unknown>).delete('A')
+    }).toThrow()
+    expect(hostLayout(BUILTIN_RU)?.byZmk.get('A')?.glyphs[0]).toBe('ф')
+
+    const source = cloneLayout(USER_RU_ID, builtin)
+    registerHostLayout(
+      {
+        id: USER_RU_ID,
+        language: 'ru',
+        name: 'copy',
+        flag: '🇷🇺',
+        origin: 'user'
+      },
+      source
+    )
+    source.byZmk.delete('A')
+    expect(hostLayout(USER_RU_ID)?.byZmk.get('A')?.glyphs[0]).toBe('ф')
+    expect(hostLayout(USER_RU_ID)?.byZmk).not.toBe(source.byZmk)
+  })
 })

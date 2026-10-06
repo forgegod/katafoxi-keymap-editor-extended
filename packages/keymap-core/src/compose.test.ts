@@ -11,6 +11,8 @@ import {
   encodeKeyBinding,
   formatDecodeWord,
   hostComposeGlyphs,
+  hostLayout,
+  cloneHostLayoutTable,
   hostLevels,
   legendHoverHit,
   conditionalOccupiedLayers,
@@ -286,6 +288,34 @@ describe('resolveBinding / composeKey', () => {
       { tone: 'base', glyphs: ['m', 'M', ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY] },
       { tone: 'second', glyphs: ['ь', 'Ь', 'ъ', 'Ъ'] }
     ])
+  })
+
+  it('keeps an on-keycap language with four ˬ slots when the layout has no GRAVE', () => {
+    const id = 'user:no-grave-ru'
+    const source = cloneHostLayoutTable(hostLayout('system-ru')!, id)
+    ;(source.byZmk as Map<string, unknown>).delete('GRAVE')
+    registerHostLayout(
+      { id, language: 'ru', name: 'No GRAVE', flag: '🇷🇺', origin: 'user' },
+      source
+    )
+    try {
+      const hostView = assignHostLanguageLayout(
+        addHostLanguage(standardHostLegendView(), 'ru'),
+        'ru',
+        id
+      )
+      const legend = hostLegendFor('GRAVE', hostView)
+      expect(keycapFace(legend!).packs.length).toBe(2)
+      expect(facePacks(legend!)).toEqual([
+        { tone: 'base', glyphs: ['`', '~', ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY] },
+        {
+          tone: 'second',
+          glyphs: [ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY]
+        }
+      ])
+    } finally {
+      unregisterHostLayout(id)
+    }
   })
 
   it('keeps matching letters on the second pack when AltGr diverges', () => {
@@ -1042,6 +1072,42 @@ describe('composeLegendDecode', () => {
       ).toEqual(['a', 'A', ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY])
     } finally {
       unregisterHostLayout('user:empty-en')
+    }
+  })
+
+  it('rebuilds system decode columns for every shown language when filling a gap', () => {
+    const id = 'user:no-grave-ru'
+    const source = cloneHostLayoutTable(hostLayout('system-ru')!, id)
+    ;(source.byZmk as Map<string, unknown>).delete('GRAVE')
+    registerHostLayout(
+      { id, language: 'ru', name: 'No GRAVE', flag: '🇷🇺', origin: 'user' },
+      source
+    )
+    try {
+      const hostView = assignHostLanguageLayout(
+        addHostLanguage(standardHostLegendView(), 'ru'),
+        'ru',
+        id
+      )
+      const base = composeLegendDecode(parseKeyBinding('&kp GRAVE'), hostView)
+      expect(base.current.map(column => column.language)).toEqual(['en'])
+      const card = withEditableLegendDecodeGaps(base, hostView)
+      expect(card.current.map(column => column.language)).toEqual(['en', 'ru'])
+      expect(card.system?.map(column => column.language)).toEqual(['en', 'ru'])
+      expect(card.current.find(column => column.language === 'ru')?.slots.map(slot => slot.text)).toEqual([
+        ALT_LEVEL_EMPTY,
+        ALT_LEVEL_EMPTY,
+        ALT_LEVEL_EMPTY,
+        ALT_LEVEL_EMPTY
+      ])
+      expect(
+        card.system?.find(column => column.language === 'en')?.slots.map(slot => slot.text)
+      ).toEqual(['`', '~', ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY])
+      expect(
+        card.system?.find(column => column.language === 'ru')?.slots.map(slot => slot.text)
+      ).toEqual(['ё', 'Ё', ALT_LEVEL_EMPTY, ALT_LEVEL_EMPTY])
+    } finally {
+      unregisterHostLayout(id)
     }
   })
 })

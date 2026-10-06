@@ -1,5 +1,7 @@
 import {
   isModifierWrapCode,
+  isRAltCode,
+  isShiftKeyCode,
   modifierHoldForKey,
   modifierHoldForWrap,
   modifierRoleGlyph,
@@ -26,7 +28,7 @@ function isLayerParam(value: string | number | undefined | null, layer: number):
   if (value == null || value === '') return false
   if (Number(value) === layer) return true
   const raw = String(value).toUpperCase()
-  return raw === `L${layer}` || raw === layerLegendSymbol(layer).toUpperCase()
+  return raw === layerLegendSymbol(layer).toUpperCase()
 }
 
 /**
@@ -48,19 +50,6 @@ export function bindingReferencesLayer(node: KeyBindingNode, layer: number): boo
   }
   if (isUnknownHoldTap(node) && isLayerParam(node.params[0]?.value, layer)) return true
   return (node.params ?? []).some(child => bindingReferencesLayer(child, layer))
-}
-
-function isRAltCode(value: string | number | undefined | null): boolean {
-  if (value == null) return false
-  const key = modifierHoldForKey(value)
-  if (key) return key.role === 'alt' && key.side === 'R'
-  const wrap = modifierHoldForWrap(value)
-  return wrap?.role === 'alt' && wrap.side === 'R'
-}
-
-function isShiftKeyCode(value: string | number | undefined | null): boolean {
-  if (value == null) return false
-  return modifierHoldForKey(value)?.role === 'shift' === true
 }
 
 /** True when the bind is RAlt / `RA()` — the key that produces AltGr. */
@@ -110,10 +99,6 @@ export function isLayerLegendSymbol(text: string): boolean {
 /** Role glyphs shared by L/R modifiers. Right side is prefixed at display time. */
 const ROLE_GLYPHS = new Set(Object.values(MODIFIER_ROLE_GLYPH))
 
-/**
- * Keycap / ZMK-mode legend: left modifiers stay the role glyph,
- * right modifiers become `R⌃` / `R⎇` / `R⌘` / `R⇧`.
- */
 /** `BT_CLR` → `CLR`, `BT1` → `SEL1`, `OUT_USB` → `USB`. */
 export function prefixedCommandLegend(code?: string | number | null): string | null {
   const raw = String(code ?? '').trim().toUpperCase()

@@ -11,7 +11,7 @@ import { standardHostLegendView } from './host-legend-view.js'
 import type { HostLanguageId } from './host-languages.js'
 import type { HostLegendView, KeyBindingNode } from './types.js'
 import { formatHoldBadge, resolveBinding } from './compose-binding.js'
-import { resolveHostColumns } from './compose-host.js'
+import { resolveHostColumns, type ResolvedHostColumn } from './compose-host.js'
 
 export interface LegendDecodeSlot {
   text: string
@@ -145,11 +145,30 @@ export function composeLegendDecode(
   return card
 }
 
+function systemDecodeColumns(
+  shown: ResolvedHostColumn[],
+  zmk: string
+): LegendDecodeColumn[] {
+  return shown.map(column => {
+    const primary = hostLayoutShelves(column.language).primary
+    const sysLevels = primary ? hostLevels(primary.id, zmk) : undefined
+    return {
+      language: column.language,
+      flag: column.flag,
+      slots:
+        sysLevels && levelsBelongInDecode(sysLevels)
+          ? slotsFromKeyLevels(sysLevels)
+          : emptySlots()
+    }
+  })
+}
+
 /**
  * Fill empty editable columns for shown languages that `composeLegendDecode`
- * skipped because the layout has no record for the key, when the system
- * primary still has glyphs. Keeps the hover-only decode snapshot unchanged
- * (golden) while the edit card can open a missing key.
+ * skipped because the layout has no record for the key. Rebuilds the system
+ * row for every shown language so a gap does not drop the other columns.
+ * Keeps the hover-only decode snapshot unchanged (golden) while the edit
+ * card can open a missing key.
  */
 export function withEditableLegendDecodeGaps(
   card: LegendDecodeCard,
@@ -160,22 +179,11 @@ export function withEditableLegendDecodeGaps(
   const hostView = view ?? standardHostLegendView()
   const shown = resolveHostColumns(hostView).filter(item => item.shown)
   const current = [...card.current]
-  const system = [...(card.system ?? [])]
   let changed = false
   for (const column of shown) {
     if (current.some(item => item.language === column.language)) continue
     if (hostLevels(column.layoutId, zmk)) continue
-    const primary = hostLayoutShelves(column.language).primary
-    const sysLevels = primary ? hostLevels(primary.id, zmk) : undefined
-    if (!sysLevels) continue
     current.push({ language: column.language, flag: column.flag, slots: emptySlots() })
-    if (!system.some(item => item.language === column.language)) {
-      system.push({
-        language: column.language,
-        flag: column.flag,
-        slots: slotsFromKeyLevels(sysLevels)
-      })
-    }
     changed = true
   }
   if (!changed) return card
@@ -184,6 +192,6 @@ export function withEditableLegendDecodeGaps(
     [...columns].sort(
       (a, b) => order.indexOf(a.language) - order.indexOf(b.language)
     )
-  const compared = markDiffs(byLanguage(current), byLanguage(system))
+  const compared = markDiffs(byLanguage(current), systemDecodeColumns(shown, zmk))
   return { ...card, current: compared.current, system: compared.system }
 }

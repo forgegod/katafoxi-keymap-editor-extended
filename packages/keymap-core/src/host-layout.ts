@@ -116,6 +116,43 @@ function cloneHostLayoutMap(source: HostLayout): Map<string, HostKeyLevels> {
   return byZmk
 }
 
+function sealHostLayoutMap(map: Map<string, HostKeyLevels>): ReadonlyMap<string, HostKeyLevels> {
+  const blocked = () => {
+    throw new TypeError('Host layout map is frozen')
+  }
+  Object.defineProperties(map, {
+    set: { value: blocked },
+    delete: { value: blocked },
+    clear: { value: blocked }
+  })
+  return Object.freeze(map)
+}
+
+/** Freeze key rows so a builtin table cannot be mutated through the registry. */
+export function freezeHostLayoutTable(layout: HostLayout): HostLayout {
+  const byZmk = new Map<string, HostKeyLevels>()
+  for (const [zmk, levels] of layout.byZmk) {
+    byZmk.set(
+      zmk,
+      Object.freeze({
+        keysyms: Object.freeze([
+          levels.keysyms[0],
+          levels.keysyms[1],
+          levels.keysyms[2],
+          levels.keysyms[3]
+        ]) as HostKeysyms,
+        glyphs: Object.freeze([
+          levels.glyphs[0],
+          levels.glyphs[1],
+          levels.glyphs[2],
+          levels.glyphs[3]
+        ]) as HostLevels
+      })
+    )
+  }
+  return Object.freeze({ id: layout.id, byZmk: sealHostLayoutMap(byZmk) })
+}
+
 /**
  * One level of one key replaced, as a new layout. The source table is left
  * alone and its `byZmk` is not reused. Glyphs come from the keysyms through
