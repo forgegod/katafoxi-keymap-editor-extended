@@ -76,6 +76,11 @@ function githubStatus(err: unknown): number | undefined {
   return (err as { response?: { status?: number } }).response?.status
 }
 
+function isActionsDenied(err: unknown): boolean {
+  const status = githubStatus(err)
+  return status === 403 || status === 422
+}
+
 function unavailable(detail: string): FirmwareBuild {
   return { ...EMPTY, status: 'unavailable', detail }
 }
@@ -136,7 +141,7 @@ export async function fetchFirmwareBuild(
   try {
     token = await installationToken(installationId, repository)
   } catch (err) {
-    if (githubStatus(err) === 403) return unavailable('actions_permission')
+    if (isActionsDenied(err)) return unavailable('actions_permission')
     throw err
   }
 
@@ -158,7 +163,7 @@ export async function fetchFirmwareBuild(
     runs = ((runsRes.data as { workflow_runs?: WorkflowRun[] }).workflow_runs ?? [])
   } catch (err) {
     const status = githubStatus(err)
-    if (status === 403) return unavailable('actions_permission')
+    if (isActionsDenied(err)) return unavailable('actions_permission')
     if (status === 404) return { ...EMPTY }
     throw err
   }
@@ -216,7 +221,7 @@ export async function fetchFirmwareBuild(
       build.artifactName = artifact.name
     }
   } catch (err) {
-    if (githubStatus(err) === 403) return unavailable('actions_permission')
+    if (isActionsDenied(err)) return unavailable('actions_permission')
     throw err
   }
 

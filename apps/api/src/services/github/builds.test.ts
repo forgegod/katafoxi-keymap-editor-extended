@@ -127,6 +127,35 @@ describe('fetchFirmwareBuild', () => {
     expect(build).toMatchObject({ status: 'unavailable', detail: 'actions_permission' })
   })
 
+  it('maps a 422 when minting the installation token to unavailable', async () => {
+    vi.spyOn(auth, 'createInstallationToken').mockRejectedValue(
+      Object.assign(new Error('GitHub API 422'), {
+        response: {
+          status: 422,
+          data: { message: 'Permissions actions:read are not granted to this installation' },
+          url: 'https://api.github.com/app/installations/9/access_tokens'
+        }
+      })
+    )
+
+    const build = await fetchFirmwareBuild('9', 'acme/keymap', 'main', NOW)
+
+    expect(build).toMatchObject({ status: 'unavailable', detail: 'actions_permission' })
+  })
+
+  it('maps a 422 from the Actions API to unavailable instead of throwing', async () => {
+    mockGithub({
+      '/commits/': commit('abcdef1234567890', '2026-09-29T11:40:00.000Z'),
+      '/actions/runs': Object.assign(new Error('GitHub API 422'), {
+        response: { status: 422, data: { message: 'Validation Failed' } }
+      })
+    })
+
+    const build = await fetchFirmwareBuild('9', 'acme/keymap', 'main', NOW)
+
+    expect(build).toMatchObject({ status: 'unavailable', detail: 'actions_permission' })
+  })
+
   it('marks a failed run and skips expired firmware', async () => {
     mockGithub({
       '/commits/': commit('abcdef1234567890', '2026-09-29T11:40:00.000Z'),

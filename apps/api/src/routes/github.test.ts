@@ -856,6 +856,25 @@ describe('session and errors', () => {
     expect(fetchBuild).toHaveBeenCalledWith('1', 'acme/keymap', 'main')
   })
 
+  it('GET /github/builds returns unavailable JSON when Actions is not granted', async () => {
+    vi.spyOn(builds, 'fetchFirmwareBuild').mockResolvedValue({
+      status: 'unavailable',
+      sha: null,
+      shortSha: null,
+      at: null,
+      htmlUrl: null,
+      artifactId: null,
+      artifactName: null,
+      detail: 'actions_permission'
+    })
+    const { res } = await authedRequest('/github/builds/1/acme%2Fkeymap?branch=main')
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({
+      status: 'unavailable',
+      detail: 'actions_permission'
+    })
+  })
+
   it('GET /github/builds artifact downloads a zip', async () => {
     vi.spyOn(builds, 'downloadFirmwareArtifact').mockResolvedValue(
       new Response(new Uint8Array([1, 2, 3]))

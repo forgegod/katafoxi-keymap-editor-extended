@@ -50,11 +50,12 @@ function localSelection(
 
 function githubSelection(
   code = 'A',
-  keyboard = 'lark'
+  keyboard = 'lark',
+  headSha = 'abc123'
 ): KeyboardSelection {
   return {
     source: 'github',
-    github: { repository: 'owner/repo', branch: 'main' },
+    github: { repository: 'owner/repo', branch: 'main', headSha },
     layout: oneKeyLayout,
     keymap: km(code, keyboard)
   }
@@ -295,6 +296,98 @@ describe('App chrome', () => {
         /Branch changed on GitHub — reload/
       )
     })
+  })
+
+  it('retries Commit with the reloaded GitHub head sha', async () => {
+    await renderApp()
+    await loadKeyboard(githubSelection('A', 'lark', 'old-sha'))
+    editor.updateKeymap(km('M'))
+    flushSync()
+
+    vi.mocked(github.commitChanges).mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: { name: 'StaleRepoBase', errors: ['Branch changed on GitHub — reload'] }
+      }
+    })
+
+    const commit = buttonMatching(target, /^\s*Commit\s*$/)
+    expect(commit).toBeInstanceOf(HTMLButtonElement)
+    commit!.click()
+    flushSync()
+    await tick()
+    await vi.waitFor(() => {
+      expect(target.querySelector('.save-notice.error')?.textContent).toMatch(
+        /Branch changed on GitHub — reload/
+      )
+    })
+    expect(github.commitChanges).toHaveBeenLastCalledWith(
+      'owner/repo',
+      'main',
+      oneKeyLayout,
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      'old-sha'
+    )
+
+    await loadKeyboard(githubSelection('A', 'lark', 'new-sha'))
+    expect(editor.githubMeta?.headSha).toBe('new-sha')
+    editor.updateKeymap(km('M'))
+    flushSync()
+
+    vi.mocked(github.commitChanges).mockResolvedValue({ data: {} })
+    commit!.click()
+    flushSync()
+    await tick()
+    await vi.waitFor(() => {
+      expect(github.commitChanges).toHaveBeenLastCalledWith(
+        'owner/repo',
+        'main',
+        oneKeyLayout,
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        'new-sha'
+      )
+    })
+  })
+
+  it('keeps the current board when GitHub branch listing fails', async () => {
+    localStorage.setItem('selectedSource', 'local')
+    await renderApp()
+    await vi.waitFor(() => {
+      expect(editor.source).toBe('local')
+      expect(editor.draftKeymap?.layers[0][0].params[0].value).toBe('Z')
+    })
+    expect(target.querySelector('.key')).toBeTruthy()
+
+    github.authorized = true
+    github.installations = [{ id: 1 }]
+    github.repositories = [{ id: 11, full_name: 'owner/repo', default_branch: 'main' }]
+    github.repoInstallationMap = { 'owner/repo': '1' }
+    vi.spyOn(github, 'fetchRepoBranches').mockRejectedValue(
+      Object.assign(new Error('Request failed: 502'), {
+        response: { status: 502, data: { message: 'Bad gateway' } }
+      })
+    )
+
+    const trigger = target.querySelector('.source-trigger')
+    if (!(trigger instanceof HTMLButtonElement)) throw new Error('missing source trigger')
+    trigger.click()
+    flushSync()
+    const githubCard = target.querySelector('[data-source="github"]')
+    if (!(githubCard instanceof HTMLButtonElement)) throw new Error('missing GitHub source')
+    githubCard.click()
+    flushSync()
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain('Bad gateway')
+    })
+    expect(editor.source).toBe('local')
+    expect(editor.githubMeta).toBeNull()
+    expect(editor.draftKeymap?.layers[0][0].params[0].value).toBe('Z')
+    expect(target.querySelector('.key')).toBeTruthy()
   })
 
   it('does not undo from Ctrl+Z on Apply while the key editor is open', async () => {
