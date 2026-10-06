@@ -1,8 +1,8 @@
-import type { ParsedKeymap } from '@keymap-editor/keymap-core'
+import { diffKeymaps, type ParsedKeymap } from '@keymap-editor/keymap-core'
 import { formatKeymapSaveWarnings } from '../keymap-save-warnings.js'
 import { writeClipboardOriginalSource } from '../clipboard/session.js'
 import { extractErrorMessages } from './helpers'
-import { cloneParsedKeymap } from './keymap-clone'
+import { cloneLayout, cloneParsedKeymap } from './keymap-clone'
 import type { EditorState } from './state.svelte'
 import type { GithubMeta } from './types'
 
@@ -40,15 +40,27 @@ export function isPublishDirty(this: EditorState): boolean {
 }
 
 /**
- * After successful publish + successful reload: replace baseline and draft
- * from re-read keymap, then apply save-response warnings.
- * Clears IndexedDB draft only here (not on reload failure).
+ * After successful publish + successful reload: replace baseline from the
+ * re-read keymap. Replace the live draft only when it still matches what
+ * was sent; in-flight edits stay dirty and keep their IndexedDB row.
  */
-export function applyPublished(this: EditorState, reloaded: ParsedKeymap, saveMeta?: unknown) {
-  const baseline = cloneParsedKeymap(reloaded)
-  this.baselineKeymap = baseline
-  this.draftKeymap = cloneParsedKeymap(baseline)
-  this.clearHistory()
+export function applyPublished(
+  this: EditorState,
+  reloaded: ParsedKeymap,
+  saveMeta?: unknown,
+  sentDraft?: ParsedKeymap | null
+) {
+  this.baselineKeymap = cloneParsedKeymap(reloaded)
+  if (this.layout) this.baselineLayout = cloneLayout(this.layout)
+  const draftUnchanged =
+    !sentDraft ||
+    !this.draftKeymap ||
+    diffKeymaps(sentDraft, this.draftKeymap).length === 0
+  if (draftUnchanged) {
+    this.draftKeymap = cloneParsedKeymap(this.baselineKeymap)
+    this.clearHistory()
+    void this.clearPersistedDraft()
+  }
   const warnings = formatKeymapSaveWarnings(
     saveMeta && typeof saveMeta === 'object'
       ? (saveMeta as { warnings?: unknown }).warnings
@@ -56,7 +68,6 @@ export function applyPublished(this: EditorState, reloaded: ParsedKeymap, saveMe
   )
   this.saveNotice =
     warnings.length > 0 ? { kind: 'warning', messages: warnings } : null
-  void this.clearPersistedDraft()
 }
 
 /** After Copy .keymap: sync baseline; the export sheet carries user-facing notes. */

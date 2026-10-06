@@ -270,6 +270,123 @@ describe('publishKeymap', () => {
     expect(reload).not.toHaveBeenCalled()
   })
 
+  it('keeps ZMK edits made while write is in flight', async () => {
+    await editor.selectKeyboard({
+      source: 'local',
+      layout,
+      keymap: km('A')
+    })
+    editor.updateKeymap(km('M'))
+
+    const write = deferred()
+    const reload = deferred<PublishReload>()
+    const writeFn = vi.fn(() => write.promise)
+    const published = publishKeymap(editor, {
+      write: writeFn,
+      reload: () => reload.promise
+    })
+
+    editor.updateKeymap(km('X'))
+    write.resolve({})
+    reload.resolve({ keymap: km('M'), layout })
+
+    await expect(published).resolves.toBe(true)
+    expect(editor.isDirty).toBe(true)
+    expect(keyCode(editor.draftKeymap)).toBe('X')
+    expect(keyCode(editor.baselineKeymap)).toBe('M')
+    expect(writeFn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        layers: km('M').layers
+      })
+    )
+  })
+
+  it('does not revert committed layout promotions when discarding after publish', async () => {
+    const loadedLayout = [
+      { x: 0, y: 0, row: 0, col: 0, absent: true, label: '0,0' },
+      { x: 1, y: 0, row: 0, col: 1, label: '0,1' }
+    ]
+    const committedLayout = [
+      { x: 0, y: 0, row: 0, col: 0, label: '0,0' },
+      { x: 1, y: 0, row: 0, col: 1, label: '0,1' }
+    ]
+    const loadedKeymap: ParsedKeymap = {
+      keyboard: 'lark',
+      layer_names: ['default'],
+      layers: [[
+        { value: '&none', params: [] },
+        { value: '&kp', params: [{ value: 'A', params: [] }] }
+      ]]
+    }
+    const committedKeymap: ParsedKeymap = {
+      keyboard: 'lark',
+      layer_names: ['default'],
+      layers: [[
+        { value: '&kp', params: [{ value: 'Q', params: [] }] },
+        { value: '&kp', params: [{ value: 'A', params: [] }] }
+      ]]
+    }
+
+    await editor.selectKeyboard({
+      source: 'local',
+      layout: loadedLayout,
+      keymap: loadedKeymap
+    })
+    editor.schemeMode = true
+    editor.promoteAbsentKey(0, { value: '&kp', params: [{ value: 'Q', params: [] }] })
+    editor.updateKeymap(committedKeymap)
+    expect(editor.layout?.[0]?.absent).toBeUndefined()
+
+    await expect(
+      publishKeymap(editor, {
+        write: () => Promise.resolve({}),
+        reload: () =>
+          Promise.resolve({ keymap: committedKeymap, layout: committedLayout })
+      })
+    ).resolves.toBe(true)
+
+    expect(editor.isDirty).toBe(false)
+    editor.updateKeymap({
+      ...committedKeymap,
+      layers: [[
+        { value: '&kp', params: [{ value: 'Z', params: [] }] },
+        { value: '&kp', params: [{ value: 'A', params: [] }] }
+      ]]
+    })
+    await expect(editor.discardDraft()).resolves.toBe(true)
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('Q')
+    expect(editor.layout?.[0]?.absent).toBeUndefined()
+  })
+
+  it('ignores a stale write error after switching keyboard', async () => {
+    await editor.selectKeyboard({
+      source: 'local',
+      layout,
+      keymap: km('A')
+    })
+    editor.updateKeymap(km('M'))
+
+    const write = deferred()
+    const published = publishKeymap(editor, {
+      write: () => write.promise,
+      reload: vi.fn()
+    })
+
+    await editor.selectKeyboard({
+      source: 'local',
+      layout,
+      keymap: km('A', 'other')
+    })
+    editor.updateKeymap(km('X', 'other'))
+
+    write.reject({ response: { data: { errors: ['boom'] } } })
+
+    await expect(published).resolves.toBe(false)
+    expect(editor.draftKeymap!.keyboard).toBe('other')
+    expect(keyCode(editor.draftKeymap)).toBe('X')
+    expect(editor.saveNotice).toBeNull()
+  })
+
   it('keeps host-repo dirty for edits made while Commit is in flight', async () => {
     await editor.selectKeyboard({
       source: 'github',

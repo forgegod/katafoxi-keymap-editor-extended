@@ -324,7 +324,11 @@ export class EditorState {
     github: GithubMeta | null
   ) => boolean
   declare readonly isPublishDirty: boolean
-  declare applyPublished: (reloaded: ParsedKeymap, saveMeta?: unknown) => void
+  declare applyPublished: (
+    reloaded: ParsedKeymap,
+    saveMeta?: unknown,
+    sentDraft?: ParsedKeymap | null
+  ) => void
   declare applyClipboardCopied: (reloaded: ParsedKeymap, _saveMeta?: unknown) => void
   declare applyReloadFailure: (source?: string | null) => void
   declare applySaveFailure: (data: unknown) => void

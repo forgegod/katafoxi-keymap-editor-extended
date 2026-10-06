@@ -1,4 +1,5 @@
 import {
+  cloneParsedKeymap,
   encodeHostKeymapSnapshot,
   type HostKeymapSnapshot,
   type LayoutKey,
@@ -23,7 +24,11 @@ export type PublishKeymapEditor = {
     source: string | null,
     github: GithubMeta | null
   ): boolean
-  applyPublished(reloaded: ParsedKeymap, saveMeta?: unknown): void
+  applyPublished(
+    reloaded: ParsedKeymap,
+    saveMeta?: unknown,
+    sentDraft?: ParsedKeymap | null
+  ): void
   applyReloadFailure(source: string | null): void
   applySaveFailure(data: unknown): void
   acceptHostRepoBaseline?(encoded?: string): void
@@ -33,7 +38,7 @@ export type PublishKeymapEditor = {
 export async function publishKeymap(
   editor: PublishKeymapEditor,
   handlers: {
-    write: () => Promise<unknown>
+    write: (sentDraft: ParsedKeymap) => Promise<unknown>
     reload: () => Promise<
       Pick<KeyboardFilesResult, 'keymap'> &
         Partial<Pick<KeyboardFilesResult, 'layout' | 'headSha'>>
@@ -50,8 +55,9 @@ export async function publishKeymap(
   const committedHostBaseline = editor.buildCurrentHostKeymapSnapshot
     ? encodeHostKeymapSnapshot(editor.buildCurrentHostKeymapSnapshot())
     : undefined
+  const sentDraft = cloneParsedKeymap(editor.draftKeymap as ParsedKeymap)
   try {
-    const saveMeta = await handlers.write()
+    const saveMeta = await handlers.write(sentDraft)
     try {
       const reloaded = await handlers.reload()
       if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {
@@ -63,7 +69,7 @@ export async function publishKeymap(
       if (reloaded.headSha && editor.githubMeta) {
         editor.githubMeta = { ...editor.githubMeta, headSha: reloaded.headSha }
       }
-      editor.applyPublished(reloaded.keymap, saveMeta)
+      editor.applyPublished(reloaded.keymap, saveMeta, sentDraft)
       editor.acceptHostRepoBaseline?.(committedHostBaseline)
       return true
     } catch {
@@ -74,6 +80,9 @@ export async function publishKeymap(
       return false
     }
   } catch (err) {
+    if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {
+      return false
+    }
     const requestErr = err as { response?: { status?: number; data?: unknown } }
     if (requestErr.response?.status === 409) {
       editor.applySaveFailure({ errors: [BRANCH_CHANGED_NOTICE] })

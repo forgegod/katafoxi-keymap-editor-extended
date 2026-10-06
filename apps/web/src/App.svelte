@@ -100,11 +100,11 @@
 
   async function handleWriteFiles() {
     const ok = await publishKeymap(editor, {
-      write: async () => {
+      write: async sentDraft => {
         const response = await fetch(`${config.apiBaseUrl}/keymap`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(editor.draftKeymap)
+          body: JSON.stringify(sentDraft)
         })
         const contentType = response.headers.get('content-type') || ''
         const data = contentType.includes('application/json')
@@ -125,12 +125,12 @@
     const gh = editor.githubMeta
     if (!gh || !editor.layout || !editor.draftKeymap) return
     const ok = await publishKeymap(editor, {
-      write: async () => {
+      write: async sentDraft => {
         const result = await github.commitChanges(
           gh.repository,
           gh.branch,
           editor.layout,
-          editor.draftKeymap,
+          sentDraft,
           editor.buildCurrentHostKeymapSnapshot(),
           editor.buildCurrentHostKeymapDeliverables(),
           gh.headSha
