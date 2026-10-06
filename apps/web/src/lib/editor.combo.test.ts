@@ -38,7 +38,7 @@ describe('editor combo mode', () => {
     expect(editor.activeComboId).toBe('combo_esc')
   })
 
-  it('toggles key-positions on the active combo and blocks exit when incomplete', () => {
+  it('toggles key-positions and lets a 1-key combo leave the mode', () => {
     editor.updateCombos([
       { id: 'combo_esc', keyPositions: [], binding: esc }
     ])
@@ -47,14 +47,26 @@ describe('editor combo mode', () => {
 
     editor.toggleComboPosition(0)
     expect(editor.draftKeymap?.combos?.[0]?.keyPositions).toEqual([0])
-    expect(editor.comboNotice).toMatch(/2/)
+    expect(editor.comboNotice).toMatch(/1-key/)
 
-    expect(editor.tryExitComboMode()).toBe(false)
-    expect(editor.comboMode).toBe(true)
-    expect(editor.activeComboId).toBe('combo_esc')
+    expect(editor.tryExitComboMode()).toBe(true)
+    expect(editor.comboMode).toBe(false)
+    expect(editor.draftKeymap?.combos?.[0]?.keyPositions).toEqual([0])
+  })
 
-    editor.toggleComboPosition(1)
-    expect(editor.draftKeymap?.combos?.[0]?.keyPositions).toEqual([0, 1])
+  it('lets a 6-key combo leave the mode with an advisory notice while editing', () => {
+    editor.layout = Array.from({ length: 6 }, (_, i) => ({
+      x: i,
+      y: 0,
+      row: 0,
+      col: i
+    }))
+    editor.updateCombos([
+      { id: 'combo_boot', keyPositions: [0, 1, 2, 3, 4, 5], binding: esc }
+    ])
+    editor.toggleComboMode()
+    editor.refreshComboNotice()
+    expect(editor.comboNotice).toMatch(/awkward/)
     expect(editor.tryExitComboMode()).toBe(true)
     expect(editor.comboMode).toBe(false)
   })

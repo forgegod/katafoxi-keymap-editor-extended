@@ -1,5 +1,4 @@
 import {
-  COMBO_MAX_KEYS,
   comboChordOverlap,
   comboChordOverlapPartners,
   comboKeysIssue,
@@ -245,9 +244,9 @@ export function toggleComboMode(this: EditorState) {
 }
 
 /**
- * Leave combo mode when every kept combo has a valid key count and no two
- * claim the same keys on a shared layer. Drops empty drafts.
- * Returns false when a combo still blocks exit.
+ * Leave combo mode when no two 2+ key chords share keys on a layer.
+ * Drops empty drafts. 1-key and 6+ combos are ZMK-legal and only warn.
+ * Returns false when overlap still blocks exit.
  */
 export function tryExitComboMode(this: EditorState): boolean {
   if (!this.comboMode) return true
@@ -256,12 +255,6 @@ export function tryExitComboMode(this: EditorState): boolean {
   const withoutEmpty = list.filter(c => c.keyPositions.length > 0)
   if (km && withoutEmpty.length !== list.length) {
     this.updateCombos(withoutEmpty)
-  }
-  const incomplete = withoutEmpty.find(c => comboKeysIssue(c.keyPositions) != null)
-  if (incomplete) {
-    this.activeComboId = incomplete.id
-    this.refreshComboNotice()
-    return false
   }
   const overlap = comboChordOverlap(withoutEmpty)
   if (overlap) {
@@ -284,7 +277,7 @@ export function refreshComboNotice(this: EditorState) {
   }
   const issue = comboKeysIssue(combo.keyPositions)
   if (issue) {
-    this.comboNotice = comboKeysMessage(issue)
+    this.comboNotice = comboKeysMessage(issue, combo.keyPositions.length)
     return
   }
   const otherId = comboChordOverlapPartners(combos).get(combo.id)
@@ -303,10 +296,6 @@ export function toggleComboPosition(this: EditorState, keyIndex: number) {
   if (set.has(keyIndex)) {
     set.delete(keyIndex)
   } else {
-    if (set.size >= COMBO_MAX_KEYS) {
-      this.comboNotice = comboKeysMessage('too_many')
-      return
-    }
     set.add(keyIndex)
   }
   combos[i] = {

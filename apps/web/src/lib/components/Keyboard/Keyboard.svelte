@@ -7,6 +7,7 @@
     effectiveShownLayers,
     isBlankLayerBinding,
     layerLegendSymbol,
+    shouldOfferComboDictionary,
     usedKeycodesRevision,
     type HostLegendView,
     type LayerView,
@@ -27,6 +28,7 @@
   import KeyboardLayout from './KeyboardLayout.svelte'
   import MatrixSchemeOverlay from './MatrixSchemeOverlay.svelte'
   import ComboArcsOverlay from './ComboArcsOverlay.svelte'
+  import ComboDictionary from './ComboDictionary.svelte'
   import ComboPanel from '../ComboPanel.svelte'
   import EncoderBar from './EncoderBar.svelte'
 
@@ -109,6 +111,23 @@
       : [0]
   )
   const boardCombos = $derived(keymap.combos ?? [])
+  const offerDictionary = $derived(
+    !comboMode && shouldOfferComboDictionary(layout, boardCombos)
+  )
+  let dictionaryOpen = $state(false)
+  let dictionaryKeyId = $state<string | null>(null)
+  let dictionaryPeek = $state<{
+    positions: ReadonlySet<number>
+    faceLayer: number
+  } | null>(null)
+
+  $effect(() => {
+    void boardCombos.length
+    void layout.length
+    dictionaryOpen = shouldOfferComboDictionary(layout, boardCombos)
+    dictionaryKeyId = null
+    dictionaryPeek = null
+  })
   const hasEncoders = $derived(
     (keymap.sensorBindings ?? []).some(row => row.length > 0)
   )
@@ -216,6 +235,7 @@
   // Panel mount/unmount changes stage width; remeasure after layout.
   $effect(() => {
     void comboMode
+    void dictionaryOpen
     if (!stageEl) return
     scheduleMeasure()
     return cancelMeasureRaf
@@ -297,7 +317,7 @@
             onUpdate={handleUpdateBinding}
             onComboToggle={index => editor.toggleComboPosition(index)}
           />
-          {#if !comboMode && boardCombos.length > 0}
+          {#if !comboMode && boardCombos.length > 0 && !dictionaryOpen}
             <ComboArcsOverlay
               {layout}
               combos={boardCombos}
@@ -326,9 +346,37 @@
             />
           {/if}
         {/if}
+        </div>
       </div>
     </div>
-    </div>
+    {#if offerDictionary}
+      <div class="dictionary-slot" class:open={dictionaryOpen}>
+        <ComboDictionary
+          {layout}
+          combos={boardCombos}
+          open={dictionaryOpen}
+          activeKeyId={dictionaryKeyId}
+          onToggle={() => {
+            dictionaryOpen = !dictionaryOpen
+          }}
+          onHoverHit={hit => {
+            comboHoverPeek = hit
+              ? { positions: new Set(hit.positions), faceLayer: 0 }
+              : dictionaryPeek
+          }}
+          onSelectHit={hit => {
+            dictionaryKeyId = 'keyId' in hit ? `${hit.keyId}:${hit.band}` : hit.comboId
+            dictionaryPeek = {
+              positions: new Set(hit.positions),
+              faceLayer: 0
+            }
+            comboHoverPeek = dictionaryPeek
+            const comboId = 'comboIds' in hit ? hit.comboIds[0] : hit.comboId
+            if (comboId) editor.activeComboId = comboId
+          }}
+        />
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -369,6 +417,24 @@
     padding: 4px 8px 8px;
     overflow: hidden;
     background: transparent;
+  }
+
+  .dictionary-slot {
+    flex: 0 0 auto;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .dictionary-slot.open {
+    flex: 1 1 46%;
+    max-height: 48%;
+  }
+
+  .dictionary-slot :global(.combo-dictionary) {
+    flex: 1 1 auto;
+    min-height: 0;
   }
 
   .keyboard-fit {

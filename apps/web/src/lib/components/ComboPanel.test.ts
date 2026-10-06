@@ -143,7 +143,7 @@ describe('ComboPanel', () => {
     flushSync()
     expect(editor.draftKeymap?.combos).toHaveLength(2)
     expect(editor.activeComboId).toBeTruthy()
-    expect(editor.comboNotice).toMatch(/2/)
+    expect(editor.comboNotice).toMatch(/Click keys/)
   })
 
   it('keeps combo mode when Escape closes the Linux install sheet', () => {
@@ -189,7 +189,7 @@ describe('ComboPanel', () => {
     expect(editor.comboMode).toBe(false)
   })
 
-  it('keeps combo mode on Escape when the active combo is incomplete', () => {
+  it('leaves combo mode on Escape with a 1-key combo', () => {
     mountPanel()
     const add = [...target.querySelectorAll('.combo-btn')].find(
       el => el.textContent?.trim() === 'New'
@@ -197,7 +197,6 @@ describe('ComboPanel', () => {
     if (!(add instanceof HTMLButtonElement)) throw new Error('missing New')
     add.click()
     flushSync()
-    // Empty drafts are dropped on exit; one key is incomplete and blocks.
     editor.toggleComboPosition(0)
     flushSync()
     expect(editor.comboMode).toBe(true)
@@ -206,8 +205,10 @@ describe('ComboPanel', () => {
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
     )
     flushSync()
-    expect(editor.comboMode).toBe(true)
-    expect(editor.comboNotice).toBeTruthy()
+    expect(editor.comboMode).toBe(false)
+    expect(editor.draftKeymap?.combos?.some(c => c.keyPositions.length === 1)).toBe(
+      true
+    )
   })
 
   it('closes the binding editor on Escape without leaving combo mode', () => {

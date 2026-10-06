@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  comboDictionaryFamilies,
+  comboDictionaryIndexModel,
+  shouldOfferComboDictionary
+} from '@keymap-editor/keymap-core'
+import {
   DEMO_CATALOG,
   defaultDemoId,
   loadDemo,
@@ -8,12 +13,13 @@ import {
 } from './catalog'
 
 describe('demo catalog', () => {
-  it('lists Corne first as the default demo, then Lark, Lily58, and Sweep', () => {
+  it('lists Corne first as the default demo, then Lark, Lily58, Sweep, and PNCATEHO', () => {
     expect(DEMO_CATALOG.map(entry => entry.id)).toEqual([
       'corne',
       'lark',
       'lily58',
-      'cradio'
+      'cradio',
+      'pncateho'
     ])
     expect(defaultDemoId()).toBe('corne')
     expect(DEMO_CATALOG.filter(entry => entry.default).map(entry => entry.id)).toEqual([
@@ -60,11 +66,6 @@ describe('demo catalog', () => {
       const combos = keymap.combos ?? []
       expect(combos.length, entry.id).toBeGreaterThanOrEqual(4)
 
-      const onL1 = combos.filter(c => c.layers?.includes(1))
-      const onL2 = combos.filter(c => c.layers?.includes(2))
-      expect(onL1.length, `${entry.id} L1`).toBeGreaterThanOrEqual(2)
-      expect(onL2.length, `${entry.id} L2`).toBeGreaterThanOrEqual(2)
-
       expect(
         combos.some(c => c.keyPositions.length === 2),
         `${entry.id} has a 2-key combo`
@@ -73,7 +74,38 @@ describe('demo catalog', () => {
         combos.some(c => c.keyPositions.length >= 3),
         `${entry.id} has a 3+ key combo`
       ).toBe(true)
+
+      if (keymap.layers.length < 3) continue
+
+      const onL1 = combos.filter(c => c.layers?.includes(1))
+      const onL2 = combos.filter(c => c.layers?.includes(2))
+      expect(onL1.length, `${entry.id} L1`).toBeGreaterThanOrEqual(2)
+      expect(onL2.length, `${entry.id} L2`).toBeGreaterThanOrEqual(2)
     }
+  })
+
+  it('loads PNCATEHO as a 20-key chord board with expanded combos', async () => {
+    const { layout, keymap } = await loadDemo('pncateho')
+    expect(layout).toHaveLength(20)
+    expect(keymap.layers).toHaveLength(1)
+    expect(keymap.layers[0]).toHaveLength(20)
+    expect(keymap.combos?.length).toBe(324)
+    expect(keymap.combos?.every(c => c.layers?.includes(0))).toBe(true)
+  })
+
+  it('groups PNCATEHO combos into a chord dictionary of finger cores', async () => {
+    const { layout, keymap } = await loadDemo('pncateho')
+    expect(shouldOfferComboDictionary(layout, keymap.combos)).toBe(true)
+    const families = comboDictionaryFamilies(layout, keymap.combos ?? [])
+    expect(families.length).toBe(80)
+    expect(families.every(family => family.core.length >= 1)).toBe(true)
+    expect(families.some(family => family.variants.length >= 4)).toBe(true)
+    const index = comboDictionaryIndexModel(layout, keymap.combos ?? [])
+    expect(index.hits.get('b')?.base?.positions.length).toBeGreaterThan(0)
+    expect(index.hits.get('b')?.shift?.positions.length).toBeGreaterThan(0)
+    expect(index.hits.get('e')?.base?.positions.length).toBeGreaterThan(0)
+    expect(index.hits.get('f5')?.base?.positions.length).toBeGreaterThan(0)
+    expect(index.other.some(item => item.label.includes('bootloader'))).toBe(true)
   })
 
   it('keeps Lark phantom matrix slots in the keymap but marks them absent', async () => {

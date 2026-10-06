@@ -60,6 +60,13 @@ const DEMO_LOADERS: Record<string, () => Promise<DemoFiles>> = {
       import('../../../../../packages/keymap-core/fixtures/demo/cradio/cradio.keymap?raw')
     ])
     return { info: info as InfoJson, keymapSource }
+  },
+  pncateho: async () => {
+    const [{ default: info }, { default: keymapSource }] = await Promise.all([
+      import('../../../../../packages/keymap-core/fixtures/demo/pncateho/info.json'),
+      import('../../../../../packages/keymap-core/fixtures/demo/pncateho/pncateho.keymap?raw')
+    ])
+    return { info: info as InfoJson, keymapSource }
   }
 }
 

@@ -58,16 +58,12 @@
   )
   const activeHint = $derived(
     editor.comboNotice ??
-      comboKeysMessage(activeIssue) ??
+      comboKeysMessage(activeIssue, active?.keyPositions.length) ??
       comboOverlapMessage(activeOverlapId) ??
       designHint
   )
-  const hintIsSoft = $derived(
-    !editor.comboNotice &&
-      activeIssue == null &&
-      activeOverlapId == null &&
-      designHint != null
-  )
+  const hintIsHard = $derived(activeOverlapId != null)
+  const hintIsSoft = $derived(!hintIsHard && activeHint != null)
   const timeoutMs = $derived(active?.timeoutMs ?? COMBO_TIMEOUT_MS_DEFAULT)
   const timeoutIsCustom = $derived(active?.timeoutMs !== undefined)
   const priorIdleOn = $derived(active?.requirePriorIdleMs !== undefined)
