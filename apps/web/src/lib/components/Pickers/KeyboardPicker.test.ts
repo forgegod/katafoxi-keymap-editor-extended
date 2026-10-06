@@ -374,17 +374,27 @@ describe('KeyboardPicker', () => {
     group.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })
     )
-    flushSync()
     await vi.waitFor(() => {
       expect(selectedSourceCard().dataset.source).toBe('clipboard')
+      expect(document.activeElement).toBe(
+        target.querySelector('[data-source="clipboard"]')
+      )
     })
-    expect(clipboard.tabIndex).toBe(0)
-    expect(demo.tabIndex).toBe(-1)
-    expect(document.activeElement).toBe(clipboard)
+    const focused = document.activeElement
+    expect(focused).toBeInstanceOf(HTMLButtonElement)
+    expect((focused as HTMLButtonElement).dataset.source).toBe('clipboard')
+    expect((focused as HTMLButtonElement).tabIndex).toBe(0)
+    const demoRadio = target.querySelector('[data-source="demo"]')
+    expect(demoRadio).toBeInstanceOf(HTMLButtonElement)
+    expect((demoRadio as HTMLButtonElement).tabIndex).toBe(-1)
   })
 
   it('keeps the demo hardware repo outside the option button', async () => {
     open()
+    const trigger = target.querySelector('.source-trigger')
+    if (!(trigger instanceof HTMLButtonElement)) throw new Error('missing source trigger')
+    trigger.click()
+    flushSync()
     await vi.waitFor(() => {
       expect(target.querySelector('.demo-card')).toBeTruthy()
     })

@@ -135,7 +135,6 @@
     }
     const ids = sourceChoices.map(choice => choice.id)
     if (ids.length === 0) return
-    const group = event.currentTarget
     event.preventDefault()
     const current =
       source && ids.includes(source) ? ids.indexOf(source) : 0
@@ -149,8 +148,7 @@
     }
     source = ids[next]
     await tick()
-    if (!(group instanceof HTMLElement)) return
-    const radio = group.querySelector(`[data-source="${ids[next]}"]`)
+    const radio = document.querySelector(`.source-cards [data-source="${ids[next]}"]`)
     if (radio instanceof HTMLElement) radio.focus()
   }
 
