@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test'
 import fs from 'node:fs'
+import { editKey, openSource, readDraftCount } from './helpers'
 import {
   copyLarkFixture,
   preambleBeforeKeymap,
@@ -30,13 +31,8 @@ async function openLocalEditor(page: Page) {
     localStorage.setItem('coachTourDone', '1')
   })
   await page.goto('/')
+  await openSource(page, 'Local')
   const trigger = page.getByTestId('source-menu-trigger')
-  await expect(trigger).toBeVisible()
-  await trigger.click()
-  const local = page.getByRole('radio', { name: /Local/ })
-  await expect(local).toBeVisible()
-  await local.click()
-  await expect(local).toHaveAttribute('aria-checked', 'true')
   await expect(trigger).toHaveAccessibleName('Local files')
   await expect(
     page.locator(ESC_KEY).getByRole('button', { name: '&kp ESC, layer 0' })
@@ -49,51 +45,15 @@ async function openLocalEditor(page: Page) {
 }
 
 async function waitForPersistedDraft(page: Page) {
-  await expect
-    .poll(async () => {
-      return page.evaluate(() => {
-        return new Promise<number>((resolve, reject) => {
-          const request = indexedDB.open('keymap-editor-drafts')
-          request.onerror = () => reject(request.error ?? new Error('IDB open failed'))
-          request.onsuccess = () => {
-            const db = request.result
-            if (!db.objectStoreNames.contains('drafts')) {
-              db.close()
-              resolve(0)
-              return
-            }
-            const tx = db.transaction('drafts', 'readonly')
-            const count = tx.objectStore('drafts').count()
-            count.onsuccess = () => {
-              db.close()
-              resolve(count.result)
-            }
-            count.onerror = () => {
-              db.close()
-              reject(count.error ?? new Error('IDB count failed'))
-            }
-          }
-        })
-      })
-    })
-    .toBeGreaterThan(0)
+  await expect.poll(() => readDraftCount(page)).toBeGreaterThan(0)
 }
 
 async function applyEscToF13(page: Page) {
-  await page
-    .locator(ESC_KEY)
-    .getByRole('button', { name: '&kp ESC, layer 0' })
-    .click()
-  await applyF13InEditor(page)
-}
-
-async function applyF13InEditor(page: Page) {
-  const dialog = page.getByRole('dialog', { name: 'Edit key' })
-  await expect(dialog).toBeVisible()
-  await dialog.getByPlaceholder('Filter values…').fill(NEW_KEYCODE)
-  await dialog.getByRole('button', { name: NEW_KEYCODE }).first().click()
-  await dialog.getByRole('button', { name: 'Apply' }).click()
-  await expect(dialog).toBeHidden()
+  await editKey(
+    page,
+    page.locator(ESC_KEY).getByRole('button', { name: '&kp ESC, layer 0' }),
+    NEW_KEYCODE
+  )
 }
 
 function layerSlice(source: string, start: string, end: string) {
@@ -153,8 +113,7 @@ test.describe('local adapter smoke', () => {
     const key = page.locator(E_KEY)
     const layer2Row = key.getByRole('button', { name: `${LAYER2_ORIGINAL_BIND}, layer 2` })
     await expect(layer2Row).toBeVisible()
-    await layer2Row.click()
-    await applyF13InEditor(page)
+    await editKey(page, layer2Row, NEW_KEYCODE)
 
     const write = page.getByRole('button', { name: 'Write files' })
     await expect(write).toBeEnabled()
