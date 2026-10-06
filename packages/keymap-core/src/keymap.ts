@@ -14,6 +14,7 @@ import {
   macrosAppearInText,
   parseDefines
 } from './dts-keymap.js'
+import { uniqueDtsNodeId } from './dts-scan.js'
 import { assertLayerKeyCounts, spliceBindingsIntoDts } from './dts-splice.js'
 import { bindingColumnWidths, renderTable } from './layout.js'
 import { KeymapValidationError } from './errors.js'
@@ -267,8 +268,11 @@ function renderTemplate(
     columnSeparator: ' '
   })
 
+  const usedNames = new Set<string>()
   const renderedLayers = params.layers.map((layer, i) => {
-    const name = i === 0 ? 'default_layer' : `layer_${params.layerNames[i] || i}`
+    const raw = i === 0 ? 'default_layer' : `layer_${params.layerNames[i] || i}`
+    const stem = raw.replace(/[^a-zA-Z0-9_]/g, '_')
+    const name = uniqueDtsNodeId(stem, usedNames)
     const rendered = renderTable(params.layout, layer, {
       linePrefix: '',
       columnSeparator: ' ',
@@ -276,7 +280,7 @@ function renderTemplate(
     })
 
     return `
-        ${name.replace(/[^a-zA-Z0-9_]/g, '_')} {
+        ${name} {
             bindings = <
 ${rendered}
             >;
@@ -348,8 +352,9 @@ export function generateKeymap(
  * generated template. Always validates layer key counts first.
  *
  * Template / default_template name layer nodes as `default_layer` (index 0) or
- * `layer_${name}` from `layer_names` (sanitized); splice keeps existing DTS node
- * ids by index and does not rename them from UI names (ADR 0002).
+ * `layer_${name}` from `layer_names` (sanitized, then `_2`/`_3` if that id is
+ * taken); splice keeps existing DTS node ids by index and does not rename them
+ * from UI names (ADR 0002). New spliced nodes use `layer_${index}` or `_2`/`_3`.
  *
  * Optional model fields on every save path (`applyModelBlocks`):
  *

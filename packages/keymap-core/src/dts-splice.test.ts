@@ -251,6 +251,34 @@ describe('spliceBindingsIntoDts', () => {
     expect(km.layer_names).toEqual(['layer-base'])
     expect(spliced).toMatch(/\n        \};\n    \};\n\};\n?$/)
   })
+
+  it('does not write a second layer_2 when base and layer_2 already exist', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        base {
+            bindings = <&kp A &kp B>;
+        };
+        layer_2 {
+            bindings = <&kp C &kp D>;
+        };
+    };
+};
+`
+    const spliced = spliceBindingsIntoDts(src, {
+      layout: TINY_LAYOUT,
+      layers: [
+        ['&kp A', '&kp B'],
+        ['&kp C', '&kp D'],
+        ['&none', '&none']
+      ]
+    })
+    expect(spliced.match(/\blayer_2\s*\{/g)?.length).toBe(1)
+    expect(spliced).toMatch(/\blayer_2_2\s*\{/)
+    const km = parseDtsKeymap(spliced)
+    expect(km.layers).toHaveLength(3)
+    expect(km.layer_names).toEqual(['base', 'layer_2', 'layer_2_2'])
+  })
 })
 
 describe('buildKeymapCode paths', () => {

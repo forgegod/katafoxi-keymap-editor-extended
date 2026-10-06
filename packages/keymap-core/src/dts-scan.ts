@@ -341,3 +341,19 @@ export function tokenizeBindingsDetailed(block: string): TokenizeBindingsResult 
 export function tokenizeBindings(block: string): string[] {
   return tokenizeBindingsDetailed(block).binds
 }
+
+/**
+ * Return `stem` if unused, otherwise `stem_2`, `stem_3`, …. Records the chosen
+ * id in `used`.
+ */
+export function uniqueDtsNodeId(stem: string, used: Set<string>): string {
+  if (!used.has(stem)) {
+    used.add(stem)
+    return stem
+  }
+  let n = 2
+  while (used.has(`${stem}_${n}`)) n++
+  const id = `${stem}_${n}`
+  used.add(id)
+  return id
+}

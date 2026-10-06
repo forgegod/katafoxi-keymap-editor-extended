@@ -63,6 +63,40 @@ describe('generateKeymap mouse includes', () => {
     expect(code.match(/dt-bindings\/zmk\/pointing\.h/g)?.length).toBe(1)
     expect(code).toContain('&mkp LCLK')
   })
+
+  it('gives colliding sanitized layer names unique _2 suffixes', () => {
+    const layout = [{ x: 0, y: 0 }, { x: 1, y: 0 }]
+    const { code } = generateKeymap(
+      layout,
+      parseKeymap({
+        layer_names: ['Base', 'a b', 'a-b'],
+        layers: [
+          ['&kp A', '&trans'],
+          ['&kp B', '&trans'],
+          ['&kp C', '&trans']
+        ]
+      })
+    )
+    expect(code).toMatch(/\bdefault_layer\s*\{/)
+    expect(code).toMatch(/\blayer_a_b\s*\{/)
+    expect(code).toMatch(/\blayer_a_b_2\s*\{/)
+    expect(code.match(/\blayer_a_b\s*\{/g)?.length).toBe(1)
+
+    const cyrillic = generateKeymap(
+      layout,
+      parseKeymap({
+        layer_names: ['Base', 'аб', 'вг'],
+        layers: [
+          ['&kp A', '&trans'],
+          ['&kp B', '&trans'],
+          ['&kp C', '&trans']
+        ]
+      })
+    ).code
+    expect(cyrillic).toMatch(/\blayer___\s*\{/)
+    expect(cyrillic).toMatch(/\blayer____2\s*\{/)
+    expect(cyrillic.match(/\blayer___\s*\{/g)?.length).toBe(1)
+  })
 })
 
 describe('isUserKeymapFilename', () => {

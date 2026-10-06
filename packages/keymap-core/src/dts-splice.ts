@@ -7,6 +7,7 @@ import {
   findKeymapLayerNodes,
   findZmkKeymapBlock
 } from './dts-keymap.js'
+import { uniqueDtsNodeId } from './dts-scan.js'
 import { dominantEol, type LineEnding } from './eol.js'
 import { KeymapValidationError } from './errors.js'
 import { bindingColumnWidths, renderTable } from './layout.js'
@@ -37,14 +38,14 @@ function renderBindingsInterior(
 }
 
 function formatNewLayerNode(
-  index: number,
+  name: string,
   interior: string,
   indent: string,
   eol: LineEnding
 ): string {
   const inner = indent + '    '
   return (
-    `${indent}layer_${index} {${eol}` +
+    `${indent}${name} {${eol}` +
     `${inner}bindings = <${eol}` +
     `${interior}${eol}` +
     `${inner}>;${eol}` +
@@ -145,10 +146,12 @@ export function spliceBindingsIntoDts(
       ])
     }
     const insertAt = blockAfter.closeBrace
+    const usedNames = new Set(existing.map(node => node.name))
     const newNodes: string[] = []
     for (let i = existing.length; i < layers.length; i++) {
       const interior = renderBindingsInterior(layout, layers[i], columnWidths, eol)
-      newNodes.push(formatNewLayerNode(i, interior, indent, eol))
+      const name = uniqueDtsNodeId(`layer_${i}`, usedNames)
+      newNodes.push(formatNewLayerNode(name, interior, indent, eol))
     }
     const insertion = eol + newNodes.join(eol) + eol
     result = result.slice(0, insertAt) + insertion + result.slice(insertAt)
