@@ -5,7 +5,6 @@ import {
   hostLayout,
   hostLayoutFromKeymapSnapshotKeys,
   hostLayoutMeta,
-  standardHostLegendView,
   type HostKeymapDeliverableFile,
   type HostKeymapSnapshot,
   type HostLayout
@@ -80,23 +79,6 @@ export function _encodeLiveHostSnapshot(this: EditorState): string {
   return encodeHostKeymapSnapshot(this.buildCurrentHostKeymapSnapshot())
 }
 
-/** Host half differs from the last GitHub load/commit (ADR 0005). */
-export function isHostRepoDirty(this: EditorState): boolean {
-  if (this.source !== 'github') return false
-  void this.hostLayoutRevision
-  void this.hostLegend
-  const live = this._encodeLiveHostSnapshot()
-  if (this._hostRepoBaselineEncoded === null) {
-    return (
-      live !==
-      encodeHostKeymapSnapshot(
-        buildHostKeymapSnapshot(standardHostLegendView(), [])
-      )
-    )
-  }
-  return live !== this._hostRepoBaselineEncoded
-}
-
 /**
  * After a successful Commit, set the repo tip to the snapshot that was sent.
  * Pass the encoding captured at write time so mid-flight host edits stay dirty.
@@ -161,10 +143,7 @@ export async function _applyHostKeymapSnapshot(this: EditorState,
   if (replaced.length > 0) this.hostProfileNote = UNKNOWN_HOST_LAYOUT_NOTE
   await this._persistHostLegend()
   if (selectToken !== this._selectGeneration) return
-  this._hostRepoBaselineEncoded = encodeHostKeymapSnapshot({
-    ...snapshot,
-    view
-  })
+  this._hostRepoBaselineEncoded = this._encodeLiveHostSnapshot()
   this.markHostDelivered()
   await this._restoreHostAssemblies(selectToken)
 }

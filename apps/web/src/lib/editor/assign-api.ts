@@ -7,7 +7,6 @@ export const GETTER_NAMES = [
   'canUndo',
   'canRedo',
   'hostLegendLayerNames',
-  'isHostRepoDirty',
   'isPublishDirty',
   'isHostDirty',
   'hostDeliverableLayoutIds',

@@ -230,4 +230,150 @@ describe('GitHub host keymap snapshot', () => {
     editor.acceptHostRepoBaseline(committed)
     expect(editor.isHostRepoDirty).toBe(true)
   })
+
+  it('does not show Host changed after GitHub select of a non-canonical snapshot', async () => {
+    const snapshot = {
+      version: 1 as const,
+      view: {
+        columns: [
+          {
+            language: 'en' as const,
+            layoutId: 'user:en-1',
+            visible: true,
+            altGr: true,
+            altGrShift: true
+          }
+        ],
+        open: null
+      },
+      layouts: [
+        {
+          id: 'user:en-1',
+          name: 'from-repo',
+          language: 'en' as const,
+          origin: { from: 'copy' as const, layoutId: 'system-us' },
+          keys: [
+            {
+              zmk: 'Q',
+              keysyms: ['q', 'Q', 'NoSymbol', 'NoSymbol'] as [
+                string,
+                string,
+                string,
+                string
+              ],
+              glyphs: ['q', 'Q', '', ''] as [string, string, string, string]
+            }
+          ]
+        },
+        {
+          id: 'user:orphan',
+          name: 'unused',
+          language: 'ru' as const,
+          origin: { from: 'copy' as const, layoutId: 'system-ru-legacy' },
+          keys: [
+            {
+              zmk: 'Q',
+              keysyms: [
+                'Cyrillic_shorti',
+                'Cyrillic_SHORTI',
+                'NoSymbol',
+                'NoSymbol'
+              ] as [string, string, string, string],
+              glyphs: ['й', 'Й', '', ''] as [string, string, string, string]
+            }
+          ]
+        }
+      ]
+    }
+    const fileEncoded = encodeHostKeymapSnapshot(snapshot)
+
+    await editor.selectKeyboard({
+      ...BOARD,
+      hostSnapshot: snapshot
+    })
+
+    const live = encodeHostKeymapSnapshot(editor.buildCurrentHostKeymapSnapshot())
+    expect(fileEncoded).not.toBe(live)
+    expect(editor.isHostRepoDirty).toBe(false)
+    expect(editor.isPublishDirty).toBe(false)
+  })
+
+  it('is not host-repo dirty when snapshot layouts are not in column order', async () => {
+    const en = {
+      id: 'user:en-1',
+      name: 'en-user',
+      language: 'en' as const,
+      origin: { from: 'copy' as const, layoutId: 'system-us' },
+      keys: [
+        {
+          zmk: 'Q',
+          keysyms: ['q', 'Q', 'NoSymbol', 'NoSymbol'] as [
+            string,
+            string,
+            string,
+            string
+          ],
+          glyphs: ['q', 'Q', '', ''] as [string, string, string, string]
+        }
+      ]
+    }
+    const ru = {
+      id: 'user:ru-1',
+      name: 'ru-user',
+      language: 'ru' as const,
+      origin: { from: 'copy' as const, layoutId: 'system-ru-legacy' },
+      keys: [
+        {
+          zmk: 'Q',
+          keysyms: [
+            'Cyrillic_shorti',
+            'Cyrillic_SHORTI',
+            'NoSymbol',
+            'NoSymbol'
+          ] as [string, string, string, string],
+          glyphs: ['й', 'Й', '', ''] as [string, string, string, string]
+        }
+      ]
+    }
+    const snapshot = {
+      version: 1 as const,
+      view: {
+        columns: [
+          {
+            language: 'en' as const,
+            layoutId: 'user:en-1',
+            visible: true,
+            altGr: true,
+            altGrShift: true
+          },
+          {
+            language: 'ru' as const,
+            layoutId: 'user:ru-1',
+            visible: true,
+            altGr: true,
+            altGrShift: true
+          }
+        ],
+        open: null
+      },
+      layouts: [ru, en]
+    }
+    const fileEncoded = encodeHostKeymapSnapshot(snapshot)
+
+    await editor.selectKeyboard({
+      ...BOARD,
+      hostSnapshot: snapshot
+    })
+
+    const live = encodeHostKeymapSnapshot(editor.buildCurrentHostKeymapSnapshot())
+    expect(live).toContain('"id": "user:en-1"')
+    expect(fileEncoded.indexOf('"id": "user:ru-1"')).toBeLessThan(
+      fileEncoded.indexOf('"id": "user:en-1"')
+    )
+    expect(live.indexOf('"id": "user:en-1"')).toBeLessThan(
+      live.indexOf('"id": "user:ru-1"')
+    )
+    expect(fileEncoded).not.toBe(live)
+    expect(editor.isHostRepoDirty).toBe(false)
+  })
 })
