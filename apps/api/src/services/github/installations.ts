@@ -8,6 +8,24 @@ type GithubRepository = {
   permissions?: { push?: boolean }
 }
 
+const GITHUB_API_ORIGIN = 'https://api.github.com'
+const GITHUB_LIST_PER_PAGE = 100
+const GITHUB_MAX_LIST_PAGES = 10
+
+/** Follow GitHub `Link: rel=next` only when it stays on api.github.com. */
+function githubApiNextUrl(linkHeader: unknown): string | undefined {
+  const raw = typeof linkHeader === 'string' ? linkHeader : ''
+  const uri = LinkHeader.parse(raw).get('rel', 'next')?.[0]?.uri
+  if (!uri) return undefined
+  try {
+    const next = new URL(uri, GITHUB_API_ORIGIN)
+    if (next.protocol !== 'https:' || next.hostname !== 'api.github.com') return undefined
+    return next.href
+  } catch {
+    return undefined
+  }
+}
+
 async function collectPaged<T>(
   userToken: string,
   firstUrl: string,
@@ -15,11 +33,12 @@ async function collectPaged<T>(
 ): Promise<T[]> {
   const items: T[] = []
   let url: string | undefined = firstUrl
-  while (url) {
+  let pages = 0
+  while (url && pages < GITHUB_MAX_LIST_PAGES) {
+    pages += 1
     const res = await api.request({ url, token: userToken })
     items.push(...itemsFrom(res.data))
-    const paging = LinkHeader.parse((res.headers.link as string) || '')
-    url = paging.get('rel', 'next')?.[0]?.uri
+    url = githubApiNextUrl(res.headers.link)
   }
   return items
 }
@@ -27,7 +46,7 @@ async function collectPaged<T>(
 export async function fetchInstallations(userToken: string) {
   const installations = await collectPaged<GithubInstallation>(
     userToken,
-    '/user/installations?per_page=100',
+    `/user/installations?per_page=${GITHUB_LIST_PER_PAGE}`,
     data => (data as { installations: GithubInstallation[] }).installations
   )
   return installations.filter(installation => !installation.suspended_at)
@@ -41,7 +60,7 @@ export async function fetchInstallationRepos(userToken: string) {
   for (const installation of installations) {
     const pageRepos = await collectPaged<GithubRepository>(
       userToken,
-      `/user/installations/${installation.id}/repositories?per_page=100`,
+      `/user/installations/${installation.id}/repositories?per_page=${GITHUB_LIST_PER_PAGE}`,
       data => (data as { repositories: GithubRepository[] }).repositories
     )
     repositories.push(...pageRepos)
@@ -157,12 +176,13 @@ export async function createBranch(
 
 export async function fetchRepoBranches(installationToken: string, repo: string) {
   const branches: unknown[] = []
-  let url: string | undefined = api.githubApiPath('repos', repo, 'branches')
-  while (url) {
+  let url: string | undefined = `${api.githubApiPath('repos', repo, 'branches')}?per_page=${GITHUB_LIST_PER_PAGE}`
+  let pages = 0
+  while (url && pages < GITHUB_MAX_LIST_PAGES) {
+    pages += 1
     const res = await api.request({ url, token: installationToken })
-    const paging = LinkHeader.parse((res.headers.link as string) || '')
     branches.push(...(res.data as unknown[]))
-    url = paging.get('rel', 'next')?.[0]?.uri
+    url = githubApiNextUrl(res.headers.link)
   }
   return branches
 }

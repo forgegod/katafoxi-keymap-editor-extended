@@ -121,8 +121,8 @@ function pickArtifact(artifacts: Artifact[]): Artifact | null {
   )
 }
 
-async function installationToken(installationId: string): Promise<string> {
-  const { data } = await createInstallationToken(installationId)
+async function installationToken(installationId: string, repository: string): Promise<string> {
+  const { data } = await createInstallationToken(installationId, { repository })
   return (data as { token: string }).token
 }
 
@@ -134,7 +134,7 @@ export async function fetchFirmwareBuild(
 ): Promise<FirmwareBuild> {
   let token: string
   try {
-    token = await installationToken(installationId)
+    token = await installationToken(installationId, repository)
   } catch (err) {
     if (githubStatus(err) === 403) return unavailable('actions_permission')
     throw err
@@ -228,7 +228,7 @@ export async function downloadFirmwareArtifact(
   repository: string,
   artifactId: string
 ): Promise<Response> {
-  const token = await installationToken(installationId)
+  const token = await installationToken(installationId, repository)
   const { data } = await api.request({
     url: api.githubApiPath('repos', repository, 'actions', 'artifacts', artifactId),
     token

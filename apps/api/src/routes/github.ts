@@ -199,7 +199,7 @@ githubRoutes.post('/installation/:installationId/:repository/branches', async c 
       c.get('session'),
       { requirePush: true }
     )
-    const { data } = await auth.createInstallationToken(installationId)
+    const { data } = await auth.createInstallationToken(installationId, { repository })
     const created = await installations.createBranch(
       (data as { token: string }).token,
       repository,
@@ -241,7 +241,7 @@ githubRoutes.get('/installation/:installationId/:repository/branches', async c =
       repository,
       c.get('session')
     )
-    const { data } = await auth.createInstallationToken(installationId)
+    const { data } = await auth.createInstallationToken(installationId, { repository })
     const branches = await installations.fetchRepoBranches(
       (data as { token: string }).token,
       repository

@@ -295,7 +295,7 @@ export async function fetchKeyboardFiles(
   repository: string,
   branch?: string
 ) {
-  const { data } = await auth.createInstallationToken(installationId)
+  const { data } = await auth.createInstallationToken(installationId, { repository })
   const installationToken = (data as { token: string }).token
   const head = await resolveHeadCommit(installationToken, repository, branch)
   const ref = head.sha
@@ -324,7 +324,7 @@ export async function commitChanges(
   hostDeliverables?: HostKeymapDeliverableFile[] | null,
   baseSha?: string | null
 ) {
-  const { data } = await auth.createInstallationToken(installationId)
+  const { data } = await auth.createInstallationToken(installationId, { repository })
   const installationToken = (data as { token: string }).token
   const head = await resolveHeadCommit(installationToken, repository, branch)
   if (typeof baseSha !== 'string' || !baseSha || baseSha !== head.sha) {

@@ -1,7 +1,10 @@
 import { Hono } from 'hono'
+import fs from 'node:fs'
+import jwt from 'jsonwebtoken'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { KeymapValidationError, parseKeymap } from '@keymap-editor/keymap-core'
 import { config } from '../config.js'
+import * as api from '../services/github/api.js'
 import * as auth from '../services/github/auth.js'
 import * as files from '../services/github/files.js'
 import { MissingRepoFile } from '../services/github/files.js'
@@ -109,6 +112,7 @@ beforeEach(() => {
 afterEach(() => {
   for (const sid of createdSids) deleteSession(sid)
   createdSids.length = 0
+  auth.clearInstallationTokenCache()
   vi.restoreAllMocks()
   vi.useRealTimers()
 })
@@ -650,6 +654,33 @@ describe('session and errors', () => {
     expect(res.status).toBe(201)
     expect(await res.json()).toEqual({ name: 'topic' })
     expect(create).toHaveBeenCalledWith('install-token', 'acme/lark', 'topic', 'main')
+  })
+
+  it('GET /github/installation branches mints one token for two requests', async () => {
+    vi.mocked(installations.fetchRepoBranches).mockResolvedValue([])
+    vi.spyOn(fs, 'readFileSync').mockReturnValue('test-pem')
+    vi.spyOn(jwt, 'sign').mockImplementation(() => 'app-jwt')
+    const mint = vi.spyOn(api, 'request').mockResolvedValue({
+      data: {
+        token: 'install-token',
+        expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString()
+      },
+      headers: {},
+      status: 201
+    })
+    const sid = trackSid(createSession({ login: 'octocat', oauthAccessToken: 'user-token' }))
+
+    const first = await authedRequest('/github/installation/1/acme%2Flark/branches', {}, sid)
+    const second = await authedRequest('/github/installation/1/acme%2Flark/branches', {}, sid)
+    expect(first.res.status).toBe(200)
+    expect(second.res.status).toBe(200)
+    expect(mint).toHaveBeenCalledTimes(1)
+    expect(mint).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: '/app/installations/1/access_tokens',
+        data: expect.objectContaining({ repositories: ['lark'] })
+      })
+    )
   })
 
   it('GET /github/builds requires a session and a branch', async () => {

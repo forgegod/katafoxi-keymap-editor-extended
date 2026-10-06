@@ -9,15 +9,94 @@ import * as api from './api.js'
 import { SESSION_COOKIE_MAX_AGE_SEC } from './sessions.js'
 
 const pemPath = path.join(REPO_ROOT, 'private-key.pem')
+const INSTALLATION_TOKEN_REFRESH_BEFORE_MS = 5 * 60 * 1000
 
 export const SID_COOKIE = 'sid'
 export const OAUTH_STATE_COOKIE = 'oauth_state'
 
+let privateKey: string | Buffer | undefined
+
 function getPrivateKey(): string | Buffer {
-  if (config.GITHUB_APP_PRIVATE_KEY) {
-    return config.GITHUB_APP_PRIVATE_KEY.replace(/\\n/g, '\n')
+  if (privateKey !== undefined) return privateKey
+  privateKey = config.GITHUB_APP_PRIVATE_KEY
+    ? config.GITHUB_APP_PRIVATE_KEY.replace(/\\n/g, '\n')
+    : fs.readFileSync(pemPath)
+  return privateKey
+}
+
+export type InstallationTokenOptions = {
+  repository?: string
+}
+
+type InstallationTokenResponse = {
+  data: unknown
+  headers: Record<string, string>
+  status: number
+}
+
+type CachedInstallationToken = {
+  response?: InstallationTokenResponse
+  freshUntilMs?: number
+  inflight?: Promise<InstallationTokenResponse>
+}
+
+const installationTokens = new Map<string, CachedInstallationToken>()
+
+export function clearInstallationTokenCache() {
+  installationTokens.clear()
+}
+
+function repositoryTokenName(repository: string | undefined): string | undefined {
+  if (!repository) return undefined
+  const name = repository.trim().split('/').pop()
+  return name || undefined
+}
+
+/** Repo-scoped token with the permissions this API actually uses. */
+function installationTokenRequestData(
+  repository: string | undefined
+): { repositories: string[]; permissions: Record<string, string> } | undefined {
+  const name = repositoryTokenName(repository)
+  if (!name) return undefined
+  return {
+    repositories: [name],
+    permissions: {
+      contents: 'write',
+      metadata: 'read',
+      actions: 'read'
+    }
   }
-  return fs.readFileSync(pemPath)
+}
+
+function installationTokenCacheKey(
+  installationId: string,
+  repository: string | undefined
+): string {
+  return `${installationId}:${repositoryTokenName(repository) ?? '*'}`
+}
+
+function tokenFreshUntilMs(data: unknown): number | undefined {
+  if (data == null || typeof data !== 'object') return undefined
+  const expiresAt = (data as { expires_at?: unknown }).expires_at
+  if (typeof expiresAt !== 'string' || !expiresAt) return undefined
+  const expiresMs = Date.parse(expiresAt)
+  if (!Number.isFinite(expiresMs)) return undefined
+  return expiresMs - INSTALLATION_TOKEN_REFRESH_BEFORE_MS
+}
+
+/** Uncached POST to GitHub. Prefer `createInstallationToken` so tokens are reused. */
+export function mintInstallationToken(
+  installationId: string,
+  options: InstallationTokenOptions = {}
+) {
+  const token = createAppToken()
+  const url = `/app/installations/${installationId}/access_tokens`
+  return api.request({
+    url,
+    method: 'POST',
+    token,
+    data: installationTokenRequestData(options.repository)
+  })
 }
 
 function cookieOptions(overrides: CookieOptions = {}): CookieOptions {
@@ -105,10 +184,35 @@ export function createAppToken(): string {
   )
 }
 
-export function createInstallationToken(installationId: string) {
-  const token = createAppToken()
-  const url = `/app/installations/${installationId}/access_tokens`
-  return api.request({ url, method: 'POST', token })
+export async function createInstallationToken(
+  installationId: string,
+  options: InstallationTokenOptions = {}
+): Promise<InstallationTokenResponse> {
+  const key = installationTokenCacheKey(installationId, options.repository)
+  const now = Date.now()
+  const cached = installationTokens.get(key)
+  if (cached?.response && cached.freshUntilMs != null && now < cached.freshUntilMs) {
+    return cached.response
+  }
+  if (cached?.inflight) return cached.inflight
+
+  const inflight = mintInstallationToken(installationId, options)
+    .then(response => {
+      const freshUntilMs = tokenFreshUntilMs(response.data)
+      if (freshUntilMs == null || freshUntilMs <= Date.now()) {
+        installationTokens.delete(key)
+        return response
+      }
+      installationTokens.set(key, { response, freshUntilMs })
+      return response
+    })
+    .catch(err => {
+      installationTokens.delete(key)
+      throw err
+    })
+
+  installationTokens.set(key, { inflight })
+  return inflight
 }
 
 export function createOauthFlowUrl(state: string): string {

@@ -1,12 +1,18 @@
-import { describe, expect, it } from 'vitest'
+import fs from 'node:fs'
+import jwt from 'jsonwebtoken'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { config } from '../../config.js'
+import * as api from './api.js'
 import {
   appOrigin,
   appTokenTimestamps,
+  clearInstallationTokenCache,
+  createInstallationToken,
   createOauthDeniedUrl,
   isTrustedAppOrigin,
+  mintInstallationToken,
   parseOauthTokenPayload
 } from './auth.js'
-import { config } from '../../config.js'
 
 describe('appTokenTimestamps', () => {
   it('issues the token a minute early and keeps exp inside an 8 minute window', () => {
@@ -75,5 +81,96 @@ describe('isTrustedAppOrigin', () => {
 
   it('uses the same origin as config.APP_BASE_URL', () => {
     expect(expected).toBe(new URL(config.APP_BASE_URL).origin)
+  })
+})
+
+describe('createInstallationToken', () => {
+  afterEach(() => {
+    clearInstallationTokenCache()
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  function stubMint() {
+    vi.spyOn(fs, 'readFileSync').mockReturnValue('test-pem')
+    vi.spyOn(jwt, 'sign').mockImplementation(() => 'app-jwt')
+    return vi.spyOn(api, 'request').mockResolvedValue({
+      data: {
+        token: 'install-token',
+        expires_at: '2026-06-01T13:00:00.000Z'
+      },
+      headers: {},
+      status: 201
+    })
+  }
+
+  it('mints once for two calls on the same installation until expires_at minus 5 minutes', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-01T12:00:00.000Z'))
+    const request = stubMint()
+
+    await createInstallationToken('1', { repository: 'acme/lark' })
+    await createInstallationToken('1', { repository: 'acme/lark' })
+    expect(request).toHaveBeenCalledTimes(1)
+    if (!config.GITHUB_APP_PRIVATE_KEY) {
+      expect(fs.readFileSync).toHaveBeenCalledTimes(1)
+    }
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: '/app/installations/1/access_tokens',
+        method: 'POST',
+        token: 'app-jwt',
+        data: {
+          repositories: ['lark'],
+          permissions: {
+            contents: 'write',
+            metadata: 'read',
+            actions: 'read'
+          }
+        }
+      })
+    )
+
+    vi.setSystemTime(new Date('2026-06-01T12:54:59.000Z'))
+    await createInstallationToken('1', { repository: 'acme/lark' })
+    expect(request).toHaveBeenCalledTimes(1)
+
+    vi.setSystemTime(new Date('2026-06-01T12:55:00.000Z'))
+    await createInstallationToken('1', { repository: 'acme/lark' })
+    expect(request).toHaveBeenCalledTimes(2)
+  })
+
+  it('mints separately per installation', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-01T12:00:00.000Z'))
+    const request = stubMint()
+
+    await createInstallationToken('1', { repository: 'acme/lark' })
+    await createInstallationToken('2', { repository: 'acme/lark' })
+    expect(request).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('mintInstallationToken', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('posts an unscoped token when the repository is omitted', async () => {
+    vi.spyOn(fs, 'readFileSync').mockReturnValue('test-pem')
+    vi.spyOn(jwt, 'sign').mockImplementation(() => 'app-jwt')
+    const request = vi.spyOn(api, 'request').mockResolvedValue({
+      data: { token: 'install-token' },
+      headers: {},
+      status: 201
+    })
+
+    await mintInstallationToken('9')
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: '/app/installations/9/access_tokens',
+        data: undefined
+      })
+    )
   })
 })

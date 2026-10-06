@@ -9,6 +9,7 @@ import {
   BranchNameError,
   createBranch,
   fetchInstallationRepos,
+  fetchRepoBranches,
   RepositoryNameError
 } from './installations.js'
 
@@ -150,6 +151,64 @@ describe('fetchInstallationRepos', () => {
     ])
     expect(seenInstallations.size).toBe(31)
     expect(seenInstallations.has(31)).toBe(true)
+  })
+
+  it('does not follow a Link next off api.github.com', async () => {
+    const request = vi.spyOn(api, 'request').mockImplementation(async options => {
+      const url = requestUrl(options)
+      if (url === '/user/installations?per_page=100') {
+        return {
+          data: { installations: [{ id: 1 }] },
+          headers: { link: '<https://evil.example/user/installations?page=2>; rel="next"' },
+          status: 200
+        }
+      }
+      if (url.includes('/user/installations/1/repositories')) {
+        return { data: { repositories: [] }, headers: {}, status: 200 }
+      }
+      throw new Error(`unexpected ${url}`)
+    })
+
+    const result = await fetchInstallationRepos('user-token')
+    expect(result.installations).toEqual([{ id: 1 }])
+    expect(request.mock.calls.map(([options]) => requestUrl(options))).toEqual([
+      '/user/installations?per_page=100',
+      '/user/installations/1/repositories?per_page=100'
+    ])
+  })
+})
+
+describe('fetchRepoBranches', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('requests 100 branches per page and stops after the page cap', async () => {
+    const request = vi.spyOn(api, 'request').mockImplementation(async () => {
+      return {
+        data: [{ name: 'topic' }],
+        headers: {
+          link: '<https://api.github.com/repos/acme/lark/branches?page=2>; rel="next"'
+        },
+        status: 200
+      }
+    })
+
+    const branches = await fetchRepoBranches('install-token', 'acme/lark')
+    expect(request).toHaveBeenCalledTimes(10)
+    expect(requestUrl(request.mock.calls[0][0])).toBe('/repos/acme/lark/branches?per_page=100')
+    expect(branches).toHaveLength(10)
+  })
+
+  it('does not follow a Link next off api.github.com', async () => {
+    const request = vi.spyOn(api, 'request').mockResolvedValue({
+      data: [{ name: 'main' }],
+      headers: { link: '<https://evil.example/repos/acme/lark/branches?page=2>; rel="next"' },
+      status: 200
+    })
+
+    await expect(fetchRepoBranches('install-token', 'acme/lark')).resolves.toEqual([{ name: 'main' }])
+    expect(request).toHaveBeenCalledTimes(1)
   })
 })
 
