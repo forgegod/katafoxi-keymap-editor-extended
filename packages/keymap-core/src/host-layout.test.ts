@@ -189,6 +189,70 @@ describe('parseXkbSymbolsSection', () => {
       'periodcentered'
     ])
   })
+
+  it('parses adversarial unclosed comments and keys in under 1s', () => {
+    const openKeys = Array.from({ length: 2500 }, (_, i) => `key <K${i}> { [ a, A ]`).join('\n')
+    const source = `
+      xkb_symbols "basic" {
+        key <AC01> [ a, A ];
+        ${openKeys}
+        ${'/* unclosed '.repeat(2500)}
+      };
+    `
+    const started = Date.now()
+    const keys = parseXkbSymbolsSection(source, 'basic')
+    expect(Date.now() - started).toBeLessThan(1000)
+    expect(keys.get('AC01')).toEqual(['a', 'A'])
+  })
+
+  it('skips eurosign, nbsp, and kpdl includes with a warning', () => {
+    const source = `
+      xkb_symbols "basic" {
+        include "eurosign(e)"
+        include "nbsp(level3n)"
+        include "kpdl(comma)"
+        key <AC01> {[ a, A ]};
+      };
+    `
+    const warnings: string[] = []
+    const keys = parseXkbSymbolsSection(source, 'basic', [], { warnings, strictIncludes: true })
+    expect(keys.get('AC01')).toEqual(['a', 'A'])
+    expect(warnings).toEqual([
+      'Skipped xkb include "eurosign(e)": non-character module.',
+      'Skipped xkb include "nbsp(level3n)": non-character module.',
+      'Skipped xkb include "kpdl(comma)": non-character module.'
+    ])
+  })
+
+  it('warns on augment and override and still applies the include', () => {
+    const source = `
+      xkb_symbols "base" {
+        key <AC01> {[ a, A ]};
+      };
+      xkb_symbols "basic" {
+        override "self(base)"
+        augment "self(base)"
+      };
+    `
+    const warnings: string[] = []
+    const keys = parseXkbSymbolsSection(source, 'basic', [], { fileId: 'self', warnings })
+    expect(keys.get('AC01')).toEqual(['a', 'A'])
+    expect(warnings).toEqual([
+      'xkb include uses override; treated as include.',
+      'xkb include uses augment; treated as include.'
+    ])
+  })
+
+  it('caps include depth at 16', () => {
+    const sections = Array.from({ length: 18 }, (_, i) => {
+      const next = i < 17 ? `include "deep(s${i + 1})"` : ''
+      return `xkb_symbols "s${i}" { ${next} key <AC01> {[ a, A ]}; };`
+    }).join('\n')
+    const warnings: string[] = []
+    const keys = parseXkbSymbolsSection(sections, 's0', [], { fileId: 'deep', warnings })
+    expect(keys.get('AC01')).toEqual(['a', 'A'])
+    expect(warnings.some(message => message.startsWith('xkb include depth exceeds 16:'))).toBe(true)
+  })
 })
 
 describe('keysymToGlyph', () => {

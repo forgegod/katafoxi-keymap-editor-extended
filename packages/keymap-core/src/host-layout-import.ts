@@ -38,6 +38,8 @@ function fileIdFromName(fileName: string): string {
 
 /**
  * Parse one section. Unresolvable `include` throws and names the include.
+ * Known non-character modules (`level3`, `eurosign`, `nbsp`, `kpdl`) are
+ * skipped with a warning instead of failing the import.
  */
 export function hostLayoutFromXkb(
   text: string,
