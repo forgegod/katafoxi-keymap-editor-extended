@@ -104,6 +104,58 @@ describe('editor publish / draft persistence', () => {
     expect(await loadStoredDraft(identity)).toBeNull()
   })
 
+  it('warns and skips restore when a stored draft has fewer keys than the layout', async () => {
+    const identity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
+    const fourKey = {
+      keyboard: 'lark',
+      layer_names: ['default'],
+      layers: [
+        Array.from({ length: 4 }, () => ({
+          value: '&kp',
+          params: [{ value: 'Z', params: [] }]
+        }))
+      ]
+    } satisfies ParsedKeymap
+    const sixKey = {
+      keyboard: 'lark',
+      layer_names: ['default'],
+      layers: [
+        Array.from({ length: 6 }, () => ({
+          value: '&kp',
+          params: [{ value: 'A', params: [] }]
+        }))
+      ]
+    } satisfies ParsedKeymap
+    const layout6 = Array.from({ length: 6 }, (_, i) => ({
+      x: i,
+      y: 0,
+      row: 0,
+      col: i
+    }))
+
+    await saveStoredDraft(identity, fourKey)
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    await expect(
+      editor.selectKeyboard({
+        source: 'local',
+        layout: layout6,
+        keymap: sixKey
+      })
+    ).resolves.toBeUndefined()
+
+    expect(editor.draftKeymap!.layers[0]).toHaveLength(6)
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('A')
+    expect(editor.isDirty).toBe(false)
+    expect(editor.saveNotice?.kind).toBe('warning')
+    expect(editor.saveNotice?.messages[0]).toMatch(/does not match the current keyboard layout/)
+    expect(confirm).toHaveBeenCalled()
+    expect(confirm.mock.calls[0]?.[0]).toMatch(/Discard/)
+    expect(await loadStoredDraft(identity)).toBeNull()
+
+    confirm.mockRestore()
+  })
+
   it('persists dirty draft to IndexedDB and offers restore', async () => {
     const identity = buildDraftIdentity({ source: 'local', keyboard: 'lark' })!
     await saveStoredDraft(identity, km('Z'))

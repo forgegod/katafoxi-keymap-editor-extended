@@ -1,4 +1,9 @@
-import { diffKeymaps } from '@keymap-editor/keymap-core'
+import {
+  assertLayerKeyCounts,
+  diffKeymaps,
+  type LayoutKey,
+  type ParsedKeymap
+} from '@keymap-editor/keymap-core'
 import {
   buildDraftIdentity,
   deleteStoredDraft,
@@ -10,6 +15,36 @@ import {
 import { adoptHoldTaps, adoptSensorBindings, cloneParsedKeymap } from './keymap-clone'
 import { PERSIST_DEBOUNCE_MS } from './types'
 import type { EditorState } from './state.svelte'
+
+const MISMATCHED_DRAFT_NOTICE =
+  'The unpublished draft in this browser does not match the current keyboard layout. It was not restored.'
+
+const MISMATCHED_DRAFT_CONFIRM =
+  'An unpublished draft was saved in this browser, but it no longer matches this keyboard layout. Discard it?\n\nOK = Discard · Cancel = Keep stored'
+
+function isParsedKeymapShape(value: unknown): value is ParsedKeymap {
+  if (!value || typeof value !== 'object') return false
+  const layers = (value as { layers?: unknown }).layers
+  if (!Array.isArray(layers)) return false
+  return layers.every(layer => Array.isArray(layer))
+}
+
+function draftMatchesLayout(
+  layout: LayoutKey[] | null,
+  draft: unknown
+): draft is ParsedKeymap {
+  if (!isParsedKeymapShape(draft)) return false
+  if (!layout) return true
+  try {
+    assertLayerKeyCounts(
+      layout,
+      draft.layers.map(layer => layer.map(() => ''))
+    )
+    return true
+  } catch {
+    return false
+  }
+}
 
 /** Identity for the currently loaded editor document (strict restore key). */
 export function currentDraftIdentity(this: EditorState): DraftIdentity | null {
@@ -100,14 +135,34 @@ export async function _maybeRestorePersistedDraft(this: EditorState, selectToken
   if (!this._draftIdentityMatches(identityKey)) return
   if (!stored) return
 
-  // Stale clean record — drop without prompting.
-  if (diffKeymaps(this.baselineKeymap, stored.draftKeymap).length === 0) {
-    this._handledDraftIdentityKey = identityKey
-    try {
-      await deleteStoredDraft(identity)
-    } catch {
-      /* ignore */
+  try {
+    if (!draftMatchesLayout(this.layout, stored.draftKeymap)) {
+      await offerDiscardMismatchedDraft.call(
+        this,
+        identity,
+        identityKey,
+        selectToken
+      )
+      return
     }
+
+    // Stale clean record — drop without prompting.
+    if (diffKeymaps(this.baselineKeymap, stored.draftKeymap).length === 0) {
+      this._handledDraftIdentityKey = identityKey
+      try {
+        await deleteStoredDraft(identity)
+      } catch {
+        /* ignore */
+      }
+      return
+    }
+  } catch {
+    await offerDiscardMismatchedDraft.call(
+      this,
+      identity,
+      identityKey,
+      selectToken
+    )
     return
   }
 
@@ -136,6 +191,33 @@ export async function _maybeRestorePersistedDraft(this: EditorState, selectToken
     } catch {
       /* ignore */
     }
+  }
+}
+
+async function offerDiscardMismatchedDraft(
+  this: EditorState,
+  identity: DraftIdentity,
+  identityKey: string,
+  selectToken: number
+) {
+  if (selectToken !== this._selectGeneration) return
+  if (!this._draftIdentityMatches(identityKey)) return
+
+  this.saveNotice = {
+    kind: 'warning',
+    messages: [MISMATCHED_DRAFT_NOTICE]
+  }
+
+  const discard = window.confirm(MISMATCHED_DRAFT_CONFIRM)
+  if (selectToken !== this._selectGeneration) return
+  if (!this._draftIdentityMatches(identityKey)) return
+
+  this._handledDraftIdentityKey = identityKey
+  if (!discard) return
+  try {
+    await deleteStoredDraft(identity)
+  } catch {
+    /* ignore */
   }
 }
 
