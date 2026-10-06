@@ -60,14 +60,13 @@
   }
 
   function hoverLayer() {
-    editor.legendHover = conditionalLayerHover(
-      row.index,
-      editor.draftKeymap?.conditionalLayers ?? []
+    editor.setLegendHover(
+      conditionalLayerHover(row.index, editor.draftKeymap?.conditionalLayers ?? [])
     )
   }
 
   function clearHover() {
-    editor.legendHover = null
+    editor.setLegendHover(null)
   }
 
   function cancelRename() {

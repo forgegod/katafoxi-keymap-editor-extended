@@ -1,4 +1,8 @@
-import { hostLanguageName, type ParsedKeymap } from '@keymap-editor/keymap-core'
+import {
+  hostLanguageName,
+  type LegendHover,
+  type ParsedKeymap
+} from '@keymap-editor/keymap-core'
 import type { HostLanguageId } from '../host-layout-store'
 
 export function pairedImportNames(
@@ -43,4 +47,23 @@ export function hostLegendAnchorIndex(keymap: ParsedKeymap | null | undefined): 
       LETTER_KEYCODE.test(String(node.params[0]?.value ?? ''))
   )
   return letterAt >= 0 ? letterAt : 0
+}
+
+/** True when assigning `next` would not change kind or layer (or layers/source). */
+export function legendHoversEqual(
+  current: LegendHover | null,
+  next: LegendHover | null
+): boolean {
+  if (current === next) return true
+  if (!current || !next) return false
+  if (current.kind !== next.kind) return false
+  if (current.kind === 'layer' && next.kind === 'layer') {
+    return current.layer === next.layer
+  }
+  if (current.kind === 'layers' && next.kind === 'layers') {
+    if (current.source !== next.source) return false
+    if (current.layers.length !== next.layers.length) return false
+    return current.layers.every((layer, i) => layer === next.layers[i])
+  }
+  return true
 }

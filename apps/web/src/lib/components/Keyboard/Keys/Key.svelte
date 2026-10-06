@@ -24,7 +24,7 @@
   } from '@keymap-editor/keymap-core'
   import { currentBinding } from '../../../binding-tree'
   import { getSearchContext } from '../../../context'
-  import { editor, hostLegendAnchorIndex } from '../../../editor.svelte.js'
+  import { editor } from '../../../editor.svelte.js'
   import { getBehaviourParams } from '../../../hydrate'
   import { createKeyEditSession } from '../../../key-edit-session.svelte'
   import { getKeyStyles } from '../../../key-units'
@@ -56,6 +56,7 @@
     hostView?: HostLegendView
     layerView?: LayerView
     legendHover?: LegendHover | null
+    isLegendAnchor?: boolean
     layerBindings?: KeyBindingNode[]
     usedKeycodes?: ReadonlyMap<string, readonly number[]>
     usedRevision?: string
@@ -80,6 +81,7 @@
     hostView,
     layerView,
     legendHover = null,
+    isLegendAnchor = false,
     layerBindings,
     usedKeycodes = new Map(),
     usedRevision = '',
@@ -93,9 +95,6 @@
   const searchBox = getSearchContext()
   const search = $derived(searchBox.current)
   const sources = $derived(search?.sources ?? {})
-  const isLegendAnchor = $derived(
-    hostLegendAnchorIndex(editor.draftKeymap) === keyIndex
-  )
   const stackBindings = $derived(
     layerBindings?.length ? layerBindings : [currentBinding(value, params)]
   )
@@ -168,7 +167,7 @@
     if (!claimLegendDecode(keyIndex, layer, hideDecode)) return
     decode = { layer, rect }
     // Same layer preview as the host-legend strip row.
-    editor.legendHover = { kind: 'layer', layer }
+    editor.setLegendHover({ kind: 'layer', layer })
   }
 
   function hideDecode() {
@@ -181,7 +180,7 @@
   }
 
   function clearLayerHover() {
-    if (editor.legendHover?.kind === 'layer') editor.legendHover = null
+    if (editor.legendHover?.kind === 'layer') editor.setLegendHover(null)
   }
 
   function endHostEditSession() {

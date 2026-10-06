@@ -143,11 +143,11 @@
   }
 
   function hoverAlt(kind: 'altGr' | 'altGrShift') {
-    editor.legendHover = { kind }
+    editor.setLegendHover({ kind })
   }
 
   function clearHover() {
-    editor.legendHover = null
+    editor.setLegendHover(null)
   }
 
   function focusLangList(node: HTMLUListElement) {

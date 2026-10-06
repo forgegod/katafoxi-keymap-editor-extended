@@ -42,6 +42,7 @@ import type {
   UserHostLayoutRecord
 } from '../host-layout-store'
 import { assignEditorApi, GETTER_NAMES } from './assign-api'
+import { hostLegendAnchorIndex, legendHoversEqual } from './helpers'
 import * as demoHost from './demo-host'
 import * as documentApi from './document.svelte'
 import * as hostEditUi from './host-edit-ui.svelte'
@@ -91,17 +92,17 @@ export class EditorState {
    */
   baselineLayout = $state<LayoutKey[] | null>(null)
   /** Last loaded / successfully published+reloaded keymap. */
-  baselineKeymap = $state<ParsedKeymap | null>(null)
+  baselineKeymap = $state.raw<ParsedKeymap | null>(null)
   /** Live editor document; always set after load. */
-  draftKeymap = $state<ParsedKeymap | null>(null)
+  draftKeymap = $state.raw<ParsedKeymap | null>(null)
   /** ZMK draft snapshots for step undo (not host edits; not vs baseline). */
-  undoStack = $state<ParsedKeymap[]>([])
+  undoStack = $state.raw<ParsedKeymap[]>([])
   /**
    * Hold-tap list staged by the key dialog. The next keymap update absorbs it
    * so Apply writes the new node and the key in one step. Cancel never sets it.
    */
   _holdTapsOnNextUpdate: ZmkHoldTap[] | null = null
-  redoStack = $state<ParsedKeymap[]>([])
+  redoStack = $state.raw<ParsedKeymap[]>([])
   saving = $state(false)
   /** View over the host profile. It does not edit the keymap. */
   _hostLegend = $state<HostLegendView>(standardHostLegendView())
@@ -161,6 +162,8 @@ export class EditorState {
   hostProfilePrompt = $state<HostProfilePrompt | null>(null)
   hostProfileNote = $state<string | null>(null)
   legendHover = $state<LegendHover | null>(null)
+  /** Sample key for the host-legend table; scanned once per draft, not per key. */
+  legendAnchorIndex = $derived(hostLegendAnchorIndex(this.draftKeymap))
   /** Persistent host-symbol catalog (docked, not per-cell popover). */
   hostSymbolCatalogOpen = $state(false)
   hostSymbolEditTarget = $state<HostSymbolEditTarget | null>(null)
@@ -230,6 +233,11 @@ export class EditorState {
     }
     return map
   })
+
+  setLegendHover(hover: LegendHover | null) {
+    if (legendHoversEqual(this.legendHover, hover)) return
+    this.legendHover = hover
+  }
 
   initCatalogs() {
     this.definitions = {

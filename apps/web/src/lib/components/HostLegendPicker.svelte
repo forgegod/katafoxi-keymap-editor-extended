@@ -6,7 +6,7 @@
     hostLegendColumns,
     type HostLanguageId
   } from '@keymap-editor/keymap-core'
-  import { editor, hostLegendAnchorIndex } from '../editor.svelte.js'
+  import { editor } from '../editor.svelte.js'
   import { clickOutside } from '../actions/click-outside'
   import HostAssemblyBar from './HostAssemblyBar.svelte'
   import HostLegendLanguageHead from './HostLegendLanguageHead.svelte'
@@ -29,7 +29,7 @@
   const addable = $derived(hostLanguagesAvailable(view))
   const markedLayers = $derived(layers.shown)
   const layerNames = $derived(editor.hostLegendLayerNames)
-  const anchorIndex = $derived(hostLegendAnchorIndex(editor.draftKeymap))
+  const anchorIndex = $derived(editor.legendAnchorIndex)
 
   interface Props {
     /** Keep the layer table expanded (coach tour). */
