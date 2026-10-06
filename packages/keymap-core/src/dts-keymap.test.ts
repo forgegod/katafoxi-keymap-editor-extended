@@ -149,12 +149,7 @@ ORPHAN &kp A
     const result = buildKeymapCode(TINY_LAYOUT, parseKeymap(km), {
       originalSource: src
     })
-    const bindingLine = result.code
-      .split(/\r?\n/)
-      .find(line => line.includes('bindings = <'))
-    expect(bindingLine).toBeDefined()
-    expect(bindingLine).not.toContain('//')
-    expect(result.code).toMatch(/bindings = <\s*&kp A\s+&kp B\s*>/)
+    expect(result.code).toBe(src)
   })
 
   it('does not warn macros_expanded for a define name that only appears in a bindings comment', () => {

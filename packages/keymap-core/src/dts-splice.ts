@@ -8,7 +8,7 @@ import {
   findKeymapLayerNodes,
   findZmkKeymapBlock
 } from './dts-keymap.js'
-import { scanDts, uniqueDtsNodeId } from './dts-scan.js'
+import { scanDts, tokenizeBindings, uniqueDtsNodeId } from './dts-scan.js'
 import { dominantEol, type LineEnding } from './eol.js'
 import { KeymapValidationError } from './errors.js'
 import { bindingColumnWidths, renderTable } from './layout.js'
@@ -54,6 +54,18 @@ function formatNewLayerNode(
   )
 }
 
+/** Keep original interior bytes when tokens already match (no-op Save). */
+function bindingInteriorUnchanged(
+  source: string,
+  node: { bindingsInterior: { start: number; end: number } },
+  layer: string[]
+): boolean {
+  const tokens = tokenizeBindings(
+    source.slice(node.bindingsInterior.start, node.bindingsInterior.end)
+  )
+  return tokens.length === layer.length && tokens.every((token, i) => token === layer[i])
+}
+
 function inferLayerIndent(source: string, layerNodes: ReturnType<typeof findKeymapLayerNodes>): string {
   if (layerNodes.length > 0) {
     const lineStart = source.lastIndexOf('\n', layerNodes[0].labelStart - 1) + 1
@@ -73,7 +85,9 @@ function layerNodeCutStart(source: string, labelStart: number): number {
 /**
  * Replace bindings interiors (and add/remove trailing layer nodes by index)
  * inside `keymap { compatible = "zmk,keymap"; ... }`. Outside that block is byte-stable.
- * Layer node ids are preserved by index (UI layer names do not rename DTS nodes).
+ * Unchanged interiors (token-equal to the encoded layer) are left byte-identical
+ * so a no-op Save does not re-pad the table. Layer node ids are preserved by
+ * index (UI layer names do not rename DTS nodes).
  */
 export function spliceBindingsIntoDts(
   original: string,
@@ -112,6 +126,7 @@ export function spliceBindingsIntoDts(
     const remaining = findKeymapLayerNodes(result, blockAfter)
     for (let i = remaining.length - 1; i >= 0; i--) {
       const node = remaining[i]
+      if (bindingInteriorUnchanged(result, node, layers[i])) continue
       const interior = renderBindingsInterior(layout, layers[i], columnWidths, eol)
       result =
         result.slice(0, node.bindingsInterior.start) +
@@ -126,6 +141,7 @@ export function spliceBindingsIntoDts(
   // Same or more layers: replace existing interiors, then append new nodes
   for (let i = existing.length - 1; i >= 0; i--) {
     const node = existing[i]
+    if (bindingInteriorUnchanged(result, node, layers[i])) continue
     const interior = renderBindingsInterior(layout, layers[i], columnWidths, eol)
     result =
       result.slice(0, node.bindingsInterior.start) +

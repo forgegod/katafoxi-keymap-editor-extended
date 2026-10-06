@@ -73,6 +73,25 @@ describe('spliceBindingsIntoDts', () => {
     expect(spliced).not.toContain('&kp A &kp B')
   })
 
+  it('keeps a bindings interior byte-identical when tokens already match', () => {
+    const src = `/ {
+    keymap {
+        compatible = "zmk,keymap";
+        layer_0 {
+            bindings = <
+&kp A  &kp B
+            >;
+        };
+    };
+};
+`
+    const spliced = spliceBindingsIntoDts(src, {
+      layout: TINY_LAYOUT,
+      layers: [['&kp A', '&kp B']]
+    })
+    expect(spliced).toBe(src)
+  })
+
   it('writes expanded macros (C_VOL_UP) not VU inside bindings', () => {
     const parsed = parseDtsKeymap(LARK_LIKE)
     const result = buildKeymapCode(TINY_LAYOUT, parseKeymap(parsed), {
