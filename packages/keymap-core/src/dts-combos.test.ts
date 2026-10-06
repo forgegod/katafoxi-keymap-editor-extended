@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildKeymapCode,
+  clampComboPriorIdleMs,
+  clampComboTimeoutMs,
   COMBO_MAX_KEYS,
   COMBO_MIN_KEYS,
+  COMBO_PRIOR_IDLE_MS_DEFAULT,
+  COMBO_PRIOR_IDLE_MS_MAX,
+  COMBO_PRIOR_IDLE_MS_MIN,
+  COMBO_TIMEOUT_MS_DEFAULT,
+  COMBO_TIMEOUT_MS_MAX,
+  COMBO_TIMEOUT_MS_MIN,
   bindingLooksLikeAltTab,
   comboChordOverlap,
   comboChordOverlapPartners,
@@ -13,6 +21,7 @@ import {
   comboLooksLikeModifierChord,
   createEmptyCombo,
   encodeKeyBinding,
+  findCombosBlock,
   formatCombosBlock,
   nextComboIdFromBinding,
   parseDtsCombos,
@@ -20,12 +29,42 @@ import {
   parseKeymap,
   spliceCombosIntoDts
 } from '../src/index.js'
-import type { LayoutKey } from '../src/types.js'
+import type { LayoutKey, ZmkCombo } from '../src/types.js'
 
 const TINY_LAYOUT: LayoutKey[] = [
   { x: 0, y: 0, row: 0, col: 0 },
   { x: 1, y: 0, row: 0, col: 1 }
 ]
+
+function combosBlockText(source: string): string {
+  const block = findCombosBlock(source)
+  expect(block).not.toBeNull()
+  let end = block!.closeBrace + 1
+  if (source[end] === ';') end++
+  return source.slice(block!.keywordStart, end)
+}
+
+function keymapWithComboDefine(define: string, propLine: string): string {
+  return `#define ${define}
+
+/ {
+    keymap {
+        compatible = "zmk,keymap";
+        layer_0 { bindings = <&kp A &kp B>; };
+    };
+
+    combos {
+        compatible = "zmk,combos";
+
+        combo_esc {
+            bindings = <&kp ESC>;
+            key-positions = <0 1>;
+            ${propLine}
+        };
+    };
+};
+`
+}
 
 const WITH_COMBO = `/ {
     keymap {
@@ -243,6 +282,30 @@ describe('parseDtsKeymap combos', () => {
     expect(built.code).toContain('&kp A')
   })
 
+  it.each([
+    ['timeout-ms', 'COMBO_T 50', 'timeout-ms = <COMBO_T>;'],
+    ['require-prior-idle-ms', 'IDLE 100', 'require-prior-idle-ms = <IDLE>;'],
+    ['layers', 'BASE 0', 'layers = <BASE>;']
+  ] as const)(
+    'omits combos when %s uses a #define so Save after a key edit leaves the block byte-identical',
+    (_prop, define, propLine) => {
+      const src = keymapWithComboDefine(define, propLine)
+      const raw = parseDtsKeymap(src)
+      expect(raw.combos).toBeUndefined()
+      expect(Object.prototype.hasOwnProperty.call(raw, 'combos')).toBe(false)
+      expect(raw.warnings).toContain('combos_unparsed')
+
+      const km = parseKeymap(raw)
+      expect(km.combos).toBeUndefined()
+      km.layers[0][0] = { value: '&kp', params: [{ value: 'Z', params: [] }] }
+      const built = buildKeymapCode(TINY_LAYOUT, km, { originalSource: src })
+      expect(built.mode).toBe('splice')
+      expect(built.code).toContain('&kp Z')
+      expect(combosBlockText(built.code)).toBe(combosBlockText(src))
+      expect(built.code).toContain(`#define ${define}`)
+    }
+  )
+
   it('omits combos when key-positions, layers, or timeout use macros', () => {
     const src = `/ {
     keymap {
@@ -398,6 +461,44 @@ describe('spliceCombosIntoDts', () => {
     expect(next).toContain('key-positions = <0 1>;')
   })
 
+  it('wraps a new combos block in / { } when the file has no root', () => {
+    const source = `#include <behaviors.dtsi>
+
+keymap {
+    compatible = "zmk,keymap";
+    layer_0 { bindings = <&kp A &kp B>; };
+};
+`
+    const next = spliceCombosIntoDts(source, [
+      {
+        id: 'combo_esc',
+        binding: '&kp ESC',
+        keyPositions: [0, 1],
+        timeoutMs: 40,
+        requirePriorIdleMs: 80,
+        slowRelease: true,
+        layers: [0, 1]
+      }
+    ])
+    expect(next).toContain('#include <behaviors.dtsi>')
+    expect(next).toMatch(/\/ \{[\s\S]*combos \{/)
+    expect(next).toContain('timeout-ms = <40>;')
+    expect(next).toContain('require-prior-idle-ms = <80>;')
+    expect(next).toContain('slow-release;')
+    expect(next).toContain('layers = <0 1>;')
+    expect(parseDtsCombos(next)).toEqual([
+      {
+        id: 'combo_esc',
+        binding: '&kp ESC',
+        keyPositions: [0, 1],
+        timeoutMs: 40,
+        requirePriorIdleMs: 80,
+        slowRelease: true,
+        layers: [0, 1]
+      }
+    ])
+  })
+
   it('does not collapse extra blanks away from the removed combos block', () => {
     const source = `/*\n\n\n\nkeep */\n/ {\n    keymap {\n        compatible = "zmk,keymap";\n        layer_0 { bindings = <&kp A &kp B>; };\n    };\n\n    combos {\n        compatible = "zmk,combos";\n        combo_esc {\n            bindings = <&kp ESC>;\n            key-positions = <0 1>;\n        };\n    };\n};\n`
     const next = spliceCombosIntoDts(source, [])
@@ -473,6 +574,54 @@ describe('buildKeymapCode combos', () => {
     expect(built.code).toContain('combo_esc')
     expect(built.code).toContain('&kp ESC')
     expect(built.code).toContain('key-positions = <0 1>;')
+  })
+
+  it('round-trips a new combo with every optional field through buildKeymapCode', () => {
+    const source = `#include <behaviors.dtsi>
+
+keymap {
+    compatible = "zmk,keymap";
+    layer_0 { bindings = <&kp A &kp B>; };
+};
+`
+    const combo: ZmkCombo = {
+      id: 'combo_esc',
+      keyPositions: [0, 1],
+      binding: { value: '&kp', params: [{ value: 'ESC', params: [] }] },
+      timeoutMs: 40,
+      requirePriorIdleMs: 80,
+      slowRelease: true,
+      layers: [0, 1]
+    }
+    const km = parseKeymap(parseDtsKeymap(source))
+    km.combos = [combo]
+    const built = buildKeymapCode(TINY_LAYOUT, km, { originalSource: source })
+    expect(built.mode).toBe('splice')
+    expect(built.code).toMatch(/\/ \{[\s\S]*combos \{/)
+    expect(built.code).toContain('slow-release;')
+    expect(parseKeymap(parseDtsKeymap(built.code)).combos).toEqual([combo])
+  })
+})
+
+describe('clampComboTimeoutMs / clampComboPriorIdleMs', () => {
+  it('maps NaN to the default, rounds, and clamps to bounds', () => {
+    expect(clampComboTimeoutMs(Number.NaN)).toBe(COMBO_TIMEOUT_MS_DEFAULT)
+    expect(clampComboTimeoutMs(Number.POSITIVE_INFINITY)).toBe(COMBO_TIMEOUT_MS_DEFAULT)
+    expect(clampComboTimeoutMs(30.4)).toBe(30)
+    expect(clampComboTimeoutMs(30.6)).toBe(31)
+    expect(clampComboTimeoutMs(0)).toBe(COMBO_TIMEOUT_MS_MIN)
+    expect(clampComboTimeoutMs(999)).toBe(COMBO_TIMEOUT_MS_MAX)
+    expect(clampComboTimeoutMs(COMBO_TIMEOUT_MS_MIN)).toBe(COMBO_TIMEOUT_MS_MIN)
+    expect(clampComboTimeoutMs(COMBO_TIMEOUT_MS_MAX)).toBe(COMBO_TIMEOUT_MS_MAX)
+
+    expect(clampComboPriorIdleMs(Number.NaN)).toBe(COMBO_PRIOR_IDLE_MS_DEFAULT)
+    expect(clampComboPriorIdleMs(Number.NEGATIVE_INFINITY)).toBe(COMBO_PRIOR_IDLE_MS_DEFAULT)
+    expect(clampComboPriorIdleMs(80.4)).toBe(80)
+    expect(clampComboPriorIdleMs(80.6)).toBe(81)
+    expect(clampComboPriorIdleMs(0)).toBe(COMBO_PRIOR_IDLE_MS_MIN)
+    expect(clampComboPriorIdleMs(999)).toBe(COMBO_PRIOR_IDLE_MS_MAX)
+    expect(clampComboPriorIdleMs(COMBO_PRIOR_IDLE_MS_MIN)).toBe(COMBO_PRIOR_IDLE_MS_MIN)
+    expect(clampComboPriorIdleMs(COMBO_PRIOR_IDLE_MS_MAX)).toBe(COMBO_PRIOR_IDLE_MS_MAX)
   })
 })
 

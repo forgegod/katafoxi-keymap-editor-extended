@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildKeymapCode,
   generateKeymap,
   isPrimaryKeymapJson,
   isUserKeymapFilename,
@@ -9,6 +10,12 @@ import {
   parseKeyBinding,
   parseKeymap
 } from './keymap.js'
+import type { LayoutKey } from './types.js'
+
+const TINY_LAYOUT: LayoutKey[] = [
+  { x: 0, y: 0, row: 0, col: 0 },
+  { x: 1, y: 0, row: 0, col: 1 }
+]
 
 describe('parseKeyBinding', () => {
   it('splits hold-tap params on tabs', () => {
@@ -173,6 +180,45 @@ describe('isUserKeymapFilename', () => {
   it('rejects templates and other files', () => {
     expect(isUserKeymapFilename('lark.keymap.template')).toBe(false)
     expect(isUserKeymapFilename('readme.md')).toBe(false)
+  })
+})
+
+describe('parseKeymap combos from keymap.json', () => {
+  it('round-trips layers, slowRelease, requirePriorIdleMs, and timeoutMs', () => {
+    const km = parseKeymap({
+      layers: [['&kp A', '&trans']],
+      combos: [
+        {
+          id: 'combo_esc',
+          binding: {
+            value: '&kp',
+            params: [{ value: 'ESC', params: [] }]
+          },
+          keyPositions: [0, 1],
+          timeoutMs: 40,
+          requirePriorIdleMs: 80,
+          slowRelease: true,
+          layers: [0, 1]
+        }
+      ]
+    })
+    const again = parseKeymap(
+      JSON.parse(buildKeymapCode(TINY_LAYOUT, km).json) as {
+        layers: string[][]
+      }
+    )
+    expect(again.combos?.[0]).toEqual({
+      id: 'combo_esc',
+      binding: {
+        value: '&kp',
+        params: [{ value: 'ESC', params: [] }]
+      },
+      keyPositions: [0, 1],
+      timeoutMs: 40,
+      requirePriorIdleMs: 80,
+      slowRelease: true,
+      layers: [0, 1]
+    })
   })
 })
 
