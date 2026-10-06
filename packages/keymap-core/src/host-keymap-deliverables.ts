@@ -10,7 +10,7 @@ import {
   type HostLanguageId
 } from './host-languages.js'
 import type { HostLayout } from './host-layout.js'
-import { hostLayoutToKlc, hostLayoutsToCapsKlc, pairedKbdId } from './klc-write.js'
+import { hostLayoutToKlc, hostLayoutsToCapsKlc, klcIdentifier, pairedKbdId } from './klc-write.js'
 import { windowsLocale } from './klc-locale.js'
 import { hostLayoutToXkbSection } from './xkb-write.js'
 import type { HostLegendView } from './types.js'
@@ -63,11 +63,13 @@ export function buildHostKeymapDeliverableFiles(
         name: record.name
       })
     )
+    const locale = windowsLocale(record.language)
     push(
       `${HOST_KEYMAP_DIR}/windows/${stem}.klc`,
       hostLayoutToKlc(record.layout, {
         name: record.name,
-        locale: windowsLocale(record.language)
+        kbdId: klcIdentifier(record.name, locale),
+        locale
       })
     )
   }

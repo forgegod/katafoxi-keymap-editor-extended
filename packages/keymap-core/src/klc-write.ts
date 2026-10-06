@@ -149,12 +149,34 @@ export function klcDocument(lines: readonly string[]): string {
   return lines.flatMap(line => klcBlockLines(line)).join('\r\n')
 }
 
-/** MSKLC uses the KBD id as a DLL name: one to eight letters and digits, starting with a letter. */
-export function klcIdentifier(name: string): string {
+function localeLangPrefix(locale?: WindowsLocale): string {
+  const tag = locale?.localeName.split('-')[0] ?? 'k'
+  const letters = tag.replace(/[^A-Za-z]/g, '')
+  return (letters.slice(0, 4) || 'k').toLowerCase()
+}
+
+/** Four hex digits of FNV-1a so two non-Latin names do not share a DLL id. */
+function nameHash4(text: string): string {
+  let hash = 2166136261
+  for (let index = 0; index < text.length; index++) {
+    hash ^= text.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0').slice(-4)
+}
+
+/**
+ * MSKLC uses the KBD id as a DLL name: one to eight letters and digits, starting with a letter.
+ * Names with no Latin letters use `${langPrefix}${hash4}` from the locale tag (`ru` + four hex)
+ * so two Cyrillic or Greek profiles do not overwrite each other as `Layout`.
+ */
+export function klcIdentifier(name: string, locale?: WindowsLocale): string {
   const cleaned = name.replace(/[^A-Za-z0-9]/g, '')
-  if (!cleaned) return 'Layout'
-  const id = (/^[A-Za-z]/.test(cleaned) ? cleaned : `L${cleaned}`).slice(0, 8)
-  return /^[A-Za-z]/.test(id) ? id : 'Layout'
+  if (cleaned) {
+    const id = (/^[A-Za-z]/.test(cleaned) ? cleaned : `L${cleaned}`).slice(0, 8)
+    if (/^[A-Za-z]/.test(id)) return id
+  }
+  return `${localeLangPrefix(locale)}${nameHash4(name)}`.slice(0, 8)
 }
 
 /**
@@ -172,31 +194,43 @@ function hex4(codepoint: number): string {
   return codepoint.toString(16).padStart(4, '0')
 }
 
-/** MSKLC writes ASCII letters and digits as themselves, everything else as hex. */
+/** MSKLC writes ASCII letters and digits as themselves, everything else as four hex digits. */
 export function klcCharToken(codepoint: number): string {
   const asciiLetter = (codepoint >= 0x41 && codepoint <= 0x5a) || (codepoint >= 0x61 && codepoint <= 0x7a)
   const asciiDigit = codepoint >= 0x30 && codepoint <= 0x39
   if (asciiLetter || asciiDigit) return String.fromCodePoint(codepoint)
-  if (codepoint > 0xffff) {
-    const rest = codepoint - 0x10000
-    return hex4(0xd800 + (rest >> 10)) + hex4(0xdc00 + (rest & 0x3ff))
-  }
+  if (codepoint < 0 || codepoint > 0xffff) return '-1'
   return hex4(codepoint)
 }
 
+function noteWarning(warnings: string[] | undefined, message: string): void {
+  if (!warnings || warnings.includes(message)) return
+  warnings.push(message)
+}
+
 /**
- * Resolve a keysym to a single NFC code point MSKLC can put in a cell.
- * Combining leftovers after NFC are dropped with an explicit warning.
+ * Resolve a keysym to a single BMP code point MSKLC can put in a LAYOUT cell.
+ * NFC runs only on multi-codepoint glyphs so compatibility singletons (U+2329)
+ * stay put. Supplementary-plane characters are dropped: MSKLC wants `%%` plus a
+ * LIGATURE row of UTF-16 surrogates, but LIGATURE `Mod#` is the SHIFTSTATE table
+ * index rather than the bitmask (6/7), and this project's reader still treats
+ * `%%` as empty, so we do not emit a guessed table.
  */
 export function klcGlyphOf(keysym: string, warnings?: string[]): string | null {
   if (!keysym || keysym === 'NoSymbol' || keysym === 'VoidSymbol') return null
   if (keysym.startsWith('dead_')) return null
   const glyph = keysymToGlyph(keysym)
   if (!glyph) return null
-  const normalized = glyph.normalize('NFC')
+  const sourceChars = [...glyph]
+  const normalized = sourceChars.length > 1 ? glyph.normalize('NFC') : glyph
   const chars = [...normalized]
   if (chars.length !== 1) {
-    warnings?.push(`Dropped multi-codepoint glyph for keysym ${keysym}.`)
+    noteWarning(warnings, `Dropped multi-codepoint glyph for keysym ${keysym}.`)
+    return null
+  }
+  const codepoint = chars[0].codePointAt(0)
+  if (codepoint == null || codepoint > 0xffff) {
+    noteWarning(warnings, `Dropped non-BMP glyph for keysym ${keysym}.`)
     return null
   }
   return chars[0]
@@ -209,20 +243,13 @@ function caseLanguage(locale: WindowsLocale): HostLanguageId | undefined {
   return undefined
 }
 
-function deadEntry(keysym: string, locale: WindowsLocale): WindowsDeadKey | undefined {
-  if (!keysym.startsWith('dead_')) return undefined
-  const shared = windowsDeadKey(keysym)
-  const id = locale.deadIdByKeysym?.[keysym] ?? shared?.id
-  if (id == null) return undefined
-  const pairs = (shared?.pairs ?? [[0x20, id] as const]).map(([base, composed]) =>
-    base === 0x20 ? ([0x20, id] as const) : ([base, composed] as const)
-  )
-  return { keysym, id, pairs }
-}
-
-function cellToken(keysym: string, locale: WindowsLocale, warnings?: string[]): string {
-  const dead = deadEntry(keysym, locale)
-  if (dead) return `${hex4(dead.id)}@`
+function cellToken(keysym: string, warnings?: string[]): string {
+  if (keysym.startsWith('dead_')) {
+    const dead = windowsDeadKey(keysym)
+    if (dead) return `${hex4(dead.id)}@`
+    noteWarning(warnings, `Dropped unknown dead key ${keysym}.`)
+    return '-1'
+  }
   const glyph = klcGlyphOf(keysym, warnings)
   if (!glyph) return '-1'
   return klcCharToken(glyph.codePointAt(0) as number)
@@ -305,12 +332,12 @@ function assignVks(
 }
 
 /** Which host levels 2/3 appear as non-empty KLC cells (one pass per layout). */
-function usedAltGrLevels(layout: HostLayout, locale: WindowsLocale): { level2: boolean; level3: boolean } {
+function usedAltGrLevels(layout: HostLayout): { level2: boolean; level3: boolean } {
   let level2 = false
   let level3 = false
   for (const levels of layout.byZmk.values()) {
-    if (!level2 && cellToken(levels.keysyms[2] ?? 'NoSymbol', locale) !== '-1') level2 = true
-    if (!level3 && cellToken(levels.keysyms[3] ?? 'NoSymbol', locale) !== '-1') level3 = true
+    if (!level2 && cellToken(levels.keysyms[2] ?? 'NoSymbol') !== '-1') level2 = true
+    if (!level3 && cellToken(levels.keysyms[3] ?? 'NoSymbol') !== '-1') level3 = true
     if (level2 && level3) break
   }
   return { level2, level3 }
@@ -321,8 +348,8 @@ function shiftStates(layout: HostLayout, locale: WindowsLocale, capsLayout?: Hos
   states.add(0)
   states.add(1)
   states.add(2)
-  const base = usedAltGrLevels(layout, locale)
-  const caps = capsLayout ? usedAltGrLevels(capsLayout, locale) : undefined
+  const base = usedAltGrLevels(layout)
+  const caps = capsLayout ? usedAltGrLevels(capsLayout) : undefined
   if (base.level2 || caps?.level2) states.add(6)
   if (base.level3 || caps?.level3) states.add(7)
   return SHIFT_ORDER.filter(state => states.has(state))
@@ -364,14 +391,10 @@ function capToken(
   return inferredCap(glyphs, language)
 }
 
-function tokensByState(
-  keysyms: readonly string[],
-  locale: WindowsLocale,
-  warnings?: string[]
-): Map<number, string> {
+function tokensByState(keysyms: readonly string[], warnings?: string[]): Map<number, string> {
   const byState = new Map<number, string>()
   for (let level = 0; level < LEVEL_SHIFT.length; level++) {
-    byState.set(LEVEL_SHIFT[level], cellToken(keysyms[level] ?? 'NoSymbol', locale, warnings))
+    byState.set(LEVEL_SHIFT[level], cellToken(keysyms[level] ?? 'NoSymbol', warnings))
   }
   byState.set(2, '-1')
   return byState
@@ -414,9 +437,9 @@ function characterRow(
 ): LayoutRow {
   const keysyms = layout.byZmk.get(key.zmk)?.keysyms ?? ['NoSymbol', 'NoSymbol', 'NoSymbol', 'NoSymbol']
   const glyphs = keysyms.map(name => klcGlyphOf(name, warnings))
-  const byState = tokensByState(keysyms, locale, warnings)
+  const byState = tokensByState(keysyms, warnings)
   const capsKeysyms = capsLayout?.byZmk.get(key.zmk)?.keysyms
-  const capsStates = capsKeysyms ? tokensByState(capsKeysyms, locale, warnings) : undefined
+  const capsStates = capsKeysyms ? tokensByState(capsKeysyms, warnings) : undefined
   const cells = states.map(state => mergedAltGr(state, byState, capsStates))
   if (capsLayout && capsAlphabetDiffers(byState, capsStates)) {
     const capsCells = states.map(state => {
@@ -459,10 +482,10 @@ function fixedRow(
   }
 }
 
-function deadSections(layout: HostLayout, locale: WindowsLocale, capsLayout?: HostLayout): WindowsDeadKey[] {
+function deadSections(layout: HostLayout, capsLayout?: HostLayout): WindowsDeadKey[] {
   const byId = new Map<number, WindowsDeadKey>()
   const consider = (keysym: string) => {
-    const dead = deadEntry(keysym, locale)
+    const dead = windowsDeadKey(keysym)
     if (!dead || byId.has(dead.id)) return
     byId.set(dead.id, dead)
   }
@@ -530,7 +553,7 @@ export function hostLayoutToKlc(layout: HostLayout, options: HostLayoutKlcOption
   const ordered = [...rows.filter(row => row.scan !== 0x53), ...decimal]
 
   const description = (options.name.trim() || locale.languageName).replace(/[\t\r\n]/g, ' ')
-  const kbdId = klcIdentifier(options.kbdId?.trim() || description)
+  const kbdId = klcIdentifier(options.kbdId?.trim() || description, locale)
   const lines = [
     `KBD\t${kbdId}\t${quote(description)}`,
     `COPYRIGHT\t${quote('(c) 2026 keymap-editor')}`,
@@ -550,7 +573,7 @@ export function hostLayoutToKlc(layout: HostLayout, options: HostLayoutKlcOption
     ...ordered.flatMap(row => row.lines),
     ''
   ]
-  const dead = deadSections(layout, locale, capsLayout)
+  const dead = deadSections(layout, capsLayout)
   for (const item of dead) lines.push(...deadKeyLines(item), '')
   // MSKLC splits a section on CRLF only. A LF-only block is one key name, and the
   // quotes inside "Right Shift" then break the generated C file.

@@ -40,11 +40,20 @@ describe('klc export', () => {
     expect(klcIdentifier('German')).toBe('German')
     expect(klcIdentifier('My layout')).toBe('Mylayout')
     expect(klcIdentifier('12345')).toBe('L12345')
-    expect(klcIdentifier('йцукен')).toBe('Layout')
     expect(pairedKbdId('English', 'Russian', 1)).toBe('EngRus01')
     expect(pairedKbdId('English', 'German', 12)).toBe('EngGer12')
     expect(pairedKbdId('English', 'Ukrainian', 99)).toBe('EngUkr99')
     expect(pairedKbdId('English', 'Russian', 0)).toBe('EngRus01')
+  })
+
+  it('gives two Cyrillic profiles different DLL ids from langPrefix plus hash4', () => {
+    const locale = windowsLocale('ru')
+    const first = klcIdentifier('Моя раскладка', locale)
+    const second = klcIdentifier('Другая раскладка', locale)
+    expect(first).toMatch(/^ru[0-9a-f]{4}$/)
+    expect(second).toMatch(/^ru[0-9a-f]{4}$/)
+    expect(first).not.toBe(second)
+    expect(klcIdentifier('Моя раскладка', locale)).toBe(first)
   })
 
   it('writes German virtual keys, dead keys, and the de-DE locale', () => {
@@ -207,16 +216,18 @@ describe('klc export', () => {
     expect(lines[index + 1]).toBe('-1\t-1\t0\t011a')
   })
 
-  it('lets a locale use a different spacing character for the same accent', () => {
-    const layout = withHostKey(systemLayout('system-us'), 'GRAVE', 0, 'dead_acute')
+  it('warns once per unknown dead key instead of writing -1 silently', () => {
+    const layout = withHostKey(systemLayout('system-us'), 'GRAVE', 0, 'dead_iota')
     if (!layout) throw new Error('edit failed')
+    const warnings: string[] = []
     const text = hostLayoutToKlc(layout, {
       name: 'US',
-      locale: { ...windowsLocale('en'), deadIdByKeysym: { dead_acute: 0x0027 } }
+      locale: windowsLocale('en'),
+      warnings
     })
-    expect(layoutRows(text).get('29')?.[3]).toBe('0027@')
-    expect(text).toContain('DEADKEY\t0027')
-    expect(text).toContain('0020\t0027\t')
+    expect(layoutRows(text).get('29')?.[3]).toBe('-1')
+    expect(text).not.toContain('DEADKEY')
+    expect(warnings).toContain('Dropped unknown dead key dead_iota.')
   })
   it('puts a second alphabet on Caps Lock and keeps the base locale', () => {
     const text = hostLayoutsToCapsKlc(systemLayout('system-us'), systemLayout('system-ru'), {
@@ -347,6 +358,31 @@ describe('klc export', () => {
     expect(layoutRows(hostLayoutToKlc(layout, { name: 'DE', locale: windowsLocale('de') })).get('1e')?.[2]).toBe(
       '1'
     )
+  })
+
+  it('drops an emoji on AltGr instead of writing eight hex digits', () => {
+    const layout = withHostKey(systemLayout('system-us'), 'A', 2, 'U1F600')
+    if (!layout) throw new Error('edit failed')
+    const warnings: string[] = []
+    const text = hostLayoutToKlc(layout, {
+      name: 'US',
+      locale: windowsLocale('en'),
+      warnings
+    })
+    const row = layoutRows(text).get('1e')
+    expect(row?.some(field => /^[0-9a-f]{8}$/i.test(field))).toBe(false)
+    expect(row).toContain('-1')
+    expect(text).not.toContain('LIGATURE')
+    expect(text).not.toMatch(/d83d/i)
+    expect(warnings).toContain('Dropped non-BMP glyph for keysym U1F600.')
+  })
+
+  it('does not NFC-rewrite a single-codepoint compatibility glyph', () => {
+    const layout = withHostKey(systemLayout('system-us'), 'A', 0, 'U2329')
+    if (!layout) throw new Error('edit failed')
+    const text = hostLayoutToKlc(layout, { name: 'US', locale: windowsLocale('en') })
+    expect(layoutRows(text).get('1e')?.[3]).toBe('2329')
+    expect(text).not.toContain('3008')
   })
 
   it('NFC-normalizes glyphs and warns when dropping multi-codepoint cells', async () => {

@@ -74,11 +74,6 @@ for (const key of HOST_KEY_IDS) {
 
 const DEAD_BY_ID = new Map<number, string>()
 for (const item of WINDOWS_DEAD_KEYS) DEAD_BY_ID.set(item.id, item.keysym)
-for (const language of HOST_LANGUAGE_IDS) {
-  for (const [keysym, id] of Object.entries(windowsLocale(language).deadIdByKeysym ?? {})) {
-    DEAD_BY_ID.set(id, keysym)
-  }
-}
 
 interface RawRow {
   scan: number

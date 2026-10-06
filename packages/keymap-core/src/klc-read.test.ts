@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { builtinHostLayoutSpecs, primarySystemLayoutId } from './host-layout-catalog.js'
+import { HOST_KEY_IDS } from './host-key-id.js'
 import { hostLayoutFromSymbols, withHostKey, type HostLayout } from './host-layout.js'
 import { HOST_LANGUAGE_IDS } from './host-languages.js'
 import { decodeKlc, parseKlc } from './klc-read.js'
@@ -146,6 +147,29 @@ ENDKBD
 `)
     expect(glyphs(parsed.base, 'N1')).toEqual(['1', '!', '', ''])
     expect(glyphs(parsed.base, 'N9')).toEqual(['9', '(', '', ''])
+  })
+
+  it('round-trips every builtin layout through .klc without glyph differences', () => {
+    const klcGlyphs = (values: readonly string[] | undefined): string[] =>
+      (values ?? ['', '', '', '']).map(glyph => {
+        const chars = [...glyph]
+        if (chars.length !== 1) return ''
+        const codepoint = chars[0].codePointAt(0)
+        return codepoint != null && codepoint <= 0xffff ? glyph : ''
+      })
+    for (const spec of builtinHostLayoutSpecs) {
+      const source = systemLayout(spec.id)
+      const hasScannedKeys = [...source.byZmk.keys()].some(zmk =>
+        HOST_KEY_IDS.some(key => key.zmk === zmk && key.scan !== undefined)
+      )
+      if (!hasScannedKeys) continue
+      const parsed = parseKlc(
+        hostLayoutToKlc(source, { name: spec.name, locale: windowsLocale(spec.language) })
+      )
+      for (const [zmk, levels] of source.byZmk) {
+        expect(klcGlyphs(glyphs(parsed.base, zmk)), `${spec.id} ${zmk}`).toEqual(klcGlyphs(levels.glyphs))
+      }
+    }
   })
 
   it('reads a LAYOUT row with double tabs the same as with single tabs', () => {
