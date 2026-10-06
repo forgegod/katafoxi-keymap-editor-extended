@@ -13,13 +13,22 @@ import {
 } from './catalog'
 
 describe('demo catalog', () => {
-  it('lists Corne first as the default demo, then Lark, Lily58, Sweep, and PNCATEHO', () => {
+  it('lists demos alphabetically by name and keeps Corne as the default', () => {
+    expect(DEMO_CATALOG.map(entry => entry.name)).toEqual([
+      'Corne',
+      'Kabarga',
+      'Lark',
+      'Lily58',
+      'PNCATEHO',
+      'Sweep'
+    ])
     expect(DEMO_CATALOG.map(entry => entry.id)).toEqual([
       'corne',
+      'kabarga',
       'lark',
       'lily58',
-      'cradio',
-      'pncateho'
+      'pncateho',
+      'cradio'
     ])
     expect(defaultDemoId()).toBe('corne')
     expect(DEMO_CATALOG.filter(entry => entry.default).map(entry => entry.id)).toEqual([
@@ -91,6 +100,23 @@ describe('demo catalog', () => {
     expect(keymap.layers[0]).toHaveLength(20)
     expect(keymap.combos?.length).toBe(324)
     expect(keymap.combos?.every(c => c.layers?.includes(0))).toBe(true)
+  })
+
+  it('loads Kabarga as a 42-key angled split with four layers', async () => {
+    const { layout, keymap } = await loadDemo('kabarga')
+    expect(layout).toHaveLength(42)
+    expect(keymap.layers).toHaveLength(4)
+    for (const layer of keymap.layers) {
+      expect(layer).toHaveLength(42)
+    }
+    expect(keymap.combos).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'combo_esc',
+          keyPositions: [19, 20]
+        })
+      ])
+    )
   })
 
   it('groups PNCATEHO combos into a chord dictionary of finger cores', async () => {

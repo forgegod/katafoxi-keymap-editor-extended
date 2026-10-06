@@ -67,12 +67,21 @@ const DEMO_LOADERS: Record<string, () => Promise<DemoFiles>> = {
       import('../../../../../packages/keymap-core/fixtures/demo/pncateho/pncateho.keymap?raw')
     ])
     return { info: info as InfoJson, keymapSource }
+  },
+  kabarga: async () => {
+    const [{ default: info }, { default: keymapSource }] = await Promise.all([
+      import('../../../../../packages/keymap-core/fixtures/demo/kabarga/info.json'),
+      import('../../../../../packages/keymap-core/fixtures/demo/kabarga/kabarga.keymap?raw')
+    ])
+    return { info: info as InfoJson, keymapSource }
   }
 }
 
 export const DEMO_CATALOG: DemoCatalogEntry[] = (
   catalogJson as { demos: DemoCatalogEntry[] }
 ).demos
+  .slice()
+  .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }))
 
 const DEMO_STORAGE_KEY = 'selectedDemo'
 const DEMO_CACHE = new Map<string, Promise<DemoBundle>>()
