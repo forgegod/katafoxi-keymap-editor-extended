@@ -18,7 +18,7 @@ import {
   getSession,
   SESSION_COOKIE_MAX_AGE_SEC
 } from '../services/github/sessions.js'
-import { githubRoutes } from './github.js'
+import { githubRoutes, resetGithubRateLimitForTests, setGithubRateLimitForTests } from './github.js'
 
 const app = new Hono().route('/github', githubRoutes)
 
@@ -113,6 +113,7 @@ afterEach(() => {
   for (const sid of createdSids) deleteSession(sid)
   createdSids.length = 0
   auth.clearInstallationTokenCache()
+  resetGithubRateLimitForTests()
   vi.restoreAllMocks()
   vi.useRealTimers()
 })
@@ -319,6 +320,21 @@ describe('GET /github/authorize', () => {
     expect(res.status).toBe(401)
     expect(getSession(sid)).toBeUndefined()
     expect(installations.fetchInstallationRepos).not.toHaveBeenCalled()
+  })
+})
+
+describe('github rate limit', () => {
+  it('returns 429 when an IP exceeds the /github/* cap', async () => {
+    setGithubRateLimitForTests({ max: 2, windowMs: 60_000 })
+    const first = await app.request('/github/authorize')
+    const second = await app.request('/github/authorize')
+    const third = await app.request('/github/authorize')
+    expect(first.status).toBe(302)
+    expect(second.status).toBe(302)
+    expect(third.status).toBe(429)
+    expect(third.headers.get('retry-after')).toBeTruthy()
+    consumeOauthState(new URL(first.headers.get('location') ?? '').searchParams.get('state') ?? '')
+    consumeOauthState(new URL(second.headers.get('location') ?? '').searchParams.get('state') ?? '')
   })
 })
 

@@ -5,7 +5,7 @@ import {
   createSession,
   deleteSession,
   getSession,
-  oauthStateMapSizeForTests,
+  OAUTH_STATE_TTL_MS,
   oauthTokenNeedsRefresh,
   resetMapCapsForTests,
   SESSION_ABSOLUTE_TTL_MS,
@@ -16,7 +16,6 @@ import {
 } from './sessions.js'
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000
-const OAUTH_STATE_TTL_MS = 10 * 60 * 1000
 const HOUR_MS = 60 * 60 * 1000
 
 const createdSessionIds: string[] = []
@@ -185,18 +184,17 @@ describe('oauth state', () => {
     expect(consumeOauthState(fresh)).toBe(true)
   })
 
-  it('evicts the oldest oauth state when over the map cap', () => {
-    setMapCapsForTests({ oauthStates: 2 })
-
+  it('does not invalidate an earlier HMAC state after 3000 later creates', () => {
     const first = trackOauthState(createOauthState())
-    vi.advanceTimersByTime(1000)
-    const second = trackOauthState(createOauthState())
-    vi.advanceTimersByTime(1000)
-    const third = trackOauthState(createOauthState())
+    for (let i = 0; i < 3000; i++) createOauthState()
+    expect(consumeOauthState(first)).toBe(true)
+  })
 
-    expect(oauthStateMapSizeForTests()).toBe(2)
-    expect(consumeOauthState(first)).toBe(false)
-    expect(consumeOauthState(second)).toBe(true)
-    expect(consumeOauthState(third)).toBe(true)
+  it('rejects a tampered HMAC oauth state', () => {
+    const state = trackOauthState(createOauthState())
+    const last = state[state.length - 1]
+    const tampered = state.slice(0, -1) + (last === 'a' ? 'b' : 'a')
+    expect(consumeOauthState(tampered)).toBe(false)
+    expect(consumeOauthState(state)).toBe(true)
   })
 })

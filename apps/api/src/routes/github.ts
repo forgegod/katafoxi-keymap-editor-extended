@@ -1,3 +1,4 @@
+import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { getCookie } from 'hono/cookie'
@@ -38,6 +39,66 @@ export const githubRoutes = new Hono<{ Variables: Variables }>()
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 const POST_BODY_MAX_BYTES = 2_000_000
 const limitPostBody = bodyLimit({ maxSize: POST_BODY_MAX_BYTES })
+const DEFAULT_GITHUB_RATE_MAX = 120
+const DEFAULT_GITHUB_RATE_WINDOW_MS = 60_000
+const GITHUB_RATE_BUCKET_CAP = 2_000
+
+let githubRateMax = DEFAULT_GITHUB_RATE_MAX
+let githubRateWindowMs = DEFAULT_GITHUB_RATE_WINDOW_MS
+const githubRateBuckets = new Map<string, { count: number; resetAt: number }>()
+
+function clientIp(c: Context): string {
+  const forwarded = c.req.header('x-forwarded-for')
+  if (forwarded) {
+    const first = forwarded.split(',')[0]?.trim()
+    if (first) return first
+  }
+  const realIp = c.req.header('x-real-ip')?.trim()
+  return realIp || 'local'
+}
+
+function pruneGithubRateBuckets(now: number) {
+  for (const [ip, bucket] of githubRateBuckets) {
+    if (bucket.resetAt <= now) githubRateBuckets.delete(ip)
+  }
+  while (githubRateBuckets.size > GITHUB_RATE_BUCKET_CAP) {
+    const oldest = githubRateBuckets.keys().next().value
+    if (oldest === undefined) break
+    githubRateBuckets.delete(oldest)
+  }
+}
+
+/** Test-only: lower the per-IP cap so 429 can be asserted without flooding. */
+export function setGithubRateLimitForTests(opts: { max?: number; windowMs?: number }): void {
+  if (opts.max != null) githubRateMax = opts.max
+  if (opts.windowMs != null) githubRateWindowMs = opts.windowMs
+  githubRateBuckets.clear()
+}
+
+export function resetGithubRateLimitForTests(): void {
+  githubRateMax = DEFAULT_GITHUB_RATE_MAX
+  githubRateWindowMs = DEFAULT_GITHUB_RATE_WINDOW_MS
+  githubRateBuckets.clear()
+}
+
+githubRoutes.use('*', async (c, next) => {
+  const now = Date.now()
+  const ip = clientIp(c)
+  let bucket = githubRateBuckets.get(ip)
+  if (!bucket || bucket.resetAt <= now) {
+    bucket = { count: 0, resetAt: now + githubRateWindowMs }
+    githubRateBuckets.set(ip, bucket)
+  }
+  bucket.count += 1
+  if (bucket.count > githubRateMax) {
+    if (githubRateBuckets.size > GITHUB_RATE_BUCKET_CAP) pruneGithubRateBuckets(now)
+    const retrySec = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000))
+    c.header('Retry-After', String(retrySec))
+    return c.body(null, 429)
+  }
+  if (githubRateBuckets.size > GITHUB_RATE_BUCKET_CAP) pruneGithubRateBuckets(now)
+  await next()
+})
 
 githubRoutes.use('*', async (c, next) => {
   if (c.req.method === 'POST') return limitPostBody(c, next)

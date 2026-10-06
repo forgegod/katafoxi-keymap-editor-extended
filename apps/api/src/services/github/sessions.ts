@@ -1,16 +1,17 @@
 import crypto from 'node:crypto'
+import { config } from '../../config.js'
 
 export const SESSION_TTL_MS = 24 * 60 * 60 * 1000
 export const SESSION_ABSOLUTE_TTL_MS = 7 * 24 * 60 * 60 * 1000
 export const SESSION_COOKIE_MAX_AGE_SEC = Math.floor(SESSION_TTL_MS / 1000)
-const OAUTH_STATE_TTL_MS = 10 * 60 * 1000
+export const OAUTH_STATE_TTL_MS = 10 * 60 * 1000
 
 /** Refresh the GitHub user token this long before `tokenExpiresAt`. */
 export const TOKEN_REFRESH_SKEW_MS = 60 * 1000
 
 const DEFAULT_SESSION_MAP_MAX = 10_000
-const DEFAULT_OAUTH_STATE_MAP_MAX = 2_000
 const PRUNE_INTERVAL_MS = 5 * 60 * 1000
+const DEV_OAUTH_STATE_HMAC_KEY = Buffer.from('dev-oauth-state-hmac-key')
 
 /** Cached per-repo ACL for the signed-in user and this App installation. */
 export type InstallationRepoAccess = {
@@ -37,10 +38,10 @@ export type Session = {
 }
 
 const sessions = new Map<string, Session>()
-const oauthStates = new Map<string, { expiresAt: number }>()
+/** Nonces of HMAC OAuth states that have already been consumed (replay guard). */
+const consumedOauthNonces = new Map<string, { expiresAt: number }>()
 
 let sessionMapMax = DEFAULT_SESSION_MAP_MAX
-let oauthStateMapMax = DEFAULT_OAUTH_STATE_MAP_MAX
 let pruneTimer: ReturnType<typeof setInterval> | undefined
 
 function pruneExpired<T extends { expiresAt: number }>(map: Map<string, T>) {
@@ -69,11 +70,41 @@ function isSessionAlive(session: Session, now = Date.now()): boolean {
   return session.expiresAt > now && session.absoluteExpiresAt > now
 }
 
+function oauthHmacKey(): Buffer {
+  const secret = config.GITHUB_CLIENT_SECRET
+  return secret ? Buffer.from(secret) : DEV_OAUTH_STATE_HMAC_KEY
+}
+
+function signOauthPayload(payload: string): string {
+  return crypto.createHmac('sha256', oauthHmacKey()).update(payload).digest('base64url')
+}
+
+function hmacEqual(left: string, right: string): boolean {
+  const a = Buffer.from(left)
+  const b = Buffer.from(right)
+  if (a.length !== b.length) return false
+  return crypto.timingSafeEqual(a, b)
+}
+
+function parseSignedOauthState(state: string): { nonce: string; expiresAt: number } | undefined {
+  const lastDot = state.lastIndexOf('.')
+  if (lastDot <= 0) return undefined
+  const payload = state.slice(0, lastDot)
+  const mac = state.slice(lastDot + 1)
+  if (!mac || !hmacEqual(mac, signOauthPayload(payload))) return undefined
+  const sep = payload.indexOf('.')
+  if (sep <= 0) return undefined
+  const nonce = payload.slice(0, sep)
+  const expiresAt = Number(payload.slice(sep + 1))
+  if (!nonce || !Number.isFinite(expiresAt)) return undefined
+  return { nonce, expiresAt }
+}
+
 export function startSessionPruneTimer(): void {
   if (pruneTimer) return
   pruneTimer = setInterval(() => {
     pruneExpired(sessions)
-    pruneExpired(oauthStates)
+    pruneExpired(consumedOauthNonces)
     const now = Date.now()
     for (const [key, session] of sessions) {
       if (!isSessionAlive(session, now)) sessions.delete(key)
@@ -89,22 +120,16 @@ export function stopSessionPruneTimer(): void {
 }
 
 /** Test-only: lower map caps so eviction can be asserted without thousands of entries. */
-export function setMapCapsForTests(caps: { sessions?: number; oauthStates?: number }): void {
+export function setMapCapsForTests(caps: { sessions?: number }): void {
   if (caps.sessions != null) sessionMapMax = caps.sessions
-  if (caps.oauthStates != null) oauthStateMapMax = caps.oauthStates
 }
 
 export function resetMapCapsForTests(): void {
   sessionMapMax = DEFAULT_SESSION_MAP_MAX
-  oauthStateMapMax = DEFAULT_OAUTH_STATE_MAP_MAX
 }
 
 export function sessionMapSizeForTests(): number {
   return sessions.size
-}
-
-export function oauthStateMapSizeForTests(): number {
-  return oauthStates.size
 }
 
 export function createSession(input: {
@@ -134,7 +159,6 @@ export function createSession(input: {
 }
 
 export function getSession(id: string): Session | undefined {
-  pruneExpired(sessions)
   const session = sessions.get(id)
   if (!session) return undefined
   if (!isSessionAlive(session)) {
@@ -185,19 +209,19 @@ export function deleteSession(id: string): void {
   sessions.delete(id)
 }
 
+/** HMAC-signed nonce+expiry. Pending logins are not stored in a capped map. */
 export function createOauthState(): string {
-  pruneExpired(oauthStates)
-  const state = crypto.randomBytes(32).toString('base64url')
-  oauthStates.set(state, { expiresAt: Date.now() + OAUTH_STATE_TTL_MS })
-  evictOldestIfOverCap(oauthStates, oauthStateMapMax)
-  return state
+  const nonce = crypto.randomBytes(16).toString('base64url')
+  const payload = `${nonce}.${Date.now() + OAUTH_STATE_TTL_MS}`
+  return `${payload}.${signOauthPayload(payload)}`
 }
 
-/** Single-use: removes state whether or not it was still valid. */
+/** Single-use: a valid nonce can succeed only once. */
 export function consumeOauthState(state: string): boolean {
-  pruneExpired(oauthStates)
-  const entry = oauthStates.get(state)
-  oauthStates.delete(state)
-  if (!entry) return false
-  return entry.expiresAt > Date.now()
+  const parsed = parseSignedOauthState(state)
+  if (!parsed) return false
+  if (parsed.expiresAt <= Date.now()) return false
+  if (consumedOauthNonces.has(parsed.nonce)) return false
+  consumedOauthNonces.set(parsed.nonce, { expiresAt: parsed.expiresAt })
+  return true
 }
