@@ -66,6 +66,30 @@ describe('ZmkLegend', () => {
     expect(target.querySelector('.params .code')?.textContent?.trim()).toBe('1')
   })
 
+  it('compacts &rgblayer to L{n} plus a color swatch', () => {
+    render({
+      value: '&rgblayer',
+      params: [
+        { value: 1, params: [] },
+        {
+          value: 'RGB_COLOR_HSB',
+          params: [
+            { value: 40, params: [] },
+            { value: 100, params: [] },
+            { value: 200, params: [] }
+          ]
+        }
+      ]
+    })
+    expect(target.querySelector('.zmk-beh')).toBeNull()
+    expect(target.querySelector('.params')).toBeNull()
+    expect(target.textContent).not.toContain('RGB_COLOR_HSB')
+    expect(target.querySelector('.zmk-rgblayer .code')?.textContent?.trim()).toBe('L1')
+    const swatch = target.querySelector('.rgb-swatch') as HTMLElement | null
+    expect(swatch).toBeInstanceOf(HTMLElement)
+    expect(swatch?.getAttribute('style') ?? '').toMatch(/hsl/i)
+  })
+
   it('centers a parameterless behaviour such as &caps_word', () => {
     render({ value: '&caps_word', params: [] })
     expect(target.querySelector('.zmk-beh')?.textContent).toBe('&caps_word')
