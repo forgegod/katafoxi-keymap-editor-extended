@@ -157,6 +157,7 @@
 
 <KeyEditorHost
   open={!!(session.editing && session.canEdit && session.activeSlot)}
+  variant="encoder"
   bindingLabel={session.bindingLabel}
   behaviours={activeBinding
     ? [
@@ -172,7 +173,6 @@
   choices={session.choices}
   onSelectBehaviour={session.selectBehaviour}
   onSelectValue={session.selectValue}
-  onToggleHold={session.toggleHold}
   onActivateSlot={slot => session.openEditor(slot, 0)}
   onConfirm={() => {
     session.confirm()

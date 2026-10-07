@@ -58,6 +58,8 @@
     usedKeycodes?: ReadonlyMap<string, readonly number[]>
     usedRevision?: string
     usedLayerLabels?: readonly string[]
+    /** Sensor turns: no hold-tap presets, multiple keycode params stay editable. */
+    variant?: 'key' | 'encoder'
     onSelectBehaviour: (choice: Choice) => void
     onSelectValue: (choice: Choice) => void
     onToggleHold?: (wrapCode: string) => void
@@ -77,6 +79,7 @@
     usedKeycodes,
     usedRevision = '',
     usedLayerLabels = [],
+    variant = 'key',
     onSelectBehaviour,
     onSelectValue,
     onToggleHold,
@@ -107,10 +110,16 @@
     const one = filled.at(-1) ?? keys[0]
     return one ? [one] : visible.slice(0, 1)
   })
-  const keySlot = $derived(paramSlots.find(slot => isKeycodeParam(slot.param)))
+  const keySlots = $derived(paramSlots.filter(slot => isKeycodeParam(slot.param)))
+  /** Active keycode param, or the sole key when focus is on a modifier/layer chip. */
+  const activeKeySlot = $derived(
+    keySlots.find(slot => slot.codeIndex === activeCodeIndex) ?? keySlots[0]
+  )
   const inlineSlots = $derived(paramSlots.filter(slot => !isKeycodeParam(slot.param)))
-  const catalogSlot = $derived(keySlot ?? activeSlot)
+  const catalogSlot = $derived(activeKeySlot ?? activeSlot)
   const behaviourValue = $derived(pickedBehaviour ?? editorSlots[0]?.value)
+  const encoderEdit = $derived(variant === 'encoder')
+  const showPresets = $derived(!encoderEdit)
   const valueCatalog = $derived(behaviorValueCatalog(behaviourValue))
   const catalogParam = $derived(behaviorSlotParam(behaviourValue, catalogSlot?.param))
   const resolvedChoices = $derived.by(() => {
@@ -131,7 +140,10 @@
     isKeycodeParam(catalogParam) || catalogParam === 'command'
   )
   const showHolds = $derived(
-    !!keySlot && !!onToggleHold && String(behaviourValue ?? '') !== '&as'
+    !encoderEdit &&
+      !!activeKeySlot &&
+      !!onToggleHold &&
+      String(behaviourValue ?? '') !== '&as'
   )
   const showValuePicker = $derived(
     catalogParam != null && catalogParam !== 'behaviour'
@@ -242,7 +254,7 @@
 
   const showGroupTitles = $derived(visibleGroups.length > 1)
   const activeHolds = $derived(
-    collectActiveHolds(editorSlots, keySlot?.codeIndex ?? activeCodeIndex)
+    collectActiveHolds(editorSlots, activeKeySlot?.codeIndex ?? activeCodeIndex)
   )
   const needsTerminal = $derived(needsTerminalKey(showHolds, activeHolds, paramSlots))
   const canConfirm = $derived(canConfirmBinding(editorSlots))
@@ -250,6 +262,26 @@
     shouldShowPickKeyHint(catalogSlot, paramSlots, needsTerminal)
   )
   const firmwareNote = $derived(behaviorFirmwareNote(behaviourValue))
+
+  function keyParamLabel(slot: EditorSlot | undefined, index: number): string {
+    if (encoderEdit) {
+      return index === 0 ? 'Clockwise' : 'Counter-clockwise'
+    }
+    if (!slot) return 'Key'
+    if (keySlots.length > 1 && slot.label === 'Key') return `Key ${index + 1}`
+    return slot.label
+  }
+
+  const activeKeySlotIndex = $derived(
+    activeKeySlot
+      ? keySlots.findIndex(slot => slot.codeIndex === activeKeySlot.codeIndex)
+      : -1
+  )
+  const activeKeyLabel = $derived(
+    keySlots.length > 1
+      ? keyParamLabel(activeKeySlot, Math.max(0, activeKeySlotIndex))
+      : 'Value'
+  )
 
   function chooseBehaviour(choice: Choice) {
     stagedHoldTaps = null
@@ -279,16 +311,16 @@
   }
 
   function focusKeySlot() {
-    if (keySlot) onActivateSlot(keySlot.codeIndex)
+    if (activeKeySlot) onActivateSlot(activeKeySlot.codeIndex)
   }
 
-  /** The key grid always edits the key slot, even after a modifier click. */
+  /** The key grid always edits the active key slot, even after a modifier click. */
   function chooseKey(choice: Choice) {
     focusKeySlot()
     onSelectValue(choice)
   }
   const terminalValue = $derived(
-    terminalKeySlot(editorSlots, keySlot?.codeIndex ?? activeCodeIndex)?.value
+    terminalKeySlot(editorSlots, activeKeySlot?.codeIndex ?? activeCodeIndex)?.value
   )
 
   function handleApply() {
@@ -367,38 +399,42 @@
           onChoose={chooseBehaviour}
         />
 
-        <section class="key-editor-row" data-behavior-presets>
-          <p class="key-editor-section-label">Presets</p>
-          <div class="key-editor-chips" role="group" aria-label="Homerow and autoshift">
-            {#each HOLD_TAP_PRESETS as item (item.code)}
-              <SelectChip
-                active={behaviourCode === item.code}
-                title={presetTitle(item)}
-                aria-label={item.name}
-                data-behavior-preset={item.code}
-                disabled={!onChangeHoldTaps}
-                onclick={event => choosePresetClick(event, item)}
-              >
-                {item.code}
-              </SelectChip>
-            {/each}
-          </div>
-        </section>
+        {#if showPresets}
+          <section class="key-editor-row" data-behavior-presets>
+            <p class="key-editor-section-label">Presets</p>
+            <div class="key-editor-chips" role="group" aria-label="Homerow and autoshift">
+              {#each HOLD_TAP_PRESETS as item (item.code)}
+                <SelectChip
+                  active={behaviourCode === item.code}
+                  title={presetTitle(item)}
+                  aria-label={item.name}
+                  data-behavior-preset={item.code}
+                  disabled={!onChangeHoldTaps}
+                  onclick={event => choosePresetClick(event, item)}
+                >
+                  {item.code}
+                </SelectChip>
+              {/each}
+            </div>
+          </section>
+        {/if}
       </div>
 
-      <HoldTapFields
-        {behaviourCode}
-        {timingFields}
-        {timingList}
-        defaults={activeBehaviour}
-        {autoshift}
-        disabled={!onChangeHoldTaps}
-        {stagedHoldTaps}
-        onStagedHoldTaps={next => {
-          stagedHoldTaps = next
-        }}
-        {onChangeHoldTaps}
-      />
+      {#if showPresets}
+        <HoldTapFields
+          {behaviourCode}
+          {timingFields}
+          {timingList}
+          defaults={activeBehaviour}
+          {autoshift}
+          disabled={!onChangeHoldTaps}
+          {stagedHoldTaps}
+          onStagedHoldTaps={next => {
+            stagedHoldTaps = next
+          }}
+          {onChangeHoldTaps}
+        />
+      {/if}
 
       {#if firmwareNote}
         <p class="key-editor-note">{firmwareNote}</p>
@@ -432,9 +468,34 @@
         </section>
       {/each}
 
-      {#if keySlot}
+      {#if activeKeySlot}
+        {#if keySlots.length > 1}
+          <section class="key-editor-row" data-keycode-slots>
+            <p class="key-editor-section-label">Keys</p>
+            <div
+              class="key-editor-chips"
+              role="group"
+              aria-label={encoderEdit ? 'Encoder directions' : 'Key parameters'}
+            >
+              {#each keySlots as slot, index (slot.codeIndex)}
+                <SelectChip
+                  active={slot.codeIndex === activeKeySlot.codeIndex}
+                  data-keycode-slot={slot.codeIndex}
+                  aria-label={keyParamLabel(slot, index)}
+                  title={String(slot.value ?? '')}
+                  onclick={() => onActivateSlot(slot.codeIndex)}
+                >
+                  {slot.value
+                    ? `${keyParamLabel(slot, index)} · ${slot.value}`
+                    : keyParamLabel(slot, index)}
+                </SelectChip>
+              {/each}
+            </div>
+          </section>
+        {/if}
+
         <section class="key-editor-row">
-          <p class="key-editor-section-label">Value</p>
+          <p class="key-editor-section-label">{activeKeyLabel}</p>
           <div class="key-editor-chips">
             {#if showTaxonomy}
               <TaxonomyChips
@@ -489,13 +550,13 @@
           </li>
         </ul>
 
-        {#key usedRevision}
+        {#key `${usedRevision}:${activeKeySlot.codeIndex}`}
           <ValueGrid
             groups={visibleGroups}
             {showGroupTitles}
             {searching}
             {pickKeyHint}
-            activeValue={keySlot.value}
+            activeValue={activeKeySlot.value}
             {dimUsed}
             {used}
             {usedLayerLabels}

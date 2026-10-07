@@ -15,6 +15,7 @@
     editorSlots: EditorSlot[]
     activeCodeIndex: number
     choices: Choice[]
+    variant?: 'key' | 'encoder'
     onSelectBehaviour: (choice: Choice) => void
     onSelectValue: (choice: Choice) => void
     onActivateSlot: (codeIndex: number) => void
@@ -42,6 +43,7 @@
   let editorSlots = $state(untrack(() => scene.editorSlots))
   let activeCodeIndex = $state(untrack(() => scene.activeCodeIndex))
   let choices = $state(untrack(() => scene.choices))
+  let variant = $state<'key' | 'encoder'>(untrack(() => scene.variant ?? 'key'))
   let onSelectBehaviour = $state(untrack(() => scene.onSelectBehaviour))
   let onSelectValue = $state(untrack(() => scene.onSelectValue))
   let onActivateSlot = $state(untrack(() => scene.onActivateSlot))
@@ -56,6 +58,7 @@
     editorSlots = next.editorSlots
     activeCodeIndex = next.activeCodeIndex
     choices = next.choices
+    variant = next.variant ?? 'key'
     onSelectBehaviour = next.onSelectBehaviour
     onSelectValue = next.onSelectValue
     onActivateSlot = next.onActivateSlot
@@ -72,6 +75,7 @@
   {editorSlots}
   {activeCodeIndex}
   {choices}
+  {variant}
   {onSelectBehaviour}
   {onSelectValue}
   {onActivateSlot}
@@ -79,5 +83,5 @@
   {onCancel}
   {holdTaps}
   {onChangeHoldTaps}
-  onToggleHold={() => {}}
+  onToggleHold={variant === 'encoder' ? undefined : () => {}}
 />

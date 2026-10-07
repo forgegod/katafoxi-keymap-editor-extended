@@ -5,6 +5,18 @@ import type { SearchBox } from '../../context'
 import type { EditorSlot } from '../../key-editor'
 import Harness, { type EditorScene } from './KeyEditorHarness.svelte'
 
+// happy-dom comment nodes are not `instanceof Comment`. Svelte skips empty
+// comment anchors with that check; without it, mount can throw.
+const happyComment = document.createComment('')
+const CommentCtor = Object.getPrototypeOf(happyComment).constructor
+if (!(happyComment instanceof Comment)) {
+  Object.defineProperty(globalThis, 'Comment', {
+    configurable: true,
+    writable: true,
+    value: CommentCtor
+  })
+}
+
 const behaviours = getBehaviorCatalog().list as EditorScene['behaviours']
 
 const codeChoices: CatalogChoice[] = [
@@ -676,5 +688,53 @@ describe('KeyEditor value catalog', () => {
     expect(homerow?.classList.contains('active')).toBe(false)
     expect(target.querySelector('.binding')?.textContent).toContain('&as')
     expect(target.querySelector('[data-hold-tap-flavor]')).toBeNull()
+  })
+
+  it('shows two keycode slots for encoder turns and hides hold-tap presets', () => {
+    const activated: number[] = []
+    const selected: string[] = []
+    open({
+      bindingLabel: '&inc_dec_kp PG_UP PG_DN',
+      variant: 'encoder',
+      behaviours: [
+        {
+          code: '&inc_dec_kp',
+          name: 'Encoder',
+          params: ['code', 'code']
+        }
+      ],
+      editorSlots: [
+        slot(0, 'behaviour', '&inc_dec_kp', 'Behaviour'),
+        slot(1, 'code', 'PG_UP', 'Key'),
+        slot(2, 'code', 'PG_DN', 'Key')
+      ],
+      activeCodeIndex: 2,
+      choices: [
+        { code: 'PG_UP', context: 'Keyboard', description: 'Page Up' },
+        { code: 'PG_DN', context: 'Keyboard', description: 'Page Down' },
+        { code: 'C_VOL_UP', context: 'Consumer', description: 'Volume Up' }
+      ],
+      onSelectBehaviour: () => {},
+      onSelectValue: choice => {
+        selected.push(String(choice.code))
+      },
+      onActivateSlot: index => {
+        activated.push(index)
+      },
+      onConfirm: () => {},
+      onCancel: () => {}
+    })
+
+    expect(target.querySelector('[data-behavior-presets]')).toBeNull()
+    expect(target.querySelector('[data-keycode-slots]')).toBeInstanceOf(HTMLElement)
+    const cw = target.querySelector('[data-keycode-slot="1"]')
+    const ccw = target.querySelector('[data-keycode-slot="2"]')
+    expect(cw?.textContent?.replace(/\s+/g, ' ').trim()).toContain('Clockwise')
+    expect(ccw?.textContent?.replace(/\s+/g, ' ').trim()).toContain('Counter-clockwise')
+    expect(ccw?.classList.contains('active')).toBe(true)
+
+    ;(cw as HTMLButtonElement).click()
+    flushSync()
+    expect(activated).toEqual([1])
   })
 })

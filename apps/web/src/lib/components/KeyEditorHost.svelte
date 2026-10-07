@@ -19,6 +19,7 @@
     usedKeycodes?: ReadonlyMap<string, readonly number[]>
     usedRevision?: string
     usedLayerLabels?: readonly string[]
+    variant?: 'key' | 'encoder'
     onSelectBehaviour: (choice: Choice) => void
     onSelectValue: (choice: Choice) => void
     onToggleHold?: (wrapCode: string) => void
@@ -38,6 +39,7 @@
     usedKeycodes,
     usedRevision,
     usedLayerLabels,
+    variant = 'key',
     onSelectBehaviour,
     onSelectValue,
     onToggleHold,
@@ -45,10 +47,12 @@
     onConfirm,
     onCancel
   }: Props = $props()
+
+  const encoderEdit = $derived(variant === 'encoder')
 </script>
 
 {#if open}
-  <Modal onBackdrop={onCancel} ariaLabel="Edit key">
+  <Modal onBackdrop={onCancel} ariaLabel={encoderEdit ? 'Edit encoder' : 'Edit key'}>
     <KeyEditor
       {bindingLabel}
       {behaviours}
@@ -58,17 +62,24 @@
       {usedKeycodes}
       {usedRevision}
       {usedLayerLabels}
+      {variant}
       {onSelectBehaviour}
       {onSelectValue}
-      {onToggleHold}
+      onToggleHold={encoderEdit ? undefined : onToggleHold}
       {onActivateSlot}
       onConfirm={staged => {
         if (staged?.length) editor.armHoldTapsForNextUpdate(staged)
         onConfirm()
       }}
       onCancel={onCancel}
-      holdTaps={editor.draftKeymap?.holdTaps ?? editor.baselineKeymap?.holdTaps}
-      onChangeHoldTaps={next => editor.updateHoldTaps(next)}
+      holdTaps={
+        encoderEdit
+          ? undefined
+          : (editor.draftKeymap?.holdTaps ?? editor.baselineKeymap?.holdTaps)
+      }
+      onChangeHoldTaps={
+        encoderEdit ? undefined : next => editor.updateHoldTaps(next)
+      }
     />
   </Modal>
 {/if}
