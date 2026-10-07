@@ -14,6 +14,7 @@ import {
   type DtsComboJson
 } from './dts-combos.js'
 import { parseDtsConditionalLayersDetailed } from './dts-conditional-layers.js'
+import { detectRgbLayerRecipeFromDts } from './behavior-recipes.js'
 import { parseDtsHoldTapsDetailed } from './dts-behaviors.js'
 import {
   findAngleProp,
@@ -290,6 +291,8 @@ export interface DtsKeymapJson {
    * An empty inner array means that layer has no encoder property.
    */
   sensorBindings?: string[][]
+  /** Present when the file has an `&rgblayer` node or binding. */
+  rgbLayerRecipe?: boolean
   warnings: string[]
 }
 
@@ -411,6 +414,8 @@ export function parseDtsKeymap(
     ownedHoldTaps = holdParsed.holdTaps
   }
 
+  const rgbLayerRecipe = detectRgbLayerRecipeFromDts(source, layers)
+
   return {
     keyboard: meta.keyboard ?? 'unknown',
     keymap: meta.keymap ?? 'unknown',
@@ -421,6 +426,7 @@ export function parseDtsKeymap(
     ...(ownedConditional !== undefined ? { conditionalLayers: ownedConditional } : {}),
     ...(ownedHoldTaps !== undefined ? { holdTaps: ownedHoldTaps } : {}),
     ...(anySensor ? { sensorBindings: sensorRows } : {}),
+    ...(rgbLayerRecipe ? { rgbLayerRecipe: true } : {}),
     warnings
   }
 }

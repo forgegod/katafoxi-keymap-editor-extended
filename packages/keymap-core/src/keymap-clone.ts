@@ -73,6 +73,8 @@ export function cloneParsedKeymap(km: ParsedKeymap): ParsedKeymap {
   if (normalized.sensorBindings) {
     out.sensorBindings = normalized.sensorBindings.map(row => row.map(cloneBinding))
   }
+  if (normalized.rgbLayerRecipe === true) out.rgbLayerRecipe = true
+  else if (normalized.rgbLayerRecipe === false) out.rgbLayerRecipe = false
   return out
 }
 

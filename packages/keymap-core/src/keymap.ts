@@ -5,6 +5,12 @@ import {
   normalizeConditionalLayers,
   spliceConditionalLayersIntoDts
 } from './dts-conditional-layers.js'
+import {
+  normalizeRgbLayerBinding,
+  RGB_LAYER_RECIPE,
+  shouldEnsureRgbLayerRecipe,
+  spliceRgbLayerRecipeIntoDts
+} from './behavior-recipes.js'
 import { normalizeHoldTaps, spliceHoldTapsIntoDts } from './dts-behaviors.js'
 import {
   compileMacros,
@@ -285,6 +291,7 @@ export function parseKeymap(keymap: {
   conditionalLayers?: unknown
   holdTaps?: unknown
   sensorBindings?: unknown
+  rgbLayerRecipe?: unknown
 }): ParsedKeymap {
   if (typeof keymap !== 'object' || keymap === null) {
     throw new KeymapValidationError(['keymap.json root must be an object'])
@@ -303,17 +310,28 @@ export function parseKeymap(keymap: {
       if (!Array.isArray(layer)) {
         throw new KeymapValidationError([`Layer at layers[${i}] must be an array`])
       }
-      return layer.map(item => parseBindingInput(item, `layers[${i}]`))
+      return layer.map(item =>
+        normalizeRgbLayerBinding(parseBindingInput(item, `layers[${i}]`))
+      )
     })
   }
   if (keymap.keyboard !== undefined) out.keyboard = keymap.keyboard
   if (keymap.keymap !== undefined) out.keymap = keymap.keymap
   if (keymap.layout !== undefined) out.layout = keymap.layout
   if (keymap.layer_names !== undefined) out.layer_names = keymap.layer_names
-  if (combos !== undefined) out.combos = combos
+  if (combos !== undefined) {
+    out.combos = combos.map(combo => ({
+      ...combo,
+      binding: normalizeRgbLayerBinding(combo.binding)
+    }))
+  }
   if (conditionalLayers) out.conditionalLayers = conditionalLayers
   if (holdTaps) out.holdTaps = holdTaps
-  if (sensorBindings) out.sensorBindings = sensorBindings
+  if (sensorBindings) {
+    out.sensorBindings = sensorBindings.map(row => row.map(normalizeRgbLayerBinding))
+  }
+  if (keymap.rgbLayerRecipe === true) out.rgbLayerRecipe = true
+  else if (keymap.rgbLayerRecipe === false) out.rgbLayerRecipe = false
   return out
 }
 
@@ -382,12 +400,14 @@ function generateKeymapCode(
   template: string
 ): string {
   const names = keymap.layer_names ?? []
+  const used = getBehavioursUsed(keymap)
   const behaviourHeaders = [
-    ...new Set(
-      getBehavioursUsed(keymap).flatMap(
-        bind => behavioursByBind[bind]?.includes ?? []
-      )
-    )
+    ...new Set([
+      ...used.flatMap(bind => behavioursByBind[bind]?.includes ?? []),
+      ...(shouldEnsureRgbLayerRecipe(keymap) || used.includes(RGB_LAYER_RECIPE.code)
+        ? [...RGB_LAYER_RECIPE.includes]
+        : [])
+    ])
   ]
 
   return renderTemplate(template, {
@@ -446,6 +466,7 @@ export function generateKeymap(
  * | `conditionalLayers` | Leave alone | Remove the node | Rewrite / insert |
  * | `holdTaps` | Leave alone | (timing cleared per list) | Rewrite / insert |
  * | `sensorBindings` | Leave alone | Clear per-layer props as listed | Rewrite per layer |
+ * | `rgbLayerRecipe` | Insert node only if a binding uses `&rgblayer` | — | `true` ensures the fixed macro node |
  *
  * DTS parse omits `combos` when there is no block, or when a block is not
  * fully parsed (`combos_unparsed`: skipped node, DTS label, or non-numeric
@@ -542,21 +563,29 @@ function holdTapFingerprint(node: ZmkHoldTap): string {
   return `${node.code}\n${encodeHoldTapFingerprint(node)}`
 }
 
-/** Sensors → combos → conditional layers → hold-taps (each optional field). */
+/** Sensors → combos → conditional layers → hold-taps → RGB layer recipe. */
 function applyModelBlocks(
   code: string,
   keymap: ParsedKeymap,
   original?: ParsedKeymap
 ): string {
-  return applyHoldTaps(
-    applyConditionalLayers(
-      applyCombos(applySensorBindings(code, keymap), keymap, original),
+  return applyRgbLayerRecipe(
+    applyHoldTaps(
+      applyConditionalLayers(
+        applyCombos(applySensorBindings(code, keymap), keymap, original),
+        keymap,
+        original
+      ),
       keymap,
       original
     ),
-    keymap,
-    original
+    keymap
   )
+}
+
+function applyRgbLayerRecipe(code: string, keymap: ParsedKeymap): string {
+  if (!shouldEnsureRgbLayerRecipe(keymap)) return code
+  return spliceRgbLayerRecipeIntoDts(code)
 }
 
 function applySensorBindings(code: string, keymap: ParsedKeymap): string {
@@ -623,12 +652,16 @@ export function validateKeymapJson(keymap: unknown): void {
     const km = keymap as {
       layers?: unknown
       holdTaps?: Array<{ code?: unknown; override?: unknown }>
+      rgbLayerRecipe?: unknown
     }
     const extraBehaviours = new Set(
       (Array.isArray(km.holdTaps) ? km.holdTaps : [])
         .filter(row => row && row.override !== true && typeof row.code === 'string')
         .map(row => String(row.code))
     )
+    if (km.rgbLayerRecipe === true) {
+      extraBehaviours.add(RGB_LAYER_RECIPE.code)
+    }
     if (!Array.isArray(km.layers)) {
       errors.push('keymap must include "layers" array')
     } else {

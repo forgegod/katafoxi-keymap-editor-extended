@@ -85,6 +85,15 @@ export interface ParsedKeymap {
    * A new layer copies the previous layer's list.
    */
   sensorBindings?: KeyBindingNode[][]
+  /**
+   * Ensure the fixed `&rgblayer` macro node on Save.
+   * Absent: leave behaviors alone unless a binding already uses `&rgblayer`
+   * (then Save still inserts the node when missing).
+   * `true`: insert the recipe node when missing.
+   * `false`: do not insert from the flag (bindings that still use `&rgblayer`
+   * still trigger ensure).
+   */
+  rgbLayerRecipe?: boolean
 }
 
 export interface LayoutKey {
