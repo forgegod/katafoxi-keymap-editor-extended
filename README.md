@@ -1,14 +1,16 @@
 # <img alt="Keymap Editor Icon" height="24px" src="./apps/web/public/editor-icon.png" /> Keymap Editor
 
+**Try it:** [zmk-keymap-editor.com](https://zmk-keymap-editor.com/)
+
 Browser editor for [ZMK](https://zmk.dev/) keymaps that shows what a key **actually types** on the host — not only the firmware binding line.
 
-This fork ([katafoxi/keymap-editor-extended](https://github.com/katafoxi/keymap-editor-extended)) builds on [nickcoutsos/keymap-editor](https://github.com/nickcoutsos/keymap-editor). Hosted upstream: [keymap-editor](https://nickcoutsos.github.io/keymap-editor/). Upstream discussion: [Talk to me!](https://github.com/nickcoutsos/keymap-editor/discussions).
+This fork ([katafoxi/keymap-editor-extended](https://github.com/katafoxi/keymap-editor-extended)) builds on [nickcoutsos/keymap-editor](https://github.com/nickcoutsos/keymap-editor). Upstream hosted app: [keymap-editor](https://nickcoutsos.github.io/keymap-editor/). Upstream discussion: [Talk to me!](https://github.com/nickcoutsos/keymap-editor/discussions).
 
 ## What this fork adds
 
 You combine:
 
-1. **Firmware** — ZMK layers, hold-taps, behaviours (`&kp`, `&mt`, `&lt`, …)
+1. **Firmware** — ZMK layers, hold-taps, behaviours (`&kp`, `&mt`, `&lt`, …), combos, conditional layers, encoders
 2. **Host layouts** — OS language tables (EN, RU, UK, DE, …) with AltGr levels
 
 so each keycap can show composed legends (e.g. `qQ` + `йЙ`) while you still edit the ZMK binding. Host glyphs are editable with **Alt+click** on a composed row; plain click opens the ZMK key editor.
@@ -19,7 +21,7 @@ Monorepo: Svelte 5 + Vite (`apps/web`), thin Hono API (`apps/api`), shared domai
 
 ### Demo — real board layout
 
-First visit opens **Demo · Corne** (plus other boards from the [Demo catalog](packages/keymap-core/fixtures/demo/catalog.json)). A short spotlight tour covers click / Alt+click, layers, and bringing your own keymap. If the browser prefers Russian, Ukrainian, or German, that language is added as a second host column. Edits stay in the browser until you use **Clipboard**, **GitHub**, or **Local**. Replay the tour anytime with **Tour** in the top-right corner.
+First visit opens **Demo · Corne**. The [Demo catalog](packages/keymap-core/fixtures/demo/catalog.json) also includes Glove80, Kyria, Sofle, Lily58, Sweep, Planck, nice!60, Kabarga, Lark, PNCATEHO, and more. A short spotlight tour covers click / Alt+click, layers, and bringing your own keymap. If the browser prefers Russian, Ukrainian, or German, that language is added as a second host column. Edits stay in the browser until you use **Clipboard**, **GitHub**, or **Local**. Replay the tour anytime with **Tour** in the top-right corner.
 
 ![Demo board with composed legends (Lark example with EN + RU)](docs/screenshots/demo-lark.png)
 
@@ -61,8 +63,9 @@ Product persistence is **GitHub-first**; Local is for iterating against a cloned
 ## Editor highlights
 
 - One **KeyEditor**: behaviour chips, then the value grid (keys, layers, mods, mouse/BT commands). Enter applies; Esc cancels. Hold-tap timing for `&mt` and `&lt`, plus Homerow (`&hm`) and Autoshift (`&as`); Apply adds a missing preset and Save rewrites those nodes ([ADR 0002](docs/adr/0002-keymap-file-contract.md)).
+- **Recipes**: built-in `&rgblayer` (layer + RGB color) from Presets — board shows `Ln` plus a color swatch; Save splices a fixed macro node when needed.
 - Compact ZMK legends (`L1`, `⌃`, hold-tap pills) in `keymap-core`.
-- Visual **Combos**: list + board key-positions, binding via KeyEditor, timeout / layers / slow-release / prior-idle props; gap beads for adjacent pairs (row or column), anchor beads for non-adjacent/multi-key chords, with layer-aware placement and hover peek.
+- Visual **Combos**: list + board key-positions, binding via KeyEditor, timeout / layers / slow-release / prior-idle props; gap beads for adjacent pairs, anchor beads for non-adjacent/multi-key chords. Dense chord boards get a typewriter **combo dictionary** under the board (hover peeks, click selects).
 - **Encoders**: per-layer `sensor-bindings` (clockwise / counter-clockwise) shown above the board, following the legend-row hover. A new layer copies the previous list. The knob press stays a normal key.
 - **Conditional layers** on the layer strip: the shown layer keeps an accent rail, and hovering it highlights the keys that hold those layers.
 - Undo / redo, **Draft** / Ready status, Discard draft.
@@ -72,7 +75,7 @@ Product persistence is **GitHub-first**; Local is for iterating against a cloned
 
 ## Not in this tree (yet)
 
-Upstream or planned: browser **File System Access**, visual **macro** / custom **behavior** editors, auto-generated layouts from ZMK DTS. See [upstream README](https://github.com/nickcoutsos/keymap-editor/blob/master/README.md) for the classic feature list.
+Upstream or planned: browser **File System Access**, visual **macro** / custom **behavior** editors (beyond fixed recipes such as `&rgblayer`), auto-generated layouts from ZMK DTS. See [upstream README](https://github.com/nickcoutsos/keymap-editor/blob/master/README.md) for the classic feature list.
 
 Vision and contracts: [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md).
 
@@ -89,10 +92,9 @@ Full setup (env, Local junction, GitHub App): [running-locally.md](running-local
 
 ## Hosted app
 
-Production (SPA + API, same origin):
+Production SPA + API (same origin): **[zmk-keymap-editor.com](https://zmk-keymap-editor.com/)**
 
-- VPS + domain ([zmk-keymap-editor.com](https://zmk-keymap-editor.com)): [docs/deploy-vps.md](docs/deploy-vps.md)
-- Fly.io (optional): [docs/deploy-fly.md](docs/deploy-fly.md)
+Deploy: [docs/deploy-vps.md](docs/deploy-vps.md) (Docker + Caddy on a VPS).
 
 ## Docs
 
@@ -100,7 +102,6 @@ Production (SPA + API, same origin):
 |-----|---------|
 | [running-locally.md](running-locally.md) | Install, Demo, Clipboard, Local, GitHub, tests |
 | [docs/deploy-vps.md](docs/deploy-vps.md) | Production deploy on a VPS + domain |
-| [docs/deploy-fly.md](docs/deploy-fly.md) | Production deploy on Fly.io |
 | [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md) | Product vision |
 | [docs/adr/](docs/adr/README.md) | Architecture decisions |
 | [AGENTS.md](AGENTS.md) | Notes for coding agents |

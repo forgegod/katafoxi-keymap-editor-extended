@@ -13,7 +13,7 @@ This tool helps edit keymap files in repositories already cloned onto your compu
 cmd //c "mklink /J zmk-config C:\path\to\your\zmk-config"
 
 # or Git Bash / Unix
-ln -s ../zmk-keyboard-lark zmk-config
+ln -s ../your-zmk-config zmk-config
 ```
 
 **Load:** Local mode prefers `config/keymap.json` when it exists and its `layers` are non-empty and valid. Otherwise it reads the raw `.keymap` (so a missing file, empty `layers`, or `layers: [[]]` all fall back). After the first **Write files**, `keymap.json` is written and becomes the primary source on the next load (with expanded binds). `*.keymap.template` is never treated as the keymap file to overwrite. GitHub also loads/saves `host_keymap/snapshot.json` with the keymap ([ADR 0005](docs/adr/0005-host-keymap-github-snapshot.md)); the local adapter does not write host files yet.
