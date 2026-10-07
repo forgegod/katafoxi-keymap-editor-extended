@@ -19,7 +19,7 @@ import type { BehaviorDef, KeyBindingNode, ParsedKeymap } from './types.js'
 export const RGB_LAYER_RECIPE_CODE = '&rgblayer'
 
 /** Canonical HSB restore color after release (upstream wiki). */
-export const RGB_LAYER_RESTORE_HSB = { h: 0, s: 0, b: 0 } as const
+const RGB_LAYER_RESTORE_HSB = { h: 0, s: 0, b: 0 } as const
 
 export type HsbColor = { h: number; s: number; b: number }
 
@@ -28,7 +28,7 @@ export type HsbColor = { h: number; s: number; b: number }
  * (`--layer-tone-0…3`: blue / green / purple / ochre), brighter for LEDs.
  * Cycles every four layers like `layerToneStyle`.
  */
-export const RGB_LAYER_TONE_HSB: readonly HsbColor[] = [
+const RGB_LAYER_TONE_HSB: readonly HsbColor[] = [
   { h: 148, s: 160, b: 190 },
   { h: 72, s: 170, b: 170 },
   { h: 190, s: 140, b: 180 },
@@ -36,7 +36,7 @@ export const RGB_LAYER_TONE_HSB: readonly HsbColor[] = [
 ]
 
 /** Fallback when no layer index is known (same as L1 green family). */
-export const RGB_LAYER_DEFAULT_HSB: HsbColor = { ...RGB_LAYER_TONE_HSB[1]! }
+const RGB_LAYER_DEFAULT_HSB: HsbColor = { ...RGB_LAYER_TONE_HSB[1]! }
 
 /** Default HSB for `&rgblayer <layer>` before the user picks a color. */
 export function defaultRgbLayerHsb(layer: number): HsbColor {
@@ -66,10 +66,6 @@ export const RGB_LAYER_RECIPE: BehaviorRecipe = {
 }
 
 export const BEHAVIOR_RECIPES: readonly BehaviorRecipe[] = [RGB_LAYER_RECIPE]
-
-export function behaviorRecipeFor(code: string): BehaviorRecipe | undefined {
-  return BEHAVIOR_RECIPES.find(recipe => recipe.code === code)
-}
 
 export function isRgbLayerRecipeCode(code: string | number | undefined | null): boolean {
   return String(code ?? '') === RGB_LAYER_RECIPE_CODE
@@ -182,7 +178,7 @@ export function defaultRgbLayerBinding(
 }
 
 /** True when any layer/combo/sensor binding uses `&rgblayer`. */
-export function keymapUsesRgbLayerRecipe(keymap: ParsedKeymap): boolean {
+function keymapUsesRgbLayerRecipe(keymap: ParsedKeymap): boolean {
   const visit = (node: KeyBindingNode): boolean => {
     if (isRgbLayerRecipeCode(node.value)) return true
     return (node.params ?? []).some(visit)
