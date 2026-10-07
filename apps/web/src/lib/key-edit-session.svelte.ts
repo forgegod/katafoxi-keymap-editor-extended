@@ -1,7 +1,12 @@
 import {
   autoshiftBindingParams,
+  defaultRgbLayerBinding,
   encodeKeyBinding,
   getBehaviorCatalog,
+  hsbBindingNode,
+  isRgbLayerRecipeCode,
+  rgbLayerRecipeBehaviorDef,
+  type HsbColor,
   type KeyBindingNode
 } from '@keymap-editor/keymap-core'
 import type { SearchContextValue } from './context'
@@ -116,7 +121,9 @@ export function createKeyEditSession(input: KeyEditSessionInput) {
 
   function lookupBehaviour(code: string | number | undefined) {
     const key = String(code ?? '')
-    return (sources.behaviours?.[key] ?? getBehaviorCatalog().byCode[key]) as
+    return (sources.behaviours?.[key] ??
+      getBehaviorCatalog().byCode[key] ??
+      (isRgbLayerRecipeCode(key) ? rgbLayerRecipeBehaviorDef() : undefined)) as
       | Record<string, unknown>
       | undefined
   }
@@ -204,9 +211,19 @@ export function createKeyEditSession(input: KeyEditSessionInput) {
     return Array.from({ length: count }, () => ({ value: undefined, params: [] }))
   }
 
-  function selectBehaviour(choice: { code?: string | number; params?: unknown[] }) {
+  function selectBehaviour(choice: {
+    code?: string | number
+    params?: unknown[]
+    layer?: number
+    hsb?: HsbColor
+  }) {
     const nextValue = choice.code
     if (nextValue == null) return
+    if (isRgbLayerRecipeCode(nextValue)) {
+      const layer = Number.isFinite(choice.layer) ? Number(choice.layer) : 1
+      setDraft(defaultRgbLayerBinding(layer, choice.hsb), 1)
+      return
+    }
     const lookedUp = lookupBehaviour(nextValue)
     const nextBehaviour =
       lookedUp ??
@@ -216,6 +233,27 @@ export function createKeyEditSession(input: KeyEditSessionInput) {
       { value: nextValue, params: emptyParamNodes(nextParams.length) },
       nextParams.length === 0 ? 0 : 1
     )
+  }
+
+  function selectHsb(color: HsbColor, codeIndex?: number) {
+    const current = readDraft()
+    if (!editing || !current) return
+    const index = codeIndex ?? editing.slotCodeIndex
+    const updated = cloneBindTree(current)
+    let target = makeIndex(updated)[index]
+    if (!target && index > 0) {
+      const count = Math.max(updated.params.length, index)
+      updated.params = [
+        ...updated.params,
+        ...emptyParamNodes(count - updated.params.length)
+      ]
+      target = makeIndex(updated)[index]
+    }
+    if (!target) return
+    const next = hsbBindingNode(color)
+    target.value = next.value
+    target.params = next.params as HydratedNode[]
+    setDraft(updated, index)
   }
 
   function selectValue(choice: { code?: string | number }) {
@@ -311,6 +349,7 @@ export function createKeyEditSession(input: KeyEditSessionInput) {
     confirm,
     selectBehaviour,
     selectValue,
+    selectHsb,
     toggleHold,
     openRow,
     bindingForLayer

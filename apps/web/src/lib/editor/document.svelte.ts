@@ -178,6 +178,11 @@ export function armHoldTapsForNextUpdate(this: EditorState, holdTaps: ZmkHoldTap
   this._holdTapsOnNextUpdate = holdTaps
 }
 
+/** Stage ensuring the `&rgblayer` recipe node on the next keymap update. */
+export function armRgbLayerRecipeForNextUpdate(this: EditorState, ensure: boolean | null) {
+  this._rgbLayerRecipeOnNextUpdate = ensure
+}
+
 /** Replace hold-tap nodes on the draft. Save rewrites those nodes in the keymap. */
 export function updateHoldTaps(this: EditorState, holdTaps: ZmkHoldTap[]) {
   const km = this.draftKeymap
@@ -196,6 +201,9 @@ export function updateKeymap(this: EditorState, next: ParsedKeymap) {
   const stagedHoldTaps = this._holdTapsOnNextUpdate
   this._holdTapsOnNextUpdate = null
   if (stagedHoldTaps) next = { ...next, holdTaps: stagedHoldTaps }
+  const stagedRgb = this._rgbLayerRecipeOnNextUpdate
+  this._rgbLayerRecipeOnNextUpdate = null
+  if (stagedRgb === true) next = { ...next, rgbLayerRecipe: true }
   if (this.draftKeymap) {
     const prev = cloneParsedKeymap(this.draftKeymap)
     const stack = [...this.undoStack, prev]

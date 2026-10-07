@@ -58,6 +58,7 @@ Click a stacked keycap row. One dialog edits that layer’s ZMK binding:
 - Enter applies a complete binding. Esc cancels. An unfinished hold-tap stays open.
 - Pointing behaviours remind that firmware needs `CONFIG_ZMK_POINTING=y`. The editor only adds `#include <dt-bindings/zmk/pointing.h>`.
 - Hold-tap nodes are read into the keymap. Edit key changes tapping term and flavor for every key that uses `&mt` or `&lt`. The next row offers two presets: Homerow (`&hm`, modifier + key, with term, flavor, quick-tap, and prior-idle) and Autoshift (`&as`, one key — hold sends that key shifted, tap sends it — with a shared term). Apply adds its node when the keymap does not have it. Cancel leaves the hold-tap list unchanged. A hold-tap already in the file keeps its name and can still be assigned; there is no form to invent another behaviour. Save rewrites those timing lines and inserts missing preset nodes when `holdTaps` is set.
+- **Recipes** (not a general macro editor): one built-in chip, `&rgblayer` (Layer + RGB). Apply writes `&rgblayer <layer> RGB_COLOR_HSB(h,s,b)` and ensures a fixed `zmk,behavior-macro-two-param` node under `behaviors` on Save when `rgbLayerRecipe` is set or a binding already uses `&rgblayer`. The dialog shows layer chips plus an HSB picker. Arbitrary ZMK macros stay in the `.keymap` text; the SPA does not invent or edit open-ended macro sequences.
 
 ## Conditional layers
 
@@ -65,7 +66,7 @@ A then-layer is on only while every if-layer is active (Lower + Raise → Adjust
 
 ## Encoders
 
-The knob's press is a normal matrix key. Rotation is `sensor-bindings` on each layer: one binding per encoder, clockwise argument then counter-clockwise (`&inc_dec_kp C_VOL_UP C_VOL_DN`). When any layer has that property, a strip above the board shows that layer's turns. Hovering a legend row previews its layer; with no hover the strip shows the base layer. Click a direction to change that keycode. A new layer copies the previous layer's list so a board that requires the property on every layer still builds. Save writes the lists back when `sensorBindings` is set; a keymap that never had them is left alone. GPIO and shield discovery stay out of this pass.
+The knob's press is a normal matrix key. Rotation is `sensor-bindings` on each layer: one binding per encoder, clockwise argument then counter-clockwise (`&inc_dec_kp C_VOL_UP C_VOL_DN`). When any layer has that property, a strip above the board shows that layer's turns. Hovering a legend row previews its layer; with no hover the strip shows the base layer. Click a direction to edit that turn in KeyEditor: CW and CCW are separate key slots, and hold-tap presets stay hidden. A new layer copies the previous layer's list so a board that requires the property on every layer still builds. Save writes the lists back when `sensorBindings` is set; a keymap that never had them is left alone. GPIO and shield discovery stay out of this pass.
 
 ## Combos
 
@@ -79,7 +80,7 @@ The knob's press is a normal matrix key. Rotation is `sensor-bindings` on each l
   - Compact chords drop parens: `LC(DEL)` → `⌃⌦`, `LS(CAPS)` → `⇧⇪`, and a short token `LA(F4)` → `⎇F4`, `LA(TAB)` → `⎇TAB`, `LA(ESC)` → `⎇ESC` (`F1`–`F12`).
   - Host-legend AltGr columns use the same mark: `R⎇` and `⇧R⎇`.
   - Mouse scroll keeps the family prefix: `SCRL⬆` `SCRL⬇` `SCRL⬅` `SCRL➡`. Pause/Break is `⏸`. Volume up / down / mute are `🔊` `🔉` `🔇`. Tooltip keeps the raw code.
-  - Behaviour on the cap: hide `&kp`; hide the behaviour token when the hold-tap pill is shown (`&mt`, `&lt`, and a named hold-tap such as `&hm`); `&none` / `&trans` / instant binds are the center legend; other behaviours stay a small corner mark.
+  - Behaviour on the cap: hide `&kp`; hide the behaviour token when the hold-tap pill is shown (`&mt`, `&lt`, and a named hold-tap such as `&hm`); `&rgblayer` shows `Ln` plus a color swatch (`rgbLayerLegend`); `&none` / `&trans` / instant binds are the center legend; other behaviours stay a small corner mark.
   - Caps Lock `⇪`. Browser back/forward `←` / `→` (not cursor `⏴` `⏵`). Number-row `-` / `=` (not the words `MINUS` / `EQUAL`). Tooltip keeps the raw code.
   - Keypad (`KP_*`): same glyph as the number row (`7`), boxed. Operators `+ - / *`, plus `KP_ENTER` `⮐`, `KP_DOT` `.`, `KP_EQUAL` `=`. Color is only a light fill. Host composed stays the same glyph.
 - **Composed view**: an N-column `ComposedLegend` in core (visible extras; a hidden base column is kept so the firmware alphabet remains when its glyphs are off the key). The keycap draws at most two languages (`onKeycap`): any pair, so Russian and Ukrainian can sit together while English stays the hidden reference. The table and decode card share the same `hostLevels` / `resolveHostColumns` path. Hold badges come from the binding (`holdRef`), not from the letter.

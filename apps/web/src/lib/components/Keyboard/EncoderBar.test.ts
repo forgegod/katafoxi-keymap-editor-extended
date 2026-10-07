@@ -117,7 +117,7 @@ describe('EncoderBar', () => {
   }
 
   function editDialog(): HTMLElement {
-    return byRole('dialog', 'Edit key')
+    return byRole('dialog', 'Edit encoder')
   }
 
   function pickCode(code: string) {
@@ -157,7 +157,7 @@ describe('EncoderBar', () => {
     pickCode('C_VOL_UP')
     applyEdit()
 
-    expect(document.querySelector('[role="dialog"][aria-label="Edit key"]')).toBeNull()
+    expect(document.querySelector('[role="dialog"][aria-label="Edit encoder"]')).toBeNull()
     expect(spy).toHaveBeenCalledOnce()
     expect(spy.mock.calls[0][0]).toBe(2)
     expect(spy.mock.calls[0][1]).toBe(0)
@@ -169,6 +169,27 @@ describe('EncoderBar', () => {
     )
     expect(encodeKeyBinding(editor.draftKeymap!.sensorBindings![0][0])).toBe(
       '&inc_dec_kp C_VOL_UP C_VOL_DN'
+    )
+  })
+
+  it('edits counter-clockwise without changing clockwise, and hides hold-tap presets', () => {
+    open([[volPair('C_VOL_UP', 'C_VOL_DN')], [], []])
+    const spy = vi.spyOn(editor, 'updateSensorBinding')
+    hoverLayer(0)
+
+    byRole('button', 'Counter-clockwise 🔉').click()
+    flushSync()
+    const dialog = editDialog()
+    expect(dialog.querySelector('[data-behavior-presets]')).toBeNull()
+    expect(dialog.querySelector('[data-keycode-slots]')).toBeInstanceOf(HTMLElement)
+    expect(byRole('button', 'Counter-clockwise', dialog).className).toMatch(/active/)
+
+    pickCode('PG_DN')
+    applyEdit()
+
+    expect(spy).toHaveBeenCalledOnce()
+    expect(encodeKeyBinding(spy.mock.calls[0][2] as KeyBindingNode)).toBe(
+      '&inc_dec_kp C_VOL_UP PG_DN'
     )
   })
 
@@ -206,7 +227,7 @@ describe('EncoderBar', () => {
 
     named('Encoder').click()
     flushSync()
-    expect(document.querySelector('[role="dialog"][aria-label="Edit key"]')).toBeNull()
+    expect(document.querySelector('[role="dialog"][aria-label="Edit encoder"]')).toBeNull()
     expect(named('Encoders').textContent).toContain('&inc_dec_kp')
   })
 
@@ -217,6 +238,6 @@ describe('EncoderBar', () => {
     const bar = named('Encoders')
     expect(bar.textContent).toContain('No encoder on this layer.')
     expect(getComputedStyle(bar).minHeight).toBe('28px')
-    expect(document.querySelector('[role="dialog"][aria-label="Edit key"]')).toBeNull()
+    expect(document.querySelector('[role="dialog"][aria-label="Edit encoder"]')).toBeNull()
   })
 })

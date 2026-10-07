@@ -11,6 +11,13 @@ import {
 import { keycodeGlyphLabel, keypadGlyphLabel } from './keycode-labels.js'
 import { getBehaviorCatalog } from './catalog.js'
 import { encodeKeyBinding } from './keymap.js'
+import {
+  defaultRgbLayerHsb,
+  hsbToCss,
+  isRgbLayerRecipeCode,
+  parseHsbBindingNode,
+  type HsbColor
+} from './behavior-recipes.js'
 import type {
   HoldRef,
   KeyBindingNode,
@@ -23,7 +30,7 @@ export function layerLegendSymbol(index: number | string): string {
   return `L${index}`
 }
 
-const LAYER_REF_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt'])
+const LAYER_REF_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt', '&rgblayer'])
 
 function isLayerParam(value: string | number | undefined | null, layer: number): boolean {
   if (value == null || value === '') return false
@@ -39,6 +46,8 @@ function isLayerParam(value: string | number | undefined | null, layer: number):
 function isUnknownHoldTap(node: KeyBindingNode): boolean {
   const behavior = String(node.value ?? '')
   if (!behavior.startsWith('&') || isHoldTapBehavior(behavior)) return false
+  // Recipe macros are two-param but not hold-taps.
+  if (behavior === '&rgblayer') return false
   if (getBehaviorCatalog().byCode[behavior]) return false
   return (node.params?.length ?? 0) === 2
 }
@@ -178,6 +187,30 @@ export function compactBehaviorLegend(node: KeyBindingNode): string | null {
   return `${behavior} ${short}`
 }
 
+/** Compact board face for `&rgblayer` — layer mark + underglow CSS (no DTS token). */
+export type RgbLayerLegend = {
+  layer: number
+  layerLabel: string
+  color: HsbColor
+  css: string
+}
+
+export function rgbLayerLegend(node: KeyBindingNode): RgbLayerLegend | null {
+  if (!isRgbLayerRecipeCode(node.value)) return null
+  const layer = parseHoldLayer(node.params[0]?.value)
+  if (layer == null) return null
+  const color =
+    parseHsbBindingNode(node.params[1]) ??
+    parseHsbBindingNode(node.params[2]) ??
+    defaultRgbLayerHsb(layer)
+  return {
+    layer,
+    layerLabel: layerLegendSymbol(layer),
+    color,
+    css: hsbToCss(color)
+  }
+}
+
 export function keycapLegend(
   code?: string | number | null,
   symbol?: string | number | null
@@ -273,6 +306,8 @@ export function behaviorKeycapRole(
   const value = String(code ?? '')
   if (!value) return 'hidden'
   if (value === '&kp') return 'hidden'
+  // Legend shows RGB + layer hold; behaviour code stays off the cap.
+  if (value === '&rgblayer') return 'hidden'
   if ((value === '&bt' || value === '&out') && (opts?.paramCount ?? 0) > 0) return 'hidden'
   if (opts?.holdTapVisible) return 'hidden'
   if ((opts?.paramCount ?? 0) === 0) return 'center'
@@ -320,6 +355,15 @@ export function resolveBinding(node: KeyBindingNode): ResolvedBinding {
     }
   }
 
+  // Momentary layer + underglow: not a host character; ZmkLegend paints L{n}+swatch.
+  if (behavior === '&rgblayer') {
+    const layer = parseHoldLayer(node.params[0]?.value)
+    return {
+      tap: null,
+      hold: layer != null ? { kind: 'layer', layer } : undefined
+    }
+  }
+
   const tap = node.params[0]?.value
   return { tap: tap != null ? String(tap) : null }
 }
@@ -338,7 +382,7 @@ function parseHoldLayer(value: string | number | undefined | null): number | und
  */
 function physicallyHeldLayer(node: KeyBindingNode): number | null {
   const behavior = String(node.value)
-  if (behavior !== '&mo' && behavior !== '&lt') return null
+  if (behavior !== '&mo' && behavior !== '&lt' && behavior !== '&rgblayer') return null
   return parseHoldLayer(node.params[0]?.value) ?? null
 }
 

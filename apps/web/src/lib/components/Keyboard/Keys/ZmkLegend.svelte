@@ -4,6 +4,7 @@
     compactBehaviorLegend,
     getBehaviorCatalog,
     isHoldTapBinding,
+    rgbLayerLegend,
     type KeyBindingNode,
     type LegendHoverHit
   } from '@keymap-editor/keymap-core'
@@ -43,11 +44,26 @@
     })
   )
   const compact = $derived(compactBehaviorLegend(binding))
+  const rgbLayer = $derived(rgbLayerLegend(binding))
   const code = $derived(String(binding.value))
 </script>
 
-<span class="zmk-row" class:zmk-raw={raw} class:legend-hit={hit === 'combo'}>
-  {#if compact}
+<span
+  class="zmk-row"
+  class:zmk-raw={raw}
+  class:legend-hit={hit === 'combo' || (Boolean(rgbLayer) && hit === 'hold')}
+>
+  {#if rgbLayer}
+    <span class="zmk-rgblayer" title="Layer {rgbLayer.layer} + underglow">
+      <span class="code">{rgbLayer.layerLabel}</span>
+      <span
+        class="rgb-swatch"
+        style:background={rgbLayer.css}
+        style:--rgb-swatch={rgbLayer.css}
+        aria-hidden="true"
+      ></span>
+    </span>
+  {:else if compact}
     {compact}
   {:else}
     {#if behaviorRole !== 'hidden'}

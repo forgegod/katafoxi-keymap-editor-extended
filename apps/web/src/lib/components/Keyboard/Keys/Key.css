@@ -301,6 +301,23 @@
   opacity: 0.55;
 }
 
+.key .zmk-row .zmk-rgblayer {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28em;
+  min-width: 0;
+}
+
+.key .zmk-row .rgb-swatch {
+  flex: 0 0 0.72em;
+  width: 0.72em;
+  height: 0.72em;
+  border-radius: 2px;
+  border: 1px solid color-mix(in srgb, var(--rgb-swatch, currentColor) 70%, #000);
+  box-shadow: 0 0 8px -2px var(--rgb-swatch, transparent);
+  box-sizing: border-box;
+}
+
 .key .zmk-row .code {
   font-size: inherit;
   padding: 0 1px;

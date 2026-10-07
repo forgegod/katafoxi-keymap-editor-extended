@@ -25,7 +25,34 @@ describe('slotLabel', () => {
   it('maps known param kinds and named enums', () => {
     expect(slotLabel('code')).toBe('Key')
     expect(slotLabel('mod')).toBe('Modifier')
+    expect(slotLabel('hsb')).toBe('Color')
     expect(slotLabel({ name: 'index' })).toBe('index')
+  })
+})
+
+describe('HSB editor slots', () => {
+  it('keeps RGB_COLOR_HSB args on the hsb slot for preview round-trip', () => {
+    const tree: HydratedNode = {
+      value: '&rgblayer',
+      params: [
+        { value: 1, params: [] },
+        {
+          value: 'RGB_COLOR_HSB',
+          params: [
+            { value: 40, params: [] },
+            { value: 100, params: [] },
+            { value: 200, params: [] }
+          ]
+        }
+      ]
+    }
+    const slots = buildEditorSlots(tree, ['layer', 'hsb'])
+    expect(slots.map(s => `${s.param}:${s.value}`)).toEqual([
+      'behaviour:&rgblayer',
+      'layer:1',
+      'hsb:RGB_COLOR_HSB(40,100,200)'
+    ])
+    expect(editorBindingPreview(slots)).toBe('&rgblayer 1 RGB_COLOR_HSB(40,100,200)')
   })
 })
 

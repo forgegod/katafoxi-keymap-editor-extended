@@ -1,8 +1,11 @@
 import {
+  encodeHsbToken,
   encodeKeyBinding,
   isModifierWrapCode,
   modifierHoldForKey,
   modifierHoldForWrap,
+  parseHsbBindingNode,
+  parseHsbToken,
   readModifierChain,
   toggleModifierWraps,
   writeModifierChain,
@@ -27,7 +30,8 @@ const SLOT_LABELS: Record<string, string> = {
   behaviour: 'Behaviour',
   command: 'Command',
   keycode: 'Key',
-  code: 'Key'
+  code: 'Key',
+  hsb: 'Color'
 }
 
 export function slotLabel(param: unknown): string {
@@ -62,6 +66,22 @@ export function buildEditorSlots(
     }
   ]
 
+  function slotDisplayValue(param: unknown, node: HydratedNode | undefined) {
+    // Keep HSB args on the slot so preview/picker can round-trip (tree children
+    // are not separate editor slots for the `hsb` param kind).
+    if (param === 'hsb' && node) {
+      const color = parseHsbBindingNode({
+        value: node.value ?? 'RGB_COLOR_HSB',
+        params: (node.params ?? []).map(child => ({
+          value: child.value ?? '',
+          params: []
+        }))
+      })
+      if (color) return encodeHsbToken(color)
+    }
+    return node?.value
+  }
+
   function walk(
     parentIndex: number,
     params: unknown[],
@@ -73,7 +93,7 @@ export function buildEditorSlots(
       slots.push({
         codeIndex,
         param,
-        value: node?.value,
+        value: slotDisplayValue(param, node),
         label: slotLabel(param)
       })
       const nested = (node?.source?.params as unknown[]) || []
@@ -128,6 +148,26 @@ export function visibleValueSlots(slots: EditorSlot[]): EditorSlot[] {
   )
 }
 
+function nodeFromSlotValue(
+  value: string | number | undefined
+): KeyBindingNode | null {
+  if (value == null || String(value) === '') return null
+  const text = String(value)
+  const hsb = parseHsbToken(text)
+  if (hsb) {
+    return {
+      value: 'RGB_COLOR_HSB',
+      params: [
+        { value: hsb.h, params: [] },
+        { value: hsb.s, params: [] },
+        { value: hsb.b, params: [] }
+      ]
+    }
+  }
+  // Function-style tokens such as LC(A) already appear as wrap + nested slots.
+  return { value: text, params: [] }
+}
+
 function takeBindingParam(
   slots: EditorSlot[],
   start: number
@@ -145,7 +185,7 @@ function takeBindingParam(
     }
   }
   if (!isSlotFilled(slot)) return { node: null, next: start + 1 }
-  return { node: { value: slot.value ?? '', params: [] }, next: start + 1 }
+  return { node: nodeFromSlotValue(slot.value), next: start + 1 }
 }
 
 /** Encoded ZMK line from editor slots, including hold wraps hidden from the value row. */

@@ -29,8 +29,10 @@ import {
   isLayerLegendSymbol,
   keycapLegend,
   compactBehaviorLegend,
+  rgbLayerLegend,
   prefixedCommandLegend,
   layerLegendSymbol,
+  hsbToCss,
   getBehaviorCatalog,
   getKeycodeCatalog,
   hostLegendFor,
@@ -236,6 +238,21 @@ describe('resolveBinding / composeKey', () => {
       tap: 'A',
       hold: { kind: 'mod', code: 'LCTRL' }
     })
+    expect(
+      resolveBinding(parseKeyBinding('&rgblayer 2 RGB_COLOR_HSB(10,20,30)'))
+    ).toEqual({
+      tap: null,
+      hold: { kind: 'layer', layer: 2 }
+    })
+    expect(behaviorKeycapRole('&rgblayer', { paramCount: 2 })).toBe('hidden')
+    const rgb = rgbLayerLegend(parseKeyBinding('&rgblayer 2 RGB_COLOR_HSB(10,20,30)'))
+    expect(rgb).toEqual({
+      layer: 2,
+      layerLabel: 'L2',
+      color: { h: 10, s: 20, b: 30 },
+      css: hsbToCss({ h: 10, s: 20, b: 30 })
+    })
+    expect(composeKey({ binding: parseKeyBinding('&rgblayer 1 RGB_COLOR_HSB(1,2,3)') })).toBeNull()
   })
 
   it('marks host levels that differ between English and Russian', () => {
