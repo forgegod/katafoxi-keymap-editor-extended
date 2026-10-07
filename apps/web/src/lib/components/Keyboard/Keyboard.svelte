@@ -5,6 +5,7 @@
     comboIndexHitActiveId,
     encodeKeyBinding,
     mergeHoldTapCatalog,
+    mergeRecipeCatalog,
     effectiveShownLayers,
     isBlankLayerBinding,
     layerLegendSymbol,
@@ -82,8 +83,11 @@
   const usedLayerLabels = $derived(availableLayers.map(layer => layer.symbol))
 
   const holdTaps = $derived(keymap.holdTaps ?? editor.baselineKeymap?.holdTaps)
+  // Recipe chip is always available; Save only inserts the DTS node when armed/used.
   const behaviours = $derived(
-    definitions ? mergeHoldTapCatalog(definitions.behaviours, holdTaps) : null
+    definitions
+      ? mergeRecipeCatalog(mergeHoldTapCatalog(definitions.behaviours, holdTaps), true)
+      : null
   )
   const search = $derived.by((): SearchContextValue =>
     buildSearchContext(

@@ -217,6 +217,7 @@
     flex-direction: column;
     gap: 4px;
     min-width: 0;
+    flex: 1 1 auto;
   }
 
   .key-editor-chips {
@@ -226,6 +227,19 @@
     gap: 4px;
     min-width: 0;
     overflow: hidden;
+  }
+
+  /* Value-taking behaviours stay on one line (no wrap, no scroll). */
+  .key-editor-behaviour-groups .key-editor-chips[data-behaviour-group='params'] {
+    flex-wrap: nowrap;
+    gap: 3px;
+  }
+
+  .key-editor-behaviour-groups
+    .key-editor-chips[data-behaviour-group='params']
+    .key-editor-chip {
+    padding-left: 5px;
+    padding-right: 5px;
   }
 
   .key-editor-chip-note {
@@ -240,6 +254,21 @@
     text-transform: uppercase;
     white-space: nowrap;
     cursor: help;
+  }
+
+  .key-editor-chip-sep {
+    flex-shrink: 0;
+    align-self: stretch;
+    width: 1px;
+    margin: 1px 4px;
+    background: var(--border-subtle, var(--border));
+  }
+
+  .key-editor-rgblayer-preset {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
   }
 
   .key-editor-taxonomy {

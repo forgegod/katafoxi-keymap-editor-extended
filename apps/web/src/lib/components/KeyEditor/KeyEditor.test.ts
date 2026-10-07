@@ -37,7 +37,14 @@ const search: SearchBox = {
     getSearchTargets: (param: unknown) => {
       if (param === 'code') return codeChoices
       if (param === 'mod') return modChoices
-      if (param === 'layer') return [{ code: 0, symbol: 'L0', description: 'Layer 0' }]
+      if (param === 'layer') {
+        return [
+          { code: 0, symbol: 'L0', description: 'Layer 0' },
+          { code: 1, symbol: 'L1', description: 'Layer 1' },
+          { code: 2, symbol: 'L2', description: 'Layer 2' },
+          { code: 3, symbol: 'L3', description: 'Layer 3' }
+        ]
+      }
       return []
     }
   }
@@ -635,14 +642,14 @@ describe('KeyEditor value catalog', () => {
     const apply = target.querySelector('[aria-label="Apply"]')
     if (!(apply instanceof HTMLButtonElement)) throw new Error('missing Apply')
     apply.click()
-    const created = applied[0] as Array<{
+    const created = (applied[0] as { holdTaps?: Array<{
       code: string
       tappingTermMs?: number
       requirePriorIdleMs?: number
-    }>
-    expect(created.some(node => node.code === '&mt')).toBe(true)
+    }> }).holdTaps
+    expect(created?.some(node => node.code === '&mt')).toBe(true)
     expect(
-      created.some(
+      created?.some(
         node => node.code === '&hm' && node.tappingTermMs === 280 && node.requirePriorIdleMs === 150
       )
     ).toBe(true)
@@ -726,6 +733,7 @@ describe('KeyEditor value catalog', () => {
     })
 
     expect(target.querySelector('[data-behavior-presets]')).toBeNull()
+    expect(target.querySelector('[data-behavior-recipe="&rgblayer"]')).toBeNull()
     expect(target.querySelector('[data-keycode-slots]')).toBeInstanceOf(HTMLElement)
     const cw = target.querySelector('[data-keycode-slot="1"]')
     const ccw = target.querySelector('[data-keycode-slot="2"]')
@@ -736,5 +744,119 @@ describe('KeyEditor value catalog', () => {
     ;(cw as HTMLButtonElement).click()
     flushSync()
     expect(activated).toEqual([1])
+  })
+
+  it('offers per-layer &rgblayer chips in Presets', () => {
+    const selected: Array<{ code: string; layer?: number }> = []
+    open({
+      bindingLabel: '&kp A',
+      behaviours,
+      editorSlots: [
+        slot(0, 'behaviour', '&kp', 'Behaviour'),
+        slot(1, 'code', 'A', 'Key')
+      ],
+      activeCodeIndex: 1,
+      choices: codeChoices,
+      onSelectBehaviour: choice => {
+        selected.push({
+          code: String(choice.code),
+          layer: (choice as { layer?: number }).layer
+        })
+      },
+      onSelectValue: () => {},
+      onActivateSlot: () => {},
+      onConfirm: () => {},
+      onCancel: () => {},
+      onChangeHoldTaps: () => {}
+    })
+
+    const presets = target.querySelector('[data-behavior-presets]')
+    expect(presets).toBeInstanceOf(HTMLElement)
+    expect(presets?.querySelector('[data-behavior-preset="&hm"]')).toBeInstanceOf(
+      HTMLButtonElement
+    )
+    expect(presets?.querySelector('[data-rgblayer-layer="0"]')).toBeInstanceOf(
+      HTMLButtonElement
+    )
+    expect(presets?.querySelector('[data-rgblayer-layer="3"]')).toBeInstanceOf(
+      HTMLButtonElement
+    )
+    expect(presets?.querySelector('[data-rgblayer-color="1"]')).toBeInstanceOf(
+      HTMLElement
+    )
+    const recipe = presets?.querySelector('[data-rgblayer-layer="2"]')
+    expect(recipe?.textContent?.trim()).toBe('&rgblayer_2')
+    ;(recipe as HTMLButtonElement).click()
+    flushSync()
+    expect(selected).toEqual([{ code: '&rgblayer', layer: 2 }])
+  })
+
+  it('edits HSB from the Presets swatch and arms the recipe on Apply', () => {
+    const picks: Array<{ layer?: number; hsb?: { h: number; s: number; b: number } }> =
+      []
+    const hsbUpdates: Array<{ h: number; s: number; b: number }> = []
+    const applied: unknown[] = []
+    open({
+      bindingLabel: '&rgblayer 1 RGB_COLOR_HSB(128,100,100)',
+      behaviours: [
+        {
+          code: '&rgblayer',
+          name: 'Layer + RGB',
+          params: ['layer', 'hsb']
+        }
+      ],
+      editorSlots: [
+        slot(0, 'behaviour', '&rgblayer', 'Behaviour'),
+        slot(1, 'layer', 1, 'Layer'),
+        slot(2, 'hsb', 'RGB_COLOR_HSB(128,100,100)', 'Color')
+      ],
+      activeCodeIndex: 1,
+      choices: [],
+      onSelectBehaviour: choice => {
+        picks.push({
+          layer: (choice as { layer?: number }).layer,
+          hsb: (choice as { hsb?: { h: number; s: number; b: number } }).hsb
+        })
+      },
+      onSelectValue: () => {},
+      onSelectHsb: color => {
+        hsbUpdates.push(color)
+      },
+      onActivateSlot: () => {},
+      onConfirm: staged => {
+        applied.push(staged)
+      },
+      onCancel: () => {}
+    })
+
+    expect(target.querySelector('[data-rgblayer-params]')).toBeNull()
+    expect(target.querySelector('[data-slot-values]')).toBeNull()
+    expect(target.querySelector('.key-editor-values')).toBeNull()
+    expect(target.querySelector('[data-hold-tap-fields]')).toBeNull()
+    expect(
+      target.querySelector('[data-rgblayer-layer="1"]')?.classList.contains('active')
+    ).toBe(true)
+
+    const layerChip = target.querySelector('[data-rgblayer-layer="2"]')
+    expect(layerChip).toBeInstanceOf(HTMLButtonElement)
+    ;(layerChip as HTMLButtonElement).click()
+    flushSync()
+    expect(picks.at(-1)?.layer).toBe(2)
+
+    const color = target.querySelector(
+      '[data-rgblayer-color="1"] [aria-label="Color for layer 1"]'
+    )
+    expect(color).toBeInstanceOf(HTMLInputElement)
+    ;(color as HTMLInputElement).value = '#00ff00'
+    color?.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+    expect(hsbUpdates.at(-1)).toMatchObject({ s: 255, b: 255 })
+    expect(hsbUpdates.at(-1)?.h).toBeGreaterThan(60)
+    expect(hsbUpdates.at(-1)?.h).toBeLessThan(120)
+
+    const apply = target.querySelector('[aria-label="Apply"]')
+    if (!(apply instanceof HTMLButtonElement)) throw new Error('missing Apply')
+    apply.click()
+    expect(applied[0]).toEqual({ rgbLayerRecipe: true })
   })
 })

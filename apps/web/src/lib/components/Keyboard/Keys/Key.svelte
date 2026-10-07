@@ -466,6 +466,7 @@
     {usedLayerLabels}
     onSelectBehaviour={session.selectBehaviour}
     onSelectValue={session.selectValue}
+    onSelectHsb={session.selectHsb}
     onToggleHold={session.toggleHold}
     onActivateSlot={openEditor}
     onConfirm={session.confirm}

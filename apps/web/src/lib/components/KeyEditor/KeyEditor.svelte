@@ -7,9 +7,15 @@
     ensureHoldTapPreset,
     HOLD_TAP_PRESETS,
     holdTapPresetFor,
+    clampHsb,
+    defaultRgbLayerHsb,
+    isRgbLayerRecipeCode,
     isStockHoldTap,
+    parseHsbToken,
+    RGB_LAYER_RECIPE,
     zmkBehaviorDocsUrl,
     type HoldTapPreset,
+    type HsbColor,
     type ZmkHoldTap,
     behaviorValueCatalog,
     catalogKeyChoices,
@@ -40,13 +46,22 @@
   import BehaviourRow from './BehaviourRow.svelte'
   import HoldRow from './HoldRow.svelte'
   import HoldTapFields from './HoldTapFields.svelte'
+  import HsbPicker from './HsbPicker.svelte'
   import TaxonomyChips from './TaxonomyChips.svelte'
   import ValueGrid from './ValueGrid.svelte'
   import SelectChip from '../Common/SelectChip.svelte'
   import './KeyEditor.css'
 
+  export type KeyEditorConfirmStaged = {
+    holdTaps?: ZmkHoldTap[] | null
+    rgbLayerRecipe?: boolean
+  }
+
   interface Choice extends CatalogChoice {
     faIcon?: string
+    /** `&rgblayer` chip: target layer index (session applies in one shot). */
+    layer?: number
+    hsb?: HsbColor
   }
 
   interface Props {
@@ -62,9 +77,10 @@
     variant?: 'key' | 'encoder'
     onSelectBehaviour: (choice: Choice) => void
     onSelectValue: (choice: Choice) => void
+    onSelectHsb?: (color: HsbColor, codeIndex: number) => void
     onToggleHold?: (wrapCode: string) => void
     onActivateSlot: (codeIndex: number) => void
-    onConfirm: (stagedHoldTaps?: ZmkHoldTap[] | null) => void
+    onConfirm: (staged?: KeyEditorConfirmStaged | null) => void
     onCancel: () => void
     holdTaps?: ZmkHoldTap[]
     onChangeHoldTaps?: (next: ZmkHoldTap[]) => void
@@ -82,6 +98,7 @@
     variant = 'key',
     onSelectBehaviour,
     onSelectValue,
+    onSelectHsb,
     onToggleHold,
     onActivateSlot,
     onConfirm,
@@ -115,11 +132,34 @@
   const activeKeySlot = $derived(
     keySlots.find(slot => slot.codeIndex === activeCodeIndex) ?? keySlots[0]
   )
-  const inlineSlots = $derived(paramSlots.filter(slot => !isKeycodeParam(slot.param)))
   const catalogSlot = $derived(activeKeySlot ?? activeSlot)
   const behaviourValue = $derived(pickedBehaviour ?? editorSlots[0]?.value)
   const encoderEdit = $derived(variant === 'encoder')
   const showPresets = $derived(!encoderEdit)
+  /** Recipe node kept local until Apply, like hold-tap presets. */
+  let stagedRgbLayerRecipe = $state(false)
+  const rgbLayerEdit = $derived(isRgbLayerRecipeCode(behaviourValue))
+  const layerSlot = $derived(paramSlots.find(slot => slot.param === 'layer'))
+  const hsbSlot = $derived(paramSlots.find(slot => slot.param === 'hsb'))
+  const hsbValue = $derived(
+    parseHsbToken(hsbSlot?.value) ??
+      parseHsbToken(
+        (editorBindingPreview(editorSlots, pickedBehaviour) || bindingLabel).match(
+          /RGB_COLOR_HSB(?:_VAL)?\(\d+\s*,\s*\d+\s*,\s*\d+\)/
+        )?.[0]
+      ) ?? defaultRgbLayerHsb(Number(layerSlot?.value) || 1)
+  )
+  /** Per-layer swatch memory while the dialog is open. */
+  let layerColors = $state<Record<number, HsbColor>>({})
+  /** Recipe params live in Presets chips — not the value grid. */
+  const inlineSlots = $derived(
+    paramSlots.filter(
+      slot =>
+        !isKeycodeParam(slot.param) &&
+        slot.param !== 'hsb' &&
+        !(rgbLayerEdit && slot.param === 'layer')
+    )
+  )
   const valueCatalog = $derived(behaviorValueCatalog(behaviourValue))
   const catalogParam = $derived(behaviorSlotParam(behaviourValue, catalogSlot?.param))
   const resolvedChoices = $derived.by(() => {
@@ -146,7 +186,7 @@
       String(behaviourValue ?? '') !== '&as'
   )
   const showValuePicker = $derived(
-    catalogParam != null && catalogParam !== 'behaviour'
+    !rgbLayerEdit && catalogParam != null && catalogParam !== 'behaviour'
   )
   const keycodePicker = $derived(isKeycodeParam(catalogParam))
   const displayChoices = $derived(catalogKeyChoices(resolvedChoices))
@@ -162,7 +202,11 @@
   const behaviourCode = $derived(String(behaviourValue ?? ''))
   const preset = $derived(holdTapPresetFor(behaviourCode))
   const behaviourChoices = $derived(
-    orderedBehaviours.filter(choice => !holdTapPresetFor(String(choice.code)))
+    orderedBehaviours.filter(
+      choice =>
+        !holdTapPresetFor(String(choice.code)) &&
+        !isRgbLayerRecipeCode(choice.code)
+    )
   )
   const customHoldTap = $derived(
     (holdTaps ?? []).some(node => node.code === behaviourCode && !node.override) ||
@@ -206,6 +250,7 @@
     if (!onChangeHoldTaps) return
     if (behaviourCode === next.code) return
     stagePreset(next.code)
+    stagedRgbLayerRecipe = false
     // Behaviour chips store a local override. Presets must replace it, or the
     // row stays on &mt after the session draft has already moved.
     pickedBehaviour = next.code
@@ -217,6 +262,65 @@
       ...next.defaults
     })
   }
+
+  function swatchColor(layer: number): HsbColor {
+    if (rgbLayerEdit && Number(layerSlot?.value) === layer) return hsbValue
+    return layerColors[layer] ?? defaultRgbLayerHsb(layer)
+  }
+
+  function rememberLayerColor(layer: number, color: HsbColor) {
+    const next = clampHsb(color)
+    const prev = layerColors[layer]
+    if (prev && prev.h === next.h && prev.s === next.s && prev.b === next.b) return
+    layerColors = { ...layerColors, [layer]: next }
+  }
+
+  function chooseRgbLayer(layer: number, color: HsbColor = swatchColor(layer)) {
+    stagedHoldTaps = null
+    stagedRgbLayerRecipe = true
+    rememberLayerColor(layer, color)
+    if (
+      rgbLayerEdit &&
+      Number(layerSlot?.value) === layer &&
+      hsbValue.h === color.h &&
+      hsbValue.s === color.s &&
+      hsbValue.b === color.b
+    ) {
+      return
+    }
+    pickedBehaviour = RGB_LAYER_RECIPE.code
+    onSelectBehaviour({
+      code: RGB_LAYER_RECIPE.code,
+      name: RGB_LAYER_RECIPE.name,
+      params: [...RGB_LAYER_RECIPE.params],
+      description: RGB_LAYER_RECIPE.description,
+      layer,
+      hsb: color
+    })
+  }
+
+  function setRgbLayerColor(layer: number, color: HsbColor) {
+    rememberLayerColor(layer, color)
+    if (rgbLayerEdit && Number(layerSlot?.value) === layer) {
+      setHsb(color)
+      return
+    }
+    chooseRgbLayer(layer, color)
+  }
+
+  function setHsb(color: HsbColor) {
+    if (!hsbSlot || !onSelectHsb) return
+    if (layerSlot != null) rememberLayerColor(Number(layerSlot.value), color)
+    onActivateSlot(hsbSlot.codeIndex)
+    onSelectHsb(color, hsbSlot.codeIndex)
+  }
+
+  $effect(() => {
+    if (!rgbLayerEdit || layerSlot == null) return
+    const layer = Number(layerSlot.value)
+    if (!Number.isFinite(layer)) return
+    rememberLayerColor(layer, hsbValue)
+  })
   const showFilter = $derived(displayChoices.length > 16)
   const catalogKey = $derived(
     `${String(behaviourValue ?? '')}:${String(catalogParam ?? '')}:${displayChoices.length}`
@@ -285,6 +389,7 @@
 
   function chooseBehaviour(choice: Choice) {
     stagedHoldTaps = null
+    stagedRgbLayerRecipe = isRgbLayerRecipeCode(choice.code)
     pickedBehaviour = choice.code ?? null
     onSelectBehaviour(choice)
   }
@@ -303,6 +408,24 @@
     }
     return isKeycodeParam(name) ? choices : []
   }
+
+  /** One Presets chip per keymap layer (`&rgblayer_0` …). */
+  const rgbLayerIndexes = $derived.by(() => {
+    const fromSearch = catalogKeyChoices(choicesFor('layer'))
+      .map(choice => Number(choice.code))
+      .filter(index => Number.isFinite(index))
+    if (fromSearch.length) {
+      return [...new Set(fromSearch)].sort((a, b) => a - b)
+    }
+    const fromLabels = usedLayerLabels.length
+    const fromSlot = Number(layerSlot?.value)
+    const n = Math.max(
+      fromLabels,
+      Number.isFinite(fromSlot) ? fromSlot + 1 : 0,
+      1
+    )
+    return Array.from({ length: n }, (_, index) => index)
+  })
 
   /** Write a modifier or layer without hiding the key catalog. */
   function chooseInline(slot: EditorSlot, choice: Choice) {
@@ -325,8 +448,11 @@
 
   function handleApply() {
     if (canConfirm) {
-      const staged = stagedHoldTaps
+      const staged: KeyEditorConfirmStaged = {}
+      if (stagedHoldTaps) staged.holdTaps = stagedHoldTaps
+      if (stagedRgbLayerRecipe || rgbLayerEdit) staged.rgbLayerRecipe = true
       stagedHoldTaps = null
+      stagedRgbLayerRecipe = false
       onConfirm(staged)
       return
     }
@@ -402,7 +528,7 @@
         {#if showPresets}
           <section class="key-editor-row" data-behavior-presets>
             <p class="key-editor-section-label">Presets</p>
-            <div class="key-editor-chips" role="group" aria-label="Homerow and autoshift">
+            <div class="key-editor-chips" role="group" aria-label="Presets and recipes">
               {#each HOLD_TAP_PRESETS as item (item.code)}
                 <SelectChip
                   active={behaviourCode === item.code}
@@ -415,12 +541,38 @@
                   {item.code}
                 </SelectChip>
               {/each}
+              <span class="key-editor-chip-sep" aria-hidden="true"></span>
+              {#each rgbLayerIndexes as layer (layer)}
+                <span
+                  class="key-editor-rgblayer-preset"
+                  data-behavior-recipe-layer={layer}
+                >
+                  <SelectChip
+                    active={rgbLayerEdit && Number(layerSlot?.value) === layer}
+                    title={RGB_LAYER_RECIPE.description}
+                    aria-label={`${RGB_LAYER_RECIPE.name} · layer ${layer}`}
+                    data-behavior-recipe={RGB_LAYER_RECIPE.code}
+                    data-rgblayer-layer={layer}
+                    onclick={() => chooseRgbLayer(layer)}
+                  >
+                    {RGB_LAYER_RECIPE.code}_{layer}
+                  </SelectChip>
+                  <HsbPicker
+                    compact
+                    value={swatchColor(layer)}
+                    title={RGB_LAYER_RECIPE.description}
+                    aria-label={`Color for layer ${layer}`}
+                    data-rgblayer-color={layer}
+                    onChange={color => setRgbLayerColor(layer, color)}
+                  />
+                </span>
+              {/each}
             </div>
           </section>
         {/if}
       </div>
 
-      {#if showPresets}
+      {#if showPresets && !rgbLayerEdit}
         <HoldTapFields
           {behaviourCode}
           {timingFields}

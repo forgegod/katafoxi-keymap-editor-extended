@@ -93,6 +93,8 @@ export class EditorState {
    * so Apply writes the new node and the key in one step. Cancel never sets it.
    */
   _holdTapsOnNextUpdate: ZmkHoldTap[] | null = null
+  /** When true, the next keymap update sets `rgbLayerRecipe` so Save inserts the node. */
+  _rgbLayerRecipeOnNextUpdate: boolean | null = null
   redoStack = $state.raw<ParsedKeymap[]>([])
   saving = $state(false)
   /** View over the host profile. It does not edit the keymap. */
@@ -277,6 +279,7 @@ export class EditorState {
     if (import.meta.env.MODE !== 'test' && !import.meta.env.DEV) return
     this.reset()
     this._holdTapsOnNextUpdate = null
+    this._rgbLayerRecipeOnNextUpdate = null
     this.definitions = null
     resetHostLayoutRegistry()
     this.hostLegend = standardHostLegendView()

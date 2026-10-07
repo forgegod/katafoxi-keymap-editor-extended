@@ -58,6 +58,7 @@ Click a stacked keycap row. One dialog edits that layer’s ZMK binding:
 - Enter applies a complete binding. Esc cancels. An unfinished hold-tap stays open.
 - Pointing behaviours remind that firmware needs `CONFIG_ZMK_POINTING=y`. The editor only adds `#include <dt-bindings/zmk/pointing.h>`.
 - Hold-tap nodes are read into the keymap. Edit key changes tapping term and flavor for every key that uses `&mt` or `&lt`. The next row offers two presets: Homerow (`&hm`, modifier + key, with term, flavor, quick-tap, and prior-idle) and Autoshift (`&as`, one key — hold sends that key shifted, tap sends it — with a shared term). Apply adds its node when the keymap does not have it. Cancel leaves the hold-tap list unchanged. A hold-tap already in the file keeps its name and can still be assigned; there is no form to invent another behaviour. Save rewrites those timing lines and inserts missing preset nodes when `holdTaps` is set.
+- **Recipes** (not a general macro editor): one built-in chip, `&rgblayer` (Layer + RGB). Apply writes `&rgblayer <layer> RGB_COLOR_HSB(h,s,b)` and ensures a fixed `zmk,behavior-macro-two-param` node under `behaviors` on Save when `rgbLayerRecipe` is set or a binding already uses `&rgblayer`. The dialog shows layer chips plus an HSB picker. Arbitrary ZMK macros stay in the `.keymap` text; the SPA does not invent or edit open-ended macro sequences.
 
 ## Conditional layers
 
