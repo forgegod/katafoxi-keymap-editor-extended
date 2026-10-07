@@ -203,13 +203,26 @@
   let stageH = $state(0)
   let measureRaf = 0
 
-  function measureStage() {
+  function measureStage(contentW?: number, contentH?: number) {
     const el = stageEl
     if (!el) return
-    const box = el.getBoundingClientRect()
-    if (stageW === box.width && stageH === box.height) return
-    stageW = box.width
-    stageH = box.height
+    let w = contentW
+    let h = contentH
+    if (w == null || h == null) {
+      // clientWidth includes padding; subtract so stage inset is real fit margin.
+      const styles = getComputedStyle(el)
+      const padX =
+        (parseFloat(styles.paddingLeft) || 0) +
+        (parseFloat(styles.paddingRight) || 0)
+      const padY =
+        (parseFloat(styles.paddingTop) || 0) +
+        (parseFloat(styles.paddingBottom) || 0)
+      w = el.clientWidth - padX
+      h = el.clientHeight - padY
+    }
+    if (stageW === w && stageH === h) return
+    stageW = w
+    stageH = h
   }
 
   function cancelMeasureRaf() {
@@ -229,9 +242,21 @@
   $effect(() => {
     const el = stageEl
     if (!el || typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(() => {
+    const observer = new ResizeObserver(entries => {
       cancelMeasureRaf()
-      measureStage()
+      const entry = entries[0]
+      if (!entry) {
+        measureStage()
+        return
+      }
+      const box = Array.isArray(entry.contentBoxSize)
+        ? entry.contentBoxSize[0]
+        : entry.contentBoxSize
+      if (box) {
+        measureStage(box.inlineSize, box.blockSize)
+      } else {
+        measureStage(entry.contentRect.width, entry.contentRect.height)
+      }
     })
     observer.observe(el)
     measureStage()
@@ -422,8 +447,8 @@
     box-sizing: border-box;
     min-width: 0;
     min-height: 0;
-    /* Tight inset: no corner badge over the board, so no bottom clearance. */
-    padding: 4px 8px 8px;
+    /* Side inset so the board sits on the stage, not flush to the chrome. */
+    padding: 8px 20px 12px;
     overflow: hidden;
     background: transparent;
   }
