@@ -807,7 +807,7 @@ describe('KeyEditor value catalog', () => {
       ],
       editorSlots: [
         slot(0, 'behaviour', '&rgblayer', 'Behaviour'),
-        slot(1, 'layer', 1, 'Layer'),
+        slot(1, 'layer', '1', 'Layer'),
         slot(2, 'hsb', 'RGB_COLOR_HSB(128,100,100)', 'Color')
       ],
       activeCodeIndex: 1,
