@@ -1,0 +1,59 @@
+[
+  {
+    "name": "init",
+    "method": "GET",
+    "url": "http://api.test/github/installation"
+  },
+  {
+    "name": "fetchRepoBranches",
+    "method": "GET",
+    "url": "http://api.test/github/installation/42/acme%2Flark/branches"
+  },
+  {
+    "name": "createBranch",
+    "method": "POST",
+    "url": "http://api.test/github/installation/42/acme%2Flark/branches",
+    "body": {
+      "name": "feature/x#1",
+      "from": "main"
+    }
+  },
+  {
+    "name": "fetchLayoutAndKeymap",
+    "method": "GET",
+    "url": "http://api.test/github/keyboard-files/42/acme%2Flark?branch=feature%2Fx%231"
+  },
+  {
+    "name": "commitChanges",
+    "method": "POST",
+    "url": "http://api.test/github/keyboard-files/42/acme%2Flark/feature%2Fx%231",
+    "body": {
+      "layout": [
+        {
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "keymap": {
+        "layers": [
+          [
+            "&kp A"
+          ]
+        ]
+      },
+      "hostSnapshot": null,
+      "hostDeliverables": null,
+      "baseSha": null
+    }
+  },
+  {
+    "name": "fetchFirmwareBuild",
+    "method": "GET",
+    "url": "http://api.test/github/builds/42/acme%2Flark?branch=feature%2Fx%231"
+  },
+  {
+    "name": "firmwareDownloadUrl",
+    "method": "GET",
+    "url": "http://api.test/github/builds/42/acme%2Flark/artifact/7?name=firmware"
+  }
+]

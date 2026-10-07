@@ -1,0 +1,40 @@
+/*
+ * Hard .keymap corpus: #if 0 around a layer and #ifdef around hold-tap timing.
+ * Covers R2-6 (Save must refuse splice when the keymap block is branched).
+ */
+
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+
+/ {
+    behaviors {
+#ifdef SHORT_HOLD
+        &mt {
+            tapping-term-ms = <200>;
+        };
+#else
+        &mt {
+            tapping-term-ms = <400>;
+        };
+#endif
+    };
+
+    keymap {
+        compatible = "zmk,keymap";
+
+        layer_0 {
+            bindings = <
+&kp A &kp B
+&kp C &kp D
+            >;
+        };
+#if 0
+        layer_1 {
+            bindings = <
+&kp E &kp F
+&kp G &kp H
+            >;
+        };
+#endif
+    };
+};

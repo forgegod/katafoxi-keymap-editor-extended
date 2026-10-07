@@ -1,0 +1,35 @@
+/*
+ * Hard .keymap corpus: raise: layer_1, layer-base, and a labeled combo node.
+ * Covers R2-4 (DTS child labels and hyphenated names).
+ */
+
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+
+/ {
+    combos {
+        compatible = "zmk,combos";
+        esc: combo_esc {
+            bindings = <&kp ESC>;
+            key-positions = <0 1>;
+        };
+    };
+
+    keymap {
+        compatible = "zmk,keymap";
+
+        layer-base {
+            bindings = <
+&kp A &kp B
+&kp C &kp D
+            >;
+        };
+
+        raise: layer_1 {
+            bindings = <
+&kp E &kp F
+&kp G &kp H
+            >;
+        };
+    };
+};

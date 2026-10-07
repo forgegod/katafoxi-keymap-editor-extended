@@ -1,0 +1,51 @@
+# Production on a VPS: Caddy terminates TLS and proxies to the app.
+# Copy env.production.example → .env and fill secrets.
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        VITE_ENABLE_GITHUB: 'true'
+        VITE_ENABLE_LOCAL: 'false'
+        VITE_GITHUB_APP_NAME: ${VITE_GITHUB_APP_NAME:-keymap-editor-extended}
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: '8080'
+      ENABLE_LOCAL: 'false'
+      ENABLE_DEV_SERVER: 'false'
+      TRUST_PROXY: 'true'
+      ENABLE_GITHUB: 'true'
+      APP_BASE_URL: ${APP_BASE_URL:-https://zmk-keymap-editor.com}
+      GITHUB_OAUTH_CALLBACK_URL: ${GITHUB_OAUTH_CALLBACK_URL:-https://zmk-keymap-editor.com/github/authorize}
+    restart: unless-stopped
+    expose:
+      - '8080'
+    networks:
+      - web
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    networks:
+      - web
+
+networks:
+  web:
+
+volumes:
+  caddy_data:
+  caddy_config:

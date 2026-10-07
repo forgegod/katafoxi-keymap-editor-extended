@@ -1,0 +1,626 @@
+  .key-editor {
+    box-sizing: border-box;
+    /* Content-ish width after dropping the title rail; nav wraps below. */
+    width: min(900px, 94vw);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    overflow: visible;
+    background: none;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  .key-editor-body {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    max-height: min(calc(100vh - 9rem), 920px);
+    overflow: hidden;
+    background: var(--surface);
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Result sticker above the panel — narrow, centered, not a window title. */
+  .key-editor-preview {
+    align-self: center;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-shrink: 0;
+    width: fit-content;
+    max-width: min(100%, 70vw);
+    margin: 0 0 12px;
+    padding: 8px 8px 8px 16px;
+    background: var(--dark-surface);
+    border-radius: 10px;
+    box-shadow: 0 8px 28px rgba(20, 24, 36, 0.38);
+  }
+
+  .key-editor-preview .binding {
+    box-sizing: border-box;
+    min-width: 14em;
+    max-width: min(40em, 70vw);
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--dark-ink);
+    font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+      monospace;
+    font-size: var(--font-lg);
+    font-weight: 600;
+    line-height: 1.4;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .key-editor-preview-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .key-editor-ok,
+  .key-editor-cancel {
+    box-sizing: border-box;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--dark-ink-soft);
+    cursor: pointer;
+    font-size: var(--font-icon);
+    line-height: 32px;
+    padding: 0;
+  }
+
+  .key-editor-ok:hover:not(:disabled):not(.blocked) {
+    background: var(--ok-fill-strong);
+    color: var(--on-accent);
+  }
+
+  .key-editor-ok.blocked {
+    opacity: 0.45;
+  }
+
+  .key-editor-ok.blocked:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: var(--dark-ink-soft);
+  }
+
+  .key-editor-cancel:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--on-accent);
+  }
+
+  .key-editor-ok:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .key-editor-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 14px 12px;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  /* Stable behaviour pick. The rows below change with the chosen code. */
+  .key-editor-choice-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: -10px -14px 2px;
+    padding: 10px 14px 12px;
+    background: color-mix(in srgb, var(--text) 5%, var(--surface));
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .key-editor-behavior {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+
+  .key-editor-behavior .key-editor-row {
+    align-items: flex-start;
+  }
+
+  .key-editor-behavior .key-editor-section-label {
+    padding-top: 8px;
+  }
+
+  .key-editor-behavior .key-editor-note {
+    margin-left: calc(5.6em + 20px);
+  }
+
+  .key-editor-behavior-fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin: 0;
+  }
+
+  .key-editor-behavior-fields label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-muted);
+    font-size: var(--font-sm);
+  }
+
+  /* Beat the global #app-root select rule so term and flavor share one height. */
+  #app-root .key-editor-behavior-fields input,
+  #app-root .key-editor-behavior-fields select {
+    box-sizing: border-box;
+    height: var(--chrome-h);
+    min-height: var(--chrome-h);
+    font: inherit;
+    line-height: 1.2;
+    color: var(--text);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--text) 22%, transparent);
+    border-radius: 6px;
+    padding: 0 8px;
+  }
+
+  .key-editor-behavior-fields input[type='number'] {
+    width: 5.5rem;
+  }
+
+  .key-editor-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .key-editor-row[data-slot-values] {
+    align-items: flex-start;
+  }
+
+  .key-editor-row[data-slot-values] .key-editor-section-label {
+    padding-top: 3px;
+  }
+
+  .key-editor-section-label {
+    margin: 0;
+    flex-shrink: 0;
+    width: 5.6em;
+    padding-right: 10px;
+    border-right: 1px solid var(--border);
+    font-size: var(--font-sm);
+    font-weight: 500;
+    color: var(--text-muted);
+    line-height: 1.2;
+  }
+
+  /* Parametrized behaviours on row 1; parameterless (instant) on row 2. */
+  .key-editor-behaviour-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .key-editor-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  /* Value-taking behaviours stay on one line (no wrap, no scroll). */
+  .key-editor-behaviour-groups .key-editor-chips[data-behaviour-group='params'] {
+    flex-wrap: nowrap;
+    gap: 3px;
+  }
+
+  .key-editor-behaviour-groups
+    .key-editor-chips[data-behaviour-group='params']
+    .key-editor-chip {
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+
+  .key-editor-chip-note {
+    flex-shrink: 0;
+    margin: 0 2px 0 0;
+    padding: 0 4px 0 0;
+    border-right: 1px solid var(--border-subtle);
+    color: var(--text-muted);
+    font-size: var(--font-xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: help;
+  }
+
+  .key-editor-chip-sep {
+    flex-shrink: 0;
+    align-self: stretch;
+    width: 1px;
+    margin: 1px 4px;
+    background: var(--border-subtle, var(--border));
+  }
+
+  .key-editor-rgblayer-preset {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+
+  .key-editor-taxonomy {
+    display: contents;
+  }
+
+  .key-editor-filter {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    height: 28px;
+    margin: 0;
+    padding: 4px 8px;
+    border: 1px solid var(--border-soft);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: var(--font-md);
+  }
+
+  .key-editor-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--text-muted);
+    font-size: var(--font-xs);
+    line-height: 1.2;
+  }
+
+  .key-editor-legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  .key-editor-legend-swatch {
+    box-sizing: border-box;
+    width: 1.5em;
+    height: 1em;
+    border-radius: 3px;
+    background: var(--key-face);
+    border: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+  }
+
+  .key-editor-legend-swatch.selected {
+    outline: 2px solid var(--selection);
+    outline-offset: 1px;
+  }
+
+  .key-editor-legend-swatch.used {
+    opacity: 0.42;
+    background: var(--fill);
+  }
+
+  .key-editor-legend-swatch.limited {
+    border-style: dashed;
+    border-width: 1.5px;
+    border-color: var(--amber-strong);
+  }
+
+  .key-editor-legend-swatch.alias {
+    border-style: dashed;
+    border-width: 1.5px;
+    border-color: var(--border);
+  }
+
+  .key-editor-values {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .key-editor-group + .key-editor-group {
+    margin-top: 10px;
+  }
+
+  .key-editor-group h3 {
+    margin: 0 0 4px;
+    font-size: var(--font-xs);
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  .key-editor-band {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .key-editor-band.codes-band {
+    align-items: flex-start;
+  }
+
+  .key-editor-band + .key-editor-band {
+    margin-top: 6px;
+  }
+
+  .key-editor-band-body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .key-editor-band[data-band='nav'] {
+    align-items: flex-start;
+  }
+
+  .key-editor-band-stacks {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .key-editor-codes-toggle {
+    cursor: pointer;
+    margin: 0;
+    padding: 2px 8px;
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: var(--font-sm);
+    line-height: 1.3;
+  }
+
+  .key-editor-codes-toggle:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* Chip-sized disclosure at the end of the F1–F12 row. */
+  .key-editor-inline-toggle {
+    align-self: stretch;
+    min-width: 2em;
+    padding: 4px 6px;
+    line-height: 1.2;
+    font-weight: 500;
+  }
+
+  .key-editor-hold-hint {
+    margin: 0;
+    flex: 1 1 auto;
+    min-width: 12em;
+    color: var(--text-muted);
+    font-size: var(--font-xs);
+    line-height: 1.3;
+  }
+
+  .key-editor-choice.media-alt {
+    opacity: 0.72;
+    border-style: dashed;
+    color: var(--text-muted);
+  }
+
+  .key-editor-choice.media-alt.used {
+    opacity: 0.38;
+  }
+
+  .key-editor-choice.media-alt.active {
+    opacity: 1;
+    color: var(--text);
+  }
+
+  .key-editor-grid.media-alt {
+    opacity: 0.95;
+  }
+
+  /* ZMK OS table: caution border, not fade — fade is reserved for "already used". */
+  .key-editor-choice.os-limited {
+    border-style: dashed;
+    border-color: var(--amber-strong);
+    color: var(--text);
+  }
+
+  .key-editor-choice.os-limited:hover {
+    border-color: var(--hover-selection);
+  }
+
+  /* HID dump is mostly limited — keep a quiet dash so the grid does not glow amber. */
+  .key-editor-grid.codes .key-editor-choice.os-limited {
+    border-color: color-mix(in srgb, var(--amber-strong) 40%, var(--border-subtle));
+  }
+
+  .key-editor-band-label {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0 8px 0 0;
+    padding: 0 8px 0 0;
+    border-right: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: var(--font-xs);
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: help;
+  }
+
+  .key-editor-band-hint {
+    width: 12px;
+    height: 12px;
+    color: var(--text-muted);
+    transform-origin: 50% 50%;
+    animation: key-editor-hint-pulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes key-editor-hint-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.22);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .key-editor-band-hint {
+      animation: none;
+    }
+  }
+
+  .key-editor-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .key-editor-band[data-band='shifted'] .key-editor-choice,
+  .key-editor-choice.shifted-alias {
+    border-style: dashed;
+  }
+
+  .key-editor-holds {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .key-editor-holds .key-editor-choice {
+    border-style: dashed;
+  }
+
+  .key-editor-holds .key-editor-choice.active {
+    border-style: solid;
+  }
+
+  .key-editor-holds .key-editor-choice:disabled,
+  .key-editor-holds .key-editor-choice.blocked {
+    cursor: not-allowed;
+    opacity: 0.38;
+  }
+
+  .key-editor-holds .key-editor-choice:disabled:hover {
+    background: var(--key-face);
+    border-color: var(--border-subtle);
+    color: var(--text);
+  }
+
+  .key-editor-grid.codes {
+    display: grid;
+    grid-auto-flow: column;
+    justify-content: start;
+    grid-template-rows: repeat(var(--code-rows, 1), auto);
+    /* Fixed tracks — do not stretch empty space across the modal. */
+    grid-template-columns: repeat(
+      var(--code-cols, 10),
+      var(--code-col-min, 64px)
+    );
+  }
+
+  .key-editor-choice {
+    cursor: pointer;
+    min-width: 2em;
+    border: 1px solid var(--border-subtle);
+    background: var(--key-face);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-family: inherit;
+    font-size: var(--font-sm);
+    font-weight: 500;
+    line-height: 1.2;
+  }
+
+  .key-editor-grid.codes .key-editor-choice {
+    min-width: 0;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .key-editor-choice.keypad {
+    /* Same wash as legend `.code.keypad` / `.keycap.keypad` — no stroke. */
+    border-color: transparent;
+    box-shadow: none;
+    background: var(--keypad-wash);
+    min-width: 1.35em;
+    padding: 2px 5px;
+    text-align: center;
+  }
+
+  .key-editor-choice.keypad:hover {
+    box-shadow: none;
+    background: var(--hover-selection);
+    border-color: transparent;
+    color: var(--on-accent);
+  }
+
+  .key-editor-choice.used {
+    opacity: 0.42;
+  }
+
+  .key-editor-choice.active {
+    outline: 2px solid var(--selection);
+    outline-offset: 1px;
+    opacity: 1;
+  }
+
+  .key-editor-choice:hover {
+    background: var(--hover-selection);
+    border-color: var(--hover-selection);
+    color: var(--on-accent);
+  }
+
+  .key-editor-empty {
+    margin: 4px 0 0;
+    color: var(--text-muted);
+    font-size: var(--font-md);
+  }
+
+  .key-editor-note {
+    margin: 2px 0 0;
+    color: var(--text-muted);
+    font-size: var(--font-sm);
+    line-height: 1.35;
+    max-width: 72em;
+  }

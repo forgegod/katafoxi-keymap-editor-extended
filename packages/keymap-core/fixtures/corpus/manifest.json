@@ -1,0 +1,64 @@
+{
+  "files": [
+    {
+      "file": "ascii-art-comments.keymap",
+      "layout": 4,
+      "warnings": [],
+      "expect": "splice"
+    },
+    {
+      "file": "defines-everywhere.keymap",
+      "layout": 4,
+      "warnings": [
+        "macros_expanded",
+        "combos_unparsed",
+        "conditional_layers_unparsed",
+        "hold_tap_timing_unparsed"
+      ],
+      "expect": "splice"
+    },
+    {
+      "file": "labels-and-hyphens.keymap",
+      "layout": 4,
+      "warnings": ["combos_unparsed"],
+      "expect": "splice"
+    },
+    {
+      "file": "single-line-nodes.keymap",
+      "layout": 4,
+      "warnings": [],
+      "expect": "splice"
+    },
+    {
+      "file": "preprocessor-branches.keymap",
+      "layout": 4,
+      "warnings": ["preprocessor_conditional"],
+      "expect": "reject",
+      "rejectError": "preprocessor"
+    },
+    {
+      "file": "strings-with-escapes.keymap",
+      "layout": 4,
+      "warnings": [],
+      "expect": "splice"
+    },
+    {
+      "file": "tabs-and-parens.keymap",
+      "layout": 4,
+      "warnings": [],
+      "expect": "splice"
+    },
+    {
+      "file": "sensors-and-macros.keymap",
+      "layout": 4,
+      "warnings": ["macros_expanded"],
+      "expect": "splice"
+    },
+    {
+      "file": "crlf.keymap",
+      "layout": 4,
+      "warnings": [],
+      "expect": "splice"
+    }
+  ]
+}

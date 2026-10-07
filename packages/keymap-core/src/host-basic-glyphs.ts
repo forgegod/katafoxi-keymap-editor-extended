@@ -1,0 +1,281 @@
+import { primarySystemLayoutId } from './host-layout-catalog.js'
+import { HOST_LANGUAGE_IDS, type HostLanguageId } from './host-languages.js'
+import type { HostLayout } from './host-layout.js'
+import { hostLayout } from './host-layout-registry.js'
+import { foldLetterKey } from './letter-case.js'
+import type { KeyBindingNode, ParsedKeymap } from './types.js'
+
+/**
+ * Keypad page glyphs the OS emits without reading the language layout.
+ * `KP_DOT` and `KP_COMMA` stay out: they follow the locale decimal separator.
+ * A shifted alias such as `PLUS` (`LS(EQUAL)`) is not here; the host layout reads that report.
+ */
+const KEYPAD_GLYPH_BY_CODE: ReadonlyMap<string, string> = new Map([
+  ['KP_N0', '0'],
+  ['KP_NUMBER_0', '0'],
+  ['KP_N1', '1'],
+  ['KP_NUMBER_1', '1'],
+  ['KP_N2', '2'],
+  ['KP_NUMBER_2', '2'],
+  ['KP_N3', '3'],
+  ['KP_NUMBER_3', '3'],
+  ['KP_N4', '4'],
+  ['KP_NUMBER_4', '4'],
+  ['KP_N5', '5'],
+  ['KP_NUMBER_5', '5'],
+  ['KP_N6', '6'],
+  ['KP_NUMBER_6', '6'],
+  ['KP_N7', '7'],
+  ['KP_NUMBER_7', '7'],
+  ['KP_N8', '8'],
+  ['KP_NUMBER_8', '8'],
+  ['KP_N9', '9'],
+  ['KP_NUMBER_9', '9'],
+  ['KP_PLUS', '+'],
+  ['KP_MINUS', '-'],
+  ['KP_SUBTRACT', '-'],
+  ['KP_SLASH', '/'],
+  ['KP_DIVIDE', '/']
+])
+
+/**
+ * Letters a host language is expected to type. Ukrainian is not Russian:
+ * і ї є ґ stand in, and ы э ъ ё do not. German adds ä ö ü ß; French adds
+ * accented vowels and æ œ ç; Polish adds ą ć ę ł ń ó ś ź ż; Spanish adds ñ
+ * and acute vowels; Greek uses the modern alphabet (including final σ ς);
+ * Bulgarian omits Russian ы э ё. A letter the primary system layout never
+ * produces is not required (`missingBasicGlyphs`).
+ */
+const LETTERS: Record<HostLanguageId, string> = {
+  en: 'abcdefghijklmnopqrstuvwxyz',
+  ru: 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя',
+  uk: 'абвгґдеєжзиіїйклмнопрстуфхцчшщьюя',
+  de: 'abcdefghijklmnopqrstuvwxyzäöüß',
+  fr: 'abcdefghijklmnopqrstuvwxyzàâäæçéèêëîïôœùûüÿ',
+  pl: 'abcdefghijklmnopqrstuvwxyząćęłńóśźż',
+  es: 'abcdefghijklmnopqrstuvwxyzñáéíóúü',
+  it: 'abcdefghijklmnopqrstuvwxyzàèéìíîòóùú',
+  pt: 'abcdefghijklmnopqrstuvwxyzáàâãçéêíóôõú',
+  br: 'abcdefghijklmnopqrstuvwxyzáàâãçéêíóôõú',
+  cs: 'aábcčdďeéěfghiíjklmnňoópqrřsštťuúůvwxyýzž',
+  da: 'abcdefghijklmnopqrstuvwxyzæøå',
+  sv: 'abcdefghijklmnopqrstuvwxyzåäö',
+  hu: 'aábcdeéfghiíjklmnoóöőpqrstuúüűvwxyz',
+  tr: 'abcçdefgğhıijklmnoöprsştuüvyz',
+  ro: 'aăâbcdefghiîjklmnopqrsștțuvwxyz',
+  fi: 'abcdefghijklmnopqrstuvwxyzåäö',
+  no: 'abcdefghijklmnopqrstuvwxyzæøå',
+  el: 'αβγδεζηθικλμνξοπρσςτυφχψω',
+  bg: 'абвгдежзийклмнопрстуфхцчшщъьюя'
+}
+
+/** Digits plus typewriter punctuation and the shifted partner of each mark. */
+const MARKS = [
+  '0',
+  '1',
+  '2',
+  '3',
+  '4',
+  '5',
+  '6',
+  '7',
+  '8',
+  '9',
+  ';',
+  ':',
+  '/',
+  '?',
+  '\\',
+  '|',
+  "'",
+  '"',
+  '-',
+  '_',
+  '=',
+  '+',
+  '[',
+  '{',
+  ']',
+  '}',
+  ',',
+  '<',
+  '.',
+  '>'
+] as const
+
+/**
+ * Typewriter punctuation Differences treats as serious (Linux split / per-key gap).
+ * Digits stay out; national marks (`№`, …) stay ornament. Grave and tilde join the
+ * punct half of `MARKS`.
+ */
+const BASIC_ALIGN_GLYPHS: ReadonlySet<string> = new Set([
+  ';',
+  ':',
+  '/',
+  '?',
+  '\\',
+  '|',
+  "'",
+  '"',
+  '-',
+  '_',
+  '=',
+  '+',
+  '[',
+  '{',
+  ']',
+  '}',
+  ',',
+  '<',
+  '.',
+  '>',
+  '`',
+  '~'
+])
+
+export function isBasicAlignGlyph(glyph: string): boolean {
+  return BASIC_ALIGN_GLYPHS.has(glyph)
+}
+
+const stockGlyphs = new Map<HostLanguageId, Set<string>>()
+
+function glyphsOf(layout: HostLayout): Set<string> {
+  const found = new Set<string>()
+  for (const row of layout.byZmk.values()) {
+    for (const glyph of row.glyphs) {
+      if (glyph) found.add(glyph)
+    }
+  }
+  return found
+}
+
+function hasLetter(found: Set<string>, letter: string, language: HostLanguageId): boolean {
+  const want = foldLetterKey(letter, language)
+  for (const glyph of found) {
+    if (foldLetterKey(glyph, language) === want) return true
+  }
+  return false
+}
+
+/** Glyphs the language's primary system layout produces. Cached: builtins do not change. */
+function stockOf(language: HostLanguageId): Set<string> {
+  const cached = stockGlyphs.get(language)
+  if (cached) return cached
+  const id = primarySystemLayoutId(language)
+  const layout = id ? hostLayout(id) : undefined
+  const found = layout ? glyphsOf(layout) : new Set<string>()
+  stockGlyphs.set(language, found)
+  return found
+}
+
+function keypadCode(token: string): string {
+  const name = token.trim().toUpperCase().replace(/^KC_/, '')
+  return name
+}
+
+function visitBinding(node: KeyBindingNode, visit: (token: string) => void): void {
+  visit(String(node.value))
+  for (const child of node.params ?? []) visitBinding(child, visit)
+}
+
+/**
+ * Glyphs a keymap types from the keypad page (`KP_N3`, `KP_PLUS`).
+ * The same set covers every host language: the OS does not consult that layout.
+ */
+export function keypadCoveredGlyphs(keymap: ParsedKeymap | null | undefined): Set<string> {
+  const covered = new Set<string>()
+  if (!keymap) return covered
+  for (const layer of keymap.layers) {
+    for (const binding of layer) {
+      visitBinding(binding, token => {
+        const glyph = KEYPAD_GLYPH_BY_CODE.get(keypadCode(token))
+        if (glyph) covered.add(glyph)
+      })
+    }
+  }
+  return covered
+}
+
+/**
+ * Basic letters, digits, and punctuation this layout does not contain.
+ * A letter is present when either case appears on any level.
+ * A glyph the primary system layout never produces is not required.
+ * `covered` glyphs (keypad keys on this keymap) count as present.
+ */
+export function missingBasicGlyphs(
+  layout: HostLayout,
+  language: HostLanguageId,
+  covered?: ReadonlySet<string>
+): string[] {
+  const found = glyphsOf(layout)
+  const stock = stockOf(language)
+  const missing: string[] = []
+  for (const letter of LETTERS[language]) {
+    if (!hasLetter(stock, letter, language) || hasLetter(found, letter, language)) continue
+    missing.push(letter)
+  }
+  for (const mark of MARKS) {
+    if (!stock.has(mark) || found.has(mark) || covered?.has(mark)) continue
+    missing.push(mark)
+  }
+  return missing
+}
+
+const requiredLettersCache = new Map<HostLanguageId, readonly string[]>()
+
+/** Letters in `LETTERS` that the primary system layout actually produces. */
+function requiredLetters(language: HostLanguageId): readonly string[] {
+  const cached = requiredLettersCache.get(language)
+  if (cached) return cached
+  const stock = stockOf(language)
+  const required = [...LETTERS[language]].filter(letter => hasLetter(stock, letter, language))
+  requiredLettersCache.set(language, required)
+  return required
+}
+
+function glyphJaccard(found: ReadonlySet<string>, stock: ReadonlySet<string>): number {
+  let hit = 0
+  for (const glyph of found) {
+    if (stock.has(glyph)) hit++
+  }
+  let union = found.size
+  for (const glyph of stock) {
+    if (!found.has(glyph)) union++
+  }
+  return union === 0 ? 0 : hit / union
+}
+
+/**
+ * Catalog language whose `LETTERS` best match this layout. Coverage of the
+ * letters the primary layout types comes first; a larger alphabet wins a
+ * tie, then glyph overlap with that primary layout (fi/sv, da/no, pt/br).
+ */
+export function guessHostLanguageFromLetters(layout: HostLayout): HostLanguageId | null {
+  const found = glyphsOf(layout)
+  if (found.size === 0) return null
+  let best: HostLanguageId | null = null
+  let bestCoverage = -1
+  let bestRequired = -1
+  let bestOverlap = -1
+  for (const language of HOST_LANGUAGE_IDS) {
+    const required = requiredLetters(language)
+    if (required.length === 0) continue
+    let present = 0
+    for (const letter of required) {
+      if (hasLetter(found, letter, language)) present++
+    }
+    const coverage = present / required.length
+    const overlap = glyphJaccard(found, stockOf(language))
+    if (
+      coverage > bestCoverage ||
+      (coverage === bestCoverage && required.length > bestRequired) ||
+      (coverage === bestCoverage && required.length === bestRequired && overlap > bestOverlap)
+    ) {
+      best = language
+      bestCoverage = coverage
+      bestRequired = required.length
+      bestOverlap = overlap
+    }
+  }
+  return bestCoverage > 0 ? best : null
+}

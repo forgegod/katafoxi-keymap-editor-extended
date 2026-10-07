@@ -1,0 +1,303 @@
+import {
+  encodeHsbToken,
+  encodeKeyBinding,
+  isModifierWrapCode,
+  modifierHoldForKey,
+  modifierHoldForWrap,
+  parseHsbBindingNode,
+  parseHsbToken,
+  readModifierChain,
+  toggleModifierWraps,
+  writeModifierChain,
+  type KeyBindingNode
+} from '@keymap-editor/keymap-core'
+import {
+  childCodeIndex,
+  makeIndex,
+  type HydratedNode
+} from './hydrate'
+
+export interface EditorSlot {
+  codeIndex: number
+  param: unknown
+  value: string | number | undefined
+  label: string
+}
+
+const SLOT_LABELS: Record<string, string> = {
+  layer: 'Layer',
+  mod: 'Modifier',
+  behaviour: 'Behaviour',
+  command: 'Command',
+  keycode: 'Key',
+  code: 'Key',
+  hsb: 'Color'
+}
+
+export function slotLabel(param: unknown): string {
+  if (param && typeof param === 'object' && 'name' in param) {
+    const name = (param as { name?: string }).name
+    if (name) return name
+  }
+  if (typeof param === 'string') return SLOT_LABELS[param] ?? param
+  return 'Value'
+}
+
+export function isKeycodeParam(param: unknown): boolean {
+  return param === 'code' || param === 'keycode'
+}
+
+export {
+  codeColumnMinPx,
+  codeGridMetrics
+} from './code-grid'
+
+/** Behaviour slot plus each hydrated param (including nested LC(code) slots). */
+export function buildEditorSlots(
+  normalized: HydratedNode,
+  behaviourParams: unknown[]
+): EditorSlot[] {
+  const slots: EditorSlot[] = [
+    {
+      codeIndex: 0,
+      param: 'behaviour',
+      value: normalized.value,
+      label: slotLabel('behaviour')
+    }
+  ]
+
+  function slotDisplayValue(param: unknown, node: HydratedNode | undefined) {
+    // Keep HSB args on the slot so preview/picker can round-trip (tree children
+    // are not separate editor slots for the `hsb` param kind).
+    if (param === 'hsb' && node) {
+      const color = parseHsbBindingNode({
+        value: node.value ?? 'RGB_COLOR_HSB',
+        params: (node.params ?? []).map(child => ({
+          value: child.value ?? '',
+          params: []
+        }))
+      })
+      if (color) return encodeHsbToken(color)
+    }
+    return node?.value
+  }
+
+  function walk(
+    parentIndex: number,
+    params: unknown[],
+    values: HydratedNode[]
+  ) {
+    params.forEach((param, i) => {
+      const codeIndex = childCodeIndex(parentIndex, values, i)
+      const node = values[i]
+      slots.push({
+        codeIndex,
+        param,
+        value: slotDisplayValue(param, node),
+        label: slotLabel(param)
+      })
+      const nested = (node?.source?.params as unknown[]) || []
+      if (nested.length > 0) {
+        walk(codeIndex, nested, node?.params ?? [])
+      }
+    })
+  }
+
+  walk(0, behaviourParams, normalized.params)
+  return slots
+}
+
+function keycodeSlots(slots: EditorSlot[]): EditorSlot[] {
+  return slots.filter(slot => isKeycodeParam(slot.param))
+}
+
+export function keycodeChainRootSlot(
+  slots: EditorSlot[],
+  activeIndex: number
+): EditorSlot | undefined {
+  const keys = keycodeSlots(slots)
+  const activePos = keys.findIndex(slot => slot.codeIndex === activeIndex)
+  if (activePos < 0) return slots.find(slot => slot.codeIndex === activeIndex)
+  let rootPos = activePos
+  while (rootPos > 0 && isModifierWrapCode(keys[rootPos - 1].value)) {
+    rootPos -= 1
+  }
+  return keys[rootPos]
+}
+
+export function terminalKeySlot(
+  slots: EditorSlot[],
+  activeIndex: number
+): EditorSlot | undefined {
+  const root = keycodeChainRootSlot(slots, activeIndex)
+  if (!root || !isKeycodeParam(root.param)) {
+    return slots.find(slot => slot.codeIndex === activeIndex)
+  }
+  const keys = keycodeSlots(slots)
+  const rootPos = keys.findIndex(slot => slot.codeIndex === root.codeIndex)
+  let end = rootPos
+  while (end + 1 < keys.length && isModifierWrapCode(keys[end].value)) {
+    end += 1
+  }
+  return keys[end]
+}
+
+export function visibleValueSlots(slots: EditorSlot[]): EditorSlot[] {
+  return slots.filter(
+    slot => slot.param !== 'behaviour' && !isModifierWrapCode(slot.value)
+  )
+}
+
+function nodeFromSlotValue(
+  value: string | number | undefined
+): KeyBindingNode | null {
+  if (value == null || String(value) === '') return null
+  const text = String(value)
+  const hsb = parseHsbToken(text)
+  if (hsb) {
+    return {
+      value: 'RGB_COLOR_HSB',
+      params: [
+        { value: hsb.h, params: [] },
+        { value: hsb.s, params: [] },
+        { value: hsb.b, params: [] }
+      ]
+    }
+  }
+  // Function-style tokens such as LC(A) already appear as wrap + nested slots.
+  return { value: text, params: [] }
+}
+
+function takeBindingParam(
+  slots: EditorSlot[],
+  start: number
+): { node: KeyBindingNode | null; next: number } {
+  const slot = slots[start]
+  if (!slot) return { node: null, next: start }
+  if (isModifierWrapCode(slot.value)) {
+    const child = takeBindingParam(slots, start + 1)
+    return {
+      node: {
+        value: String(slot.value),
+        params: child.node ? [child.node] : []
+      },
+      next: child.next
+    }
+  }
+  if (!isSlotFilled(slot)) return { node: null, next: start + 1 }
+  return { node: nodeFromSlotValue(slot.value), next: start + 1 }
+}
+
+/** Encoded ZMK line from editor slots, including hold wraps hidden from the value row. */
+export function editorBindingPreview(
+  slots: EditorSlot[],
+  behaviourOverride?: string | number | null
+): string {
+  const behaviour = slots.find(slot => slot.param === 'behaviour')
+  const value = behaviourOverride ?? behaviour?.value
+  if (value == null || String(value) === '') return ''
+  const params: KeyBindingNode[] = []
+  let index = behaviour ? slots.indexOf(behaviour) + 1 : 0
+  while (index < slots.length) {
+    const taken = takeBindingParam(slots, index)
+    index = taken.next
+    if (taken.node) params.push(taken.node)
+  }
+  return encodeKeyBinding({ value, params })
+}
+
+export function isSlotFilled(slot: EditorSlot): boolean {
+  return slot.value != null && String(slot.value) !== ''
+}
+
+/** Every visible value slot has a value. `&none` has none, so it can apply. */
+export function isBindingComplete(slots: EditorSlot[]): boolean {
+  return visibleValueSlots(slots).every(isSlotFilled)
+}
+
+/**
+ * After a filled modifier or layer, move to the empty key.
+ * A still-empty modifier stays put, so choosing `&mt` starts on Modifier.
+ */
+export function nextEditorSlot(slots: EditorSlot[], preferIndex: number): number {
+  const preferred = slots.find(slot => slot.codeIndex === preferIndex)
+  if (
+    preferred &&
+    (preferred.param === 'mod' || preferred.param === 'layer') &&
+    isSlotFilled(preferred)
+  ) {
+    const emptyKey = slots.find(slot => isKeycodeParam(slot.param) && !isSlotFilled(slot))
+    if (emptyKey) return emptyKey.codeIndex
+  }
+  return terminalKeySlot(slots, preferIndex)?.codeIndex ?? preferIndex
+}
+
+/** Empty key first, then any other empty value. */
+export function firstMissingSlot(slots: EditorSlot[]): EditorSlot | undefined {
+  const visible = visibleValueSlots(slots)
+  return (
+    visible.find(slot => isKeycodeParam(slot.param) && !isSlotFilled(slot)) ??
+    visible.find(slot => !isSlotFilled(slot))
+  )
+}
+
+function replaceIndexedNode(
+  tree: HydratedNode,
+  index: number,
+  next: HydratedNode
+): HydratedNode {
+  const nodes = makeIndex(tree)
+  const target = nodes[index]
+  if (!target) return tree
+  target.value = next.value
+  target.params = next.params
+  return tree
+}
+
+function makeBindNode(
+  value: string | number | undefined,
+  params: HydratedNode[]
+): HydratedNode {
+  return { value, params }
+}
+
+function detachNode(node: HydratedNode | undefined): HydratedNode | undefined {
+  if (!node) return undefined
+  return { value: node.value, params: node.params ?? [] }
+}
+
+export function applyModifierHold(
+  tree: HydratedNode,
+  chainRootIndex: number,
+  wrapCode: string
+): HydratedNode {
+  const root = makeIndex(tree)[chainRootIndex]
+  if (!root) return tree
+  const { wraps, terminal } = readModifierChain(root)
+  const next = writeModifierChain(
+    toggleModifierWraps(wraps, wrapCode, terminal?.value),
+    detachNode(terminal),
+    makeBindNode
+  )
+  return replaceIndexedNode(tree, chainRootIndex, next)
+}
+
+export function applyTerminalKey(
+  tree: HydratedNode,
+  chainRootIndex: number,
+  keyCode: string | number
+): HydratedNode {
+  const root = makeIndex(tree)[chainRootIndex]
+  if (!root) return tree
+  const { wraps } = readModifierChain(root)
+  const hold = modifierHoldForKey(keyCode)
+  const nextWraps = hold
+    ? wraps.filter(wrap => modifierHoldForWrap(wrap)?.role !== hold.role)
+    : wraps
+  const next = writeModifierChain(
+    nextWraps,
+    { value: keyCode, params: [] },
+    makeBindNode
+  )
+  return replaceIndexedNode(tree, chainRootIndex, next)
+}

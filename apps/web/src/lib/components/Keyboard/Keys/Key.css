@@ -1,0 +1,348 @@
+/* Key face + ZMK param legends (global: .code lives in KeyValue). */
+/* stacked legend: keep sidecar file; do not inline into Key.svelte */
+
+.key {
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--text-disabled);
+  background-color: var(--key-face);
+  font-family: var(--glyph-font, Inter, "Noto Sans", sans-serif);
+  font-size: 110%;
+  border-radius: 5px;
+  box-sizing: border-box;
+}
+.key[data-editable='true'] {
+  cursor: pointer;
+}
+.key.combo-pick {
+  outline: 1px dashed color-mix(in srgb, var(--accent, #3a7) 45%, transparent);
+  outline-offset: -2px;
+}
+.key.combo-member {
+  outline: 2px solid var(--accent, #3a7);
+  outline-offset: -2px;
+  background-color: color-mix(in srgb, var(--accent, #3a7) 18%, var(--key-face));
+}
+.key.combo-peeking {
+  z-index: 1;
+}
+.key:hover {
+  transition: 200ms;
+  z-index: 1;
+}
+
+.key[data-simple='true'] {
+  font-size: 140%;
+}
+.key[data-hold-tap='true'] {
+  font-size: 125%;
+}
+.key[data-long='true'] {
+  font-size: 85%;
+}
+.key[data-hold-tap='true'] .param[data-slot='hold'] > .code {
+  background: var(--shade-wash);
+  border-radius: 999px;
+  font-size: 0.78em;
+  padding: 1px 6px;
+  margin: 0;
+}
+.key[data-hold-tap='true'] .param[data-slot='tap'] > .code {
+  font-size: 1.05em;
+}
+.key[data-hold-tap='true']:hover .param[data-slot='hold'] > .code {
+  background: var(--on-accent-wash);
+}
+
+.params:not([data-is-root='true']):not([data-compact='true'])::before {
+  content: '(';
+  opacity: 0.4;
+  font-weight: bold;
+  margin: 2px;
+}
+.params:not([data-is-root='true']):not([data-compact='true'])::after {
+  content: ')';
+  opacity: 0.4;
+  font-weight: bold;
+  margin: 2px;
+}
+.param.compact {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+}
+.param.compact .code {
+  padding-left: 0;
+  padding-right: 0;
+  margin-left: 0;
+  margin-right: 0;
+}
+.params:not([data-is-root='true']) .param:not(:last-child)::after {
+  content: ',';
+}
+
+.code {
+  color: var(--text-muted);
+  padding: 0px 4px;
+  margin-left: -2px;
+  margin-right: -2px;
+  /* Display legends inherit the layer-slot cursor so clicks pass through. */
+  cursor: inherit;
+  display: inline-block;
+  box-sizing: content-box;
+  min-width: 0.5em;
+  text-align: center;
+  border-radius: 4px;
+}
+
+.code.keypad {
+  /* Soft wash only — same contract as keycap keypad and key-editor chips. */
+  background: var(--keypad-wash);
+  padding: 1px 4px;
+  margin-left: 1px;
+  margin-right: 1px;
+}
+
+.code * {
+  pointer-events: none;
+}
+
+.key .keycap-wrap {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.key .layer-stack {
+  display: grid;
+  grid-template-rows: repeat(var(--layer-rows, 4), minmax(0, 1fr));
+  align-items: stretch;
+  overflow: hidden;
+  padding: 1px 2px;
+  box-sizing: border-box;
+  /* Grow a little with fewer rows; width cap is on the line via cqw. */
+  font-size: clamp(11px, calc(5px + 16px / var(--layer-rows, 4)), 13px);
+}
+
+.key .layer-slot {
+  container-type: inline-size;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  appearance: none;
+  border: 0;
+  /* Soft wash from --layer-tone (set on the slot). Draft / hover replace it. */
+  background-color: color-mix(in srgb, var(--layer-tone, transparent) 18%, transparent);
+  padding: 0 1px;
+  margin: 0;
+  font: inherit;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+  border-radius: 3px;
+}
+.key .layer-slot.unpublished {
+  background-color: color-mix(in srgb, var(--highlight) 28%, transparent);
+}
+.key .layer-slot.when-held {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--text-disabled);
+  text-decoration-skip-ink: none;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 3px,
+    color-mix(in srgb, var(--text-disabled) 70%, transparent) 3px 4px
+  );
+}
+.key .layer-slot.combo-peek {
+  outline: 2px solid var(--combo, #c9a227);
+  outline-offset: -2px;
+  background-color: color-mix(in srgb, var(--combo, #c9a227) 28%, var(--key-face));
+  z-index: 1;
+}
+.key .layer-slot.symbol-moved {
+  box-shadow: inset 0 -1px 0 var(--mark-diff);
+}
+.key .layer-slot.symbol-basic {
+  box-shadow: inset 0 -2px 0 var(--mark-basic);
+  background-color: color-mix(in srgb, var(--mark-basic) 14%, var(--key-face));
+}
+.key .layer-slot.symbol-moved.symbol-basic {
+  box-shadow: inset 0 -2px 0 var(--mark-basic);
+  background-color: color-mix(in srgb, var(--mark-basic) 14%, var(--key-face));
+}
+.key .layer-slot.altgr-conflict {
+  box-shadow: inset 0 0 0 1px var(--mark-altgr);
+}
+.key .layer-slot.symbol-moved.altgr-conflict {
+  box-shadow:
+    inset 0 0 0 1px var(--mark-altgr),
+    inset 0 -1px 0 var(--mark-diff);
+}
+.key .layer-slot.symbol-basic.altgr-conflict,
+.key .layer-slot.symbol-moved.symbol-basic.altgr-conflict {
+  box-shadow:
+    inset 0 0 0 1px var(--mark-altgr),
+    inset 0 -2px 0 var(--mark-basic);
+  background-color: color-mix(in srgb, var(--mark-basic) 14%, var(--key-face));
+}
+.key .layer-slot:hover,
+.key .layer-slot:focus-visible {
+  background-color: var(--hover-selection);
+  color: var(--on-accent);
+}
+.key .layer-slot:hover :is(.zmk-row, .hold, .code, .layer-empty, .face, .glyph, .pack),
+.key .layer-slot:focus-visible :is(.zmk-row, .hold, .code, .layer-empty, .face, .glyph, .pack) {
+  color: var(--on-accent);
+}
+
+.key .zmk-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  font-size: inherit;
+  line-height: 1;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.key .zmk-row.zmk-raw {
+  color: var(--text-disabled);
+  opacity: 0.72;
+}
+
+.key .layer-empty {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: 100%;
+  padding: 0 2px;
+  box-sizing: border-box;
+  font-size: 0.72em;
+  font-weight: 400;
+  line-height: 1;
+  /* Quieter than --text-disabled so a field of &trans marks reads as background. */
+  color: var(--text-ghost);
+  /* Keep the row for hit-testing; reveal ↓ / ∅ only while the key is peeked. */
+  opacity: 0;
+}
+.key:hover .layer-empty,
+.key:focus-within .layer-empty {
+  opacity: 1;
+}
+
+.key .layer-stack .keycap.stacked {
+  font-size: inherit;
+}
+
+.key .layer-stack .face {
+  /* Comfortable stacked size; KeyCap scale-to-fit handles overflow. */
+  font-size: min(1em, 18cqw);
+}
+
+.key .layer-stack .zmk-row {
+  font-size: min(1em, 16cqw);
+}
+
+.key .layer-stack.multilang {
+  font-size: clamp(8px, calc(4px + 18px / var(--layer-rows, 2)), 12px);
+  padding: 1px 2px;
+}
+
+.key .layer-slot.multilang-face {
+  display: grid;
+  grid-template-rows: repeat(var(--layer-rows, 1), minmax(0, 1fr));
+  height: 100%;
+  align-items: stretch;
+  padding: 0;
+}
+
+/* Differences marks sit on the whole key. In a language stack they need a gap
+   so the line and the ring stay off the glyphs. */
+.key .layer-slot.multilang-face.symbol-moved,
+.key .layer-slot.multilang-face.symbol-basic,
+.key .layer-slot.multilang-face.altgr-conflict {
+  padding: 2px 3px 3px;
+}
+
+.key .lang-line {
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.key .lang-line[data-lang-index='1'] .keycap {
+  color: var(--accent);
+}
+
+.key .lang-line[data-lang-index='2'] .keycap {
+  color: var(--lang-ink-2);
+}
+
+.key .lang-line[data-lang-index='3'] .keycap {
+  color: var(--lang-ink-3);
+}
+
+.key .zmk-row .zmk-beh {
+  font-size: 0.91em;
+  font-variant: small-caps;
+  opacity: 0.55;
+}
+
+.key .zmk-row .zmk-rgblayer {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28em;
+  min-width: 0;
+}
+
+.key .zmk-row .rgb-swatch {
+  flex: 0 0 0.72em;
+  width: 0.72em;
+  height: 0.72em;
+  border-radius: 2px;
+  border: 1px solid color-mix(in srgb, var(--rgb-swatch, currentColor) 70%, #000);
+  box-shadow: 0 0 8px -2px var(--rgb-swatch, transparent);
+  box-sizing: border-box;
+}
+
+.key .zmk-row .code {
+  font-size: inherit;
+  padding: 0 1px;
+  margin: 0;
+}
+
+.key .zmk-row .code.keypad {
+  background: var(--keypad-wash);
+  padding: 0 3px;
+  margin: 0 2px;
+  border-radius: 2px;
+}
+.key .layer-slot:hover .code.keypad,
+.key .layer-slot:focus-visible .code.keypad,
+.key .layer-slot:hover .keycap.keypad,
+.key .layer-slot:focus-visible .keycap.keypad {
+  background: var(--keypad-wash-on-accent);
+}
+
+.key .zmk-row.legend-hit,
+.key span.legend-hit {
+  background: var(--highlight);
+  border-radius: 3px;
+  padding: 0 2px;
+  color: inherit;
+}
+
+/* hover preview: gold field around the matching glyph combo */
