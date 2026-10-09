@@ -1,12 +1,12 @@
 # <img alt="Keymap Editor Icon" height="24px" src="./apps/web/public/editor-icon.png" /> Keymap Editor
 
+Browser editor for [ZMK](https://zmk.dev/) keyboard users: edit firmware bindings and see what each key **actually types** under the selected host-language layouts.
+
 **Try this fork:** [forgegod.github.io/katafoxi-keymap-editor-extended](https://forgegod.github.io/katafoxi-keymap-editor-extended/)
 
 Public testing build: **Demo + Clipboard**, including the Unicode picker and ZMK behavior compatibility fixes. No installation or GitHub login required. [Testing releases](https://github.com/forgegod/katafoxi-keymap-editor-extended/releases) include a downloadable static build.
 
 **Hosted Hono API + editor:** [zmkee.forgegod.workers.dev](https://zmkee.forgegod.workers.dev/). Runs on Cloudflare independently of a local computer. Demo, Clipboard, and the GitHub source are enabled. Repository access requires GitHub login and installation of the [zmkee GitHub App](https://github.com/apps/zmkee) on the repositories you want to edit.
-
-Browser editor for [ZMK](https://zmk.dev/) keymaps that shows what a key **actually types** on the host — not only the firmware binding line.
 
 This testing fork ([forgegod/katafoxi-keymap-editor-extended](https://github.com/forgegod/katafoxi-keymap-editor-extended)) builds on [katafoxi/keymap-editor-extended](https://github.com/katafoxi/keymap-editor-extended), which extends [nickcoutsos/keymap-editor](https://github.com/nickcoutsos/keymap-editor). The original extended app is [zmk-keymap-editor.com](https://zmk-keymap-editor.com/); it is a separate deployment and may not include this fork's changes. Upstream discussion: [Talk to me!](https://github.com/nickcoutsos/keymap-editor/discussions).
 
@@ -87,6 +87,8 @@ Vision and contracts: [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md).
 
 ## Run locally
 
+Use Node 24 LTS and the pinned pnpm 9.15.0. The current web-test stack has browser-storage failures under Node 26; do not treat that runtime as a verified test environment.
+
 ```bash
 pnpm install
 pnpm dev
@@ -127,15 +129,40 @@ For managed hosting without an always-on local computer, the optional `apps/clou
 | [docs/deploy-vps.md](docs/deploy-vps.md) | Production deploy on a VPS + domain |
 | [docs/deploy-cloudflare.md](docs/deploy-cloudflare.md) | Managed Hono + SPA containers, billing/account checks, GitHub App setup |
 | [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md) | Product vision |
+| [docs/architecture.md](docs/architecture.md) | Current runtime and maintenance boundaries |
+| [docs/design-decisions.md](docs/design-decisions.md) | Durable decisions and existing ADR index |
+| [docs/product/index.md](docs/product/index.md) | Current capabilities with executable evidence |
+| [docs/product/wireframes/index.html](docs/product/wireframes/index.html) | Generated schematics of current capability surfaces |
+| [docs/changes/README.md](docs/changes/README.md) | Material-change execution lifecycle |
 | [docs/adr/](docs/adr/README.md) | Architecture decisions |
-| [AGENTS.md](AGENTS.md) | Notes for coding agents |
+| [AGENTS.md](AGENTS.md) | Root DOX contract and child ownership index |
 
 ## Tests
 
 ```bash
-pnpm test          # Vitest: keymap-core, api, web, Cloudflare adapter
+pnpm test          # Record-validator tests + Vitest: core, API, web, Cloudflare
+pnpm lint          # TypeScript and Svelte checks
+pnpm build         # Shared core, SPA, and Hono API
 pnpm test:e2e      # Playwright smoke (separate)
+pnpm test:e2e:prod # Production SPA/API smoke
 pnpm test:e2e:pages # Static subpath build: Demo + Clipboard, no API
+```
+
+## Maintaining capabilities and changes
+
+This project adopts the DOX/CAP/CHG maintenance structure from AI Software Blueprint without replacing the application or its existing ADRs. No sibling checkout or agent skill installation is needed for normal verification.
+
+- [CAPs](docs/product/index.md) describe current behavior and link implementation/tests.
+- [Active CHGs](docs/changes/README.md#current-records) own progress for material requests. Create a scoped request before implementing a material change.
+- Read root and applicable child `AGENTS.md` contracts before editing. Keep future proposals out of current capability records and canonical visuals.
+- Generate canonical visuals from their source; do not hand-edit HTML or PNG exports. Inspect rendered output before claiming a visual handoff.
+
+```bash
+pnpm exec playwright install chromium # Once for browser tests/rendering
+pnpm wireframes:generate
+pnpm wireframes:render
+pnpm records:check
+pnpm test:records
 ```
 
 ## License

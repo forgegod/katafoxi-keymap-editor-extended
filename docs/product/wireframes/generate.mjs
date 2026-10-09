@@ -1,0 +1,50 @@
+import { mkdir, writeFile } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
+
+const root = path.dirname(fileURLToPath(import.meta.url))
+const escape = value => String(value).replace(/[&<>"']/g, character => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+})[character])
+const chip = (label, selected = false) => `<span class="chip${selected ? ' selected' : ''}">${escape(label)}</span>`
+const chips = labels => `<div class="chips">${labels.map(label => chip(label)).join('')}</div>`
+const notice = (title, text) => `<div class="notice"><strong>${escape(title)}</strong><p>${escape(text)}</p></div>`
+const card = (title, body) => `<section class="card"><h2>${escape(title)}</h2>${body}</section>`
+const board = () => `<div class="board">${['Q', 'W', 'E', 'R', 'T', 'Y', 'A', 'S', 'D', 'F', 'G', 'H'].map((key, index) => `<div class="key${index === 2 ? ' focused' : ''}"><small>Base</small><b>${key.toLowerCase()}${key}</b><span>ˬ ˬ</span><small>Lower · &amp;trans</small></div>`).join('')}</div><p class="muted">Synthetic 12-key fixture · click a firmware row to edit that layer.</p>`
+
+const screens = [
+  {
+    id: 'CAP-001', slug: 'firmware-keymap-editing', title: 'Firmware keymap editing',
+    summary: 'Edit a binding without replacing the rest of the keymap.',
+    body: `<div class="columns"><div>${card('Layers and board', `${chips(['Base · Rename', 'Lower · Rename', 'Add Layer', 'Delete layer'])}${board()}${chips(['Combos', 'Colors', 'Scheme'])}`)}${card('Other supported firmware controls', '<p>Visual combo positions and bindings · conditional layer rules · encoder CW/CCW bindings.</p><p>Hold-tap timing, Homerow and Autoshift presets; a fixed Layer + RGB recipe.</p>')}</div><div>${card('Edit key · Base / E', `<p class="eyebrow">ZMK binding · staged until Apply</p><div class="binding">&amp;kp E</div>${chips(['Key Press', 'Mod Tap', 'Layer Tap', 'Bluetooth'])}<h3>Value · Keyboard + Keypad</h3>${chips(['A', 'B', 'C', 'D', 'E', 'F'])}<div class="actions">${chip('Cancel')}${chip('Apply', true)}</div><p>Enter applies a complete binding. Escape cancels this staged key edit.</p>`)}${notice('Incomplete binding — example state', 'An unfinished hold-tap cannot be applied. Complete the required slots or cancel.')}${notice('Current limits', 'No layer duplicate/reorder controls or general macro/behavior-definition editor. Existing opaque source is preserved within the supported save contract.')}</div></div>`
+  },
+  {
+    id: 'CAP-002', slug: 'keymap-sources-and-persistence', title: 'Keymap sources and persistence',
+    summary: 'Choose a source; keep browser drafts distinct from published files.',
+    body: `<div class="sources">${card('Demo', '<p>Bundled keyboards. No login or firmware write.</p>')}${card('Clipboard', '<p>Paste .keymap; layout JSON optional. Copy .keymap exports firmware.</p>')}${card('GitHub', '<p>Authorized repository + branch. Commit through the configured API.</p>')}${card('Local · dev only', '<p>Configured Hono filesystem adapter. Not browser file permissions.</p>')}</div><div class="columns"><div>${card('GitHub — synthetic loaded state', `<p class="eyebrow">Repository / branch</p><div class="field">example/keyboard-config</div><div class="field">main</div><p>The first eligible config keymap is selected automatically; no keymap-file selector is available.</p>${chips(['Reload', 'Create branch', 'Manage repos'])}<div class="actions">${chip('Changed')}${chip('Discard draft')}${chip('Commit', true)}</div><p>Firmware + supported host snapshot/deliverables share a commit.</p>`)}${notice('Layout fallback', 'GitHub and Clipboard can show a flat rectangle when no usable layout JSON exists. This is not inferred physical geometry.')}</div><div>${card('Restore browser draft — example state', `<p>A compatible unpublished draft can be restored after reload.</p>${chips(['Restore', 'Discard'])}<p class="muted">Recovery is browser storage, not a remote save.</p>`)}${notice('Commit conflict — example state', 'Branch changed on GitHub — reload. The draft remains available; the API does not overwrite a newer head.')}${notice('Unavailable or failed — example states', 'Static Pages has Demo/Clipboard only. Storage/copy failures are surfaced. There is no browser filesystem source or leave-page confirmation.')}</div></div>`
+  },
+  {
+    id: 'CAP-003', slug: 'host-layouts-and-legends', title: 'Host layouts and composed legends',
+    summary: 'See the host characters, then edit a user copy or export OS layout sources.',
+    body: `<div class="columns"><div>${card('Language profiles and composed board', `${chips(['English · System', 'German · User copy', 'Stack', 'Differences', 'Remember'])}${board()}<p>Four level slots per on-keycap language; at most two languages on the keycap. Hover previews read-only decoding.</p>`)}${card('Host lane — separate from firmware history', `${chips(['Changed', 'Linux', 'Windows'])}<p>ZMK undo/redo does not undo host glyph changes. Host install status is separate from GitHub snapshot dirty state.</p>`)}</div><div>${card('Host edit · Alt+click', `<p class="eyebrow">German user copy · key E</p><div class="levels"><div>Base<strong>e</strong></div><div>Shift<strong>E</strong></div><div>AltGr<strong>€</strong></div><div>AltGr + Shift<strong>ˬ</strong></div></div><h3>Symbol catalog</h3>${chips(['€', 'é', 'è', 'ê', 'ë'])}<div class="actions">${chip('Cancel')}${chip('Accept', true)}</div><p>Glyph picks write immediately. Accept/Cancel end the session; Cancel does not roll back earlier picks.</p>`)}${card('Install deliverables — example dialog', `${chips(['Linux · Download file', 'Windows · Download .klc'])}<p>Install using OS tools. The editor downloads source files and guidance; it does not change OS settings.</p>`)}${notice('Immutable system / empty state', 'The first system-layout edit creates a user copy. Without a custom layout, the Host lane is Ready rather than claiming an OS installation or repository commit.')}</div></div>`
+  }
+]
+
+const css = `
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#161b20;color:#e1e7ed}*{box-sizing:border-box}body{margin:0;padding:26px 32px;font-size:15px;line-height:1.45}header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #39434c;padding-bottom:18px}header strong{font-size:20px}.muted,small,.eyebrow{color:#a9b6c2}.eyebrow{text-transform:uppercase;font-size:12px;letter-spacing:.08em}h1{font-size:29px;margin:22px 0 3px}h2{font-size:18px;margin:0 0 13px}h3{font-size:15px;margin:16px 0 9px}p{margin:8px 0 12px}.intro{margin-bottom:22px;color:#b8c5ce}.columns{display:grid;grid-template-columns:1.15fr 1fr;gap:20px}.card{border:1px solid #46525d;background:#20272e;border-radius:10px;padding:18px;margin-bottom:16px}.chips,.actions{display:flex;gap:8px;flex-wrap:wrap}.chip{display:inline-block;border:1px solid #52626c;border-radius:6px;padding:7px 11px;background:#2c353d;font-size:13px}.selected{border-color:#9fc8b3;background:#365247;color:#e1f6eb}.actions{justify-content:flex-end;margin-top:18px}.notice{border-left:3px solid #d4b174;padding:10px 14px;background:#2b2b29;margin:14px 0;border-radius:3px}.notice p{color:#d2d7da;margin-bottom:0}.board{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:20px 0 12px}.key{border:1px solid #566674;border-bottom:3px solid #61747f;border-radius:7px;padding:8px 5px;background:#303c46;min-height:112px;text-align:center;display:flex;flex-direction:column;justify-content:space-between}.key small{font-size:10px}.key b{font-size:22px}.key span{font-size:12px;color:#9baab6}.focused{outline:2px solid #a0c9b3}.binding,.field{font-family:ui-monospace,monospace;background:#171d22;border:1px solid #52626c;border-radius:6px;padding:13px;margin:10px 0}.binding{font-size:25px}.sources{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.sources .card{min-height:133px}.levels{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:15px 0}.levels div{border:1px solid #52626c;padding:9px;border-radius:5px;font-size:12px}.levels strong{display:block;font-size:25px;margin-top:8px;color:#bedbc9}footer{margin-top:16px;border-top:1px solid #39434c;padding-top:13px;color:#a9b6c2;font-size:12px}a{color:#b8ddc9}ul{padding-left:20px}li{margin:13px 0}
+`
+function html(title, body) {
+  return `<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(title)} · Keymap Editor</title><style>${css}</style></head><body>${body}</body></html>\n`
+}
+await mkdir(path.join(root, 'html'), { recursive: true })
+const manifest = { screens: screens.map(({ id, slug, title }) => ({
+  id, title, html: `html/${id}-${slug}.html`, png: `exports/${id}-${slug}.png`,
+  viewport: { width: 1440, height: 1040 }
+})) }
+for (const [index, screen] of screens.entries()) {
+  const body = `<header><strong>Keymap Editor</strong><div class="chips">${chip('ZMK · firmware')}${chip('Host · OS layout')}</div><span class="eyebrow">${screen.id} · current surface</span></header><main><h1>${escape(screen.title)}</h1><p class="intro">${escape(screen.summary)}</p>${screen.body}</main><footer>Canonical schematic, not an application screenshot. Synthetic examples and separate example states. Current bounded behavior only; no proposed parity features are shown as shipped. <a href="../index.html">All capabilities</a></footer>`
+  await writeFile(path.join(root, manifest.screens[index].html), html(screen.title, body))
+}
+await writeFile(path.join(root, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`)
+await writeFile(path.join(root, 'index.html'), html('Current capability wireframes', `<main><h1>Current capability wireframes</h1><p>Generated schematics of implemented behavior, not future proposals or application screenshots.</p><ul>${manifest.screens.map(screen => `<li><a href="${screen.html}">${escape(screen.id)} — ${escape(screen.title)}</a> · <a href="${screen.png}">PNG</a></li>`).join('')}</ul></main>`))
+console.log(`Generated ${manifest.screens.length} canonical capability screens.`)

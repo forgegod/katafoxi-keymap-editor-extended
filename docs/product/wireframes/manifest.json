@@ -1,0 +1,34 @@
+{
+  "screens": [
+    {
+      "id": "CAP-001",
+      "title": "Firmware keymap editing",
+      "html": "html/CAP-001-firmware-keymap-editing.html",
+      "png": "exports/CAP-001-firmware-keymap-editing.png",
+      "viewport": {
+        "width": 1440,
+        "height": 1040
+      }
+    },
+    {
+      "id": "CAP-002",
+      "title": "Keymap sources and persistence",
+      "html": "html/CAP-002-keymap-sources-and-persistence.html",
+      "png": "exports/CAP-002-keymap-sources-and-persistence.png",
+      "viewport": {
+        "width": 1440,
+        "height": 1040
+      }
+    },
+    {
+      "id": "CAP-003",
+      "title": "Host layouts and composed legends",
+      "html": "html/CAP-003-host-layouts-and-legends.html",
+      "png": "exports/CAP-003-host-layouts-and-legends.png",
+      "viewport": {
+        "width": 1440,
+        "height": 1040
+      }
+    }
+  ]
+}

@@ -42,6 +42,12 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Generate and render wireframes
+        run: pnpm wireframes:generate && pnpm wireframes:render
+
+      - name: Check product records
+        run: pnpm records:check
+
       # This builds and exercises exactly the static site uploaded below.
       - name: Test static Pages build
         run: pnpm test:e2e:pages
