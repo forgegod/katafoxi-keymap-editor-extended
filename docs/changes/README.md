@@ -64,7 +64,20 @@ Use installed `application-records` and `phased-plan-*` skills when available. T
 
 ## Current records
 
-No material feature request has been registered yet. Add a scoped CHG before implementation.
+These scopes partition the direct operator request into independently verifiable changes. They remain planned; creating a request does not implement it. Read the [bounded upstream assessment](upstream-gap-assessment.md), then resume the selected CHG rather than making a second plan.
+
+| Order | Change | Priority | Dependencies |
+| --- | --- | --- | --- |
+| 1 | [CHG-001 — Bluetooth/RGB command choices](active/CHG-001-complete-bluetooth-rgb-command-catalog.md) | P1 | None |
+| 2 | [CHG-002 — Leave-page protection](active/CHG-002-warn-before-leaving-unpublished-work.md) | P1 | None |
+| 3 | [CHG-003 — Duplicate/reorder firmware layers](active/CHG-003-duplicate-and-reorder-firmware-layers.md) | P2 | Coordinate reference contract with macro/behavior work |
+| 4 | [CHG-004 — Select a repository keymap file](active/CHG-004-select-keymap-file-within-repository.md) | P2 | None |
+| 5 | [CHG-005 — Visual ZMK macro editor](active/CHG-005-visual-zmk-macro-editor.md) | P3 | Coordinate CHG-003 layer references |
+| 6 | [CHG-006 — Custom behavior definitions](active/CHG-006-custom-behavior-definition-editor.md) | P3 | CHG-005 shared reference contract |
+| 7 | [CHG-007 — Browser filesystem source](active/CHG-007-browser-filesystem-keymap-source.md) | P4 | CHG-004 identity/sidecars; CHG-002 leave policy |
+| 8 | [CHG-008 — ZMK-derived layout discovery](active/CHG-008-discover-layouts-from-zmk-metadata.md) | P4 | CHG-004 selected-keymap identity |
+
+Start with CHG-001 unless the operator selects another scope. The table orders execution; each linked record owns its own phase state. No feature implementation is claimed by this adoption.
 
 ## Archive
 

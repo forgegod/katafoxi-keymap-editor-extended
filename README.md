@@ -83,7 +83,7 @@ Product persistence is **GitHub-first**; Local is for iterating against a cloned
 
 Upstream or planned: browser **File System Access**, visual **macro** / custom **behavior** editors (beyond fixed recipes such as `&rgblayer`), auto-generated layouts from ZMK DTS. See [upstream README](https://github.com/nickcoutsos/keymap-editor/blob/master/README.md) for the classic feature list.
 
-Vision and contracts: [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md).
+Vision and contracts: [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md). The [prioritized change requests](docs/changes/README.md#current-records) cover these gaps plus command choices, leave-page protection, layer duplication/reordering, and keymap-file selection. They are planned work, not shipped features.
 
 ## Run locally
 
@@ -133,7 +133,7 @@ For managed hosting without an always-on local computer, the optional `apps/clou
 | [docs/design-decisions.md](docs/design-decisions.md) | Durable decisions and existing ADR index |
 | [docs/product/index.md](docs/product/index.md) | Current capabilities with executable evidence |
 | [docs/product/wireframes/index.html](docs/product/wireframes/index.html) | Generated schematics of current capability surfaces |
-| [docs/changes/README.md](docs/changes/README.md) | Material-change execution lifecycle |
+| [docs/changes/README.md](docs/changes/README.md) | Prioritized feature-gap requests and execution lifecycle |
 | [docs/adr/](docs/adr/README.md) | Architecture decisions |
 | [AGENTS.md](AGENTS.md) | Root DOX contract and child ownership index |
 
@@ -153,7 +153,7 @@ pnpm test:e2e:pages # Static subpath build: Demo + Clipboard, no API
 This project adopts the DOX/CAP/CHG maintenance structure from AI Software Blueprint without replacing the application or its existing ADRs. No sibling checkout or agent skill installation is needed for normal verification.
 
 - [CAPs](docs/product/index.md) describe current behavior and link implementation/tests.
-- [Active CHGs](docs/changes/README.md#current-records) own progress for material requests. Create a scoped request before implementing a material change.
+- [Active CHGs](docs/changes/README.md#current-records) own progress for material requests. Start with CHG-001 unless another scope is selected; all gap requests are initially planned.
 - Read root and applicable child `AGENTS.md` contracts before editing. Keep future proposals out of current capability records and canonical visuals.
 - Generate canonical visuals from their source; do not hand-edit HTML or PNG exports. Inspect rendered output before claiming a visual handoff.
 
