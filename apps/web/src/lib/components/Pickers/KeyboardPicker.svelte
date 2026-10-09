@@ -158,8 +158,9 @@
   }
 
   function stampSelection(event: KeymapPickerPayload): KeymapEvent | null {
-    // Chip `source` wins over any stale `event.source` from a prior load.
+    // A prior source's async load must not be relabelled as the current source.
     if (!source || !event.keymap) return null
+    if ('source' in event && event.source !== source) return null
     const { layout, keymap, warnings } = event
 
     if (source === 'demo') {

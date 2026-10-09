@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte'
   import {
     DEMO_CATALOG,
     loadDemo,
@@ -37,6 +38,8 @@
   let error = $state<string | null>(null)
   let loadedId = $state<string | null>(null)
   let emitGeneration = 0
+
+  onDestroy(() => { emitGeneration += 1 })
 
   const selectedEntry = $derived(
     DEMO_CATALOG.find(entry => entry.id === selectedId) ?? DEMO_CATALOG[0]

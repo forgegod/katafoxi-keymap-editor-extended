@@ -2,6 +2,7 @@ import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { loadKeymap, loadLayout } from '../../api'
 import github from '../../github/api.svelte.js'
+import * as demoCatalog from '../../demo/catalog'
 import KeyboardPicker from './KeyboardPicker.svelte'
 
 vi.mock('../../config', () => ({
@@ -351,6 +352,38 @@ describe('KeyboardPicker', () => {
     expect(onSelect).not.toHaveBeenCalledWith(
       expect.objectContaining({ source: 'local' })
     )
+  })
+
+  it('ignores a delayed Demo load after a Clipboard keymap was selected', async () => {
+    const bundle = await demoCatalog.loadDemo('corne')
+    const loadDemo = demoCatalog.loadDemo
+    let resolveDemo!: (value: typeof bundle) => void
+    const delayed = new Promise<typeof bundle>(resolve => { resolveDemo = resolve })
+    vi.spyOn(demoCatalog, 'loadDemo').mockImplementation(id =>
+      id === 'corne' ? delayed : loadDemo(id)
+    )
+
+    const onSelect = open()
+    clickSource('clipboard')
+    const field = target.querySelector('.clipboard-text')
+    if (!(field instanceof HTMLTextAreaElement)) throw new Error('missing clipboard field')
+    field.value = '/ { keymap { compatible = "zmk,keymap"; default_layer { bindings = <&kp F13>; }; }; };'
+    field.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+    const load = [...target.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Load')
+    if (!(load instanceof HTMLButtonElement)) throw new Error('missing Load button')
+    load.click()
+    flushSync()
+    expect(onSelect).toHaveBeenCalledOnce()
+    expect(onSelect.mock.calls[0][0]).toMatchObject({ source: 'clipboard' })
+
+    resolveDemo(bundle)
+    await Promise.resolve()
+    flushSync()
+    await Promise.resolve()
+    flushSync()
+    expect(onSelect).toHaveBeenCalledOnce()
+    expect(target.querySelector('.source-trigger')?.textContent).toContain('Clipboard · clipboard (inferred)')
   })
 
   it('moves the source radiogroup with arrow keys and a roving tabindex', async () => {
