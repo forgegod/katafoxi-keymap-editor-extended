@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import path from 'node:path'
+
 import { openSource, skipCoachAndOpenEditor } from './helpers'
 
 const SOURCE = `#define USER_SETTING 1
@@ -38,7 +38,7 @@ test.beforeEach(async ({ page, context }) => {
   await load(page)
 })
 
-test('Unicode picker validates scalars and copies a normal/Shift pair', async ({ page }) => {
+test('Unicode picker validates scalars and copies a normal/Shift pair', async ({ page }, testInfo) => {
   const dialog = await editUnicode(page)
   const normal = dialog.getByRole('textbox', { name: 'Normal Unicode character or code point' })
   await normal.fill('U+D800')
@@ -47,7 +47,7 @@ test('Unicode picker validates scalars and copies a normal/Shift pair', async ({
   await normal.fill('ä')
   await dialog.getByRole('textbox', { name: 'Shift Unicode character or code point' }).fill('Ä')
   await expect(dialog.getByLabel('Unicode character preview')).toHaveText('Normal: ä · Shift: Ä')
-  await page.screenshot({ path: path.join(process.env.TMPDIR!, 'unicode-picker.png') })
+  await page.screenshot({ path: testInfo.outputPath('unicode-picker.png') })
   await dialog.getByRole('button', { name: 'Apply', exact: true }).click()
   await expect(page.getByRole('button', { name: '&uc 0xE4 0xC4, layer 0', exact: true })).toBeVisible()
   await copy(page, '&uc 0xE4 0xC4')
