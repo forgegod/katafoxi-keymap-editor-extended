@@ -11,13 +11,13 @@ import {
 } from './keymap.js'
 
 const SOURCE = `#include <behaviors.dtsi>
-#include <behaviors/unicode.dtsi>
+#include <behaviors/external-unicode.dtsi>
 
 / {
     keymap {
         compatible = "zmk,keymap";
         default_layer {
-            bindings = <&uc UC_DE_AE &kp A>;
+            bindings = <&external_unicode UC_DE_AE &kp A>;
         };
     };
 };
@@ -31,6 +31,7 @@ const LAYOUT = [
 describe('existing custom bindings', () => {
   it('loads a source binding without registering its external behavior', () => {
     const raw = parseDtsKeymap(SOURCE)
+    expect(() => validateKeymapJson(raw)).toThrow(KeymapValidationError)
     expect(() => validateKeymapJson(raw, { allowUnknownBehaviors: true })).not.toThrow()
 
     const parsed = parseKeymap(raw)
@@ -40,20 +41,22 @@ describe('existing custom bindings', () => {
     expect(built.code.slice(0, built.code.indexOf('/ {'))).toBe(
       SOURCE.slice(0, SOURCE.indexOf('/ {'))
     )
-    expect(parseDtsKeymap(built.code).layers[0]).toEqual(['&uc UC_DE_AE', '&kp B'])
-    expect(JSON.parse(built.json).layers[0]).toEqual(['&uc UC_DE_AE', '&kp B'])
+    expect(parseDtsKeymap(built.code).layers[0]).toEqual(['&external_unicode UC_DE_AE', '&kp B'])
+    expect(JSON.parse(built.json).layers[0]).toEqual(['&external_unicode UC_DE_AE', '&kp B'])
   })
 
   it('keeps standalone JSON validation strict for unknown behaviors', () => {
-    const json = { layers: [['&uc UC_DE_AE']] }
+    // &uc is now catalogued; use an actually unknown external behavior.
+    const json = { layers: [['&external_unicode UC_DE_AE']] }
     expect(() => validateKeymapJson(json)).toThrow(KeymapValidationError)
     expect(isPrimaryKeymapJson(json)).toBe(false)
+    expect(() => validateKeymapJson(json, { allowUnknownBehaviors: true })).not.toThrow()
   })
 
   it('treats unknown behavior arguments as raw without changing known schemas', () => {
-    expect(getBehaviourParams(parseKeyBinding('&uc UC_DE_AE').params, undefined))
+    expect(getBehaviourParams(parseKeyBinding('&external_unicode UC_DE_AE').params, undefined))
       .toEqual(['raw'])
-    expect(getBehaviourParams(parseKeyBinding('&uc 0xE4 0xC4').params, undefined))
+    expect(getBehaviourParams(parseKeyBinding('&external_unicode 0xE4 0xC4').params, undefined))
       .toEqual(['raw', 'raw'])
     expect(getBehaviourParams([], undefined)).toEqual([])
     expect(getBehaviourParams([{ value: 'A' }], { params: ['code'] })).toEqual(['code'])

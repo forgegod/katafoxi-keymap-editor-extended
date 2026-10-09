@@ -4,7 +4,7 @@ import { hydrateTree, makeIndex } from './hydrate'
 
 describe('hydrateTree', () => {
   it('keeps unknown behavior arguments as raw values without catalog guesses', () => {
-    const tree = hydrateTree('&uc', [
+    const tree = hydrateTree('&external_unicode', [
       { value: 'UC_DE_AE', params: [] },
       { value: 'PAIR', params: [{ value: 1, params: [] }, { value: 2, params: [] }] }
     ], {})

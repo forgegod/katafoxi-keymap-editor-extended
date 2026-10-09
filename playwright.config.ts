@@ -52,7 +52,7 @@ const webOrigin = `http://127.0.0.1:${webPort}`
 export default defineConfig({
   testDir: 'e2e',
   testMatch: '**/*.spec.ts',
-  testIgnore: ['prod/**'],
+  testIgnore: ['prod/**', 'pages/**'],
   fullyParallel: false,
   workers: 1,
   timeout: 60_000,

@@ -1,7 +1,7 @@
 {
   "name": "keymap-editor",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.1.0-preview.1",
   "description": "ZMK keymap editor (Svelte + Hono monorepo)",
   "scripts": {
     "dev": "pnpm --filter @keymap-editor/keymap-core build && node scripts/dev-servers.mjs",
@@ -11,6 +11,7 @@
     "test:coverage": "pnpm --filter @keymap-editor/keymap-core test:coverage && pnpm --filter @keymap-editor/api test:coverage && pnpm --filter @keymap-editor/web test:coverage",
     "test:e2e": "playwright test",
     "test:e2e:prod": "playwright test -c playwright.prod.config.ts",
+    "test:e2e:pages": "playwright test -c playwright.pages.config.ts",
     "lint": "pnpm -r lint"
   },
   "engines": {
