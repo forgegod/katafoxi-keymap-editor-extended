@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test'
 import { openSource } from '../helpers'
 
+const expectGitHub = process.env.PAGES_EXPECT_GITHUB === 'true'
+
 const SOURCE = `#define USER_SETTING 1
 #include <behaviors.dtsi>
 / {
@@ -14,7 +16,7 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('coachTourDone', '1'))
 })
 
-test('loads Demo and all local assets from the Pages subpath without API sources', async ({ page, baseURL, request }) => {
+test('loads Demo and all local assets from the public base path with configured sources', async ({ page, baseURL, request }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   const home = await request.get(baseURL!)
@@ -36,9 +38,44 @@ test('loads Demo and all local assets from the Pages subpath without API sources
   await expect(page.locator('.keyboard-canvas .key').first()).toBeVisible()
   await page.getByTestId('source-menu-trigger').click()
   await expect(page.getByRole('radio', { name: /^Clipboard/ })).toBeVisible()
-  await expect(page.getByRole('radio', { name: /^GitHub/ })).toHaveCount(0)
+  await expect(page.getByRole('radio', { name: /^GitHub/ })).toHaveCount(expectGitHub ? 1 : 0)
   await expect(page.getByRole('radio', { name: /^Local/ })).toHaveCount(0)
   expect(errors).toEqual([])
+})
+
+test('GitHub requires a session and starts same-origin OAuth with secure cookies', async ({ request, baseURL }) => {
+  test.skip(!expectGitHub, 'GitHub is deliberately disabled on static Pages')
+  const installation = await request.get(new URL('github/installation', baseURL!).href)
+  expect(installation.status()).toBe(401)
+  const authorize = await request.get(new URL('github/authorize', baseURL!).href, { maxRedirects: 0 })
+  expect(authorize.status()).toBe(302)
+  const location = new URL(authorize.headers()['location'])
+  expect(location.origin).toBe('https://github.com')
+  expect(location.pathname).toBe('/login/oauth/authorize')
+  expect(location.searchParams.get('redirect_uri')).toBe(new URL('github/authorize', baseURL!).href)
+  expect(Boolean(location.searchParams.get('client_id'))).toBe(true)
+  expect(Boolean(location.searchParams.get('state'))).toBe(true)
+  const cookies = authorize.headers()['set-cookie'] || ''
+  expect(cookies.includes('HttpOnly')).toBe(true)
+  expect(cookies.includes('Secure')).toBe(true)
+  expect(cookies.includes('SameSite=Lax')).toBe(true)
+})
+
+test('installation callback without state starts fresh OAuth and never creates an unauthenticated session', async ({ request, baseURL }) => {
+  test.skip(!expectGitHub, 'GitHub is deliberately disabled on static Pages')
+  const path = 'github/authorize?code=smoke-unverified-install-code&installation_id=123&setup_action=install'
+  const returned = await request.get(new URL(path, baseURL!).href, { maxRedirects: 0 })
+  expect(returned.status()).toBe(302)
+  const location = new URL(returned.headers()['location'])
+  expect(location.origin).toBe('https://github.com')
+  expect(location.pathname).toBe('/login/oauth/authorize')
+  expect(Boolean(location.searchParams.get('state'))).toBe(true)
+  expect(location.searchParams.has('code')).toBe(false)
+  expect(location.searchParams.has('installation_id')).toBe(false)
+  const protectedRoute = await request.get(new URL('github/installation', baseURL!).href)
+  expect(protectedRoute.status()).toBe(401)
+  const invalid = await request.get(new URL(`${path}&state=mismatched`, baseURL!).href, { maxRedirects: 0 })
+  expect(invalid.status()).toBe(401)
 })
 
 test('Clipboard edits Unicode and preserves reset and Studio bindings without an API', async ({ page, context }) => {
