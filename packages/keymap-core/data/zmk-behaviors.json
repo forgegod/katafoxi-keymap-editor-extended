@@ -176,6 +176,23 @@
     "params": []
   },
   {
+    "code": "&uc",
+    "name": "Unicode input",
+    "params": ["raw", "raw"],
+    "includes": ["#include <behaviors/unicode.dtsi>"],
+    "description": "Unicode input via urob/zmk-unicode; requires firmware module and host input setup"
+  },
+  {
+    "code": "&sys_reset",
+    "name": "Reset",
+    "params": []
+  },
+  {
+    "code": "&studio_unlock",
+    "name": "Studio Unlock",
+    "params": []
+  },
+  {
     "code": "&bootloader",
     "name": "Bootloader",
     "params": []

@@ -1,10 +1,12 @@
 # <img alt="Keymap Editor Icon" height="24px" src="./apps/web/public/editor-icon.png" /> Keymap Editor
 
-**Try it:** [zmk-keymap-editor.com](https://zmk-keymap-editor.com/)
+**Try this fork:** [forgegod.github.io/katafoxi-keymap-editor-extended](https://forgegod.github.io/katafoxi-keymap-editor-extended/)
+
+Public testing build: **Demo + Clipboard**, including the Unicode picker and ZMK behavior compatibility fixes. No installation or GitHub login required. [Testing releases](https://github.com/forgegod/katafoxi-keymap-editor-extended/releases) include a downloadable static build.
 
 Browser editor for [ZMK](https://zmk.dev/) keymaps that shows what a key **actually types** on the host — not only the firmware binding line.
 
-This fork ([katafoxi/keymap-editor-extended](https://github.com/katafoxi/keymap-editor-extended)) builds on [nickcoutsos/keymap-editor](https://github.com/nickcoutsos/keymap-editor). Upstream hosted app: [keymap-editor](https://nickcoutsos.github.io/keymap-editor/). Upstream discussion: [Talk to me!](https://github.com/nickcoutsos/keymap-editor/discussions).
+This testing fork ([forgegod/katafoxi-keymap-editor-extended](https://github.com/forgegod/katafoxi-keymap-editor-extended)) builds on [katafoxi/keymap-editor-extended](https://github.com/katafoxi/keymap-editor-extended), which extends [nickcoutsos/keymap-editor](https://github.com/nickcoutsos/keymap-editor). The original extended app is [zmk-keymap-editor.com](https://zmk-keymap-editor.com/); it is a separate deployment and may not include this fork's changes. Upstream discussion: [Talk to me!](https://github.com/nickcoutsos/keymap-editor/discussions).
 
 ## What this fork adds
 
@@ -64,6 +66,8 @@ Product persistence is **GitHub-first**; Local is for iterating against a cloned
 
 - One **KeyEditor**: behaviour chips, then the value grid (keys, layers, mods, mouse/BT commands). Enter applies; Esc cancels. Hold-tap timing for `&mt` and `&lt`, plus Homerow (`&hm`) and Autoshift (`&as`); Apply adds a missing preset and Save rewrites those nodes ([ADR 0002](docs/adr/0002-keymap-file-contract.md)).
 - **Recipes**: built-in `&rgblayer` (layer + RGB color) from Presets — board shows `Ln` plus a color swatch; Save splices a fixed macro node when needed.
+- **Unicode input**: `&uc` picker for Normal/Shift characters, curated `UC_*` aliases, and input-mode switches. Existing aliases and opaque external bindings survive Apply and export. Firmware still needs the `urob/zmk-unicode` module and the matching host setup; the editor does not install either ([setup and limitations](docs/unicode-picker.md)).
+- **ZMK compatibility**: recognizes `&sys_reset` and `&studio_unlock`, and preserves unknown external behavior parameters when importing and editing existing source.
 - Compact ZMK legends (`L1`, `⌃`, hold-tap pills) in `keymap-core`.
 - Visual **Combos**: list + board key-positions, binding via KeyEditor, timeout / layers / slow-release / prior-idle props; gap beads for adjacent pairs, anchor beads for non-adjacent/multi-key chords. Dense chord boards get a typewriter **combo dictionary** under the board (hover peeks, click selects).
 - **Encoders**: per-layer `sensor-bindings` (clockwise / counter-clockwise) shown above the board, following the legend-row hover. A new layer copies the previous list. The knob press stays a normal key.
@@ -92,7 +96,22 @@ Full setup (env, Local junction, GitHub App): [running-locally.md](running-local
 
 ## Hosted app
 
-Production SPA + API (same origin): **[zmk-keymap-editor.com](https://zmk-keymap-editor.com/)**
+### This fork's public testing build
+
+Open **[forgegod.github.io/katafoxi-keymap-editor-extended](https://forgegod.github.io/katafoxi-keymap-editor-extended/)**.
+
+1. Explore the bundled keyboards in **Demo**.
+2. Choose **Clipboard** from the source menu, paste your `.keymap`, and optionally paste `info.json` for the physical layout.
+3. Click a key to edit its binding. Choose **Unicode input** (`&uc`) to test characters, aliases, or input-mode switches.
+4. Use **Copy .keymap** to copy the result back to your firmware repository. Review the diff before building or flashing firmware.
+
+This is a static GitHub Pages site: **GitHub login/commits and Local filesystem access are disabled**. Demo drafts and host layouts stay in this browser; Clipboard export is manual. The site does not build or flash firmware. HTTPS enables clipboard access (your browser may ask for permission).
+
+The [Pages workflow](.github/workflows/pages.yml) validates the subpath build on pull requests and publishes it when `main` changes. The URL follows `main`, not a pinned release. Versioned downloads are on the [releases page](https://github.com/forgegod/katafoxi-keymap-editor-extended/releases).
+
+### Full SPA + API deployment
+
+The original extended app is **[zmk-keymap-editor.com](https://zmk-keymap-editor.com/)**, maintained separately from this testing fork. To host this fork with GitHub login and commits, run the Hono API and SPA on the same origin and configure your own GitHub App.
 
 Deploy: [docs/deploy-vps.md](docs/deploy-vps.md) (Docker + Caddy on a VPS).
 
@@ -111,6 +130,7 @@ Deploy: [docs/deploy-vps.md](docs/deploy-vps.md) (Docker + Caddy on a VPS).
 ```bash
 pnpm test          # Vitest: keymap-core, api, web
 pnpm test:e2e      # Playwright smoke (separate)
+pnpm test:e2e:pages # Static subpath build: Demo + Clipboard, no API
 ```
 
 ## License
