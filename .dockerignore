@@ -4,6 +4,14 @@
 .env
 .env.*
 *.pem
+**/*.pem
+.dev.vars
+**/.dev.vars
+**/.dev.vars.*
+**/.env
+**/.env.*
+.wrangler
+**/.wrangler
 node_modules
 **/node_modules
 **/dist

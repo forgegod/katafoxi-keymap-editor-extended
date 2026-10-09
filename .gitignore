@@ -25,6 +25,9 @@ coverage/
 !deploy/env.production.example
 deploy/.env
 *.pem
+.dev.vars
+.dev.vars.*
+.wrangler/
 
 # Editor
 .idea/

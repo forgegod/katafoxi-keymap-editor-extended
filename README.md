@@ -4,6 +4,8 @@
 
 Public testing build: **Demo + Clipboard**, including the Unicode picker and ZMK behavior compatibility fixes. No installation or GitHub login required. [Testing releases](https://github.com/forgegod/katafoxi-keymap-editor-extended/releases) include a downloadable static build.
 
+**Hosted Hono API + editor:** [zmkee.forgegod.workers.dev](https://zmkee.forgegod.workers.dev/). Runs on Cloudflare independently of a local computer. Demo, Clipboard, and the GitHub source are enabled. Repository access requires GitHub login and installation of the [zmkee GitHub App](https://github.com/apps/zmkee) on the repositories you want to edit.
+
 Browser editor for [ZMK](https://zmk.dev/) keymaps that shows what a key **actually types** on the host — not only the firmware binding line.
 
 This testing fork ([forgegod/katafoxi-keymap-editor-extended](https://github.com/forgegod/katafoxi-keymap-editor-extended)) builds on [katafoxi/keymap-editor-extended](https://github.com/katafoxi/keymap-editor-extended), which extends [nickcoutsos/keymap-editor](https://github.com/nickcoutsos/keymap-editor). The original extended app is [zmk-keymap-editor.com](https://zmk-keymap-editor.com/); it is a separate deployment and may not include this fork's changes. Upstream discussion: [Talk to me!](https://github.com/nickcoutsos/keymap-editor/discussions).
@@ -115,12 +117,15 @@ The original extended app is **[zmk-keymap-editor.com](https://zmk-keymap-editor
 
 Deploy: [docs/deploy-vps.md](docs/deploy-vps.md) (Docker + Caddy on a VPS).
 
+For managed hosting without an always-on local computer, the optional `apps/cloudflare` adapter runs the same Hono API and SPA using Cloudflare Containers. See [docs/deploy-cloudflare.md](docs/deploy-cloudflare.md) for Workers Paid prerequisites, deployment commands, cost controls, and GitHub App setup. The hosted runtime uses the zmkee App; credentials stay in Cloudflare runtime secrets, not in the browser or Docker image.
+
 ## Docs
 
 | Doc | Content |
 |-----|---------|
 | [running-locally.md](running-locally.md) | Install, Demo, Clipboard, Local, GitHub, tests |
 | [docs/deploy-vps.md](docs/deploy-vps.md) | Production deploy on a VPS + domain |
+| [docs/deploy-cloudflare.md](docs/deploy-cloudflare.md) | Managed Hono + SPA containers, billing/account checks, GitHub App setup |
 | [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md) | Product vision |
 | [docs/adr/](docs/adr/README.md) | Architecture decisions |
 | [AGENTS.md](AGENTS.md) | Notes for coding agents |
@@ -128,7 +133,7 @@ Deploy: [docs/deploy-vps.md](docs/deploy-vps.md) (Docker + Caddy on a VPS).
 ## Tests
 
 ```bash
-pnpm test          # Vitest: keymap-core, api, web
+pnpm test          # Vitest: keymap-core, api, web, Cloudflare adapter
 pnpm test:e2e      # Playwright smoke (separate)
 pnpm test:e2e:pages # Static subpath build: Demo + Clipboard, no API
 ```

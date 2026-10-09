@@ -1,5 +1,5 @@
 # Multi-stage build: Vite SPA + Hono API, same-origin production.
-# Runtime listens on 0.0.0.0:8080 (Fly internal_port).
+# Runtime listens on 0.0.0.0:8080.
 
 FROM node:20-bookworm-slim AS base
 WORKDIR /app
@@ -11,6 +11,7 @@ FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
+COPY apps/cloudflare/package.json apps/cloudflare/
 COPY packages/keymap-core/package.json packages/keymap-core/
 RUN pnpm install --frozen-lockfile
 
@@ -35,6 +36,7 @@ ENV NODE_ENV=production \
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
+COPY apps/cloudflare/package.json apps/cloudflare/
 COPY packages/keymap-core/package.json packages/keymap-core/
 RUN pnpm install --frozen-lockfile --prod
 COPY --from=build /app/apps/api/dist apps/api/dist

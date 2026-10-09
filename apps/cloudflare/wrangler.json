@@ -1,0 +1,35 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "zmkee",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-09",
+  "account_id": "2bd90a32ad465c7800f9b8a75e95d5bd",
+  "workers_dev": true,
+  "preview_urls": false,
+  "send_metrics": false,
+  "containers": [
+    {
+      "class_name": "KeymapContainer",
+      "image": "../../Dockerfile",
+      "image_build_context": "../..",
+      "instance_type": "lite",
+      "max_instances": 1,
+      "image_vars": {
+        "VITE_ENABLE_GITHUB": "true",
+        "VITE_ENABLE_LOCAL": "false",
+        "VITE_GITHUB_APP_NAME": "zmkee"
+      }
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "KEYMAP_APP", "class_name": "KeymapContainer" }]
+  },
+  "exports": {
+    "KeymapContainer": { "type": "durable-object", "storage": "sqlite" }
+  },
+  "vars": {
+    "APP_BASE_URL": "https://zmkee.forgegod.workers.dev",
+    "GITHUB_APP_ID": "5255156",
+    "ENABLE_GITHUB": "true"
+  }
+}
