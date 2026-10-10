@@ -161,7 +161,7 @@ Before committing, the subject should complete “This commit will ___”, say w
 
 ## Workspace verification
 
-- Use Node 24 LTS with the repository-pinned pnpm 9.15.0. Node 26 currently causes happy-dom browser-storage failures; do not change product behavior to hide that environment mismatch.
+- Use Node 24.21.0 (pinned in `.nvmrc`) with the repository-pinned pnpm 9.15.0. Node 26 currently causes happy-dom browser-storage failures; do not change product behavior to hide that environment mismatch.
 - `pnpm test` runs record-validator and all workspace unit/component tests; `pnpm lint` checks TypeScript/Svelte; `pnpm build` builds core, web, and API.
 - `pnpm test:e2e`, `pnpm test:e2e:prod`, and `pnpm test:e2e:pages` exercise fixture-backed browser workflows, production hosting, and static deployment.
 - `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` regenerates canonical visuals and validates record structure/inventory. Inspect the rendered screens; the validator cannot establish visual correctness or behavior.
