@@ -69,14 +69,13 @@ These scopes partition the direct operator request into independently verifiable
 | Order | Change | Priority | Dependencies |
 | --- | --- | --- | --- |
 | 1 | [CHG-009 — Correct stock ZMK behavior catalog](active/CHG-009-correct-stock-zmk-behavior-catalog.md) | P1 | None |
-| 2 | [CHG-002 — Leave-page protection](active/CHG-002-warn-before-leaving-unpublished-work.md) | P1 | None |
-| 3 | [CHG-003 — Duplicate/reorder firmware layers](active/CHG-003-duplicate-and-reorder-firmware-layers.md) | P2 | Coordinate reference contract with macro/behavior work |
-| 4 | [CHG-004 — Select a repository keymap file](active/CHG-004-select-keymap-file-within-repository.md) | P2 | None |
-| 5 | [CHG-005 — Visual ZMK macro editor](active/CHG-005-visual-zmk-macro-editor.md) | P3 | Coordinate CHG-003 layer references |
-| 6 | [CHG-006 — Custom behavior definitions](active/CHG-006-custom-behavior-definition-editor.md) | P3 | CHG-005 shared reference contract |
-| 7 | [CHG-007 — Browser filesystem source](active/CHG-007-browser-filesystem-keymap-source.md) | P4 | CHG-004 identity/sidecars; CHG-002 leave policy |
-| 8 | [CHG-008 — ZMK-derived layout discovery](active/CHG-008-discover-layouts-from-zmk-metadata.md) | P4 | CHG-004 selected-keymap identity |
-| 9 | [CHG-010 — Publish/copy hardening follow-ups](active/CHG-010-publish-copy-hardening-followups.md) | P4 | CHG-002 phases 3–4 landed |
+| 2 | [CHG-003 — Duplicate/reorder firmware layers](active/CHG-003-duplicate-and-reorder-firmware-layers.md) | P2 | Coordinate reference contract with macro/behavior work |
+| 3 | [CHG-004 — Select a repository keymap file](active/CHG-004-select-keymap-file-within-repository.md) | P2 | None |
+| 4 | [CHG-005 — Visual ZMK macro editor](active/CHG-005-visual-zmk-macro-editor.md) | P3 | Coordinate CHG-003 layer references |
+| 5 | [CHG-006 — Custom behavior definitions](active/CHG-006-custom-behavior-definition-editor.md) | P3 | CHG-005 shared reference contract |
+| 6 | [CHG-007 — Browser filesystem source](active/CHG-007-browser-filesystem-keymap-source.md) | P4 | CHG-004 identity/sidecars; CHG-002 leave policy |
+| 7 | [CHG-008 — ZMK-derived layout discovery](active/CHG-008-discover-layouts-from-zmk-metadata.md) | P4 | CHG-004 selected-keymap identity |
+| 8 | [CHG-010 — Publish/copy hardening follow-ups](active/CHG-010-publish-copy-hardening-followups.md) | P4 | CHG-002 phases 3–4 landed |
 
 Start with CHG-009 unless the operator selects another scope. The table orders execution; each linked record owns its own phase state.
 
@@ -85,6 +84,7 @@ Start with CHG-009 unless the operator selects another scope. The table orders e
 | Change | Status |
 | --- | --- |
 | [CHG-001 — Bluetooth/RGB command choices](archive/CHG-001-complete-bluetooth-rgb-command-catalog.md) | done |
+| [CHG-002 — Leave-page protection](archive/CHG-002-warn-before-leaving-unpublished-work.md) | done |
 
 ## Review packages
 

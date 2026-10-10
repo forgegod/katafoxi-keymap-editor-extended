@@ -1,6 +1,6 @@
 # CHG-002 — Warn before leaving unpublished work
 
-**Status:** in-progress
+**Status:** done
 **External request:** Direct operator request: Incorporate the ../ai-software-blueprint/ into this project. Proceed with the feature gaps as proposed in change requests based on the new blueprint
 **Impacts:** CAP-001, CAP-002, CAP-003
 **Baseline:** `2bb062d9e613980cc8d7ef1e4c545b527ff1e9c2` on main; recheck branch and working-tree ownership before execution.
@@ -10,7 +10,7 @@
 
 Baseline: App.svelte flushed browser drafts on visibilitychange/pagehide and had no beforeunload warning. Successful local persistence was not proof of GitHub publication or Clipboard export.
 
-Phase 2 arms the native confirmation from `needsUnpublishedLeaveWarning` (`isDirty || isHostRepoDirty`) only while that predicate is true. The handler does not save or publish. Phase 3 supplies Chromium close/reload interaction evidence and current canonical CAP-001/002/003 HTML/PNG, distinguishing recovery, source handoffs, and OS installation. Full integration and closure remain phase 4.
+Phase 2 arms the native confirmation from `needsUnpublishedLeaveWarning` (`isDirty || isHostRepoDirty`) only while that predicate is true. The handler does not save or publish. Phase 3 supplies Chromium close/reload interaction evidence and current canonical CAP-001/002/003 HTML/PNG, distinguishing recovery, source handoffs, and OS installation. Phase 4 passed the full integration and visual gate; this archived record is the implementation receipt, not the current capability contract.
 
 [Parity evidence](../upstream-gap-assessment.md). That table is the original gap, not the current capability contract. Present behaviour is in the impacted CAPs.
 
@@ -41,7 +41,7 @@ Paths name existing seams, not a claim that future symbols or tests already exis
 | 1 | Specify the safe behavior boundary | done (`pnpm records:check`; `node --test scripts/records-tests/changes.test.mjs`) | acceptance matrix and proposed regression cases reviewed |
 | 2 | Implement and prove the domain slice | done (`pnpm --filter @keymap-editor/web test`: 67 files, 575 tests passed; independent Grok review passed for the frozen fingerprint below) | `pnpm --filter @keymap-editor/web test` |
 | 3 | Integrate the interaction and visual handoff | done (exact gate passed: 67 web files / 575 tests, 27 Chromium tests, 3 generated/rendered and inspected CAP screens; records in sync; independent Grok review passed for `59d9318f1b3bcfbf263a9bcc5851d43a35b4899639f3ec3c9f3f95f38024b5ec`) | `pnpm --filter @keymap-editor/web test && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
-| 4 | Verify and close the change | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages` |
+| 4 | Verify and close the change | done (full gate exited 0; 1,562 Vitest tests and 72 validator tests passed; Chromium 27 dev / 5 prod / 2 Pages passed; 3 expected skips; current CAPs and 3 canonical screens verified; evidence below) | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages` |
 
 ## Phase 1 — Specify the safe behavior boundary
 
@@ -144,7 +144,32 @@ Use `docs/product/wireframes/generate.mjs` only for implemented CAP surfaces; re
 
 ## Execution state
 
-Phase 2 landed in `aa0ccd6` after the independent Grok review passed; `4809776` records the frozen-review workflow and `8fb65a5` records non-blocking later hardening in CHG-010. Phase 3 resumes from a clean `8fb65a5` on Node 24.21.0 and pnpm 9.15.0 and owns only Chromium interaction evidence and the current CAP/visual handoff. Phase 4 remains pending; CHG-010 and all other changes remain outside this slice.
+Phases 2 and 3 landed through `a3f8223` after independent Grok review passed, as confirmed by the operator. Phase 4 completed from clean `a3f8223` on `main`, with no runtime, test, CAP, or canonical visual changes required. The full gate passed before marking phase 4 and the CHG done and moving this receipt to archive. Only closure records and the change index change in this slice. CHG-010 remains untouched. Fresh independent Grok review of the frozen closure diff `e7680e31bae45c0f44b46a9070648b856918d6bbcfa1c5181c994ac17b819e4d` passed, as confirmed by the operator. No staging, commit, push, deployment, or self-review was performed.
+
+### Phase 4 verification and frozen review handoff
+
+- Verified base: `a3f82236de4fe954c4fc60f9f58ee3c5475a8ac5` on `main`, initially clean. Supported environment: Node 24.21.0, pnpm 9.15.0, Linux x86_64 / WSL2 kernel `6.18.40.1-microsoft-standard-WSL2`, Playwright Chromium `153.0.8010.12`. No live Pages URL or e2e port/config overrides were set; browser gates used local fixture-backed servers and mocked GitHub.
+- CAP-001/002/003 retain honest `partial` / `Primary surface: human` declarations and their matching canonical HTML/PNG links. Rechecked the leave predicate and reactive listener, independent draft flush, exact sent-baseline copy/publish handling, and linked App/Chromium evidence against the current claims. All 87 implementation, test, related-contract and visual references resolve. No CAP edits are needed; unrelated partial-capability boundaries remain unchanged.
+- Opened all 3 canonical HTML pages in Chromium at the manifest 1440×1200 viewports and visually inspected all 3 PNGs. CAP-001 separates staged editing from the applied draft; CAP-002 separates native Stay/Leave, recovery Restore/Discard, source handoffs and failure states; CAP-003 separates dirty GitHub host snapshots, browser-only host edits and OS-install deliverables. Text and controls are legible with no visible clipping or overlap. HTML pages have no page errors or overflow. Generation/rendering in the full gate reproduced all 6 inspected HTML/PNG files byte-for-byte.
+- Exact full gate, run as one sequential `&&` chain, exited 0: `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages`. Only this CHG's in-progress lifecycle text differed from the base during that run; application, test, manifest, generator and renderer sources were unchanged.
+
+| Command | Actual result |
+| --- | --- |
+| `pnpm wireframes:generate` | Exit 0; 3 canonical screens generated. |
+| `pnpm wireframes:render` | Exit 0; 3 PNGs rendered at 1440×1200, headings visible, no horizontal/vertical overflow or page errors. |
+| `pnpm records:check` | Exit 0; 3 capabilities, 10 change records, manifest inventory in sync. Repeated successfully immediately before closure. |
+| `pnpm test` | Exit 0; core 58 files / 750 passed / 1 skipped, API 12 files / 226 passed, web 67 files / 575 passed, Cloudflare 1 file / 11 passed; record-validator 72 passed, 0 failed. |
+| `pnpm lint` | Exit 0 across all 4 workspace packages; Svelte check reports 0 errors and 0 warnings. |
+| `pnpm build` | Exit 0; core, web and API built. Vite reports the existing >500 kB chunk advisory. |
+| `pnpm test:e2e` | Exit 0; 27 Chromium tests passed, including native close dismissal/acceptance and Demo/Local reload recovery. |
+| `pnpm test:e2e:prod` | Exit 0; 5 Chromium production-hosting tests passed. |
+| `pnpm test:e2e:pages` | Exit 0; 2 Chromium static-Pages tests passed, 2 GitHub-auth tests intentionally skipped. |
+
+- Post-archive checks: `pnpm records:check && pnpm test:records && git diff --check && git diff --cached --quiet` exited 0: 3 capabilities / 10 changes in sync, 72 validator tests passed, no tracked whitespace errors, and an empty staging index. The archive destination replaces the active record and the change index links it under Archive.
+- Blockers: none. The optional local host-legend golden is absent, so its stored-snapshot comparison skips by design (`UPDATE_GOLDEN` unset); the coverage test still passes. Static Pages deliberately disables GitHub, so its two conditional auth tests skip (`PAGES_EXPECT_GITHUB` unset). No skips were introduced or overridden. Expected mocked authentication/validation failures and non-character xkb-include diagnostics remain in test output. The Vite chunk advisory is non-blocking.
+- Remaining limits: native dialog wording/delivery and prior user activation are browser-controlled; mobile/universal unload delivery is not proved. Chromium tests and mocked GitHub do not certify other browsers, live OAuth, deployed hosting, real repository writes, or OS installation. CHG-010 follow-ups are not implemented by this closure.
+- Raw gate log for this local handoff: `/home/raphael/.hermes/profiles/hermes-dev/cache/scratch/chg-002-phase-4-Xur6Rv/full-gate.log`, SHA-256 `2056830c0c378cab3af95cadf93ecd9626e97a1041a957ab4e1f17ffcbd4934f`. This scratch log is temporary; the command/results above are the durable receipt. The final complete-diff fingerprint is supplied separately at handoff to avoid a self-referential hash; it must include the untracked archive destination without staging.
+- DOX pass: root, web, docs, product, change and wireframe AGENTS.md remain unchanged because purpose, ownership, contracts, operating rules and child indexes are unchanged. Product index/CAPs/canonical artifacts remain unchanged because the current claims and inspected visuals already match the implementation. The change index moves CHG-002 from the active queue to archive. No CHG-002 review package exists to retain or relink. This record-only correction requires fresh Grok review before any separately authorized commit preview/apply.
 
 ### Phase 3 verification and frozen review handoff
 
@@ -154,7 +179,7 @@ Phase 2 landed in `aa0ccd6` after the independent Grok review passed; `4809776` 
 - Exact gate passed on Node 24.21.0 / pnpm 9.15.0: `pnpm --filter @keymap-editor/web test && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check`. Results: 67 web files / 575 tests; 27 Chromium tests; 3 generated screens; 3 rendered PNGs with visible headings, no horizontal/vertical overflow and no page errors; 3 capabilities / 10 change records with manifest inventory in sync. Expected mocked GitHub failures and skipped non-character xkb include diagnostics remain in unit output.
 - Visual inspection: CAP-001's applied draft is separate from staged key editing; CAP-002's schematic native Stay/Leave choices are separate from recovery Restore/Discard and source handoffs; CAP-003's repository host-snapshot warning is separate from browser-only host edits and OS-install deliverables. All three PNGs are legible with no clipping or overlap. The generator declares 1440×1200 viewports to accommodate these states without shrinking text. All affected CAPs remain `partial` / `Primary surface: human` with existing matching canonical links; index links remain unchanged.
 - DOX pass: root, app, docs, product, change and wireframe AGENTS.md remain unchanged because ownership, source boundaries, verification workflow and child indexes are unchanged. Existing contracts already require this browser evidence and canonical visual handoff. Only CAPs and this CHG need current-state/evidence updates.
-- The completed final-gate diff was frozen at fingerprint `59d9318f1b3bcfbf263a9bcc5851d43a35b4899639f3ec3c9f3f95f38024b5ec`; the operator reports that its independent Grok review passed. This correction records that outcome only and is not a commit. It must receive a fresh Grok review of the revised diff before any revised commit preview; do not start phase 4. Active-phase findings require implementation, the same gate, and another fresh Grok review.
+- The phase-3 gate diff was frozen at fingerprint `59d9318f1b3bcfbf263a9bcc5851d43a35b4899639f3ec3c9f3f95f38024b5ec`. The operator confirms fresh Grok review passed and the phase-3 checkpoint landed in `a3f8223`; its earlier hold on phase 4 is superseded by the explicit phase-4 request. Phase 4 requires its own frozen diff and fresh review.
 
 ### Phase 2 verification and frozen review handoff (landed)
 
