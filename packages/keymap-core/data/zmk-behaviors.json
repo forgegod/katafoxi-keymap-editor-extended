@@ -42,6 +42,10 @@
       "symbol": "CLR",
       "description": "Clear bond information between the keyboard and host for the selected profile."
     }, {
+      "code": "BT_CLR_ALL",
+      "symbol": "CLR ALL",
+      "description": "Clear bond information for all Bluetooth profiles."
+    }, {
       "code": "BT_NXT",
       "symbol": "NXT",
       "description": "Switch to the next profile, cycling through to the first one when the end is reached."
@@ -53,6 +57,15 @@
       "code": "BT_SEL",
       "symbol": "SEL",
       "description": "Select the 0-indexed profile by number. Please note: this definition must include a number as an argument in the keymap to work correctly. eg. BT_SEL 0",
+      "additionalParams": [{
+        "name": "index",
+        "type": "integer",
+        "enum": [0, 1, 2, 3, 4]
+      }]
+    }, {
+      "code": "BT_DISC",
+      "symbol": "DISC",
+      "description": "Disconnect the connected inactive 0-indexed profile.",
       "additionalParams": [{
         "name": "index",
         "type": "integer",
@@ -203,6 +216,12 @@
     "params": ["command"],
     "includes": ["#include <dt-bindings/zmk/rgb.h>"],
     "commands": [{
+      "code": "RGB_ON",
+      "description": "Turn on RGB underglow."
+    }, {
+      "code": "RGB_OFF",
+      "description": "Turn off RGB underglow."
+    }, {
       "code": "RGB_TOG",
       "description": "Toggles the RGB feature on and off"
     }, {

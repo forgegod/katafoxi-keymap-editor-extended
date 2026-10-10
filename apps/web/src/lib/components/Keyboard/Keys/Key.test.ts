@@ -238,6 +238,29 @@ describe('Key click editor', () => {
     expect(editorDialog()).toBeInstanceOf(HTMLElement)
   })
 
+  it('selects BT_DISC with a documented profile index and applies the exact binding', () => {
+    const onUpdate = open()
+    clickKey()
+    clickChoice(document, '&bt', '.key-editor-chip')
+
+    const commandDescriptions = [...document.querySelectorAll('.key-editor-choice')].map(el =>
+      el.getAttribute('title')
+    )
+    expect(commandDescriptions).toEqual(expect.arrayContaining([
+      'Disconnect the connected inactive 0-indexed profile.',
+      'Clear bond information for all Bluetooth profiles.'
+    ]))
+    clickChoice(document, 'DISC')
+    expect([...document.querySelectorAll('.key-editor-choice')].map(el =>
+      (el.textContent ?? '').trim()
+    )).toContain('2')
+    clickChoice(document, '2')
+    clickApply()
+
+    expect(encodedUpdate(onUpdate)).toBe('&bt BT_DISC 2')
+    expect(editorDialog()).toBeNull()
+  })
+
   it('updates the binding preview when a hold wrap is toggled', () => {
     open({ params: [{ value: 'H', params: [] }] })
     clickKey()

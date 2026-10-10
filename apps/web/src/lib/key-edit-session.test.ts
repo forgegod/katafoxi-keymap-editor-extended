@@ -154,6 +154,16 @@ describe('createKeyEditSession extra cases', () => {
     }
   )
 
+  it.each(['&bt BT_DISC 2', '&bt BT_CLR_ALL', '&rgb_ug RGB_ON', '&rgb_ug RGB_OFF'])(
+    'preserves the imported command on no-op Apply: %s', code => {
+      const onUpdate = vi.fn()
+      const binding = parseKeyBinding(code)
+      runSession(onUpdate, [binding], session => session.confirm())
+      expect(onUpdate).toHaveBeenCalledOnce()
+      expect(encodeKeyBinding(onUpdate.mock.calls[0][2] as KeyBindingNode)).toBe(code)
+    }
+  )
+
   it('builds &as A as autoshift LS(A) A', () => {
     const onUpdate = vi.fn()
     runSession(onUpdate, [{ value: '&none', params: [] }], session => {
@@ -201,6 +211,33 @@ describe('createKeyEditSession extra cases', () => {
     const binding = onUpdate.mock.calls[0][2] as KeyBindingNode
     expect(binding.params).toHaveLength(2)
     expect(encodeKeyBinding(binding)).toBe('&bt BT_SEL 1')
+    expect(parseKeyBinding(encodeKeyBinding(binding))).toEqual(binding)
+  })
+
+  it.each([
+    ['&bt', 'BT_DISC', 2, '&bt BT_DISC 2'],
+    ['&bt', 'BT_CLR_ALL', undefined, '&bt BT_CLR_ALL'],
+    ['&rgb_ug', 'RGB_ON', undefined, '&rgb_ug RGB_ON'],
+    ['&rgb_ug', 'RGB_OFF', undefined, '&rgb_ug RGB_OFF']
+  ])('assigns and round-trips %s %s', (behaviour, command, index, expected) => {
+    const onUpdate = vi.fn()
+    runSession(onUpdate, [{ value: '&none', params: [] }], session => {
+      session.selectBehaviour({ code: behaviour })
+      session.selectValue({ code: command })
+      if (index !== undefined) {
+        const extra = session.slots.find(
+          slot => slot.param !== 'behaviour' && (slot.value == null || slot.value === '')
+        )
+        if (!extra) throw new Error(`expected ${command} index slot`)
+        session.openEditor(extra.codeIndex)
+        session.selectValue({ code: index })
+      }
+      session.confirm()
+    })
+
+    expect(onUpdate).toHaveBeenCalledOnce()
+    const binding = onUpdate.mock.calls[0][2] as KeyBindingNode
+    expect(encodeKeyBinding(binding)).toBe(expected)
     expect(parseKeyBinding(encodeKeyBinding(binding))).toEqual(binding)
   })
 

@@ -113,12 +113,15 @@ export function behaviorValueCatalog(
 export function behaviorSlotParam(
   code: string | number | undefined | null,
   slotParam: unknown
-): string | undefined {
+): unknown | undefined {
   const def = getBehaviorCatalog().byCode[String(code ?? '')]
   if (!def) {
     return typeof slotParam === 'string' && slotParam !== 'behaviour' ? slotParam : undefined
   }
   const params = (def.params ?? []).filter((param): param is string => typeof param === 'string')
+  // Command-specific parameters such as BT_DISC's profile index are objects
+  // from the catalog. Keep the active object so the UI can resolve its enum.
+  if (slotParam && typeof slotParam === 'object') return slotParam
   if (typeof slotParam === 'string' && params.includes(slotParam)) return slotParam
   return params[0]
 }

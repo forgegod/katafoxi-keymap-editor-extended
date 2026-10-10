@@ -68,7 +68,7 @@ These scopes partition the direct operator request into independently verifiable
 
 | Order | Change | Priority | Dependencies |
 | --- | --- | --- | --- |
-| 1 | [CHG-001 — Bluetooth/RGB command choices](active/CHG-001-complete-bluetooth-rgb-command-catalog.md) | P1 | None |
+| 1 | [CHG-009 — Correct stock ZMK behavior catalog](active/CHG-009-correct-stock-zmk-behavior-catalog.md) | P1 | None |
 | 2 | [CHG-002 — Leave-page protection](active/CHG-002-warn-before-leaving-unpublished-work.md) | P1 | None |
 | 3 | [CHG-003 — Duplicate/reorder firmware layers](active/CHG-003-duplicate-and-reorder-firmware-layers.md) | P2 | Coordinate reference contract with macro/behavior work |
 | 4 | [CHG-004 — Select a repository keymap file](active/CHG-004-select-keymap-file-within-repository.md) | P2 | None |
@@ -77,11 +77,13 @@ These scopes partition the direct operator request into independently verifiable
 | 7 | [CHG-007 — Browser filesystem source](active/CHG-007-browser-filesystem-keymap-source.md) | P4 | CHG-004 identity/sidecars; CHG-002 leave policy |
 | 8 | [CHG-008 — ZMK-derived layout discovery](active/CHG-008-discover-layouts-from-zmk-metadata.md) | P4 | CHG-004 selected-keymap identity |
 
-Start with CHG-001 unless the operator selects another scope. The table orders execution; each linked record owns its own phase state. No feature implementation is claimed by this adoption.
+Start with CHG-009 unless the operator selects another scope. The table orders execution; each linked record owns its own phase state.
 
 ## Archive
 
-No product change has been completed under this record system.
+| Change | Status |
+| --- | --- |
+| [CHG-001 — Bluetooth/RGB command choices](archive/CHG-001-complete-bluetooth-rgb-command-catalog.md) | done |
 
 ## Review packages
 

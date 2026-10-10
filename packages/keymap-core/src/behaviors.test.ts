@@ -7,6 +7,7 @@ import {
   isInstantBehavior,
   sortBehaviorsByRole
 } from './behaviors.js'
+import { getBehaviorCatalog } from './catalog.js'
 
 describe('sortBehaviorsByRole', () => {
   it('puts &kp first and instant bindings last', () => {
@@ -77,6 +78,27 @@ describe('behaviorPeekNote', () => {
 })
 
 describe('behaviorValueCatalog', () => {
+  it('lists the documented Bluetooth and RGB commands with their required parameters', () => {
+    const bluetooth = getBehaviorCatalog().byCode['&bt']
+    const rgb = getBehaviorCatalog().byCode['&rgb_ug']
+
+    expect(bluetooth?.commands).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'BT_DISC',
+        description: 'Disconnect the connected inactive 0-indexed profile.',
+        additionalParams: [{ name: 'index', type: 'integer', enum: [0, 1, 2, 3, 4] }]
+      }),
+      expect.objectContaining({
+        code: 'BT_CLR_ALL',
+        description: 'Clear bond information for all Bluetooth profiles.'
+      })
+    ]))
+    expect(rgb?.commands).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'RGB_ON', description: 'Turn on RGB underglow.' }),
+      expect.objectContaining({ code: 'RGB_OFF', description: 'Turn off RGB underglow.' })
+    ]))
+  })
+
   it('returns mouse buttons for &mkp, not keycodes', () => {
     const catalog = behaviorValueCatalog('&mkp')
     expect(catalog.param).toBe('command')
@@ -120,6 +142,13 @@ describe('behaviorValueCatalog', () => {
 })
 
 describe('behaviorSlotParam', () => {
+  it('keeps the active Bluetooth command index parameter', () => {
+    const index = getBehaviorCatalog().byCode['&bt']?.commands
+      ?.find(command => command.code === 'BT_DISC')?.additionalParams?.[0]
+    expect(index).toBeDefined()
+    expect(behaviorSlotParam('&bt', index)).toBe(index)
+  })
+
   it('follows the key slot on &mt after the modifier is chosen', () => {
     expect(behaviorSlotParam('&mt', 'mod')).toBe('mod')
     expect(behaviorSlotParam('&mt', 'code')).toBe('code')

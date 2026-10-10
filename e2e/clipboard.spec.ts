@@ -163,6 +163,76 @@ test.describe('Clipboard source', () => {
     expect(preambleBeforeKeymapBlock(copied)).toBe(preambleBeforeKeymapBlock(source))
   })
 
+  for (const { behavior, command, label, index } of [
+    { behavior: '&bt', command: 'BT_DISC', label: 'DISC', index: '2' },
+    { behavior: '&bt', command: 'BT_CLR_ALL', label: 'CLR ALL' },
+    { behavior: '&rgb_ug', command: 'RGB_ON', label: 'RGB_ON' },
+    { behavior: '&rgb_ug', command: 'RGB_OFF', label: 'RGB_OFF' }
+  ]) {
+    test(`${command} survives selection, cancel, Apply, reopen and export`, async ({ page }) => {
+      const binding = `${behavior} ${command}${index === undefined ? '' : ` ${index}`}`
+      const source = `#define USER_SETTING 1
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/bt.h>
+#include <dt-bindings/zmk/rgb.h>
+/ {
+  keymap {
+    compatible = "zmk,keymap";
+    default_layer { bindings = <&kp A ${binding}>; };
+  };
+};`
+      const picker = await openClipboardPicker(page)
+      await picker.getByRole('textbox', { name: /Paste your board \.keymap/ }).fill(source)
+      await picker.getByRole('button', { name: 'Load' }).click()
+
+      const dialog = page.getByRole('dialog', { name: 'Edit key' })
+      const original = page.getByRole('button', { name: '&kp A, layer 0', exact: true })
+      const imported = page.getByRole('button', { name: `${binding}, layer 0`, exact: true })
+      await imported.click()
+      await expect(dialog.locator('#key-editor-binding')).toHaveText(binding)
+      await dialog.getByRole('button', { name: 'Apply', exact: true }).click()
+      await expect(dialog).toBeHidden()
+      await expect(imported).toBeVisible()
+
+      await original.click()
+      await dialog.getByRole('button', { name: behavior, exact: true }).click()
+      await dialog.getByRole('button', { name: label, exact: true }).press('Enter')
+      if (index !== undefined) {
+        await expect(dialog.locator('.key-editor-choice').filter({ hasText: /^\d+$/ }))
+          .toHaveText(['0', '1', '2', '3', '4'])
+        await dialog.getByRole('button', { name: 'Pick a key to finish the combo', exact: true }).click()
+        await expect(dialog).toBeVisible()
+        await dialog.getByRole('button', { name: '0', exact: true }).click()
+        await expect(dialog.locator('#key-editor-binding')).toHaveText('&bt BT_DISC 0')
+        // Space selects a focused choice; Enter applies an already complete binding.
+        await dialog.getByRole('button', { name: index, exact: true }).press('Space')
+      }
+      await expect(dialog.locator('#key-editor-binding')).toHaveText(binding)
+      await dialog.getByRole('button', { name: 'Apply', exact: true }).click()
+      await expect(dialog).toBeHidden()
+      await expect(imported).toHaveCount(2)
+
+      await imported.first().click()
+      await expect(dialog.locator('#key-editor-binding')).toHaveText(binding)
+      await dialog.getByRole('button', { name: '&none', exact: true }).click()
+      await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+      await expect(dialog).toBeHidden()
+      await expect(imported).toHaveCount(2)
+      await imported.first().click()
+      await expect(dialog.locator('#key-editor-binding')).toHaveText(binding)
+      await dialog.getByRole('button', { name: 'Apply', exact: true }).click()
+      await expect(dialog).toBeHidden()
+
+      await page.getByRole('button', { name: 'Copy .keymap' }).click()
+      const exported = page.getByRole('dialog', { name: 'Exported keymap' })
+      await expect(exported.getByRole('status')).toContainText('Copied to the system clipboard')
+      const copied = await page.evaluate(() => navigator.clipboard.readText())
+      expect(preambleBeforeKeymapBlock(copied)).toBe(preambleBeforeKeymapBlock(source))
+      const bindings = copied.match(/bindings\s*=\s*<([^>]+)>/)?.[1]
+      expect(bindings?.trim().replace(/\s+/g, ' ')).toBe(`${binding} ${binding}`)
+    })
+  }
+
   test('garbage keymap shows an error and leaves the board unchanged', async ({
     page
   }) => {

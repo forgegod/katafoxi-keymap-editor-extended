@@ -409,8 +409,8 @@
       ) as (Choice & { commands?: Choice[] }) | undefined
       return listed?.commands ?? []
     }
-    if (search && name && name !== 'behaviour') {
-      return (search.getSearchTargets(name, behaviourCode) ?? []) as Choice[]
+    if (search && param != null && param !== 'behaviour') {
+      return (search.getSearchTargets(param, behaviourCode) ?? []) as Choice[]
     }
     return isKeycodeParam(name) ? choices : []
   }
