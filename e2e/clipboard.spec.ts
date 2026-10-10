@@ -233,6 +233,214 @@ test.describe('Clipboard source', () => {
     })
   }
 
+  test.describe('CHG-009 stock picker integration', () => {
+    const stockCases = [
+      { behavior: '&out', argument: 'OUT_NONE' },
+      { behavior: '&out', argument: 'OUT_USB' },
+      { behavior: '&out', argument: 'OUT_BLE' },
+      { behavior: '&kt', argument: 'F13', wrap: true },
+      { behavior: '&kt', argument: 'LALT' },
+      { behavior: '&gresc' },
+      { behavior: '&soft_off' },
+      { behavior: '&sys_reset' },
+      { behavior: '&bootloader' }
+    ]
+
+    for (const { behavior, argument, wrap } of stockCases) {
+      const binding = `${behavior}${argument ? ` ${wrap ? `LA(${argument})` : argument}` : ''}`
+      test(`${binding} survives selection, Apply, reopen, cancel and clipboard export`, async ({ page }) => {
+        const source = `// User-owned preamble; the editor must not repair includes.
+#define USER_SETTING 1
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+#include <dt-bindings/zmk/outputs.h>
+/ {
+  keymap {
+    compatible = "zmk,keymap";
+    default_layer { bindings = <&kp A ${binding}>; };
+  };
+};`
+        const picker = await openClipboardPicker(page)
+        await picker.getByRole('textbox', { name: /Paste your board \.keymap/ }).fill(source)
+        await picker.getByRole('button', { name: 'Load', exact: true }).click()
+
+        const dialog = page.getByRole('dialog', { name: 'Edit key' })
+        const preview = dialog.locator('#key-editor-binding')
+        const original = page.getByRole('button', { name: '&kp A, layer 0', exact: true })
+        const applied = page.getByRole('button', { name: `${binding}, layer 0`, exact: true })
+        // Imported stock bindings take the same real no-op Apply path.
+        await applied.click()
+        await expect(preview).toHaveText(binding)
+        await dialog.getByRole('button', { name: 'Apply', exact: true }).click()
+        await expect(dialog).toBeHidden()
+        await expect(applied).toHaveCount(1)
+
+        const selectStock = async () => {
+          await expect(dialog.getByRole('button', { name: '&reset', exact: true })).toHaveCount(0)
+          await dialog.getByRole('button', { name: behavior, exact: true }).click()
+          if (behavior === '&out') {
+            for (const [command, description] of [
+              ['OUT_USB', 'Prefer sending to USB.'],
+              ['OUT_BLE', 'Prefer sending to the current Bluetooth profile.'],
+              ['OUT_NONE', 'Prevent sending any output.']
+            ]) {
+              await expect(dialog.getByRole('button', { name: command, exact: true }))
+                .toHaveAttribute('title', description)
+            }
+            await dialog.getByRole('button', { name: argument!, exact: true }).press('Enter')
+          } else if (behavior === '&kt') {
+            await expect(dialog.getByPlaceholder('Filter values…')).toBeVisible()
+            await dialog.getByRole('button', { name: 'Pick a key to finish the combo', exact: true }).click()
+            await expect(dialog).toBeVisible()
+            await expect(original).toBeVisible()
+            await dialog.getByPlaceholder('Filter values…').fill(argument!)
+            await dialog.getByRole('button', { name: argument!, exact: true }).press('Enter')
+            if (wrap) await dialog.getByRole('button', { name: 'LA hold — LALT', exact: true }).click()
+          } else {
+            await expect(dialog.getByPlaceholder('Filter values…')).toHaveCount(0)
+            await expect(dialog.locator('[data-slot-values], .key-editor-values')).toHaveCount(0)
+            if (behavior === '&soft_off') {
+              await expect(dialog.locator('.key-editor-note')).toContainText('CONFIG_ZMK_PM_SOFT_OFF=y')
+              await expect(dialog.locator('.key-editor-note')).toContainText('requires hardware power-off support')
+              await expect(dialog.locator('.key-editor-note')).toContainText('Wake-up depends on the keyboard hardware')
+              await expect(dialog.locator('.key-editor-note')).toContainText('does not change firmware configuration or turn off hardware')
+            }
+          }
+          await expect(preview).toHaveText(binding)
+          await expect(dialog.getByRole('button', { name: 'Apply', exact: true })).toBeVisible()
+          // Even parameterless choices remain staged until Apply.
+          await expect(original).toBeVisible()
+          await expect(applied).toHaveCount(1)
+        }
+
+        await original.click()
+        await selectStock()
+        await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+        await expect(dialog).toBeHidden()
+        await original.click()
+        await expect(preview).toHaveText('&kp A')
+        await selectStock()
+        await dialog.getByRole('button', { name: 'Apply', exact: true }).click()
+        await expect(dialog).toBeHidden()
+        await expect(applied).toHaveCount(2)
+
+        await applied.first().click()
+        await expect(preview).toHaveText(binding)
+        await dialog.getByRole('button', { name: '&none', exact: true }).click()
+        await expect(preview).toHaveText('&none')
+        await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+        await expect(dialog).toBeHidden()
+        await expect(applied).toHaveCount(2)
+        await applied.first().click()
+        await expect(preview).toHaveText(binding)
+        await dialog.getByRole('button', { name: 'Apply', exact: true }).click()
+        await expect(dialog).toBeHidden()
+
+        await page.getByRole('button', { name: 'Copy .keymap' }).click()
+        const exported = page.getByRole('dialog', { name: 'Exported keymap' })
+        await expect(exported.getByRole('status')).toContainText('Copied to the system clipboard')
+        const copied = await page.evaluate(() => navigator.clipboard.readText())
+        expect(preambleBeforeKeymapBlock(copied)).toBe(preambleBeforeKeymapBlock(source))
+        expect(copied.match(/bindings\s*=\s*<([^>]+)>/)?.[1]?.trim().replace(/\s+/g, ' '))
+          .toBe(`${binding} ${binding}`)
+        expect(copied.slice(copied.indexOf('>;'))).toBe(source.slice(source.indexOf('>;')))
+      })
+    }
+
+    test('legacy reset JSON imports remain editable and export through the supplied source without promotion', async ({ page }) => {
+      const bindings = ['&reset', '&reset WRAP(1,2) 3']
+      const source = `// User-owned legacy reset definitions live in this external include.
+#include "external-behaviors.dtsi"
+/ {
+  keymap {
+    compatible = "zmk,keymap";
+    default_layer { bindings = <${bindings.join(' ')} &kp B>; };
+  };
+};`
+      const picker = await openClipboardPicker(page)
+      await picker.getByRole('textbox', { name: /Paste your board \.keymap/ })
+        .fill(JSON.stringify({ layers: [[...bindings, '&kp B']] }))
+      await picker.getByPlaceholder('Paste the matching board .keymap from your firmware repo').fill(source)
+      await picker.getByRole('button', { name: 'Load', exact: true }).click()
+      await expect(picker).toBeHidden()
+      const dialog = page.getByRole('dialog', { name: 'Edit key' })
+      for (const binding of bindings) {
+        const key = page.getByRole('button', { name: `${binding}, layer 0`, exact: true })
+        await key.click()
+        await expect(dialog.locator('#key-editor-binding')).toHaveText(binding)
+        await expect(dialog.getByRole('button', { name: '&reset', exact: true })).toHaveCount(0)
+        await dialog.getByRole('button', { name: 'Apply', exact: true }).click()
+        await expect(dialog).toBeHidden()
+        await key.click()
+        await expect(dialog.locator('#key-editor-binding')).toHaveText(binding)
+        await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+        await expect(dialog).toBeHidden()
+      }
+      await editKey(page, page.getByRole('button', { name: '&kp B, layer 0', exact: true }), 'F13')
+      await page.getByRole('button', { name: 'Copy .keymap' }).click()
+      const exported = page.getByRole('dialog', { name: 'Exported keymap' })
+      await expect(exported.getByRole('status')).toContainText('Copied to the system clipboard')
+      const copied = await page.evaluate(() => navigator.clipboard.readText())
+      expect(preambleBeforeKeymapBlock(copied)).toBe(preambleBeforeKeymapBlock(source))
+      expect(copied.match(/bindings\s*=\s*<([^>]+)>/)?.[1]?.trim().replace(/\s+/g, ' '))
+        .toBe(`${bindings.join(' ')} &kp F13`)
+      expect(copied.slice(copied.indexOf('>;'))).toBe(source.slice(source.indexOf('>;')))
+    })
+
+    test('legacy reset and opaque imports survive no-op Apply and export without stock promotion or include repair', async ({ page }) => {
+      // Deliberately opaque tokens, not firmware-valid examples or editable custom definitions.
+      const bindings = [
+        '&reset', '&reset WRAP(1,2) 3', '&custom WRAP(LC,2) 3',
+        '&kt VENDOR_KEY(1,2)', '&kt LA(A)', '&out VENDOR_OUT 7',
+        '&inc_dec_cp C_VOL_UP C_VOL_DN', '&rgb_ug RGB_COLOR_HSB(10,20,30)',
+        '&gresc WRAP(LC,2) 3', '&soft_off VENDOR_ARG 7'
+      ]
+      const source = `// Existing external includes stay user-owned; no outputs.h or keys.h repair.
+#define USER_SETTING 1
+#include "external-behaviors.dtsi"
+/ {
+  keymap {
+    compatible = "zmk,keymap";
+    default_layer { bindings = <${bindings.join(' ')} &kp B>; };
+  };
+};`
+      const picker = await openClipboardPicker(page)
+      await picker.getByRole('textbox', { name: /Paste your board \.keymap/ }).fill(source)
+      await picker.getByRole('button', { name: 'Load', exact: true }).click()
+      const dialog = page.getByRole('dialog', { name: 'Edit key' })
+      for (const binding of bindings) {
+        await test.step(`Preserve ${binding}`, async () => {
+          const key = page.getByRole('button', { name: `${binding}, layer 0`, exact: true })
+          await key.click()
+          await expect(dialog.locator('#key-editor-binding')).toHaveText(binding)
+          for (const excluded of ['&reset', '&custom', '&inc_dec_cp']) {
+            await expect(dialog.getByRole('button', { name: excluded, exact: true })).toHaveCount(0)
+          }
+          await expect(dialog.getByRole('button', { name: 'RGB_COLOR_HSB', exact: true })).toHaveCount(0)
+          await dialog.getByRole('button', { name: 'Apply', exact: true }).click()
+          await expect(dialog).toBeHidden()
+          await key.click()
+          await expect(dialog.locator('#key-editor-binding')).toHaveText(binding)
+          await dialog.getByRole('button', { name: '&sys_reset', exact: true }).click()
+          await expect(dialog.locator('#key-editor-binding')).toHaveText('&sys_reset')
+          await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+          await expect(dialog).toBeHidden()
+          await expect(key).toBeVisible()
+        })
+      }
+      // Force a real splice of another key, not an unchanged-source shortcut.
+      await editKey(page, page.getByRole('button', { name: '&kp B, layer 0', exact: true }), 'F13')
+      await page.getByRole('button', { name: 'Copy .keymap' }).click()
+      const exported = page.getByRole('dialog', { name: 'Exported keymap' })
+      await expect(exported.getByRole('status')).toContainText('Copied to the system clipboard')
+      const copied = await page.evaluate(() => navigator.clipboard.readText())
+      expect(preambleBeforeKeymapBlock(copied)).toBe(preambleBeforeKeymapBlock(source))
+      expect(copied.match(/bindings\s*=\s*<([^>]+)>/)?.[1]?.trim().replace(/\s+/g, ' '))
+        .toBe(`${bindings.join(' ')} &kp F13`)
+      expect(copied.slice(copied.indexOf('>;'))).toBe(source.slice(source.indexOf('>;')))
+    })
+  })
+
   test('garbage keymap shows an error and leaves the board unchanged', async ({
     page
   }) => {

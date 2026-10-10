@@ -138,6 +138,14 @@
   )
   const catalogSlot = $derived(activeKeySlot ?? activeSlot)
   const behaviourValue = $derived(pickedBehaviour ?? editorSlots[0]?.value)
+  // The session label encodes the whole draft, including opaque/excess arguments
+  // that are intentionally absent from editable slots. Only use the slot preview
+  // while a locally picked behavior is waiting for the parent session to update.
+  const previewLabel = $derived(
+    pickedBehaviour != null && String(pickedBehaviour) !== String(editorSlots[0]?.value)
+      ? editorBindingPreview(editorSlots, pickedBehaviour)
+      : bindingLabel || editorBindingPreview(editorSlots)
+  )
   const encoderEdit = $derived(variant === 'encoder')
   const showPresets = $derived(!encoderEdit)
   /** Recipe node kept local until Apply, like hold-tap presets. */
@@ -150,7 +158,7 @@
   const hsbValue = $derived(
     parseHsbToken(hsbSlot?.value) ??
       parseHsbToken(
-        (editorBindingPreview(editorSlots, pickedBehaviour) || bindingLabel).match(
+        previewLabel.match(
           /RGB_COLOR_HSB(?:_VAL)?\(\d+\s*,\s*\d+\s*,\s*\d+\)/
         )?.[0]
       ) ?? defaultRgbLayerHsb(Number(layerSlot?.value) || 1)
@@ -196,9 +204,6 @@
   )
   const keycodePicker = $derived(isKeycodeParam(catalogParam))
   const displayChoices = $derived(catalogKeyChoices(resolvedChoices))
-  const previewLabel = $derived(
-    editorBindingPreview(editorSlots, pickedBehaviour) || bindingLabel
-  )
   const labelChoice = $derived(buildChoiceLabeler(displayChoices))
   const searching = $derived(query.trim().length > 0)
   const orderedBehaviours = $derived(sortBehaviorsByRole(behaviours))

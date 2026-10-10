@@ -14,6 +14,8 @@ Keep ZMK parsing and file generation in keymap-core. Plain click edits ZMK; Alt+
 
 Hydration preserves imported arguments beyond catalog arity and keeps undeclared nested arguments opaque. Catalog schemas define editable slots, not a truncation boundary; selecting a replacement behavior intentionally resets its parameters.
 
+KeyEditor previews use the session's full encoded draft once a behavior selection is synchronized. Editable slots omit opaque/excess arguments and must not replace that source-preserving preview.
+
 ## Work Guidance
 
 Follow root keycapFace and CSS-sidecar rules. Pair material interaction changes with CAP tests and canonical wireframes.

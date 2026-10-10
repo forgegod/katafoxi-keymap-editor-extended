@@ -8,15 +8,15 @@
 
 ## Current boundary
 
-CHG-001 adds `BT_DISC`, `BT_CLR_ALL`, `RGB_ON`, and `RGB_OFF`. A subsequent comparison with local ZMK main at `5b51501f` found catalog defects outside that closed scope:
+CHG-001 added `BT_DISC`, `BT_CLR_ALL`, `RGB_ON`, and `RGB_OFF`. A subsequent comparison with local ZMK main at `5b51501f` found the following baseline defects outside that closed scope, corrected in phase 2:
 
-- `&out` omits `OUT_NONE`, and its `OUT_USB` / `OUT_BLE` descriptions are reversed from ZMK.
-- Stock bindings `&kt`, `&gresc`, and `&soft_off` are absent from the picker.
-- `&reset` is advertised as a stock binding even though this ZMK revision defines `&sys_reset` and `&bootloader` instead.
+- `&out` omitted `OUT_NONE`, and its `OUT_USB` / `OUT_BLE` descriptions were reversed from ZMK.
+- Stock bindings `&kt`, `&gresc`, and `&soft_off` were absent from the picker.
+- `&reset` was advertised as a stock binding even though this ZMK revision defines `&sys_reset` and `&bootloader` instead.
 
 The catalog remains a picker aid, not a claim that every arbitrary source behavior is schema-editable. Existing unknown bindings and parameters must remain source-preserving.
 
-Local ZMK source evidence is `../zmkfirmware-zmk/docs/docs/keymaps/behaviors/index.mdx`, `../zmkfirmware-zmk/docs/docs/keymaps/behaviors/outputs.md`, and the matching DTS/header files. Phase-2 implementation evidence is recorded below; phase-3 browser integration and current-state CAP/visual updates remain pending.
+Local ZMK source evidence is `../zmkfirmware-zmk/docs/docs/keymaps/behaviors/index.mdx`, `../zmkfirmware-zmk/docs/docs/keymaps/behaviors/outputs.md`, and the matching DTS/header files. Phase-2 implementation and phase-3 integration evidence are recorded below. Phase 3 is done following its gate and operator-reported fresh independent Grok review: No findings. Phase 4 remains pending and has not started; CHG-009 remains active and in-progress.
 
 ## Dependencies
 
@@ -51,7 +51,7 @@ Paths name existing seams, not a claim that every listed file must change. Re-re
 | --- | --- | --- | --- |
 | 1 | Specify catalog correctness and evidence | done (`pnpm records:check` exit 0; fresh independent Grok review: No findings; ZMK pin and expected RED confirmed: core 12 failed/20 passed, web 7 failed/55 passed) | `pnpm records:check` passes; ZMK source matrix and focused regressions reviewed |
 | 2 | Implement and prove the catalog slice | done (full phase gate exit 0: core 776 passed/1 existing optional golden skip, web 621 passed; operator-reported fresh Grok final review: No findings, including corrected legacy reset JSON import) | `pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test` |
-| 3 | Integrate the picker and current-state visual | pending | `pnpm --filter @keymap-editor/web test && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
+| 3 | Integrate the picker and current-state visual | done (full phase gate exit 0: 638 web tests, 38 Chromium e2e tests, generated/rendered visuals and records valid; operator-reported fresh Grok review: No findings, confirming browser/e2e, CAP, generated wireframe and visual evidence) | `pnpm --filter @keymap-editor/web test && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
 | 4 | Verify and close the change | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages` |
 
 ## Phase 1 — Specify catalog correctness and evidence
@@ -198,6 +198,19 @@ Exact `behaviorFirmwareNote('&soft_off')` target:
 
 **Verification gate:** `pnpm --filter @keymap-editor/web test && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check`.
 
+### Required-now integration finding
+
+The new browser no-op regression exposes a preview-only loss: imported
+`&reset WRAP(1,2) 3` displays `&reset WRAP 3`. The session's `bindingLabel`
+encodes the preserved tree, but KeyEditor prefers `editorBindingPreview` rebuilt
+from editable slots, which omit opaque descendants and excess arguments.
+Phase 3 owns correcting that display/Apply mismatch and its component/browser
+regressions. Keep the preserved session tree authoritative; do not expand schemas,
+change hydration, splice/preamble handling, or expose opaque arguments as custom
+behavior controls. The initial focused browser run had 8 passes and 2 failures:
+this preview mismatch and a test-only partial `Load` locator matching
+`bootloader` in the paste control's accessible name (use exact `Load`).
+
 ## Phase 4 — Verify and close the change
 
 **Goal:** Record current behavior only after every integration and visual gate passes.
@@ -221,17 +234,18 @@ CAP-001 already owns the human KeyEditor surface. Implementation updates its can
 
 ## Execution state
 
-Phase 1 started from clean `main` at `67b1fe53153ddb5ddfcb7d6cd2a5b423b7be423b`
-after CHG-002 archival and is complete following independent review. Phase 2 is
-done following the full phase gate and operator-reported fresh Grok final review:
-shared catalog correctness, opaque-argument preservation, and corrected legacy
-reset JSON-import compatibility only. Phases 3–4 remain pending and CHG-010 remains planned. Node
-`24.21.0` and pnpm `9.15.0` are verified. The operator approved one exception to
-the component-test boundary: change only the stale stock `&reset` assertion in
-`KeyEditor.test.ts` to `&sys_reset`. No other KeyEditor component/e2e, CAP, or
-wireframe work, staging, commit, push, deployment, or credential changes are
-authorized. This doc-only checkpoint closes phase 2, not CHG-009; the change
-remains active and in-progress, with no authorization to start phase 3.
+Phases 1–2 are done following their recorded gates and independent reviews.
+The operator authorized phase 3 only from clean committed `main` at
+`afcccd41ec2a436183e22abd5d2eb50db2f969da`. Phase 3 is done: component and
+browser integration coverage, CAP-001, and its canonical generated visual passed
+the recorded gate and operator-reported fresh independent Grok review: No findings.
+Node `24.21.0`, pnpm `9.15.0`, and the clean pinned sibling ZMK revision were
+verified during phase-3 execution. This doc-only checkpoint closes phase 3 only;
+CHG-009 remains active and in-progress. Phase 4 stays pending and is not authorized
+to start; CHG-010 is not part of this work. Do not edit implementation, tests,
+CAPs, or wireframes, archive, stage, commit, push, deploy, change credentials,
+perform firmware actions, add custom behavior/color controls, or add include repair
+in this closeout.
 
 ### Phase-1 executable evidence
 
@@ -364,11 +378,97 @@ this doc-only checkpoint. The final review satisfies phase 2's remaining review
 gate; phase 2 is done. This records the supplied independent review, not a
 self-review, model switch, or review of these subsequent documentation edits.
 
-Only this active CHG is changed by the closeout. Implementation, tests, CAP-001,
-and wireframes remain untouched. DOX and child indexes remain unchanged because
-this checkpoint changes phase progress only, not ownership, hierarchy, contracts,
-or workflow. Closeout checks are `pnpm records:check` and `git diff --check`; the
-updated full diff fingerprint is returned to the operator after these edits,
-separately from the reviewed fingerprint above. Phases 3–4 remain pending and
-CHG-009 remains active and in-progress; do not start phase 3, stage, commit, push,
-deploy, or change credentials in this handoff.
+That phase-2 closeout changed only this active CHG, leaving implementation,
+tests, CAP-001, wireframes, DOX, and child indexes untouched. Its checks were
+`pnpm records:check` and `git diff --check`; the updated fingerprint was returned
+separately from the reviewed fingerprint above. Phases 3–4 were pending at that
+checkpoint. The subsequent phase-3 authorization is recorded in Execution state.
+
+### Phase-3 implementation and executable evidence
+
+Started by marking phase 3 in-progress, before implementation, from clean
+`afcccd41ec2a436183e22abd5d2eb50db2f969da` on `main`. Node `24.21.0` and
+pnpm `9.15.0` were used for every command below.
+
+- `e2e/clipboard.spec.ts`, `CHG-009 stock picker integration`, adds nine stock
+  selection cases: `OUT_NONE`, corrected USB/BLE choices, `&kt LA(F13)` and
+  `&kt LALT`, `&gresc`, `&soft_off`, `&sys_reset`, and `&bootloader`. Each covers
+  imported no-op Apply, selection, cancel before Apply, Apply, reopen, cancel a
+  replacement, reopen/no-op Apply, and actual system-clipboard export. Assertions
+  check exact binding tokens, original preamble and suffix, absent `&reset`
+  picker promotion, keycode completion/keyboard activation, and parameterless flow.
+- Two additional browser workflows cover legacy reset JSON with a supplied
+  `.keymap` source and ten opaque DTS imports. The latter includes bare/opaque
+  `&reset`, custom/nested tokens, known stock excess arguments, deprecated
+  `&inc_dec_cp`, and parameterized RGB. Another key is edited to force a real
+  splice; no-op Apply and canceled replacements do not alter those bindings.
+- Component coverage exercises real Key/session wiring, corrected output tooltips,
+  Key Toggle key/wrapper controls, staged parameterless Apply/Cancel, visible
+  Soft Off prerequisites, and stock Ctrl+click docs without selecting a binding.
+  Phase-2 catalog, hydration, session, validator, and core tests were not rewritten.
+- The required-now preview fix uses the full session label after behavior
+  synchronization; the slot preview is retained only for a pending local selection
+  (or absent label). Both preview consumers in KeyEditor share this rule. Six
+  component RED cases established the omitted opaque/excess-argument display;
+  no parser, hydration, save, include, or source-tree behavior changed.
+- CAP-001 now describes only implemented choices and bounded preservation, with
+  exact test links. Only its screen definition in `wireframes/generate.mjs` was
+  edited; HTML/index/manifest were regenerated and all three PNGs rendered.
+  Index/manifest and CAP-002/003 artifacts remain byte-identical to HEAD.
+
+| Check | Observed result |
+| --- | --- |
+| Before preview fix: `pnpm --filter @keymap-editor/web test -- src/lib/components/Keyboard/Keys/Key.test.ts -t 'previews the complete imported'` | Exit 1; six assertion failures reproduced missing opaque/excess preview arguments; 47 tests unselected, not disabled |
+| After preview fix: `pnpm --filter @keymap-editor/web test -- src/lib/components/KeyEditor/KeyEditor.test.ts src/lib/components/Keyboard/Keys/Key.test.ts` | Exit 0; 76 passed across two files |
+| `pnpm test:e2e e2e/clipboard.spec.ts --grep 'CHG-009 stock picker integration'` | After preview and exact-Load fixes: exit 0, initial ten cases passed; the later JSON case passed separately and all eleven passed in the full gate |
+| `pnpm test:e2e e2e/clipboard.spec.ts --grep 'legacy reset JSON imports'` | Exit 0; one passed |
+| `pnpm --filter @keymap-editor/web test && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` | Final sequential phase-3 gate exit 0: 67 web files / 638 tests; 38 Chromium e2e tests; three generated/rendered screens at 1440×1200, visible headings, no overflow/page errors; records valid (three CAPs, ten CHGs, synchronized manifest) |
+| `pnpm --filter @keymap-editor/web lint` | Exit 0; Svelte check: zero errors, zero warnings |
+| `pnpm --filter @keymap-editor/keymap-core test -- src/behaviors.test.ts src/keymap.test.ts src/custom-bindings.test.ts` | Exit 0; three files / 80 tests, including unchanged strict legacy JSON controls |
+| `git diff --check` | Exit 0; no whitespace errors |
+
+The final gate log is a temporary local execution artifact at
+`$TMPDIR/chg-009-phase3-gate.log`, not a second progress authority. Expected
+mocked GitHub failure-path logs and non-character XKB include notices remain;
+no final gate failure or newly skipped test is concealed. Two intermediate
+wireframe renders correctly rejected vertical overflow; the generator copy/layout
+was compacted instead of bypassing renderer checks or enlarging every CAP viewport.
+
+**Actual visual inspection:** `vision_analyze` inspected the rendered
+`docs/product/wireframes/exports/CAP-001-firmware-keymap-editing.png`, including
+the final full-gate re-render. It confirmed readable stock chips, Key Toggle
+`&kt LA(A)` / modifier/key examples, Apply/Cancel, OUT_NONE/USB/BLE descriptions,
+legacy-reset/source limits, and Soft Off firmware/hardware notice. No clipping or
+overlap was found. The only caveat was compact copy and the unchanged tiny
+secondary key-tile labels; the new catalog/notice text remains legible. PNG SHA-256:
+`d44233cdad1cc9f6e4ca3ecb3dd6d7c037f6e6a87c4ae9a046fe9206d3ba34e9`.
+This is schematic inspection, not hardware proof or independent Grok review.
+
+**DOX pass:** updated `apps/web/AGENTS.md` with the full-draft preview contract.
+Root, core, docs, product, changes, and wireframe DOX and their child indexes
+remain unchanged: this slice adds no ownership boundary, workflow, hierarchy,
+file format, or include-repair contract. CAP-001 remains `partial` / human;
+other capabilities and architecture/ADRs are unchanged.
+
+**Phase-3 review outcome and handoff:** the operator reports that fresh independent
+Grok review of frozen diff
+`2408be2be02d979e0607494e96d1ed2ff45e821a70ed18633ea331e0119b3463`
+returned **No findings**, confirming browser/e2e, CAP, generated wireframe and
+visual evidence. That fingerprint (`git diff --binary | sha256sum`) matched the
+working-tree diff immediately before this doc-only checkpoint. The review
+satisfies phase 3's remaining review gate; phase 3 is done. This records the
+supplied independent review, not a self-review, model switch, or review of these
+subsequent documentation edits.
+
+Only this active CHG is changed by the closeout; implementation, tests, CAPs,
+wireframes, DOX, and child indexes are untouched. The closeout DOX pass requires
+no owning-doc or index changes: only phase progress changed, not ownership,
+hierarchy, contracts, or workflow. Closeout checks are `pnpm records:check` and
+`git diff --check`; the updated full diff fingerprint is returned separately
+from the reviewed fingerprint above to avoid a self-referential hash.
+Phase 4 remains pending and has not started; CHG-009 remains active and
+in-progress. No archive, staging, commit, push, deployment, credential changes,
+firmware actions, new custom behavior/color editor, or include repair was
+performed. Firmware compatibility remains unverified; users own includes,
+`.conf`, and hardware support. Full phase-4 build/prod/Pages gates are deliberately
+not claimed by this phase-3 closeout.

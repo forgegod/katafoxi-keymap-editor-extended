@@ -1,5 +1,6 @@
 import {
   encodeKeyBinding,
+  parseKeyBinding,
   addHostLanguage,
   toggleHostLanguage,
   type HostLegendView,
@@ -259,6 +260,93 @@ describe('Key click editor', () => {
 
     expect(encodedUpdate(onUpdate)).toBe('&bt BT_DISC 2')
     expect(editorDialog()).toBeNull()
+  })
+
+  it.each([
+    '&reset WRAP(1,2) 3',
+    '&custom WRAP(LC,2) 3',
+    '&kt VENDOR_KEY(1,2)',
+    '&out VENDOR_OUT 7',
+    '&gresc WRAP(LC,2) 3',
+    '&rgb_ug RGB_COLOR_HSB(10,20,30)'
+  ])('previews the complete imported %s binding and applies it unchanged', binding => {
+    const node = parseKeyBinding(binding)
+    const onUpdate = open({ value: String(node.value), params: node.params })
+    clickKey()
+    expect(document.querySelector('.binding')?.textContent).toBe(binding)
+    clickApply()
+    expect(encodedUpdate(onUpdate)).toBe(binding)
+  })
+
+  it('stages Key Toggle through the key grid and hold controls before Apply', () => {
+    const onUpdate = open()
+    clickKey()
+    clickChoice(document, '&kt', '.key-editor-chip')
+    expect(document.querySelector('.binding')?.textContent).toBe('&kt')
+    const blocked = document.querySelector<HTMLButtonElement>('.key-editor-ok')!
+    blocked.click()
+    flushSync()
+    expect(onUpdate).not.toHaveBeenCalled()
+    expect(editorDialog()).not.toBeNull()
+
+    clickChoice(document, 'A', '.key-editor-grid .key-editor-choice')
+    clickChoice(document, '⌃', '.key-editor-holds .key-editor-choice')
+    expect(document.querySelector('.binding')?.textContent).toBe('&kt LC(A)')
+    expect(onUpdate).not.toHaveBeenCalled()
+    clickApply()
+    expect(encodedUpdate(onUpdate)).toBe('&kt LC(A)')
+    expect(editorDialog()).toBeNull()
+  })
+
+  it.each(['&gresc', '&soft_off', '&sys_reset', '&bootloader'])(
+    'stages parameterless %s without a value grid and cancels without updating',
+    behavior => {
+      const onUpdate = open()
+      clickKey()
+      clickChoice(document, behavior, '.key-editor-chip')
+      expect(document.querySelector('.binding')?.textContent).toBe(behavior)
+      expect(document.querySelector('.key-editor-filter')).toBeNull()
+      expect(document.querySelector('[data-slot-values]')).toBeNull()
+      expect(document.querySelector('.key-editor-values')).toBeNull()
+      expect(document.querySelector('.key-editor-ok')?.getAttribute('aria-label')).toBe('Apply')
+      expect(onUpdate).not.toHaveBeenCalled()
+      if (behavior === '&soft_off') {
+        const note = document.querySelector('.key-editor-note')?.textContent ?? ''
+        expect(note).toContain('CONFIG_ZMK_PM_SOFT_OFF=y')
+        expect(note).toContain('requires hardware power-off support')
+        expect(note).toContain('Wake-up depends on the keyboard hardware')
+        expect(note).toContain('does not change firmware configuration or turn off hardware')
+      }
+      document.querySelector<HTMLButtonElement>('.key-editor-cancel')!.click()
+      flushSync()
+      expect(onUpdate).not.toHaveBeenCalled()
+      expect(editorDialog()).toBeNull()
+      clickKey()
+      expect(document.querySelector('.binding')?.textContent).toBe('&kp A')
+      clickChoice(document, behavior, '.key-editor-chip')
+      clickApply()
+      expect(encodedUpdate(onUpdate)).toBe(behavior)
+    }
+  )
+
+  it('shows corrected output tooltips and applies OUT_NONE from the command grid', () => {
+    const onUpdate = open()
+    clickKey()
+    clickChoice(document, '&out', '.key-editor-chip')
+    for (const [label, description] of [
+      ['OUT_USB', 'Prefer sending to USB.'],
+      ['OUT_BLE', 'Prefer sending to the current Bluetooth profile.'],
+      ['OUT_NONE', 'Prevent sending any output.']
+    ]) {
+      const choice = [...document.querySelectorAll('.key-editor-choice')].find(
+        el => el.textContent?.trim() === label
+      )
+      expect(choice?.getAttribute('title')).toBe(description)
+    }
+    clickChoice(document, 'OUT_NONE')
+    expect(onUpdate).not.toHaveBeenCalled()
+    clickApply()
+    expect(encodedUpdate(onUpdate)).toBe('&out OUT_NONE')
   })
 
   it('updates the binding preview when a hold wrap is toggled', () => {

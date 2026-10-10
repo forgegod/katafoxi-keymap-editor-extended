@@ -221,12 +221,56 @@ describe('KeyEditor value catalog', () => {
     )
 
     expect(paramCodes).toContain('&kp')
+    expect(paramCodes).toContain('&kt')
     expect(paramCodes).toContain('&mo')
     expect(paramCodes).not.toContain('&trans')
     expect(instantCodes).toEqual(
-      expect.arrayContaining(['&trans', '&none', '&caps_word', '&key_repeat', '&sys_reset', '&bootloader'])
+      expect.arrayContaining(['&trans', '&none', '&caps_word', '&key_repeat', '&gresc', '&soft_off', '&sys_reset', '&bootloader'])
     )
     expect(instantCodes).not.toContain('&kp')
+    expect(instantCodes).not.toContain('&kt')
+    expect([...paramCodes, ...instantCodes]).not.toContain('&reset')
+  })
+
+  it.each([
+    ['&kt', 'https://zmk.dev/docs/keymaps/behaviors/key-toggle'],
+    ['&gresc', 'https://zmk.dev/docs/keymaps/behaviors/mod-morph#behavior-binding'],
+    ['&soft_off', 'https://zmk.dev/docs/keymaps/behaviors/soft-off'],
+    ['&sys_reset', 'https://zmk.dev/docs/keymaps/behaviors/reset'],
+    ['&bootloader', 'https://zmk.dev/docs/keymaps/behaviors/reset']
+  ])('opens %s stock documentation without staging a binding', (code, url) => {
+    const selected: unknown[] = []
+    const opened: unknown[][] = []
+    const original = window.open
+    window.open = ((...args: unknown[]) => {
+      opened.push(args)
+      return null
+    }) as typeof window.open
+    try {
+      open({
+        bindingLabel: '&kp A',
+        behaviours,
+        editorSlots: [slot(0, 'behaviour', '&kp', 'Behaviour'), slot(1, 'code', 'A', 'Key')],
+        activeCodeIndex: 1,
+        choices: codeChoices,
+        onSelectBehaviour: choice => selected.push(choice),
+        onSelectValue: () => {},
+        onActivateSlot: () => {},
+        onConfirm: () => {},
+        onCancel: () => {}
+      })
+      const chip = [...target.querySelectorAll('.key-editor-chip')].find(
+        el => el.textContent?.trim() === code
+      )
+      expect(chip?.getAttribute('title')).toContain('Ctrl+click: docs')
+      chip!.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }))
+      flushSync()
+      expect(opened).toEqual([[url, '_blank', 'noopener,noreferrer']])
+      expect(selected).toEqual([])
+      expect(target.querySelector('.binding')?.textContent).toBe('&kp A')
+    } finally {
+      window.open = original
+    }
   })
 
   it('shows pointing commands instead of Keyboard+Keypad', () => {
