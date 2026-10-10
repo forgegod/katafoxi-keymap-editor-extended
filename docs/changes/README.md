@@ -64,7 +64,7 @@ Use installed `application-records` and `phased-plan-*` skills when available. T
 
 ## Current records
 
-These scopes partition the direct operator request into independently verifiable changes. They remain planned; creating a request does not implement it. Read the [bounded upstream assessment](upstream-gap-assessment.md), then resume the selected CHG rather than making a second plan.
+These scopes partition the direct operator request into independently verifiable changes. Each linked record owns its phase state. Creating or listing a request does not by itself implement it. Read the [bounded upstream assessment](upstream-gap-assessment.md), then resume the selected CHG rather than making a second plan.
 
 | Order | Change | Priority | Dependencies |
 | --- | --- | --- | --- |
@@ -76,6 +76,7 @@ These scopes partition the direct operator request into independently verifiable
 | 6 | [CHG-006 — Custom behavior definitions](active/CHG-006-custom-behavior-definition-editor.md) | P3 | CHG-005 shared reference contract |
 | 7 | [CHG-007 — Browser filesystem source](active/CHG-007-browser-filesystem-keymap-source.md) | P4 | CHG-004 identity/sidecars; CHG-002 leave policy |
 | 8 | [CHG-008 — ZMK-derived layout discovery](active/CHG-008-discover-layouts-from-zmk-metadata.md) | P4 | CHG-004 selected-keymap identity |
+| 9 | [CHG-010 — Publish/copy hardening follow-ups](active/CHG-010-publish-copy-hardening-followups.md) | P4 | CHG-002 phases 3–4 landed |
 
 Start with CHG-009 unless the operator selects another scope. The table orders execution; each linked record owns its own phase state.
 
