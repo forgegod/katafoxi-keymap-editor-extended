@@ -11,6 +11,7 @@
 - The opt-in Local adapter reads/writes the configured development tree; it is not browser filesystem access.
 - Browser drafts can be restored after reload. The app flushes pending draft persistence on pagehide/visibilitychange and surfaces persistence failures. That flush is recovery, not publication, and it runs whether or not a leave warning is armed.
 - The app attaches the browser-native beforeunload guard only while firmware is dirty or a GitHub host snapshot is unpublished. It rechecks live state when the event fires and never saves or publishes from that handler. Persisting or restoring a browser draft does not clear the warning; browser-only host edits and OS-install status do not arm it.
+- Dismissing native leave confirmation keeps the page open with its applied edit; accepting it permits leaving without publishing. On reload, leave confirmation precedes the separate compatible-draft recovery prompt. Restoring keeps the unpublished edit; declining restoration discards the stored firmware draft.
 - Successful Local write plus reload, GitHub commit plus reload, or Clipboard copy accepts the sent baseline without dropping newer edits. A successful **Copy again** in the export sheet accepts that sheet's exact exported snapshot, not the later live draft. Failed write/copy/reload and superseded-session completions do not advance the active baseline. Confirmed Discard draft reverts firmware only; any remaining GitHub host-snapshot change still requires a commit. The guard is removed only when both dirty conditions are false.
 
 ## Implementation
@@ -38,6 +39,7 @@
 - GitHub persistence depends on configured API/App access. Static Pages enables Demo/Clipboard only; Local is development-only.
 - JSON priority, template/splice/default save paths and C-style alias expansion follow ADR 0002. Preserve source when the supported splice path applies.
 - Browser storage can fail and does not mean firmware was published. Draft restoration is scoped and validated, not guaranteed durable storage.
+- Demo has no firmware write/export action: its dirty firmware still warns even after browser persistence. Returning to the loaded baseline (Undo or confirmed Discard draft) clears firmware dirty state. Local Write files, Clipboard Copy .keymap, and GitHub Commit are distinct source handoffs, not OS installation. Newer unsent edits keep the warning armed after a handoff.
 
 ## Verification
 
@@ -53,7 +55,8 @@
 - `apps/web/src/lib/draft-storage.test.ts` — browser draft storage.
 - `e2e/github.spec.ts` — mocked GitHub commit, conflict preservation and login draft flush.
 - `e2e/clipboard.spec.ts` — Clipboard import/edit/export.
-- `e2e/demo.spec.ts` — Demo load and draft restore.
+- `e2e/demo.spec.ts` — real-edit Chromium close confirmation: dismissal retains the edit and acceptance closes the page; recovery storage does not disarm it. Reload handles native leave before restore/discard, and a discarded clean draft reloads without either prompt.
+- `e2e/local-keymap.spec.ts` — native leave confirmation before draft recovery; declining restore leaves disk unchanged, removes the stored draft, and returns to a clean editor.
 
 The linked tests prove the named bounded outcomes, not full ZMK/OS compatibility. Run the root unit and browser gates; generated schematics are not executable evidence.
 

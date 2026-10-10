@@ -62,6 +62,21 @@ export async function clickAndDownload(page: Page, control: Locator) {
   return pending
 }
 
+/** Reload after a real edit/gesture, accepting leave before resolving recovery. */
+export async function reloadAndResolveUnpublishedDraft(page: Page, restore: boolean) {
+  const dialogs = page.waitForEvent('dialog').then(async leave => {
+    expect(leave.type()).toBe('beforeunload')
+    const recovery = page.waitForEvent('dialog')
+    await leave.accept()
+    const draft = await recovery
+    expect(draft.type()).toBe('confirm')
+    expect(draft.message()).toMatch(/^An unpublished draft was saved in this browser/)
+    if (restore) await draft.accept()
+    else await draft.dismiss()
+  })
+  await Promise.all([dialogs, page.reload()])
+}
+
 /** Count unpublished keymap drafts in IndexedDB (`keymap-editor-drafts`). */
 export async function readDraftCount(page: Page): Promise<number> {
   return page.evaluate(() => {

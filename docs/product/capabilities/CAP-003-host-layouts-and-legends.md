@@ -26,7 +26,7 @@
 
 - The Host lane downloads installation sources and guidance; it does not install layouts into the OS.
 - Browser-only assemblies are not additional GitHub keymap files. Repository host snapshot ownership still follows ADR 0005.
-- Leave-page confirmation follows unpublished firmware or a dirty GitHub host snapshot. OS-install status and a browser-only host edit do not arm it by themselves.
+- Leave-page confirmation follows unpublished firmware or a dirty GitHub host snapshot, even when firmware is unchanged. OS-install status and a browser-only host edit do not arm it by themselves. Downloading/installing host files is not a repository commit; firmware Discard draft does not discard host changes. The source handoff and browser-native dialog limits follow [CAP-002](CAP-002-keymap-sources-and-persistence.md).
 - Difference highlighting and keycap composition reflect selected layout tables, not live observation of the host OS or firmware execution.
 - Import/export supports documented subsets, not every xkb/KLC feature. Shared host registry access remains synchronous.
 
@@ -36,7 +36,7 @@
 - `apps/web/src/lib/host-layout-store.test.ts` — user layouts and storage boundaries.
 - `apps/web/src/lib/editor.host-edit.test.ts` — editing session clears when switching keyboards or logging out.
 - `apps/web/src/lib/host-keymap-snapshot.test.ts` — repository snapshot application and dirty state.
-- `apps/web/src/App.test.ts` — a GitHub host-snapshot edit arms leave confirmation; a browser-only host edit does not.
+- `apps/web/src/App.test.ts` — a GitHub host-snapshot edit arms leave confirmation without a firmware edit and successful commit clears it; browser-only host edits and host-delivery status changes do not arm it. Firmware discard leaves browser-only host changes intact.
 - `packages/keymap-core/src/xkb-write.test.ts` — xkb export round-trips.
 - `packages/keymap-core/src/klc-write.test.ts` — KLC output.
 - `e2e/host-install.spec.ts` — real browser downloads produce parseable Windows/Linux files.

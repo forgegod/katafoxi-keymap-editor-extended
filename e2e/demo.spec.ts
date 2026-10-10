@@ -1,7 +1,6 @@
 import { expect, type Page, test } from '@playwright/test'
-import { editKey, openSource, readDraftCount } from './helpers'
+import { editKey, openSource, readDraftCount, reloadAndResolveUnpublishedDraft } from './helpers'
 
-const DRAFT_CONFIRM_PREFIX = 'An unpublished draft was saved in this browser'
 const CORNE_E = '.key[data-label="E"]'
 const LARK_E = '.key[data-label="2,3"]'
 const NEW_KEYCODE = 'F13'
@@ -50,6 +49,40 @@ test.describe('Demo source', () => {
       .toBe('absolute')
   })
 
+  test('native beforeunload dismissal keeps a real edit; acceptance closes the page', async ({
+    page
+  }) => {
+    await skipCoachAndGoto(page)
+    const eKey = page.locator(CORNE_E)
+    await editKey(
+      page,
+      eKey.getByRole('button', { name: '&kp E, layer 0' }),
+      NEW_KEYCODE
+    )
+    const editedRow = eKey.getByRole('button', { name: `&kp ${NEW_KEYCODE}, layer 0` })
+    await expect(editedRow).toBeVisible()
+    // A recovery copy must not count as publication or disarm the warning.
+    await expect.poll(() => readDraftCount(page)).toBeGreaterThan(0)
+
+    const [stay] = await Promise.all([
+      page.waitForEvent('dialog', { timeout: 5_000 }),
+      page.close({ runBeforeUnload: true })
+    ])
+    expect(stay.type()).toBe('beforeunload')
+    await stay.dismiss()
+    expect(page.isClosed()).toBe(false)
+    await expect(editedRow).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Discard draft', exact: true })).toBeEnabled()
+
+    const [leave] = await Promise.all([
+      page.waitForEvent('dialog', { timeout: 5_000 }),
+      page.close({ runBeforeUnload: true })
+    ])
+    expect(leave.type()).toBe('beforeunload')
+    await Promise.all([page.waitForEvent('close'), leave.accept()])
+    expect(page.isClosed()).toBe(true)
+  })
+
   test('reload restore keeps an edit; Discard then reload has no prompt', async ({
     page
   }) => {
@@ -65,27 +98,26 @@ test.describe('Demo source', () => {
     ).toBeVisible()
     await expect.poll(() => readDraftCount(page)).toBeGreaterThan(0)
 
-    const restorePrompt = page.waitForEvent('dialog')
-    await page.reload()
-    const restore = await restorePrompt
-    expect(restore.message().startsWith(DRAFT_CONFIRM_PREFIX)).toBeTruthy()
-    await restore.accept()
+    await reloadAndResolveUnpublishedDraft(page, true)
     await expect(
       page
         .locator(CORNE_E)
         .getByRole('button', { name: `&kp ${NEW_KEYCODE}, layer 0` })
     ).toBeVisible()
 
-    const discardPrompt = page.waitForEvent('dialog')
-    await page.reload()
-    const discard = await discardPrompt
-    expect(discard.message().startsWith(DRAFT_CONFIRM_PREFIX)).toBeTruthy()
-    await discard.dismiss()
+    // Reload resets user activation. Reopen/cancel the key editor to provide
+    // a real gesture without changing the restored draft before leaving again.
+    await eKey.getByRole('button', { name: `&kp ${NEW_KEYCODE}, layer 0` }).click()
+    await page.getByRole('dialog', { name: 'Edit key' }).getByRole('button', { name: 'Cancel', exact: true }).click()
+    await reloadAndResolveUnpublishedDraft(page, false)
     await expect(
       page.locator(CORNE_E).getByRole('button', { name: '&kp E, layer 0' })
     ).toBeVisible()
     await expect.poll(() => readDraftCount(page)).toBe(0)
 
+    // A clean reload must stay prompt-free even with user activation.
+    await page.getByTestId('source-menu-trigger').click()
+    await page.getByTestId('source-menu-trigger').click()
     const prompts: string[] = []
     page.on('dialog', dialog => {
       prompts.push(dialog.message())

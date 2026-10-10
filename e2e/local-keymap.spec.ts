@@ -1,13 +1,12 @@
 import { expect, type Page, test } from '@playwright/test'
 import fs from 'node:fs'
-import { editKey, openSource, readDraftCount } from './helpers'
+import { editKey, openSource, readDraftCount, reloadAndResolveUnpublishedDraft } from './helpers'
 import {
   copyLarkFixture,
   preambleBeforeKeymap,
   tempKeymapPath
 } from './lark-temp'
 
-const DRAFT_CONFIRM_PREFIX = 'An unpublished draft was saved in this browser'
 const ESC_KEY = '.key[data-label="1,0"]'
 const E_KEY = '.key[data-label="2,3"]'
 const NEW_KEYCODE = 'F13'
@@ -142,11 +141,12 @@ test.describe('local adapter smoke', () => {
 
     await waitForPersistedDraft(page)
 
-    const dialogPromise = page.waitForEvent('dialog')
-    await page.reload()
-    const confirm = await dialogPromise
-    expect(confirm.message().startsWith(DRAFT_CONFIRM_PREFIX)).toBeTruthy()
-    await confirm.dismiss()
+    await reloadAndResolveUnpublishedDraft(page, false)
+    await expect(
+      page.locator(ESC_KEY).getByRole('button', { name: `${ORIGINAL_BIND}, layer 0` })
+    ).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Write files' })).toBeDisabled()
+    await expect.poll(() => readDraftCount(page)).toBe(0)
 
     expect(preambleBeforeKeymap(readTempKeymap())).toBe(originalPreamble)
     expect(readTempKeymap()).toContain(ORIGINAL_BIND)

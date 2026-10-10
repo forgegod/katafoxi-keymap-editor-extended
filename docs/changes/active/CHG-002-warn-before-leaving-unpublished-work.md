@@ -10,7 +10,7 @@
 
 Baseline: App.svelte flushed browser drafts on visibilitychange/pagehide and had no beforeunload warning. Successful local persistence was not proof of GitHub publication or Clipboard export.
 
-Phase 2 arms the native confirmation from `needsUnpublishedLeaveWarning` (`isDirty || isHostRepoDirty`) only while that predicate is true. The handler does not save or publish. Canonical wireframes still show the pre-warning surface; phase 3 owns that visual handoff and the Chromium dialog scenario.
+Phase 2 arms the native confirmation from `needsUnpublishedLeaveWarning` (`isDirty || isHostRepoDirty`) only while that predicate is true. The handler does not save or publish. Phase 3 supplies Chromium close/reload interaction evidence and current canonical CAP-001/002/003 HTML/PNG, distinguishing recovery, source handoffs, and OS installation. Full integration and closure remain phase 4.
 
 [Parity evidence](../upstream-gap-assessment.md). That table is the original gap, not the current capability contract. Present behaviour is in the impacted CAPs.
 
@@ -40,7 +40,7 @@ Paths name existing seams, not a claim that future symbols or tests already exis
 | --- | --- | --- | --- |
 | 1 | Specify the safe behavior boundary | done (`pnpm records:check`; `node --test scripts/records-tests/changes.test.mjs`) | acceptance matrix and proposed regression cases reviewed |
 | 2 | Implement and prove the domain slice | done (`pnpm --filter @keymap-editor/web test`: 67 files, 575 tests passed; independent Grok review passed for the frozen fingerprint below) | `pnpm --filter @keymap-editor/web test` |
-| 3 | Integrate the interaction and visual handoff | pending | `pnpm --filter @keymap-editor/web test && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
+| 3 | Integrate the interaction and visual handoff | done (exact gate passed: 67 web files / 575 tests, 27 Chromium tests, 3 generated/rendered and inspected CAP screens; records in sync; independent Grok review passed for `59d9318f1b3bcfbf263a9bcc5851d43a35b4899639f3ec3c9f3f95f38024b5ec`) | `pnpm --filter @keymap-editor/web test && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
 | 4 | Verify and close the change | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages` |
 
 ## Phase 1 — Specify the safe behavior boundary
@@ -144,9 +144,19 @@ Use `docs/product/wireframes/generate.mjs` only for implemented CAP surfaces; re
 
 ## Execution state
 
-Phase 2's gate is verified on Node 24.21.0 and pnpm 9.15.0. The resumed implementation needed no additional production edits: the inherited Clipboard completion, retry, persistence, and saving-lock corrections pass their regressions. This is a verified implementation checkpoint with a passed independent Grok review for the frozen fingerprint below, not a commit. Phases 3 and 4 remain pending; canonical HTML/PNG still describe the pre-warning surface and phase 3 owns their regeneration and inspection.
+Phase 2 landed in `aa0ccd6` after the independent Grok review passed; `4809776` records the frozen-review workflow and `8fb65a5` records non-blocking later hardening in CHG-010. Phase 3 resumes from a clean `8fb65a5` on Node 24.21.0 and pnpm 9.15.0 and owns only Chromium interaction evidence and the current CAP/visual handoff. Phase 4 remains pending; CHG-010 and all other changes remain outside this slice.
 
-### Phase 2 verification and frozen review handoff
+### Phase 3 verification and frozen review handoff
+
+- Base: `8fb65a5f4ac79fdc4356d729052bc665634e7e4b` on `main`; no staging, commits, push, or self-review. The independent Grok review passed for frozen fingerprint `59d9318f1b3bcfbf263a9bcc5851d43a35b4899639f3ec3c9f3f95f38024b5ec`; this is not a commit, phase-4 completion, or change closure.
+- Browser regression was authored first. RED negative control: temporarily disabling `armBeforeUnloadConfirmation` made `pnpm test:e2e e2e/demo.spec.ts --grep 'native beforeunload'` fail because the edited page closed without a dialog. Restoring the exact phase-2 handler made the scenario pass; no runtime source changes remain.
+- The existing Demo/Local recovery tests initially timed out on the new leave dialog. `e2e/helpers.ts` now explicitly accepts native `beforeunload` before resolving the separate recovery `confirm`. The focused command `pnpm test:e2e e2e/demo.spec.ts e2e/local-keymap.spec.ts --grep 'native beforeunload|reload restore|reload prompts'` passed all 3 tests. Tests use real KeyEditor gestures and assert native dialog type, retained edit after dismissal, and page closure after acceptance, never browser-owned text.
+- Exact gate passed on Node 24.21.0 / pnpm 9.15.0: `pnpm --filter @keymap-editor/web test && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check`. Results: 67 web files / 575 tests; 27 Chromium tests; 3 generated screens; 3 rendered PNGs with visible headings, no horizontal/vertical overflow and no page errors; 3 capabilities / 10 change records with manifest inventory in sync. Expected mocked GitHub failures and skipped non-character xkb include diagnostics remain in unit output.
+- Visual inspection: CAP-001's applied draft is separate from staged key editing; CAP-002's schematic native Stay/Leave choices are separate from recovery Restore/Discard and source handoffs; CAP-003's repository host-snapshot warning is separate from browser-only host edits and OS-install deliverables. All three PNGs are legible with no clipping or overlap. The generator declares 1440×1200 viewports to accommodate these states without shrinking text. All affected CAPs remain `partial` / `Primary surface: human` with existing matching canonical links; index links remain unchanged.
+- DOX pass: root, app, docs, product, change and wireframe AGENTS.md remain unchanged because ownership, source boundaries, verification workflow and child indexes are unchanged. Existing contracts already require this browser evidence and canonical visual handoff. Only CAPs and this CHG need current-state/evidence updates.
+- The completed final-gate diff was frozen at fingerprint `59d9318f1b3bcfbf263a9bcc5851d43a35b4899639f3ec3c9f3f95f38024b5ec`; the operator reports that its independent Grok review passed. This correction records that outcome only and is not a commit. It must receive a fresh Grok review of the revised diff before any revised commit preview; do not start phase 4. Active-phase findings require implementation, the same gate, and another fresh Grok review.
+
+### Phase 2 verification and frozen review handoff (landed)
 
 - Base: `58c1f64a0e9d6cc16d4fed20b6433cc24a7a210d` on `main`; index remains empty.
 - `pnpm records:check` passed: 3 capabilities, 10 change records, manifest inventory in sync. This does not prove visual freshness.
@@ -155,5 +165,5 @@ Phase 2's gate is verified on Node 24.21.0 and pnpm 9.15.0. The resumed implemen
 - Supplemental `pnpm --filter @keymap-editor/web lint` passed with zero errors/warnings; `pnpm --filter @keymap-editor/web build` passed with the large-chunk advisory.
 - Frozen production/test diff SHA-256: `dbd55eae62f1ec6acafbc96f7f3281d4e268a53d904c4dc7e1b0e612803dccba`. Hash the concatenation of `git diff --binary --no-ext-diff HEAD -- apps/web/src` and `git diff --no-index --binary --no-ext-diff -- /dev/null apps/web/src/lib/editor/leave-warning.ts` (the latter normally exits 1). Include that untracked module in review; do not stage it to compute the fingerprint.
 - Review the entire working-tree diff and untracked files, including CAP/DOX changes and the separately scoped CHG-010 follow-up record. No source edits or next-phase work while review is pending. Recheck the fingerprint before and after review; a changed diff invalidates this handoff.
-- Independent Grok review passed for the frozen production/test fingerprint above, as confirmed by the operator; the phase-2 gate evidence is recorded above. This record-only correction requires another fresh Grok review of the updated working-tree diff before a revised commit preview. Start `/new`, select `/model grok`, and review the frozen diff and evidence; after approval, present the required commit batch preview and wait for apply. Active-phase corrections require Astra implementation, verification, and another fresh Grok review.
+- Independent Grok review passed with no new blockers, as confirmed by the operator; the phase-2 gate evidence is recorded above and its checkpoint has landed. Each subsequent phase still requires a fresh Grok review of its own frozen diff and evidence before any commit preview or apply.
 - DOX pass: existing `apps/web/AGENTS.md` covers the changed warning/copy contracts; `docs/changes/AGENTS.md` records the operator's frozen-review/checkpoint workflow. Root and product DOX remain unchanged because ownership and their contracts are unchanged. CAP-001 and canonical visuals remain untouched for this domain phase; phase 3 owns their interaction/visual handoff.

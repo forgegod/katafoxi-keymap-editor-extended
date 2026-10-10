@@ -9,11 +9,13 @@
 - Users add blank layers, rename or delete layers, and undo/redo ZMK draft changes. Deleting a layer remaps supported layer references and combo filters, with a warning when a deleted target becomes transparent.
 - Users edit visual combos, conditional-layer rules and existing encoder sensor bindings. Hold-tap timing and Homerow/Autoshift presets are editable; the fixed rgblayer recipe can be inserted on save.
 - Existing external bindings and their opaque parameters survive supported import/edit/export. Existing macro nodes remain source text rather than a general editable macro model.
+- Applying a changed binding updates the firmware draft, not the source files. A dirty firmware draft arms native leave-page confirmation, including in Demo. Dismissing the confirmation keeps the applied edit; accepting it leaves without publishing.
 
 ## Implementation
 
 - `apps/web/src/lib/components/KeyEditor/KeyEditor.svelte`
 - `apps/web/src/lib/editor/document.svelte.ts`
+- `apps/web/src/App.svelte` and `apps/web/src/lib/editor/leave-warning.ts` — native leave confirmation for the applied draft.
 - `packages/keymap-core/src/keymap.ts`
 - `packages/keymap-core/src/dts-splice.ts`
 - `packages/keymap-core/src/dts-behaviors.ts`
@@ -25,6 +27,7 @@
 - Bluetooth and RGB command choices only stage source bindings. They do not execute firmware actions, clear pairing information, disconnect a host, or configure hardware.
 - Source-preserving splice is bounded, not a full DTS/C preprocessor. Alias expansion is lossy as documented in ADR 0002; unsupported ambiguous edits can be rejected.
 - Unicode and pointing firmware modules/configuration remain user responsibilities. The editor neither builds nor flashes firmware.
+- Browser draft recovery is not publication. Source-specific write/copy/commit completion and native-dialog limitations follow [CAP-002](CAP-002-keymap-sources-and-persistence.md). Discard draft reverts firmware, not host-layout changes.
 
 ## Verification
 
@@ -35,6 +38,8 @@
 - `e2e/clipboard.spec.ts` — all four Bluetooth/RGB commands survive picker selection, Apply, reopen, cancel, imported no-op Apply, and exact source export; `BT_DISC` requires an index and offers the documented `0`–`4` choices.
 - `apps/web/src/lib/editor.layers.test.ts` — deletion remaps known references and combo filters.
 - `apps/web/src/lib/editor.model.test.ts` — document/history invariants.
+- `apps/web/src/App.test.ts` — firmware warning, undo/discard cleanup, and successful versus failed/in-flight publication.
+- `e2e/demo.spec.ts` — a real KeyEditor edit survives native close-dialog dismissal; accepting the next close leaves. Persisting the draft does not disarm the warning.
 - `packages/keymap-core/src/custom-bindings.test.ts` — opaque source binding parameters survive serialization.
 - `packages/keymap-core/src/fixture-roundtrip.test.ts` — fixture no-op saves and binding-edit locality, including documented alias-expansion exception.
 - `apps/web/src/lib/components/ComboPanel.test.ts` — combo editing interaction.
