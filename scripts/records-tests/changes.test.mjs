@@ -69,6 +69,23 @@ test("a valid in-progress CHG in active/ passes", async () => {
   }
 });
 
+test("an in-progress CHG between verified phases passes", async () => {
+  const { root, cleanup } = createFixtureTree();
+  try {
+    const completedPhase = `
+| #   | Phase                | Status                 | Verification gate      |
+| --- | -------------------- | ---------------------- | ---------------------- |
+| 1   | Ship the slice       | done (\`node --test\`) | \`node --test\` exits 0    |
+| 2   | Integrate records    | pending                | \`pnpm records:check\` exits 0 |
+`;
+    addChange(root, { phases: completedPhase });
+    const result = await validateRecords(root);
+    assert.deepEqual(result.errors, []);
+  } finally {
+    cleanup();
+  }
+});
+
 test("an in-progress CHG in archive/ fails", async () => {
   const { root, cleanup } = createFixtureTree();
   try {

@@ -338,9 +338,6 @@ export async function validateRecords(root) {
     const inProgressPhases = [
       ...source.matchAll(/^\|\s*\d+\s*\|.*\|\s*in-progress\s*\|/gm),
     ];
-    if (status === "in-progress" && inProgressPhases.length !== 1) {
-      errors.push(`${relative} must have exactly one in-progress phase`);
-    }
     if (status === "planned" && inProgressPhases.length !== 0) {
       errors.push(`${relative} cannot have an in-progress phase while planned`);
     }
