@@ -85,6 +85,19 @@
     "includes": ["#include <dt-bindings/zmk/keys.h>"]
   },
   {
+    "code": "&kt",
+    "name": "Key Toggle",
+    "description": "Toggle the key press; hold it until toggled again or released elsewhere.",
+    "params": ["code"],
+    "includes": ["#include <dt-bindings/zmk/keys.h>"]
+  },
+  {
+    "code": "&gresc",
+    "name": "Grave Escape",
+    "description": "Send Escape, or Grave when Shift or GUI is held.",
+    "params": []
+  },
+  {
     "code": "&inc_dec_kp",
     "name": "Incremental Key Press",
     "params": ["code", "code"],
@@ -154,10 +167,13 @@
     "includes": ["#include <dt-bindings/zmk/outputs.h>"],
     "commands": [{
       "code": "OUT_BLE",
-      "description": "Prefer sending to USB"
+      "description": "Prefer sending to the current Bluetooth profile."
     }, {
       "code": "OUT_USB",
-      "description": "Prefer sending to the current bluetooth profile"
+      "description": "Prefer sending to USB."
+    }, {
+      "code": "OUT_NONE",
+      "description": "Prevent sending any output."
     }, {
       "code": "OUT_TOG",
       "description": "Toggle between USB and BLE"
@@ -184,8 +200,9 @@
     "params": ["layer"]
   },
   {
-    "code": "&reset",
-    "name": "Reset",
+    "code": "&soft_off",
+    "name": "Soft Off",
+    "description": "Turn the keyboard off.",
     "params": []
   },
   {

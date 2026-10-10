@@ -12,6 +12,8 @@ Svelte components, reactive editor state, source pickers, draft/host storage, an
 
 Keep ZMK parsing and file generation in keymap-core. Plain click edits ZMK; Alt+click edits host glyphs. UI chrome is English. Preserve accessibility, stale-load guards, draft identity, and separate firmware/host dirty state. Arm beforeunload only while firmware is dirty or a GitHub host snapshot is unpublished; host-install status does not arm it. Keep pagehide and visibilitychange draft flushing independent of that guard.
 
+Hydration preserves imported arguments beyond catalog arity and keeps undeclared nested arguments opaque. Catalog schemas define editable slots, not a truncation boundary; selecting a replacement behavior intentionally resets its parameters.
+
 ## Work Guidance
 
 Follow root keycapFace and CSS-sidecar rules. Pair material interaction changes with CAP tests and canonical wireframes.

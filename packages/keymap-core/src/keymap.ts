@@ -54,6 +54,8 @@ export interface BuildKeymapCodeResult {
 
 const behaviours = behaviorsData as BehaviorDef[]
 const behavioursByBind = Object.fromEntries(behaviours.map(b => [b.code, b]))
+// Legacy JSON labels remain valid imports, not stock picker entries or aliases.
+const legacyImportBehaviourLabels = new Set(['&reset'])
 
 const INCLUDES_PATTERN = /\{\{\s*behaviour_includes\s*\}\}/
 const LAYERS_PATTERN = /\{\{\s*rendered_layers\s*\}\}/
@@ -646,8 +648,8 @@ function applyHoldTaps(
 }
 
 /**
- * Validate JSON against the catalog by default. Source imports may preserve
- * external behavior references; this does not discover their schema or includes.
+ * Validate JSON against catalog and legacy import labels by default. Source imports
+ * may preserve external references; this does not discover their schema or includes.
  */
 export function validateKeymapJson(
   keymap: unknown,
@@ -690,6 +692,7 @@ export function validateKeymapJson(
                 bind && (
                   options.allowUnknownBehaviors === true ||
                   Object.hasOwn(behavioursByBind, bind[0]) ||
+                  legacyImportBehaviourLabels.has(bind[0]) ||
                   extraBehaviours.has(bind[0])
                 )
               )) {

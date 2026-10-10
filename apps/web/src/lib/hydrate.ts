@@ -96,8 +96,8 @@ export function hydrateTree(
     const { value: nodeValue, params: nodeParams = [] } = node
     const source = getSourceValue(nodeValue, as) as Record<string, unknown> | undefined
     const sourceParams = (get(source, 'params', []) as unknown[]) || []
-    // Prefer catalog arity; keep extra children when the binding nest is longer
-    // than the catalogue (or the source map missed the wrap entry).
+    // Preserve undeclared children as raw subtrees. Guessing keycodes inside an
+    // opaque expression can invent arguments (e.g. the literal LC in WRAP(LC,2)).
     const childCount = Math.max(sourceParams.length, nodeParams.length)
 
     return {
@@ -106,7 +106,7 @@ export function hydrateTree(
       params: Array.from({ length: childCount }, (_, i) =>
         hydrateNode(
           nodeParams[i] as { value?: string | number; params?: unknown[] } | undefined,
-          sourceParams[i] ?? 'code'
+          sourceParams[i] ?? 'raw'
         )
       )
     }
@@ -115,8 +115,10 @@ export function hydrateTree(
   return {
     value,
     source: (behaviour as Record<string, unknown>) ?? null,
-    params: behaviourParams.map((as, i) =>
-      hydrateNode(params[i] as { value?: string | number; params?: unknown[] }, as)
+    // Catalog arity defines editable slots, not the length of imported source.
+    // Keep excess arguments opaque so opening a draft cannot truncate them.
+    params: Array.from({ length: Math.max(behaviourParams.length, params.length) }, (_, i) =>
+      hydrateNode(params[i], behaviourParams[i] ?? 'raw')
     )
   }
 }

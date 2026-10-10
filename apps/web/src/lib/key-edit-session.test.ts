@@ -122,6 +122,116 @@ describe('createKeyEditSession catalog', () => {
   )
 })
 
+// CHG-009 phase 1: use real picker choices, not injected future catalog entries.
+describe('CHG-009 stock selection contract', () => {
+  it.each(['OUT_USB', 'OUT_BLE', 'OUT_NONE'])(
+    'selects &out %s from the command choices and reopens the exact binding', command => {
+      const onUpdate = vi.fn()
+      runSession(onUpdate, [parseKeyBinding('&none')], session => {
+        const behavior = session.behaviours.find(choice => choice.code === '&out')
+        expect(behavior).toBeDefined()
+        session.selectBehaviour(behavior!)
+        const choice = session.choices.find(choice => choice.code === command)
+        expect(choice).toBeDefined()
+        session.selectValue(choice!)
+        session.confirm()
+      })
+      expect(onUpdate).toHaveBeenCalledOnce()
+      const binding = onUpdate.mock.calls[0][2] as KeyBindingNode
+      expect(binding.params).toHaveLength(1)
+      expect(encodeKeyBinding(binding)).toBe(`&out ${command}`)
+      expect(parseKeyBinding(encodeKeyBinding(binding))).toEqual(binding)
+      runSession(onUpdate, [binding], session => {
+        expect(session.bindingLabel).toBe(`&out ${command}`)
+        session.confirm()
+      })
+      expect(onUpdate).toHaveBeenCalledTimes(2)
+      expect(onUpdate.mock.calls[1][2]).toEqual(binding)
+    }
+  )
+
+  it('selects &kt with exactly one keycode slot', () => {
+    const onUpdate = vi.fn()
+    runSession(onUpdate, [parseKeyBinding('&none')], session => {
+      const behavior = session.behaviours.find(choice => choice.code === '&kt')
+      expect(behavior).toBeDefined()
+      session.selectBehaviour(behavior!)
+      expect(session.slots.filter(slot => slot.param !== 'behaviour').map(slot => slot.param))
+        .toEqual(['code'])
+      const choice = session.choices.find(choice => choice.code === 'A')
+      expect(choice).toBeDefined()
+      session.selectValue(choice!)
+      session.confirm()
+    })
+    expect(onUpdate).toHaveBeenCalledOnce()
+    expect(encodeKeyBinding(onUpdate.mock.calls[0][2])).toBe('&kt A')
+  })
+
+  it.each(['&gresc', '&soft_off', '&sys_reset', '&bootloader'])(
+    'selects parameterless %s without retaining the previous keycode', code => {
+      const onUpdate = vi.fn()
+      runSession(onUpdate, [parseKeyBinding('&kp A')], session => {
+        const behavior = session.behaviours.find(choice => choice.code === code)
+        expect(behavior).toBeDefined()
+        session.selectBehaviour(behavior!)
+        expect(session.slots.filter(slot => slot.param !== 'behaviour')).toEqual([])
+        session.confirm()
+      })
+      expect(onUpdate).toHaveBeenCalledOnce()
+      expect(onUpdate.mock.calls[0][2]).toEqual({ value: code, params: [] })
+      expect(encodeKeyBinding(onUpdate.mock.calls[0][2])).toBe(code)
+    }
+  )
+
+  it('does not offer the non-stock &reset binding in picker choices', () => {
+    runSession(vi.fn(), [parseKeyBinding('&none')], session => {
+      expect(session.behaviours.map(choice => choice.code)).not.toContain('&reset')
+    })
+  })
+
+  it.each([
+    '&out OUT_USB', '&out OUT_BLE', '&out OUT_NONE', '&kt A', '&kt LA(A)',
+    '&gresc', '&soft_off', '&sys_reset', '&bootloader', '&reset',
+    '&reset WRAP(1,2) 3', '&custom WRAP(1,2) 3', '&out VENDOR_OUT 7',
+    '&kt VENDOR_KEY(1,2)', '&inc_dec_cp C_VOL_UP C_VOL_DN',
+    '&rgb_ug RGB_COLOR_HSB(10,20,30)',
+    '&out OUT_USB WRAP(LC(A),2) 7', '&bt BT_DISC 2 WRAP(1,2)',
+    '&out VENDOR_OUT WRAP(LC,2)', '&kt VENDOR_KEY(LC,2)',
+    '&custom WRAP(LC,2) 3',
+    '&kp A WRAP(1,2)', '&kt VENDOR_KEY(1,2) 3',
+    '&gresc WRAP(1,2) 3', '&soft_off WRAP(1,2) 3', '&sys_reset WRAP(1,2) 3'
+  ])('preserves imported %s on no-op Apply', code => {
+    const binding = parseKeyBinding(code)
+    const onUpdate = vi.fn()
+    runSession(onUpdate, [binding], session => session.confirm())
+    expect(onUpdate).toHaveBeenCalledOnce()
+    expect(onUpdate.mock.calls[0][2]).toEqual(binding)
+    expect(encodeKeyBinding(onUpdate.mock.calls[0][2])).toBe(code)
+  })
+
+  it('keeps opaque trailing arguments when editing a declared slot', () => {
+    const onUpdate = vi.fn()
+    runSession(onUpdate, [parseKeyBinding('&out VENDOR_OUT WRAP(1,2) 7')], session => {
+      expect(session.slots.filter(slot => slot.param !== 'behaviour').map(slot => slot.param))
+        .toEqual(['command'])
+      session.selectValue({ code: 'OUT_NONE' })
+      expect(session.bindingLabel).toBe('&out OUT_NONE WRAP(1,2) 7')
+      session.confirm()
+    })
+    expect(encodeKeyBinding(onUpdate.mock.calls[0][2])).toBe('&out OUT_NONE WRAP(1,2) 7')
+  })
+
+  it('drops the old opaque arguments only when selecting a replacement behavior', () => {
+    const onUpdate = vi.fn()
+    runSession(onUpdate, [parseKeyBinding('&out VENDOR_OUT WRAP(1,2) 7')], session => {
+      session.selectBehaviour({ code: '&gresc' })
+      expect(session.slots.filter(slot => slot.param !== 'behaviour')).toEqual([])
+      session.confirm()
+    })
+    expect(onUpdate.mock.calls[0][2]).toEqual(parseKeyBinding('&gresc'))
+  })
+})
+
 describe('createKeyEditSession extra cases', () => {
   it('assigns a complete Unicode binding from its dedicated picker', () => {
     const onUpdate = vi.fn()

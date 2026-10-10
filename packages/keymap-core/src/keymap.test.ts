@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildKeymapCode,
+  encodeKeymap,
   generateKeymap,
   isPrimaryKeymapJson,
   isUserKeymapFilename,
@@ -93,6 +94,30 @@ describe('isPrimaryKeymapJson', () => {
   it('accepts &mkp once the mouse behaviour is in the catalog', () => {
     expect(isPrimaryKeymapJson({ layers: [['&mkp LCLK']] })).toBe(true)
   })
+})
+
+describe('legacy behavior JSON compatibility', () => {
+  it.each(['&reset', '&reset WRAP(1,2) 3'])(
+    'validates legacy %s without rewriting its binding', binding => {
+      const json = { layers: [[binding]] }
+      expect(() => validateKeymapJson(json)).not.toThrow()
+      expect(encodeKeymap(parseKeymap(json))).toEqual(json)
+    }
+  )
+
+  it.each(['&reset', '&reset WRAP(1,2) 3'])(
+    'keeps JSON containing legacy %s primary', binding => {
+      expect(isPrimaryKeymapJson({ layers: [[binding]] })).toBe(true)
+    }
+  )
+
+  it.each(['&external_unknown', '&reset_extra', '&reset!'])(
+    'still rejects unknown or malformed %s', binding => {
+      const json = { layers: [[binding]] }
+      expect(() => validateKeymapJson(json)).toThrow(KeymapValidationError)
+      expect(isPrimaryKeymapJson(json)).toBe(false)
+    }
+  )
 })
 
 describe('generateKeymap mouse includes', () => {

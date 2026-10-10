@@ -1,5 +1,7 @@
 const BEHAVIOR_DOCS: Record<string, string> = {
   '&kp': 'https://zmk.dev/docs/keymaps/behaviors/key-press',
+  '&kt': 'https://zmk.dev/docs/keymaps/behaviors/key-toggle',
+  '&gresc': 'https://zmk.dev/docs/keymaps/behaviors/mod-morph#behavior-binding',
   '&mkp': 'https://zmk.dev/docs/keymaps/behaviors/mouse-emulation',
   '&msc': 'https://zmk.dev/docs/keymaps/behaviors/mouse-emulation',
   '&mmv': 'https://zmk.dev/docs/keymaps/behaviors/mouse-emulation',
@@ -20,7 +22,8 @@ const BEHAVIOR_DOCS: Record<string, string> = {
   '&rgb_ug': 'https://zmk.dev/docs/keymaps/behaviors/underglow',
   '&bl': 'https://zmk.dev/docs/keymaps/behaviors/backlight',
   '&ext_power': 'https://zmk.dev/docs/keymaps/behaviors/power',
-  '&reset': 'https://zmk.dev/docs/keymaps/behaviors/reset',
+  '&soft_off': 'https://zmk.dev/docs/keymaps/behaviors/soft-off',
+  '&sys_reset': 'https://zmk.dev/docs/keymaps/behaviors/reset',
   '&bootloader': 'https://zmk.dev/docs/keymaps/behaviors/reset',
   '&trans': 'https://zmk.dev/docs/keymaps/behaviors/transparent',
   '&none': 'https://zmk.dev/docs/keymaps/behaviors/none'

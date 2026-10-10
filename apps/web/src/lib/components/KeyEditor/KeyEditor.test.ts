@@ -224,7 +224,7 @@ describe('KeyEditor value catalog', () => {
     expect(paramCodes).toContain('&mo')
     expect(paramCodes).not.toContain('&trans')
     expect(instantCodes).toEqual(
-      expect.arrayContaining(['&trans', '&none', '&caps_word', '&key_repeat', '&reset', '&bootloader'])
+      expect.arrayContaining(['&trans', '&none', '&caps_word', '&key_repeat', '&sys_reset', '&bootloader'])
     )
     expect(instantCodes).not.toContain('&kp')
   })

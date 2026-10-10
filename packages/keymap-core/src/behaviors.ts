@@ -9,6 +9,7 @@ import type { BehaviorDef, ZmkHoldTap } from './types.js'
  */
 export const BEHAVIOR_ROLE_ORDER = [
   '&kp',
+  '&kt',
   '&mkp',
   '&msc',
   '&mmv',
@@ -28,7 +29,9 @@ export const BEHAVIOR_ROLE_ORDER = [
   '&none',
   '&caps_word',
   '&key_repeat',
-  '&reset',
+  '&gresc',
+  '&soft_off',
+  '&sys_reset',
   '&bootloader'
 ] as const
 
@@ -53,7 +56,9 @@ const FIRMWARE_NOTES: Record<string, string> = {
   '&bl':
     'Firmware: CONFIG_ZMK_BACKLIGHT=y in the keyboard .conf. This editor only adds #include <dt-bindings/zmk/backlight.h> to the keymap.',
   '&rgb_ug':
-    'Firmware: CONFIG_ZMK_RGB_UNDERGLOW=y in the keyboard .conf. This editor only adds #include <dt-bindings/zmk/rgb.h> to the keymap.'
+    'Firmware: CONFIG_ZMK_RGB_UNDERGLOW=y in the keyboard .conf. This editor only adds #include <dt-bindings/zmk/rgb.h> to the keymap.',
+  '&soft_off':
+    'Firmware: CONFIG_ZMK_PM_SOFT_OFF=y in the keyboard .conf; requires hardware power-off support. Wake-up depends on the keyboard hardware (dedicated wake button or reset). This editor only stages the binding; it does not change firmware configuration or turn off hardware.'
 }
 
 export function behaviorFirmwareNote(
