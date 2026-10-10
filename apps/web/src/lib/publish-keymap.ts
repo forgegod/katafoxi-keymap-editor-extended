@@ -95,6 +95,8 @@ export async function publishKeymap(
     }
     return false
   } finally {
-    editor.saving = false
+    if (editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {
+      editor.saving = false
+    }
   }
 }

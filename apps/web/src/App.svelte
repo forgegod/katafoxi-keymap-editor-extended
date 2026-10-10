@@ -7,7 +7,11 @@
   import { hasEscapeOverlay } from './lib/escape-stack'
   import { publishKeymap } from './lib/publish-keymap'
   import { reloadLocalKeyboard } from './lib/api'
-  import { copyClipboardKeymap } from './lib/editor/clipboard-copy'
+  import { copyClipboardKeymap, type ClipboardCopySheet } from './lib/editor/clipboard-copy'
+  import {
+    armBeforeUnloadConfirmation,
+    needsUnpublishedLeaveWarning
+  } from './lib/editor/leave-warning'
   import KeyboardPicker from './lib/components/Pickers/KeyboardPicker.svelte'
   import ClipboardExportSheet from './lib/components/Pickers/Clipboard/ExportSheet.svelte'
   import Spinner from './lib/components/Common/Spinner.svelte'
@@ -41,11 +45,7 @@
   let openSourceRequest = $state<string | null>(null)
   let tourExpandLegend = $state(false)
   let tourRestartKey = $state(0)
-  let clipboardExport = $state<{
-    code: string
-    copied: boolean
-    warnings: string[]
-  } | null>(null)
+  let clipboardExport = $state<ClipboardCopySheet | null>(null)
 
   $effect(() => {
     const root = topEl
@@ -103,6 +103,16 @@
       document.removeEventListener('visibilitychange', onVisibilityChange)
       window.removeEventListener('pagehide', flushDraft)
     }
+  })
+
+  $effect(() => {
+    if (!needsUnpublishedLeaveWarning(editor)) return
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!needsUnpublishedLeaveWarning(editor)) return
+      armBeforeUnloadConfirmation(event)
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
   })
 
   async function initialize() {
@@ -393,6 +403,7 @@
     code={clipboardExport.code}
     copied={clipboardExport.copied}
     warnings={clipboardExport.warnings}
+    onCopied={clipboardExport.onCopied}
     onClose={() => (clipboardExport = null)}
   />
 {/if}

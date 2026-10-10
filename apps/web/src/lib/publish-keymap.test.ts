@@ -254,6 +254,31 @@ describe('publishKeymap', () => {
     expect(editor.saving).toBe(false)
   })
 
+  it('does not release a newer publish lock when an old session completes', async () => {
+    await editor.selectKeyboard({ source: 'local', layout, keymap: km('A') })
+    editor.updateKeymap(km('M'))
+    const oldWrite = deferred()
+    const oldPublish = publishKeymap(editor, {
+      write: () => oldWrite.promise,
+      reload: async () => ({ keymap: km('M') })
+    })
+    await editor.selectKeyboard({ source: 'local', layout, keymap: km('A', 'other') })
+    editor.updateKeymap(km('X', 'other'))
+    const newWrite = deferred()
+    const newPublish = publishKeymap(editor, {
+      write: () => newWrite.promise,
+      reload: async () => ({ keymap: km('X', 'other') })
+    })
+    expect(editor.saving).toBe(true)
+    oldWrite.resolve({})
+    expect(await oldPublish).toBe(false)
+    const savingWhileNewWritePending = editor.saving
+    newWrite.resolve({})
+    expect(await newPublish).toBe(true)
+    expect(savingWhileNewWritePending).toBe(true)
+    expect(editor.saving).toBe(false)
+  })
+
   it('does not write when the draft is clean', async () => {
     await editor.selectKeyboard({
       source: 'local',

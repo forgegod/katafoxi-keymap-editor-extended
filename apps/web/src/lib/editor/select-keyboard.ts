@@ -24,6 +24,7 @@ import type { GithubKeyboardSelection, KeyboardSelection } from './types'
 export async function selectKeyboard(this: EditorState, event: KeyboardSelection) {
   const selectToken = ++this._selectGeneration
   this._publishGeneration += 1
+  this.saving = false
   this._persistGeneration += 1
   this._cancelPersistTimer()
   this.endHostEditSession()

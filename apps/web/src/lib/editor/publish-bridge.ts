@@ -60,6 +60,8 @@ export function applyPublished(
     this.draftKeymap = cloneParsedKeymap(this.baselineKeymap)
     this.clearHistory()
     void this.clearPersistedDraft()
+  } else {
+    this.schedulePersist()
   }
   const warnings = formatKeymapSaveWarnings(
     saveMeta && typeof saveMeta === 'object'
@@ -70,18 +72,19 @@ export function applyPublished(
     warnings.length > 0 ? { kind: 'warning', messages: warnings } : null
 }
 
-/** After Copy .keymap: sync baseline; the export sheet carries user-facing notes. */
-export function applyClipboardCopied(this: EditorState, reloaded: ParsedKeymap, _saveMeta?: unknown) {
-  const baseline = cloneParsedKeymap(reloaded)
-  this.baselineKeymap = baseline
-  this.draftKeymap = cloneParsedKeymap(baseline)
-  this.clearHistory()
+/** Accept the copied baseline without losing newer edits; warnings stay in the sheet. */
+export function applyClipboardCopied(
+  this: EditorState,
+  reloaded: ParsedKeymap,
+  _saveMeta?: unknown,
+  sentDraft?: ParsedKeymap
+) {
+  applyPublished.call(this, reloaded, undefined, sentDraft)
   this.saveNotice = null
   const identity = this.currentDraftIdentity()
   if (identity && this.clipboardOriginalSource) {
     writeClipboardOriginalSource(identity, this.clipboardOriginalSource)
   }
-  void this.clearPersistedDraft()
 }
 
 /** Publish (POST/commit) succeeded but reload failed — keep draft dirty. */

@@ -1,30 +1,32 @@
 import {
+  cloneParsedKeymap,
   parseDtsKeymap,
   parseKeymap,
   type LayoutKey,
   type ParsedKeymap
 } from '@keymap-editor/keymap-core'
 import { buildClipboardExport } from '../clipboard/export.js'
-import { writeClipboardOriginalSource } from '../clipboard/session.js'
 import { formatKeymapSaveWarnings } from '../keymap-save-warnings.js'
-import type { DraftIdentity } from '../draft-storage.js'
-import type { SaveNotice } from './types.js'
+import type { GithubMeta, SaveNotice } from './types.js'
 
 export type ClipboardCopySheet = {
   code: string
   copied: boolean
   warnings: string[]
+  /** Accept this exact export after a successful sheet retry. */
+  onCopied: () => void
 }
 
 export type ClipboardCopyEditor = {
+  readonly source: string | null
   saving: boolean
   layout: LayoutKey[] | null
   draftKeymap: ParsedKeymap | null
   clipboardOriginalSource: string | null
-  readonly isDirty: boolean
   saveNotice: SaveNotice | null
-  currentDraftIdentity(): DraftIdentity | null
-  applyClipboardCopied(reloaded: ParsedKeymap, saveMeta?: unknown): void
+  beginPublish(): number
+  isPublishCurrent(token: number, source: string | null, github: GithubMeta | null): boolean
+  applyClipboardCopied(reloaded: ParsedKeymap, saveMeta?: unknown, sentDraft?: ParsedKeymap): void
 }
 
 export type CopyClipboardKeymapOptions = {
@@ -36,14 +38,29 @@ export async function copyClipboardKeymap(
   editor: ClipboardCopyEditor,
   options: CopyClipboardKeymapOptions = {}
 ): Promise<ClipboardCopySheet | undefined> {
-  if (!editor.layout || !editor.draftKeymap || editor.saving) return
+  if (editor.source !== 'clipboard' || !editor.layout || !editor.draftKeymap || editor.saving) return
   editor.saving = true
+  const token = editor.beginPublish()
+  const sentDraft = cloneParsedKeymap(editor.draftKeymap)
   try {
     const built = buildClipboardExport(
       editor.layout,
-      editor.draftKeymap,
+      sentDraft,
       editor.clipboardOriginalSource
     )
+    const reloaded = parseKeymap(parseDtsKeymap(built.code, {
+      keyboard: typeof sentDraft.keyboard === 'string' ? sentDraft.keyboard : 'clipboard',
+      keymap: typeof sentDraft.keymap === 'string' ? sentDraft.keymap : 'clipboard',
+      layout: typeof sentDraft.layout === 'string' ? sentDraft.layout : 'LAYOUT'
+    }))
+    const onCopied = () => {
+      if (!editor.isPublishCurrent(token, 'clipboard', null)) return
+      editor.clipboardOriginalSource = built.code
+      editor.applyClipboardCopied(reloaded, {
+        mode: built.mode,
+        warnings: built.warnings
+      }, sentDraft)
+    }
     let copied = false
     const writeText =
       options.writeText ?? (text => navigator.clipboard.writeText(text))
@@ -54,37 +71,23 @@ export async function copyClipboardKeymap(
       copied = false
     }
 
-    editor.clipboardOriginalSource = built.code
-    const identity = editor.currentDraftIdentity()
-    if (identity) writeClipboardOriginalSource(identity, built.code)
+    if (!editor.isPublishCurrent(token, 'clipboard', null)) return
 
-    const km = editor.draftKeymap
-    const raw = parseDtsKeymap(built.code, {
-      keyboard: typeof km.keyboard === 'string' ? km.keyboard : 'clipboard',
-      keymap: typeof km.keymap === 'string' ? km.keymap : 'clipboard',
-      layout: typeof km.layout === 'string' ? km.layout : 'LAYOUT'
-    })
-    const reloaded = parseKeymap(raw)
-    if (editor.isDirty) {
-      editor.applyClipboardCopied(reloaded, {
-        mode: built.mode,
-        warnings: built.warnings
-      })
-    } else {
-      editor.saveNotice = null
-    }
+    if (copied) onCopied()
 
     return {
       code: built.code,
       copied,
-      warnings: formatKeymapSaveWarnings(built.warnings)
+      warnings: formatKeymapSaveWarnings(built.warnings),
+      onCopied
     }
   } catch (err) {
+    if (!editor.isPublishCurrent(token, 'clipboard', null)) return
     const message =
       err instanceof Error ? err.message : 'Could not build the .keymap export'
     editor.saveNotice = { kind: 'error', messages: [message] }
     return undefined
   } finally {
-    editor.saving = false
+    if (editor.isPublishCurrent(token, 'clipboard', null)) editor.saving = false
   }
 }

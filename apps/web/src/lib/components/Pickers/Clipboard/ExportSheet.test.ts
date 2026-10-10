@@ -23,6 +23,31 @@ describe('ExportSheet', () => {
     target.remove()
     modalRoot.remove()
     resetEscapeStackForTests()
+    vi.restoreAllMocks()
+  })
+
+  it('accepts the export only after Copy again succeeds', async () => {
+    const onCopied = vi.fn()
+    const code = 'bindings = <&kp ESC>;'
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText')
+      .mockRejectedValueOnce(new Error('clipboard denied'))
+      .mockResolvedValue(undefined)
+    view = mount(ExportSheet, {
+      target,
+      props: { code, copied: false, onCopied, onClose: vi.fn() }
+    })
+    flushSync()
+    await tick()
+    const copy = [...document.querySelectorAll('button')]
+      .find(button => button.textContent?.trim() === 'Copy again')!
+    copy.click()
+    await vi.waitFor(() => { expect(writeText).toHaveBeenCalledTimes(1) })
+    expect(onCopied).not.toHaveBeenCalled()
+    copy.click()
+    await vi.waitFor(() => { expect(onCopied).toHaveBeenCalledTimes(1) })
+    expect(writeText).toHaveBeenLastCalledWith(code)
+    flushSync()
+    expect(document.querySelector('[role="status"]')?.textContent).toMatch(/Copied to the system clipboard/)
   })
 
   it('shows the code for manual copy when the system clipboard write failed, lists warnings, and closes on Escape', async () => {

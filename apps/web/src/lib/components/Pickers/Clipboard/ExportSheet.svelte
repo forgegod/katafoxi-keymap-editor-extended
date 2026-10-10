@@ -7,10 +7,11 @@
     /** True when navigator.clipboard.writeText already succeeded. */
     copied: boolean
     warnings?: string[]
+    onCopied?: () => void
     onClose: () => void
   }
 
-  let { code, copied, warnings = [], onClose }: Props = $props()
+  let { code, copied, warnings = [], onCopied, onClose }: Props = $props()
 
   let area: HTMLTextAreaElement | undefined = $state()
   let note = $derived(
@@ -20,8 +21,11 @@
   )
 
   async function copyAgain() {
+    const sentCode = code
+    const acceptCopy = onCopied
     try {
-      await navigator.clipboard.writeText(code)
+      await navigator.clipboard.writeText(sentCode)
+      acceptCopy?.()
       note = 'Copied to the system clipboard. Paste it into your config/*.keymap.'
     } catch {
       note = 'Could not write the system clipboard — select the text below and copy manually.'

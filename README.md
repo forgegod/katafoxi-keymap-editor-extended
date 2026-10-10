@@ -83,7 +83,7 @@ Product persistence is **GitHub-first**; Local is for iterating against a cloned
 
 Upstream or planned: browser **File System Access**, visual **macro** / custom **behavior** editors (beyond fixed recipes such as `&rgblayer`), auto-generated layouts from ZMK DTS. See [upstream README](https://github.com/nickcoutsos/keymap-editor/blob/master/README.md) for the classic feature list.
 
-Vision and contracts: [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md). The [prioritized change requests](docs/changes/README.md#current-records) cover these gaps plus command choices, leave-page protection, layer duplication/reordering, and keymap-file selection. They are planned work, not shipped features.
+Vision and contracts: [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md). The [prioritized change requests](docs/changes/README.md#current-records) cover remaining gaps, including layer duplication/reordering and keymap-file selection. An active CHG is not a completed feature; its record owns phase state.
 
 ## Run locally
 

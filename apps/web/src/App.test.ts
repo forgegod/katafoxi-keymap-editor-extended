@@ -1,9 +1,15 @@
 import { flushSync, mount, tick, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ParsedKeymap } from '@keymap-editor/keymap-core'
+import {
+  addHostLanguage,
+  assignHostLanguageLayout,
+  type ParsedKeymap
+} from '@keymap-editor/keymap-core'
+import { loadClipboardBundle } from './lib/clipboard/load'
 import * as draftStorage from './lib/draft-storage'
 import { buildDraftIdentity, deleteStoredDraft } from './lib/draft-storage'
 import { editor, type KeyboardSelection } from './lib/editor.svelte.js'
+import { clearHostLayoutStore } from './lib/host-layout-store'
 import github from './lib/github/api.svelte.js'
 import App from './App.svelte'
 
@@ -65,6 +71,8 @@ async function clearDrafts() {
   const identities = [
     buildDraftIdentity({ source: 'local', keyboard: 'lark' }),
     buildDraftIdentity({ source: 'local', keyboard: 'other' }),
+    buildDraftIdentity({ source: 'demo', keyboard: 'lark' }),
+    buildDraftIdentity({ source: 'clipboard', keyboard: 'clipboard' }),
     buildDraftIdentity({
       source: 'github',
       repo: 'owner/repo',
@@ -76,6 +84,42 @@ async function clearDrafts() {
     if (identity) await deleteStoredDraft(identity)
   }
 }
+
+function beforeUnloadEvent() {
+  return new Event('beforeunload', { cancelable: true }) as BeforeUnloadEvent
+}
+
+function dispatchBeforeUnload() {
+  const event = beforeUnloadEvent()
+  window.dispatchEvent(event)
+  return event
+}
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
+const CLIPBOARD_SOURCE = `#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+
+/ {
+    keymap {
+        compatible = "zmk,keymap";
+
+        default_layer {
+            bindings = <
+                &kp A
+            >;
+        };
+    };
+};
+`
 
 function buttonMatching(root: ParentNode, pattern: RegExp) {
   return [...root.querySelectorAll('button')].find(button =>
@@ -131,7 +175,7 @@ describe('App chrome', () => {
     document.body.appendChild(target)
   })
 
-  afterEach(() => {
+  afterEach(async () => {
     if (view) {
       unmount(view)
       view = undefined
@@ -146,6 +190,7 @@ describe('App chrome', () => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
+    await clearHostLayoutStore()
   })
 
   async function renderApp() {
@@ -460,10 +505,7 @@ describe('App chrome', () => {
     editor.updateKeymap(km('M'))
     expect(save).not.toHaveBeenCalled()
 
-    Object.defineProperty(document, 'visibilityState', {
-      configurable: true,
-      value: 'hidden'
-    })
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
     document.dispatchEvent(new Event('visibilitychange'))
 
     await Promise.resolve()
@@ -525,5 +567,362 @@ describe('App chrome', () => {
     expect(target.querySelector('.save-notice.warning')?.textContent).toMatch(
       /newer host_keymap\/snapshot\.json than this editor can read/
     )
+  })
+
+  it('leaves a clean load unguarded and confirms beforeunload after a firmware edit', async () => {
+    const addListener = vi.spyOn(window, 'addEventListener')
+    await renderApp()
+    await loadKeyboard(localSelection())
+
+    const clean = dispatchBeforeUnload()
+    expect(clean.defaultPrevented).toBe(false)
+    expect(editor.isDirty).toBe(false)
+    expect(addListener.mock.calls.filter(([type]) => type === 'beforeunload')).toHaveLength(0)
+
+    editor.updateKeymap(km('M'))
+    flushSync()
+
+    const dirty = dispatchBeforeUnload()
+    expect(dirty.defaultPrevented).toBe(true)
+    expect(dirty.returnValue).toBe('')
+    expect(addListener.mock.calls.filter(([type]) => type === 'beforeunload')).toHaveLength(1)
+    expect(editor.isDirty).toBe(true)
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('M')
+  })
+
+  it('drops the guard after confirmed discard and keeps it when discard is cancelled', async () => {
+    await renderApp()
+    await loadKeyboard(localSelection())
+    editor.updateKeymap(km('M'))
+    flushSync()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const discard = target.querySelector('.discard-draft') as HTMLButtonElement
+    discard.click()
+    flushSync()
+    await tick()
+    expect(editor.isDirty).toBe(true)
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(true)
+
+    confirm.mockReturnValue(true)
+    discard.click()
+    flushSync()
+    await tick()
+    await vi.waitFor(() => {
+      expect(editor.isDirty).toBe(false)
+    })
+    flushSync()
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(false)
+  })
+
+  it('drops the guard after Write files reloads and keeps it when write or reload fails', async () => {
+    await renderApp()
+    await loadKeyboard(localSelection())
+    editor.updateKeymap(km('M'))
+    flushSync()
+
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if ((init?.method ?? 'GET') === 'POST') return jsonResponse({ errors: ['disk full'] }, 500)
+      const url = String(input)
+      if (url.includes('/layout')) return jsonResponse(oneKeyLayout)
+      if (url.includes('/keymap')) return jsonResponse(km('M'))
+      return jsonResponse({}, 404)
+    })
+    buttonMatching(target, /^\s*Write files\s*$/)!.click()
+    flushSync()
+    await vi.waitFor(() => {
+      expect(editor.saving).toBe(false)
+    })
+    expect(editor.isDirty).toBe(true)
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(true)
+
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if ((init?.method ?? 'GET') === 'POST') return jsonResponse({})
+      if (url.includes('/keymap')) return jsonResponse({ errors: ['missing'] }, 500)
+      if (url.includes('/layout')) return jsonResponse(oneKeyLayout)
+      return jsonResponse({}, 404)
+    })
+    buttonMatching(target, /^\s*Write files\s*$/)!.click()
+    flushSync()
+    await vi.waitFor(() => {
+      expect(editor.saving).toBe(false)
+    })
+    expect(editor.isDirty).toBe(true)
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(true)
+
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if ((init?.method ?? 'GET') === 'POST') return jsonResponse({})
+      if (url.includes('/layout')) return jsonResponse(oneKeyLayout)
+      if (url.includes('/keymap')) return jsonResponse(km('M'))
+      return jsonResponse({}, 404)
+    })
+    buttonMatching(target, /^\s*Write files\s*$/)!.click()
+    flushSync()
+    await vi.waitFor(() => {
+      expect(editor.isDirty).toBe(false)
+    })
+    flushSync()
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(false)
+  })
+
+  it('keeps the guard when a key changes during an in-flight write', async () => {
+    await renderApp()
+    await loadKeyboard(localSelection())
+    editor.updateKeymap(km('M'))
+    flushSync()
+
+    const write = deferred<Response>()
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if ((init?.method ?? 'GET') === 'POST') return write.promise
+      if (url.includes('/layout')) return jsonResponse(oneKeyLayout)
+      if (url.includes('/keymap')) return jsonResponse(km('M'))
+      return jsonResponse({}, 404)
+    })
+
+    buttonMatching(target, /^\s*Write files\s*$/)!.click()
+    flushSync()
+    await vi.waitFor(() => {
+      expect(editor.saving).toBe(true)
+    })
+    editor.updateKeymap(km('X'))
+    flushSync()
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(true)
+    expect(editor.draftKeymap!.layers[0][0].params[0].value).toBe('X')
+
+    write.resolve(
+      new Response(JSON.stringify({}), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    )
+    await vi.waitFor(() => {
+      expect(editor.saving).toBe(false)
+    })
+    flushSync()
+    expect(editor.isDirty).toBe(true)
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(true)
+  })
+
+  it('drops the guard only after Copy .keymap writes the clipboard', async () => {
+    await renderApp()
+    const bundle = loadClipboardBundle('', CLIPBOARD_SOURCE)
+    await loadKeyboard({
+      source: 'clipboard',
+      layout: bundle.layout,
+      keymap: bundle.keymap,
+      clipboardOriginalSource: bundle.originalSource
+    })
+    editor.updateKeymap({
+      ...bundle.keymap,
+      layers: [[{ value: '&kp', params: [{ value: 'ESC', params: [] }] }]]
+    })
+    flushSync()
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(true)
+
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
+    writeText.mockRejectedValueOnce(new Error('clipboard denied'))
+    buttonMatching(target, /^\s*Copy \.keymap\s*$/)!.click()
+    flushSync()
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenCalled()
+      expect(editor.saving).toBe(false)
+    })
+    expect(editor.isDirty).toBe(true)
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(true)
+
+    writeText.mockResolvedValueOnce(undefined)
+    flushSync()
+    const dialog = document.querySelector('[role="dialog"][aria-label="Exported keymap"]')!
+    buttonMatching(dialog, /^\s*Copy again\s*$/)!.click()
+    flushSync()
+    await vi.waitFor(() => {
+      expect(editor.isDirty).toBe(false)
+    })
+    flushSync()
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(false)
+  })
+
+  it('drops the guard after a GitHub commit reloads and keeps it when reload fails', async () => {
+    await renderApp()
+    await loadKeyboard(githubSelection())
+    editor.updateKeymap(km('M'))
+    flushSync()
+
+    vi.mocked(github.fetchLayoutAndKeymap).mockRejectedValueOnce(new Error('reload failed'))
+    buttonMatching(target, /^\s*Commit\s*$/)!.click()
+    flushSync()
+    await vi.waitFor(() => {
+      expect(editor.saving).toBe(false)
+    })
+    expect(editor.isDirty).toBe(true)
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(true)
+
+    vi.mocked(github.fetchLayoutAndKeymap).mockResolvedValue({
+      layout: oneKeyLayout,
+      keymap: km('M'),
+      hostSnapshot: null,
+      warnings: [],
+      headSha: 'def456'
+    })
+    buttonMatching(target, /^\s*Commit\s*$/)!.click()
+    flushSync()
+    await vi.waitFor(() => {
+      expect(editor.isDirty).toBe(false)
+    })
+    flushSync()
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(false)
+  })
+
+  it('guards a dirty GitHub host snapshot without a firmware edit', async () => {
+    await renderApp()
+    await loadKeyboard({
+      source: 'github',
+      github: { repository: 'owner/repo', branch: 'main', headSha: 'abc123' },
+      layout: oneKeyLayout,
+      keymap: km('A'),
+      hostSnapshot: {
+        version: 1,
+        view: {
+          columns: [
+            {
+              language: 'en',
+              layoutId: 'system-us',
+              visible: true,
+              altGr: true,
+              altGrShift: true
+            }
+          ],
+          open: null
+        },
+        layouts: []
+      }
+    })
+    expect(editor.isDirty).toBe(false)
+    expect(editor.isHostRepoDirty).toBe(false)
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(false)
+
+    editor.hostLegend = assignHostLanguageLayout(
+      addHostLanguage(editor.hostLegend, 'ru'),
+      'ru',
+      'system-ru-legacy'
+    )
+    flushSync()
+    expect(editor.isDirty).toBe(false)
+    expect(editor.isHostRepoDirty).toBe(true)
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(true)
+
+    vi.mocked(github.fetchLayoutAndKeymap).mockResolvedValue({
+      layout: oneKeyLayout,
+      keymap: km('A'),
+      hostSnapshot: null,
+      warnings: [],
+      headSha: 'host-sha'
+    })
+    buttonMatching(target, /^\s*Commit\s*$/)!.click()
+    flushSync()
+    await vi.waitFor(() => {
+      expect(editor.isHostRepoDirty).toBe(false)
+    })
+    flushSync()
+    expect(editor.isDirty).toBe(false)
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(false)
+  })
+
+  it('does not guard a host-deliverable edit that is not a GitHub snapshot change', async () => {
+    await renderApp()
+    await loadKeyboard(localSelection())
+    const edited = await editor.setHostKeyLevel('en', 'A', 0, 'b')
+    expect(edited.ok).toBe(true)
+    flushSync()
+    expect(editor.isDirty).toBe(false)
+    expect(editor.isHostRepoDirty).toBe(false)
+    expect(editor.isHostDirty).toBe(true)
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(false)
+
+    editor.markHostDelivered()
+    flushSync()
+    expect(editor.isHostDirty).toBe(false)
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(false)
+  })
+
+  it('guards a restored Demo firmware draft and ignores a browser-only host edit', async () => {
+    await renderApp()
+    const identity = buildDraftIdentity({ source: 'demo', keyboard: 'lark' })!
+    await draftStorage.saveStoredDraft(identity, km('Z'))
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    await loadKeyboard({
+      source: 'demo',
+      demo: { id: 'lark', name: 'Lark' },
+      layout: oneKeyLayout,
+      keymap: km('A')
+    })
+    expect(editor.isDirty).toBe(true)
+    flushSync()
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(true)
+
+    const edited = await editor.setHostKeyLevel('en', 'A', 0, 'b')
+    expect(edited.ok).toBe(true)
+    expect(editor.isHostDirty).toBe(true)
+    expect(editor.isHostRepoDirty).toBe(false)
+
+    await editor.discardDraft()
+    flushSync()
+    expect(editor.isDirty).toBe(false)
+    expect(editor.isHostDirty).toBe(true)
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(false)
+  })
+
+  it('flushes pending drafts on pagehide and visibilitychange with or without the guard', async () => {
+    await renderApp()
+    await loadKeyboard(localSelection())
+    const flush = vi.spyOn(editor, 'flushPendingPersist')
+
+    window.dispatchEvent(new Event('pagehide'))
+    expect(flush).toHaveBeenCalledTimes(1)
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(false)
+
+    editor.updateKeymap(km('M'))
+    flushSync()
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+    document.dispatchEvent(new Event('visibilitychange'))
+    window.dispatchEvent(new Event('pagehide'))
+    expect(flush).toHaveBeenCalledTimes(3)
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(true)
+  })
+
+  it('drops the guard after undo or loading another keyboard, and on unmount', async () => {
+    const addListener = vi.spyOn(window, 'addEventListener')
+    const removeListener = vi.spyOn(window, 'removeEventListener')
+    await renderApp()
+    await loadKeyboard(localSelection())
+    editor.updateKeymap(km('M'))
+    flushSync()
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(true)
+
+    editor.undo()
+    flushSync()
+    expect(editor.isDirty).toBe(false)
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(false)
+
+    editor.redo()
+    flushSync()
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(true)
+    await loadKeyboard(localSelection('A', 'other'))
+    expect(editor.isDirty).toBe(false)
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(false)
+
+    editor.updateKeymap(km('M', 'other'))
+    flushSync()
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(true)
+    unmount(view!)
+    view = undefined
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(false)
+    expect(editor.isDirty).toBe(true)
+    const added = addListener.mock.calls.filter(([type]) => type === 'beforeunload')
+    const removed = removeListener.mock.calls.filter(([type]) => type === 'beforeunload')
+    expect(added.length).toBeGreaterThan(0)
+    expect(removed.map(([, listener]) => listener)).toEqual(added.map(([, listener]) => listener))
   })
 })
