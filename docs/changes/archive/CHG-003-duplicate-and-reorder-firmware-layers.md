@@ -1,6 +1,6 @@
 # CHG-003 — Duplicate and reorder firmware layers safely
 
-**Status:** in-progress
+**Status:** done
 **External request:** Direct operator request: Incorporate the ../ai-software-blueprint/ into this project. Proceed with the feature gaps as proposed in change requests based on the new blueprint
 **Impacts:** CAP-001, CAP-003
 **Baseline:** `2bb062d9e613980cc8d7ef1e4c545b527ff1e9c2` on main; recheck branch and working-tree ownership before execution.
@@ -8,7 +8,7 @@
 
 ## Current boundary
 
-The document editor exposes Duplicate and Move in the expanded non-stacked layer table. Keyboard position selection and internal drag/drop share the phase-2 core/editor transaction and conservative provenance checks. Demo and supported source-backed Clipboard are accepted; GitHub/dev-local and unsafe or unavailable source provenance remain refused. CAP-001/CAP-003 and canonical visuals describe this bounded working-tree behavior. Phase-3 execution/visual gates and the final fresh Grok review pass. Phase 4 has not started.
+The document editor exposes Duplicate and Move in the expanded non-stacked layer table. Keyboard position selection and internal drag/drop share the phase-2 core/editor transaction and conservative provenance checks. Demo and supported source-backed Clipboard are accepted; GitHub/dev-local and unsafe or unavailable source provenance remain refused. CAP-001/CAP-003 and canonical visuals describe this bounded behavior at `48c9c75`. Phase-3 execution/visual gates and its final fresh Grok review passed. Phase 4 passed the complete integration and visual gate without source changes; this archived closure receipt awaits fresh Grok review before any separately authorized commit.
 
 [Parity evidence](../upstream-gap-assessment.md). These are requested outcomes, not present capability claims.
 
@@ -39,7 +39,7 @@ Paths name existing seams, not a claim that future symbols or tests already exis
 | 1 | Specify the safe behavior boundary | done (final fresh Grok review: No findings; records and focused core/web/lint gates passed; three intended RED probes retained) | `pnpm records:check` passes; acceptance matrix and proposed regression cases reviewed |
 | 2 | Implement and prove the domain slice | done (core/web gates, focused suites, lint, records and diff checks passed; fresh Grok review: No findings) | `pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test` |
 | 3 | Integrate the interaction and visual handoff | done (web 69 files/689 tests; Playwright 42; wireframes/records gates and final PNG inspection passed; stale-refusal focus regression fixed; final fresh Grok review: No findings) | `pnpm --filter @keymap-editor/web test && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
-| 4 | Verify and close the change | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages` |
+| 4 | Verify and close the change | done (exact full gate exit 0 at 48c9c75; CAP-001/CAP-003 PNG inspection passed; existing optional/static-only skips documented below; closure patch awaits fresh Grok review) | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages` |
 
 ## Phase 1 — Specify the safe behavior boundary
 
@@ -182,11 +182,50 @@ Use `docs/product/wireframes/generate.mjs` only for implemented CAP surfaces; re
 
 ## Execution state
 
+### Phase-4 closure receipt
+
+Direct operator request: “Execute CHG-003 phase 4 only from commit 48c9c75 in the existing repository. Read root/docs/docs-change/docs-product/apps-web contracts, CHG-003, CAP-001/CAP-003, and current status first. Phase 4 has already been marked in-progress. Treat phase 3 source behavior as frozen: do not broaden features or refactor. Verify and close only if every gate passes: pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages. Inspect every changed CAP-001/CAP-003 canonical PNG after regeneration and record concrete visual observations. Distinguish environment/infrastructure blockers honestly; do not fabricate evidence or bypass failures. If all requirements pass, update CAP/CHG only where needed with exact evidence, mark phase 4 done, mark CHG done, move it to archive, update docs/changes/README.md, and complete DOX indexes; then freeze the complete unstaged tracked+untracked patch/evidence for fresh Grok review. Do not stage, commit, push, deploy, alter credentials, or start another CHG. Report exact commands/results, changed paths, visual inspection, frozen patch hash, and risks.”
+
+Started on `main` at `48c9c757c29d625891f29f99e472f19ac1136fbd`, empty index, with only the operator's existing phase-4 in-progress CHG edit and no untracked files. Read root, docs, change, product, wireframe and web contracts, both READMEs, CHG-003 and CAP-001/CAP-003 before execution. Captured and reverse-apply/whitespace checked the starting patch externally. No stash, reset or index write. Phase-3 product source, tests, dependencies, generator and runtime contracts stayed frozen.
+
+Environment: Node `24.21.0`, pnpm `9.15.0`, existing Playwright Chromium, local fixture-backed development/production/static-Pages servers. `PAGES_TEST_URL`, `PAGES_EXPECT_GITHUB`, `CHG003_RED` and `UPDATE_GOLDEN` were unset. No live deployment, real GitHub writes, new credentials, environment workaround or test bypass was needed.
+
+The exact phase-4 command chain in the phase table ran once, in order, and exited **0** on 2026-10-11, from `08:46:47` to `08:51:23` UTC. Full raw evidence is under `/home/raphael/.hermes/profiles/hermes-dev/cache/scratch/chg003-phase4-44w4wvbn/`: `phase4-gate.log`, `gate-result.json` and `run_gate.py`. These are temporary review artifacts, not a second progress authority; the durable results follow.
+
+| Command | Result from the exact full gate |
+| --- | --- |
+| `pnpm wireframes:generate` | Exit 0; 3 canonical screens generated; all generated files byte-identical to HEAD |
+| `pnpm wireframes:render` | Exit 0; CAP-001 1440×1840, CAP-002 1440×1200, CAP-003 1440×1640; headings visible, no horizontal/vertical overflow or page errors; all PNGs byte-identical to HEAD |
+| `pnpm records:check` | Exit 0; 3 capabilities, 10 change records, manifest in sync |
+| `pnpm test` | Exit 0; core 60 files / 857 passed, 1 optional golden skipped; API 12 files / 226 passed; web 69 files / 689 passed; Cloudflare 1 file / 11 passed; record validator 72 passed, 0 failed |
+| `pnpm lint` | Exit 0; all four workspace checks completed; Svelte 0 errors and 0 warnings |
+| `pnpm build` | Exit 0; core, web and API built; Vite reported the existing >500 kB chunk-size warning |
+| `pnpm test:e2e` | Exit 0; 42 passed, including all 4 layer-operation keyboard/drag/export/cancel/refusal cases |
+| `pnpm test:e2e:prod` | Exit 0; 5 passed against the local production API/static build |
+| `pnpm test:e2e:pages` | Exit 0; 2 passed, 2 deliberately skipped GitHub-auth cases in static Pages mode |
+
+The Pages skips are the existing `test.skip(!expectGitHub, 'GitHub is deliberately disabled on static Pages')` guards at `e2e/pages/pages-smoke.spec.ts:47,65`, not failed tests or disabled checks added for closure. No live GitHub OAuth/cookie verification is claimed. The core skip is the absent optional untracked host-legend golden; no golden was manufactured. The three legacy `it.fails` boundary probes remain characterization, not real operation acceptance; `layer-operations.test.ts` separately passed all 60 operation cases. Expected xkb non-character-module and mocked error-path diagnostics are not test failures. No environment/infrastructure blocker occurred. Bundle size remains a non-blocking warning; no refactor was authorized.
+
+### Phase-4 visual inspection and DOX pass
+
+Inspected both actual final gate-rendered CAP-001/CAP-003 PNGs and their generated HTML, even though regeneration produced no changed visual bytes. Both records remain honestly `Primary surface: human` and `Status: partial`; their current behavior, bounded source support and implementation/test links need no edits.
+
+- `docs/product/wireframes/exports/CAP-001-firmware-keymap-editing.png` — 1440×1840. The expanded table visibly lists Base/Lower/Raise with Duplicate and Move, with `Move · fixed` on Base. The separate Move Lower example shows destination `2 · Raise`, Apply move and Cancel; adjacent guidance states fixed layer zero and changed priority. The refusal panel names unverified sources/open drafts and GitHub/dev-local/source-less Clipboard restrictions. The Clipboard panel distinguishes UI `Lower copy` from raw-DTS `layer_4`. Full footer visible; no clipping or overlapping controls observed; small explanatory copy is dense but readable. SHA-256: `3c82bbb8abed454aa75f706e87913efec2c7432254484323f88e38c5723b5a5f`.
+- `docs/product/wireframes/exports/CAP-003-host-layouts-and-legends.png` — 1440×1640. Base/Raise/Lower row order agrees with `Moved Lower to position 2`; Base is marked fixed, all rows show Duplicate. The eye-identity text explains move/undo/redo/discard and no automatic copy visibility. Separate host-edit blocking and after-move panels state no discarded host glyphs, unchanged host tables/assemblies/dirty state and Demo/verified Clipboard restrictions. Full footer visible; no clipping/overlap observed, with dense but readable explanatory copy. SHA-256: `f1aeeb1dbb0a047bbe45b23744bdb50b458cac918d2a51ce31094ac27785f8d7`.
+
+These are schematic observations, not proof of runtime enforcement, firmware execution or OS installation. The behavior suites supply the separate executable evidence. CAP-002 and all canonical inventory/index assets also regenerate byte-identically; no visual edits or proposal promotion occurred.
+
+DOX pass: archived this verified CHG and updated `docs/changes/README.md` to remove it from the active queue, add the archive link and remove the obsolete instruction to start CHG-003. Corrected stale present-tense historical phase-status statements below. Root, docs, changes, product, wireframe and web `AGENTS.md` remain intentionally unchanged: no ownership, workflow or child boundary changed, and every Child DOX Index is still complete. CAPs, product index, architecture and ADRs remain unchanged because the phase verifies the existing bounded behavior rather than changing it. No review package exists to relocate or relink, and no other CHG starts.
+
+Post-edit validation initially exited 1 because the patch tool applied text edits but ignored its move directive: the done record remained in `active/`, and the archive link was broken. Completed the intended filesystem move without touching the index; `pnpm records:check && git diff --check` then exited 0. This corrected documentation-transition failure did not affect the successful full product gate. Repeat the record/diff check after the final receipt edits and retain it in `final-checks.log`.
+
+Freeze the complete unstaged tracked diff plus the untracked archive addition, not the tracked deletion alone. The external `review-manifest.json` binds the base, exact inventory, per-file hashes, inspected PNGs and evidence to `complete.patch`; reverse-apply/whitespace check and recapture comparison must pass before handoff. Keep the final patch hash outside this CHG to avoid self-reference. Fresh phase-4 Grok review is **pending**; hand off for operator `/new` then `/model grok` without claiming a model switch, approval, commit or deployment.
+
 ### Phase-3 scope
 
 Started from clean committed `af9912f1f597ff4f61eb40153979d2013bb876f0` on `main`, empty index, Node `24.21.0`, pnpm `9.15.0`. Direct operator request: “Continue autonomous execution with CHG-003 phase 3 only from clean committed HEAD af9912f. Read the final CHG-003 phase-2 record, root/web/docs/product/changes and wireframe DOX, CAP-001/CAP-003, relevant current components/tests/e2e before editing. First mark phase 3 in-progress. Implement only the human interaction/visual handoff: accessible duplicate and move controls in the layer row, keyboard-accessible controls plus drag/drop parity, focus/cancel/no-op semantics, browser/export/reparse coverage, and current CAP-001/CAP-003/canonical wireframe updates only for shipped behavior. Preserve phase-2 headless safety/provenance restrictions; no server/API expansion, staging, commit, push, deploy, credential changes, or phase 4. Run the exact phase-3 gate and inspect rendered visuals; record evidence, DOX pass, freeze complete unstaged diff for fresh Grok review. Report changed paths, commands/results, visual evidence, hash, and risks.”
 
-Phase 3 remains in progress only for independent review; phase 4 remains pending. The phase-2 receipt below describes the approved starting implementation, not current phase-3 review status.
+At that checkpoint, phase 3 awaited independent review and phase 4 had not started. The phase table and phase-4 receipt above are the current execution status; the phase-2 receipt below describes the approved starting implementation.
 
 ### Phase-3 resumed checkpoint
 
@@ -223,7 +262,7 @@ Inspected the actual final gate-rendered PNGs, not earlier HTML or a validator-o
 
 DOX pass: updated nearest web `AGENTS.md` for the visible shared transaction, captured move draft, external-drop refusal and focus/overlay contract; removed its obsolete “headless” qualifier. Root, docs, changes, product and wireframe DOX remain unchanged because their ownership, workflows and child indexes are unchanged. Core DOX, architecture and ADRs remain unchanged: this slice consumes existing phase-2 contracts rather than changing them. Existing CAP links/index entries still target the same generated pairs; no new child boundary or index entry is needed. No phase-4 progress or archive/index transition occurred.
 
-Freeze protocol: after record/diff checks, capture `git diff --binary --full-index --no-ext-diff HEAD`, append sorted `git diff --no-index --binary --full-index -- /dev/null <path>` for both untracked tests, and reject any unexpected path. Assert unchanged base and empty index, then `git apply --reverse --check --whitespace=error-all` the complete patch. The external `review-manifest.json` binds the SHA-256 complete patch, exact tracked/untracked inventory, per-file hashes, final visuals and gate/RED evidence. Re-capture and compare before handoff; do not put a self-referential final hash in this CHG. Keep the settled tree frozen for operator `/new` then `/model grok`; no model switch or independent approval is claimed here. Phase 3 awaits that review; phase 4 remains pending.
+Phase-3 freeze protocol: after record/diff checks, capture `git diff --binary --full-index --no-ext-diff HEAD`, append sorted `git diff --no-index --binary --full-index -- /dev/null <path>` for both untracked tests, and reject any unexpected path. Assert unchanged base and empty index, then `git apply --reverse --check --whitespace=error-all` the complete patch. The external `review-manifest.json` binds the SHA-256 complete patch, exact tracked/untracked inventory, per-file hashes, final visuals and gate/RED evidence. Re-capture and compare before handoff; do not put a self-referential final hash in this CHG. That checkpoint awaited review with phase 4 pending; the completed phase-3 result is recorded in the phase table above.
 
 ### Phase-2 original execution receipt
 
@@ -272,7 +311,7 @@ DOX pass: updated nearest core/web `AGENTS.md` for operation/source ownership, s
 
 Freeze protocol: capture `git diff --binary --full-index --no-ext-diff HEAD` and append sorted `git diff --no-index --binary --full-index -- /dev/null <path>` output for every non-ignored untracked file (exit 1 denotes differences). Assert the index is empty, the base is unchanged and the untracked inventory is exactly the two web and three core checkpoint files. Verify the combined patch with `git apply --reverse --check --whitespace=error-all`, then SHA-256 it. The external `review-manifest.json` records the complete patch hash, per-file and log hashes, base and exact path inventory; no self-referential hash is embedded here. Re-capture and compare before handoff. Keep all reviewed files unchanged until fresh Grok review.
 
-Implementation and requested gates are verified. Fresh Grok reviewed complete frozen patch `3db593010bc2b620cdad73743fe2301b83adf2f9b0da01e457da149629504075`, including the tracked and untracked paths, reverse-apply check, evidence hashes, contracts, source provenance, lifecycle and guard behavior, and returned **No findings**. Phase 2 is done; phases 3 and 4 remain pending. No UI controls, drag/drop, CAP/wireframes, staging, commit, push, deployment or credential changes occurred during implementation or review.
+Implementation and requested gates were verified. Fresh Grok reviewed complete frozen patch `3db593010bc2b620cdad73743fe2301b83adf2f9b0da01e457da149629504075`, including the tracked and untracked paths, reverse-apply check, evidence hashes, contracts, source provenance, lifecycle and guard behavior, and returned **No findings**. Phase 2 was done; phases 3 and 4 were pending at that checkpoint. No UI controls, drag/drop, CAP/wireframes, staging, commit, push, deployment or credential changes occurred during phase-2 implementation or review.
 
 ### Prior phase-1 receipt
 
