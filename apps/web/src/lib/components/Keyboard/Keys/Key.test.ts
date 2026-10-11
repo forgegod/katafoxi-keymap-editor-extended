@@ -143,6 +143,35 @@ describe('Key click editor', () => {
     expect(slot?.getAttribute('title')).toBe('Was &kp A')
   })
 
+  it('guards layer operations for this key until its session closes or unmounts', async () => {
+    open()
+    clickKey()
+    expect(editor.layerOperationBlocker?.()).toMatch(/key binding/)
+    await unmount(view!)
+    view = undefined
+    expect(editor.layerOperationBlocker?.()).toBeNull()
+  })
+
+  it('guards drafts retained on another row even after the current row editor closes', () => {
+    open({ layerBindings: threeLayerBindings })
+    const rows = stackRows()
+    rows[0].click()
+    flushSync()
+    clickChoice(document, 'X', '.key-editor-grid .key-editor-choice')
+    rows[2].click()
+    flushSync()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    flushSync()
+    expect(editorDialog()).toBeNull()
+    expect(editor.layerOperationBlocker()).toMatch(/key binding/)
+    rows[0].click()
+    flushSync()
+    expect(document.querySelector('.binding')?.textContent).toBe('&kp X')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    flushSync()
+    expect(editor.layerOperationBlocker()).toBeNull()
+  })
+
   it('opens the editor on the Key slot with the code grid visible', () => {
     open()
     clickKey()

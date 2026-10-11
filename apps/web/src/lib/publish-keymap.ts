@@ -19,6 +19,7 @@ export type PublishKeymapEditor = {
   githubMeta: GithubMeta | null
   layout: LayoutKey[] | null
   beginPublish(): number
+  captureLayerOperationSnapshot?(sentDraft: ParsedKeymap): boolean
   isPublishCurrent(
     token: number,
     source: string | null,
@@ -57,6 +58,7 @@ export async function publishKeymap(
   const committedHostBaseline =
     hostSnapshot != null ? encodeHostKeymapSnapshot(hostSnapshot) : undefined
   const sentDraft = cloneParsedKeymap(editor.draftKeymap as ParsedKeymap)
+  editor.captureLayerOperationSnapshot?.(sentDraft)
   try {
     const saveMeta = await handlers.write(sentDraft)
     try {

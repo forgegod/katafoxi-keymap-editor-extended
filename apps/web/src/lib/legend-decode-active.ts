@@ -62,6 +62,13 @@ export function lockedLegendDecodeKeyIndex(): number | null {
   return active?.locked ? active.keyIndex : null
 }
 
+/** A verified structural transaction invalidates every layer-scoped peek. */
+export function dismissLegendDecode(): void {
+  const previous = active
+  active = null
+  previous?.close()
+}
+
 /** Test helper (no-op outside test/dev). */
 export function resetLegendDecodeActive(): void {
   if (import.meta.env.MODE !== 'test' && !import.meta.env.DEV) return

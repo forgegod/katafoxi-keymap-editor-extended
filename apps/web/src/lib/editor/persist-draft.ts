@@ -15,6 +15,7 @@ import {
 import { adoptHoldTaps, adoptSensorBindings, cloneParsedKeymap } from './keymap-clone'
 import { PERSIST_DEBOUNCE_MS } from './types'
 import type { EditorState } from './state.svelte'
+import { cloneLayerSnapshot, layerBaselineFingerprint, type StoredLayerOperationState } from './layer-operation-state'
 
 const MISMATCHED_DRAFT_NOTICE =
   'The unpublished draft in this browser does not match the current keyboard layout. It was not restored.'
@@ -91,7 +92,7 @@ export async function _flushPersist(this: EditorState, token: number) {
       return
     }
     if (token !== this._persistGeneration) return
-    await saveStoredDraft(identity, cloneParsedKeymap(this.draftKeymap))
+    await saveStoredDraft(identity, cloneParsedKeymap(this.draftKeymap), this._storedLayerOperation())
   } catch (err) {
     if (import.meta.env.DEV) {
       console.warn('Failed to persist draft to IndexedDB', err)
@@ -136,7 +137,8 @@ export async function _maybeRestorePersistedDraft(this: EditorState, selectToken
   if (!stored) return
 
   try {
-    if (!draftMatchesLayout(this.layout, stored.draftKeymap)) {
+    if (!draftMatchesLayout(this.layout, stored.draftKeymap) ||
+      (stored.layerOperation && !validStoredLayerOperation.call(this, stored.layerOperation, stored.draftKeymap))) {
       await offerDiscardMismatchedDraft.call(
         this,
         identity,
@@ -147,7 +149,7 @@ export async function _maybeRestorePersistedDraft(this: EditorState, selectToken
     }
 
     // Stale clean record — drop without prompting.
-    if (diffKeymaps(this.baselineKeymap, stored.draftKeymap).length === 0) {
+    if (diffKeymaps(this.baselineKeymap, stored.draftKeymap).length === 0 && !stored.layerOperation) {
       this._handledDraftIdentityKey = identityKey
       try {
         await deleteStoredDraft(identity)
@@ -184,6 +186,12 @@ export async function _maybeRestorePersistedDraft(this: EditorState, selectToken
       adoptHoldTaps(cloneParsedKeymap(stored.draftKeymap), this.baselineKeymap),
       this.baselineKeymap
     )
+    if (stored.layerOperation) {
+      this.layerOperationSnapshot = cloneLayerSnapshot(stored.layerOperation.snapshot)
+      this._baselineLayerIds = [...stored.layerOperation.baselineIds]
+      this.layerView = { ...stored.layerOperation.view, shown: [...stored.layerOperation.view.shown] }
+      if (this.source === 'clipboard') this.clipboardOriginalSource = stored.layerOperation.snapshot.source
+    }
     this.clearHistory()
   } else {
     try {
@@ -225,5 +233,31 @@ async function offerDiscardMismatchedDraft(
 export function _draftIdentityMatches(this: EditorState, identityKey: string): boolean {
   const current = this.currentDraftIdentity()
   return current != null && draftIdentityKey(current) === identityKey
+}
+
+export function _storedLayerOperation(this: EditorState): StoredLayerOperationState | undefined {
+  if (!this.baselineKeymap || !this.layerOperationSnapshot?.identityAware) return undefined
+  return {
+    version: 1,
+    baselineFingerprint: layerBaselineFingerprint(this.baselineKeymap),
+    baselineSource: this._baselineClipboardSource,
+    baselineIds: [...this._baselineLayerIds],
+    snapshot: cloneLayerSnapshot(this.layerOperationSnapshot),
+    view: { ...this.layerView, shown: [...this.layerView.shown] }
+  }
+}
+
+function validStoredLayerOperation(this: EditorState, state: StoredLayerOperationState, draft: ParsedKeymap): boolean {
+  const idsValid = (ids: unknown, count: number): ids is string[] =>
+    Array.isArray(ids) && ids.length === count && ids.every(id => typeof id === 'string') && new Set(ids).size === count
+  return state.version === 1 && this.baselineKeymap !== null &&
+    state.baselineFingerprint === layerBaselineFingerprint(this.baselineKeymap) &&
+    state.baselineSource === this._baselineClipboardSource &&
+    idsValid(state.baselineIds, this.baselineKeymap.layers.length) &&
+    state.snapshot?.identityAware === true && idsValid(state.snapshot.ids, draft.layers.length) &&
+    (state.snapshot.source === null || typeof state.snapshot.source === 'string') &&
+    draftMatchesLayout(this.layout, state.snapshot.sourceModel) &&
+    Array.isArray(state.view?.shown) && state.view.shown.every(index => Number.isInteger(index) && index >= 0) &&
+    typeof state.view.layer0Raw === 'boolean'
 }
 

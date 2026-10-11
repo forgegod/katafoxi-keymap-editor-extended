@@ -145,6 +145,16 @@ describe('EncoderBar', () => {
     flushSync()
   }
 
+  it('guards layer operations while an encoder turn is staged', () => {
+    open([[volPair('C_VOL_UP', 'C_VOL_DN')], [], []])
+    byRole('button', 'Counter-clockwise 🔉').click()
+    flushSync()
+    expect(editor.layerOperationBlocker?.()).toMatch(/encoder binding/)
+    byRole('button', 'Cancel', editDialog()).click()
+    flushSync()
+    expect(editor.layerOperationBlocker?.()).toBeNull()
+  })
+
   it('updates the hovered layer turn when C_VOL_UP is applied', () => {
     open([[volPair('C_VOL_UP', 'C_VOL_DN')], [], [volPair('C_MUTE', 'C_VOL_DN')]])
     const spy = vi.spyOn(editor, 'updateSensorBinding')

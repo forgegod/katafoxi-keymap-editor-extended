@@ -5,6 +5,7 @@ import {
   comboKeysMessage,
   comboOverlapMessage,
   isBlankLayerBinding,
+  operateLayers,
   promoteAbsentLayoutKey,
   LAYER_REF_CLEARED_NOTE,
   remapCombosAfterLayerDelete,
@@ -13,6 +14,8 @@ import {
   remapShownLayersAfterDelete,
   type KeyBindingNode,
   type KeymapChange,
+  type LayerOperation,
+  type LayerOperationResult,
   type ParsedKeymap,
   type ZmkCombo,
   type ZmkConditionalLayer,
@@ -20,7 +23,9 @@ import {
 } from '@keymap-editor/keymap-core'
 import { cloneLayout, cloneParsedKeymap, cloneSensorBinding } from './keymap-clone'
 import { HISTORY_LIMIT } from './types'
+import { dismissLegendDecode } from '../legend-decode-active'
 import type { EditorState } from './state.svelte'
+import { cloneLayerSnapshot, initialLayerSnapshot, remapLayerIdentityView, type LayerOperationSnapshot } from './layer-operation-state'
 
 /**
  * In scheme mode, a real binding on an absent slot promotes it to a
@@ -34,7 +39,8 @@ export function promoteAbsentKey(this: EditorState, keyIndex: number, binding: K
 }
 
 export function isDirty(this: EditorState): boolean {
-  return this._changes.length > 0
+  return this._changes.length > 0 || Boolean(this.layerOperationSnapshot?.identityAware &&
+    JSON.stringify(this.layerOperationSnapshot.ids) !== JSON.stringify(this._baselineLayerIds))
 }
 
 export function changes(this: EditorState): KeymapChange[] {
@@ -76,6 +82,50 @@ export function clearHistory(this: EditorState) {
   this.redoStack = []
 }
 
+export function reorderLayers(this: EditorState, order: number[]): LayerOperationResult {
+  return applyLayerOperation.call(this, { kind: 'reorder', order })
+}
+
+export function duplicateLayer(this: EditorState, index: number): LayerOperationResult {
+  return applyLayerOperation.call(this, { kind: 'duplicate', index })
+}
+
+function applyLayerOperation(this: EditorState, operation: LayerOperation): LayerOperationResult {
+  const keymap = this.draftKeymap
+  const snapshot = this.layerOperationSnapshot
+  const refuse = (error: string): LayerOperationResult => {
+    this.saveNotice = { kind: 'warning', messages: [error] }
+    return { ok: false, error }
+  }
+  if (!keymap || !this.layout || !snapshot) return refuse('Load a document with verified layer identity first.')
+  if (operation.kind === 'reorder' && operation.order.length === keymap.layers.length && Array.from(operation.order).every((old, i) => old === i)) {
+    return { ok: true, changed: false, keymap, source: snapshot.source, oldToNew: [...operation.order] }
+  }
+  const blocker = this.layerOperationBlocker()
+  if (blocker) return refuse(blocker)
+  if (snapshot.ids.length !== keymap.layers.length) return refuse('Layer identity is stale. Reload the saved document before changing layer order.')
+  if (this.source === 'clipboard' && snapshot.source !== this.clipboardOriginalSource) return refuse('Source revision changed. Reload before changing layers.')
+  const provenance = this.source === 'clipboard' || this.source === 'demo'
+    ? snapshot.source
+      ? { kind: 'source' as const, originalSource: snapshot.source, baseline: snapshot.sourceModel }
+      : this.source === 'demo' ? { kind: 'source-free' as const } : { kind: 'unverified' as const }
+    : { kind: 'unverified' as const }
+  const result = operateLayers({ keymap, layout: this.layout, operation, provenance })
+  if (!result.ok) return refuse(result.error)
+  if (!result.changed) return result
+  // Recheck mounted owners at the exact commit boundary, not only in future controls.
+  const lateBlocker = this.layerOperationBlocker()
+  if (lateBlocker) return refuse(lateBlocker)
+  this.updateKeymap(result.keymap, {
+    ids: operation.kind === 'reorder' ? operation.order.map(old => snapshot.ids[old]) : [...snapshot.ids, `added:${crypto.randomUUID()}`],
+    source: result.source,
+    sourceModel: cloneParsedKeymap(result.keymap),
+    identityAware: true
+  })
+  this.legendHover = null
+  return result
+}
+
 export function addLayer(this: EditorState) {
   const km = this.draftKeymap
   if (!km) return
@@ -96,6 +146,9 @@ export function addLayer(this: EditorState) {
     ]
   }
   this.updateKeymap(next)
+  if (this.layerOperationSnapshot) {
+    this.layerOperationSnapshot = { ...this.layerOperationSnapshot, ids: [...this.layerOperationSnapshot.ids, `added:${crypto.randomUUID()}`] }
+  }
 }
 
 export function renameLayer(this: EditorState, index: number, name: string) {
@@ -128,6 +181,9 @@ export function deleteLayer(this: EditorState, index: number) {
   }
   const remapped = remapKeymapLayerRefsAfterDelete(next, index)
   this.updateKeymap(remapped.keymap)
+  if (this.layerOperationSnapshot) {
+    this.layerOperationSnapshot = { ...this.layerOperationSnapshot, ids: this.layerOperationSnapshot.ids.filter((_, i) => i !== index) }
+  }
   if (remapped.cleared) {
     this.saveNotice = { kind: 'warning', messages: [LAYER_REF_CLEARED_NOTE] }
   }
@@ -197,7 +253,7 @@ export function updateConditionalLayers(this: EditorState, conditionalLayers: Zm
   this.updateKeymap({ ...km, conditionalLayers })
 }
 
-export function updateKeymap(this: EditorState, next: ParsedKeymap) {
+export function updateKeymap(this: EditorState, next: ParsedKeymap, layerSnapshot?: LayerOperationSnapshot) {
   const stagedHoldTaps = this._holdTapsOnNextUpdate
   this._holdTapsOnNextUpdate = null
   if (stagedHoldTaps) next = { ...next, holdTaps: stagedHoldTaps }
@@ -206,6 +262,7 @@ export function updateKeymap(this: EditorState, next: ParsedKeymap) {
   if (stagedRgb === true) next = { ...next, rgbLayerRecipe: true }
   if (this.draftKeymap) {
     const prev = cloneParsedKeymap(this.draftKeymap)
+    if (this.layerOperationSnapshot) this._layerHistory.set(prev, cloneLayerSnapshot(this.layerOperationSnapshot))
     const stack = [...this.undoStack, prev]
     this.undoStack =
       stack.length > HISTORY_LIMIT
@@ -214,6 +271,7 @@ export function updateKeymap(this: EditorState, next: ParsedKeymap) {
     this.redoStack = []
   }
   this.draftKeymap = next
+  if (layerSnapshot) restoreLayerSnapshot.call(this, layerSnapshot)
   this.schedulePersist()
 }
 
@@ -319,8 +377,12 @@ export function undo(this: EditorState) {
   const stack = this.undoStack
   const prev = stack[stack.length - 1]
   this.undoStack = stack.slice(0, -1)
-  this.redoStack = [...this.redoStack, cloneParsedKeymap(this.draftKeymap)]
+  const current = cloneParsedKeymap(this.draftKeymap)
+  if (this.layerOperationSnapshot) this._layerHistory.set(current, cloneLayerSnapshot(this.layerOperationSnapshot))
+  this.redoStack = [...this.redoStack, current]
   this.draftKeymap = cloneParsedKeymap(prev)
+  const previousLayerSnapshot = this._layerHistory.get(prev)
+  if (previousLayerSnapshot) restoreLayerSnapshot.call(this, previousLayerSnapshot)
   syncActiveComboId.call(this, this.draftKeymap.combos)
   this.schedulePersist()
 }
@@ -330,8 +392,12 @@ export function redo(this: EditorState) {
   const stack = this.redoStack
   const next = stack[stack.length - 1]
   this.redoStack = stack.slice(0, -1)
-  this.undoStack = [...this.undoStack, cloneParsedKeymap(this.draftKeymap)]
+  const current = cloneParsedKeymap(this.draftKeymap)
+  if (this.layerOperationSnapshot) this._layerHistory.set(current, cloneLayerSnapshot(this.layerOperationSnapshot))
+  this.undoStack = [...this.undoStack, current]
   this.draftKeymap = cloneParsedKeymap(next)
+  const nextLayerSnapshot = this._layerHistory.get(next)
+  if (nextLayerSnapshot) restoreLayerSnapshot.call(this, nextLayerSnapshot)
   syncActiveComboId.call(this, this.draftKeymap.combos)
   this.schedulePersist()
 }
@@ -344,11 +410,31 @@ export function redo(this: EditorState) {
  */
 export async function discardDraft(this: EditorState): Promise<boolean> {
   if (!this.baselineKeymap || !this.draftKeymap || !this.isDirty) return false
+  restoreLayerSnapshot.call(this, {
+    ...initialLayerSnapshot(this.baselineKeymap, this._baselineClipboardSource),
+    ids: [...this._baselineLayerIds]
+  })
   this.draftKeymap = cloneParsedKeymap(this.baselineKeymap)
   this.layout = cloneLayout(this.baselineLayout)
   this.clearHistory()
   this.saveNotice = null
   await this.clearPersistedDraft()
   return true
+}
+
+function restoreLayerSnapshot(this: EditorState, snapshot: LayerOperationSnapshot) {
+  const current = this.layerOperationSnapshot
+  if (current && (current.identityAware || snapshot.identityAware)) {
+    this.layerView = remapLayerIdentityView(this.layerView, current.ids, snapshot.ids)
+    this.legendHover = null
+    dismissLegendDecode()
+  }
+  // Identity tracking is sticky within a loaded session: an asynchronous copy
+  // may still accept the reordered baseline after undo reaches a pre-move step.
+  this.layerOperationSnapshot = {
+    ...cloneLayerSnapshot(snapshot),
+    identityAware: Boolean(current?.identityAware || snapshot.identityAware)
+  }
+  if (this.source === 'clipboard') this.clipboardOriginalSource = snapshot.source
 }
 

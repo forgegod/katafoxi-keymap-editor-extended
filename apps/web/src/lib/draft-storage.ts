@@ -4,6 +4,7 @@
  */
 
 import type { ParsedKeymap } from '@keymap-editor/keymap-core'
+import type { StoredLayerOperationState } from './editor/layer-operation-state'
 
 import { idbRequest, openDb, txDone } from './idb'
 
@@ -25,6 +26,7 @@ export type StoredDraft = DraftIdentity & {
   /** Primary key = {@link draftIdentityKey}. */
   id: string
   draftKeymap: ParsedKeymap
+  layerOperation?: StoredLayerOperationState
   updatedAt: number
 }
 
@@ -99,12 +101,14 @@ export async function loadStoredDraft(
 
 export async function saveStoredDraft(
   identity: DraftIdentity,
-  draftKeymap: ParsedKeymap
+  draftKeymap: ParsedKeymap,
+  layerOperation?: StoredLayerOperationState
 ): Promise<void> {
   const record: StoredDraft = {
     ...identity,
     id: draftIdentityKey(identity),
     draftKeymap,
+    ...(layerOperation ? { layerOperation } : {}),
     updatedAt: Date.now()
   }
 

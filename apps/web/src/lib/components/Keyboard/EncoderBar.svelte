@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { flushSync } from 'svelte'
+  import { flushSync, onDestroy } from 'svelte'
   import {
     encodeKeyBinding,
     getBehaviorCatalog,
@@ -82,6 +82,9 @@
     const row = getKeycodeCatalog().byCode[String(code)]
     return keycapLegend(code, row?.symbol)
   }
+  onDestroy(editor.registerLayerOperationGuard(() =>
+    editing || session.editing || Object.keys(session.draftByRow).length ? 'encoder binding' : null
+  ))
 
   function turnTitle(binding: KeyBindingNode): string {
     try {

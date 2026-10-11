@@ -5,6 +5,14 @@ import { extractErrorMessages } from './helpers'
 import { cloneLayout, cloneParsedKeymap } from './keymap-clone'
 import type { EditorState } from './state.svelte'
 import type { GithubMeta } from './types'
+import { cloneLayerSnapshot, initialLayerSnapshot } from './layer-operation-state'
+
+/** Bind an asynchronous copy receipt to its exact source/identity snapshot. */
+export function captureLayerOperationSnapshot(this: EditorState, sentDraft: ParsedKeymap): boolean {
+  if (!this.layerOperationSnapshot) return false
+  this._layerHistory.set(sentDraft, cloneLayerSnapshot(this.layerOperationSnapshot))
+  return this.layerOperationSnapshot.identityAware
+}
 
 export function beginPublish(this: EditorState): number {
   this._publishGeneration += 1
@@ -50,17 +58,36 @@ export function applyPublished(
   saveMeta?: unknown,
   sentDraft?: ParsedKeymap | null
 ) {
+  const liveLayer = this.layerOperationSnapshot
+  const publishedLayer = (sentDraft ? this._layerHistory.get(sentDraft) : liveLayer) ?? initialLayerSnapshot(reloaded, this.clipboardOriginalSource)
+  this._baselineLayerIds = [...publishedLayer.ids]
+  this._baselineClipboardSource = this.source === 'clipboard' ? this.clipboardOriginalSource : null
   this.baselineKeymap = cloneParsedKeymap(reloaded)
   if (this.layout) this.baselineLayout = cloneLayout(this.layout)
   const draftUnchanged =
     !sentDraft ||
     !this.draftKeymap ||
-    diffKeymaps(sentDraft, this.draftKeymap).length === 0
+    (diffKeymaps(sentDraft, this.draftKeymap).length === 0 &&
+      (!liveLayer || JSON.stringify(liveLayer.ids) === JSON.stringify(publishedLayer.ids)))
   if (draftUnchanged) {
     this.draftKeymap = cloneParsedKeymap(this.baselineKeymap)
+    this.layerOperationSnapshot = {
+      ...cloneLayerSnapshot(publishedLayer),
+      source: this._baselineClipboardSource,
+      sourceModel: cloneParsedKeymap(reloaded)
+    }
     this.clearHistory()
     void this.clearPersistedDraft()
   } else {
+    if (liveLayer && JSON.stringify(liveLayer.ids) === JSON.stringify(publishedLayer.ids)) {
+      this.layerOperationSnapshot = {
+        ...cloneLayerSnapshot(liveLayer),
+        source: this._baselineClipboardSource,
+        sourceModel: cloneParsedKeymap(reloaded)
+      }
+    } else if (liveLayer && this.source === 'clipboard') {
+      this.clipboardOriginalSource = liveLayer.source
+    }
     this.schedulePersist()
   }
   const warnings = formatKeymapSaveWarnings(
@@ -82,8 +109,8 @@ export function applyClipboardCopied(
   applyPublished.call(this, reloaded, undefined, sentDraft)
   this.saveNotice = null
   const identity = this.currentDraftIdentity()
-  if (identity && this.clipboardOriginalSource) {
-    writeClipboardOriginalSource(identity, this.clipboardOriginalSource)
+  if (identity && this._baselineClipboardSource) {
+    writeClipboardOriginalSource(identity, this._baselineClipboardSource)
   }
 }
 

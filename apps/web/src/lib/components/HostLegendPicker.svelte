@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte'
   import {
     conditionalLayerRowPeer,
     conditionalLayerWhenTitle,
@@ -54,6 +55,12 @@
   let sizerWidth = $state(0)
   let sizerHeight = $state(0)
   const busy = $derived(renamingIndex != null || pendingDelete != null || editingWhen)
+  onDestroy(editor.registerLayerOperationGuard(() => {
+    if (renamingIndex != null) return 'layer name'
+    if (pendingDelete != null) return 'layer deletion'
+    if (editingWhen) return 'conditional rule'
+    return null
+  }))
   const open = $derived(forceOpen || hovered || focused || busy)
 
   function captureRestingSize() {

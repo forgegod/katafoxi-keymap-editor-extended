@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte'
   import {
     behaviorKeycapRole,
     composeLegendDecode,
@@ -113,6 +114,9 @@
     void editor.hostLayoutRevision
     return composeLayerRows(stackBindings, hostView, layerView)
   })
+  onDestroy(editor.registerLayerOperationGuard(() =>
+    session.editing || Object.keys(session.draftByRow).length ? 'key binding' : null
+  ))
   const activeHostView = $derived(hostView ?? editor.hostLegend)
   /** Session face: every host language as its own row, firmware layers other than 0 hidden. */
   const multilangOn = $derived(editor.multilangViewOn)

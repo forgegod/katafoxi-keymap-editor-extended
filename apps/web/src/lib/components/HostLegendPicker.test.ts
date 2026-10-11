@@ -83,6 +83,35 @@ describe('HostLegendPicker', () => {
     return strip
   }
 
+  it('guards layer operations while a layer name is staged', async () => {
+    await open(keymapOf(['Base', 'Raise']))
+    hoverStrip()
+    const name = target.querySelector('button.layer-name') as HTMLButtonElement
+    name.click()
+    flushSync()
+    expect(editor.layerOperationBlocker?.()).toMatch(/layer name/)
+    target.querySelector('input.layer-name')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    flushSync()
+    expect(editor.layerOperationBlocker?.()).toBeNull()
+  })
+
+  it('guards pending deletion and conditional drafts independently', async () => {
+    await open(keymapOf(['Base', 'Lower', 'Raise']))
+    const strip = hoverStrip()
+    target.querySelector('[aria-label="Delete layer Lower"]')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    flushSync()
+    expect(editor.layerOperationBlocker()).toMatch(/layer deletion/)
+    strip.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    flushSync()
+    expect(editor.layerOperationBlocker()).toBeNull()
+    ;(target.querySelector('.add-when') as HTMLButtonElement).click()
+    flushSync()
+    expect(editor.layerOperationBlocker()).toMatch(/conditional rule/)
+    ;(target.querySelector('.when-cancel') as HTMLButtonElement).click()
+    flushSync()
+    expect(editor.layerOperationBlocker()).toBeNull()
+  })
+
   it('hides firmware layers and shows every language while languages are stacked', async () => {
     await open(keymapOf(['default', 'raise', 'adjust']))
     editor.hostLegend = addHostLanguage(addHostLanguage(editor.hostLegend, 'ru'), 'uk')

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte'
   import {
     COMBO_MAX_KEYS,
     COMBO_MIN_KEYS,
@@ -123,6 +124,10 @@
       if (patch.id) editor.activeComboId = patch.id
     }
   })
+
+  onDestroy(editor.registerLayerOperationGuard(() =>
+    session.editing || Object.keys(session.draftByRow).length ? 'combo binding' : null
+  ))
 
   function patchActive(patch: Partial<ZmkCombo>) {
     if (!active) return

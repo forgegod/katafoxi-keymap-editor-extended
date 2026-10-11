@@ -36,6 +36,7 @@ import * as hostRepo from './host-repo'
 import * as persistDraft from './persist-draft'
 import * as publishBridge from './publish-bridge'
 import * as selectKeyboardApi from './select-keyboard'
+import type { LayerOperationSnapshot } from './layer-operation-state'
 import type {
   GithubMeta,
   HostProfilePrompt,
@@ -96,6 +97,12 @@ export class EditorState {
   /** When true, the next keymap update sets `rgbLayerRecipe` so Save inserts the node. */
   _rgbLayerRecipeOnNextUpdate: boolean | null = null
   redoStack = $state.raw<ParsedKeymap[]>([])
+  layerOperationSnapshot = $state.raw<LayerOperationSnapshot | null>(null)
+  _baselineLayerIds = $state.raw<string[]>([])
+  _baselineClipboardSource: string | null = null
+  _layerHistory = new WeakMap<ParsedKeymap, LayerOperationSnapshot>()
+  /** Mounted owners register synchronous readers, not asynchronously mirrored flags. */
+  _layerDraftGuards = new Map<symbol, () => string | null>()
   saving = $state(false)
   /** View over the host profile. It does not edit the keymap. */
   _hostLegend = $state<HostLegendView>(standardHostLegendView())
@@ -232,6 +239,25 @@ export class EditorState {
     this.legendHover = hover
   }
 
+  registerLayerOperationGuard(read: () => string | null): () => void {
+    const token = Symbol('layer draft')
+    this._layerDraftGuards.set(token, read)
+    return () => { this._layerDraftGuards.delete(token) }
+  }
+
+  layerOperationBlocker(): string | null {
+    if (this.saving) return 'Wait for publication to finish.'
+    if (this.hostEditSession) return 'Close the host edit session before changing layers.'
+    if (this._holdTapsOnNextUpdate || this._rgbLayerRecipeOnNextUpdate !== null) {
+      return 'Finish the staged binding definition before changing layers.'
+    }
+    for (const read of this._layerDraftGuards.values()) {
+      const reason = read()
+      if (reason) return `Close the ${reason} draft before changing layers.`
+    }
+    return null
+  }
+
   initCatalogs() {
     this.definitions = {
       keycodes: getKeycodeCatalog(),
@@ -256,6 +282,10 @@ export class EditorState {
     this.source = null
     this.githubMeta = null
     this.clipboardOriginalSource = null
+    this._baselineClipboardSource = null
+    this.layerOperationSnapshot = null
+    this._baselineLayerIds = []
+    this._layerHistory = new WeakMap()
     this.layout = null
     this.baselineLayout = null
     this.baselineKeymap = null

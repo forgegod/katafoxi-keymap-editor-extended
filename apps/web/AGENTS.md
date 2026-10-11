@@ -24,6 +24,12 @@ Layer-view tests distinguish stored preferences from effective rendered layers. 
 
 Capture the sent document before async publish/copy I/O. Accept only that baseline and preserve newer edits; session-generation guards also own saving-lock cleanup. Export-sheet retries accept the sheet's captured document, never the current draft.
 
+Headless layer operations delegate to core and commit document/source/identity together. Demo is positively source-free; Clipboard requires its actual source revision. GitHub/local operations remain refused until their real save inputs are available. No source omission implies safety.
+
+Keep logical layer IDs and source snapshots with undo/redo, copied baselines and versioned draft metadata; restore current eye preferences by identity, including discard after recovery with no history. Once used, identity tracking survives undo to a pre-operation step so delayed copy receipts cannot erase identity-only dirty state. Capture layer metadata for both publish and copy. It never enters firmware JSON or host snapshots.
+
+Every mounted key, encoder, combo-binding and layer-picker draft owner registers a synchronous operation guard and unregisters on destruction. Guard retained row drafts as well as visible sessions; check publication, host editing and staged definitions again at the transaction boundary. Structural operations clear central hover and the local decode owner, not host layout data.
+
 ## Verification
 
 From repository root: pnpm --filter @keymap-editor/web test; pnpm --filter @keymap-editor/web lint. Use Node 24 LTS for verification; Node 26 currently causes happy-dom storage failures.

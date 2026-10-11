@@ -20,6 +20,7 @@ import { formatKeymapSaveWarningNotices } from '../keymap-save-warnings.js'
 import { adoptHoldTaps, adoptSensorBindings, cloneLayout, cloneParsedKeymap } from './keymap-clone'
 import type { EditorState } from './state.svelte'
 import type { GithubKeyboardSelection, KeyboardSelection } from './types'
+import { initialLayerSnapshot } from './layer-operation-state'
 
 export async function selectKeyboard(this: EditorState, event: KeyboardSelection) {
   const selectToken = ++this._selectGeneration
@@ -84,6 +85,11 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
   this.activeComboId = null
   this.comboNotice = null
   const km = event.keymap ?? null
+  if (!keepLiveDraft) {
+    this.layerOperationSnapshot = km ? initialLayerSnapshot(km, this.clipboardOriginalSource) : null
+    this._baselineLayerIds = [...(this.layerOperationSnapshot?.ids ?? [])]
+    this._baselineClipboardSource = this.clipboardOriginalSource
+  }
   if (!km) {
     this.baselineKeymap = null
     this.draftKeymap = null

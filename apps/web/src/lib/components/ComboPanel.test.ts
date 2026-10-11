@@ -59,6 +59,17 @@ describe('ComboPanel', () => {
     flushSync()
   }
 
+  it('guards a staged combo output independently of key sessions', () => {
+    mountPanel()
+    const binding = [...target.querySelectorAll('button')].find(el => el.textContent?.trim() === 'Binding')!
+    binding.click()
+    flushSync()
+    expect(editor.layerOperationBlocker()).toMatch(/combo binding/)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    flushSync()
+    expect(editor.layerOperationBlocker()).toBeNull()
+  })
+
   it('lists the active combo and turns prior idle on and off', () => {
     mountPanel()
 

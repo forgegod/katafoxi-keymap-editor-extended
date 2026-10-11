@@ -25,6 +25,7 @@ export type ClipboardCopyEditor = {
   clipboardOriginalSource: string | null
   saveNotice: SaveNotice | null
   beginPublish(): number
+  captureLayerOperationSnapshot?(sentDraft: ParsedKeymap): boolean
   isPublishCurrent(token: number, source: string | null, github: GithubMeta | null): boolean
   applyClipboardCopied(reloaded: ParsedKeymap, saveMeta?: unknown, sentDraft?: ParsedKeymap): void
 }
@@ -42,6 +43,7 @@ export async function copyClipboardKeymap(
   editor.saving = true
   const token = editor.beginPublish()
   const sentDraft = cloneParsedKeymap(editor.draftKeymap)
+  const layerIdentityCaptured = editor.captureLayerOperationSnapshot?.(sentDraft) ?? false
   try {
     const built = buildClipboardExport(
       editor.layout,
@@ -53,6 +55,7 @@ export async function copyClipboardKeymap(
       keymap: typeof sentDraft.keymap === 'string' ? sentDraft.keymap : 'clipboard',
       layout: typeof sentDraft.layout === 'string' ? sentDraft.layout : 'LAYOUT'
     }))
+    if (layerIdentityCaptured && sentDraft.layer_names) reloaded.layer_names = [...sentDraft.layer_names]
     const onCopied = () => {
       if (!editor.isPublishCurrent(token, 'clipboard', null)) return
       editor.clipboardOriginalSource = built.code
