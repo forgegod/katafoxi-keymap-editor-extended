@@ -18,6 +18,10 @@ JSON validation and primary-source detection retain `&reset` as an exact legacy 
 
 Add focused round-trip and locality tests for file transformations. Preserve unknown external binding parameters. ZMK macros are not C preprocessor aliases. Demo boards belong in fixtures.
 
+Specification-only layer-operation probes live in `src/layer-operation-boundary.test.ts`, owned by CHG-003. They characterize existing seams, not shipped duplicate/reorder behavior. Expected-failure probes run with `it.fails` normally; `CHG003_RED=1` exposes their ordinary assertion failures for review. Do not count those probes as passing operation acceptance or implement their fixes outside the owning phase.
+
+Keep schema-free helper preservation separate from future declaration-aware remapping. Characterize existing conditional sorting (duplicates retained), global combo filters, and source-loss boundaries without changing serializers to satisfy proposed operation oracles.
+
 ## Verification
 
 From repository root: pnpm --filter @keymap-editor/keymap-core test; pnpm --filter @keymap-editor/keymap-core lint.
