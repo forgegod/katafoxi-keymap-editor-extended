@@ -10,6 +10,9 @@
 - Accept/Cancel end the host-edit session; Cancel is not rollback of already chosen glyphs. ZMK undo/redo does not undo host-layout edits.
 - Host language/profile selections and user layouts persist in the browser. Users can import supported xkb/KLC layouts and download Linux xkb or Windows .klc deliverables through the Host lane.
 - On GitHub, the host snapshot and generated host deliverables can accompany the firmware commit. A loaded repository snapshot takes precedence over cached host state; host repository changes and OS-install status are separate signals.
+- Focusing or hovering the layer strip expands its firmware rows. With Stack off, each row exposes Duplicate and Move; keyboard position selection and drag/drop share the [firmware operation boundary](CAP-001-firmware-keymap-editing.md). The base Move control announces that layer zero stays fixed. These controls are hidden in the resting strip and language-stack mode.
+- Firmware reorder recomposes legends and maps current eye preferences by logical layer through move, undo, redo and discard, including recovered drafts with no undo history. Unavailable stored layer marks and the raw-base preference are retained. Duplicate leaves eye preferences unchanged rather than automatically showing the copy.
+- Structural firmware operations clear transient hover/decode ownership without changing host language tables, assemblies, host repository dirty state or OS-delivery state. Moves change firmware priority, not host layout contents; existing conditional-layer cover warnings reflect the new indices. An open host-edit session blocks the operation rather than being discarded.
 
 ## Implementation
 
@@ -21,6 +24,8 @@
 - `apps/web/src/lib/components/LegendDecodeCard.svelte`
 - `apps/web/src/lib/components/HostPipeline.svelte`
 - `apps/web/src/lib/editor/host-repo.ts`
+- `apps/web/src/lib/components/HostLegendPicker.svelte` and `apps/web/src/lib/components/HostLegendLayerRow.svelte` — expanded firmware rows, keyboard/drag controls and feedback.
+- `apps/web/src/lib/editor/document.svelte.ts` and `apps/web/src/lib/editor/persist-draft.ts` — logical layer/view identity across history and recovery.
 
 ## Rules and boundaries
 
@@ -41,6 +46,10 @@
 - `packages/keymap-core/src/klc-write.test.ts` — KLC output.
 - `e2e/host-install.spec.ts` — real browser downloads produce parseable Windows/Linux files.
 - `e2e/demo.spec.ts` — host edits persist across demo selection.
+- [Layer picker tests](../../../apps/web/src/lib/components/HostLegendPicker.test.ts) — resting/expanded rows, focus access, raw base view, eye toggles and language-stack behavior.
+- [Layer operation component tests](../../../apps/web/src/lib/components/HostLegendPicker.layer-operations.test.ts) — source-control/moved-control focus, cancel/no-op, mapped eyes and unchanged host legend.
+- [Layer lifecycle tests](../../../apps/web/src/lib/editor.layer-operations.test.ts) — composed row/conditional warning updates, eye identity through undo/redo/recovery/discard, host-state isolation and host-edit refusal.
+- [Layer operation browser tests](../../../e2e/layer-operations.spec.ts) — keyboard/native-drag parity, visible remapped binding, copy visibility preference, focus, cancel and safe export/re-import.
 
 The linked tests prove the named bounded outcomes, not full ZMK/OS compatibility. Run the root unit and browser gates; generated schematics are not executable evidence.
 

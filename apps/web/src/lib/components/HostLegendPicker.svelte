@@ -1,11 +1,12 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte'
+  import { onDestroy, tick } from 'svelte'
   import {
     conditionalLayerRowPeer,
     conditionalLayerWhenTitle,
     hostLanguagesAvailable,
     hostLegendColumns,
-    type HostLanguageId
+    type HostLanguageId,
+    type ParsedKeymap
   } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
   import { clickOutside } from '../actions/click-outside'
@@ -48,20 +49,29 @@
   let editing = $state('')
   let pendingDelete = $state<{ index: number; name: string } | null>(null)
   let editingWhen = $state(false)
+  let operationMessage = $state('')
+  // Capture the actual draft, not just an index that another edit could retarget.
+  type MoveDraft = { index: number; document: ParsedKeymap }
+  let pendingMove = $state.raw<MoveDraft | null>(null)
+  let draggedMove = $state.raw<MoveDraft | null>(null)
+  let dropTarget = $state<number | null>(null)
+  let restoringFocus = $state(false)
+  let moveTarget = $state(1)
   let stripEl: HTMLDivElement | undefined = $state()
   let panelEl: HTMLDivElement | undefined = $state()
   let confirmDeleteBtn: HTMLButtonElement | undefined = $state()
   /** Resting strip size while the overlay is expanded (panel is position:absolute). */
   let sizerWidth = $state(0)
   let sizerHeight = $state(0)
-  const busy = $derived(renamingIndex != null || pendingDelete != null || editingWhen)
+  const busy = $derived(renamingIndex != null || pendingDelete != null || editingWhen || pendingMove != null)
   onDestroy(editor.registerLayerOperationGuard(() => {
     if (renamingIndex != null) return 'layer name'
     if (pendingDelete != null) return 'layer deletion'
     if (editingWhen) return 'conditional rule'
+    if (pendingMove) return 'layer move'
     return null
   }))
-  const open = $derived(forceOpen || hovered || focused || busy)
+  const open = $derived(forceOpen || hovered || focused || busy || draggedMove != null || restoringFocus)
 
   function captureRestingSize() {
     const body = panelEl?.querySelector('.legend-body')
@@ -108,14 +118,128 @@
   function handleMouseLeave() {
     hovered = false
     if (busy) return
-    focused = false
     const active = document.activeElement
+    // Pointer movement must not dismiss keyboard-focused structural controls.
+    if (active instanceof HTMLElement && stripEl?.contains(active) && active.matches('[data-layer-action]')) return
+    focused = false
     if (active instanceof HTMLElement && stripEl?.contains(active)) active.blur()
   }
 
   function cancelRename() {
     renamingIndex = null
     editing = ''
+  }
+
+  async function focusLayerAction(index: number, action: 'duplicate' | 'move') {
+    const currentDocument = editor.draftKeymap
+    // Removing the select fires focusout before the replacement control can focus.
+    restoringFocus = true
+    await tick()
+    if (editor.draftKeymap === currentDocument) {
+      panelEl?.querySelector<HTMLButtonElement>(`tr[data-layer="${index}"] [data-layer-action="${action}"]`)?.focus()
+    }
+    restoringFocus = false
+  }
+
+  function duplicateLayer(index: number) {
+    const result = editor.duplicateLayer(index)
+    operationMessage = result.ok
+      ? `Appended ${editor.hostLegendLayerNames.at(-1)}. References still target the original layers.`
+      : result.error
+    void focusLayerAction(index, 'duplicate')
+  }
+
+  function startMove(index: number) {
+    if (index === 0) {
+      operationMessage = 'Layer 0 stays fixed. Duplicate it to append a non-default copy.'
+      return
+    }
+    const blocker = editor.layerOperationBlocker()
+    if (blocker) {
+      operationMessage = blocker
+      return
+    }
+    if (!editor.draftKeymap) return
+    pendingMove = { index, document: editor.draftKeymap }
+    moveTarget = index
+    operationMessage = ''
+  }
+
+  function cancelMove(restoreFocus = true) {
+    const index = pendingMove?.index
+    pendingMove = null
+    if (index == null) return
+    operationMessage = 'Layer move cancelled. No changes.'
+    if (restoreFocus) void focusLayerAction(index, 'move')
+  }
+
+  function performMove(move: MoveDraft, target: number) {
+    if (editor.draftKeymap !== move.document) {
+      operationMessage = 'The document changed. Choose the layer again before moving it.'
+      void focusLayerAction(move.index, 'move')
+      return
+    }
+    if (move.index === 0 || target === 0) {
+      operationMessage = 'Layer 0 stays fixed. Choose a nonzero position.'
+      void focusLayerAction(move.index, 'move')
+      return
+    }
+    const order = move.document.layers.map((_, index) => index)
+    order.splice(target, 0, order.splice(move.index, 1)[0])
+    const name = layerNames[move.index]
+    const result = editor.reorderLayers(order)
+    operationMessage = !result.ok ? result.error : result.changed
+      ? `Moved ${name} to position ${target}. Layer priority changed; reference targets were preserved.`
+      : 'Layer position unchanged. No changes.'
+    void focusLayerAction(result.ok ? target : move.index, 'move')
+  }
+
+  function startDrag(event: DragEvent, index: number) {
+    const blocker = editor.layerOperationBlocker()
+    if (index === 0 || blocker || !editor.draftKeymap || !event.dataTransfer) {
+      event.preventDefault()
+      operationMessage = blocker ?? 'Layer 0 stays fixed.'
+      return
+    }
+    draggedMove = { index, document: editor.draftKeymap }
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', layerNames[index])
+    operationMessage = `Moving ${layerNames[index]}. Drop on a Move control to use its position; Escape cancels.`
+  }
+
+  function dragOver(event: DragEvent, index: number) {
+    if (!draggedMove) return
+    event.preventDefault()
+    dropTarget = index > 0 ? index : null
+    if (event.dataTransfer) event.dataTransfer.dropEffect = index > 0 ? 'move' : 'none'
+  }
+
+  function dropMove(event: DragEvent, index: number) {
+    const move = draggedMove
+    if (!move) return // Never interpret an external drag payload as an operation.
+    event.preventDefault()
+    draggedMove = null
+    dropTarget = null
+    performMove(move, index)
+  }
+
+  function cancelDrag() {
+    const move = draggedMove
+    draggedMove = null
+    dropTarget = null
+    if (!move) return
+    operationMessage = 'Layer move cancelled. No changes.'
+    void focusLayerAction(move.index, 'move')
+  }
+
+  function applyMove() {
+    const move = pendingMove
+    pendingMove = null
+    if (move) performMove(move, moveTarget)
+  }
+
+  function focusMoveTarget(node: HTMLSelectElement) {
+    node.focus()
   }
 
   function confirmDelete() {
@@ -141,6 +265,16 @@
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key !== 'Escape') return
+    if (draggedMove) {
+      cancelDrag()
+      event.stopPropagation()
+      return
+    }
+    if (pendingMove) {
+      cancelMove()
+      event.stopPropagation()
+      return
+    }
     if (pickingNew || pickingFor) {
       pickingNew = false
       pickingFor = null
@@ -161,6 +295,7 @@
   }
 
   function dismissStripChrome() {
+    cancelMove(false)
     cancelRename()
     cancelDelete()
     editingWhen = false
@@ -224,6 +359,13 @@
                 interactive
                 canDelete={layerNames.length > 1}
                 showAddColumn={pickingNew || addable.length > 0}
+                onduplicate={open && !multilang ? duplicateLayer : undefined}
+                onmove={open && !multilang ? startMove : undefined}
+                ondragstart={startDrag}
+                ondragover={dragOver}
+                ondrop={dropMove}
+                ondragend={cancelDrag}
+                dropTarget={dropTarget === row.index}
                 bind:renamingIndex
                 bind:editing
                 bind:pendingDelete
@@ -232,6 +374,26 @@
           </tbody>
           {#if open}
             <tfoot>
+              <tr>
+                <td colspan={columnCount} class="operation-feedback">
+                  <p>Layer 0 stays fixed. Moves change priority, not reference targets. Choose Move, or drag it onto another Move control.</p>
+                  {#if pendingMove}
+                    <div class="move-controls" role="group" aria-label={`Move layer ${layerNames[pendingMove.index]}`}>
+                      <label>
+                        New layer position
+                        <select aria-label="New layer position" bind:value={moveTarget} use:focusMoveTarget>
+                          {#each layerNames as name, index}
+                            {#if index > 0}<option value={index}>{index} · {name}</option>{/if}
+                          {/each}
+                        </select>
+                      </label>
+                      <button type="button" aria-label="Apply layer move" onclick={applyMove}>Apply move</button>
+                      <button type="button" aria-label="Cancel layer move" onclick={() => cancelMove()}>Cancel</button>
+                    </div>
+                  {/if}
+                  <span role="status" aria-live="polite" aria-atomic="true">{operationMessage}</span>
+                </td>
+              </tr>
               <tr>
                 <th colspan={columnCount}>
                   <button type="button" class="add-layer" onclick={() => editor.addLayer()}>
@@ -416,6 +578,35 @@
 
   tfoot th {
     font-weight: 400;
+  }
+
+  .operation-feedback {
+    white-space: normal;
+    max-width: 28rem;
+    padding: 4px 5px;
+    font-size: var(--font-xs);
+  }
+
+  .operation-feedback p {
+    margin: 0 0 4px;
+  }
+
+  .move-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 6px 0;
+  }
+
+  .move-controls select,
+  .move-controls button {
+    font: inherit;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 4px;
   }
 
   tfoot th.when-cell {

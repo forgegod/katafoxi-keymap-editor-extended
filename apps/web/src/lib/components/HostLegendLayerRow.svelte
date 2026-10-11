@@ -28,6 +28,13 @@
     interactive: boolean
     canDelete: boolean
     showAddColumn: boolean
+    onduplicate?: (index: number) => void
+    onmove?: (index: number) => void
+    ondragstart?: (event: DragEvent, index: number) => void
+    ondragover?: (event: DragEvent, index: number) => void
+    ondrop?: (event: DragEvent, index: number) => void
+    ondragend?: () => void
+    dropTarget?: boolean
     renamingIndex?: number | null
     editing?: string
     pendingDelete?: { index: number; name: string } | null
@@ -39,6 +46,13 @@
     interactive,
     canDelete,
     showAddColumn,
+    onduplicate,
+    onmove,
+    ondragstart,
+    ondragover,
+    ondrop,
+    ondragend,
+    dropTarget = false,
     renamingIndex = $bindable(null),
     editing = $bindable(''),
     pendingDelete = $bindable(null)
@@ -149,6 +163,33 @@
             {row.name}
           </button>
         {/if}
+        {#if onduplicate}
+          <button
+            type="button"
+            class="layer-operation"
+            data-layer-action="duplicate"
+            aria-label={`Duplicate layer ${row.name} (${row.index})`}
+            title="Append a copy; its references still target the original layers"
+            onclick={() => onduplicate?.(row.index)}
+          >Duplicate</button>
+        {/if}
+        {#if onmove}
+          <button
+            type="button"
+            class="layer-operation"
+            data-layer-action="move"
+            class:drop-target={dropTarget}
+            draggable={row.index > 0}
+            ondragstart={event => ondragstart?.(event, row.index)}
+            ondragover={event => ondragover?.(event, row.index)}
+            ondrop={event => ondrop?.(event, row.index)}
+            {ondragend}
+            aria-label={`Move layer ${row.name} (${row.index})`}
+            aria-disabled={row.index === 0}
+            title={row.index === 0 ? 'Layer 0 stays fixed' : 'Choose a position, or drag onto another Move control; moving changes layer priority'}
+            onclick={() => onmove?.(row.index)}
+          >Move</button>
+        {/if}
         {#if canDelete}
           <Icon
             name="times-circle"
@@ -228,7 +269,8 @@
     box-shadow: inset 0 0 0 1px var(--warn-border);
   }
 
-  .off {
+  td.off,
+  tr.off td {
     opacity: 0.4;
   }
 
@@ -277,6 +319,31 @@
     background: var(--surface);
     color: var(--text);
     cursor: text;
+  }
+
+  .layer-operation {
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--text);
+    padding: 2px 5px;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .layer-operation:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .drop-target {
+    outline: 2px solid var(--accent);
+    background: var(--fill);
+  }
+
+  .layer-operation[aria-disabled="true"] {
+    color: var(--text-muted);
+    cursor: not-allowed;
   }
 
   .row-head :global(.delete) {

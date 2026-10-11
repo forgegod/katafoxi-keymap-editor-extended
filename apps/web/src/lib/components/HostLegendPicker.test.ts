@@ -134,7 +134,7 @@ describe('HostLegendPicker', () => {
     expect(sizer.querySelectorAll('tbody tr')).toHaveLength(0)
 
     hoverStrip()
-    expect(panelRows().map(row => row.querySelector('th')?.textContent?.trim())).toEqual([
+    expect(panelRows().map(row => row.querySelector('.layer-name')?.textContent?.trim())).toEqual([
       'default',
       'raise'
     ])
@@ -159,7 +159,7 @@ describe('HostLegendPicker', () => {
     expect(sizer.classList.contains('holding')).toBe(true)
     expect(panel.classList.contains('overlay')).toBe(true)
     expect(panelRows()).toHaveLength(9)
-    expect(panelRows().map(row => row.querySelector('th')?.textContent?.trim())).toEqual(
+    expect(panelRows().map(row => row.querySelector('.layer-name')?.textContent?.trim())).toEqual(
       Array.from({ length: 9 }, (_, i) => `L${i}`)
     )
   })

@@ -7,7 +7,7 @@
       "png": "exports/CAP-001-firmware-keymap-editing.png",
       "viewport": {
         "width": 1440,
-        "height": 1200
+        "height": 1840
       }
     },
     {
@@ -27,7 +27,7 @@
       "png": "exports/CAP-003-host-layouts-and-legends.png",
       "viewport": {
         "width": 1440,
-        "height": 1200
+        "height": 1640
       }
     }
   ]
