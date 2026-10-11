@@ -1,12 +1,14 @@
 /**
  * Model-based tests for EditorState: random command sequences must keep
- * layer indexes, combo filters, history, and discard/undo in range.
+ * effective layer indexes, combo filters, history, and discard/undo in range.
  */
 
 import {
   cloneParsedKeymap,
   diffKeymaps,
+  effectiveShownLayers,
   keymapsAreEqual,
+  standardLayerView,
   toggleShownLayer,
   type KeyBindingNode,
   type ParsedKeymap,
@@ -144,7 +146,9 @@ function assertInvariants(real: typeof editor, lastWasEdit: boolean) {
       expect(index).toBeLessThan(n)
     }
   }
-  for (const index of real.layerView.shown) {
+  // Stored marks are preferences and may outlive a layer; only rendered layers
+  // must be in range (standardLayerView also marks four layers on short keymaps).
+  for (const index of effectiveShownLayers(real.layerView, n)) {
     expect(index).toBeGreaterThanOrEqual(0)
     expect(index).toBeLessThan(n)
   }
@@ -474,6 +478,62 @@ describe('EditorState model commands', () => {
 
   afterEach(() => {
     editor.resetForTests()
+  })
+
+  it.each([1, 2])('preserves view preferences when discarding a %i-layer keymap', async layerCount => {
+    await editor.selectKeyboard({
+      source: 'local',
+      layout: fixtureLayout(),
+      keymap: {
+        keyboard: 'model-short',
+        layers: Array.from({ length: layerCount }, () => [kp('A'), trans, trans])
+      }
+    })
+    expect(editor.layerView).toEqual(standardLayerView())
+    expect(effectiveShownLayers(editor.layerView, layerCount)).toEqual(
+      layerCount === 1 ? [0] : [0, 1]
+    )
+    assertInvariants(editor, false)
+
+    editor.layerView = { shown: [0], layer0Raw: true }
+    editor.addLayer()
+    editor.layerView = toggleShownLayer(editor.layerView, layerCount)
+    expect(effectiveShownLayers(editor.layerView, layerCount + 1)).toEqual([0, layerCount])
+    expect(await editor.discardDraft()).toBe(true)
+    expect(editor.draftKeymap).toEqual(editor.baselineKeymap)
+    expect(editor.layerView).toEqual({ shown: [0, layerCount], layer0Raw: true })
+    expect(effectiveShownLayers(editor.layerView, layerCount)).toEqual([0])
+    assertInvariants(editor, false)
+  })
+
+  it('preserves view preferences after discarding an added visible layer', async () => {
+    await selectFixture()
+    editor.addLayer()
+    editor.layerView = { ...toggleShownLayer(editor.layerView, 4), layer0Raw: true }
+    expect(effectiveShownLayers(editor.layerView, 5)).toEqual([0, 2, 3, 4])
+    expect(await editor.discardDraft()).toBe(true)
+    expect(editor.draftKeymap).toEqual(editor.baselineKeymap)
+    expect(editor.layerView).toEqual({ shown: [0, 2, 3, 4], layer0Raw: true })
+    expect(effectiveShownLayers(editor.layerView, 4)).toEqual([0, 2, 3])
+    assertInvariants(editor, false)
+  })
+
+  it('preserves view preferences across undo and redo of an added visible layer', async () => {
+    await selectFixture()
+    editor.addLayer()
+    editor.layerView = { ...toggleShownLayer(editor.layerView, 4), layer0Raw: true }
+
+    editor.undo()
+    expect(editor.draftKeymap!.layers).toHaveLength(4)
+    expect(editor.layerView).toEqual({ shown: [0, 2, 3, 4], layer0Raw: true })
+    expect(effectiveShownLayers(editor.layerView, 4)).toEqual([0, 2, 3])
+    assertInvariants(editor, false)
+
+    editor.redo()
+    expect(editor.draftKeymap!.layers).toHaveLength(5)
+    expect(editor.layerView).toEqual({ shown: [0, 2, 3, 4], layer0Raw: true })
+    expect(effectiveShownLayers(editor.layerView, 5)).toEqual([0, 2, 3, 4])
+    assertInvariants(editor, false)
   })
 
   it('preserves indexes, dirty flag, and history on random commands', async () => {

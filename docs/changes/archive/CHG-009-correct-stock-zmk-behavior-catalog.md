@@ -1,6 +1,6 @@
 # CHG-009 — Correct stock ZMK behavior catalog
 
-**Status:** in-progress
+**Status:** done
 **External request:** Direct operator request: Continue as proposed creating a new CHG
 **Impacts:** CAP-001
 **Baseline:** `8081db012b53792a77ea555101957870fff2ecf3` on main; recheck branch, working-tree ownership, and the ZMK source revision before execution.
@@ -16,7 +16,7 @@ CHG-001 added `BT_DISC`, `BT_CLR_ALL`, `RGB_ON`, and `RGB_OFF`. A subsequent com
 
 The catalog remains a picker aid, not a claim that every arbitrary source behavior is schema-editable. Existing unknown bindings and parameters must remain source-preserving.
 
-Local ZMK source evidence is `../zmkfirmware-zmk/docs/docs/keymaps/behaviors/index.mdx`, `../zmkfirmware-zmk/docs/docs/keymaps/behaviors/outputs.md`, and the matching DTS/header files. Phase-2 implementation and phase-3 integration evidence are recorded below. Phase 3 is done following its gate and operator-reported fresh independent Grok review: No findings. Phase 4 remains pending and has not started; CHG-009 remains active and in-progress.
+Local ZMK source evidence is `../zmkfirmware-zmk/docs/docs/keymaps/behaviors/index.mdx`, `../zmkfirmware-zmk/docs/docs/keymaps/behaviors/outputs.md`, and the matching DTS/header files. Phases 1–3 passed their gates and operator-reported independent reviews. Phase 4 passed its exact full gate after the operator-approved model-test correction: stored layer preferences may include unavailable layers; effective rendered layers must be in range. Runtime behavior remains unchanged. This archived implementation receipt retains the first failed gate and corrected diagnosis; fresh Grok review of the final phase-4 diff returned No findings.
 
 ## Dependencies
 
@@ -52,7 +52,7 @@ Paths name existing seams, not a claim that every listed file must change. Re-re
 | 1 | Specify catalog correctness and evidence | done (`pnpm records:check` exit 0; fresh independent Grok review: No findings; ZMK pin and expected RED confirmed: core 12 failed/20 passed, web 7 failed/55 passed) | `pnpm records:check` passes; ZMK source matrix and focused regressions reviewed |
 | 2 | Implement and prove the catalog slice | done (full phase gate exit 0: core 776 passed/1 existing optional golden skip, web 621 passed; operator-reported fresh Grok final review: No findings, including corrected legacy reset JSON import) | `pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test` |
 | 3 | Integrate the picker and current-state visual | done (full phase gate exit 0: 638 web tests, 38 Chromium e2e tests, generated/rendered visuals and records valid; operator-reported fresh Grok review: No findings, confirming browser/e2e, CAP, generated wireframe and visual evidence) | `pnpm --filter @keymap-editor/web test && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
-| 4 | Verify and close the change | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages` |
+| 4 | Verify and close the change | done (corrected exact full gate exit 0: core 776 passed/1 existing skip, API 226, web 642, Cloudflare 11, records 72; e2e 38, prod 5, Pages 2 passed/2 existing skips; CAP links and regenerated visual inspected; fresh Grok review: No findings) | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages` |
 
 ## Phase 1 — Specify catalog correctness and evidence
 
@@ -234,18 +234,26 @@ CAP-001 already owns the human KeyEditor surface. Implementation updates its can
 
 ## Execution state
 
-Phases 1–2 are done following their recorded gates and independent reviews.
-The operator authorized phase 3 only from clean committed `main` at
-`afcccd41ec2a436183e22abd5d2eb50db2f969da`. Phase 3 is done: component and
-browser integration coverage, CAP-001, and its canonical generated visual passed
-the recorded gate and operator-reported fresh independent Grok review: No findings.
-Node `24.21.0`, pnpm `9.15.0`, and the clean pinned sibling ZMK revision were
-verified during phase-3 execution. This doc-only checkpoint closes phase 3 only;
-CHG-009 remains active and in-progress. Phase 4 stays pending and is not authorized
-to start; CHG-010 is not part of this work. Do not edit implementation, tests,
-CAPs, or wireframes, archive, stage, commit, push, deploy, change credentials,
-perform firmware actions, add custom behavior/color controls, or add include repair
-in this closeout.
+Phases 1–3 are done following their recorded gates and independent reviews.
+The operator authorized phase 4 only from clean committed `main` at
+`03457f1047d78cd14ead789e9d41da9a29e21640`. That exact HEAD, an empty working
+tree/index, Node `24.21.0`, and pnpm `9.15.0` were verified before marking phase 4
+in-progress. The first exact full gate failed; its evidence is retained below.
+Follow-up inspection corrected the diagnosis to a model-test contract mismatch,
+not a demonstrated runtime discard defect. Direct operator request:
+"Confirm the recommended fix" authorizes the test-only correction and focused
+short-keymap/discard/undo/redo regressions, with runtime behavior unchanged.
+The correction resumed from frozen blocker diff
+`3472701770f3bc01bd6fffd75aaaef0e19ce4f6df575fa5b1b2563640fa1efe1` on the same
+HEAD. The fresh exact full gate passed, CAP-001 and its regenerated visual were
+verified, and this change is done and archived under the original phase-4
+authorization. Only closure metadata changed after that gate. Fresh independent
+Grok review of the frozen complete patch returned No findings; its outcome is
+recorded in the phase-4 receipt below.
+Do not stage, commit, push, deploy, alter credentials, execute firmware actions,
+add custom behavior/color controls or include repair, or start another CHG.
+Historical phase receipts below describe their own checkpoints, not the current
+authorization.
 
 ### Phase-1 executable evidence
 
@@ -460,15 +468,208 @@ satisfies phase 3's remaining review gate; phase 3 is done. This records the
 supplied independent review, not a self-review, model switch, or review of these
 subsequent documentation edits.
 
-Only this active CHG is changed by the closeout; implementation, tests, CAPs,
-wireframes, DOX, and child indexes are untouched. The closeout DOX pass requires
+That phase-3 closeout changed only this active CHG; implementation, tests, CAPs,
+wireframes, DOX, and child indexes were untouched. The closeout DOX pass required
 no owning-doc or index changes: only phase progress changed, not ownership,
 hierarchy, contracts, or workflow. Closeout checks are `pnpm records:check` and
 `git diff --check`; the updated full diff fingerprint is returned separately
 from the reviewed fingerprint above to avoid a self-referential hash.
-Phase 4 remains pending and has not started; CHG-009 remains active and
-in-progress. No archive, staging, commit, push, deployment, credential changes,
+At that phase-3 checkpoint, phase 4 remained pending and had not started;
+CHG-009 remained active and in-progress. No archive, staging, commit, push, deployment, credential changes,
 firmware actions, new custom behavior/color editor, or include repair was
 performed. Firmware compatibility remains unverified; users own includes,
 `.conf`, and hardware support. Full phase-4 build/prod/Pages gates are deliberately
 not claimed by this phase-3 closeout.
+
+### Phase-4 first gate and diagnostic correction
+
+Started from clean committed `03457f1047d78cd14ead789e9d41da9a29e21640` on
+`main`, using Node `24.21.0` and pnpm `9.15.0`. Phase 4 was marked in-progress
+before any gate ran. Preflight `pnpm records:check` and `git diff --check` exited
+0. No live Pages target was configured; production/Pages tests use local servers,
+not deployment or authenticated external services.
+
+**Exact full gate attempted:**
+
+`pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages`
+
+The sequential command exited **1** at `pnpm test`. Its original output is retained
+at `$TMPDIR/chg-009-phase4-gate.log`; `set -o pipefail` preserved the failed exit
+through `tee`. No full-gate retry was used to seek a passing random seed.
+
+| Command reached in the exact gate | Observed result |
+| --- | --- |
+| `pnpm wireframes:generate` | Exit 0; three canonical screens generated |
+| `pnpm wireframes:render` | Exit 0; all three PNGs rendered at 1440×1200, visible headings, no horizontal/vertical overflow or page errors |
+| `pnpm records:check` | Exit 0; three CAPs, ten CHGs, manifest synchronized |
+| `pnpm test` | Exit 1; core: 58 files, 776 passed / one existing optional golden skip; API: 12 files, 226 passed; web: 66 files passed / one failed, 637 tests passed / one failed. Cloudflare and record tests were not reached in this command |
+
+**Reproduced blocker:**
+
+- `apps/web/src/lib/editor.model.test.ts:479`, `preserves indexes, dirty flag,
+  and history on random commands`, failed after two property cases with seed
+  `1662916000`, shrink path `1:2`, counterexample
+  `addLayer,toggleShownLayer(4),discardDraft` (command replay path `AAAAAAD:VB`).
+- The assertion at `editor.model.test.ts:149` is `expected 4 to be less than 4`:
+  the draft returns to four layers but `layerView.shown` still contains index 4.
+- Corrected root cause: the model asserted every stored preference was in range,
+  but `standardLayerView()` deliberately defaults to `[0, 1, 2, 3]` independently
+  of keymap size. `effectiveShownLayers()` clips those preferences for rendering
+  (`packages/keymap-core/src/layer-view.ts:56–71`); the core test at
+  `layer-view.test.ts:40` explicitly covers short keymaps. The failing state renders
+  `[0, 2, 3]`, not layer 4. The initial attribution to missing discard normalization
+  was premature. Discard, undo and redo preserve view preferences; this failure
+  establishes a test-contract mismatch, not unsafe rendered indexes.
+- `git diff --exit-code 8081db012b53792a77ea555101957870fff2ecf3 HEAD -- apps/web/src/lib/editor/document.svelte.ts apps/web/src/lib/editor.model.test.ts`
+  exited 0: both files are unchanged since this CHG's baseline. The minimal
+  counterexample does not select stock catalog bindings or exercise their editor.
+  No product/test changes or random-seed suppression were made in that initial
+  diagnostic checkpoint. The later operator-approved correction targets the test.
+- Diagnostic replay command:
+  `pnpm --filter @keymap-editor/web exec vitest run --config "$TMPDIR/chg-009-phase4-replay.config.mjs" src/lib/editor.model.test.ts -t 'preserves indexes, dirty flag, and history on random commands'`.
+  The scratch config imports the repository Vitest config and applies a narrow
+  in-memory transform replacing `const FC = { numRuns: NUM_RUNS }` with the same
+  run count plus `seed: 1662916000, includeErrorInReport: true`. Repository files
+  remain untouched. Exit 1 reproduced the exact counterexample and assertion;
+  one other test was unselected by `-t`, not disabled. Output:
+  `$TMPDIR/chg-009-phase4-seed-replay.log`.
+- An initial diagnostic using both seed and shrink path returned a pass
+  (`$TMPDIR/chg-009-phase4-replay.log`); replaying the original seed without the
+  shrink path reproduced the failure. The initial pass is not treated as a fix
+  or a passing integration gate.
+
+**Supplemental remaining checks:** executed separately after the exact gate
+stopped, solely to complete verification evidence:
+
+`pnpm --filter @keymap-editor/cloudflare test && pnpm test:records && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages`
+
+This sequential command exited 0. Output:
+`$TMPDIR/chg-009-phase4-remaining-gates.log`.
+
+| Supplemental command | Observed result |
+| --- | --- |
+| `pnpm --filter @keymap-editor/cloudflare test` | Exit 0; one file / 11 tests passed |
+| `pnpm test:records` | Exit 0; 72 passed, zero skipped/failed |
+| `pnpm lint` | Exit 0 across all workspaces; Svelte: zero errors / zero warnings |
+| `pnpm build` | Exit 0 for core, web, API; Vite reports its large-chunk warning |
+| `pnpm test:e2e` | Exit 0; 38 Chromium tests passed, including all eleven CHG-009 browser workflows |
+| `pnpm test:e2e:prod` | Exit 0; five tests passed against local production hosting |
+| `pnpm test:e2e:pages` | Exit 0; two passed / two existing conditional skips. GitHub OAuth tests skip because GitHub is deliberately disabled on static Pages (`e2e/pages/pages-smoke.spec.ts:47,65`) |
+
+The core skip is the existing absent optional host-legend golden
+(`packages/keymap-core/src/host-legend.golden.test.ts:134–139`). No tests were
+disabled or weakened. Expected mocked failure-path logs and non-character XKB
+notices remain. Supplemental passes do not satisfy the failed full gate.
+
+**CAP and visual verification:** CAP-001 remains current `partial` / `human`.
+Its implementation/test paths and relative links resolve; linked stock catalog,
+legacy JSON, component and browser evidence was read against the named claims.
+The stock-picker, legacy JSON and opaque-import browser tests passed in the
+supplemental run. No CAP rewrite is needed for the implemented catalog boundary;
+the model-test blocker is reported here rather than implying all linked tests pass.
+All regenerated product artifacts are byte-identical to HEAD
+(`git diff --exit-code -- docs/product` exit 0).
+
+`vision_analyze` inspected the regenerated
+`docs/product/wireframes/exports/CAP-001-firmware-keymap-editing.png`. It found
+readable stock/parameterless chips, `&kt LA(A)` and key/wrapper choices,
+Apply/Cancel staging, correct USB/BLE/NONE descriptions, Soft Off firmware/hardware
+prerequisites, and legacy-reset/include-preservation limits. No visible clipping,
+overlap, or misleading hardware-action claim was found; lower-panel copy is dense
+but readable. This is schematic inspection, not runtime/hardware proof or Grok
+review. PNG SHA-256:
+`d44233cdad1cc9f6e4ca3ecb3dd6d7c037f6e6a87c4ae9a046fe9206d3ba34e9`.
+
+**Initial blocker checkpoint:** only this active CHG changed; all DOX, CAPs,
+canonical artifacts and the changes index stayed unchanged. Records and whitespace
+checks passed. Phase 4 remained unfinished and CHG-009 stayed active/blocked.
+Its frozen diff was `3472701770f3bc01bd6fffd75aaaef0e19ce4f6df575fa5b1b2563640fa1efe1`;
+that receipt is superseded by the approved correction, not erased or treated as a
+passing gate. No staging, commit, push, deployment, credential change, firmware
+action, unrelated edit, or new CHG was performed.
+
+### Phase-4 approved test-contract correction
+
+The operator considered resetting discard to `standardLayerView()`. Scratch-only
+probes showed that reset passes the captured four-layer sequence but fails the raw
+invariant on a two-layer baseline and does not address undo; it also resets view
+preferences. With runtime untouched, checking effective layers instead passed
+the seeded model tests and explicit short-keymap/discard/undo/redo probes.
+The operator approved that recommendation. The repository correction changes
+only the model invariant and adds deterministic regressions; it does not change
+discard, undo, redo, selection, rendering or the stock catalog, lower random run
+counts, pin away failing seeds, or suppress any test.
+
+| Correction check | Observed result |
+| --- | --- |
+| `pnpm --filter @keymap-editor/web test -- src/lib/editor.model.test.ts -t 'preserves view preferences'` before correcting the invariant | Exit 1; four deterministic regressions failed on the raw-index bounds assertion, two existing tests unselected. One-/two-layer defaults and discard/undo of a fifth visible layer reproduced the mismatch |
+| `pnpm --filter @keymap-editor/web test -- src/lib/editor.model.test.ts` after correcting the invariant | Exit 0; all six tests passed, including both unchanged randomized properties |
+| `pnpm --filter @keymap-editor/web exec vitest run --config "$TMPDIR/chg-009-phase4-replay.config.mjs" src/lib/editor.model.test.ts` | Exit 0; all six tests passed with original failing seed `1662916000`. The scratch config only supplies that seed; it does not change runtime or the corrected invariant |
+| `pnpm --filter @keymap-editor/keymap-core test -- src/layer-view.test.ts` | Exit 0; ten existing tests passed |
+| `pnpm records:check && git diff --check` | Exit 0 before the fresh full gate |
+
+RED and GREEN logs: `$TMPDIR/chg-009-phase4-invariant-red.log` and
+`$TMPDIR/chg-009-phase4-invariant-green.log`. The four new regressions assert exact
+effective selections and unchanged stored marks/`layer0Raw`; they cover discard
+on one-, two- and four-layer baselines plus undo/redo of an added visible layer.
+The model still runs 50 random cases per property and retains all other invariants.
+This is a test-contract correction for existing behavior, not a runtime feature.
+
+### Phase-4 final gate and archival evidence
+
+After the approved correction, the exact sequential command was rerun:
+
+`pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages`
+
+It exited **0**, using Node `24.21.0` / pnpm `9.15.0` on unchanged HEAD
+`03457f1047d78cd14ead789e9d41da9a29e21640` plus the documented test/record changes.
+Full output: `$TMPDIR/chg-009-phase4-corrected-gate.log`. No scratch replay config
+or fixed random seed was used for this full gate.
+
+| Final gate command | Observed result |
+| --- | --- |
+| `pnpm wireframes:generate` | Exit 0; three canonical screens generated |
+| `pnpm wireframes:render` | Exit 0; three 1440×1200 PNGs, visible headings, no horizontal/vertical overflow or page errors |
+| `pnpm records:check` | Exit 0; three CAPs, ten CHGs, synchronized manifest |
+| `pnpm test` | Exit 0; core: 58 files / 776 passed / one existing optional golden skip; API: 12 files / 226 passed; web: 67 files / 642 passed; Cloudflare: one file / 11 passed; record tests: 72 passed |
+| `pnpm lint` | Exit 0 across all workspaces; Svelte zero errors / zero warnings |
+| `pnpm build` | Exit 0 for core, web and API; existing Vite large-chunk warning |
+| `pnpm test:e2e` | Exit 0; 38 passed, including all eleven CHG-009 browser workflows |
+| `pnpm test:e2e:prod` | Exit 0; five passed against local production hosting |
+| `pnpm test:e2e:pages` | Exit 0; two passed / two existing conditional GitHub-on-static-Pages skips |
+
+The first failed gate remains recorded above; it was resolved by the approved
+test-contract correction, not hidden by a passing random retry. No runtime code,
+test count reduction, new skip, firmware configuration, credential or deployment
+change was needed. Pre-archive `pnpm records:check` and `git diff --check` also
+passed after the full gate.
+
+**Final CAP/visual check:** CAP-001 remains `partial` / `human`, with unchanged
+behavior and boundaries. Its verification entry now names the added model coverage;
+the Key interaction link points to its actual test declaration at line 242.
+All relative links, nonempty line anchors and implementation/test paths were
+checked. Canonical generation/rendering remains byte-identical to HEAD
+(`git diff --exit-code -- docs/product/wireframes` exit 0).
+`vision_analyze` inspected the final regenerated CAP-001 PNG: all stock choices,
+Key Toggle/key/wrapper controls, Apply/Cancel, output descriptions, Soft Off
+prerequisites and source limits are readable without visible clipping/overlap.
+Dense lower-panel text and the compact bootloader chip are minor spacing caveats,
+not visual failures. The PNG hash remains
+`d44233cdad1cc9f6e4ca3ecb3dd6d7c037f6e6a87c4ae9a046fe9206d3ba34e9`.
+
+**DOX and archive:** web DOX now clarifies the existing stored-preference versus
+effective-layer testing contract. Root, docs, product, changes and wireframe DOX
+and child indexes stay unchanged: no ownership/hierarchy or product workflow
+changes. This record moves from active to archive and the changes README removes
+it from the queue, adds its done receipt and advances the queue ordering; no other
+CHG is started. No review package exists to move or repair.
+
+**Phase-4 independent-review outcome:** phase 4 and this change are done by the
+passed gate and explicit archive authorization. Fresh Grok reviewed the complete
+frozen patch, including the untracked archive addition, at
+`d208a97462896f5b6a71b1432c8ca199aaddb6b50a7f5800283ba67fcdc1df13` and
+returned **No findings**. It confirmed the patch hash and reverse-apply dry run,
+the focused model tests and records check, effective-layer bounds, current CAP
+anchors, archive/index lifecycle, and absence of runtime/catalog/source edits.
+No staging, commit, push, deployment, credential or hardware actions occurred
+during the review.

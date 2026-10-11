@@ -41,7 +41,7 @@
 ## Verification
 
 - [KeyEditor component tests](../../../apps/web/src/lib/components/KeyEditor/KeyEditor.test.ts#L194) — `puts parameterless behaviours on a second chip row` excludes stale `&reset`; `opens %s stock documentation without staging a binding` checks the five stock docs actions and safe new-window arguments.
-- [Key interaction tests](../../../apps/web/src/lib/components/Keyboard/Keys/Key.test.ts#L241) — staged `BT_DISC`; `previews the complete imported %s binding and applies it unchanged`; `stages Key Toggle through the key grid and hold controls before Apply`; `stages parameterless %s without a value grid and cancels without updating`; and corrected output tooltips/`OUT_NONE`. These exercise the real session/component wiring, including Soft Off's visible prerequisite.
+- [Key interaction tests](../../../apps/web/src/lib/components/Keyboard/Keys/Key.test.ts#L242) — staged `BT_DISC`; `previews the complete imported %s binding and applies it unchanged`; `stages Key Toggle through the key grid and hold controls before Apply`; `stages parameterless %s without a value grid and cancels without updating`; and corrected output tooltips/`OUT_NONE`. These exercise the real session/component wiring, including Soft Off's visible prerequisite.
 - `apps/web/src/lib/key-edit-session.test.ts` — Bluetooth/RGB command argument counts and encode/parse round trips.
 - [Stock catalog tests](../../../packages/keymap-core/src/behaviors.test.ts#L17) — `CHG-009 stock catalog contract`: descriptions, includes, docs, arity, firmware prerequisite, stock reset exclusion, and retained commands. Existing Bluetooth/RGB and profile-index tests remain in this file.
 - [Legacy JSON tests](../../../packages/keymap-core/src/keymap.test.ts#L99) — `legacy behavior JSON compatibility`: legacy reset validation and primary-source detection without relaxing unknown/malformed-label rejection.
@@ -50,7 +50,7 @@
 - [Legacy JSON browser workflow](../../../e2e/clipboard.spec.ts#L350) — `legacy reset JSON imports remain editable and export through the supplied source without promotion`: both bare/opaque reset survive import, Apply, reopen and Clipboard source splicing.
 - [Opaque import browser workflow](../../../e2e/clipboard.spec.ts#L390) — `legacy reset and opaque imports survive no-op Apply and export without stock promotion or include repair`: ten imported bindings retain their complete previews, Apply/reopen/cancel results, and exact tokens after another key forces a real export splice. Legacy reset, external labels, nested opaque tokens, excess arguments, sensor alias and parameterized RGB stay source-preserved, not promoted.
 - `apps/web/src/lib/editor.layers.test.ts` — deletion remaps known references and combo filters.
-- `apps/web/src/lib/editor.model.test.ts` — document/history invariants.
+- `apps/web/src/lib/editor.model.test.ts` — document/history and effective rendered-layer bounds; stored layer preferences and raw-view choice survive discard on one-, two- and four-layer keymaps and undo/redo of an added visible layer.
 - `apps/web/src/App.test.ts` — firmware warning, undo/discard cleanup, and successful versus failed/in-flight publication.
 - `e2e/demo.spec.ts` — a real KeyEditor edit survives native close-dialog dismissal; accepting the next close leaves. Persisting the draft does not disarm the warning.
 - `packages/keymap-core/src/custom-bindings.test.ts` — opaque source binding parameters survive serialization.
