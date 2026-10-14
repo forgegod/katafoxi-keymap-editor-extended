@@ -14,7 +14,7 @@ At the baseline, findCodeKeymap selected the first matching config keymap. The p
 
 ## Authority and operator recovery policy
 
-This active CHG-004 is the sole implementation-progress authority for this request. Unintegrated candidate work, including its candidate archive, tests and review claims, is neither CHG evidence nor authority. Do not continue patching that archive or import its completion state. Phase 1 records the completed resequencing; phase 2 is the current implementation boundary.
+This active CHG-004 is the sole implementation-progress authority for this request. Unintegrated candidate work, including its candidate archive, tests and review claims, is neither CHG evidence nor authority. Do not continue patching that archive or import its completion state. Phases 1 and 2 are complete; phase 3 is the next implementation boundary.
 
 Direct operator request:
 
@@ -33,7 +33,7 @@ Required recovery contract for implementation:
 
 The operator also approved all five Phase 1 review resolutions in the handoff: explicit per-file legacy JSON adoption or DTS acceptance before creating a missing scoped JSON; a durable scoped-mode marker; retention of the last verified compatible host baseline on clean C-to-I/U Reload/reopen; firmware-only Create-branch carry under O/H=0; and keep-on-decline recovery limited to GitHub same-identity Reload/reopen. The JSON-choice prerequisite applies only when Commit would create or replace P's scoped JSON, never to proved legacy-mode writes. A valid choice selects only P's firmware JSON model; the ordinary snapshot matrix still governs host publication in the same Commit. The contracts and exact oracles below incorporate those resolutions.
 
-These are approved target policies, not blanket shipped-behavior claims. Keep CAP-002/CAP-003 present-tense and update only behavior with executable evidence. Phase 1 resequencing changed only this record; Phase 2 implements the bounded API/core and identity plumbing, not the full Phase 3 interaction.
+These are approved target policies, not blanket shipped-behavior claims. Keep CAP-002/CAP-003 present-tense and update only behavior with executable evidence. Phase 1 resequenced the record; Phase 2 completed the bounded API/core and identity plumbing. Phase 3 still owns the full interaction.
 
 ## Dependencies
 
@@ -262,9 +262,9 @@ Use `docs/product/wireframes/generate.mjs` only for implemented CAP surfaces; re
 
 ## Execution state
 
-Phase 1 is done. `pnpm records:check && git diff --check` passed, the index remained empty, and fresh independent Grok review `review-chg004-phase1-json-fix` reported no findings for the frozen specification diff `61bdc7c6590e2f10cdf0d99c309d4e93b48e2bdc3963dd33f6af5e981651a462`. The source-grounded inventory, acceptance matrix, detailed ownership/recovery specification and proposed regressions incorporate all five operator-approved resolutions. Phase 2 is in progress with the command-verified checkpoint below, awaiting fresh independent review. Phases 3–4 remain pending.
+Phase 1 is done. `pnpm records:check && git diff --check` passed, the index remained empty, and fresh independent Grok review `review-chg004-phase1-json-fix` reported no findings for the frozen specification diff `61bdc7c6590e2f10cdf0d99c309d4e93b48e2bdc3963dd33f6af5e981651a462`. The source-grounded inventory, acceptance matrix, detailed ownership/recovery specification and proposed regressions incorporate all five operator-approved resolutions. Phase 2 is done with its gate and independent-review evidence recorded below. Phases 3–4 remain pending.
 
-The Phase 1 checkpoint was specification-only, based on clean main at the baseline above, and preserved the pre-existing unstaged resequencing. It was prepared in `agent/chg004-resequence` and then applied unstaged to main; the candidate was not modified. Its evidence does not validate, integrate or repair the candidate. Phase 2 uses only the separate execution worktree below. The existing change index still links this active owner and its dependencies; no index/link change is required.
+The Phase 1 checkpoint was specification-only, based on clean main at the baseline above, and preserved the pre-existing unstaged resequencing. It was prepared in `agent/chg004-resequence` and then applied unstaged to main; the candidate was not modified. Its evidence does not validate, integrate or repair the candidate. Phase 2 was executed separately and then integrated by `33b33f1`; the existing change index still links this active owner and its dependencies, so no index/link change is required.
 
 ### Specification command evidence
 
@@ -279,9 +279,9 @@ Freeze the final unstaged `git diff --binary HEAD` fingerprint in the operator h
 
 Use Node 24.21.0 and pnpm 9.15.0. Future browser/render gates require Playwright Chromium. If a gate cannot run, record the actual blocker and leave the phase unfinished; do not substitute candidate results or infer completion from a passing record check.
 
-### Phase 2 — command-verified checkpoint, independent review pending
+### Phase 2 — completed command-verified checkpoint
 
-Execution is confined to `/home/raphael/.hermes/profiles/hermes-dev/cache/scratch/chg004-phase2-exec-worktree`, branch `agent/chg004-phase2-exec`, HEAD at this record's baseline. The prior unstaged implementation was inspected and corrected, not treated as evidence. ADR 0002/0005 retain their identities/original dates and carry explicit CHG-004 amendments; their concrete contract and this diff still require independent review. No Phase 3 work, staging, commit, push, deployment, credentials or real GitHub access is included.
+Phase 2 was executed from `agent/chg004-phase2-exec` at this record's baseline and integrated by `33b33f1`. The prior unstaged implementation was inspected and corrected, not treated as evidence. ADR 0002/0005 retain their identities/original dates and carry explicit CHG-004 amendments. Independent review approved the frozen phase diff; no Phase 3 work, staging, push, deployment, credentials or real GitHub access is included.
 
 Implemented and exercised boundaries:
 
@@ -308,6 +308,6 @@ CAP-002/CAP-003 now state only these tested headless/plumbing outcomes and retai
 
 DOX pass: updated root, API, web and core contracts for identity/ownership/omission and recovery writes; synchronized architecture and ADR indexes. `docs/AGENTS.md`, product/change DOX and all Child DOX Index entries remain unchanged because ownership/hierarchy/workflow did not change. No new record or review package was created.
 
-Correction DOX pass: root/API/web/docs instructions, CAPs, ADRs and canonical visuals remain unchanged because these two fixes enforce the existing selection/validation contracts without extending scope or adding an interaction. Only this CHG's regression/command evidence is refreshed. Phase 2 remains in progress pending one final fresh read-only review of the frozen tracked diff and untracked files; Phases 3–4 remain pending. No staging, commit or push is authorized.
+Correction DOX pass: root/API/web/docs instructions, CAPs, ADRs and canonical visuals remain unchanged because these two fixes enforce the existing selection/validation contracts without extending scope or adding an interaction. Only this CHG's regression/command evidence is refreshed. Phase 2 is complete; Phases 3–4 remain pending. No staging, commit or push is authorized.
 
-Remaining review boundaries: this is not full CHG completion or independent approval. Firmware and host retention use separate databases; a failed carry can leave destination copies but cannot retire source recovery, and already-created remote branches are not rolled back. Explicit legacy adoption and destructive host reset/assembly cleanup are not implemented or certified here. The wider Phase 3 transition/confirmation/cleanup matrix is not covered by these unit gates. Freeze tracked diff plus untracked source/test contents in the operator handoff, then run the mandated fresh `/new` → `/model grok` review before marking Phase 2 done. This implementer did not switch models or claim that review.
+Remaining phase boundaries: this is not full CHG completion. Firmware and host retention use separate databases; a failed carry can leave destination copies but cannot retire source recovery, and already-created remote branches are not rolled back. Explicit legacy adoption and destructive host reset/assembly cleanup are not implemented or certified here. The wider Phase 3 transition/confirmation/cleanup matrix is not covered by these unit gates. Phase 3 must freeze its own diff and complete the mandated independent review before it is marked done.

@@ -3,18 +3,19 @@
 **Status:** planned
 **External request:** Direct operator request: Save the issues / improvement candidates for later runs in a CHR
 **Impacts:** CAP-002
-**Baseline:** working tree of CHG-002 phase 2 (uncommitted, on top of `58c1f64`); recheck branch and working-tree ownership before execution.
+**Baseline:** `33b33f1aaa9c923a06e0c71ec7d609cbbbed8cea` on main; original CHG-002 review evidence is retained below as historical context.
 **Priority:** P4 — after current feature work; these are hardening items, not user-visible gaps
 
 ## Current boundary
 
-An independent review of the CHG-002 phase 2 working tree (575/575 web tests, clean
-lint, clean `records:check`, successful web build) found no blocking defects. The
-items below are behavior-preserving polish and one flaky-test concern surfaced
-during that review. They are recorded here so a later run can pick them up without
-rederiving the analysis. Per the application-records convention, internal
-hardening normally does not need a CHG; this record exists because the operator
-explicitly asked for the findings to be persisted with their evidence.
+An independent review of the former CHG-002 phase 2 working tree (575/575 web tests,
+clean lint, clean `records:check`, successful web build) found no blocking defects.
+Those results are historical review evidence, not a current gate result. The items
+below are behavior-preserving polish and one flaky-test concern surfaced during that
+review. They are recorded here so a later run can pick them up without rederiving the
+analysis. Per the application-records convention, internal hardening normally does not
+need a CHG; this record exists because the operator explicitly asked for the findings
+to be persisted with their evidence.
 
 ### Finding 1 — Flaky fast-check model test (test infrastructure)
 
@@ -50,8 +51,8 @@ runtime check that tests currently cover indirectly.
 Every clipboard call site passes `isPublishCurrent(token, 'clipboard', null)`;
 the `source`/`github` parameters exist only for the GitHub publish path. A
 `satisifies`-safe split (e.g. a clipboard-specific currency check) would make the
-clipboard contract honest. Not worth doing while CHG-002 phases 3–4 may still
-touch the same files.
+clipboard contract honest. CHG-002 is archived; keep this bounded to the clipboard
+path when the phase is scheduled.
 
 ### Finding 5 — `applyClipboardCopied._saveMeta` is dead
 
@@ -63,8 +64,9 @@ needs to surface copy-time warnings outside the sheet.
 
 ## Dependencies
 
-None. Item 1 is independent. Items 2–5 should wait until CHG-002 phases 3–4 land
-so the publish/copy files are not churned twice.
+None. Item 1 is independent. CHG-002 is archived, so items 2–5 no longer wait on
+its phases; keep them in this record's phase order to avoid mixing test stabilization
+with interface cleanup.
 
 ## Acceptance criteria
 
