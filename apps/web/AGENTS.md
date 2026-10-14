@@ -24,6 +24,8 @@ Remember repository/branch/file choices only after editor acceptance. A missing 
 
 Omitted host writes require explicit browser-local/unpublishable status for actual host recovery before and after firmware-only Commit. Without host recovery, state only the write limitation; pending firmware recovery remains explicit. Only confirmed Discard local host edits clears that recovery block: atomically reset the named identity's host view, private tables, assemblies and working recovery to standard English; preserve firmware/history, historical host origin, remote files, other identities and global profiles. Cancellation, stale consent or storage failure cannot authorize reset. Reload never discards. CHG-004 owns the remaining phase verification/review.
 
+Fence host view, table and assembly mutations while hostRecoveryBusy; a committed discard must reconcile live memory before later persistence. Async host-edit continuations must not cross the reset epoch. Keep identity-private user:github layouts out of global restore and non-owner profile shelves; refuse non-owner selection and in-place edits, including stale view/prompt callbacks.
+
 Follow root keycapFace and CSS-sidecar rules. Pair material interaction changes with CAP tests and canonical wireframes.
 
 Layer-view tests distinguish stored preferences from effective rendered layers. `layerView.shown` may include unavailable layers; check current-layer bounds through core `effectiveShownLayers`, and preserve marks and `layer0Raw` across discard/undo/redo.

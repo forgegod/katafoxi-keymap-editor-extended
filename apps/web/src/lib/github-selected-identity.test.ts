@@ -17,6 +17,137 @@ beforeEach(async () => { editor.resetForTests(); await clearHostLayoutStore(); v
 afterEach(async () => { const id = editor.currentDraftIdentity(); editor.resetForTests(); if (id) await deleteStoredDraft(id); vi.restoreAllMocks() })
 
 describe('selected GitHub editor identity', () => {
+  it.each([
+    ['demo', true], ['clipboard', true], ['local', true], ['github', true],
+    ['demo', false], ['clipboard', false], ['local', false], ['github', false]
+  ] as const)('retains handled firmware recovery through no-draft %s and flush (restore=%s)', async (source, restore) => {
+    const selection = board()
+    await editor.selectKeyboard(selection)
+    editor.updateKeymap(km('Z'))
+    editor.layerOperationSnapshot = { ...editor.layerOperationSnapshot!, identityAware: true }
+    editor.layerView = { shown: [0, 3], layer0Raw: true }
+    await editor.flushPendingPersist()
+    const identity = editor.currentDraftIdentity()!
+    const stored = (await loadStoredDraft(identity))!
+    expect(stored.layerOperation).toBeDefined()
+    editor.resetForTests()
+    vi.mocked(window.confirm).mockReturnValue(restore)
+    await editor.selectKeyboard(selection)
+    expect(window.confirm).toHaveBeenCalledTimes(1)
+    expect(editor.hasPendingFirmwareRecovery).toBe(!restore)
+    vi.mocked(window.confirm).mockClear()
+
+    await editor.selectKeyboard(source === 'github'
+      ? board('config/b.keymap')
+      : { source, layout: selection.layout, keymap: km('A') })
+    const destination = editor.currentDraftIdentity()!
+    expect(destination).not.toEqual(identity)
+    expect(editor.draftKeymap).toEqual(km('A'))
+    expect(editor.hasPendingFirmwareRecovery).toBe(false)
+    await editor.flushPendingPersist()
+    expect(await loadStoredDraft(destination)).toBeNull()
+    const retained = (await loadStoredDraft(identity))!
+
+    await editor.selectKeyboard({ ...board('config/a.keymap', 'new-head'), keymap: km('B') })
+    expect(window.confirm).not.toHaveBeenCalled()
+    expect.soft(editor.draftKeymap).toEqual(restore ? retained.draftKeymap : retained.githubBaseline!.keymap)
+    expect.soft(editor.baselineKeymap).toEqual(retained.githubBaseline!.keymap)
+    expect.soft(editor.githubMeta?.headSha).toBe(retained.githubBaseline!.headSha)
+    expect.soft(editor.hasPendingFirmwareRecovery).toBe(!restore)
+    expect.soft(editor.isDirty).toBe(restore)
+    if (restore) expect.soft(editor._storedLayerOperation()).toEqual(retained.layerOperation)
+    await editor.flushPendingPersist()
+    const flushed = await loadStoredDraft(identity)
+    if (restore) expect.soft(flushed).toMatchObject({ draftKeymap: retained.draftKeymap, githubBaseline: retained.githubBaseline, layerOperation: retained.layerOperation })
+    else expect.soft(flushed).toEqual(retained)
+    expect(await loadStoredDraft(destination)).toBeNull()
+  })
+
+  it.each([true, false])('keeps handled firmware provenance despite stale host head on return (restore=%s)', async restore => {
+    const selection = board()
+    await editor.selectKeyboard(selection)
+    editor.updateKeymap(km('Z'))
+    await editor.setHostKeyLevel('en', 'A', 0, 'Ω')
+    await editor.flushPendingPersist()
+    await editor._hostCacheWrites
+    const identity = editor.currentDraftIdentity()!
+    const key = draftStorage.draftIdentityKey(identity)
+    editor.resetForTests()
+    vi.mocked(window.confirm).mockReturnValue(restore)
+    await editor.selectKeyboard(selection)
+    await editor.selectKeyboard(board('config/b.keymap'))
+    const retained = (await loadStoredDraft(identity))!
+    const cached = (await loadGithubHostCache(key))!
+    await saveGithubHostCache(key, { ...cached, headSha: 'stale-host-head', baselineSha: 'host-origin-head' }, cached.revision)
+    vi.mocked(window.confirm).mockClear()
+
+    await editor.selectKeyboard({ ...board('config/a.keymap', 'new-remote-head'), keymap: km('B') })
+    expect(window.confirm).not.toHaveBeenCalled()
+    expect.soft(editor.githubMeta?.headSha).toBe(retained.githubBaseline!.headSha)
+    expect.soft(editor.baselineKeymap).toEqual(retained.githubBaseline!.keymap)
+    expect.soft(editor.baselineLayout).toEqual(retained.githubBaseline!.layout)
+    expect(editor._hostRepoBaselineSha).toBe('host-origin-head')
+    expect(editor._encodeLiveHostSnapshot()).toBe(cached.workingEncoded)
+    await editor.flushPendingPersist()
+    expect.soft((await loadStoredDraft(identity))?.githubBaseline).toEqual(retained.githubBaseline)
+  })
+
+  it.each(['demo', 'clipboard', 'local', 'github'] as const)('restores handled identity host recovery after a no-draft %s destination', async source => {
+    const selection = board()
+    await editor.selectKeyboard(selection)
+    editor.updateKeymap(km('Z'))
+    await editor.setHostKeyLevel('en', 'A', 0, 'Ω')
+    await editor.flushPendingPersist()
+    await editor._hostCacheWrites
+    const identity = editor.currentDraftIdentity()!
+    const key = draftStorage.draftIdentityKey(identity)
+    const firmware = await loadStoredDraft(identity)
+    const privateId = editor.activeProfileId('en')
+    const host = editor._encodeLiveHostSnapshot()
+    const cached = (await loadGithubHostCache(key))!
+
+    editor.resetForTests()
+    await editor.selectKeyboard(selection)
+    expect(editor.draftKeymap).toEqual(km('Z'))
+    expect(editor._handledDraftIdentityKey).toBe(key)
+    expect(hostLayout(privateId)?.byZmk.get('A')?.glyphs[0]).toBe('Ω')
+    vi.mocked(window.confirm).mockClear()
+
+    await editor.selectKeyboard(source === 'github'
+      ? board('config/b.keymap')
+      : { source, layout: selection.layout, keymap: km('A') })
+    expect(editor.source).toBe(source)
+    expect(editor._handledDraftIdentityKey).toBe(key)
+    expect(hostLayout(privateId)).toBeUndefined()
+    const destination = editor.currentDraftIdentity()!
+    expect(await loadStoredDraft(destination)).toBeNull()
+    editor.hostLegend = addHostLanguage(editor.hostLegend, 'de')
+    await editor._persistHostLegend()
+    const destinationKey = draftStorage.draftIdentityKey(destination)
+    const destinationView = await hostStorage.loadHostLegendView(hostStorage.hostLegendSettingId(destinationKey))
+    const destinationCache = await loadGithubHostCache(destinationKey)
+    const retainedFirmware = await loadStoredDraft(identity)
+    expect(retainedFirmware?.draftKeymap).toEqual(firmware?.draftKeymap)
+
+    await editor.selectKeyboard(selection)
+    expect(editor.currentDraftIdentity()).toEqual(identity)
+    expect(editor._handledDraftIdentityKey).toBe(key)
+    expect(window.confirm).not.toHaveBeenCalled()
+    expect.soft(editor.activeProfileId('en')).toBe(privateId)
+    expect.soft(hostLayout(privateId)?.byZmk.get('A')?.glyphs[0]).toBe('Ω')
+    expect.soft(editor._encodeLiveHostSnapshot()).toBe(host)
+    // A subsequent host write must not copy the intervening source's legend to A.
+    await editor._persistHostLegend()
+    expect.soft(await loadGithubHostCache(key)).toMatchObject({
+      workingEncoded: host, baselineEncoded: cached.baselineEncoded,
+      baselineSha: cached.baselineSha, headSha: cached.headSha
+    })
+    expect(await loadStoredDraft(identity)).toEqual(retainedFirmware)
+    expect(await hostStorage.loadHostLegendView(hostStorage.hostLegendSettingId(destinationKey))).toEqual(destinationView)
+    const retainedDestinationCache = await loadGithubHostCache(destinationKey)
+    expect(retainedDestinationCache && { ...retainedDestinationCache, revision: 0 }).toEqual(destinationCache && { ...destinationCache, revision: 0 })
+  })
+
   it('clears firmware recovery loading after invalid selected GitHub host-cache hydration fails', async () => {
     // Exercise hydration's decoder, rather than the earlier storage-read guard.
     vi.spyOn(hostStorage, 'loadGithubHostCache').mockResolvedValue({
@@ -575,12 +706,14 @@ describe('selected GitHub editor identity', () => {
     const host = (glyph: string) => ({ version: 1 as const, view: { columns: [{ language: 'en' as const, layoutId: 'user:shared', visible: true, altGr: true, altGrShift: true }], open: null }, layouts: [{ id: 'user:shared', name: 'shared', language: 'en' as const, origin: { from: 'copy' as const, layoutId: 'system-us' }, keys: [{ zmk: 'A', keysyms: [glyph, 'A', 'NoSymbol', 'NoSymbol'] as [string,string,string,string], glyphs: [glyph, 'A', '', ''] as [string,string,string,string] }] }] })
     await editor.selectKeyboard({ ...board(), hostSnapshot: host('a') })
     const aId = editor.activeProfileId('en')
+    const storedA = (await hostStorage.loadUserHostLayouts()).find(row => row.id === aId)
     expect(editor.buildCurrentHostKeymapSnapshot()?.layouts[0].id).toBe('user:shared')
     await editor.selectKeyboard({ ...board('config/b.keymap'), hostSnapshot: host('b') })
     const bId = editor.activeProfileId('en')
     expect(bId).not.toBe(aId)
     await editor.setHostKeyLevel('en', 'A', 0, 'z')
-    expect(hostLayout(aId)?.byZmk.get('A')?.glyphs[0]).toBe('a')
+    expect(hostLayout(aId)).toBeUndefined()
+    expect((await hostStorage.loadUserHostLayouts()).find(row => row.id === aId)).toEqual(storedA)
     expect(hostLayout(bId)?.byZmk.get('A')?.glyphs[0]).toBe('z')
     expect(hostLayout(global.id)?.byZmk.get('A')?.glyphs[0]).toBe('a')
     expect((await hostStorage.loadUserHostLayouts()).find(row => row.id === global.id)).toEqual(storedGlobal)

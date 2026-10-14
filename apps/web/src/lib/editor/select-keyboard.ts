@@ -183,12 +183,18 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
 
   const alreadyHandled =
     upcomingKey != null && upcomingKey === this._handledDraftIdentityKey
+  // A handled firmware recovery does not mean this identity's host tables are
+  // still live: leaving the owner unregisters its private layouts.
+  const restoreHost = !alreadyHandled || (event.source === 'github' && !sameGithubIdentity)
+  // The handled marker suppresses repeated prompts, not rehydration after leaving.
+  const restoreFirmware = !alreadyHandled || (event.source === 'github' && !!githubMeta?.keymapPath && !sameGithubIdentity)
   const sameBaseline =
     this.baselineKeymap != null &&
     event.keymap != null &&
     diffKeymaps(this.baselineKeymap, event.keymap).length === 0
   const keepLiveDraft =
     event.source !== 'clipboard' &&
+    (!githubMeta?.keymapPath || sameGithubIdentity) &&
     alreadyHandled &&
     this.draftKeymap != null &&
     this.isDirty &&
@@ -198,12 +204,12 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
   // error is not evidence that the destination is clean.
   let preparedHost: { cached: GithubHostCache | null } | undefined
   let preparedDraft: { stored: StoredDraft | null } | undefined
-  if (event.source === 'github' && upcomingIdentity?.keymapPath && !alreadyHandled) {
+  if (event.source === 'github' && upcomingIdentity?.keymapPath && restoreHost) {
     try {
       await this._hostCacheWrites
       await this._draftWrites
       preparedHost = { cached: await loadGithubHostCache(upcomingKey!) }
-      preparedDraft = { stored: await loadStoredDraft(upcomingIdentity) }
+      if (restoreFirmware) preparedDraft = { stored: await loadStoredDraft(upcomingIdentity) }
     } catch {
       if (selectToken === this._selectGeneration) this.saveNotice = { kind: 'error', messages: ['Could not read destination recovery. The current selection was retained.'] }
       return
@@ -267,6 +273,7 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
       if (adopted !== this.draftKeymap) this.draftKeymap = adopted
     }
   }
+  this._dropUnavailableHostLayouts()
   this.saveNotice = null
   const loadNotices = formatKeymapSaveWarningNotices(event.warnings)
   if (loadNotices.length > 0) {
@@ -279,9 +286,9 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
   }
 
   // Do not accept firmware edits until hydration and the recovery decision end.
-  this._firmwareRecoveryLoading = event.source === 'github' && !!githubMeta?.keymapPath && !!event.keymap && !alreadyHandled
+  this._firmwareRecoveryLoading = event.source === 'github' && !!githubMeta?.keymapPath && !!event.keymap && restoreFirmware
   try {
-    if (!alreadyHandled && !(sameGithubIdentity && event.source === 'github' && event.hostSnapshotError)) {
+    if (restoreHost && !(sameGithubIdentity && event.source === 'github' && event.hostSnapshotError)) {
       const restoredGithubCache = event.source === 'github' && await this._loadGithubHostCache(event, selectToken, preparedHost)
       if (selectToken !== this._selectGeneration) return
       const hostSnapshot =
@@ -296,7 +303,7 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
       }
     }
     if (selectToken !== this._selectGeneration) return
-    if (alreadyHandled) return
+    if (!restoreFirmware) return
     if (event.source === 'demo' && event.demoHost?.length) {
       await this._seedDemoHostLayouts(event.demoHost, selectToken)
       if (selectToken !== this._selectGeneration) return
@@ -342,6 +349,7 @@ export async function _preserveGithubSession(this: EditorState,
   const previousIdentity = this.currentDraftIdentity()
   this.source = 'github'
   this.githubMeta = github
+  this._dropUnavailableHostLayouts()
   if (event.layout) {
     this.layout = event.layout
     this.baselineLayout = cloneLayout(event.layout)
@@ -420,6 +428,7 @@ async function preserveSelectedGithubSession(this: EditorState, event: GithubKey
     if (!current()) return fail('Work changed while preparing branch carry; retry with the current revision.')
   } catch (error) { return fail(error instanceof Error ? error.message : 'Could not retain branch recovery') }
   this.githubMeta = event.github
+  this._dropUnavailableHostLayouts()
   this.baselineKeymap = cloneParsedKeymap(event.keymap)
   this.layout = cloneLayout(event.layout)
   this.baselineLayout = cloneLayout(event.layout)

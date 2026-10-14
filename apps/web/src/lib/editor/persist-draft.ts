@@ -150,6 +150,7 @@ export async function clearPersistedDraft(this: EditorState) {
   const identity = this.currentDraftIdentity()
   if (!identity) return
   if (identity.keymapPath) {
+    this._githubDraftRecoveryDecisions.delete(draftIdentityKey(identity))
     await this._flushPersist(this._persistGeneration)
     return
   }
@@ -182,7 +183,10 @@ export async function _maybeRestorePersistedDraft(this: EditorState, selectToken
     return
   }
   if (identity.keymapPath) this.hasPendingFirmwareRecovery = false
-  if (!stored) return
+  if (!stored) {
+    if (identity.keymapPath) this._githubDraftRecoveryDecisions.delete(identityKey)
+    return
+  }
 
   if (this.source === 'github' && identity.keymapPath) {
     const base = stored.githubBaseline
@@ -239,7 +243,7 @@ export async function _maybeRestorePersistedDraft(this: EditorState, selectToken
   if (selectToken !== this._selectGeneration) return
   if (!this._draftIdentityMatches(identityKey)) return
 
-  const restore = window.confirm(
+  const restore = (identity.keymapPath ? this._githubDraftRecoveryDecisions.get(identityKey) : undefined) ?? window.confirm(
     this.source === 'github'
       ? 'An unpublished draft was saved in this browser. Restore it?\n\nOK = Restore · Cancel = Keep stored'
       : 'An unpublished draft was saved in this browser. Restore it?\n\nOK = Restore · Cancel = Discard'
@@ -248,6 +252,7 @@ export async function _maybeRestorePersistedDraft(this: EditorState, selectToken
   if (!this._draftIdentityMatches(identityKey)) return
 
   this._handledDraftIdentityKey = identityKey
+  if (identity.keymapPath) this._githubDraftRecoveryDecisions.set(identityKey, restore)
 
   if (restore) {
     this.draftKeymap = adoptSensorBindings(

@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, expect, it, vi } from 'vitest'
-import { buildHostKeymapSnapshot, encodeHostKeymapSnapshot, standardHostLegendView, addHostLanguage, hostLayout, cloneHostLayoutTable } from '@keymap-editor/keymap-core'
+import { buildHostKeymapSnapshot, encodeHostKeymapSnapshot, standardHostLegendView, addHostLanguage, hostLayout, cloneHostLayoutTable, cloneHostLegendView } from '@keymap-editor/keymap-core'
 import * as store from './host-layout-store'
 import { EditorState } from './editor.svelte'
 import { loadStoredDraft, draftIdentityKey, deleteStoredDraft } from './draft-storage'
@@ -135,6 +135,115 @@ it('confirmed host-only discard preserves mixed firmware recovery and stays rese
   reopened.resetForTests()
 })
 
+it('keeps a completed reset durable when host edits interleave with discard', async () => {
+  const state = new EditorState()
+  const event = { source: 'github' as const, github: { repository: 'acme/discard-race', branch: 'main', keymapPath: 'config/a.keymap', headSha: 's' },
+    layout: [{ x: 0, y: 0 }], keymap: { layers: [[{ value: '&none', params: [] }]] }, hostSnapshotError: 'invalid' as const }
+  await state.selectKeyboard(event)
+  await state.setHostKeyLevel('en', 'A', 0, 'Ω')
+  await state.rememberHostAssembly()
+  const key = draftIdentityKey(state.currentDraftIdentity()!)
+  const ownedId = state.activeProfileId('en')
+  const before = state._encodeLiveHostSnapshot()
+  const assemblies = JSON.stringify(state.hostAssemblies)
+  const discard = store.discardGithubHostRecovery
+  let during: { snapshot: string; assemblies: string; editOk: boolean } | undefined
+  vi.spyOn(window, 'confirm').mockReturnValue(true)
+  vi.spyOn(store, 'discardGithubHostRecovery').mockImplementation(async (...args) => {
+    const revision = await discard(...args)
+    // Real IDB commit has finished, but the editor still awaits its receipt.
+    expect(state.hostRecoveryBusy).toBe(true)
+    const edit = await state.setHostKeyLevel('en', 'A', 0, 'Ж')
+    await state.commitHostMap(edited)
+    await state.selectLanguageProfile('en', standard.columns[0].layoutId)
+    await state.forgetHostAssembly(state.hostAssemblies[0].id)
+    await state.rememberHostAssembly()
+    during = { snapshot: state._encodeLiveHostSnapshot(), assemblies: JSON.stringify(state.hostAssemblies), editOk: edit.ok }
+    return revision
+  })
+  try {
+    expect(await state.discardLocalHostEdits()).toBe(true)
+    expect(during).toEqual({ snapshot: before, assemblies, editOk: false })
+    expect(state.hostRecoveryBusy).toBe(false)
+    expect(state.hostLegend).toEqual(standard)
+    expect(state.hostAssemblies).toEqual([])
+    expect(state.hasLocalHostRecovery).toBe(false)
+    // A later flush must not resurrect the pre-discard snapshot or private table.
+    await state._persistGithubHostCache()
+    expect(await store.loadGithubHostCache(key)).toMatchObject({ workingEncoded: encoded, originEncoded: encoded })
+    expect(await store.loadHostLegendView(store.hostLegendSettingId(key))).toEqual(standard)
+    expect(await store.loadHostAssemblies(store.hostAssembliesSettingId(key))).toEqual([])
+    expect((await store.loadUserHostLayouts()).map(row => row.id)).not.toContain(ownedId)
+    state.resetForTests()
+    await state.selectKeyboard(event)
+    expect(state.hostLegend).toEqual(standard)
+    expect(state.hasLocalHostRecovery).toBe(false)
+  } finally {
+    state.resetForTests()
+  }
+})
+
+it('waits for an in-flight private profile rename before atomic discard', async () => {
+  const state = new EditorState()
+  const event = { source: 'github' as const, github: { repository: 'acme/rename-discard', branch: 'main', keymapPath: 'config/a.keymap', headSha: 's' },
+    layout: [{ x: 0, y: 0 }], keymap: { layers: [[{ value: '&none', params: [] }]] }, hostSnapshotError: 'invalid' as const }
+  await state.selectKeyboard(event)
+  await state.setHostKeyLevel('en', 'A', 0, 'Ω')
+  const id = state.activeProfileId('en')
+  const key = draftIdentityKey(state.currentDraftIdentity()!)
+  let release!: () => void
+  let started!: () => void
+  const blocked = new Promise<void>(resolve => { release = resolve })
+  const entered = new Promise<void>(resolve => { started = resolve })
+  const saveLayout = store.saveUserHostLayout
+  const saveCache = store.saveGithubHostCache
+  // Delay the real owned-table write, whichever persistence entry point owns it.
+  vi.spyOn(store, 'saveUserHostLayout').mockImplementation(async record => {
+    if (record.id === id && record.name === 'Renamed private') {
+      started()
+      await blocked
+    }
+    return saveLayout(record)
+  })
+  vi.spyOn(store, 'saveGithubHostCache').mockImplementation(async (...args) => {
+    if (args[0] === key && args[1].workingEncoded.includes('Renamed private')) {
+      started()
+      await blocked
+    }
+    return saveCache(...args)
+  })
+  const discard = vi.spyOn(store, 'discardGithubHostRecovery')
+  vi.spyOn(window, 'confirm').mockReturnValue(true)
+  state.beginRenameHostProfile('en', id)
+  const renaming = state.confirmHostProfileName('Renamed private')
+  await entered
+  const discarding = state.discardLocalHostEdits()
+  try {
+    // Discard's first await must include this already-started owned-table write.
+    await Promise.resolve()
+    await Promise.resolve()
+    expect.soft(discard).not.toHaveBeenCalled()
+  } finally {
+    release()
+  }
+  try {
+    expect(await renaming).toBeNull()
+    expect(await discarding).toBe(true)
+    await state._persistGithubHostCache()
+    expect((await store.loadUserHostLayouts()).map(row => row.id)).not.toContain(id)
+    expect(await store.loadGithubHostCache(key)).toMatchObject({ workingEncoded: encoded, originEncoded: encoded })
+    expect(state.hostLegend).toEqual(standard)
+    expect(hostLayout(id)).toBeUndefined()
+    state.resetForTests()
+    await state.selectKeyboard(event)
+    expect(state.hostLegend).toEqual(standard)
+    expect(state.hasLocalHostRecovery).toBe(false)
+    expect((await store.loadUserHostLayouts()).map(row => row.id)).not.toContain(id)
+  } finally {
+    state.resetForTests()
+  }
+})
+
 it('rejects stale-tab view persistence after a durable reset without resurrecting rows', async () => {
   const event = { source: 'github' as const, github: { repository: 'acme/stale', branch: 'main', keymapPath: 'config/a.keymap', headSha: 's' },
     layout: [{ x: 0, y: 0 }], keymap: { layers: [[{ value: '&none', params: [] }]] }, hostSnapshotError: 'invalid' as const }
@@ -152,6 +261,71 @@ it('rejects stale-tab view persistence after a durable reset without resurrectin
   expect(state.hasLocalHostRecovery).toBe(true)
   expect(state.saveNotice?.kind).toBe('error')
   state.resetForTests()
+})
+
+it.each(['demo', 'clipboard', 'local'] as const)('isolates GitHub private profiles from a %s session', async source => {
+  const state = new EditorState()
+  const event = { source: 'github' as const, github: { repository: `acme/private-${source}`, branch: 'main', keymapPath: 'config/a.keymap', headSha: 's' },
+    layout: [{ x: 0, y: 0 }], keymap: { layers: [[{ value: '&none', params: [] }]] } }
+  try {
+    await state.selectKeyboard(event)
+    await state.setHostKeyLevel('en', 'A', 0, 'Ω')
+    const id = state.activeProfileId('en')
+    const privateView = cloneHostLegendView(state.hostLegend)
+    state.acceptHostRepoBaseline()
+    await state._hostCacheWrites
+    const original = (await store.loadUserHostLayouts()).find(row => row.id === id)!
+    expect(original).toBeDefined()
+    expect(state.profilesForLanguage('en').map(row => row.id)).toContain(id)
+
+    await state.selectKeyboard({ source, layout: event.layout, keymap: { ...event.keymap, keyboard: `isolation-${source}` } })
+    expect(state.source).toBe(source)
+    expect.soft(state.profilesForLanguage('en').map(row => row.id)).not.toContain(id)
+    await state.selectLanguageProfile('en', id)
+    expect.soft(state.activeProfileId('en')).not.toBe(id)
+
+    // An old persisted view or stale callback must not edit an owner's table.
+    state.hostLegend = privateView
+    const edit = await state.setHostKeyLevel('en', 'A', 0, 'Ж')
+    expect.soft(!edit.ok || edit.layoutId !== id).toBe(true)
+    expect.soft((await store.loadUserHostLayouts()).find(row => row.id === id)).toEqual(original)
+    expect.soft(hostLayout(id)).toBeUndefined()
+
+    const destination = state.currentDraftIdentity()!
+    await store.saveHostLegendView(privateView, store.hostLegendSettingId(draftIdentityKey(destination)))
+    await store.saveHostAssemblies(store.hostAssembliesSettingId(draftIdentityKey(destination)), [{ id: 'stale-private', view: privateView }])
+    await state._restoreHostLegend(state._selectGeneration)
+    expect(state.hostLegend).toEqual(standard)
+    expect(state.hostAssemblies[0].view).toEqual(standard)
+    await state.commitHostMap(privateView)
+    expect(state.hostLegend).toEqual(standard)
+    state.beginRenameHostProfile('en', id)
+    expect(state.hostProfilePrompt).toBeNull()
+    state.beginDeleteHostProfile('en', id)
+    expect(state.hostProfilePrompt).toBeNull()
+
+    state.resetForTests()
+    await state.restoreHostProfiles()
+    expect.soft(state.userLayouts.map(row => row.id)).not.toContain(id)
+    expect.soft(hostLayout(id)).toBeUndefined()
+    await state.selectKeyboard({ source, layout: event.layout, keymap: { ...event.keymap, keyboard: `isolation-${source}` } })
+    state.hostLegend = privateView
+    expect((await state.setHostKeyLevel('en', 'A', 0, 'Ж')).ok).toBe(false)
+    expect((await store.loadUserHostLayouts()).find(row => row.id === id)).toEqual(original)
+    await state.commitHostMap(standard)
+    expect((await state.setHostKeyLevel('en', 'A', 0, 'Z')).ok).toBe(true)
+    const globalId = state.activeProfileId('en')
+    expect(globalId).not.toMatch(/^user:github:/)
+    expect(state.profilesForLanguage('en').map(row => row.id)).toContain(globalId)
+    await state.selectKeyboard(event)
+    expect(state.activeProfileId('en')).toBe(id)
+    expect(state.profilesForLanguage('en').map(row => row.id)).toContain(id)
+    expect(hostLayout(id)?.byZmk.get('A')).toEqual(original.layout.byZmk.get('A'))
+    expect((await state.setHostKeyLevel('en', 'A', 0, 'Γ')).ok).toBe(true)
+    expect(state.activeProfileId('en')).toBe(id)
+  } finally {
+    state.resetForTests()
+  }
 })
 
 it.each(['github', 'demo', 'clipboard', 'local'] as const)('blocks %s transitions until host reset, then retains firmware separately', async source => {

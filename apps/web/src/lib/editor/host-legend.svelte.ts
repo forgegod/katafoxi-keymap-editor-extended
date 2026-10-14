@@ -1,3 +1,4 @@
+import { untrack } from 'svelte'
 import {
   addHostLanguage,
   assignHostLanguageLayout,
@@ -48,6 +49,7 @@ import {
   hostAssembliesSettingId,
   hostLegendSettingId,
   isUserHostLayoutId,
+  isGithubHostLayoutOwnedBy,
   loadHostAssemblies,
   loadHostLegendView,
   loadUserHostLayouts,
@@ -70,16 +72,56 @@ import { pairedImportNames } from './helpers'
 import type { EditorState } from './state.svelte'
 import type { HostKeyLevelEditResult } from './types'
 
+/** Private working tables are usable only by their exact selected GitHub owner. */
+function hostLayoutAvailable(state: EditorState, id: string): boolean {
+  if (!id.startsWith('user:github:')) return true
+  const identity = state.currentDraftIdentity()
+  return state.source === 'github' && !!identity?.keymapPath && isGithubHostLayoutOwnedBy(id, draftIdentityKey(identity))
+}
+
+function sanitizeAvailableHostView(state: EditorState, view: HostLegendView) {
+  const next = cloneHostLegendView(view)
+  const unavailable: HostLanguageId[] = []
+  for (const column of next.columns) {
+    if (hostLayoutAvailable(state, column.layoutId)) continue
+    column.layoutId = primarySystemLayoutId(column.language) ?? ''
+    unavailable.push(column.language)
+  }
+  const result = sanitizeHostLegendView(next)
+  return { view: result.view, replaced: [...unavailable, ...result.replaced] }
+}
+
+/** Release private tables from memory, never from their owner's recovery. */
+export function _dropUnavailableHostLayouts(this: EditorState) {
+  for (const layout of this.userLayouts) {
+    if (hostLayoutAvailable(this, layout.id)) continue
+    unregisterHostLayout(layout.id)
+    this._githubHostLayoutWireIds.delete(layout.id)
+    this.hostLayoutRevision += 1
+  }
+  this.userLayouts = this.userLayouts.filter(layout => hostLayoutAvailable(this, layout.id))
+  this.hostLegend = sanitizeAvailableHostView(this, this.hostLegend).view
+  this.hostAssemblies = this.hostAssemblies.map(item => ({ ...item, view: sanitizeAvailableHostView(this, item.view).view }))
+  this.hostProfilePrompt = null
+  this.hostProfileNote = null
+}
+
 /** Restore user layouts into the registry. The legend view loads with the keymap. */
 export async function restoreHostProfiles(this: EditorState) {
+  // Startup runs inside Loader's effect; busy changes must not remount the app.
+  if (untrack(() => this.hostRecoveryBusy)) return
+  const epoch = this._hostCacheEpoch
   try {
     resetHostLayoutRegistry()
-    const records = await loadUserHostLayouts()
+    const stored = await loadUserHostLayouts()
+    if (this.hostRecoveryBusy || epoch !== this._hostCacheEpoch) return
+    const records = stored.filter(record => hostLayoutAvailable(this, record.id))
     for (const record of records) this._registerUserLayout(record)
     this.userLayouts = records.map(({ layout: _layout, ...rest }) => rest)
     // Restored layouts are already on disk in the browser; wait for a new edit.
     this.markHostDelivered()
   } catch {
+    if (this.hostRecoveryBusy || epoch !== this._hostCacheEpoch) return
     resetHostLayoutRegistry()
     this.userLayouts = []
     this.hostLegend = standardHostLegendView()
@@ -115,6 +157,8 @@ export async function _materializeUserHostLayoutFromTable(this: EditorState,
   origin: UserHostLayoutOrigin,
   privateWorkingCopy = false
 ): Promise<string> {
+  if (this.hostRecoveryBusy) throw new Error('Host recovery reset is in progress')
+  if (origin.from === 'copy' && !hostLayoutAvailable(this, origin.layoutId)) throw new Error('Host layout belongs to another GitHub identity')
   const name = uniqueUserHostLayoutName(language, preferredName, this.userLayouts)
   const wireId = `user:${crypto.randomUUID()}`
   const identity = this.currentDraftIdentity()
@@ -218,7 +262,7 @@ export async function _restoreHostLegend(this: EditorState, selectToken: number)
       if (legacy) await this._persistHostLayoutWrite(() => deleteHostLegendView())
     }
     if (selectToken !== this._selectGeneration) return
-    const { view, replaced } = sanitizeHostLegendView(stored ?? standardHostLegendView())
+    const { view, replaced } = sanitizeAvailableHostView(this, stored ?? standardHostLegendView())
     this.hostLegend = view
     if (replaced.length > 0) {
       this.hostProfileNote = UNKNOWN_HOST_LAYOUT_NOTE
@@ -266,7 +310,7 @@ export async function _restoreHostAssemblies(this: EditorState, selectToken: num
     let replacedAny = false
     const next: StoredHostAssembly[] = []
     for (const item of items) {
-      const { view, replaced } = sanitizeHostLegendView(item.view)
+      const { view, replaced } = sanitizeAvailableHostView(this, item.view)
       if (replaced.length > 0) replacedAny = true
       next.push({ id: item.id, view })
     }
@@ -321,22 +365,25 @@ export function hostAssemblyRememberBlocked(this: EditorState): boolean {
 }
 
 export async function rememberHostAssembly(this: EditorState): Promise<void> {
+  if (this.hostRecoveryBusy) return
   if (this.hostAssemblySaved() || this.hostAssemblyRememberBlocked()) return
   const generation = this._selectGeneration
   const settingId = this._hostAssembliesSettingId()
-  const { view } = sanitizeHostLegendView(cloneHostLegendView(this.hostLegend))
+  const { view } = sanitizeAvailableHostView(this, this.hostLegend)
   this.hostAssemblies = [...this.hostAssemblies, { id: crypto.randomUUID(), view }]
   if (generation !== this._selectGeneration) return
   await this._persistHostAssemblies(settingId, generation)
 }
 
 export async function showHostAssembly(this: EditorState, id: string): Promise<void> {
+  if (this.hostRecoveryBusy) return
+  const epoch = this._hostCacheEpoch
   const generation = this._selectGeneration
   const legendSettingId = this._hostLegendSettingId()
   const assembliesSettingId = this._hostAssembliesSettingId()
   const index = this.hostAssemblies.findIndex(item => item.id === id)
   if (index < 0) return
-  const { view, replaced } = sanitizeHostLegendView(
+  const { view, replaced } = sanitizeAvailableHostView(this,
     cloneHostLegendView(this.hostAssemblies[index].view)
   )
   if (replaced.length > 0) {
@@ -348,10 +395,12 @@ export async function showHostAssembly(this: EditorState, id: string): Promise<v
     if (generation !== this._selectGeneration) return
   }
   if (generation !== this._selectGeneration) return
+  if (epoch !== this._hostCacheEpoch) return
   await this.commitHostMap(view, legendSettingId, generation)
 }
 
 export async function forgetHostAssembly(this: EditorState, id: string): Promise<void> {
+  if (this.hostRecoveryBusy) return
   const next = this.hostAssemblies.filter(item => item.id !== id)
   if (next.length === this.hostAssemblies.length) return
   this.hostAssemblies = next
@@ -405,7 +454,9 @@ export function multilangViewOn(this: EditorState): boolean {
  * Returns the active user layout as-is; forks a system layout into a copy first.
  */
 export async function ensureEditableUserHostLayout(this: EditorState, language: HostLanguageId): Promise<string> {
+  if (this.hostRecoveryBusy) throw new Error('Host recovery reset is in progress')
   const layoutId = this.activeProfileId(language)
+  if (!hostLayoutAvailable(this, layoutId)) throw new Error('Host layout belongs to another GitHub identity')
   if (isUserHostLayoutId(layoutId) && (!this.githubMeta?.keymapPath || this._githubHostLayoutWireIds.has(layoutId))) return layoutId
   const source = hostLayout(layoutId)
   if (!source) throw new Error('No layout for this language')
@@ -437,11 +488,16 @@ export async function setHostKeyLevel(this: EditorState,
   level: number,
   text: string
 ): Promise<HostKeyLevelEditResult> {
+  if (this.hostRecoveryBusy) return { ok: false, reason: 'rejected' }
+  if (!hostLayoutAvailable(this, this.activeProfileId(language))) return { ok: false, reason: 'missing-layout' }
+  const epoch = this._hostCacheEpoch
+  const generation = this._selectGeneration
   const parsed = glyphToKeysym(text)
   if (!parsed.ok) {
     return { ok: false, reason: 'rejected', detail: parsed.reason }
   }
   const layoutId = await this.ensureEditableUserHostLayout(language)
+  if (this.hostRecoveryBusy || epoch !== this._hostCacheEpoch || generation !== this._selectGeneration) return { ok: false, reason: 'rejected' }
   const current = hostLayout(layoutId)
   if (!current) return { ok: false, reason: 'missing-layout' }
   const next = withHostKey(current, zmk, level, parsed.keysym)
@@ -458,6 +514,7 @@ export async function setHostKeyLevel(this: EditorState,
 }
 
 export async function _commitUserHostLayout(this: EditorState, layoutId: string, layout: HostLayout): Promise<boolean> {
+  if (this.hostRecoveryBusy || !hostLayoutAvailable(this, layoutId)) return false
   const profile = this.userLayouts.find(item => item.id === layoutId)
   if (!profile) return false
   const updated: UserHostLayout = { ...profile, updatedAt: Date.now() }
@@ -486,7 +543,7 @@ export async function revertHostKeyLevel(this: EditorState,
 
 export function profilesForLanguage(this: EditorState, language: HostLanguageId): UserHostLayout[] {
   return this.userLayouts
-    .filter(layout => layout.language === language)
+    .filter(layout => layout.language === language && hostLayoutAvailable(this, layout.id))
     .sort((a, b) => a.name.localeCompare(b.name, 'en'))
 }
 
@@ -500,7 +557,8 @@ export function commitHostMap(
   settingId?: string | null,
   generation: number = this._selectGeneration
 ): Promise<void> {
-  if (generation !== this._selectGeneration) return Promise.resolve()
+  if (this.hostRecoveryBusy || generation !== this._selectGeneration) return Promise.resolve()
+  if (next.columns.some(column => !hostLayoutAvailable(this, column.layoutId))) return Promise.resolve()
   this.hostLegend = { ...next }
   return this._persistHostLayoutWrite(() => this._persistHostLegend(settingId, generation))
 }
@@ -512,6 +570,7 @@ export function selectLanguageProfile(
   settingId?: string | null,
   generation: number = this._selectGeneration
 ): Promise<void> {
+  if (this.hostRecoveryBusy || !hostLayoutAvailable(this, id)) return Promise.resolve()
   if (this.activeProfileId(language) === id) return Promise.resolve()
   this.hostProfilePrompt = null
   this.hostProfileNote = null
@@ -522,11 +581,15 @@ export function selectLanguageProfile(
 }
 
 export function beginSaveHostProfile(this: EditorState, language: HostLanguageId) {
+  const layoutId = this.activeProfileId(language)
+  if (this.hostRecoveryBusy || !hostLayoutAvailable(this, layoutId)) return
   this.hostProfileNote = null
-  this.hostProfilePrompt = { kind: 'save-as', language }
+  this.hostProfilePrompt = { kind: 'save-as', language, layoutId }
 }
 
 export function beginCopyHostProfile(this: EditorState, language: HostLanguageId, layoutId?: string) {
+  layoutId ??= this.activeProfileId(language)
+  if (this.hostRecoveryBusy || !hostLayoutAvailable(this, layoutId)) return
   this.hostProfileNote = null
   this.hostProfilePrompt = { kind: 'copy', language, layoutId }
 }
@@ -538,6 +601,7 @@ export async function importHostLayoutFromXkb(this: EditorState,
   section: string,
   fileName: string
 ): Promise<string | null> {
+  if (this.hostRecoveryBusy) return 'Host recovery reset is in progress'
   const listed = listXkbSections(text)
   if (!listed.some(item => item.section === section)) {
     return `Section “${section}” was not found`
@@ -560,6 +624,7 @@ export async function importHostLayoutFromXkb(this: EditorState,
 
 /** Open a language column, adding it when the legend does not have it yet. */
 export function _showHostLanguage(this: EditorState, language: HostLanguageId) {
+  if (this.hostRecoveryBusy) return
   if (!this.hostLegend.columns.some(column => column.language === language)) {
     this.hostLegend = addHostLanguage(this.hostLegend, language)
     return
@@ -587,6 +652,8 @@ export async function importHostLayoutFromKlc(this: EditorState,
   source: Uint8Array | string,
   fileName: string
 ): Promise<string | null> {
+  if (this.hostRecoveryBusy) return 'Host recovery reset is in progress'
+  const epoch = this._hostCacheEpoch
   let parsed
   try {
     parsed = parseKlc(typeof source === 'string' ? source : decodeKlc(source))
@@ -629,6 +696,7 @@ export async function importHostLayoutFromKlc(this: EditorState,
     fileName,
     role: 'base'
   })
+  if (this.hostRecoveryBusy || epoch !== this._hostCacheEpoch) return 'Host editing session changed'
   await this._materializeUserHostLayoutFromTable(capsLanguage, names.capsName, parsed.caps, {
     from: 'klc',
     fileName,
@@ -648,7 +716,7 @@ export async function importHostLayoutFromKlc(this: EditorState,
  * when the id is not a registered user layout.
  */
 export function exportUserHostLayoutXkb(this: EditorState, layoutId: string): { text: string; name: string } | null {
-  if (!isUserHostLayoutId(layoutId)) return null
+  if (!isUserHostLayoutId(layoutId) || !hostLayoutAvailable(this, layoutId)) return null
   const profile = this.userLayouts.find(layout => layout.id === layoutId)
   if (!profile) return null
   const layout = hostLayout(layoutId)
@@ -664,7 +732,7 @@ export function exportUserHostLayoutXkb(this: EditorState, layoutId: string): { 
  * Returns null for system layouts and unknown ids.
  */
 export function exportUserHostLayoutKlc(this: EditorState, layoutId: string): { bytes: Uint8Array; name: string } | null {
-  if (!isUserHostLayoutId(layoutId)) return null
+  if (!isUserHostLayoutId(layoutId) || !hostLayoutAvailable(this, layoutId)) return null
   const profile = this.userLayouts.find(layout => layout.id === layoutId)
   if (!profile) return null
   const layout = hostLayout(layoutId)
@@ -692,7 +760,7 @@ export function listCapsAlphabetKlcExports(this: EditorState): Array<{
   void this.hostLegend
   const columns = hostLegendColumns(this.hostLegend)
   const base = columns.find(column => column.language === 'en')
-  if (!base || !hostLayout(base.layoutId)) return []
+  if (!base || !hostLayoutAvailable(this, base.layoutId) || !hostLayout(base.layoutId)) return []
   const baseLanguageName = hostLanguage('en').name
   const baseLayoutName = this._layoutColumnName(base.layoutId, 'en')
   const out: Array<{
@@ -706,7 +774,7 @@ export function listCapsAlphabetKlcExports(this: EditorState): Array<{
   for (const column of columns) {
     if (column.language === 'en') continue
     if (!windowsCapsPairingRecommended(column.language)) continue
-    if (!hostLayout(column.layoutId)) continue
+    if (!hostLayoutAvailable(this, column.layoutId) || !hostLayout(column.layoutId)) continue
     const capsLanguageName = hostLanguage(column.language).name
     out.push({
       capsLanguage: column.language,
@@ -732,6 +800,7 @@ export function exportCapsAlphabetKlc(this: EditorState,
   const base = columns.find(column => column.language === 'en')
   const caps = columns.find(column => column.language === capsLanguage)
   if (!base || !caps || caps.language === 'en') return null
+  if (!hostLayoutAvailable(this, base.layoutId) || !hostLayoutAvailable(this, caps.layoutId)) return null
   if (!windowsCapsPairingRecommended(capsLanguage)) return null
   const baseLayout = hostLayout(base.layoutId)
   const capsLayout = hostLayout(caps.layoutId)
@@ -756,6 +825,7 @@ export function _layoutColumnName(this: EditorState, layoutId: string, language:
 
 export function beginRenameHostProfile(this: EditorState, language: HostLanguageId, profileId?: string) {
   const id = profileId ?? this.activeProfileId(language)
+  if (!hostLayoutAvailable(this, id)) return
   if (!isUserHostLayoutId(id)) return
   if (!this.userLayouts.some(layout => layout.id === id)) return
   this.hostProfileNote = null
@@ -764,6 +834,7 @@ export function beginRenameHostProfile(this: EditorState, language: HostLanguage
 
 export function beginDeleteHostProfile(this: EditorState, language: HostLanguageId, profileId?: string) {
   const id = profileId ?? this.activeProfileId(language)
+  if (!hostLayoutAvailable(this, id)) return
   if (!isUserHostLayoutId(id)) return
   if (!this.userLayouts.some(layout => layout.id === id)) return
   this.hostProfileNote = null
@@ -771,10 +842,13 @@ export function beginDeleteHostProfile(this: EditorState, language: HostLanguage
 }
 
 export async function deleteActiveHostProfile(this: EditorState): Promise<void> {
+  if (this.hostRecoveryBusy) return
+  const epoch = this._hostCacheEpoch
   const prompt = this.hostProfilePrompt
   if (prompt?.kind !== 'delete') return
   const language = prompt.language
   const id = prompt.profileId ?? this.activeProfileId(language)
+  if (!hostLayoutAvailable(this, id)) return
   if (!isUserHostLayoutId(id)) return
   const existed = this.userLayouts.some(layout => layout.id === id)
   if (!existed) return
@@ -784,7 +858,7 @@ export async function deleteActiveHostProfile(this: EditorState): Promise<void> 
   this.hostProfilePrompt = null
   unregisterHostLayout(id)
   await this._persistHostLayoutWrite(() => deleteUserHostLayout(id))
-  if (generation !== this._selectGeneration) return
+  if (this.hostRecoveryBusy || epoch !== this._hostCacheEpoch || generation !== this._selectGeneration) return
   if (this.activeProfileId(language) === id) {
     const primary = primarySystemLayoutId(language)
     if (primary) await this.selectLanguageProfile(language, primary, settingId, generation)
@@ -797,6 +871,7 @@ export function cancelHostProfilePrompt(this: EditorState) {
 
 /** Returns an error message, or null when the profile was stored. */
 export async function confirmHostProfileName(this: EditorState, raw: string): Promise<string | null> {
+  if (this.hostRecoveryBusy) return 'Host recovery reset is in progress'
   const prompt = this.hostProfilePrompt
   if (!prompt) return null
   const name = raw.trim()
@@ -812,10 +887,11 @@ export async function confirmHostProfileName(this: EditorState, raw: string): Pr
   )
   if (taken) return 'A profile with this name already exists'
   const sourceId =
-    (prompt.kind === 'copy' ? prompt.layoutId : undefined) ??
+    prompt.layoutId ??
     hostLegendColumns(this.hostLegend).find(column => column.language === language)
       ?.layoutId ??
     ''
+  if (!hostLayoutAvailable(this, sourceId)) return 'Host layout belongs to another GitHub identity'
   const source = sourceId ? hostLayout(sourceId) : undefined
   if (!source) return 'No layout for this language'
   await this._materializeUserHostLayoutFromTable(language, name, source, {
@@ -826,12 +902,14 @@ export async function confirmHostProfileName(this: EditorState, raw: string): Pr
 }
 
 export async function _renameHostProfile(this: EditorState, language: HostLanguageId, name: string): Promise<string | null> {
+  if (this.hostRecoveryBusy) return 'Host recovery reset is in progress'
   const id =
     this.hostProfilePrompt?.kind === 'rename'
       ? this.hostProfilePrompt.profileId
       : this.activeProfileId(language)
   const current = this.userLayouts.find(layout => layout.id === id)
   if (!current) return null
+  if (!hostLayoutAvailable(this, current.id)) return 'Host layout belongs to another GitHub identity'
   if (foldHostProfileName(current.name) === foldHostProfileName(name)) {
     this.hostProfilePrompt = null
     return null
@@ -851,7 +929,9 @@ export async function _renameHostProfile(this: EditorState, language: HostLangua
     layout.id === updated.id ? updated : layout
   )
   this.hostProfilePrompt = null
-  await this._persistHostLayoutWrite(() => saveUserHostLayout({ ...updated, layout: table }))
+  // Private tables share the revision/epoch-checked queue awaited by discard.
+  if (current.id.startsWith('user:github:')) await this._persistGithubHostCache()
+  else await this._persistHostLayoutWrite(() => saveUserHostLayout({ ...updated, layout: table }))
   return null
 }
 
@@ -865,7 +945,7 @@ export function hostDeliverableLayoutIds(this: EditorState): string[] {
   const ids: string[] = []
   const seen = new Set<string>()
   for (const column of hostLegendColumns(this.hostLegend)) {
-    if (!isUserHostLayoutId(column.layoutId) || seen.has(column.layoutId)) continue
+    if (!isUserHostLayoutId(column.layoutId) || !hostLayoutAvailable(this, column.layoutId) || seen.has(column.layoutId)) continue
     seen.add(column.layoutId)
     ids.push(column.layoutId)
   }

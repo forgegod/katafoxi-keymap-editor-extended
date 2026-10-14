@@ -189,6 +189,8 @@ export class EditorState {
    * Prevents picker effect re-entry from wiping a restored draft.
    */
   _handledDraftIdentityKey: string | null = null
+  /** Selected GitHub recovery consent belongs to its identity, not the live source. */
+  _githubDraftRecoveryDecisions = new Map<string, boolean>()
   hasPendingFirmwareRecovery = $state(false)
   _firmwareRecoveryLoading = false
   _githubDraftRows = new Map<string, StoredDraft | null>()
@@ -305,12 +307,14 @@ export class EditorState {
     this._omitHostKeymapSnapshotOnCommit = false
     this._hostSnapshotLoadError = null
     this._handledDraftIdentityKey = null
+    this._githubDraftRecoveryDecisions.clear()
     this.hasPendingFirmwareRecovery = false
     this._firmwareRecoveryLoading = false
     this.endHostEditSession()
     this.legendHover = null
     this.source = null
     this.githubMeta = null
+    this._dropUnavailableHostLayouts()
     this.clipboardOriginalSource = null
     this._baselineClipboardSource = null
     this.layerOperationSnapshot = null

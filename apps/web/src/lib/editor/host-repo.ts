@@ -309,7 +309,9 @@ export async function discardLocalHostEdits(this: EditorState): Promise<boolean>
   try {
     const next = await discardGithubHostRecovery(key, revision, current)
     this._hostCacheRevisions.set(key, next)
-    if (!current()) return false
+    // The transaction has committed: reconcile this identity even if stale host
+    // memory changed while awaiting its receipt. Never persist that memory back.
+    if (generation !== this._selectGeneration) return false
     for (const layout of this.userLayouts) {
       if (isGithubHostLayoutOwnedBy(layout.id, key)) unregisterHostLayout(layout.id)
     }

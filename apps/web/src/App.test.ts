@@ -1041,6 +1041,44 @@ describe('App chrome', () => {
     expect(dispatchBeforeUnload().defaultPrevented).toBe(false)
   })
 
+  it.each([
+    ['pagehide', true], ['visibilitychange', true],
+    ['pagehide', false], ['visibilitychange', false]
+  ] as const)('protects handled GitHub firmware on return and %s (restore=%s)', async (event, restore) => {
+    await renderApp()
+    const selection: KeyboardSelection = { source: 'github', github: { repository: 'owner/handled-return', branch: 'main', keymapPath: 'config/a.keymap', headSha: 'original' }, layout: oneKeyLayout, keymap: km('A') }
+    await loadKeyboard(selection)
+    editor.updateKeymap(km('Z'))
+    await editor.flushPendingPersist()
+    const identity = editor.currentDraftIdentity()!
+    editor.resetForTests()
+    vi.spyOn(window, 'confirm').mockReturnValue(restore)
+    await loadKeyboard(selection)
+    expect(window.confirm).toHaveBeenCalledTimes(1)
+    await loadKeyboard(localSelection())
+    expect(editor.hasPendingFirmwareRecovery).toBe(false)
+    const retained = (await draftStorage.loadStoredDraft(identity))!
+    vi.mocked(window.confirm).mockClear()
+    await loadKeyboard(selection)
+
+    expect.soft(editor.draftKeymap).toEqual(km(restore ? 'Z' : 'A'))
+    expect.soft(editor.hasPendingFirmwareRecovery).toBe(!restore)
+    expect.soft(dispatchBeforeUnload().defaultPrevented).toBe(true)
+    expect(window.confirm).not.toHaveBeenCalled()
+    const flush = vi.spyOn(editor, 'flushPendingPersist')
+    if (event === 'pagehide') window.dispatchEvent(new Event('pagehide'))
+    else {
+      vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+      document.dispatchEvent(new Event('visibilitychange'))
+    }
+    expect(flush).toHaveBeenCalledTimes(1)
+    await flush.mock.results[0].value
+    const stored = await draftStorage.loadStoredDraft(identity)
+    if (restore) expect.soft(stored).toMatchObject({ draftKeymap: retained.draftKeymap, githubBaseline: retained.githubBaseline })
+    else expect.soft(stored).toEqual(retained)
+    await deleteStoredDraft(identity)
+  })
+
   it('flushes pending drafts on pagehide and visibilitychange with or without the guard', async () => {
     await renderApp()
     await loadKeyboard(localSelection())

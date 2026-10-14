@@ -26,8 +26,9 @@
   let { language, languageName, open, onToggle, onClose }: Props = $props()
 
   const shelves = $derived.by(() => {
-    editor.userLayouts
-    return hostLayoutShelves(language)
+    const available = new Set(editor.profilesForLanguage(language).map(profile => profile.id))
+    const shelves = hostLayoutShelves(language)
+    return { ...shelves, users: shelves.users.filter(profile => !profile.id.startsWith('user:github:') || available.has(profile.id)) }
   })
   const customs = $derived(shelves.users)
   const activeId = $derived(editor.activeProfileId(language))

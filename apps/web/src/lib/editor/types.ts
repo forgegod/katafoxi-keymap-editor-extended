@@ -5,7 +5,7 @@ import type { HostLanguageId } from '../host-layout-store'
 export type HostSnapshotLoadError = 'unsupported_version' | 'invalid' | 'incompatible'
 
 export type HostProfilePrompt =
-  | { kind: 'save-as'; language: HostLanguageId }
+  | { kind: 'save-as'; language: HostLanguageId; layoutId?: string }
   | { kind: 'copy'; language: HostLanguageId; layoutId?: string }
   | { kind: 'rename'; language: HostLanguageId; profileId?: string }
   | { kind: 'delete'; language: HostLanguageId; profileId?: string }
