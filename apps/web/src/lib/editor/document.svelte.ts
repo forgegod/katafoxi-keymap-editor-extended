@@ -49,6 +49,19 @@ export function changes(this: EditorState): KeymapChange[] {
 
 export function statusText(this: EditorState): string {
   if (!this.draftKeymap) return ''
+  const firmwareRecovery = this.hasPendingFirmwareRecovery
+    ? 'Unpublished firmware recovery is retained in this browser. Reopen to restore it before committing.'
+    : ''
+  if (this.source === 'github' && this._omitHostKeymapSnapshotOnCommit) {
+    const hostStatus = this.hasLocalHostRecovery
+      ? this.isDirty && !this.hasPendingFirmwareRecovery
+        ? 'Commit can save firmware only. Host edits remain browser-local and unpublishable to GitHub.'
+        : 'Host edits are browser-local and unpublishable to GitHub. Commit cannot save them.'
+      : 'Host snapshot and install-file writes are disabled. Remote host files remain unchanged.'
+    const firmwareStatus = firmwareRecovery || (this.isDirty && !this.hasLocalHostRecovery ? 'Commit can save firmware only.' : '')
+    return [firmwareStatus, hostStatus].filter(Boolean).join(' ')
+  }
+  if (firmwareRecovery) return firmwareRecovery
   if (this.isDirty) return 'Draft'
   if (this.isHostRepoDirty) {
     return 'Host layout changed — commit to save with the keymap'

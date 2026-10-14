@@ -5,6 +5,7 @@ import * as storage from '../../../github/storage'
 import type { GitHubRepo, KeyboardFilesResult } from '../../../github/api.svelte.js'
 import { editor } from '../../../editor.svelte.js'
 import * as hostStorage from '../../../host-layout-store'
+import { deleteStoredDraft } from '../../../draft-storage'
 import type { GithubKeyboardSelection } from '../../../editor/types'
 import Picker from './Picker.svelte'
 
@@ -63,11 +64,15 @@ describe('Github Picker', () => {
     github.initialized = true
 
     vi.spyOn(github, 'init').mockResolvedValue(undefined)
+    vi.spyOn(github, 'fetchKeymaps').mockResolvedValue({ headSha: 's', candidates: [{ name: 'a.keymap', path: 'config/a.keymap' }] })
   })
 
-  afterEach(() => {
-    if (view) unmount(view)
+  afterEach(async () => {
+    if (view) await unmount(view)
+    const identity = editor.currentDraftIdentity()
     editor.resetForTests()
+    await editor._draftWrites
+    if (identity) await deleteStoredDraft(identity)
     view = undefined
     target?.remove()
     localStorage.clear()
@@ -107,6 +112,215 @@ describe('Github Picker', () => {
     flushSync()
   }
 
+  it('requires an explicit keymap choice before loading a multi-file repository', async () => {
+    vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }])
+    vi.spyOn(github, 'fetchKeymaps').mockResolvedValue({ headSha: 's', candidates: [
+      { name: 'a.keymap', path: 'config/a.keymap' },
+      { name: 'b.keymap', path: 'config/b.keymap' }
+    ] })
+    const fetchFiles = vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
+      layout: [{ x: 0, y: 0 }, { x: 1, y: 0 }], keymap: { layers: [] },
+      hostSnapshot: null, warnings: [], headSha: 's', keymapPath: 'config/b.keymap', ownershipMode: 'scoped'
+    })
+    const onSelect = open()
+    await vi.waitFor(() => expect(target.querySelector('#keymap-file')).toBeInstanceOf(HTMLSelectElement))
+    expect(fetchFiles).not.toHaveBeenCalled()
+    const select = target.querySelector('#keymap-file') as HTMLSelectElement
+    select.value = 'config/b.keymap'
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+    await vi.waitFor(() => expect(fetchFiles).toHaveBeenCalledWith(repo.full_name, 'main', { keymapPath: 'config/b.keymap' }))
+    await vi.waitFor(() => expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({
+      github: expect.objectContaining({ keymapPath: 'config/b.keymap' }), layout: [{ x: 0, y: 0 }, { x: 1, y: 0 }]
+    })))
+  })
+
+  it('remembers an accepted exact path and refuses sole-file fallback when it vanishes on reopen', async () => {
+    vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }])
+    vi.mocked(github.fetchKeymaps).mockResolvedValue({ headSha: 's', candidates: [{ name: 'b.keymap', path: 'config/b.keymap' }] })
+    const files = vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({ layout: [{ x: 0, y: 0 }], keymap: { layers: [] }, hostSnapshot: null, warnings: [], headSha: 's', keymapPath: 'config/b.keymap', ownershipMode: 'scoped' })
+    const onSelect = vi.fn((event: Omit<GithubKeyboardSelection, 'source'>) => editor.selectKeyboard({ source: 'github', ...event }))
+    open(onSelect)
+    await vi.waitFor(() => expect(editor.githubMeta?.keymapPath).toBe('config/b.keymap'))
+    await onSelect.mock.results[0].value
+    await unmount(view!)
+    view = undefined
+    editor.resetForTests()
+    files.mockClear()
+    vi.mocked(github.fetchKeymaps).mockResolvedValue({ headSha: 't', candidates: [{ name: 'a.keymap', path: 'config/a.keymap' }] })
+    open(onSelect)
+    await vi.waitFor(() => expect(target.textContent).toContain('config/b.keymap is missing'))
+    expect(files).not.toHaveBeenCalled()
+    expect(editor.githubMeta).toBeNull()
+  })
+
+  it('keeps the accepted file visible and remembered when an explicit switch is refused', async () => {
+    vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }])
+    vi.mocked(github.fetchKeymaps).mockResolvedValue({ headSha: 's', candidates: [
+      { name: 'a.keymap', path: 'config/a.keymap' }, { name: 'b.keymap', path: 'config/b.keymap' }
+    ] })
+    storage.setPersistedKeymap(repo.full_name, 'main', { keymapPath: 'config/a.keymap' })
+    vi.spyOn(github, 'fetchLayoutAndKeymap').mockImplementation(async (_repo, _branch, selected) => ({
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }], keymap: { layers: [] },
+      hostSnapshot: null, warnings: [], headSha: 's', keymapPath: selected!.keymapPath, ownershipMode: 'scoped'
+    }))
+    const onSelect = open(vi.fn((event: Omit<GithubKeyboardSelection, 'source'>) => editor.selectKeyboard({ source: 'github', ...event })))
+    await vi.waitFor(() => expect(editor.githubMeta?.keymapPath).toBe('config/a.keymap'))
+    await onSelect.mock.results[0].value
+    vi.spyOn(hostStorage, 'loadGithubHostCache').mockRejectedValue(new Error('unavailable'))
+    const select = target.querySelector('#keymap-file') as HTMLSelectElement
+    select.value = 'config/b.keymap'
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+    await vi.waitFor(() => expect(onSelect).toHaveBeenCalledTimes(2))
+    await onSelect.mock.results[1].value
+    flushSync()
+    expect(editor.githubMeta?.keymapPath).toBe('config/a.keymap')
+    expect(storage.getPersistedKeymap(repo.full_name, 'main')?.keymapPath).toBe('config/a.keymap')
+    await vi.waitFor(() => expect(select.value).toBe('config/a.keymap'))
+  })
+
+  it.each(['repository', 'branch', 'inventory', 'branch list', 'file load', 'empty inventory', 'missing inventory', 'file after unaccepted branch'])('rolls back every picker identity after refused %s and Reload targets the accepted draft', async failure => {
+    const other = { id: 22, full_name: 'acme/other', default_branch: 'main' }
+    github.repositories = [repo, other]
+    const fetchBranches = vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }, { name: 'dev' }])
+    const files = vi.spyOn(github, 'fetchLayoutAndKeymap').mockImplementation(async (_repo, _branch, selected) => ({
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: { layers: [[{ value: '&none', params: [] }]] },
+      hostSnapshot: null, warnings: [], headSha: 's', keymapPath: selected!.keymapPath, ownershipMode: 'scoped'
+    }))
+    const status = vi.fn()
+    const onSelect = open(vi.fn((event: Omit<GithubKeyboardSelection, 'source'>) => editor.selectKeyboard({ source: 'github', ...event })), undefined, status)
+    await vi.waitFor(() => expect(storage.getPersistedKeymap(repo.full_name, 'main')?.keymapPath).toBe('config/a.keymap'))
+    editor.updateKeymap({ layers: [[{ value: '&trans', params: [] }]] })
+    await editor.flushPendingPersist()
+    const draft = JSON.stringify(editor.draftKeymap)
+    const meta = { ...editor.githubMeta }
+    const persisted = { ...localStorage }
+    const change = (id: string, value: string) => {
+      const select = target.querySelector(id) as HTMLSelectElement
+      select.value = value
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+      flushSync()
+    }
+    if (failure === 'inventory') vi.mocked(github.fetchKeymaps).mockRejectedValueOnce(new Error('inventory refused'))
+    else if (failure === 'branch list') fetchBranches.mockRejectedValueOnce(new Error('branches refused'))
+    else if (failure === 'file load') files.mockRejectedValueOnce(new Error('file refused'))
+    else if (failure === 'empty inventory') vi.mocked(github.fetchKeymaps).mockResolvedValueOnce({ headSha: 's', candidates: [] })
+    else if (failure === 'missing inventory') {
+      storage.setPersistedKeymap(repo.full_name, 'dev', { keymapPath: 'config/missing.keymap' })
+      Object.assign(persisted, { ...localStorage })
+    } else {
+      vi.spyOn(hostStorage, 'loadGithubHostCache').mockRejectedValue(new Error('destination refused'))
+      if (failure === 'file after unaccepted branch') vi.mocked(github.fetchKeymaps).mockResolvedValueOnce({ headSha: 's', candidates: [
+        { name: 'a.keymap', path: 'config/a.keymap' }, { name: 'b.keymap', path: 'config/b.keymap' }
+      ] })
+    }
+    change(failure === 'repository' || failure === 'branch list' ? '#repo' : '#branch', '1')
+    if (failure === 'file after unaccepted branch') {
+      await vi.waitFor(() => expect((target.querySelector('#keymap-file') as HTMLSelectElement)?.options.length).toBe(3))
+      change('#keymap-file', 'config/b.keymap')
+    }
+    await vi.waitFor(() => {
+      expect(selectedOptionText(target.querySelector('#repo'))).toBe(repo.full_name)
+      expect(selectedOptionText(target.querySelector('#branch'))).toBe('main')
+      expect((target.querySelector('#keymap-file') as HTMLSelectElement)?.value).toBe('config/a.keymap')
+      expect(status).toHaveBeenLastCalledWith(expect.objectContaining({ loading: false, repoFullName: repo.full_name, branch: 'main' }))
+    })
+    expect(editor.githubMeta).toEqual(meta)
+    expect(JSON.stringify(editor.draftKeymap)).toBe(draft)
+    expect({ ...localStorage }).toEqual(persisted)
+    const calls = onSelect.mock.calls.length
+    clickButton('Reload')
+    await vi.waitFor(() => expect(onSelect).toHaveBeenCalledTimes(calls + 1))
+    expect(files).toHaveBeenLastCalledWith(meta.repository, meta.branch, { keymapPath: meta.keymapPath, expectedMode: meta.ownershipMode })
+    expect(editor.githubMeta).toEqual(meta)
+    expect(JSON.stringify(editor.draftKeymap)).toBe(draft)
+  })
+
+  it('keeps accepted chrome while inventory is pending and restores controls if remount inventory fails', async () => {
+    vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }, { name: 'dev' }])
+    const files = vi.spyOn(github, 'fetchLayoutAndKeymap').mockImplementation(async (_repo, _branch, selected) => ({
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }], keymap: { layers: [] },
+      hostSnapshot: null, warnings: [], headSha: 's', keymapPath: selected!.keymapPath, ownershipMode: 'scoped'
+    }))
+    const status = vi.fn()
+    const onSelect = open(vi.fn((event: Omit<GithubKeyboardSelection, 'source'>) => editor.selectKeyboard({ source: 'github', ...event })), undefined, status)
+    await vi.waitFor(() => expect(storage.getPersistedBranch(repo.id)).toBe('main'))
+    const inventory = deferred<Awaited<ReturnType<typeof github.fetchKeymaps>>>()
+    vi.mocked(github.fetchKeymaps).mockReturnValueOnce(inventory.promise)
+    const branch = target.querySelector('#branch') as HTMLSelectElement
+    branch.value = '1'
+    branch.dispatchEvent(new Event('change', { bubbles: true }))
+    await vi.waitFor(() => expect(github.fetchKeymaps).toHaveBeenCalledWith(repo.full_name, 'dev'))
+    expect(status).toHaveBeenLastCalledWith(expect.objectContaining({ loading: true, branch: 'main' }))
+    inventory.reject(new Error('unavailable'))
+    await vi.waitFor(() => expect(selectedOptionText(target.querySelector('#branch'))).toBe('main'))
+    await unmount(view!)
+    view = undefined
+    vi.mocked(github.fetchKeymaps).mockRejectedValueOnce(new Error('unavailable on remount'))
+    open(onSelect, undefined, status)
+    await vi.waitFor(() => expect(target.textContent).toContain('unavailable on remount'))
+    expect((target.querySelector('#keymap-file') as HTMLSelectElement)?.value).toBe('config/a.keymap')
+    clickButton('Reload')
+    await vi.waitFor(() => expect(files).toHaveBeenCalledTimes(2))
+    expect(files).toHaveBeenLastCalledWith(repo.full_name, 'main', { keymapPath: 'config/a.keymap', expectedMode: 'scoped' })
+  })
+
+  it('preserves a clean document redo history when the picker remounts', async () => {
+    vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }])
+    const keymap = { layers: [[{ value: '&none', params: [] }]] }
+    vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }], keymap,
+      hostSnapshot: null, warnings: [], headSha: 's', keymapPath: 'config/a.keymap', ownershipMode: 'scoped'
+    })
+    const onSelect = open(vi.fn((event: Omit<GithubKeyboardSelection, 'source'>) => editor.selectKeyboard({ source: 'github', ...event })))
+    await vi.waitFor(() => expect(onSelect).toHaveBeenCalledTimes(1))
+    await onSelect.mock.results[0].value
+    editor.updateKeymap({ layers: [[{ value: '&trans', params: [] }]] })
+    editor.undo()
+    expect(editor.isDirty).toBe(false)
+    expect(editor.canRedo).toBe(true)
+    const before = JSON.stringify(editor.draftKeymap)
+    await unmount(view!)
+    view = undefined
+    open(onSelect)
+    await vi.waitFor(() => expect(onSelect).toHaveBeenCalledTimes(2))
+    await onSelect.mock.results[1].value
+    expect(editor.canRedo).toBe(true)
+    expect(JSON.stringify(editor.draftKeymap)).toBe(before)
+  })
+
+  it('remembers independent accepted paths on ordinary branch changes', async () => {
+    vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }, { name: 'dev' }])
+    vi.mocked(github.fetchKeymaps).mockResolvedValue({ headSha: 's', candidates: [
+      { name: 'a.keymap', path: 'config/a.keymap' }, { name: 'b.keymap', path: 'config/b.keymap' }
+    ] })
+    storage.setPersistedKeymap(repo.full_name, 'main', { keymapPath: 'config/a.keymap', expectedMode: 'scoped' })
+    storage.setPersistedKeymap(repo.full_name, 'dev', { keymapPath: 'config/b.keymap', expectedMode: 'scoped' })
+    const fetchFiles = vi.spyOn(github, 'fetchLayoutAndKeymap').mockImplementation(async (_repo, _branch, selected) => ({
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }], keymap: { layers: [] },
+      hostSnapshot: null, warnings: [], headSha: 's', keymapPath: selected!.keymapPath, ownershipMode: 'scoped'
+    }))
+    const onSelect = open(vi.fn((event: Omit<GithubKeyboardSelection, 'source'>) => editor.selectKeyboard({ source: 'github', ...event })))
+    await vi.waitFor(() => expect(onSelect).toHaveBeenCalledTimes(1))
+    await onSelect.mock.results[0].value
+    const branch = target.querySelector('#branch') as HTMLSelectElement
+    branch.value = '1'
+    branch.dispatchEvent(new Event('change', { bubbles: true }))
+    await vi.waitFor(() => expect(onSelect).toHaveBeenCalledTimes(2))
+    await onSelect.mock.results[1].value
+    expect(fetchFiles).toHaveBeenLastCalledWith(repo.full_name, 'dev', { keymapPath: 'config/b.keymap', expectedMode: 'scoped' })
+    expect(editor.githubMeta?.keymapPath).toBe('config/b.keymap')
+    expect(storage.getPersistedBranch(repo.id)).toBe('dev')
+    expect(storage.getPersistedKeymap(repo.full_name, 'main')?.keymapPath).toBe('config/a.keymap')
+    branch.value = '0'
+    branch.dispatchEvent(new Event('change', { bubbles: true }))
+    await vi.waitFor(() => expect(onSelect).toHaveBeenCalledTimes(3))
+    await onSelect.mock.results[2].value
+    expect(fetchFiles).toHaveBeenLastCalledWith(repo.full_name, 'main', { keymapPath: 'config/a.keymap', expectedMode: 'scoped' })
+    expect(editor.githubMeta?.keymapPath).toBe('config/a.keymap')
+    expect(storage.getPersistedKeymap(repo.full_name, 'dev')?.keymapPath).toBe('config/b.keymap')
+  })
+
   it('selects the only branch even when storage has a different persisted branch', async () => {
     storage.setPersistedBranch(repo.id, 'main')
     vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'only' }])
@@ -134,6 +348,7 @@ describe('Github Picker', () => {
   })
 
   it('retains the server-selected path for metadata and same-file Reload', async () => {
+    vi.mocked(github.fetchKeymaps).mockResolvedValue({ headSha: 's', candidates: [{ name: 'b.keymap', path: 'config/b.keymap' }] })
     vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }])
     const fetchFiles = vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({ layout: [{ x: 0, y: 0 }], keymap: { layers: [] }, hostSnapshot: null, warnings: [], headSha: 's', keymapPath: 'config/b.keymap', ownershipMode: 'scoped' })
     const onSelect = open(vi.fn((event: Omit<GithubKeyboardSelection, 'source'>) => editor.selectKeyboard({ source: 'github', ...event })))
@@ -175,8 +390,9 @@ describe('Github Picker', () => {
     expect(JSON.stringify(editor.draftKeymap)).toBe(priorDraft)
     read.mockRestore()
 
-    if (trigger === 'Reload') clickButton('Reload')
-    else changeBranch('0')
+    // Refusal already restored main; Reload must not require a manual switch back.
+    await vi.waitFor(() => expect(selectedOptionText(target.querySelector('#branch'))).toBe('main'))
+    clickButton('Reload')
     await vi.waitFor(() => expect(fetchFiles).toHaveBeenCalledTimes(3))
     expect(fetchFiles).toHaveBeenLastCalledWith(repo.full_name, 'main', {
       keymapPath: 'config/a.keymap', expectedMode: 'scoped'
@@ -284,7 +500,8 @@ describe('Github Picker', () => {
     await vi.waitFor(() => {
       expect(github.fetchLayoutAndKeymap).toHaveBeenCalledWith(
         oldRepo.full_name,
-        'main'
+        'main',
+        { keymapPath: 'config/a.keymap' }
       )
     })
     expect(onStatus).toHaveBeenCalledWith(

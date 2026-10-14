@@ -17,19 +17,93 @@ beforeEach(async () => { editor.resetForTests(); await clearHostLayoutStore(); v
 afterEach(async () => { const id = editor.currentDraftIdentity(); editor.resetForTests(); if (id) await deleteStoredDraft(id); vi.restoreAllMocks() })
 
 describe('selected GitHub editor identity', () => {
+  it.each([
+    [true, 'draft'], [true, 'layer'], [true, 'head'], [true, 'baseline keymap'], [true, 'baseline layout'],
+    [false, 'head'], [false, 'baseline keymap'], [false, 'baseline layout']
+  ] as const)('refuses transition when competing writes replace exact firmware recovery (pending=%s, %s)', async (pending, changed) => {
+    await editor.selectKeyboard(board())
+    editor.layerOperationSnapshot = { ...editor.layerOperationSnapshot!, identityAware: true }
+    editor.updateKeymap(km('Z'))
+    await editor.flushPendingPersist()
+    const identity = editor.currentDraftIdentity()!
+    const expected = (await loadStoredDraft(identity))!
+    if (pending) {
+      editor.resetForTests()
+      vi.mocked(window.confirm).mockReturnValue(false)
+      await editor.selectKeyboard(board())
+      expect(editor.hasPendingFirmwareRecovery).toBe(true)
+    }
+    const live = JSON.stringify(editor.draftKeymap)
+    const meta = { ...editor.githubMeta }
+    let release!: () => void
+    editor._draftWrites = new Promise<void>(resolve => { release = resolve })
+    const transition = editor.selectKeyboard(board('config/b.keymap'))
+    const competing = structuredClone(expected)
+    if (changed === 'draft') competing.draftKeymap = km('X')
+    if (changed === 'layer') competing.layerOperation!.view.layer0Raw = !competing.layerOperation!.view.layer0Raw
+    if (changed === 'head') competing.githubBaseline!.headSha = 'another-head'
+    if (changed === 'baseline keymap') competing.githubBaseline!.keymap = km('B')
+    if (changed === 'baseline layout') competing.githubBaseline!.layout[0].x = 9
+    await draftStorage.saveStoredDraft(identity, competing.draftKeymap, competing.layerOperation, competing.githubBaseline)
+    const stored = await loadStoredDraft(identity)
+    release()
+    await transition
+    expect(editor.currentDraftIdentity()).toEqual(identity)
+    expect(editor.githubMeta).toEqual(meta)
+    expect(JSON.stringify(editor.draftKeymap)).toBe(live)
+    expect(editor.hasPendingFirmwareRecovery).toBe(pending)
+    expect(await loadStoredDraft(identity)).toEqual(stored)
+    expect(editor.saveNotice?.messages).toContain('Could not verify local recovery. The current selection and unpublished work were retained.')
+    await deleteStoredDraft(identity)
+  })
+
+  it.each([false, true])('allows transition only with unchanged exact firmware recovery (pending=%s)', async pending => {
+    await editor.selectKeyboard(board())
+    editor.updateKeymap(km('Z'))
+    await editor.flushPendingPersist()
+    const identity = editor.currentDraftIdentity()!
+    const expected = await loadStoredDraft(identity)
+    if (pending) {
+      editor.resetForTests()
+      vi.mocked(window.confirm).mockReturnValue(false)
+      await editor.selectKeyboard(board())
+    }
+    expect(await editor.retainWorkForTransition()).toBe(true)
+    expect(await loadStoredDraft(identity)).toEqual(expected)
+  })
+
+  it('rechecks firmware provenance after awaiting host retention', async () => {
+    await editor.selectKeyboard(board())
+    editor.updateKeymap(km('Z'))
+    await editor.flushPendingPersist()
+    editor.hostLegend = addHostLanguage(editor.hostLegend, 'de')
+    expect(editor.hasLocalHostRecovery).toBe(true)
+    const identity = editor.currentDraftIdentity()!
+    const expected = (await loadStoredDraft(identity))!
+    const persistHost = editor._persistGithubHostCache.bind(editor)
+    vi.spyOn(editor, '_persistGithubHostCache').mockImplementation(async () => {
+      await persistHost()
+      await draftStorage.saveStoredDraft(identity, expected.draftKeymap, expected.layerOperation, { ...expected.githubBaseline!, headSha: 'competing-head' })
+    })
+    expect(await editor.retainWorkForTransition()).toBe(false)
+    expect(editor.currentDraftIdentity()).toEqual(identity)
+    expect(editor.githubMeta?.headSha).toBe('s')
+    expect((await loadStoredDraft(identity))?.githubBaseline?.headSha).toBe('competing-head')
+  })
+
   it('does not let a stale host load clear the newer file omission state', async () => {
     await editor.selectKeyboard(board())
     const snapshot = editor.buildCurrentHostKeymapSnapshot()!
     editor.resetForTests()
     let release!: () => void
     const held = new Promise<void>(resolve => { release = resolve })
-    const save = hostStorage.saveHostLegendView
-    vi.spyOn(hostStorage, 'saveHostLegendView').mockImplementation(async (view, key) => {
-      if (key?.includes('a.keymap')) await held
-      return save(view, key)
+    const load = hostStorage.loadHostAssemblies
+    vi.spyOn(hostStorage, 'loadHostAssemblies').mockImplementation(async key => {
+      if (key.includes('a.keymap')) await held
+      return load(key)
     })
     const old = editor.selectKeyboard({ ...board(), hostSnapshot: snapshot })
-    await vi.waitFor(() => expect(hostStorage.saveHostLegendView).toHaveBeenCalled())
+    await vi.waitFor(() => expect(hostStorage.loadHostAssemblies).toHaveBeenCalled())
     await editor.selectKeyboard({ ...board('config/b.keymap', 't'), hostSnapshotError: 'invalid' })
     const before = editor._hostRepoBaselineSha
     release()
@@ -95,7 +169,10 @@ describe('selected GitHub editor identity', () => {
     const identity = editor.currentDraftIdentity()!
     const before = await loadStoredDraft(identity)
     vi.spyOn(hostStorage, 'loadGithubHostCache').mockRejectedValue(new Error('unavailable'))
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2030-01-01T00:00:00Z'))
     await editor.selectKeyboard(board('config/b.keymap'))
+    vi.useRealTimers()
     expect(editor.currentDraftIdentity()).toEqual(identity)
     expect(editor.draftKeymap).toEqual(km('Z'))
     expect(await loadStoredDraft(identity)).toEqual(before)

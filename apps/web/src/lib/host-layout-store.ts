@@ -18,6 +18,8 @@ import {
   standardHostLegendView,
   cloneHostLegendView,
   parseHostKeymapSnapshot,
+  buildHostKeymapSnapshot,
+  encodeHostKeymapSnapshot,
   type HostKeyLevels,
   type HostLanguageId,
   type HostLayout,
@@ -560,6 +562,8 @@ export async function saveHostAssemblies(
 /** Immutable verified origin and mutable working snapshot are distinct fields. */
 export type GithubHostCache = {
   revision: number
+  resetRevision?: number
+  originEncoded?: string
   baselineEncoded: string | null
   baselineSha: string | null
   workingEncoded: string
@@ -579,21 +583,75 @@ export async function loadGithubHostCache(identityKey: string): Promise<GithubHo
 }
 
 /** Transaction-time compare protects another tab's recovery from stale writes. */
-export async function saveGithubHostCache(identityKey: string, cache: Omit<GithubHostCache, 'revision'>, expectedRevision: number, isCurrent: () => boolean = () => true): Promise<number> {
+export async function saveGithubHostCache(identityKey: string, cache: Omit<GithubHostCache, 'revision'>, expectedRevision: number, isCurrent: () => boolean = () => true, working?: { view: HostLegendView; assemblies: StoredHostAssembly[]; layouts: UserHostLayoutRecord[] }): Promise<number> {
   const db = await openHostDb()
+  const tx = db.transaction(working ? [SETTINGS_STORE, LAYOUTS_STORE] : SETTINGS_STORE, 'readwrite')
+  const done = txDone(tx)
   try {
-    const tx = db.transaction(SETTINGS_STORE, 'readwrite')
     const store = tx.objectStore(SETTINGS_STORE)
     const id = `github-host:${identityKey}`
     const previous = await idbRequest<GithubHostCache | undefined>(store.get(id))
     if (!isCurrent() || (previous?.revision ?? 0) !== expectedRevision) {
-      await txDone(tx)
       throw new Error('GitHub host recovery changed in another session')
     }
     const revision = expectedRevision + 1
-    await idbRequest(store.put({ id, ...cache, revision }))
-    await txDone(tx)
+    await idbRequest(store.put({ id, ...(previous?.resetRevision ? { resetRevision: previous.resetRevision } : {}), ...cache, revision }))
+    if (working) {
+      await idbRequest(store.put({ id: hostLegendSettingId(identityKey), ...cloneHostLegendView(working.view) }))
+      await idbRequest(store.put({ id: hostAssembliesSettingId(identityKey), items: working.assemblies.map(item => ({ id: item.id, view: cloneHostLegendView(item.view) })) }))
+      for (const record of working.layouts) {
+        if (!isGithubHostLayoutOwnedBy(record.id, identityKey)) throw new Error('Unowned host working table')
+        await idbRequest(tx.objectStore(LAYOUTS_STORE).put({ id: record.id, name: record.name, language: record.language, origin: plainOrigin(record.origin), updatedAt: record.updatedAt, keys: serializeLayout(record.layout) }))
+      }
+    }
+    if (!isCurrent()) throw new Error('Host recovery changed during persistence')
+    await done
     return revision
+  } catch (error) {
+    try { tx.abort() } catch { /* already completed or aborted */ }
+    await done.catch(() => {})
+    throw error
+  } finally { db.close() }
+}
+
+/** Only IDs with an explicit, exact identity owner may be removed by recovery. */
+export function isGithubHostLayoutOwnedBy(id: string, identityKey: string): boolean {
+  if (!id.startsWith('user:github:')) return false
+  try {
+    const owner = JSON.parse(decodeURIComponent(id.slice('user:github:'.length)))
+    return Array.isArray(owner) && owner.length === 2 && owner[0] === identityKey && typeof owner[1] === 'string'
+  } catch { return false }
+}
+
+/** One transaction: failure or a competing revision leaves all host rows intact. */
+export async function discardGithubHostRecovery(identityKey: string, expectedRevision: number, isCurrent: () => boolean): Promise<number> {
+  const view = standardHostLegendView()
+  const encoded = encodeHostKeymapSnapshot(buildHostKeymapSnapshot(view, []))
+  const db = await openHostDb()
+  const tx = db.transaction([SETTINGS_STORE, LAYOUTS_STORE], 'readwrite')
+  const done = txDone(tx)
+  try {
+    const settings = tx.objectStore(SETTINGS_STORE)
+    const layouts = tx.objectStore(LAYOUTS_STORE)
+    const id = `github-host:${identityKey}`
+    const previous = await idbRequest<GithubHostCache | undefined>(settings.get(id))
+    if (!previous || previous.revision !== expectedRevision || !isCurrent()) throw new Error('Host recovery changed; confirm the current revision again')
+    const ids = await idbRequest(layouts.getAllKeys())
+    if (!isCurrent()) throw new Error('Host recovery changed; confirm the current revision again')
+    const revision = expectedRevision + 1
+    await idbRequest(settings.put({ ...previous, id, revision, resetRevision: revision, originEncoded: encoded, workingEncoded: encoded }))
+    await idbRequest(settings.put({ id: hostLegendSettingId(identityKey), ...view }))
+    await idbRequest(settings.put({ id: hostAssembliesSettingId(identityKey), items: [] }))
+    for (const key of ids) {
+      if (typeof key === 'string' && isGithubHostLayoutOwnedBy(key, identityKey)) await idbRequest(layouts.delete(key))
+    }
+    if (!isCurrent()) throw new Error('Host recovery changed; confirm the current revision again')
+    await done
+    return revision
+  } catch (error) {
+    try { tx.abort() } catch { /* already aborted */ }
+    await done.catch(() => {})
+    throw error
   } finally { db.close() }
 }
 

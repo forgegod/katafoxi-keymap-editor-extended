@@ -192,8 +192,8 @@
                 class="publish-status{!editor.isDirty && editor.isHostRepoDirty
                   ? ' stacked'
                   : ''}"
-                dirty={editor.isPublishDirty}
-                label={editor.isPublishDirty
+                dirty={editor.isPublishDirty || editor.hasLocalHostRecovery || editor.hasPendingFirmwareRecovery}
+                label={editor._omitHostKeymapSnapshotOnCommit && editor.hasLocalHostRecovery ? 'Browser-local' : editor.hasPendingFirmwareRecovery ? 'Recovery' : editor.isPublishDirty
                   ? editor.isDirty
                     ? 'Changed'
                     : 'Host\nchanged'
@@ -226,7 +226,14 @@
             <KeyboardPicker
               openSource={openSourceRequest}
               onOpenSourceConsumed={() => (openSourceRequest = null)}
-              onSelect={event => editor.selectKeyboard(event)}
+              onSelect={async event => {
+                await editor.selectKeyboard(event)
+                return editor.source === event.source && (event.source !== 'github' || (
+                  editor.githubMeta?.repository === event.github.repository &&
+                  editor.githubMeta?.branch === event.github.branch &&
+                  editor.githubMeta?.keymapPath === event.github.keymapPath
+                ))
+              }}
               onLogout={() => editor.clearLoadedKeymap()}
             />
           </div>
@@ -298,7 +305,7 @@
               <Button
                 variant="publish"
                 ready={editor.isPublishDirty}
-                title="Commit keymap and host layout snapshot to the GitHub repository"
+                title={editor._omitHostKeymapSnapshotOnCommit ? 'Commit firmware only; host edits cannot be saved to GitHub' : 'Commit keymap and host layout snapshot to the GitHub repository'}
                 disabled={!editor.isPublishDirty || editor.saving}
                 onclick={handleCommitToGitHub}
               >
@@ -319,10 +326,18 @@
         {#if editor.draftKeymap}
           <div class="chrome-lane chrome-host" aria-label="What the OS types">
             <HostPipeline />
+            {#if editor.source === 'github' && editor._omitHostKeymapSnapshotOnCommit && editor.hasLocalHostRecovery}
+              <Button variant="danger" disabled={editor.hostRecoveryBusy || editor.saving} onclick={() => void editor.discardLocalHostEdits()}>
+                Discard local host edits
+              </Button>
+            {/if}
           </div>
         {/if}
       </div>
 
+      {#if editor.source === 'github' && editor._omitHostKeymapSnapshotOnCommit}
+        <div class="save-notice warning" role="status" aria-label="Host publication status">{editor.statusText}</div>
+      {/if}
       {#if editor.saveNotice}
         <div
           class="save-notice"

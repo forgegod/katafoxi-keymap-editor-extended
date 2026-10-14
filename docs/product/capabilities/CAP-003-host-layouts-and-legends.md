@@ -11,6 +11,8 @@
 - Host language/profile selections and user layouts persist in the browser. Users can import supported xkb/KLC layouts and download Linux xkb or Windows .klc deliverables through the Host lane.
 - On GitHub, a compatible owned host snapshot and generated deliverables can accompany the firmware commit. The server independently omits all host writes for invalid, unsupported or ownership/reference-incompatible remote snapshots, even if replacements are submitted. A firmware-only receipt does not accept local host recovery as published.
 - Selected GitHub files have identity-scoped host caches and private working table IDs, preserving remote wire IDs without overwriting same-named global profiles or another selected file. Pending recovery takes precedence over a new remote snapshot; a clean invalid/unsupported reopen retains its last verified compatible host origin, or standard English when no verified origin exists. Host repository changes and OS-install status remain separate signals.
+- Under omitted host writes, the chrome explicitly labels actual host recovery browser-local and unpublishable to GitHub: Commit cannot save it. Clean and post-discard states state only the host-write limitation, not nonexistent edits. Pending firmware recovery remains explicit even without host edits. Host editing remains available. Firmware-only Commit and same-file Reload preserve host recovery and its source-switch protection.
+- Discard local host edits is available in the Host lane for omitted snapshots with local host work, including sole-keymap repositories. Explicit confirmation names the repository/branch/file and the resulting system-English state. One host-database transaction resets that identity's working view, private tables, remembered assemblies and working recovery, retaining historical origin metadata. Firmware draft/history, remote files, other identities and global profiles are unchanged. Cancel, transaction failure or stale revision retains recovery. Reopening does not revive discarded host work.
 - Focusing or hovering the layer strip expands its firmware rows. With Stack off, each row exposes Duplicate and Move; keyboard position selection and drag/drop share the [firmware operation boundary](CAP-001-firmware-keymap-editing.md). The base Move control announces that layer zero stays fixed. These controls are hidden in the resting strip and language-stack mode.
 - Firmware reorder recomposes legends and maps current eye preferences by logical layer through move, undo, redo and discard, including recovered drafts with no undo history. Unavailable stored layer marks and the raw-base preference are retained. Duplicate leaves eye preferences unchanged rather than automatically showing the copy.
 - Structural firmware operations clear transient hover/decode ownership without changing host language tables, assemblies, host repository dirty state or OS-delivery state. Moves change firmware priority, not host layout contents; existing conditional-layer cover warnings reflect the new indices. An open host-edit session blocks the operation rather than being discarded.
@@ -25,6 +27,8 @@
 - `apps/web/src/lib/components/LegendDecodeCard.svelte`
 - `apps/web/src/lib/components/HostPipeline.svelte`
 - `apps/web/src/lib/editor/host-repo.ts`
+- `apps/web/src/lib/host-layout-store.ts` — revision-checked host working writes and atomic identity-only discard.
+- `apps/web/src/App.svelte` and `apps/web/src/lib/editor/select-keyboard.ts` — browser-local status, standalone discard and transition guard.
 - `apps/web/src/lib/components/HostLegendPicker.svelte` and `apps/web/src/lib/components/HostLegendLayerRow.svelte` — expanded firmware rows, keyboard/drag controls and feedback.
 - `apps/web/src/lib/editor/document.svelte.ts` and `apps/web/src/lib/editor/persist-draft.ts` — logical layer/view identity across history and recovery.
 
@@ -32,8 +36,8 @@
 
 - The Host lane downloads installation sources and guidance; it does not install layouts into the OS.
 - Browser-only assemblies are not additional GitHub keymap files. Repository host snapshot ownership still follows ADR 0005.
-- Headless identity/omission plumbing is implemented; the per-file picker, standalone destructive host reset, full transition protection and integrated browser-local status surfaces remain unimplemented. No host-discard or global-profile cleanup guarantee is claimed by this slice.
-- Leave-page confirmation follows unpublished firmware or a dirty GitHub host snapshot, even when firmware is unchanged. OS-install status and a browser-only host edit do not arm it by themselves. Downloading/installing host files is not a repository commit; firmware Discard draft does not discard host changes. The source handoff and browser-native dialog limits follow [CAP-002](CAP-002-keymap-sources-and-persistence.md).
+- Host-only discard is not a universal switching prerequisite: it resolves omitted-snapshot local recovery only. Clean or successfully published compatible host sessions do not require it. Firmware protection remains independent; separate databases do not provide an atomic firmware/host move. Ambiguous legacy/global tables are not broadly deleted.
+- Leave-page confirmation follows unpublished firmware, a dirty GitHub host snapshot or pending GitHub recovery, including omitted host work. OS-install status and non-GitHub host edits do not arm it by themselves. Downloading/installing host files is not a repository commit; firmware Discard draft does not discard host changes. The source handoff and browser-native dialog limits follow [CAP-002](CAP-002-keymap-sources-and-persistence.md).
 - Difference highlighting and keycap composition reflect selected layout tables, not live observation of the host OS or firmware execution.
 - Import/export supports documented subsets, not every xkb/KLC feature. Shared host registry access remains synchronous.
 
@@ -45,6 +49,8 @@
 - `apps/web/src/lib/host-keymap-snapshot.test.ts` — repository snapshot application and dirty state.
 - `apps/api/src/services/github/selected-files.test.ts` — server-side invalid/unsupported/incompatible omission, compatible owned co-commit and untouched legacy/other files.
 - `apps/web/src/lib/github-selected-identity.test.ts` — clean origin retention, omitted recovery across reload/publication, private tables versus global profiles, cross-session cache conflicts and stale load isolation.
+- `apps/web/src/lib/github-host-discard.test.ts` — identity-only host reset and global-profile isolation; cache/view/assembly/private-table transaction failures, stale revision, firmware/history preservation and reset on reopen.
+- `e2e/github.spec.ts` — invalid/unsupported snapshots with host-only and mixed work: Reload, blocked transition, cancel/confirm reset, unchanged firmware/storage/other identity and synthetic remote artifacts; firmware-only Commit keeps host recovery through browser reload.
 - `apps/web/src/App.test.ts` — a GitHub host-snapshot edit arms leave confirmation without a firmware edit and successful commit clears it; browser-only host edits and host-delivery status changes do not arm it. Firmware discard leaves browser-only host changes intact.
 - `packages/keymap-core/src/xkb-write.test.ts` — xkb export round-trips.
 - `packages/keymap-core/src/klc-write.test.ts` — KLC output.

@@ -7,6 +7,9 @@ import {
   hostLayoutMeta,
   parseHostKeymapSnapshot,
   standardHostLegendView,
+  cloneHostLegendView,
+  cloneHostLayoutTable,
+  unregisterHostLayout,
   type HostKeymapDeliverableFile,
   type HostKeymapSnapshot,
   type HostLayout
@@ -18,6 +21,8 @@ import {
   saveUserHostLayout,
   loadGithubHostCache,
   saveGithubHostCache,
+  discardGithubHostRecovery,
+  isGithubHostLayoutOwnedBy,
   UNKNOWN_HOST_LAYOUT_NOTE,
   type GithubHostCache,
   type HostLanguageId,
@@ -136,6 +141,7 @@ function remapSnapshot(snapshot: HostKeymapSnapshot, mapId: (id: string) => stri
  */
 export function acceptHostRepoBaseline(this: EditorState, encoded?: string) {
   if (this._omitHostKeymapSnapshotOnCommit) return
+  this._hostLocalOriginEncoded = null
   this._hostRepoBaselineEncoded =
     encoded !== undefined ? encoded : this._encodeLiveHostSnapshot()
   this._hostRepoBaselineSha = this.githubMeta?.headSha ?? null
@@ -145,12 +151,18 @@ export function acceptHostRepoBaseline(this: EditorState, encoded?: string) {
 /** Capture before queueing: a later source switch cannot redirect this write. */
 export function _persistGithubHostCache(this: EditorState): Promise<void> {
   const identity = this.currentDraftIdentity()
-  if (this.source !== 'github' || !identity?.keymapPath || this._loadingGithubHost === this._selectGeneration) return Promise.resolve()
+  if (this.source !== 'github' || !identity?.keymapPath || this.hostRecoveryBusy || this._loadingGithubHost === this._selectGeneration) return Promise.resolve()
   const key = draftIdentityKey(identity)
-  const cache = { baselineEncoded: this._hostRepoBaselineEncoded, baselineSha: this._hostRepoBaselineSha, workingEncoded: this._encodeLiveHostSnapshot(), headSha: this.githubMeta?.headSha ?? '' }
+  const cache = { baselineEncoded: this._hostRepoBaselineEncoded, baselineSha: this._hostRepoBaselineSha, workingEncoded: this._encodeLiveHostSnapshot(), headSha: this.githubMeta?.headSha ?? '', ...(this._hostLocalOriginEncoded ? { originEncoded: this._hostLocalOriginEncoded } : {}) }
   const generation = this._selectGeneration
+  const epoch = this._hostCacheEpoch
+  const working = { view: cloneHostLegendView(this.hostLegend), assemblies: this.hostAssemblies.map(item => ({ id: item.id, view: cloneHostLegendView(item.view) })), layouts: this.userLayouts.flatMap(meta => {
+    const layout = hostLayout(meta.id)
+    return layout && isGithubHostLayoutOwnedBy(meta.id, key) ? [{ ...meta, origin: { ...meta.origin }, layout: cloneHostLayoutTable(layout, meta.id) }] : []
+  }) }
   const write = this._hostCacheWrites.then(async () => {
-    const revision = await saveGithubHostCache(key, cache, this._hostCacheRevisions.get(key) ?? 0)
+    if (epoch !== this._hostCacheEpoch) return
+    const revision = await saveGithubHostCache(key, cache, this._hostCacheRevisions.get(key) ?? 0, () => epoch === this._hostCacheEpoch, working)
     this._hostCacheRevisions.set(key, revision)
   })
   this._hostCacheWrites = write.catch(() => {
@@ -168,7 +180,8 @@ export async function _loadGithubHostCache(this: EditorState, event: GithubKeybo
   if (selectToken !== this._selectGeneration) return true
   this._hostCacheRevisions.set(key, cached?.revision ?? 0)
   const standard = encodeHostKeymapSnapshot(buildHostKeymapSnapshot(standardHostLegendView(), []))
-  const pending = cached && cached.workingEncoded !== (cached.baselineEncoded ?? standard)
+  const pending = cached && cached.workingEncoded !== (cached.originEncoded ?? cached.baselineEncoded ?? standard)
+  this._hostLocalOriginEncoded = null
   this._loadingGithubHost = selectToken
   try {
     if (cached && (pending || !event.hostSnapshot)) {
@@ -177,6 +190,7 @@ export async function _loadGithubHostCache(this: EditorState, event: GithubKeybo
       await this._applyHostKeymapSnapshot(parsed.snapshot, selectToken)
       if (selectToken !== this._selectGeneration) return true
       this._hostRepoBaselineEncoded = cached.baselineEncoded
+      this._hostLocalOriginEncoded = cached.originEncoded ?? null
       this._hostRepoBaselineSha = cached.baselineSha
       if (pending && this.githubMeta) this.githubMeta = { ...this.githubMeta, headSha: cached.headSha }
     } else if (event.hostSnapshot) {
@@ -251,8 +265,10 @@ export async function _applyHostKeymapSnapshot(this: EditorState,
         await this._rollbackUserHostLayoutWrites(writtenIds)
         return
       }
-      await saveUserHostLayout(record)
-      writtenIds.push(record.id)
+      if (!identity?.keymapPath) {
+        await saveUserHostLayout(record)
+        writtenIds.push(record.id)
+      }
     }
   } catch {
     this._noteHostLayoutSaveFailed()
@@ -269,6 +285,51 @@ export async function _applyHostKeymapSnapshot(this: EditorState,
   this._hostRepoBaselineEncoded = this._encodeLiveHostSnapshot()
   this.markHostDelivered()
   await this._restoreHostAssemblies(selectToken)
+}
+
+/** Standalone host-only consent. Firmware persistence is deliberately not involved. */
+export async function discardLocalHostEdits(this: EditorState): Promise<boolean> {
+  const identity = this.currentDraftIdentity()
+  const meta = this.githubMeta
+  if (this.source !== 'github' || !identity?.keymapPath || !meta || !this._omitHostKeymapSnapshotOnCommit || !this.hasLocalHostRecovery || this.hostRecoveryBusy || this.saving) return false
+  const key = draftIdentityKey(identity)
+  const generation = this._selectGeneration
+  const host = this._encodeLiveHostSnapshot()
+  const assemblies = JSON.stringify(this.hostAssemblies)
+  const current = () => generation === this._selectGeneration && this._encodeLiveHostSnapshot() === host && JSON.stringify(this.hostAssemblies) === assemblies
+  await this._hostCacheWrites
+  if (!current()) return false
+  const revision = this._hostCacheRevisions.get(key) ?? 0
+  if (!window.confirm(`Discard local host edits for ${meta.repository} · ${meta.branch} · ${meta.keymapPath}?\n\nThese edits are browser-local and unpublishable to GitHub; Commit cannot save them. Removes this identity's host working view, private edited layouts, remembered assemblies and host recovery. Resets to system English (not an OS installation).\n\nFirmware drafts, history and remote files are unchanged. Other identities and global host profiles are preserved. Firmware must be safely retained separately before switching.\n\nThis cannot be undone.`)) return false
+  if (!current()) return false
+  this.hostRecoveryBusy = true
+  this._hostCacheEpoch += 1
+  try {
+    const next = await discardGithubHostRecovery(key, revision, current)
+    this._hostCacheRevisions.set(key, next)
+    if (!current()) return false
+    for (const layout of this.userLayouts) {
+      if (isGithubHostLayoutOwnedBy(layout.id, key)) unregisterHostLayout(layout.id)
+    }
+    this.userLayouts = this.userLayouts.filter(layout => !isGithubHostLayoutOwnedBy(layout.id, key))
+    this._githubHostLayoutWireIds.clear()
+    this.hostLegend = standardHostLegendView()
+    this.hostAssemblies = []
+    this._hostLocalOriginEncoded = this._encodeLiveHostSnapshot()
+    this.hostLayoutRevision += 1
+    this.endHostEditSession()
+    this.legendHover = null
+    this.hostProfilePrompt = null
+    this.hostProfileNote = null
+    this.hostDeliveredFingerprint = ''
+    this.saveNotice = { kind: 'warning', messages: ['Local host edits discarded. System English is active; firmware and remote host files are unchanged. Host snapshot and install-file writes are disabled.'] }
+    return true
+  } catch {
+    if (generation === this._selectGeneration) this.saveNotice = { kind: 'error', messages: ['Could not discard local host edits safely. Recovery was retained; retry after resolving storage or another-session changes.'] }
+    return false
+  } finally {
+    if (generation === this._selectGeneration) this.hostRecoveryBusy = false
+  }
 }
 
 /** Drop IDB rows written by an aborted select batch. */

@@ -180,6 +180,7 @@ export class EditorState {
   _publishGeneration = 0
   /** Bumps on select so stale IDB restore prompts are ignored. */
   _selectGeneration = 0
+  _transitionGeneration = 0
   /** Bumps to cancel in-flight / debounced IDB writes. */
   _persistGeneration = 0
   _persistTimer: ReturnType<typeof setTimeout> | null = null
@@ -196,10 +197,13 @@ export class EditorState {
    * GitHub repo. Null when this session has no repo host baseline yet.
    */
   _hostRepoBaselineEncoded = $state<string | null>(null)
+  _hostLocalOriginEncoded = $state<string | null>(null)
+  hostRecoveryBusy = $state(false)
   _hostRepoBaselineSha: string | null = null
   _githubHostLayoutWireIds = new Map<string, string>()
   _hostCacheRevisions = new Map<string, number>()
   _hostCacheWrites: Promise<void> = Promise.resolve()
+  _hostCacheEpoch = 0
   _loadingGithubHost: number | null = null
   /**
    * True when Commit must leave `host_keymap/snapshot.json` untouched
@@ -211,7 +215,7 @@ export class EditorState {
   /** Local work remains protected even when it cannot be published. */
   hasLocalHostRecovery = $derived.by(() => {
     if (this.source !== 'github') return false
-    const origin = this._hostRepoBaselineEncoded ?? encodeHostKeymapSnapshot(buildHostKeymapSnapshot(standardHostLegendView(), []))
+    const origin = this._hostLocalOriginEncoded ?? this._hostRepoBaselineEncoded ?? encodeHostKeymapSnapshot(buildHostKeymapSnapshot(standardHostLegendView(), []))
     return this._encodeLiveHostSnapshot() !== origin
   })
 
@@ -293,6 +297,8 @@ export class EditorState {
     this._selectGeneration += 1
     this._publishGeneration += 1
     this._hostRepoBaselineEncoded = null
+    this._hostLocalOriginEncoded = null
+    this.hostRecoveryBusy = false
     this._hostRepoBaselineSha = null
     this._githubHostLayoutWireIds.clear()
     this._omitHostKeymapSnapshotOnCommit = false

@@ -5,6 +5,7 @@
   import { loadKeymap } from '../../api'
   import { githubChipLabel, githubGateAction } from '../../github/chrome-label.js'
   import github from '../../github/api.svelte.js'
+  import { editor } from '../../editor.svelte.js'
   import { compact } from '../../utils'
   import { readStoredDemoId, DEMO_CATALOG } from '../../demo/catalog'
   import type {
@@ -29,7 +30,7 @@
   type KeymapEvent = KeyboardSelection
 
   interface Props {
-    onSelect: (event: KeymapEvent) => void | Promise<void>
+    onSelect: (event: KeymapEvent) => boolean | void | Promise<boolean | void>
     onLogout?: () => void
     /** Switch source and open the menu (coach-tour / Demo CTAs). */
     openSource?: string | null
@@ -71,6 +72,14 @@
     DEMO_CATALOG.find(entry => entry.id === readStoredDemoId())?.name ?? null
   )
   let clipboardKeyboard = $state<string | null>(null)
+  let sourceRequest = 0
+
+  async function changeSource(next: KeyboardSelectionSource) {
+    const request = ++sourceRequest
+    if (next !== source && editor.draftKeymap && !await editor.retainWorkForTransition()) return
+    if (request !== sourceRequest) return
+    source = next
+  }
 
   const gate = $derived(
     source === 'github'
@@ -146,7 +155,7 @@
     } else {
       next = (current - 1 + ids.length) % ids.length
     }
-    source = ids[next]
+    await changeSource(ids[next])
     await tick()
     const radio = document.querySelector(`.source-cards [data-source="${ids[next]}"]`)
     if (radio instanceof HTMLElement) radio.focus()
@@ -218,27 +227,31 @@
     return { source: 'local', layout, keymap, warnings }
   }
 
-  function handleKeyboardSelected(event: KeymapPickerPayload) {
+  async function handleKeyboardSelected(event: KeymapPickerPayload) {
     const selection = stampSelection(event)
     if (!selection) return
     // layer_names: normalizeParsedKeymap at editor accept (cloneParsedKeymap)
-    if (event.userInitiated) menuOpen = false
-    return onSelect(selection)
+    const accepted = await onSelect(selection)
+    if (source !== selection.source) return
+    if (accepted !== false) {
+      localStorage.setItem('selectedSource', selection.source)
+      if (event.userInitiated) menuOpen = false
+    } else if (editor.source) source = editor.source
   }
 
   function connectGithub() {
-    source = 'github'
+    void changeSource('github')
     menuOpen = true
   }
 
   function connectClipboard() {
-    source = 'clipboard'
+    void changeSource('clipboard')
     menuOpen = true
   }
 
   $effect(() => {
     const src = source
-    if (src) localStorage.setItem('selectedSource', src)
+
     if (src !== 'local') return
 
     let cancelled = false
@@ -260,7 +273,7 @@
     const next = openSource
     if (!next) return
     if (sourceChoices.some(choice => choice.id === next)) {
-      source = next as KeyboardSelectionSource
+      void changeSource(next as KeyboardSelectionSource)
       menuOpen = true
     }
     onOpenSourceConsumed?.()
@@ -300,7 +313,7 @@
               data-source={choice.id}
               title={choice.blurb}
               onclick={() => {
-                source = choice.id
+                void changeSource(choice.id)
               }}
             >
               <span class="source-card-name">{choice.name}</span>

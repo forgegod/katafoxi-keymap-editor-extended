@@ -106,16 +106,40 @@ function githubPath(url: string): string {
 
 export type GithubMock = {
   commits: unknown[]
+  loads: string[]
+  remoteFiles: Map<string, string>
+  removeFile: (path: string) => void
   authorizeRequested: boolean
   failAuth: () => void
   staleCommit: () => void
 }
 
 /** Intercept same-origin `/github/*` so the real GitHub API is unused. */
-export async function installGithubMocks(page: Page): Promise<GithubMock> {
+export async function installGithubMocks(page: Page, options: {
+  paths?: string[]
+  hostError?: 'invalid' | 'unsupported_version'
+} = {}): Promise<GithubMock> {
   const commits: unknown[] = []
+  const loads: string[] = []
+  const files = new Map((options.paths ?? ['config/lark.keymap']).map(keymapPath => [keymapPath, structuredClone({
+    ...keyboardFiles, keymapPath, ownershipMode: 'scoped', jsonChoiceRequired: false,
+    ...(options.hostError ? { hostSnapshot: options.hostError === 'invalid' ? { version: 1 } : { version: 999 }, hostSnapshotError: options.hostError } : {})
+  })]))
+  // Synthetic API-side artifacts, independent of browser IndexedDB. Server write
+  // enforcement itself is covered by apps/api selected-files.test.ts.
+  const remoteFiles = new Map<string, string>([['config/keymap.json', 'unowned legacy sentinel'], ['config/info.json', JSON.stringify(info)]])
+  for (const [file, data] of files) {
+    remoteFiles.set(file, JSON.stringify(data.keymap))
+    remoteFiles.set(`${file}.json`, JSON.stringify(data.keymap))
+    const root = `host_keymap/keymaps/${file.slice('config/'.length)}`
+    remoteFiles.set(`${root}/snapshot.json`, JSON.stringify(data.hostSnapshot))
+    remoteFiles.set(`${root}/linux/en.xkb`, 'remote host deliverable sentinel')
+  }
   const state: GithubMock = {
     commits,
+    loads,
+    remoteFiles,
+    removeFile(file) { files.delete(file); remoteFiles.delete(file) },
     authorizeRequested: false,
     failAuth() {
       failingAuth = true
@@ -156,14 +180,36 @@ export async function installGithubMocks(page: Page): Promise<GithubMock> {
         return json(route, 200, branches)
       }
 
+      if (method === 'GET' && pathname.includes('/keymaps/')) {
+        return json(route, 200, { headSha: HEAD_SHA, candidates: [...files.keys()].map(path => ({ path, name: path.slice('config/'.length) })) })
+      }
+
       if (method === 'POST' && pathname.includes('/keyboard-files/')) {
         const raw = route.request().postData()
-        commits.push(raw ? JSON.parse(raw) : null)
+        const body = raw ? JSON.parse(raw) : null
+        commits.push(body)
+        if (commitStatus === 200 && body) {
+          const file = files.get(body.keymapPath)
+          if (!file) return json(route, 404, { errors: ['Selected file is missing'] })
+          file.keymap = body.keymap
+          file.headSha = 'b'.repeat(40)
+          remoteFiles.set(body.keymapPath, JSON.stringify(body.keymap))
+          remoteFiles.set(`${body.keymapPath}.json`, JSON.stringify(body.keymap))
+          const root = `host_keymap/keymaps/${body.keymapPath.slice('config/'.length)}`
+          if (body.hostSnapshot) {
+            file.hostSnapshot = body.hostSnapshot
+            remoteFiles.set(`${root}/snapshot.json`, JSON.stringify(body.hostSnapshot))
+          }
+          for (const output of body.hostDeliverables ?? []) remoteFiles.set(output.path.replace('host_keymap', root), output.content)
+        }
         return json(route, commitStatus, commitBody)
       }
 
       if (method === 'GET' && pathname.includes('/keyboard-files/')) {
-        return json(route, 200, keyboardFiles)
+        const selected = new URL(route.request().url()).searchParams.get('keymapPath') ?? ''
+        loads.push(selected)
+        const file = files.get(selected)
+        return file ? json(route, 200, file) : json(route, 404, { errors: ['Selected file is missing'] })
       }
 
       if (method === 'GET' && /\/builds\/[^/]+\/[^/]+$/.test(pathname)) {

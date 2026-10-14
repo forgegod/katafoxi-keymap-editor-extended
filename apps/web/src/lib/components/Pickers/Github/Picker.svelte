@@ -55,16 +55,43 @@
   let branches: Array<{ name: string }> = $state([])
   let loadingBranches = $state(false)
   let loadingKeyboard = $state(false)
+  let keymaps = $state<Array<{ name: string; path: string }>>([])
+  let loadingKeymaps = $state(false)
+  let selectedKeymapPath = $state<string | null>(null)
   let loadError: { name?: string; errors?: string[] } | null = $state(null)
   let loadWarnings: string[] | null = $state(null)
   /** Shared by effect loads and Reload so a late response cannot overwrite a newer one. */
   let keyboardLoadGeneration = 0
   let loadedMeta: GithubMeta | null = null
+  let acceptedControls: { repoId: number; branch: string; path: string | null; branches: typeof branches; keymaps: typeof keymaps } | null = null
+  // Restoring accepted controls is not a new network selection.
+  let rollbackRepoId: number | null = null
+  let rollbackBranch: string | null = null
+
+  function restoreAcceptedControls() {
+    if (!acceptedControls) return
+    const accepted = acceptedControls
+    if (selectedRepoId !== accepted.repoId) rollbackRepoId = accepted.repoId
+    if (selectedRepoId !== accepted.repoId || selectedBranchName !== accepted.branch) rollbackBranch = accepted.branch
+    selectedRepoId = accepted.repoId
+    selectedBranchName = accepted.branch
+    selectedKeymapPath = accepted.path
+    branches = accepted.branches
+    keymaps = accepted.keymaps
+    loadingBranches = false
+    loadingKeyboard = false
+    loadingKeymaps = false
+    preserveSessionOnLoad = false
+    nextLoadUserInitiated = false
+  }
 
   function selectedFile(repository: string, branch: string, carry = false): RepositoryKeymapSelection[] {
-    return loadedMeta?.repository === repository && (loadedMeta.branch === branch || carry) && loadedMeta.keymapPath
-      ? [{ keymapPath: loadedMeta.keymapPath, ...(loadedMeta.ownershipMode ? { expectedMode: loadedMeta.ownershipMode } : {}) }]
-      : []
+    const live = loadedMeta ?? (editor.source === 'github' ? editor.githubMeta : null)
+    if (live?.repository === repository && (live.branch === branch || carry) && live.keymapPath) {
+      return [{ keymapPath: live.keymapPath, ...(live.ownershipMode ? { expectedMode: live.ownershipMode } : {}) }]
+    }
+    const stored = storage.getPersistedKeymap(repository, branch)
+    return stored ? [stored] : []
   }
 
   function fileMeta(repository: string, branch: string, response: KeyboardFilesResult): GithubMeta {
@@ -75,17 +102,31 @@
   }
 
   function rememberAcceptedFile(candidate: GithubMeta, generation: number) {
+    if (generation !== keyboardLoadGeneration) return
     const accepted = editor.githubMeta
-    if (generation !== keyboardLoadGeneration || editor.source !== 'github' ||
+    if (editor.source !== 'github' ||
         accepted?.repository !== candidate.repository || accepted.branch !== candidate.branch ||
-        accepted.keymapPath !== candidate.keymapPath) return
+        accepted.keymapPath !== candidate.keymapPath) {
+      restoreAcceptedControls()
+      return
+    }
     loadedMeta = { ...accepted }
+    const repo = findBy(github.repositories ?? [], { full_name: accepted.repository })
+    if (repo) {
+      selectedKeymapPath = accepted.keymapPath ?? selectedKeymapPath
+      acceptedControls = { repoId: repo.id, branch: accepted.branch, path: selectedKeymapPath, branches: [...branches], keymaps: [...keymaps] }
+      storage.setPersistedRepository(repo.id)
+      storage.setPersistedBranch(repo.id, accepted.branch)
+    }
+    if (accepted.keymapPath) storage.setPersistedKeymap(accepted.repository, accepted.branch, {
+      keymapPath: accepted.keymapPath,
+      ...(accepted.ownershipMode ? { expectedMode: accepted.ownershipMode } : {})
+    })
   }
   /** Next keymap fetch was started by Reload, repo/branch change, or Create branch. */
   let nextLoadUserInitiated = false
 
   function clearSelection() {
-    selectedBranchName = null
     loadError = null
     loadWarnings = null
   }
@@ -139,18 +180,20 @@
     }
   }
 
-  async function reloadKeyboard() {
+  async function reloadKeyboard(path = selectedKeymapPath) {
     const repository = findBy(github.repositories ?? [], {
       id: selectedRepoId
     })?.full_name
     const branch = selectedBranchName
-    if (!repository || !branch) return
+    if (!repository || !branch || !path) return
 
+    const previousPath = selectedKeymapPath
+    selectedKeymapPath = path
     const generation = ++keyboardLoadGeneration
     loadingKeyboard = true
     loadError = null
     try {
-      const response = await github.fetchLayoutAndKeymap(repository, branch, ...selectedFile(repository, branch))
+      const response = await github.fetchLayoutAndKeymap(repository, branch, { ...selectedFile(repository, branch)[0], keymapPath: path })
       if (generation !== keyboardLoadGeneration) return
       lintKeyboard(response)
       const meta = fileMeta(repository, branch, response)
@@ -162,6 +205,8 @@
       rememberAcceptedFile(meta, generation)
     } catch (err) {
       if (generation !== keyboardLoadGeneration) return
+      selectedKeymapPath = previousPath
+      restoreAcceptedControls()
       applyLoadFailure(err)
     } finally {
       if (generation === keyboardLoadGeneration) {
@@ -177,8 +222,16 @@
       const persistedRepoId = storage.getPersistedRepository()
       const repositories = github.repositories || []
       let nextId: number | null = null
+      const live = editor.source === 'github' ? editor.githubMeta : null
+      const liveRepo = live && findBy(repositories, { full_name: live.repository })
 
-      if (findBy(repositories, { id: persistedRepoId })) {
+      if (live && liveRepo) {
+        nextId = liveRepo.id
+        loadedMeta = { ...live }
+        acceptedControls = { repoId: liveRepo.id, branch: live.branch, path: live.keymapPath ?? null,
+          branches: [{ name: live.branch }],
+          keymaps: live.keymapPath ? [{ name: live.keymapPath, path: live.keymapPath }] : [] }
+      } else if (findBy(repositories, { id: persistedRepoId })) {
         nextId = persistedRepoId
       } else if (repositories.length > 0) {
         nextId = repositories[0].id
@@ -211,8 +264,11 @@
   $effect(() => {
     const repoId = selectedRepoId
     if (!repoId) return
+    if (repoId === rollbackRepoId) {
+      rollbackRepoId = null
+      return
+    }
 
-    storage.setPersistedRepository(repoId)
     let cancelled = false
     selectedBranchName = null
     branches = []
@@ -229,11 +285,12 @@
         if (cancelled) return
 
         branches = nextBranches
+        if (acceptedControls?.repoId === repoId) acceptedControls.branches = [...nextBranches]
         loadingBranches = false
 
         const available = mapProp(nextBranches, 'name')
         const defaultBranch = repository.default_branch
-        const previousBranch = storage.getPersistedBranch(repoId)
+        const previousBranch = acceptedControls?.repoId === repoId ? acceptedControls.branch : storage.getPersistedBranch(repoId)
         const onlyBranch = nextBranches.length === 1 ? nextBranches[0].name : null
 
         for (const branch of [onlyBranch, previousBranch, defaultBranch]) {
@@ -242,9 +299,11 @@
             break
           }
         }
+        if (nextBranches.length === 0) restoreAcceptedControls()
       } catch (err) {
         if (!cancelled) {
           loadingBranches = false
+          restoreAcceptedControls()
           applyLoadFailure(err)
         }
       }
@@ -258,15 +317,20 @@
   $effect(() => {
     const repoId = selectedRepoId
     const branch = selectedBranchName
+    if (branch && branch === rollbackBranch) {
+      rollbackBranch = null
+      return
+    }
     if (!repoId || !branch) {
       loadingKeyboard = false
       return
     }
 
-    storage.setPersistedBranch(repoId, branch)
     const generation = ++keyboardLoadGeneration
 
-    loadingKeyboard = true
+    loadingKeymaps = true
+    keymaps = []
+    selectedKeymapPath = null
     loadError = null
 
     const repository = findBy(github.repositories ?? [], { id: repoId })
@@ -276,10 +340,30 @@
       return
     }
 
-    github
-      .fetchLayoutAndKeymap(repository, branch, ...untrack(() => selectedFile(repository, branch, preserveSessionOnLoad)))
+    const remembered = untrack(() => selectedFile(repository, branch, preserveSessionOnLoad)[0])
+    github.fetchKeymaps(repository, branch)
+      .then(async inventory => {
+        if (generation !== keyboardLoadGeneration) return null
+        keymaps = inventory.candidates
+        loadingKeymaps = false
+        if (keymaps.length === 0) {
+          loadError = { name: 'No eligible keymap files', errors: ['No eligible keymap files in config/. The current editor and recovery are unchanged.'] }
+          restoreAcceptedControls()
+          return null
+        }
+        const path = remembered?.keymapPath ?? (keymaps.length === 1 ? keymaps[0].path : null)
+        if (path && !keymaps.some(item => item.path === path)) {
+          loadError = { name: 'Missing selected keymap', errors: [`${path} is missing. Choose a file explicitly; local recovery is unchanged.`] }
+          restoreAcceptedControls()
+          return null
+        }
+        selectedKeymapPath = path
+        if (!path) return null
+        loadingKeyboard = true
+        return github.fetchLayoutAndKeymap(repository, branch, { ...remembered, keymapPath: path })
+      })
       .then(async response => {
-        if (generation !== keyboardLoadGeneration) return
+        if (generation !== keyboardLoadGeneration || !response) return
         lintKeyboard(response)
         const preserveSession = preserveSessionOnLoad
         preserveSessionOnLoad = false
@@ -298,8 +382,10 @@
       .catch(err => {
         if (generation !== keyboardLoadGeneration) return
         loadingKeyboard = false
+        loadingKeymaps = false
         preserveSessionOnLoad = false
         nextLoadUserInitiated = false
+        restoreAcceptedControls()
         applyLoadFailure(err)
       })
 
@@ -379,14 +465,15 @@
   }
 
   $effect(() => {
+    const accepted = editor.source === 'github' ? editor.githubMeta : null
     const status: GithubChromeStatus = {
       ready,
       authorized,
       appInstalled,
-      loading: !ready || loadingBranches || loadingKeyboard,
-      repoFullName: selectedRepo?.full_name ?? null,
+      loading: !ready || loadingBranches || loadingKeymaps || loadingKeyboard,
+      repoFullName: accepted?.repository ?? selectedRepo?.full_name ?? null,
       repoFullNames,
-      branch: selectedBranchName
+      branch: accepted?.branch ?? selectedBranchName
     }
     untrack(() => onStatus?.(status))
   })
@@ -446,6 +533,24 @@
       />
     {/if}
 
+    {#if loadingKeymaps}
+      <p role="status">Loading keymap files…</p>
+    {:else if selectedBranchName}
+      {#if keymaps.length === 0}
+        <p role="status">No eligible keymap files in config/. The current editor and recovery are unchanged.</p>
+      {:else}
+        <div class="keymap-field">
+        <label class="identity-k" for="keymap-file">Keymap file</label>
+        <select id="keymap-file" value={selectedKeymapPath ?? ''} onchange={event => void reloadKeyboard(event.currentTarget.value)}>
+          <option value="" disabled>Choose a keymap file</option>
+          {#each keymaps as file}
+            <option value={file.path}>{file.path}</option>
+          {/each}
+        </select>
+        </div>
+      {/if}
+    {/if}
+
     {#if loadError}
       <ValidationErrors
         title={loadError.name || 'Error'}
@@ -465,7 +570,7 @@
     {/if}
 
     {#if selectedBranchName && !loadingKeyboard}
-      <button type="button" class="menu-action" onclick={reloadKeyboard}>Reload</button>
+      <button type="button" class="menu-action" disabled={!selectedKeymapPath} onclick={() => void reloadKeyboard()}>Reload</button>
     {/if}
 
     <div class="menu-sep" aria-hidden="true"></div>

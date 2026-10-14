@@ -27,15 +27,63 @@ import type { EditorState } from './state.svelte'
 import type { GithubKeyboardSelection, KeyboardSelection } from './types'
 import { initialLayerSnapshot } from './layer-operation-state'
 
-export async function selectKeyboard(this: EditorState, event: KeyboardSelection) {
-  const selectToken = ++this._selectGeneration
-  this._publishGeneration += 1
-  this.saving = false
-  this._persistGeneration += 1
-  this._cancelPersistTimer()
-  this.endHostEditSession()
-  this.legendHover = null
+/** Verify retention before releasing an identity. Storage is not publication. */
+export async function retainWorkForTransition(this: EditorState): Promise<boolean> {
+  // Selected GitHub recovery must not change the legacy source contracts.
+  if (this.source !== 'github' || !this.githubMeta?.keymapPath) return true
+  if (this.hostRecoveryBusy) return false
+  if (this.source === 'github' && this._omitHostKeymapSnapshotOnCommit && this.hasLocalHostRecovery) {
+    this.saveNotice = { kind: 'warning', messages: ['Host edits are browser-local and unpublishable to GitHub. Commit cannot save them. Use Discard local host edits to resolve host recovery before switching; firmware is protected separately. Reload preserves your work.'] }
+    return false
+  }
+  const identity = this.currentDraftIdentity()
+  if (!identity) return true
+  const generation = this._selectGeneration
+  const document = this.draftKeymap
+  const draft = this.draftKeymap && cloneParsedKeymap(this.draftKeymap)
+  const layer = this._storedLayerOperation()
+  const host = this._encodeLiveHostSnapshot()
+  const dirty = this.isDirty
+  const pending = this.hasPendingFirmwareRecovery
+  const baseline = () => this.baselineKeymap && this.baselineLayout && this.githubMeta?.headSha
+    ? { headSha: this.githubMeta.headSha, keymap: cloneParsedKeymap(this.baselineKeymap), layout: cloneLayout(this.baselineLayout)! }
+    : undefined
+  const baselineBefore = JSON.stringify(baseline())
+  const revision = (row: Pick<StoredDraft, 'draftKeymap' | 'layerOperation' | 'githubBaseline'> | null | undefined) => row
+    ? JSON.stringify({ draftKeymap: row.draftKeymap, layerOperation: row.layerOperation, githubBaseline: row.githubBaseline })
+    : null
+  // Pending recovery is not the live baseline document. Capture the row we
+  // actually read/declined, including provenance, before any asynchronous work.
+  const expected = pending
+    ? revision(this._githubDraftRows.get(draftIdentityKey(identity)))
+    : draft && revision({ draftKeymap: draft, layerOperation: layer, githubBaseline: baseline() })
+  const current = () => generation === this._selectGeneration && this.draftKeymap === document && this.hasPendingFirmwareRecovery === pending && JSON.stringify(baseline()) === baselineBefore && JSON.stringify(this._storedLayerOperation()) === JSON.stringify(layer) && this._encodeLiveHostSnapshot() === host
+  try {
+    if (dirty || pending) {
+      await this._draftWrites
+      let row = await loadStoredDraft(identity)
+      if (!pending && revision(row) !== expected) {
+        await this.flushPendingPersist()
+        row = await loadStoredDraft(identity)
+      }
+      if (!expected || revision(row) !== expected) throw new Error('Firmware retention could not be verified')
+    }
+    if (this.source === 'github' && identity.keymapPath && this.hasLocalHostRecovery) {
+      await this._persistGithubHostCache()
+      const row = await loadGithubHostCache(draftIdentityKey(identity))
+      if (row?.workingEncoded !== host || row.baselineEncoded !== this._hostRepoBaselineEncoded || row.headSha !== this.githubMeta?.headSha) throw new Error('Host retention could not be verified')
+      if ((dirty || pending) && revision(await loadStoredDraft(identity)) !== expected) throw new Error('Firmware recovery changed during host retention')
+    }
+    if (!current()) throw new Error('Work changed while retaining recovery; retry')
+    return true
+  } catch {
+    if (generation === this._selectGeneration) this.saveNotice = { kind: 'error', messages: ['Could not verify local recovery. The current selection and unpublished work were retained.'] }
+    return false
+  }
+}
 
+export async function selectKeyboard(this: EditorState, event: KeyboardSelection) {
+  const transition = ++this._transitionGeneration
   const githubMeta = event.source === 'github' ? event.github : undefined
   const upcomingIdentity = buildDraftIdentity({
     source: event.source,
@@ -50,6 +98,15 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
 
   const currentIdentity = this.currentDraftIdentity()
   const sameGithubIdentity = event.source === 'github' && this.source === 'github' && currentIdentity != null && upcomingKey === draftIdentityKey(currentIdentity)
+  // Browsing source cards remounts the picker. An unchanged automatic load is
+  // not Reload and must not erase a clean document's undo/redo history.
+  if (sameGithubIdentity && event.source === 'github' && event.github.keymapPath &&
+      !event.userInitiated && !event.preserveSession && event.github.headSha &&
+      event.github.headSha === this.githubMeta?.headSha &&
+      (event.hostSnapshotError ?? null) === this._hostSnapshotLoadError &&
+      this.baselineKeymap && event.keymap && diffKeymaps(this.baselineKeymap, event.keymap).length === 0 &&
+      JSON.stringify(this.baselineLayout) === JSON.stringify(event.layout) &&
+      (!event.hostSnapshot || encodeHostKeymapSnapshot(event.hostSnapshot) === this._hostRepoBaselineEncoded)) return
   if (sameGithubIdentity && (this.isDirty || this.hasLocalHostRecovery || this.hasPendingFirmwareRecovery)) {
     if (event.github.headSha !== this.githubMeta?.headSha) {
       this.saveNotice = { kind: 'warning', messages: ['Remote revision changed. Your unpublished firmware and host work and original publish base were retained.'] }
@@ -57,6 +114,18 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
     this.schedulePersist()
     return
   }
+
+  if (currentIdentity && upcomingKey !== draftIdentityKey(currentIdentity) && !(event.source === 'github' && event.preserveSession)) {
+    if (!await this.retainWorkForTransition() || transition !== this._transitionGeneration) return
+  }
+  if (this.hostRecoveryBusy) return
+  const selectToken = ++this._selectGeneration
+  this._publishGeneration += 1
+  this.saving = false
+  this._persistGeneration += 1
+  this._cancelPersistTimer()
+  this.endHostEditSession()
+  this.legendHover = null
 
   if (
     event.source === 'github' &&
@@ -102,6 +171,7 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
   this.noteHostSnapshotLoad(event.source === 'github' ? event.hostSnapshotError : null)
   if (event.source !== 'github') {
     this._hostRepoBaselineEncoded = null
+    this._hostLocalOriginEncoded = null
   }
   if (event.source === 'clipboard' && upcomingIdentity) {
     const pasted = event.clipboardOriginalSource ?? null

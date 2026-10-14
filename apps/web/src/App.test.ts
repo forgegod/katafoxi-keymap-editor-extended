@@ -166,6 +166,7 @@ describe('App chrome', () => {
       headSha: 'abc123'
     })
     vi.spyOn(github, 'init').mockResolvedValue(undefined)
+    vi.spyOn(github, 'fetchKeymaps').mockResolvedValue({ headSha: 's', candidates: [{ name: 'a.keymap', path: 'config/a.keymap' }] })
     github.initialized = true
     github.authorized = false
     github.repositories = null
@@ -212,6 +213,68 @@ describe('App chrome', () => {
     await tick()
     flushSync()
   }
+
+  it('shows omitted-host recovery status and a standalone host-only discard action', async () => {
+    await renderApp()
+    await loadKeyboard({ source: 'github', github: { repository: 'owner/recovery', branch: 'main', keymapPath: 'config/only.keymap', headSha: 's' },
+      layout: oneKeyLayout, keymap: km('A', 'recovery'), hostSnapshotError: 'invalid' })
+    expect(target.querySelector('[aria-label="Host publication status"]')?.textContent).toContain('Host snapshot and install-file writes are disabled.')
+    expect(target.querySelector('[aria-label="Host publication status"]')?.textContent).not.toMatch(/Host (edits|changes) (are|remain)/)
+    await editor.commitHostMap(addHostLanguage(editor.hostLegend, 'de'))
+    flushSync()
+    expect(target.textContent).toContain('Host edits are browser-local and unpublishable to GitHub. Commit cannot save them.')
+    expect(target.querySelector('.publish-status')?.textContent).toContain('Browser-local')
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(true)
+    const discard = buttonMatching(target, /^Discard local host edits$/)
+    expect(discard).toBeInstanceOf(HTMLButtonElement)
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    discard!.click()
+    await vi.waitFor(() => expect(confirm).toHaveBeenCalled())
+    expect(editor.hasLocalHostRecovery).toBe(true)
+    editor.updateKeymap(km('Z', 'recovery'))
+    flushSync()
+    expect(target.textContent).toContain('Commit can save firmware only.')
+    confirm.mockReturnValue(true)
+    discard!.click()
+    await vi.waitFor(() => expect(editor.hasLocalHostRecovery).toBe(false))
+    expect(editor.draftKeymap?.layers[0][0].params[0].value).toBe('Z')
+    expect(editor.isDirty).toBe(true)
+    flushSync()
+    expect(target.querySelector('[aria-label="Host publication status"]')?.textContent).toContain('Commit can save firmware only.')
+    expect(target.querySelector('[aria-label="Host publication status"]')?.textContent).not.toMatch(/Host (edits|changes) (are|remain)/)
+  })
+
+  it('renders reset and write limitations without claiming remaining host edits after confirmed discard', async () => {
+    await renderApp()
+    await loadKeyboard({ source: 'github', github: { repository: 'owner/discard-notice', branch: 'main', keymapPath: 'config/only.keymap', headSha: 's' },
+      layout: oneKeyLayout, keymap: km('A'), hostSnapshotError: 'invalid' })
+    await editor.commitHostMap(addHostLanguage(editor.hostLegend, 'de'))
+    flushSync()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    buttonMatching(target, /^Discard local host edits$/)!.click()
+    await vi.waitFor(() => expect(editor.hasLocalHostRecovery).toBe(false))
+    expect(confirm).toHaveBeenCalledOnce()
+    flushSync()
+
+    const notice = target.querySelector('.save-notice:not([aria-label])')
+    expect(notice).not.toBeNull()
+    expect(notice?.textContent).not.toMatch(/Host (edits|changes) (are|remain)/i)
+    expect(notice?.textContent).toContain('Local host edits discarded. System English is active; firmware and remote host files are unchanged.')
+    expect(notice?.textContent).toContain('Host snapshot and install-file writes are disabled.')
+  })
+
+  it('does not move source chrome or persisted source while omitted host recovery blocks a switch', async () => {
+    await renderApp()
+    await loadKeyboard({ source: 'github', github: { repository: 'owner/block', branch: 'main', keymapPath: 'config/a.keymap', headSha: 's' },
+      layout: oneKeyLayout, keymap: km('A'), hostSnapshotError: 'invalid' })
+    await editor.commitHostMap(addHostLanguage(editor.hostLegend, 'de'))
+    ;(target.querySelector('[data-source="demo"]') as HTMLButtonElement).click()
+    await tick()
+    flushSync()
+    expect(target.querySelector('[data-source="github"]')?.getAttribute('aria-checked')).toBe('true')
+    expect(localStorage.getItem('selectedSource')).toBe('github')
+    expect(editor.source).toBe('github')
+  })
 
   it('awaits GitHub selection acceptance before remembering the Reload path through both picker callbacks', async () => {
     github.authorized = true
@@ -572,7 +635,7 @@ describe('App chrome', () => {
       warnings: ['host_snapshot_unsupported_version']
     })
 
-    expect(target.querySelector('.save-notice.warning')?.textContent).toMatch(
+    expect(target.textContent).toMatch(
       /newer host_keymap\/snapshot\.json than this editor can read/
     )
 
@@ -598,7 +661,7 @@ describe('App chrome', () => {
       [],
       'abc123'
     )
-    expect(target.querySelector('.save-notice.warning')?.textContent).toMatch(
+    expect(target.textContent).toMatch(
       /newer host_keymap\/snapshot\.json than this editor can read/
     )
   })

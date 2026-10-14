@@ -112,10 +112,15 @@ export async function _materializeUserHostLayoutFromTable(this: EditorState,
   language: HostLanguageId,
   preferredName: string,
   source: HostLayout,
-  origin: UserHostLayoutOrigin
+  origin: UserHostLayoutOrigin,
+  privateWorkingCopy = false
 ): Promise<string> {
   const name = uniqueUserHostLayoutName(language, preferredName, this.userLayouts)
-  const id = `user:${crypto.randomUUID()}`
+  const wireId = `user:${crypto.randomUUID()}`
+  const identity = this.currentDraftIdentity()
+  const owned = privateWorkingCopy && this.source === 'github' && identity?.keymapPath
+  const id = owned ? `user:github:${encodeURIComponent(JSON.stringify([draftIdentityKey(identity), wireId]))}` : wireId
+  if (owned) this._githubHostLayoutWireIds.set(id, wireId)
   const layout = cloneHostLayoutTable(source, id)
   const record: UserHostLayoutRecord = {
     id,
@@ -141,7 +146,7 @@ export async function _materializeUserHostLayoutFromTable(this: EditorState,
   this.hostProfileNote = null
   const generation = this._selectGeneration
   const legendSettingId = this._hostLegendSettingId()
-  await this._persistHostLayoutWrite(() => saveUserHostLayout(record))
+  if (!owned) await this._persistHostLayoutWrite(() => saveUserHostLayout(record))
   if (generation !== this._selectGeneration) return id
   await this._persistHostLegend(legendSettingId, generation)
   return id
@@ -180,6 +185,10 @@ export async function _persistHostLegend(
   const id = settingId !== undefined ? settingId : this._hostLegendSettingId()
   if (!id || generation !== this._selectGeneration) return
   const view = this.hostLegend
+  if (this.source === 'github' && this.githubMeta?.keymapPath) {
+    await this._persistGithubHostCache()
+    return
+  }
   await this._persistHostLayoutWrite(async () => {
     if (generation !== this._selectGeneration) return
     await saveHostLegendView(view, id)
@@ -235,6 +244,10 @@ export async function _persistHostAssemblies(
   const id = settingId !== undefined ? settingId : this._hostAssembliesSettingId()
   if (!id || generation !== this._selectGeneration) return
   const assemblies = this.hostAssemblies
+  if (this.source === 'github' && this.githubMeta?.keymapPath) {
+    await this._persistGithubHostCache()
+    return
+  }
   await this._persistHostLayoutWrite(async () => {
     if (generation !== this._selectGeneration) return
     await saveHostAssemblies(id, assemblies)
@@ -404,9 +417,9 @@ export async function ensureEditableUserHostLayout(this: EditorState, language: 
     language,
     preferredName,
     source,
-    { from: 'copy', layoutId }
+    { from: 'copy', layoutId },
+    true
   )
-  if (this.source === 'github' && this.githubMeta?.keymapPath) this._githubHostLayoutWireIds.set(id, id)
   const name = this.userLayouts.find(layout => layout.id === id)?.name ?? preferredName
   this.hostProfileNote =
     `Created copy “${name}” for edits. The system layout is unchanged.`
@@ -450,7 +463,7 @@ export async function _commitUserHostLayout(this: EditorState, layoutId: string,
   const updated: UserHostLayout = { ...profile, updatedAt: Date.now() }
   this._registerUserLayout({ ...updated, layout })
   this.userLayouts = this.userLayouts.map(item => (item.id === updated.id ? updated : item))
-  await this._persistHostLayoutWrite(() => saveUserHostLayout({ ...updated, layout }))
+  if (!this._githubHostLayoutWireIds.has(layoutId)) await this._persistHostLayoutWrite(() => saveUserHostLayout({ ...updated, layout }))
   await this._persistGithubHostCache()
   return true
 }
