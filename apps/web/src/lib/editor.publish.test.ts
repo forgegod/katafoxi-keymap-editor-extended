@@ -36,6 +36,112 @@ describe('editor publish / draft persistence', () => {
     editor.resetForTests()
   })
 
+  it.each(['demo', 'clipboard', 'local'] as const)('flushes and verifies %s firmware before a fast source unload', async source => {
+    const identity = buildDraftIdentity({ source, keyboard: 'transition-retention' })!
+    await deleteStoredDraft(identity)
+    const selection = { source, keymap: km('A', 'transition-retention'), layout: [{ x: 0, y: 0, row: 0, col: 0 }] }
+    await editor.selectKeyboard(selection)
+    editor.updateKeymap(km('Z', 'transition-retention'))
+    editor.layerOperationSnapshot = { ...editor.layerOperationSnapshot!, identityAware: true }
+    const layer = editor._storedLayerOperation()
+    const host = cloneHostLegendView(editor.hostLegend)
+    await editor.selectKeyboard({ source: 'local', keymap: km('B', 'destination'), layout: selection.layout })
+    expect(editor.draftKeymap?.keyboard).toBe('destination')
+    expect(await loadStoredDraft(identity)).toMatchObject({ draftKeymap: km('Z', 'transition-retention'), layerOperation: layer })
+    editor.resetForTests()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    await editor.selectKeyboard(selection)
+    expect(confirm).toHaveBeenCalled()
+    expect(editor.isDirty).toBe(false)
+    expect(editor.hasPendingFirmwareRecovery).toBe(false)
+    expect(await loadStoredDraft(identity)).toBeNull()
+    expect(editor.hostLegend).toEqual(host)
+    confirm.mockRestore()
+  })
+
+  it.each(['demo', 'clipboard', 'local'] as const)('retains %s session when a flush fails even with a matching older stored row', async source => {
+    const identity = buildDraftIdentity({ source, keyboard: 'flush-failure' })!
+    await deleteStoredDraft(identity)
+    await editor.selectKeyboard({ source, keymap: km('A', 'flush-failure'), layout: [{ x: 0, y: 0, row: 0, col: 0 }] })
+    editor.updateKeymap(km('Z', 'flush-failure'))
+    await editor.flushPendingPersist()
+    const stored = await loadStoredDraft(identity)
+    const live = editor.draftKeymap
+    const save = vi.spyOn(draftStorage, 'saveStoredDraft').mockRejectedValue(new Error('quota'))
+    try {
+      await editor.selectKeyboard({ source: 'local', keymap: km('B', 'destination') })
+      expect(editor.currentDraftIdentity()).toEqual(identity)
+      expect(editor.draftKeymap).toBe(live)
+      expect(await loadStoredDraft(identity)).toEqual(stored)
+      expect(editor.saveNotice?.messages.join(' ')).toMatch(/Could not verify local recovery/)
+    } finally {
+      save.mockRestore()
+      await deleteStoredDraft(identity)
+    }
+  })
+
+  it.each(['demo', 'clipboard', 'local'] as const)('waits for an older %s draft write before verifying the newest revision', async source => {
+    const identity = buildDraftIdentity({ source, keyboard: 'write-order' })!
+    await deleteStoredDraft(identity)
+    await editor.selectKeyboard({ source, keymap: km('A', 'write-order'), layout: [{ x: 0, y: 0, row: 0, col: 0 }] })
+    let release!: () => void
+    const held = new Promise<void>(resolve => { release = resolve })
+    const save = draftStorage.saveStoredDraft
+    const spy = vi.spyOn(draftStorage, 'saveStoredDraft').mockImplementation(async (...args) => {
+      if (args[1].layers[0][0].params[0].value === 'Z') await held
+      return save(...args)
+    })
+    editor.updateKeymap(km('Z', 'write-order'))
+    const older = editor.flushPendingPersist()
+    await vi.waitFor(() => expect(spy).toHaveBeenCalled())
+    editor.updateKeymap(km('X', 'write-order'))
+    const transition = editor.selectKeyboard({ source: 'local', keymap: km('B', 'destination') })
+    // Let an incorrectly unqueued transition finish before the older write.
+    await new Promise(resolve => setTimeout(resolve, 50))
+    const stayed = editor.currentDraftIdentity()?.keyboard === 'write-order'
+    release()
+    await Promise.all([older, transition])
+    try {
+      expect(stayed).toBe(true)
+      expect(editor.currentDraftIdentity()?.keyboard).toBe('destination')
+      expect((await loadStoredDraft(identity))?.draftKeymap).toEqual(km('X', 'write-order'))
+    } finally {
+      spy.mockRestore()
+      await deleteStoredDraft(identity)
+    }
+  })
+
+  it.each((['demo', 'clipboard', 'local'] as const).flatMap(source =>
+    (['read error', 'missing row', 'wrong layer', 'refused flush'] as const).map(failure => ({ source, failure }))
+  ))('refuses $source unload on $failure without GitHub recovery rules', async ({ source, failure }) => {
+    const identity = buildDraftIdentity({ source, keyboard: 'verify-failure' })!
+    await deleteStoredDraft(identity)
+    await editor.selectKeyboard({ source, keymap: km('A', 'verify-failure'), layout: [{ x: 0, y: 0, row: 0, col: 0 }] })
+    editor.updateKeymap(km('Z', 'verify-failure'))
+    editor.layerOperationSnapshot = { ...editor.layerOperationSnapshot!, identityAware: true }
+    const live = editor.draftKeymap
+    const read = draftStorage.loadStoredDraft
+    const spy = failure === 'refused flush'
+      ? vi.spyOn(editor, 'flushPendingPersist').mockResolvedValue(false)
+      : vi.spyOn(draftStorage, 'loadStoredDraft').mockImplementation(async id => {
+        if (failure === 'read error') throw new Error('unavailable')
+        if (failure === 'missing row') return null
+        const row = (await read(id))!
+        return { ...row, layerOperation: { ...row.layerOperation!, view: { shown: [9], layer0Raw: true } } }
+      })
+    try {
+      await editor.selectKeyboard({ source: 'local', keymap: km('B', 'destination') })
+      expect(editor.currentDraftIdentity()).toEqual(identity)
+      expect(editor.draftKeymap).toBe(live)
+      expect(editor.hasPendingFirmwareRecovery).toBe(false)
+      expect(editor.saveNotice?.messages.join(' ')).toMatch(/Could not verify local recovery/)
+    } finally {
+      spy.mockRestore()
+      editor.resetForTests()
+      await deleteStoredDraft(identity)
+    }
+  })
+
   it('tracks dirty vs baseline and clears on applyPublished', async () => {
     await editor.selectKeyboard({
       source: 'local',
@@ -819,7 +925,7 @@ describe('editor publish / draft persistence', () => {
     await deleteStoredDraft(featureId)
   })
 
-  it('clears the draft and persist timer when selectKeyboard receives a null keymap', async () => {
+  it('retains the draft before clearing the document and persist timer for a null keymap', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     const save = vi.spyOn(draftStorage, 'saveStoredDraft')
 
@@ -844,7 +950,8 @@ describe('editor publish / draft persistence', () => {
     expect(vi.getTimerCount()).toBe(0)
 
     await vi.advanceTimersByTimeAsync(1000)
-    expect(save).not.toHaveBeenCalled()
+    expect(save).toHaveBeenCalledTimes(1)
+    expect((await loadStoredDraft(buildDraftIdentity({ source: 'local', keyboard: 'lark' })!))?.draftKeymap).toEqual(km('M'))
 
     save.mockRestore()
   })

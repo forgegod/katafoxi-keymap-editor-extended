@@ -1,11 +1,12 @@
 import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { addHostLanguage, parseKeymap } from '@keymap-editor/keymap-core'
 import github from '../../../github/api.svelte.js'
 import * as storage from '../../../github/storage'
 import type { GitHubRepo, KeyboardFilesResult } from '../../../github/api.svelte.js'
 import { editor } from '../../../editor.svelte.js'
 import * as hostStorage from '../../../host-layout-store'
-import { deleteStoredDraft } from '../../../draft-storage'
+import { deleteStoredDraft, draftIdentityKey, loadStoredDraft } from '../../../draft-storage'
 import type { GithubKeyboardSelection } from '../../../editor/types'
 import Picker from './Picker.svelte'
 
@@ -645,6 +646,81 @@ describe('Github Picker', () => {
         layout: [{ x: 0, y: 0 }, { x: 1, y: 0 }]
       })
     )
+  })
+
+  it.each(['invalid', 'unsupported_version', 'incompatible'] as const)('refuses remote branch creation when %s host recovery appears after opening the form', async error => {
+    vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }])
+    vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }], keymap: parseKeymap({ layers: [['&kp A']] }),
+      hostSnapshot: null, hostSnapshotError: error, warnings: [], headSha: 's', keymapPath: 'config/a.keymap'
+    })
+    const create = vi.spyOn(github, 'createBranch').mockResolvedValue({ name: 'topic' })
+    const onSelect = open(vi.fn((event: Omit<GithubKeyboardSelection, 'source'>) => editor.selectKeyboard({ source: 'github', ...event })))
+    await vi.waitFor(() => expect(storage.getPersistedBranch(repo.id)).toBe('main'))
+    clickButton('Create new branch')
+    const input = target.querySelector('#new-branch') as HTMLInputElement
+    input.value = 'topic'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    editor.updateKeymap(parseKeymap({ layers: [['&kp Z']] }))
+    await editor.flushPendingPersist()
+    await editor.commitHostMap(addHostLanguage(editor.hostLegend, 'de'))
+    const identity = editor.currentDraftIdentity()!
+    const firmware = await loadStoredDraft(identity)
+    const host = await hostStorage.loadGithubHostCache(draftIdentityKey(identity))
+    const live = JSON.stringify(editor.draftKeymap)
+    const persisted = { ...localStorage }
+    flushSync()
+    clickButton('Create')
+    expect(create).not.toHaveBeenCalled()
+    await vi.waitFor(() => expect(target.querySelector('[role="alert"]')?.textContent).toContain('Discard local host edits'))
+    expect(onSelect).toHaveBeenCalledOnce()
+    expect(editor.currentDraftIdentity()).toEqual(identity)
+    expect(JSON.stringify(editor.draftKeymap)).toBe(live)
+    expect(editor.hasLocalHostRecovery).toBe(true)
+    expect(await loadStoredDraft(identity)).toEqual(firmware)
+    expect(await hostStorage.loadGithubHostCache(draftIdentityKey(identity))).toEqual(host)
+    expect({ ...localStorage }).toEqual(persisted)
+  })
+
+  it.each(['invalid', 'unsupported_version'] as const)('describes firmware-only branch carry without promising Host languages for clean %s omission', async error => {
+    vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }])
+    vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }], keymap: parseKeymap({ layers: [['&kp A']] }),
+      hostSnapshot: null, hostSnapshotError: error, warnings: [], headSha: 's', keymapPath: 'config/a.keymap'
+    })
+    const create = vi.spyOn(github, 'createBranch').mockResolvedValue({ name: 'topic' })
+    open(vi.fn((event: Omit<GithubKeyboardSelection, 'source'>) => editor.selectKeyboard({ source: 'github', ...event })))
+    await vi.waitFor(() => expect(storage.getPersistedBranch(repo.id)).toBe('main'))
+    editor.noteHostSnapshotLoad(null)
+    await editor.commitHostMap(addHostLanguage(editor.hostLegend, 'de'))
+    editor.acceptHostRepoBaseline()
+    await editor._hostCacheWrites
+    editor.noteHostSnapshotLoad(error)
+    editor.updateKeymap(parseKeymap({ layers: [['&kp Z']] }))
+    await editor.flushPendingPersist()
+    const identity = editor.currentDraftIdentity()!
+    const firmware = await loadStoredDraft(identity)
+    const host = await hostStorage.loadGithubHostCache(draftIdentityKey(identity))
+    expect(editor.hasLocalHostRecovery).toBe(false)
+    clickButton('Create new branch')
+    const hint = target.querySelector('.branch-hint')?.textContent
+    expect(hint).toContain('Keeps unpublished firmware only')
+    expect(hint).toContain('Host recovery is not carried')
+    expect(hint).not.toMatch(/Keeps your unpublished edits and\s*Host languages/)
+    const input = target.querySelector('#new-branch') as HTMLInputElement
+    input.value = 'topic'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+    clickButton('Create')
+    await vi.waitFor(() => expect(editor.githubMeta?.branch).toBe('topic'))
+    expect(create).toHaveBeenCalledOnce()
+    expect(create).toHaveBeenCalledWith(repo.full_name, 'topic', 'main')
+    expect(editor.draftKeymap?.layers[0][0].params[0].value).toBe('Z')
+    expect(editor.hostLegend.columns.map(column => column.language)).toEqual(['en'])
+    expect(editor.hasLocalHostRecovery).toBe(false)
+    expect(await loadStoredDraft(identity)).toEqual(firmware)
+    expect(await hostStorage.loadGithubHostCache(draftIdentityKey(identity))).toEqual(host)
+    await deleteStoredDraft(identity)
   })
 
   it('creates a branch from the current one and selects it', async () => {

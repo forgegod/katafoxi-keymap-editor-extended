@@ -6,7 +6,7 @@ import { clearHostLayoutStore, loadGithubHostCache, saveGithubHostCache } from '
 import * as draftStorage from './draft-storage'
 import * as hostStorage from './host-layout-store'
 import { publishKeymap } from './publish-keymap'
-import type { GithubKeyboardSelection } from './editor/types'
+import type { GithubKeyboardSelection, KeyboardSelection } from './editor/types'
 
 const km = (code: string) => parseKeymap({ keyboard: 'same', layer_names: ['base'], layers: [[`&kp ${code}`]] })
 const board = (path = 'config/a.keymap', headSha = 's'): GithubKeyboardSelection => ({
@@ -17,6 +17,261 @@ beforeEach(async () => { editor.resetForTests(); await clearHostLayoutStore(); v
 afterEach(async () => { const id = editor.currentDraftIdentity(); editor.resetForTests(); if (id) await deleteStoredDraft(id); vi.restoreAllMocks() })
 
 describe('selected GitHub editor identity', () => {
+  it('clears firmware recovery loading after invalid selected GitHub host-cache hydration fails', async () => {
+    // Exercise hydration's decoder, rather than the earlier storage-read guard.
+    vi.spyOn(hostStorage, 'loadGithubHostCache').mockResolvedValue({
+      revision: 1, baselineEncoded: null, baselineSha: null,
+      workingEncoded: '{invalid', headSha: 's'
+    })
+
+    await expect(editor.selectKeyboard(board())).rejects.toThrow('Invalid host recovery')
+
+    expect(editor.githubMeta?.keymapPath).toBe('config/a.keymap')
+    expect.soft(editor._firmwareRecoveryLoading).toBe(false)
+    expect(editor.hasPendingFirmwareRecovery).toBe(false)
+    editor.updateKeymap(km('Z'))
+    expect(editor.draftKeymap).toEqual(km('Z'))
+    expect(editor.isDirty).toBe(true)
+  })
+
+  it('clears firmware recovery loading when a hydration select is superseded by a refused selection', async () => {
+    let release!: () => void
+    const held = new Promise<void>(resolve => { release = resolve })
+    const load = hostStorage.loadHostAssemblies
+    vi.spyOn(hostStorage, 'loadHostAssemblies').mockImplementation(async key => { await held; return load(key) })
+    const selecting = editor.selectKeyboard(board())
+    await vi.waitFor(() => expect(hostStorage.loadHostAssemblies).toHaveBeenCalled())
+    expect(editor._firmwareRecoveryLoading).toBe(true)
+    const generation = editor._selectGeneration
+
+    // Carry refuses a different file after superseding the in-flight select.
+    await editor.selectKeyboard({ ...board('config/b.keymap'), preserveSession: true })
+    expect(editor._selectGeneration).toBeGreaterThan(generation)
+    release()
+    await selecting
+
+    expect(editor.githubMeta?.keymapPath).toBe('config/a.keymap')
+    expect(editor.saveNotice?.messages).toContain('Cannot carry drafts into a different keymap file.')
+    expect.soft(editor._firmwareRecoveryLoading).toBe(false)
+    expect(editor.hasPendingFirmwareRecovery).toBe(false)
+    editor.updateKeymap(km('Z'))
+    expect(editor.draftKeymap).toEqual(km('Z'))
+    expect(editor.isDirty).toBe(true)
+  })
+
+  it.each(['head', 'baseline', 'identity'] as const)('refuses changed %s during branch-carry destination reads', async changed => {
+    await editor.selectKeyboard({ ...board(), hostSnapshotError: 'invalid' })
+    let release!: () => void
+    const held = new Promise<void>(resolve => { release = resolve })
+    const load = draftStorage.loadStoredDraft
+    vi.spyOn(draftStorage, 'loadStoredDraft').mockImplementation(async id => {
+      if (id.branch === 'copied') await held
+      return load(id)
+    })
+    const selecting = editor.selectKeyboard({ ...board(), github: { ...board().github, branch: 'copied' }, preserveSession: true, hostSnapshotError: 'invalid' })
+    await vi.waitFor(() => expect(draftStorage.loadStoredDraft).toHaveBeenCalledWith(expect.objectContaining({ branch: 'copied' })))
+    if (changed === 'head') editor.githubMeta = { ...editor.githubMeta!, headSha: 'new' }
+    if (changed === 'baseline') editor.baselineKeymap = km('B')
+    if (changed === 'identity') editor.githubMeta = { ...editor.githubMeta!, repository: 'acme/other' }
+    const before = JSON.stringify({ meta: editor.githubMeta, baseline: editor.baselineKeymap })
+    release()
+    await selecting
+    expect(JSON.stringify({ meta: editor.githubMeta, baseline: editor.baselineKeymap })).toBe(before)
+    expect(editor.saveNotice?.messages.join(' ')).toMatch(/Work changed/)
+  })
+
+  it.each(['firmware', 'layer', 'view', 'head', 'baseline', 'layout', 'identity', 'host', 'host origin', 'host assemblies'] as const)('refuses changed %s after destination recovery reads', async changed => {
+    await editor.selectKeyboard({ ...board(), hostSnapshotError: 'invalid' })
+    editor.updateKeymap(km('Z'))
+    await editor.flushPendingPersist()
+    const identity = editor.currentDraftIdentity()!
+    const retained = await loadStoredDraft(identity)
+    let release!: () => void
+    const held = new Promise<void>(resolve => { release = resolve })
+    const load = draftStorage.loadStoredDraft
+    vi.spyOn(draftStorage, 'loadStoredDraft').mockImplementation(async id => {
+      if (id.keymapPath === 'config/b.keymap') await held
+      return load(id)
+    })
+    const selecting = editor.selectKeyboard(board('config/b.keymap'))
+    await vi.waitFor(() => expect(draftStorage.loadStoredDraft).toHaveBeenCalledWith(expect.objectContaining({ keymapPath: 'config/b.keymap' })))
+    if (changed === 'firmware') editor.updateKeymap(km('X'))
+    if (changed === 'layer') editor.addLayer()
+    if (changed === 'view') editor.layerView = { shown: [0], layer0Raw: true }
+    if (changed === 'head') editor.githubMeta = { ...editor.githubMeta!, headSha: 'new' }
+    if (changed === 'baseline') editor.baselineKeymap = km('B')
+    if (changed === 'layout') editor.baselineLayout = [{ ...board().layout![0], x: 4 }]
+    if (changed === 'identity') editor.githubMeta = { ...editor.githubMeta!, branch: 'changed' }
+    if (changed === 'host') editor.hostLegend = addHostLanguage(editor.hostLegend, 'de')
+    if (changed === 'host origin') editor._hostLocalOriginEncoded = 'changed'
+    if (changed === 'host assemblies') editor.hostAssemblies = [{ id: 'remembered', view: addHostLanguage(editor.hostLegend, 'de') }]
+    const expected = JSON.stringify({ draft: editor.draftKeymap, meta: editor.githubMeta, baseline: editor.baselineKeymap, layout: editor.baselineLayout, layer: editor.layerOperationSnapshot, view: editor.layerView, host: editor._encodeLiveHostSnapshot(), origin: editor._hostLocalOriginEncoded, assemblies: editor.hostAssemblies, history: editor.undoStack })
+    release()
+    await selecting
+    expect(JSON.stringify({ draft: editor.draftKeymap, meta: editor.githubMeta, baseline: editor.baselineKeymap, layout: editor.baselineLayout, layer: editor.layerOperationSnapshot, view: editor.layerView, host: editor._encodeLiveHostSnapshot(), origin: editor._hostLocalOriginEncoded, assemblies: editor.hostAssemblies, history: editor.undoStack })).toBe(expected)
+    expect(editor.saveNotice?.messages.join(' ')).toMatch(changed === 'host' || changed === 'host origin' ? /Discard local host edits/ : /Work changed.*retained/)
+    expect(await load(identity)).toEqual(retained)
+    await deleteStoredDraft(identity)
+  })
+
+  it('keeps pre-existing live divergence during recovery and warns against reopening', async () => {
+    await editor.selectKeyboard(board())
+    editor.updateKeymap(km('Z'))
+    await editor.flushPendingPersist()
+    const identity = editor.currentDraftIdentity()!
+    const stored = await loadStoredDraft(identity)
+    editor.resetForTests()
+    vi.mocked(window.confirm).mockReturnValue(false)
+    let release!: () => void
+    const held = new Promise<void>(resolve => { release = resolve })
+    const load = hostStorage.loadHostAssemblies
+    vi.spyOn(hostStorage, 'loadHostAssemblies').mockImplementation(async key => { await held; return load(key) })
+    const selecting = editor.selectKeyboard(board())
+    await vi.waitFor(() => expect(hostStorage.loadHostAssemblies).toHaveBeenCalled())
+    // A stale/older caller must not let recovery overwrite an existing live edit.
+    editor.draftKeymap = km('X')
+    release()
+    await selecting
+    expect(editor.draftKeymap).toEqual(km('X'))
+    expect(editor.hasPendingFirmwareRecovery).toBe(true)
+    await editor.flushPendingPersist()
+    expect(await loadStoredDraft(identity)).toEqual(stored)
+    expect(editor.statusText).not.toMatch(/Reopen to restore/)
+    expect(editor.statusText).toMatch(/not saved.*Do not reload/)
+    expect(editor.saveNotice?.messages.join(' ')).toMatch(/not saved.*Do not reload/)
+    expect(await editor.retainWorkForTransition()).toBe(false)
+  })
+
+  it('refuses edits while selected recovery is still loading before the restore decision', async () => {
+    await editor.selectKeyboard(board())
+    editor.updateKeymap(km('Z'))
+    await editor.flushPendingPersist()
+    const identity = editor.currentDraftIdentity()!
+    const stored = await loadStoredDraft(identity)
+    editor.resetForTests()
+    vi.mocked(window.confirm).mockReturnValue(false)
+    let release!: () => void
+    const held = new Promise<void>(resolve => { release = resolve })
+    const load = hostStorage.loadHostAssemblies
+    vi.spyOn(hostStorage, 'loadHostAssemblies').mockImplementation(async key => { await held; return load(key) })
+    const selecting = editor.selectKeyboard(board())
+    await vi.waitFor(() => expect(hostStorage.loadHostAssemblies).toHaveBeenCalled())
+    const live = editor.draftKeymap
+    editor.updateKeymap(km('X'))
+    editor.addLayer()
+    const refused = editor.draftKeymap === live
+    const notice = editor.saveNotice?.messages.join(' ')
+    release()
+    await selecting
+    expect(refused).toBe(true)
+    expect(notice).toMatch(/Firmware editing is blocked.*recovery/i)
+    expect(editor.hasPendingFirmwareRecovery).toBe(true)
+    expect(await loadStoredDraft(identity)).toEqual(stored)
+  })
+
+  it.each(['binding', 'add', 'rename', 'delete', 'duplicate', 'reorder', 'undo', 'redo', 'sensor', 'combos', 'hold-taps', 'conditional', 'promote'] as const)('refuses %s edits after declining firmware recovery without changing either revision', async operation => {
+    const selection = board()
+    selection.keymap = { ...km('A'), layer_names: ['base', 'extra'], layers: [...km('A').layers, ...km('B').layers], sensorBindings: [[{ value: '&inc_dec_kp', params: [] }], [{ value: '&inc_dec_kp', params: [] }]] }
+    await editor.selectKeyboard(selection)
+    editor.renameLayer(1, 'stored')
+    await editor.flushPendingPersist()
+    const identity = editor.currentDraftIdentity()!
+    const stored = await loadStoredDraft(identity)
+    editor.resetForTests()
+    vi.mocked(window.confirm).mockReturnValue(false)
+    await editor.selectKeyboard(selection)
+    // Existing history must not provide a back door into a pending session.
+    editor.undoStack = [km('U')]
+    editor.redoStack = [km('R')]
+    editor.schemeMode = true
+    editor.layout = [{ ...board().layout![0], absent: true }]
+    const before = JSON.stringify({ draft: editor.draftKeymap, layer: editor.layerOperationSnapshot, view: editor.layerView, layout: editor.layout, undo: editor.undoStack, redo: editor.redoStack })
+    const actions = {
+      binding: () => editor.updateKeymap(km('X')),
+      add: () => editor.addLayer(), rename: () => editor.renameLayer(1, 'new'), delete: () => editor.deleteLayer(1),
+      duplicate: () => editor.duplicateLayer(0), reorder: () => editor.reorderLayers([1, 0]),
+      undo: () => editor.undo(), redo: () => editor.redo(),
+      sensor: () => editor.updateSensorBinding(0, 0, { value: '&none', params: [] }),
+      combos: () => editor.updateCombos([]), 'hold-taps': () => editor.updateHoldTaps([]), conditional: () => editor.updateConditionalLayers([]),
+      promote: () => editor.promoteAbsentKey(0, km('X').layers[0][0])
+    }
+    actions[operation]()
+    expect(JSON.stringify({ draft: editor.draftKeymap, layer: editor.layerOperationSnapshot, view: editor.layerView, layout: editor.layout, undo: editor.undoStack, redo: editor.redoStack })).toBe(before)
+    expect(editor.saveNotice?.messages.join(' ')).toMatch(/Firmware editing is blocked.*recovery/i)
+    await editor.flushPendingPersist()
+    expect(await loadStoredDraft(identity)).toEqual(stored)
+    editor.resetForTests()
+    vi.mocked(window.confirm).mockReturnValue(true)
+    await editor.selectKeyboard(selection)
+    expect(editor.draftKeymap?.layer_names?.[1]).toBe('stored')
+  })
+
+  it.each(['file', 'repository', 'branch', 'carry', 'demo', 'clipboard', 'local'] as const)('retains both firmware revisions when switching to %s with pre-existing live divergence', async destination => {
+    await editor.selectKeyboard(board())
+    editor.updateKeymap(km('Z'))
+    await editor.flushPendingPersist()
+    const identity = editor.currentDraftIdentity()!
+    const stored = await loadStoredDraft(identity)
+    editor.resetForTests()
+    vi.mocked(window.confirm).mockReturnValue(false)
+    await editor.selectKeyboard(board())
+    expect(editor.hasPendingFirmwareRecovery).toBe(true)
+    // Simulate a revision already introduced by an older/in-flight caller,
+    // bypassing the newly guarded public edit operations deliberately.
+    editor.draftKeymap = { ...km('X'), layers: [...km('X').layers, ...km('B').layers] }
+    expect(editor.draftKeymap?.layers).toHaveLength(2)
+    editor.layerOperationSnapshot = { ...editor.layerOperationSnapshot!, identityAware: true }
+    editor.layerView = { shown: [0, 3], layer0Raw: true }
+    const live = JSON.stringify(editor.draftKeymap)
+    const layer = editor._storedLayerOperation()
+    const meta = { ...editor.githubMeta }
+    const history = JSON.stringify(editor.undoStack)
+    const target: KeyboardSelection = destination === 'file' ? board('config/b.keymap')
+      : destination === 'repository' ? { ...board(), github: { ...board().github, repository: 'acme/other' } }
+      : destination === 'branch' || destination === 'carry' ? { ...board(), github: { ...board().github, branch: 'copied' }, preserveSession: destination === 'carry' }
+      : { source: destination, keymap: km('B'), layout: board().layout }
+
+    await editor.selectKeyboard(target)
+
+    expect(editor.currentDraftIdentity()).toEqual(identity)
+    expect(editor.githubMeta).toEqual(meta)
+    expect(JSON.stringify(editor.draftKeymap)).toBe(live)
+    expect(editor._storedLayerOperation()).toEqual(layer)
+    expect(JSON.stringify(editor.undoStack)).toBe(history)
+    expect(editor.hasPendingFirmwareRecovery).toBe(true)
+    expect(await loadStoredDraft(identity)).toEqual(stored)
+    await deleteStoredDraft(identity)
+  })
+
+  it('retains live edits made after declined recovery while destination storage is being read', async () => {
+    await editor.selectKeyboard(board())
+    editor.updateKeymap(km('Z'))
+    await editor.flushPendingPersist()
+    const identity = editor.currentDraftIdentity()!
+    const stored = await loadStoredDraft(identity)
+    editor.resetForTests()
+    vi.mocked(window.confirm).mockReturnValue(false)
+    await editor.selectKeyboard(board())
+    let release!: () => void
+    const held = new Promise<void>(resolve => { release = resolve })
+    const load = hostStorage.loadGithubHostCache
+    vi.spyOn(hostStorage, 'loadGithubHostCache').mockImplementation(async key => {
+      if (key.includes('b.keymap')) await held
+      return load(key)
+    })
+    const transition = editor.selectKeyboard(board('config/b.keymap'))
+    await vi.waitFor(() => expect(hostStorage.loadGithubHostCache).toHaveBeenCalledWith(expect.stringContaining('b.keymap')))
+    editor.draftKeymap = km('X')
+    const live = JSON.stringify(editor.draftKeymap)
+    release()
+    await transition
+    expect(editor.currentDraftIdentity()).toEqual(identity)
+    expect(JSON.stringify(editor.draftKeymap)).toBe(live)
+    expect(editor.hasPendingFirmwareRecovery).toBe(true)
+    expect(await loadStoredDraft(identity)).toEqual(stored)
+    await deleteStoredDraft(identity)
+  })
+
   it.each([
     [true, 'draft'], [true, 'layer'], [true, 'head'], [true, 'baseline keymap'], [true, 'baseline layout'],
     [false, 'head'], [false, 'baseline keymap'], [false, 'baseline layout']

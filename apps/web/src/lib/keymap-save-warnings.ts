@@ -30,7 +30,7 @@ export const KEYMAP_SAVE_WARNING_MESSAGES: Record<string, string> = {
   host_snapshot_unsupported_version:
     'This repository has a newer host_keymap/snapshot.json than this editor can read. Commit will update the keymap only and leave that snapshot unchanged.',
   host_snapshot_invalid:
-    'The repository host_keymap/snapshot.json is invalid. Commit leaves the remote snapshot and install files unchanged; host edits are browser-local and unpublishable to GitHub.',
+    'The repository host_keymap/snapshot.json is invalid. Commit leaves the remote snapshot and install files unchanged.',
   host_snapshot_incompatible:
     'The selected host snapshot has ambiguous ownership or unresolved layout references. Commit leaves the remote snapshot and install files unchanged.'
 }

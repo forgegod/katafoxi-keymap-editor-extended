@@ -27,15 +27,55 @@ import type { EditorState } from './state.svelte'
 import type { GithubKeyboardSelection, KeyboardSelection } from './types'
 import { initialLayerSnapshot } from './layer-operation-state'
 
+/** Capture values as well as object identity before yielding to storage. */
+function captureSourceRevision(state: EditorState): () => boolean {
+  const document = state.draftKeymap
+  const encode = () => JSON.stringify({
+    identity: state.currentDraftIdentity(), source: state.source, github: state.githubMeta,
+    document: state.draftKeymap, layout: state.layout,
+    baseline: state.baselineKeymap, baselineLayout: state.baselineLayout,
+    sourceText: state.clipboardOriginalSource, baselineSource: state._baselineClipboardSource,
+    layer: state.layerOperationSnapshot, baselineIds: state._baselineLayerIds, view: state.layerView,
+    pending: state.hasPendingFirmwareRecovery,
+    host: state._encodeLiveHostSnapshot(), hostBaseline: state._hostRepoBaselineEncoded,
+    hostOrigin: state._hostLocalOriginEncoded, hostSha: state._hostRepoBaselineSha,
+    assemblies: state.hostAssemblies, omitted: state._omitHostKeymapSnapshotOnCommit,
+    hostError: state._hostSnapshotLoadError, hostBusy: state.hostRecoveryBusy
+  })
+  const before = encode()
+  return () => state.draftKeymap === document && encode() === before
+}
+
+function refuseHostRecoveryTransition(state: EditorState): boolean {
+  if (state.source !== 'github' || !state.githubMeta?.keymapPath) return false
+  if (state.hostRecoveryBusy) return true
+  if (!state._omitHostKeymapSnapshotOnCommit || !state.hasLocalHostRecovery) return false
+  state.saveNotice = { kind: 'warning', messages: ['Host edits are browser-local and unpublishable to GitHub. Commit cannot save them. Use Discard local host edits to resolve host recovery before switching; firmware is protected separately. Reload preserves your work.'] }
+  return true
+}
+
 /** Verify retention before releasing an identity. Storage is not publication. */
 export async function retainWorkForTransition(this: EditorState): Promise<boolean> {
-  // Selected GitHub recovery must not change the legacy source contracts.
-  if (this.source !== 'github' || !this.githubMeta?.keymapPath) return true
-  if (this.hostRecoveryBusy) return false
-  if (this.source === 'github' && this._omitHostKeymapSnapshotOnCommit && this.hasLocalHostRecovery) {
-    this.saveNotice = { kind: 'warning', messages: ['Host edits are browser-local and unpublishable to GitHub. Commit cannot save them. Use Discard local host edits to resolve host recovery before switching; firmware is protected separately. Reload preserves your work.'] }
-    return false
+  if (this.source !== 'github') {
+    if (!this.isDirty) return true
+    const identity = this.currentDraftIdentity()
+    const generation = this._selectGeneration
+    const current = captureSourceRevision(this)
+    const expected = JSON.stringify({ draft: this.draftKeymap && cloneParsedKeymap(this.draftKeymap), layer: this._storedLayerOperation() })
+    try {
+      if (!identity) throw new Error('No source identity')
+      if (await this.flushPendingPersist() === false) throw new Error('Firmware persistence refused')
+      const stored = await loadStoredDraft(identity)
+      if (!current() || !stored || JSON.stringify({ draft: stored.draftKeymap, layer: stored.layerOperation }) !== expected) throw new Error('Firmware retention could not be verified')
+      return true
+    } catch {
+      if (generation === this._selectGeneration) this.saveNotice = { kind: 'error', messages: ['Could not verify local recovery. The current selection and unpublished work were retained.'] }
+      return false
+    }
   }
+  // Legacy unselected GitHub sessions keep their existing contract.
+  if (!this.githubMeta?.keymapPath) return true
+  if (refuseHostRecoveryTransition(this)) return false
   const identity = this.currentDraftIdentity()
   if (!identity) return true
   const generation = this._selectGeneration
@@ -59,6 +99,9 @@ export async function retainWorkForTransition(this: EditorState): Promise<boolea
     : draft && revision({ draftKeymap: draft, layerOperation: layer, githubBaseline: baseline() })
   const current = () => generation === this._selectGeneration && this.draftKeymap === document && this.hasPendingFirmwareRecovery === pending && JSON.stringify(baseline()) === baselineBefore && JSON.stringify(this._storedLayerOperation()) === JSON.stringify(layer) && this._encodeLiveHostSnapshot() === host
   try {
+    // The declined row protects a different revision. Persistence deliberately
+    // cannot replace it, so it is not proof that newer live edits are retained.
+    if (pending && dirty) throw new Error('Live firmware differs from pending recovery')
     if (dirty || pending) {
       await this._draftWrites
       let row = await loadStoredDraft(identity)
@@ -115,11 +158,14 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
     return
   }
 
+  const sourceUnchanged = captureSourceRevision(this)
   if (currentIdentity && upcomingKey !== draftIdentityKey(currentIdentity) && !(event.source === 'github' && event.preserveSession)) {
     if (!await this.retainWorkForTransition() || transition !== this._transitionGeneration) return
   }
   if (this.hostRecoveryBusy) return
   const selectToken = ++this._selectGeneration
+  // Supersede the old hydration lock even if this selection returns early.
+  this._firmwareRecoveryLoading = false
   this._publishGeneration += 1
   this.saving = false
   this._persistGeneration += 1
@@ -165,6 +211,16 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
     if (selectToken !== this._selectGeneration) return
   }
 
+  // Destination reads can yield to edits after the source retention check.
+  if (refuseHostRecoveryTransition(this)) return
+  if (!sourceUnchanged()) {
+    this.saveNotice = { kind: 'error', messages: ['Work changed while reading destination recovery. The current selection and unpublished work were retained; retry the switch.'] }
+    return
+  }
+  if (this.source === 'github' && this.githubMeta?.keymapPath && this.hasPendingFirmwareRecovery && this.isDirty) {
+    this.saveNotice = { kind: 'error', messages: ['Could not verify local recovery. The current selection and unpublished work were retained.'] }
+    return
+  }
   this.hasPendingFirmwareRecovery = false
   this.source = event.source
   this.githubMeta = githubMeta ?? null
@@ -222,31 +278,37 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
     }
   }
 
-  if (!alreadyHandled && !(sameGithubIdentity && event.source === 'github' && event.hostSnapshotError)) {
-    const restoredGithubCache = event.source === 'github' && await this._loadGithubHostCache(event, selectToken, preparedHost)
-    if (selectToken !== this._selectGeneration) return
-    const hostSnapshot =
-      event.source === 'github' ? event.hostSnapshot : undefined
-    if (restoredGithubCache) {
-      // The identity-scoped cache already applied the origin and working state.
-    } else if (hostSnapshot) {
-      await this._applyHostKeymapSnapshot(hostSnapshot, selectToken)
-    } else {
-      if (event.source === 'github') this._hostRepoBaselineEncoded = null
-      await this._restoreHostLegend(selectToken)
+  // Do not accept firmware edits until hydration and the recovery decision end.
+  this._firmwareRecoveryLoading = event.source === 'github' && !!githubMeta?.keymapPath && !!event.keymap && !alreadyHandled
+  try {
+    if (!alreadyHandled && !(sameGithubIdentity && event.source === 'github' && event.hostSnapshotError)) {
+      const restoredGithubCache = event.source === 'github' && await this._loadGithubHostCache(event, selectToken, preparedHost)
+      if (selectToken !== this._selectGeneration) return
+      const hostSnapshot =
+        event.source === 'github' ? event.hostSnapshot : undefined
+      if (restoredGithubCache) {
+        // The identity-scoped cache already applied the origin and working state.
+      } else if (hostSnapshot) {
+        await this._applyHostKeymapSnapshot(hostSnapshot, selectToken)
+      } else {
+        if (event.source === 'github') this._hostRepoBaselineEncoded = null
+        await this._restoreHostLegend(selectToken)
+      }
     }
-  }
-  if (selectToken !== this._selectGeneration) return
-  if (alreadyHandled) return
-  if (event.source === 'demo' && event.demoHost?.length) {
-    await this._seedDemoHostLayouts(event.demoHost, selectToken)
     if (selectToken !== this._selectGeneration) return
+    if (alreadyHandled) return
+    if (event.source === 'demo' && event.demoHost?.length) {
+      await this._seedDemoHostLayouts(event.demoHost, selectToken)
+      if (selectToken !== this._selectGeneration) return
+    }
+    if (event.source === 'demo') {
+      await this._maybeAddPreferredDemoLanguage(selectToken)
+      if (selectToken !== this._selectGeneration) return
+    }
+    await this._maybeRestorePersistedDraft(selectToken, preparedDraft)
+  } finally {
+    if (selectToken === this._selectGeneration) this._firmwareRecoveryLoading = false
   }
-  if (event.source === 'demo') {
-    await this._maybeAddPreferredDemoLanguage(selectToken)
-    if (selectToken !== this._selectGeneration) return
-  }
-  await this._maybeRestorePersistedDraft(selectToken, preparedDraft)
 }
 
 /**
@@ -319,10 +381,8 @@ async function preserveSelectedGithubSession(this: EditorState, event: GithubKey
   const layer = this._storedLayerOperation()
   const host = this._encodeLiveHostSnapshot()
   const originalBase = { headSha: this.githubMeta!.headSha!, keymap: cloneParsedKeymap(this.baselineKeymap), layout: cloneLayout(this.baselineLayout)! }
-  const current = () => token === this._selectGeneration &&
-    this.draftKeymap !== null && diffKeymaps(this.draftKeymap, draft).length === 0 &&
-    JSON.stringify(this._storedLayerOperation()) === JSON.stringify(layer) &&
-    this._encodeLiveHostSnapshot() === host
+  const sourceUnchanged = captureSourceRevision(this)
+  const current = () => token === this._selectGeneration && sourceUnchanged()
   let destinationHost: GithubHostCache | null
   let copiedDraft: StoredDraft | null = null
   try {

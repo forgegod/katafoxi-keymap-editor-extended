@@ -190,6 +190,7 @@ export class EditorState {
    */
   _handledDraftIdentityKey: string | null = null
   hasPendingFirmwareRecovery = $state(false)
+  _firmwareRecoveryLoading = false
   _githubDraftRows = new Map<string, StoredDraft | null>()
   _draftWrites: Promise<void> = Promise.resolve()
   /**
@@ -305,6 +306,7 @@ export class EditorState {
     this._hostSnapshotLoadError = null
     this._handledDraftIdentityKey = null
     this.hasPendingFirmwareRecovery = false
+    this._firmwareRecoveryLoading = false
     this.endHostEditSession()
     this.legendHover = null
     this.source = null

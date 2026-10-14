@@ -214,6 +214,76 @@ describe('App chrome', () => {
     flushSync()
   }
 
+  it.each([
+    ['invalid', false], ['unsupported_version', false], ['incompatible', false],
+    ['invalid', true], ['unsupported_version', true], ['incompatible', true]
+  ] as const)('Commit tooltip distinguishes real host recovery (%s, discarded=%s)', async (error, discarded) => {
+    await renderApp()
+    await loadKeyboard({ source: 'github', github: { repository: 'owner/tooltip', branch: 'main', keymapPath: 'config/only.keymap', headSha: 's' }, layout: oneKeyLayout, keymap: km('A'), hostSnapshotError: error })
+    if (discarded) {
+      await editor.commitHostMap(addHostLanguage(editor.hostLegend, 'de'))
+      vi.spyOn(window, 'confirm').mockReturnValue(true)
+      expect(await editor.discardLocalHostEdits()).toBe(true)
+    }
+    flushSync()
+    const commit = buttonMatching(target, /^\s*Commit\s*$/)!
+    expect(commit.title).not.toMatch(/host edits/i)
+    expect(commit.title).toMatch(/firmware only.*host snapshot and install-file writes are disabled/i)
+    await editor.commitHostMap(addHostLanguage(editor.hostLegend, 'de'))
+    flushSync()
+    expect(commit.title).toMatch(/host edits cannot be saved to GitHub/)
+  })
+
+  it.each(['invalid', 'unsupported_version', 'incompatible'] as const)('renders clean %s load warnings without inventing host edits', async error => {
+    await renderApp()
+    await loadKeyboard({ source: 'github', github: { repository: 'owner/clean-notice', branch: 'main', keymapPath: 'config/only.keymap', headSha: 's' },
+      layout: oneKeyLayout, keymap: km('A'), hostSnapshotError: error, warnings: [`host_snapshot_${error}`] })
+    expect(editor.hasLocalHostRecovery).toBe(false)
+    const notice = target.querySelector('.save-notice:not([aria-label])')
+    expect(notice).not.toBeNull()
+    expect(notice?.textContent).not.toMatch(/host (edits|changes) (are|remain)/i)
+    expect(target.querySelector('[aria-label="Host publication status"]')?.textContent).toContain('Host snapshot and install-file writes are disabled.')
+    await editor.commitHostMap(addHostLanguage(editor.hostLegend, 'de'))
+    flushSync()
+    expect(target.querySelector('[aria-label="Host publication status"]')?.textContent).toContain('Host edits are browser-local and unpublishable to GitHub. Commit cannot save them.')
+  })
+
+  it.each([
+    ['invalid', false], ['unsupported_version', false], ['incompatible', false],
+    ['invalid', true], ['unsupported_version', true], ['incompatible', true]
+  ] as const)('does not invent host edits after firmware-only Commit (%s, discarded=%s)', async (error, discarded) => {
+    await renderApp()
+    const githubMeta = { repository: 'owner/commit-notice', branch: 'main', keymapPath: 'config/only.keymap', headSha: 's' }
+    await loadKeyboard({ source: 'github', github: githubMeta,
+      layout: oneKeyLayout, keymap: km('A'), hostSnapshotError: error, warnings: [`host_snapshot_${error}`] })
+    if (discarded) {
+      await editor.commitHostMap(addHostLanguage(editor.hostLegend, 'de'))
+      vi.spyOn(window, 'confirm').mockReturnValue(true)
+      expect(await editor.discardLocalHostEdits()).toBe(true)
+    }
+    editor.updateKeymap(km('Z'))
+    vi.mocked(github.commitChanges).mockResolvedValue({ data: { hostWritesOmitted: true, hostSnapshotError: error, warnings: [`host_snapshot_${error}`] } })
+    vi.mocked(github.fetchLayoutAndKeymap).mockResolvedValue({
+      layout: oneKeyLayout, keymap: km('Z'), keymapPath: githubMeta.keymapPath,
+      headSha: 't', hostSnapshot: null, hostSnapshotError: error, warnings: [`host_snapshot_${error}`]
+    })
+    flushSync()
+    buttonMatching(target, /^\s*Commit\s*$/)!.click()
+    await vi.waitFor(() => {
+      expect(editor.saving).toBe(false)
+      expect(editor.isDirty).toBe(false)
+      expect(editor.githubMeta?.headSha).toBe('t')
+    })
+    flushSync()
+    expect(github.commitChanges).toHaveBeenCalledWith(githubMeta.repository, 'main', oneKeyLayout, km('Z'), null, [], 's', expect.objectContaining({ keymapPath: githubMeta.keymapPath }))
+    expect(editor.hasLocalHostRecovery).toBe(false)
+    expect(target.querySelector('.save-notice:not([aria-label])')?.textContent).not.toMatch(/host (edits|changes) (are|remain)/i)
+    expect(target.querySelector('[aria-label="Host publication status"]')?.textContent).toContain('Host snapshot and install-file writes are disabled.')
+    expect(target.textContent).not.toContain('browser-local and unpublishable')
+    await editor._draftWrites
+    await deleteStoredDraft(editor.currentDraftIdentity()!)
+  })
+
   it('shows omitted-host recovery status and a standalone host-only discard action', async () => {
     await renderApp()
     await loadKeyboard({ source: 'github', github: { repository: 'owner/recovery', branch: 'main', keymapPath: 'config/only.keymap', headSha: 's' },

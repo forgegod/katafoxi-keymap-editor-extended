@@ -27,11 +27,27 @@ import { dismissLegendDecode } from '../legend-decode-active'
 import type { EditorState } from './state.svelte'
 import { cloneLayerSnapshot, initialLayerSnapshot, remapLayerIdentityView, type LayerOperationSnapshot } from './layer-operation-state'
 
+function firmwareEditBlocker(state: EditorState): string | null {
+  if (state.source !== 'github' || !state.githubMeta?.keymapPath) return null
+  if (state._firmwareRecoveryLoading) return 'Firmware editing is blocked while recovery is being checked. Wait for loading to finish.'
+  return state.hasPendingFirmwareRecovery
+    ? 'Firmware editing is blocked while stored firmware recovery is pending. The stored draft was kept unchanged.'
+    : null
+}
+
+function refuseFirmwareEdit(state: EditorState): boolean {
+  const message = firmwareEditBlocker(state)
+  if (!message) return false
+  state.saveNotice = { kind: 'warning', messages: [message] }
+  return true
+}
+
 /**
  * In scheme mode, a real binding on an absent slot promotes it to a
  * physical key for this session (clears `absent` on the live layout).
  */
 export function promoteAbsentKey(this: EditorState, keyIndex: number, binding: KeyBindingNode) {
+  if (refuseFirmwareEdit(this)) return
   if (!this.schemeMode || !this.layout) return
   if (isBlankLayerBinding(binding)) return
   const next = promoteAbsentLayoutKey(this.layout, keyIndex)
@@ -50,7 +66,9 @@ export function changes(this: EditorState): KeymapChange[] {
 export function statusText(this: EditorState): string {
   if (!this.draftKeymap) return ''
   const firmwareRecovery = this.hasPendingFirmwareRecovery
-    ? 'Unpublished firmware recovery is retained in this browser. Reopen to restore it before committing.'
+    ? this.isDirty
+      ? 'Live firmware differs from stored recovery and is not saved in this browser. Do not reload or close this page; both revisions were kept separate and switching is blocked.'
+      : 'Unpublished firmware recovery is retained in this browser. Reopen to restore it before committing.'
     : ''
   if (this.source === 'github' && this._omitHostKeymapSnapshotOnCommit) {
     const hostStatus = this.hasLocalHostRecovery
@@ -110,6 +128,8 @@ function applyLayerOperation(this: EditorState, operation: LayerOperation): Laye
     this.saveNotice = { kind: 'warning', messages: [error] }
     return { ok: false, error }
   }
+  const recoveryBlocker = firmwareEditBlocker(this)
+  if (recoveryBlocker) return refuse(recoveryBlocker)
   if (!keymap || !this.layout || !snapshot) return refuse('Load a document with verified layer identity first.')
   if (operation.kind === 'reorder' && operation.order.length === keymap.layers.length && Array.from(operation.order).every((old, i) => old === i)) {
     return { ok: true, changed: false, keymap, source: snapshot.source, oldToNew: [...operation.order] }
@@ -140,6 +160,7 @@ function applyLayerOperation(this: EditorState, operation: LayerOperation): Laye
 }
 
 export function addLayer(this: EditorState) {
+  if (refuseFirmwareEdit(this)) return
   const km = this.draftKeymap
   if (!km) return
   const width = this.layout?.length ?? km.layers[0]?.length ?? 0
@@ -173,6 +194,7 @@ export function renameLayer(this: EditorState, index: number, name: string) {
 }
 
 export function deleteLayer(this: EditorState, index: number) {
+  if (refuseFirmwareEdit(this)) return
   const km = this.draftKeymap
   if (!km || km.layers.length <= 1) return
   if (index < 0 || index >= km.layers.length) return
@@ -267,6 +289,7 @@ export function updateConditionalLayers(this: EditorState, conditionalLayers: Zm
 }
 
 export function updateKeymap(this: EditorState, next: ParsedKeymap, layerSnapshot?: LayerOperationSnapshot) {
+  if (refuseFirmwareEdit(this)) return
   const stagedHoldTaps = this._holdTapsOnNextUpdate
   this._holdTapsOnNextUpdate = null
   if (stagedHoldTaps) next = { ...next, holdTaps: stagedHoldTaps }
@@ -298,6 +321,7 @@ function syncActiveComboId(this: EditorState, combos: ZmkCombo[] | undefined) {
 
 /** Replace the combos list on the draft (undoable via updateKeymap). */
 export function updateCombos(this: EditorState, combos: ZmkCombo[]) {
+  if (refuseFirmwareEdit(this)) return
   const km = this.draftKeymap
   if (!km) return
   this.updateKeymap({ ...km, combos })
@@ -386,6 +410,7 @@ export function toggleComboPosition(this: EditorState, keyIndex: number) {
 }
 
 export function undo(this: EditorState) {
+  if (refuseFirmwareEdit(this)) return
   if (!this.draftKeymap || this.undoStack.length === 0) return
   const stack = this.undoStack
   const prev = stack[stack.length - 1]
@@ -401,6 +426,7 @@ export function undo(this: EditorState) {
 }
 
 export function redo(this: EditorState) {
+  if (refuseFirmwareEdit(this)) return
   if (!this.draftKeymap || this.redoStack.length === 0) return
   const stack = this.redoStack
   const next = stack[stack.length - 1]

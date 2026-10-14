@@ -305,7 +305,11 @@
               <Button
                 variant="publish"
                 ready={editor.isPublishDirty}
-                title={editor._omitHostKeymapSnapshotOnCommit ? 'Commit firmware only; host edits cannot be saved to GitHub' : 'Commit keymap and host layout snapshot to the GitHub repository'}
+                title={editor._omitHostKeymapSnapshotOnCommit
+                  ? editor.hasLocalHostRecovery
+                    ? 'Commit firmware only; host edits cannot be saved to GitHub'
+                    : 'Commit firmware only; host snapshot and install-file writes are disabled'
+                  : 'Commit keymap and host layout snapshot to the GitHub repository'}
                 disabled={!editor.isPublishDirty || editor.saving}
                 onclick={handleCommitToGitHub}
               >

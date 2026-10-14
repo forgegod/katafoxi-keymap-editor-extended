@@ -176,6 +176,7 @@ describe('copyClipboardKeymap', () => {
     expect(editor.baselineKeymap!.layers[0][0].params[0].value).toBe('ESC')
     expect(editor.isDirty).toBe(true)
     await vi.advanceTimersByTimeAsync(500)
+    await editor._draftWrites
     const stored = await draftStorage.loadStoredDraft(editor.currentDraftIdentity()!)
     expect(stored?.draftKeymap.layers[0][0].params[0].value).toBe('A')
   })

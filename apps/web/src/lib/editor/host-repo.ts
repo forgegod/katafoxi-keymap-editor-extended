@@ -67,7 +67,9 @@ export function retainHostSnapshotOmitWarning(this: EditorState) {
   const code = this._hostSnapshotLoadError === 'unsupported_version'
     ? 'host_snapshot_unsupported_version'
     : this._hostSnapshotLoadError === 'invalid' ? 'host_snapshot_invalid' : 'host_snapshot_incompatible'
-  const message = `${KEYMAP_SAVE_WARNING_MESSAGES[code]} Host edits are browser-local and unpublishable to GitHub; Commit cannot save them.`
+  const message = this.hasLocalHostRecovery
+    ? `${KEYMAP_SAVE_WARNING_MESSAGES[code]} Host edits are browser-local and unpublishable to GitHub; Commit cannot save them.`
+    : KEYMAP_SAVE_WARNING_MESSAGES[code]
   const prev = this.saveNotice
   if (prev?.kind === 'error') return
   const messages = prev?.messages.includes(message)

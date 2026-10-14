@@ -85,10 +85,14 @@ export function flushPendingPersist(this: EditorState) {
 }
 
 export async function _flushPersist(this: EditorState, token: number) {
-  if (token !== this._persistGeneration) return
-  if (this.hasPendingFirmwareRecovery) return
+  if (token !== this._persistGeneration) return false
+  if (this._firmwareRecoveryLoading) return false
+  if (this.hasPendingFirmwareRecovery) {
+    if (this.isDirty) this.saveNotice = { kind: 'error', messages: [this.statusText] }
+    return false
+  }
   const identity = this.currentDraftIdentity()
-  if (!identity || !this.draftKeymap) return
+  if (!identity || !this.draftKeymap) return false
   if (identity.keymapPath) {
     const key = draftIdentityKey(identity)
     const draft = cloneParsedKeymap(this.draftKeymap)
@@ -114,27 +118,28 @@ export async function _flushPersist(this: EditorState, token: number) {
     await this._draftWrites
     return
   }
-  try {
-    if (!this.isDirty) {
-      await deleteStoredDraft(identity)
-      return
+  const dirty = this.isDirty
+  const draft = cloneParsedKeymap(this.draftKeymap)
+  const layer = this._storedLayerOperation()
+  // A transition flush must follow any older debounce/pagehide write, not
+  // race it and verify a revision that the older write can still replace.
+  const write = this._draftWrites.then(async () => {
+    if (token !== this._persistGeneration) return false
+    try {
+      if (dirty) await saveStoredDraft(identity, draft, layer)
+      else await deleteStoredDraft(identity)
+      return true
+    } catch (err) {
+      if (import.meta.env.DEV) console.warn('Failed to persist draft to IndexedDB', err)
+      if (token === this._persistGeneration) this.saveNotice = {
+        kind: 'error',
+        messages: ['Could not save your draft locally. Changes may be lost if you close this tab.']
+      }
+      return false
     }
-    if (token !== this._persistGeneration) return
-    await saveStoredDraft(identity, cloneParsedKeymap(this.draftKeymap), this._storedLayerOperation(),
-      identity.keymapPath && this.baselineKeymap && this.baselineLayout && this.githubMeta?.headSha
-        ? { headSha: this.githubMeta.headSha, keymap: cloneParsedKeymap(this.baselineKeymap), layout: cloneLayout(this.baselineLayout)! }
-        : undefined)
-  } catch (err) {
-    if (import.meta.env.DEV) {
-      console.warn('Failed to persist draft to IndexedDB', err)
-    }
-    this.saveNotice = {
-      kind: 'error',
-      messages: [
-        'Could not save your draft locally. Changes may be lost if you close this tab.'
-      ]
-    }
-  }
+  })
+  this._draftWrites = write.then(() => undefined)
+  return write
 }
 
 /** Drop persisted draft for current identity; cancels pending writes. */
@@ -156,6 +161,7 @@ export async function clearPersistedDraft(this: EditorState) {
 }
 
 export async function _maybeRestorePersistedDraft(this: EditorState, selectToken: number, prepared?: { stored: StoredDraft | null }) {
+  const transition = this._transitionGeneration
   if (!this.baselineKeymap || !this.draftKeymap) return
   const identity = this.currentDraftIdentity()
   if (!identity) return
@@ -170,6 +176,12 @@ export async function _maybeRestorePersistedDraft(this: EditorState, selectToken
   if (selectToken !== this._selectGeneration) return
   if (!this._draftIdentityMatches(identityKey)) return
   if (identity.keymapPath) this._githubDraftRows.set(identityKey, stored)
+  if (identity.keymapPath && stored && this.isDirty) {
+    this.hasPendingFirmwareRecovery = true
+    this.saveNotice = { kind: 'error', messages: [this.statusText] }
+    return
+  }
+  if (identity.keymapPath) this.hasPendingFirmwareRecovery = false
   if (!stored) return
 
   if (this.source === 'github' && identity.keymapPath) {
@@ -232,7 +244,7 @@ export async function _maybeRestorePersistedDraft(this: EditorState, selectToken
       ? 'An unpublished draft was saved in this browser. Restore it?\n\nOK = Restore · Cancel = Keep stored'
       : 'An unpublished draft was saved in this browser. Restore it?\n\nOK = Restore · Cancel = Discard'
   )
-  if (selectToken !== this._selectGeneration) return
+  if (selectToken !== this._selectGeneration || transition !== this._transitionGeneration) return
   if (!this._draftIdentityMatches(identityKey)) return
 
   this._handledDraftIdentityKey = identityKey

@@ -434,6 +434,10 @@
     const repository = selectedRepo?.full_name
     const from = selectedBranchName
     if (!repository || !from || creatingBranch) return
+    if (editor.source === 'github' && editor._omitHostKeymapSnapshotOnCommit && editor.hasLocalHostRecovery) {
+      branchError = 'Host edits are browser-local and unpublishable to GitHub. Use Discard local host edits before creating a branch; firmware is protected separately.'
+      return
+    }
     creatingBranch = true
     branchError = ''
     try {
@@ -590,8 +594,12 @@
           }}
         />
         <p class="branch-hint">
-          Copies {selectedBranchName} from GitHub. Keeps your unpublished edits and
-          Host languages; Commit goes to the new branch.
+          Copies {selectedBranchName} from GitHub.
+          {#if editor.source === 'github' && editor._omitHostKeymapSnapshotOnCommit}
+            Keeps unpublished firmware only. Host recovery is not carried; Commit goes to the new branch.
+          {:else}
+            Keeps your unpublished edits and Host languages; Commit goes to the new branch.
+          {/if}
         </p>
         {#if branchError}
           <p class="branch-error" role="alert">{branchError}</p>
