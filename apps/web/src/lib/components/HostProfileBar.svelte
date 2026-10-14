@@ -27,7 +27,7 @@
       prompt.kind === 'rename' || prompt.kind === 'delete'
         ? prompt.profileId
         : editor.activeProfileId(promptLanguage)
-    return editor.profilesForLanguage(promptLanguage).find(profile => profile.id === id)
+    return editor.userLayouts.find(profile => profile.language === promptLanguage && profile.id === id)
   })
   const activeProfileName = $derived.by(() => {
     if (!prompt || !promptLanguage) return ''

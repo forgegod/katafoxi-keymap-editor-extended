@@ -205,6 +205,7 @@ export class EditorState {
   _hostRepoBaselineSha: string | null = null
   _githubHostLayoutWireIds = new Map<string, string>()
   _hostCacheRevisions = new Map<string, number>()
+  _pendingHostLayoutDeletes = new Map<string, Set<string>>()
   _hostCacheWrites: Promise<void> = Promise.resolve()
   _hostCacheEpoch = 0
   _loadingGithubHost: number | null = null

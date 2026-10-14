@@ -583,7 +583,7 @@ export async function loadGithubHostCache(identityKey: string): Promise<GithubHo
 }
 
 /** Transaction-time compare protects another tab's recovery from stale writes. */
-export async function saveGithubHostCache(identityKey: string, cache: Omit<GithubHostCache, 'revision'>, expectedRevision: number, isCurrent: () => boolean = () => true, working?: { view: HostLegendView; assemblies: StoredHostAssembly[]; layouts: UserHostLayoutRecord[] }): Promise<number> {
+export async function saveGithubHostCache(identityKey: string, cache: Omit<GithubHostCache, 'revision'>, expectedRevision: number, isCurrent: () => boolean = () => true, working?: { view: HostLegendView; assemblies: StoredHostAssembly[]; layouts: UserHostLayoutRecord[]; deletedLayoutIds?: readonly string[] }): Promise<number> {
   const db = await openHostDb()
   const tx = db.transaction(working ? [SETTINGS_STORE, LAYOUTS_STORE] : SETTINGS_STORE, 'readwrite')
   const done = txDone(tx)
@@ -599,9 +599,16 @@ export async function saveGithubHostCache(identityKey: string, cache: Omit<Githu
     if (working) {
       await idbRequest(store.put({ id: hostLegendSettingId(identityKey), ...cloneHostLegendView(working.view) }))
       await idbRequest(store.put({ id: hostAssembliesSettingId(identityKey), items: working.assemblies.map(item => ({ id: item.id, view: cloneHostLegendView(item.view) })) }))
+      const layouts = tx.objectStore(LAYOUTS_STORE)
+      const retained = new Set(working.layouts.map(record => record.id))
+      // Absence from live layouts is not deletion: hydration may omit inactive profiles.
+      for (const id of working.deletedLayoutIds ?? []) {
+        if (!isGithubHostLayoutOwnedBy(id, identityKey) || retained.has(id)) throw new Error('Invalid host working table deletion')
+        await idbRequest(layouts.delete(id))
+      }
       for (const record of working.layouts) {
         if (!isGithubHostLayoutOwnedBy(record.id, identityKey)) throw new Error('Unowned host working table')
-        await idbRequest(tx.objectStore(LAYOUTS_STORE).put({ id: record.id, name: record.name, language: record.language, origin: plainOrigin(record.origin), updatedAt: record.updatedAt, keys: serializeLayout(record.layout) }))
+        await idbRequest(layouts.put({ id: record.id, name: record.name, language: record.language, origin: plainOrigin(record.origin), updatedAt: record.updatedAt, keys: serializeLayout(record.layout) }))
       }
     }
     if (!isCurrent()) throw new Error('Host recovery changed during persistence')

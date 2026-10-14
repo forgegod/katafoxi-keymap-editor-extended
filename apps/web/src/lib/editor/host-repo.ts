@@ -9,6 +9,8 @@ import {
   standardHostLegendView,
   cloneHostLegendView,
   cloneHostLayoutTable,
+  assignHostLanguageLayout,
+  primarySystemLayoutId,
   unregisterHostLayout,
   type HostKeymapDeliverableFile,
   type HostKeymapSnapshot,
@@ -19,6 +21,7 @@ import {
   deleteUserHostLayout,
   sanitizeHostLegendView,
   saveUserHostLayout,
+  loadUserHostLayouts,
   loadGithubHostCache,
   saveGithubHostCache,
   discardGithubHostRecovery,
@@ -151,21 +154,48 @@ export function acceptHostRepoBaseline(this: EditorState, encoded?: string) {
 }
 
 /** Capture before queueing: a later source switch cannot redirect this write. */
-export function _persistGithubHostCache(this: EditorState): Promise<void> {
+export function _persistGithubHostCache(this: EditorState, deletedLayoutIds: readonly string[] = []): Promise<void> {
   const identity = this.currentDraftIdentity()
-  if (this.source !== 'github' || !identity?.keymapPath || this.hostRecoveryBusy || this._loadingGithubHost === this._selectGeneration) return Promise.resolve()
+  if (this.source !== 'github' || !identity?.keymapPath || this.hostRecoveryBusy) return Promise.resolve()
   const key = draftIdentityKey(identity)
+  const pendingDeletes = this._pendingHostLayoutDeletes.get(key) ?? new Set<string>()
+  for (const id of deletedLayoutIds) {
+    if (!isGithubHostLayoutOwnedBy(id, key)) return Promise.resolve()
+    pendingDeletes.add(id)
+  }
+  this._pendingHostLayoutDeletes.set(key, pendingDeletes)
+  if (this._loadingGithubHost === this._selectGeneration) return Promise.resolve()
+  // A retry may hydrate the still-stored profile. Reapply the confirmed
+  // replacement view before capturing the cache, not just the table deletion.
+  for (const column of this.hostLegend.columns) {
+    if (!pendingDeletes.has(column.layoutId)) continue
+    const primary = primarySystemLayoutId(column.language)
+    if (primary) this.hostLegend = assignHostLanguageLayout(this.hostLegend, column.language, primary)
+  }
   const cache = { baselineEncoded: this._hostRepoBaselineEncoded, baselineSha: this._hostRepoBaselineSha, workingEncoded: this._encodeLiveHostSnapshot(), headSha: this.githubMeta?.headSha ?? '', ...(this._hostLocalOriginEncoded ? { originEncoded: this._hostLocalOriginEncoded } : {}) }
   const generation = this._selectGeneration
   const epoch = this._hostCacheEpoch
-  const working = { view: cloneHostLegendView(this.hostLegend), assemblies: this.hostAssemblies.map(item => ({ id: item.id, view: cloneHostLegendView(item.view) })), layouts: this.userLayouts.flatMap(meta => {
+  const working = { deletedLayoutIds: [...pendingDeletes], view: cloneHostLegendView(this.hostLegend), assemblies: this.hostAssemblies.map(item => ({ id: item.id, view: cloneHostLegendView(item.view) })), layouts: this.userLayouts.flatMap(meta => {
     const layout = hostLayout(meta.id)
-    return layout && isGithubHostLayoutOwnedBy(meta.id, key) ? [{ ...meta, origin: { ...meta.origin }, layout: cloneHostLayoutTable(layout, meta.id) }] : []
+    return layout && isGithubHostLayoutOwnedBy(meta.id, key) && !pendingDeletes.has(meta.id) ? [{ ...meta, origin: { ...meta.origin }, layout: cloneHostLayoutTable(layout, meta.id) }] : []
   }) }
   const write = this._hostCacheWrites.then(async () => {
     if (epoch !== this._hostCacheEpoch) return
     const revision = await saveGithubHostCache(key, cache, this._hostCacheRevisions.get(key) ?? 0, () => epoch === this._hostCacheEpoch, working)
     this._hostCacheRevisions.set(key, revision)
+    for (const id of working.deletedLayoutIds) pendingDeletes.delete(id)
+    // Keep the table, metadata and retry prompt until storage acknowledges the
+    // deletion. A skipped/failed transaction is not a successful profile delete.
+    const activeIdentity = this.currentDraftIdentity()
+    if (activeIdentity && draftIdentityKey(activeIdentity) === key) {
+      for (const id of working.deletedLayoutIds) {
+        unregisterHostLayout(id)
+        this._githubHostLayoutWireIds.delete(id)
+        this.userLayouts = this.userLayouts.filter(layout => layout.id !== id)
+        if (this.hostProfilePrompt?.kind === 'delete' && this.hostProfilePrompt.profileId === id) this.hostProfilePrompt = null
+        this.hostLayoutRevision += 1
+      }
+    }
   })
   this._hostCacheWrites = write.catch(() => {
     if (generation === this._selectGeneration) this._noteHostLayoutSaveFailed()
@@ -179,6 +209,11 @@ export async function _loadGithubHostCache(this: EditorState, event: GithubKeybo
   await this._hostCacheWrites
   const key = draftIdentityKey(identity)
   const cached = prepared ? prepared.cached : await loadGithubHostCache(key)
+  // Inactive pending profiles are absent from the working snapshot. Reload
+  // retains live records; returning from another owner restores only these IDs.
+  const pendingDeletes = this._pendingHostLayoutDeletes.get(key)
+  const pendingRecords = pendingDeletes?.size ? (await loadUserHostLayouts()).filter(record =>
+    pendingDeletes.has(record.id) && isGithubHostLayoutOwnedBy(record.id, key)) : []
   if (selectToken !== this._selectGeneration) return true
   this._hostCacheRevisions.set(key, cached?.revision ?? 0)
   const standard = encodeHostKeymapSnapshot(buildHostKeymapSnapshot(standardHostLegendView(), []))
@@ -194,7 +229,6 @@ export async function _loadGithubHostCache(this: EditorState, event: GithubKeybo
       this._hostRepoBaselineEncoded = cached.baselineEncoded
       this._hostLocalOriginEncoded = cached.originEncoded ?? null
       this._hostRepoBaselineSha = cached.baselineSha
-      if (pending && this.githubMeta) this.githubMeta = { ...this.githubMeta, headSha: cached.headSha }
     } else if (event.hostSnapshot) {
       await this._applyHostKeymapSnapshot(event.hostSnapshot, selectToken)
       if (selectToken !== this._selectGeneration) return true
@@ -206,6 +240,16 @@ export async function _loadGithubHostCache(this: EditorState, event: GithubKeybo
       await this._restoreHostAssemblies(selectToken)
     }
     if (selectToken !== this._selectGeneration) return true
+    for (const { layout, ...meta } of pendingRecords) {
+      if (!this.userLayouts.some(record => record.id === meta.id)) {
+        this._registerUserLayout({ ...meta, layout })
+        this.userLayouts = [...this.userLayouts, meta]
+      }
+    }
+    const retryProfile = this.userLayouts.find(record => pendingDeletes?.has(record.id))
+    if (retryProfile && !this.hostProfilePrompt) {
+      this.hostProfilePrompt = { kind: 'delete', language: retryProfile.language, profileId: retryProfile.id }
+    }
     this.noteHostSnapshotLoad(event.hostSnapshotError)
   } finally {
     if (this._loadingGithubHost === selectToken) this._loadingGithubHost = null
@@ -309,6 +353,7 @@ export async function discardLocalHostEdits(this: EditorState): Promise<boolean>
   try {
     const next = await discardGithubHostRecovery(key, revision, current)
     this._hostCacheRevisions.set(key, next)
+    this._pendingHostLayoutDeletes.delete(key)
     // The transaction has committed: reconcile this identity even if stale host
     // memory changed while awaiting its receipt. Never persist that memory back.
     if (generation !== this._selectGeneration) return false

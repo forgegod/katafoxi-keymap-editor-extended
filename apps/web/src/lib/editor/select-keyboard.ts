@@ -312,7 +312,14 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
       await this._maybeAddPreferredDemoLanguage(selectToken)
       if (selectToken !== this._selectGeneration) return
     }
+    const hydratedHead = this.githubMeta?.headSha
     await this._maybeRestorePersistedDraft(selectToken, preparedDraft)
+    // Firmware recovery may restore an older publish base after host hydration
+    // persisted the fetched head. Keep retention's cache and live base coherent.
+    if (selectToken === this._selectGeneration && event.source === 'github' &&
+        githubMeta?.keymapPath && this.githubMeta?.headSha !== hydratedHead) {
+      await this._persistGithubHostCache()
+    }
   } finally {
     if (selectToken === this._selectGeneration) this._firmwareRecoveryLoading = false
   }

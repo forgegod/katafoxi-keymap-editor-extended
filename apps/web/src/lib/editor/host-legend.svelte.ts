@@ -73,10 +73,12 @@ import type { EditorState } from './state.svelte'
 import type { HostKeyLevelEditResult } from './types'
 
 /** Private working tables are usable only by their exact selected GitHub owner. */
-function hostLayoutAvailable(state: EditorState, id: string): boolean {
+function hostLayoutAvailable(state: EditorState, id: string, includePendingDelete = false): boolean {
   if (!id.startsWith('user:github:')) return true
   const identity = state.currentDraftIdentity()
-  return state.source === 'github' && !!identity?.keymapPath && isGithubHostLayoutOwnedBy(id, draftIdentityKey(identity))
+  if (state.source !== 'github' || !identity?.keymapPath) return false
+  const key = draftIdentityKey(identity)
+  return isGithubHostLayoutOwnedBy(id, key) && (includePendingDelete || !state._pendingHostLayoutDeletes.get(key)?.has(id))
 }
 
 function sanitizeAvailableHostView(state: EditorState, view: HostLegendView) {
@@ -94,15 +96,15 @@ function sanitizeAvailableHostView(state: EditorState, view: HostLegendView) {
 /** Release private tables from memory, never from their owner's recovery. */
 export function _dropUnavailableHostLayouts(this: EditorState) {
   for (const layout of this.userLayouts) {
-    if (hostLayoutAvailable(this, layout.id)) continue
+    if (hostLayoutAvailable(this, layout.id, true)) continue
     unregisterHostLayout(layout.id)
     this._githubHostLayoutWireIds.delete(layout.id)
     this.hostLayoutRevision += 1
   }
-  this.userLayouts = this.userLayouts.filter(layout => hostLayoutAvailable(this, layout.id))
+  this.userLayouts = this.userLayouts.filter(layout => hostLayoutAvailable(this, layout.id, true))
   this.hostLegend = sanitizeAvailableHostView(this, this.hostLegend).view
   this.hostAssemblies = this.hostAssemblies.map(item => ({ ...item, view: sanitizeAvailableHostView(this, item.view).view }))
-  this.hostProfilePrompt = null
+  this.cancelHostProfilePrompt()
   this.hostProfileNote = null
 }
 
@@ -848,12 +850,21 @@ export async function deleteActiveHostProfile(this: EditorState): Promise<void> 
   if (prompt?.kind !== 'delete') return
   const language = prompt.language
   const id = prompt.profileId ?? this.activeProfileId(language)
-  if (!hostLayoutAvailable(this, id)) return
+  if (!hostLayoutAvailable(this, id, true)) return
   if (!isUserHostLayoutId(id)) return
   const existed = this.userLayouts.some(layout => layout.id === id)
   if (!existed) return
   const generation = this._selectGeneration
   const settingId = this._hostLegendSettingId()
+  if (id.startsWith('user:github:')) {
+    const primary = primarySystemLayoutId(language)
+    if (primary && this.activeProfileId(language) === id) {
+      this.hostLegend = assignHostLanguageLayout(this.hostLegend, language, primary)
+      this.hostProfileNote = null
+    }
+    await this._persistGithubHostCache([id])
+    return
+  }
   this.userLayouts = this.userLayouts.filter(layout => layout.id !== id)
   this.hostProfilePrompt = null
   unregisterHostLayout(id)
@@ -866,6 +877,11 @@ export async function deleteActiveHostProfile(this: EditorState): Promise<void> 
 }
 
 export function cancelHostProfilePrompt(this: EditorState) {
+  const prompt = this.hostProfilePrompt
+  const identity = this.currentDraftIdentity()
+  if (prompt?.kind === 'delete' && prompt.profileId && identity &&
+      hostLayoutAvailable(this, prompt.profileId, true) &&
+      this._pendingHostLayoutDeletes.get(draftIdentityKey(identity))?.has(prompt.profileId)) return
   this.hostProfilePrompt = null
 }
 

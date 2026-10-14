@@ -63,6 +63,110 @@ describe('selected GitHub editor identity', () => {
     expect(await loadStoredDraft(destination)).toBeNull()
   })
 
+  it('preserves the fetched firmware head on host-only recovery return for persistence and Commit', async () => {
+    await editor.selectKeyboard(board())
+    editor.acceptHostRepoBaseline()
+    await editor._hostCacheWrites
+    await editor.setHostKeyLevel('en', 'A', 0, 'Ω')
+    const identity = editor.currentDraftIdentity()!
+    const key = draftStorage.draftIdentityKey(identity)
+    const host = editor._encodeLiveHostSnapshot()
+    await editor.selectKeyboard(board('config/b.keymap'))
+    expect(await loadStoredDraft(identity)).toBeNull()
+    expect(await loadGithubHostCache(key)).toMatchObject({ headSha: 's', baselineSha: 's', workingEncoded: host })
+
+    await editor.selectKeyboard({ ...board('config/a.keymap', 'new-remote-head'), keymap: km('B') })
+    expect.soft(editor.githubMeta?.headSha).toBe('new-remote-head')
+    expect(editor.baselineKeymap).toEqual(km('B'))
+    expect(editor.draftKeymap).toEqual(km('B'))
+    expect(editor._hostRepoBaselineSha).toBe('s')
+    expect(editor._encodeLiveHostSnapshot()).toBe(host)
+    expect(editor.hasLocalHostRecovery).toBe(true)
+    expect(await loadStoredDraft(identity)).toBeNull()
+    expect.soft(await loadGithubHostCache(key)).toMatchObject({ headSha: 'new-remote-head', baselineSha: 's', workingEncoded: host })
+
+    editor.updateKeymap(km('Z'))
+    await editor.flushPendingPersist()
+    expect.soft((await loadStoredDraft(identity))?.githubBaseline).toMatchObject({ headSha: 'new-remote-head', keymap: km('B') })
+    const write = vi.fn(async () => {
+      expect.soft(editor.githubMeta?.headSha).toBe('new-remote-head')
+      return {}
+    })
+    expect(await publishKeymap(editor, {
+      write,
+      reload: async () => ({ keymap: km('Z'), keymapPath: 'config/a.keymap', headSha: 'published-head' })
+    })).toBe(true)
+    expect(write).toHaveBeenCalledTimes(1)
+    expect(write).toHaveBeenCalledWith(km('Z'))
+    await editor._hostCacheWrites
+    await editor._draftWrites
+  })
+
+  it.each([true, false])('synchronizes mixed recovery to the restored firmware head before switching (restore=%s)', async restore => {
+    await editor.selectKeyboard(board())
+    editor.acceptHostRepoBaseline()
+    await editor._hostCacheWrites
+    await editor.setHostKeyLevel('en', 'A', 0, 'Ω')
+    editor.updateKeymap(km('Z'))
+    await editor.flushPendingPersist()
+    const identity = editor.currentDraftIdentity()!
+    const key = draftStorage.draftIdentityKey(identity)
+    const stored = (await loadStoredDraft(identity))!
+    const originalHost = (await loadGithubHostCache(key))!
+    editor.resetForTests()
+    vi.mocked(window.confirm).mockReturnValue(restore)
+
+    await editor.selectKeyboard({ ...board('config/a.keymap', 'fetched-head'), keymap: km('B') })
+    expect(editor.githubMeta?.headSha).toBe('s')
+    expect(editor.hasLocalHostRecovery).toBe(true)
+    expect(editor.hasPendingFirmwareRecovery).toBe(!restore)
+    expect.soft(await loadGithubHostCache(key)).toMatchObject({
+      headSha: 's', baselineSha: originalHost.baselineSha,
+      baselineEncoded: originalHost.baselineEncoded, workingEncoded: originalHost.workingEncoded
+    })
+    const beforeReload = await loadGithubHostCache(key)
+    await editor.selectKeyboard({ ...board('config/a.keymap', 'fetched-head'), userInitiated: true })
+    editor._cancelPersistTimer()
+    expect(await loadGithubHostCache(key)).toEqual(beforeReload)
+    expect(editor.githubMeta?.headSha).toBe('s')
+
+    await editor.selectKeyboard(board('config/b.keymap', 'destination-head'))
+    expect(editor.githubMeta?.keymapPath).toBe('config/b.keymap')
+    expect(editor.githubMeta?.headSha).toBe('destination-head')
+    expect(await loadGithubHostCache(key)).toMatchObject({ headSha: 's', workingEncoded: originalHost.workingEncoded })
+    expect((await loadStoredDraft(identity))?.githubBaseline).toEqual(stored.githubBaseline)
+    await deleteStoredDraft(identity)
+  })
+
+  it('refuses switching when restored-head cache synchronization fails and retries safely', async () => {
+    await editor.selectKeyboard(board())
+    await editor.setHostKeyLevel('en', 'A', 0, 'Ω')
+    editor.updateKeymap(km('Z'))
+    await editor.flushPendingPersist()
+    const identity = editor.currentDraftIdentity()!
+    const key = draftStorage.draftIdentityKey(identity)
+    const firmware = await loadStoredDraft(identity)
+    editor.resetForTests()
+    const put = IDBObjectStore.prototype.put
+    const failure = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (this: IDBObjectStore, value, id) {
+      if (value.id === `github-host:${key}` && value.headSha === 's') throw new Error('cache unavailable')
+      return put.call(this, value, id)
+    })
+    await editor.selectKeyboard(board('config/a.keymap', 'fetched-head'))
+    expect(editor.githubMeta?.headSha).toBe('s')
+    expect(editor.hostProfileNote).toBeTruthy()
+    expect((await loadGithubHostCache(key))?.headSha).toBe('fetched-head')
+    await editor.selectKeyboard(board('config/b.keymap'))
+    expect(editor.currentDraftIdentity()).toEqual(identity)
+    expect(editor.saveNotice?.kind).toBe('error')
+    expect(await loadStoredDraft(identity)).toEqual(firmware)
+    failure.mockRestore()
+    await editor.selectKeyboard(board('config/b.keymap'))
+    expect(editor.githubMeta?.keymapPath).toBe('config/b.keymap')
+    expect((await loadGithubHostCache(key))?.headSha).toBe('s')
+    await deleteStoredDraft(identity)
+  })
+
   it.each([true, false])('keeps handled firmware provenance despite stale host head on return (restore=%s)', async restore => {
     const selection = board()
     await editor.selectKeyboard(selection)
