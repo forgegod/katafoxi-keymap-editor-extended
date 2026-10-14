@@ -1,7 +1,8 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import type { HostKeymapSnapshot, LayoutKey, ParsedKeymap } from '@keymap-editor/keymap-core'
-  import type { HostSnapshotLoadError } from '../../../editor/types.js'
+  import type { HostKeymapSnapshot, LayoutKey, ParsedKeymap, RepositoryKeymapSelection } from '@keymap-editor/keymap-core'
+  import type { GithubMeta, HostSnapshotLoadError } from '../../../editor/types.js'
+  import type { KeyboardFilesResult } from '../../../github/api.svelte.js'
   import * as config from '../../../config'
   import { editor } from '../../../editor.svelte.js'
   import github from '../../../github/api.svelte.js'
@@ -25,7 +26,7 @@
 
   interface Props {
     onSelect: (event: {
-      github: { repository: string; branch: string; headSha?: string }
+      github: GithubMeta
       layout: LayoutKey[]
       keymap: ParsedKeymap
       hostSnapshot?: HostKeymapSnapshot | null
@@ -35,7 +36,7 @@
       preserveSession?: boolean
       /** True for Reload / repo-or-branch change, not the automatic mount load. */
       userInitiated?: boolean
-    }) => void
+    }) => void | Promise<void>
     onStatus?: (status: GithubChromeStatus) => void
     onLogout?: () => void
   }
@@ -58,6 +59,28 @@
   let loadWarnings: string[] | null = $state(null)
   /** Shared by effect loads and Reload so a late response cannot overwrite a newer one. */
   let keyboardLoadGeneration = 0
+  let loadedMeta: GithubMeta | null = null
+
+  function selectedFile(repository: string, branch: string, carry = false): RepositoryKeymapSelection[] {
+    return loadedMeta?.repository === repository && (loadedMeta.branch === branch || carry) && loadedMeta.keymapPath
+      ? [{ keymapPath: loadedMeta.keymapPath, ...(loadedMeta.ownershipMode ? { expectedMode: loadedMeta.ownershipMode } : {}) }]
+      : []
+  }
+
+  function fileMeta(repository: string, branch: string, response: KeyboardFilesResult): GithubMeta {
+    return { repository, branch, headSha: response.headSha,
+      ...(response.keymapPath ? { keymapPath: response.keymapPath } : {}),
+      ...(response.ownershipMode ? { ownershipMode: response.ownershipMode } : {}),
+      ...(response.jsonChoiceRequired !== undefined ? { jsonChoiceRequired: response.jsonChoiceRequired } : {}) }
+  }
+
+  function rememberAcceptedFile(candidate: GithubMeta, generation: number) {
+    const accepted = editor.githubMeta
+    if (generation !== keyboardLoadGeneration || editor.source !== 'github' ||
+        accepted?.repository !== candidate.repository || accepted.branch !== candidate.branch ||
+        accepted.keymapPath !== candidate.keymapPath) return
+    loadedMeta = { ...accepted }
+  }
   /** Next keymap fetch was started by Reload, repo/branch change, or Create branch. */
   let nextLoadUserInitiated = false
 
@@ -127,14 +150,16 @@
     loadingKeyboard = true
     loadError = null
     try {
-      const response = await github.fetchLayoutAndKeymap(repository, branch)
+      const response = await github.fetchLayoutAndKeymap(repository, branch, ...selectedFile(repository, branch))
       if (generation !== keyboardLoadGeneration) return
       lintKeyboard(response)
-      onSelect({
-        github: { repository, branch, headSha: response.headSha },
+      const meta = fileMeta(repository, branch, response)
+      await onSelect({
+        github: meta,
         ...response,
         userInitiated: true
       })
+      rememberAcceptedFile(meta, generation)
     } catch (err) {
       if (generation !== keyboardLoadGeneration) return
       applyLoadFailure(err)
@@ -252,21 +277,23 @@
     }
 
     github
-      .fetchLayoutAndKeymap(repository, branch)
-      .then(response => {
+      .fetchLayoutAndKeymap(repository, branch, ...untrack(() => selectedFile(repository, branch, preserveSessionOnLoad)))
+      .then(async response => {
         if (generation !== keyboardLoadGeneration) return
-        loadingKeyboard = false
         lintKeyboard(response)
         const preserveSession = preserveSessionOnLoad
         preserveSessionOnLoad = false
         const userInitiated = nextLoadUserInitiated
         nextLoadUserInitiated = false
-        onSelect({
-          github: { repository, branch, headSha: response.headSha },
+        const meta = fileMeta(repository, branch, response)
+        await onSelect({
+          github: meta,
           ...(preserveSession ? { preserveSession: true } : {}),
           ...(userInitiated ? { userInitiated: true } : {}),
           ...response
         })
+        rememberAcceptedFile(meta, generation)
+        if (generation === keyboardLoadGeneration) loadingKeyboard = false
       })
       .catch(err => {
         if (generation !== keyboardLoadGeneration) return

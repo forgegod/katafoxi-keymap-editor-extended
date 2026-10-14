@@ -21,7 +21,7 @@
   {
     "name": "fetchLayoutAndKeymap",
     "method": "GET",
-    "url": "http://api.test/github/keyboard-files/42/acme%2Flark?branch=feature%2Fx%231"
+    "url": "http://api.test/github/keyboard-files/42/acme%2Flark?branch=feature%2Fx%231&keymapPath=config%2Flark.keymap"
   },
   {
     "name": "commitChanges",
@@ -43,7 +43,8 @@
       },
       "hostSnapshot": null,
       "hostDeliverables": null,
-      "baseSha": null
+      "baseSha": null,
+      "keymapPath": "config/lark.keymap"
     }
   },
   {

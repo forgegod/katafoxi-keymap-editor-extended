@@ -1,8 +1,8 @@
-import type { KeysymRejection, HostKeymapSnapshot, LayoutKey, ParsedKeymap } from '@keymap-editor/keymap-core'
+import type { KeysymRejection, HostKeymapSnapshot, LayoutKey, ParsedKeymap, RepositoryKeymapMode, RepositoryJsonChoice } from '@keymap-editor/keymap-core'
 import type { DemoHostLayoutSeed } from '../demo/host-seeds.js'
 import type { HostLanguageId } from '../host-layout-store'
 
-export type HostSnapshotLoadError = 'unsupported_version' | 'invalid'
+export type HostSnapshotLoadError = 'unsupported_version' | 'invalid' | 'incompatible'
 
 export type HostProfilePrompt =
   | { kind: 'save-as'; language: HostLanguageId }
@@ -39,7 +39,15 @@ export type SaveNotice = {
   links?: Array<{ href: string; label: string }>
 }
 
-export type GithubMeta = { repository: string; branch: string; headSha?: string }
+export type GithubMeta = {
+  repository: string
+  branch: string
+  headSha?: string
+  keymapPath?: string
+  ownershipMode?: RepositoryKeymapMode
+  jsonChoice?: RepositoryJsonChoice
+  jsonChoiceRequired?: boolean
+}
 
 /** Shared board payload present on every keymap-selection source. */
 type KeyboardSelectionBase = {

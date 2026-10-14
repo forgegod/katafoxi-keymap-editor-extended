@@ -19,6 +19,7 @@ The browser owns the interactive draft. Domain transformations stay in core; ada
 ## Persistence and security
 
 - GitHub is the primary product persistence path. Commits can include firmware and the host snapshot/deliverables together. Reads are pinned to a head SHA and stale writes are rejected.
+- GitHub file identity is repository/branch/exact config path. A complete pinned tree and durable scoped marker establish sidecar ownership; server-side omission leaves invalid, unsupported or ambiguous host outputs untouched. Selected browser recovery keeps immutable provenance separate from working state, with transaction-time conflict checks. Firmware and host databases are not one atomic transaction. See the CHG-004 amendments to ADR 0002/0005; per-file selection and destructive recovery UI are not yet integrated.
 - Browser IndexedDB stores draft/cache state and host layouts. Demo is browser-only; Clipboard imports/exports firmware text manually. Host edits are not ZMK undo history.
 - Local server filesystem access is an opt-in development adapter. Browser File System Access is not implemented.
 - GitHub uses opaque server sessions with an HttpOnly cookie. Preserve OAuth state validation, repository access checks, origin guards, request limits, and secret-free logging.

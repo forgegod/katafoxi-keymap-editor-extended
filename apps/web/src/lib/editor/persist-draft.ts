@@ -10,9 +10,10 @@ import {
   draftIdentityKey,
   loadStoredDraft,
   saveStoredDraft,
-  type DraftIdentity
+  type DraftIdentity,
+  type StoredDraft
 } from '../draft-storage'
-import { adoptHoldTaps, adoptSensorBindings, cloneParsedKeymap } from './keymap-clone'
+import { adoptHoldTaps, adoptSensorBindings, cloneParsedKeymap, cloneLayout } from './keymap-clone'
 import { PERSIST_DEBOUNCE_MS } from './types'
 import type { EditorState } from './state.svelte'
 import { cloneLayerSnapshot, layerBaselineFingerprint, type StoredLayerOperationState } from './layer-operation-state'
@@ -53,6 +54,7 @@ export function currentDraftIdentity(this: EditorState): DraftIdentity | null {
     source: this.source,
     repo: this.githubMeta?.repository,
     branch: this.githubMeta?.branch,
+    keymapPath: this.githubMeta?.keymapPath,
     keyboard:
       this.draftKeymap?.keyboard ?? this.baselineKeymap?.keyboard ?? null
   })
@@ -84,15 +86,44 @@ export function flushPendingPersist(this: EditorState) {
 
 export async function _flushPersist(this: EditorState, token: number) {
   if (token !== this._persistGeneration) return
+  if (this.hasPendingFirmwareRecovery) return
   const identity = this.currentDraftIdentity()
   if (!identity || !this.draftKeymap) return
+  if (identity.keymapPath) {
+    const key = draftIdentityKey(identity)
+    const draft = cloneParsedKeymap(this.draftKeymap)
+    const layer = this._storedLayerOperation()
+    const dirty = this.isDirty
+    const baseline = this.baselineKeymap && this.baselineLayout && this.githubMeta?.headSha
+      ? { headSha: this.githubMeta.headSha, keymap: cloneParsedKeymap(this.baselineKeymap), layout: cloneLayout(this.baselineLayout)! }
+      : undefined
+    const write = this._draftWrites.then(async () => {
+      if (token !== this._persistGeneration) return
+      if (!this._githubDraftRows.has(key)) throw new Error('Firmware recovery has not been read')
+      const guard = {
+        expected: this._githubDraftRows.get(key)!,
+        isCurrent: () => token === this._persistGeneration,
+        accepted: (row: StoredDraft | null) => { this._githubDraftRows.set(key, row) }
+      }
+      if (dirty) await saveStoredDraft(identity, draft, layer, baseline, guard)
+      else await deleteStoredDraft(identity, guard)
+    })
+    this._draftWrites = write.catch(() => {
+      if (token === this._persistGeneration) this.saveNotice = { kind: 'error', messages: ['Could not retain firmware recovery safely. Another session or unavailable storage may have changed it.'] }
+    })
+    await this._draftWrites
+    return
+  }
   try {
     if (!this.isDirty) {
       await deleteStoredDraft(identity)
       return
     }
     if (token !== this._persistGeneration) return
-    await saveStoredDraft(identity, cloneParsedKeymap(this.draftKeymap), this._storedLayerOperation())
+    await saveStoredDraft(identity, cloneParsedKeymap(this.draftKeymap), this._storedLayerOperation(),
+      identity.keymapPath && this.baselineKeymap && this.baselineLayout && this.githubMeta?.headSha
+        ? { headSha: this.githubMeta.headSha, keymap: cloneParsedKeymap(this.baselineKeymap), layout: cloneLayout(this.baselineLayout)! }
+        : undefined)
   } catch (err) {
     if (import.meta.env.DEV) {
       console.warn('Failed to persist draft to IndexedDB', err)
@@ -113,6 +144,10 @@ export async function clearPersistedDraft(this: EditorState) {
   this._handledDraftIdentityKey = null
   const identity = this.currentDraftIdentity()
   if (!identity) return
+  if (identity.keymapPath) {
+    await this._flushPersist(this._persistGeneration)
+    return
+  }
   try {
     await deleteStoredDraft(identity)
   } catch {
@@ -120,7 +155,7 @@ export async function clearPersistedDraft(this: EditorState) {
   }
 }
 
-export async function _maybeRestorePersistedDraft(this: EditorState, selectToken: number) {
+export async function _maybeRestorePersistedDraft(this: EditorState, selectToken: number, prepared?: { stored: StoredDraft | null }) {
   if (!this.baselineKeymap || !this.draftKeymap) return
   const identity = this.currentDraftIdentity()
   if (!identity) return
@@ -128,13 +163,28 @@ export async function _maybeRestorePersistedDraft(this: EditorState, selectToken
 
   let stored
   try {
-    stored = await loadStoredDraft(identity)
+    stored = prepared ? prepared.stored : await loadStoredDraft(identity)
   } catch {
     return
   }
   if (selectToken !== this._selectGeneration) return
   if (!this._draftIdentityMatches(identityKey)) return
+  if (identity.keymapPath) this._githubDraftRows.set(identityKey, stored)
   if (!stored) return
+
+  if (this.source === 'github' && identity.keymapPath) {
+    const base = stored.githubBaseline
+    if (!base || !base.headSha || !Array.isArray(base.layout) || !draftMatchesLayout(base.layout, base.keymap) || !draftMatchesLayout(base.layout, stored.draftKeymap)) {
+      this.hasPendingFirmwareRecovery = true
+      this.saveNotice = { kind: 'error', messages: ['Stored GitHub draft provenance is invalid; the recovery row was retained.'] }
+      return
+    }
+    this.baselineKeymap = cloneParsedKeymap(base.keymap)
+    this.baselineLayout = cloneLayout(base.layout)
+    this.layout = cloneLayout(base.layout)
+    this.draftKeymap = cloneParsedKeymap(base.keymap)
+    if (this.githubMeta) this.githubMeta = { ...this.githubMeta, headSha: base.headSha }
+  }
 
   try {
     if (!draftMatchesLayout(this.layout, stored.draftKeymap) ||
@@ -152,7 +202,11 @@ export async function _maybeRestorePersistedDraft(this: EditorState, selectToken
     if (diffKeymaps(this.baselineKeymap, stored.draftKeymap).length === 0 && !stored.layerOperation) {
       this._handledDraftIdentityKey = identityKey
       try {
-        await deleteStoredDraft(identity)
+        await deleteStoredDraft(identity, identity.keymapPath ? {
+          expected: stored,
+          isCurrent: () => selectToken === this._selectGeneration,
+          accepted: row => { this._githubDraftRows.set(identityKey, row) }
+        } : undefined)
       } catch {
         /* ignore */
       }
@@ -174,7 +228,9 @@ export async function _maybeRestorePersistedDraft(this: EditorState, selectToken
   if (!this._draftIdentityMatches(identityKey)) return
 
   const restore = window.confirm(
-    'An unpublished draft was saved in this browser. Restore it?\n\nOK = Restore · Cancel = Discard'
+    this.source === 'github'
+      ? 'An unpublished draft was saved in this browser. Restore it?\n\nOK = Restore · Cancel = Keep stored'
+      : 'An unpublished draft was saved in this browser. Restore it?\n\nOK = Restore · Cancel = Discard'
   )
   if (selectToken !== this._selectGeneration) return
   if (!this._draftIdentityMatches(identityKey)) return
@@ -193,6 +249,8 @@ export async function _maybeRestorePersistedDraft(this: EditorState, selectToken
       if (this.source === 'clipboard') this.clipboardOriginalSource = stored.layerOperation.snapshot.source
     }
     this.clearHistory()
+  } else if (this.source === 'github') {
+    this.hasPendingFirmwareRecovery = true
   } else {
     try {
       await deleteStoredDraft(identity)
@@ -214,6 +272,11 @@ async function offerDiscardMismatchedDraft(
   this.saveNotice = {
     kind: 'warning',
     messages: [MISMATCHED_DRAFT_NOTICE]
+  }
+
+  if (identity.keymapPath) {
+    this.hasPendingFirmwareRecovery = true
+    return
   }
 
   const discard = window.confirm(MISMATCHED_DRAFT_CONFIRM)

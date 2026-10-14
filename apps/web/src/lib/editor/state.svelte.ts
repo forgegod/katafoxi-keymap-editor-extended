@@ -25,6 +25,7 @@ import {
   type ZmkHoldTap
 } from '@keymap-editor/keymap-core'
 import type { Definitions } from '../context'
+import type { StoredDraft } from '../draft-storage'
 import type { StoredHostAssembly, UserHostLayout } from '../host-layout-store'
 import { assignEditorApi, GETTER_NAMES, type BoundMixin } from './assign-api'
 import { hostLegendAnchorIndex, legendHoversEqual } from './helpers'
@@ -40,6 +41,7 @@ import type { LayerOperationSnapshot } from './layer-operation-state'
 import type {
   GithubMeta,
   HostProfilePrompt,
+  HostSnapshotLoadError,
   HostSymbolEditTarget,
   KeyboardSelectionSource,
   SaveNotice
@@ -186,16 +188,32 @@ export class EditorState {
    * Prevents picker effect re-entry from wiping a restored draft.
    */
   _handledDraftIdentityKey: string | null = null
+  hasPendingFirmwareRecovery = $state(false)
+  _githubDraftRows = new Map<string, StoredDraft | null>()
+  _draftWrites: Promise<void> = Promise.resolve()
   /**
    * Encoded `host_keymap/snapshot.json` last loaded from or committed to the
    * GitHub repo. Null when this session has no repo host baseline yet.
    */
   _hostRepoBaselineEncoded = $state<string | null>(null)
+  _hostRepoBaselineSha: string | null = null
+  _githubHostLayoutWireIds = new Map<string, string>()
+  _hostCacheRevisions = new Map<string, number>()
+  _hostCacheWrites: Promise<void> = Promise.resolve()
+  _loadingGithubHost: number | null = null
   /**
    * True when Commit must leave `host_keymap/snapshot.json` untouched
    * (repo snapshot is a newer schema).
    */
-  _omitHostKeymapSnapshotOnCommit = false
+  _omitHostKeymapSnapshotOnCommit = $state(false)
+  _hostSnapshotLoadError: HostSnapshotLoadError | null = null
+
+  /** Local work remains protected even when it cannot be published. */
+  hasLocalHostRecovery = $derived.by(() => {
+    if (this.source !== 'github') return false
+    const origin = this._hostRepoBaselineEncoded ?? encodeHostKeymapSnapshot(buildHostKeymapSnapshot(standardHostLegendView(), []))
+    return this._encodeLiveHostSnapshot() !== origin
+  })
 
   _changes = $derived.by(() => {
     if (!this.baselineKeymap || !this.draftKeymap) return []
@@ -275,8 +293,12 @@ export class EditorState {
     this._selectGeneration += 1
     this._publishGeneration += 1
     this._hostRepoBaselineEncoded = null
+    this._hostRepoBaselineSha = null
+    this._githubHostLayoutWireIds.clear()
     this._omitHostKeymapSnapshotOnCommit = false
+    this._hostSnapshotLoadError = null
     this._handledDraftIdentityKey = null
+    this.hasPendingFirmwareRecovery = false
     this.endHostEditSession()
     this.legendHover = null
     this.source = null

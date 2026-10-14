@@ -184,6 +184,7 @@ export async function _persistHostLegend(
     if (generation !== this._selectGeneration) return
     await saveHostLegendView(view, id)
   })
+  if (generation === this._selectGeneration) await this._persistGithubHostCache()
 }
 
 /**
@@ -199,7 +200,7 @@ export async function _restoreHostLegend(this: EditorState, selectToken: number)
   }
   try {
     let stored = await loadHostLegendView(settingId)
-    if (!stored) {
+    if (!stored && !(this.source === 'github' && this.githubMeta?.keymapPath)) {
       const legacy = await loadHostLegendView()
       if (legacy && !isLegacyBilingualHostLegend(legacy)) {
         stored = legacy
@@ -392,7 +393,7 @@ export function multilangViewOn(this: EditorState): boolean {
  */
 export async function ensureEditableUserHostLayout(this: EditorState, language: HostLanguageId): Promise<string> {
   const layoutId = this.activeProfileId(language)
-  if (isUserHostLayoutId(layoutId)) return layoutId
+  if (isUserHostLayoutId(layoutId) && (!this.githubMeta?.keymapPath || this._githubHostLayoutWireIds.has(layoutId))) return layoutId
   const source = hostLayout(layoutId)
   if (!source) throw new Error('No layout for this language')
   const choice = hostLayoutChoice(layoutId)
@@ -405,6 +406,7 @@ export async function ensureEditableUserHostLayout(this: EditorState, language: 
     source,
     { from: 'copy', layoutId }
   )
+  if (this.source === 'github' && this.githubMeta?.keymapPath) this._githubHostLayoutWireIds.set(id, id)
   const name = this.userLayouts.find(layout => layout.id === id)?.name ?? preferredName
   this.hostProfileNote =
     `Created copy “${name}” for edits. The system layout is unchanged.`
@@ -449,6 +451,7 @@ export async function _commitUserHostLayout(this: EditorState, layoutId: string,
   this._registerUserLayout({ ...updated, layout })
   this.userLayouts = this.userLayouts.map(item => (item.id === updated.id ? updated : item))
   await this._persistHostLayoutWrite(() => saveUserHostLayout({ ...updated, layout }))
+  await this._persistGithubHostCache()
   return true
 }
 

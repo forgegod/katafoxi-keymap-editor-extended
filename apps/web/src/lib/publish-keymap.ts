@@ -6,6 +6,7 @@ import {
   type ParsedKeymap
 } from '@keymap-editor/keymap-core'
 import type { GithubMeta } from './editor.svelte.js'
+import type { HostSnapshotLoadError } from './editor/types.js'
 import type { KeyboardFilesResult } from './github/api.svelte.js'
 
 const BRANCH_CHANGED_NOTICE = 'Branch changed on GitHub — reload'
@@ -35,6 +36,8 @@ export type PublishKeymapEditor = {
   acceptHostRepoBaseline?(encoded?: string): void
   buildCurrentHostKeymapSnapshot?(): HostKeymapSnapshot | null
   retainHostSnapshotOmitWarning?(): void
+  noteHostSnapshotLoad?(error: HostSnapshotLoadError): void
+  _persistGithubHostCache?(): Promise<void>
 }
 
 export async function publishKeymap(
@@ -43,7 +46,7 @@ export async function publishKeymap(
     write: (sentDraft: ParsedKeymap) => Promise<unknown>
     reload: () => Promise<
       Pick<KeyboardFilesResult, 'keymap'> &
-        Partial<Pick<KeyboardFilesResult, 'layout' | 'headSha'>>
+        Partial<Pick<KeyboardFilesResult, 'layout' | 'headSha' | 'keymapPath' | 'ownershipMode' | 'jsonChoiceRequired'>>
     >
   }
 ): Promise<boolean> {
@@ -66,17 +69,27 @@ export async function publishKeymap(
       if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {
         return false
       }
+      if (githubAtStart?.keymapPath && reloaded.keymapPath !== githubAtStart.keymapPath) throw new Error('Reloaded a different selected keymap')
+      const receipt = saveMeta as { hostWritesOmitted?: boolean; hostSnapshotError?: HostSnapshotLoadError } | null
+      if (receipt?.hostWritesOmitted) editor.noteHostSnapshotLoad?.(receipt.hostSnapshotError ?? 'incompatible')
       if (reloaded.layout) {
         editor.layout = reloaded.layout
       }
       if (reloaded.headSha && editor.githubMeta) {
-        editor.githubMeta = { ...editor.githubMeta, headSha: reloaded.headSha }
+        editor.githubMeta = {
+          ...editor.githubMeta,
+          headSha: reloaded.headSha,
+          ...(reloaded.ownershipMode ? { ownershipMode: reloaded.ownershipMode } : {}),
+          ...(reloaded.jsonChoiceRequired !== undefined ? { jsonChoiceRequired: reloaded.jsonChoiceRequired } : {}),
+          jsonChoice: undefined
+        }
       }
       editor.applyPublished(reloaded.keymap, saveMeta, sentDraft)
-      if (committedHostBaseline !== undefined) {
+      if (committedHostBaseline !== undefined && !receipt?.hostWritesOmitted) {
         editor.acceptHostRepoBaseline?.(committedHostBaseline)
       }
       editor.retainHostSnapshotOmitWarning?.()
+      if (receipt?.hostWritesOmitted) await editor._persistGithubHostCache?.()
       return true
     } catch {
       if (!editor.isPublishCurrent(token, sourceAtStart, githubAtStart)) {

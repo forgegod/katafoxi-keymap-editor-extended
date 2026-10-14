@@ -10,6 +10,7 @@ import * as draftStorage from './lib/draft-storage'
 import { buildDraftIdentity, deleteStoredDraft } from './lib/draft-storage'
 import { editor, type KeyboardSelection } from './lib/editor.svelte.js'
 import { clearHostLayoutStore } from './lib/host-layout-store'
+import * as hostStorage from './lib/host-layout-store'
 import github from './lib/github/api.svelte.js'
 import App from './App.svelte'
 
@@ -212,6 +213,35 @@ describe('App chrome', () => {
     flushSync()
   }
 
+  it('awaits GitHub selection acceptance before remembering the Reload path through both picker callbacks', async () => {
+    github.authorized = true
+    github.repositories = [{ id: 11, full_name: 'owner/repo', default_branch: 'main' }]
+    github.repoInstallationMap = { 'owner/repo': '1' }
+    github.installations = [{ id: 1 }]
+    vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }])
+    const response = {
+      layout: oneKeyLayout, keymap: km('A'), hostSnapshot: null, warnings: [],
+      headSha: 's', keymapPath: 'config/a.keymap', ownershipMode: 'scoped' as const
+    }
+    vi.mocked(github.fetchLayoutAndKeymap).mockResolvedValue(response)
+    const pending = deferred<null>()
+    const read = vi.spyOn(hostStorage, 'loadGithubHostCache').mockReturnValueOnce(pending.promise)
+    await renderApp()
+    await vi.waitFor(() => expect(read).toHaveBeenCalled())
+    expect(editor.githubMeta).toBeNull()
+    expect(buttonMatching(target, /^Reload$/)).toBeUndefined()
+
+    pending.resolve(null)
+    await vi.waitFor(() => {
+      expect(editor.githubMeta?.keymapPath).toBe(response.keymapPath)
+      expect(buttonMatching(target, /^Reload$/)).toBeInstanceOf(HTMLButtonElement)
+    })
+    buttonMatching(target, /^Reload$/)!.click()
+    await vi.waitFor(() => expect(github.fetchLayoutAndKeymap).toHaveBeenLastCalledWith('owner/repo', 'main', {
+      keymapPath: 'config/a.keymap', expectedMode: 'scoped'
+    }))
+  })
+
   it('keeps short pipeline statuses and a stable Discard control', async () => {
     await renderApp()
     expect(target.querySelector('.chrome-host')).toBeNull()
@@ -343,7 +373,7 @@ describe('App chrome', () => {
     })
   })
 
-  it('retries Commit with the reloaded GitHub head sha', async () => {
+  it('keeps the original publish base on dirty Reload and adopts a new head only after explicit firmware discard', async () => {
     await renderApp()
     await loadKeyboard(githubSelection('A', 'lark', 'old-sha'))
     editor.updateKeymap(km('M'))
@@ -376,6 +406,10 @@ describe('App chrome', () => {
       'old-sha'
     )
 
+    await loadKeyboard(githubSelection('A', 'lark', 'new-sha'))
+    expect(editor.githubMeta?.headSha).toBe('old-sha')
+    expect(editor.draftKeymap).toEqual(km('M'))
+    await editor.discardDraft()
     await loadKeyboard(githubSelection('A', 'lark', 'new-sha'))
     expect(editor.githubMeta?.headSha).toBe('new-sha')
     editor.updateKeymap(km('M'))

@@ -460,7 +460,7 @@ describe('GitHub host keymap snapshot', () => {
     expect(editor.isHostRepoDirty).toBe(false)
   })
 
-  it('warns when the repo snapshot is invalid but still allows a host commit', async () => {
+  it('warns and omits host writes when the repo snapshot is invalid', async () => {
     await editor.selectKeyboard({
       ...BOARD,
       hostSnapshot: null,
@@ -472,6 +472,7 @@ describe('GitHub host keymap snapshot', () => {
     expect(editor.saveNotice?.messages[0]).toMatch(
       /host_keymap\/snapshot\.json is invalid/
     )
-    expect(editor.buildCurrentHostKeymapSnapshot()).not.toBeNull()
+    expect(editor.buildCurrentHostKeymapSnapshot()).toBeNull()
+    expect(editor.buildCurrentHostKeymapDeliverables()).toEqual([])
   })
 })

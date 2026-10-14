@@ -134,7 +134,12 @@ function mockGithub(
 ) {
   const missing = new Set(options.missing ?? [])
   const errors = options.errors ?? {}
+  const treePaths = new Set([
+    ...((files.config ?? []) as Array<{ path: string }>).map(entry => entry.path),
+    ...Object.keys(files).filter(p => p.startsWith('host_keymap/'))
+  ])
   const catalog: Record<string, unknown> = {
+    [`GET /repos/${REPO}/git/trees/${BASE_TREE_SHA}`]: { truncated: false, tree: [...treePaths].map(path => ({ path, type: 'blob', mode: '100644' })) },
     [`GET /repos/${REPO}`]: { default_branch: 'main' },
     [`GET /repos/${REPO}/commits/main`]: {
       sha: CURRENT_COMMIT_SHA,
@@ -157,6 +162,7 @@ function mockGithub(
     if (methodUrl in catalog) return ok(resolveMockValue(catalog[methodUrl], options))
     if (url in catalog) return ok(resolveMockValue(catalog[url], options))
     if (path !== null && path in files) return ok(resolveMockValue(files[path], options))
+    if (path !== null) throw notFound()
 
     throw new Error(`unexpected GitHub request: ${method} ${url}`)
   })
@@ -372,7 +378,7 @@ describe('fetchKeyboardFiles', () => {
     const request = mockGithub(
       {
         ...gitCommitEndpoints('main'),
-        'config/info.json': JSON.stringify(INFO),
+        'config/info.json': JSON.stringify({ ...INFO, layouts: { LAYOUT: { layout: [{ x: 0, y: 0 }, { x: 1, y: 0 }] } } }),
         config: LISTING_NO_TEMPLATE,
         [KEYMAP_PATH]: source
       },

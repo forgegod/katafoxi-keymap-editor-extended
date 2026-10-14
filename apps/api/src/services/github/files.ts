@@ -3,8 +3,16 @@ import {
   buildKeymapCode,
   encodeHostKeymapSnapshot,
   HOST_KEYMAP_SNAPSHOT_PATH,
+  isRepositoryKeymapPath,
+  isOwnedHostSnapshotCompatible,
+  validateInfoJson,
+  pickInfoLayout,
+  repositoryKeymapPaths,
+  REPOSITORY_KEYMAP_MODE_PATH,
+  REPOSITORY_KEYMAP_MODE_CONTENT,
+  type RepositoryKeymapMode,
+  type RepositoryKeymapSelection,
   isPrimaryKeymapJson,
-  isUserKeymapFilename,
   matchingInfoJsonFilename,
   parseDtsKeymap,
   parseHostKeymapSnapshot,
@@ -15,6 +23,8 @@ import {
 } from '@keymap-editor/keymap-core'
 import * as api from './api.js'
 import * as auth from './auth.js'
+import { RepositorySelectionError, repositoryInventory, ownershipMode, requireRegularPath, regularBlob, type Inventory } from './repository-ownership.js'
+export { RepositorySelectionError } from './repository-ownership.js'
 
 const MODE_FILE = '100644'
 const HOST_KEYMAP_LINUX_PREFIX = 'host_keymap/linux/'
@@ -26,6 +36,7 @@ const HOST_KEYMAP_WINDOWS_PREFIX = 'host_keymap/windows/'
  */
 export function isAllowedHostKeymapPath(filePath: string): boolean {
   if (typeof filePath !== 'string' || !filePath) return false
+  if (/[\\%\x00-\x1f\x7f]/.test(filePath) || path.posix.normalize(filePath) !== filePath) return false
   if (filePath.includes('\0')) return false
   if (filePath.startsWith('/') || path.win32.isAbsolute(filePath)) return false
   if (filePath.split(/[/\\]/).includes('..')) return false
@@ -89,6 +100,7 @@ export function collectHostDeliverables(
 interface ConfigDirEntry {
   name: string
   path: string
+  type?: string
 }
 
 type ConfigDirListing = ReadonlyArray<ConfigDirEntry>
@@ -189,23 +201,40 @@ export async function listConfigDir(
 }
 
 export function findCodeKeymap(listing: ConfigDirListing): ConfigDirEntry {
-  const originalCodeKeymap = listing.find(file => isUserKeymapFilename(file.name))
+  const candidates = listing.filter(file => isRepositoryKeymapPath(file.path) && file.path === `config/${file.name}` && (file.type === undefined || file.type === 'file'))
+  if (candidates.length > 1) throw new RepositorySelectionError('Select a keymap file')
+  const originalCodeKeymap = candidates[0]
   if (!originalCodeKeymap) {
     throw new MissingRepoFile('config/*.keymap')
   }
   return originalCodeKeymap
 }
 
+function selectedKeymap(inventory: Inventory, selected?: string): ConfigDirEntry {
+  if (selected === undefined) return findCodeKeymap(inventory.candidates)
+  if (!isRepositoryKeymapPath(selected)) throw new RepositorySelectionError('Invalid selected keymap path')
+  const entry = inventory.candidates.find(entry => entry.path === selected)
+  if (!entry) throw new MissingRepoFile(selected)
+  return entry
+}
+
 async function findCodeKeymapTemplate(
   listing: ConfigDirListing,
   installationToken: string,
   repository: string,
-  ref?: string
+  ref: string,
+  selected: string,
+  mode: RepositoryKeymapMode,
+  inventory: Inventory
 ) {
-  const template = listing.find(file =>
-    file.name.toLowerCase().endsWith('.keymap.template')
-  )
+  const templates = listing.filter(file => file.name.toLowerCase().endsWith('.keymap.template'))
+  let template = templates.find(file => file.path === `${selected}.template`)
+  if (!template && mode === 'legacy') {
+    if (templates.length > 1) throw new RepositorySelectionError('Multiple unmatched templates; cannot choose safely')
+    template = templates[0]
+  }
   if (template) {
+    requireRegularPath(inventory, template.path)
     const { data: content } = await fetchFile(
       installationToken,
       repository,
@@ -241,13 +270,15 @@ async function fetchKeymap(
   installationToken: string,
   repository: string,
   originalCodeKeymap: ConfigDirEntry,
-  ref?: string
+  ref?: string,
+  jsonPath = 'config/keymap.json',
+  cachedPrimary?: unknown
 ) {
   try {
-    const { data } = await fetchFile(installationToken, repository, 'config/keymap.json', {
+    const data = cachedPrimary === undefined ? (await fetchFile(installationToken, repository, jsonPath, {
       raw: true,
       ref
-    })
+    })).data : cachedPrimary
     try {
       const parsed = parseJsonBody(data)
       if (isPrimaryKeymapJson(parsed)) {
@@ -293,21 +324,26 @@ async function fetchKeymap(
 async function fetchHostKeymapSnapshot(
   installationToken: string,
   repository: string,
-  ref?: string
-): Promise<HostKeymapSnapshot | null> {
+  ref?: string,
+  snapshotPath = HOST_KEYMAP_SNAPSHOT_PATH,
+  mustExist = false
+): Promise<{ hostSnapshot: HostKeymapSnapshot | null; hostSnapshotError?: 'invalid' | 'unsupported_version' | 'incompatible' }> {
   try {
     const { data } = await fetchFile(
       installationToken,
       repository,
-      HOST_KEYMAP_SNAPSHOT_PATH,
+      snapshotPath,
       { raw: true, ref }
     )
     const result = parseHostKeymapSnapshot(
       typeof data === 'string' ? data : parseJsonBody(data)
     )
-    return result.ok ? result.snapshot : null
+    if (result.ok) return isOwnedHostSnapshotCompatible(result.snapshot)
+      ? { hostSnapshot: result.snapshot }
+      : { hostSnapshot: null, hostSnapshotError: 'incompatible' }
+    return { hostSnapshot: null, hostSnapshotError: result.error === 'unsupported_version' ? 'unsupported_version' : 'invalid' }
   } catch (err) {
-    if (err instanceof MissingRepoFile) return null
+    if (err instanceof MissingRepoFile && !mustExist) return { hostSnapshot: null }
     throw err
   }
 }
@@ -321,9 +357,10 @@ async function fetchInfoJson(
   installationToken: string,
   repository: string,
   originalCodeKeymap: ConfigDirEntry,
-  ref?: string
+  ref?: string,
+  mode: RepositoryKeymapMode = 'legacy'
 ): Promise<unknown | null> {
-  try {
+  if (mode === 'legacy') try {
     const { data: infoRaw } = await fetchFile(
       installationToken,
       repository,
@@ -355,22 +392,71 @@ async function fetchInfoJson(
 export async function fetchKeyboardFiles(
   installationId: string,
   repository: string,
-  branch?: string
+  branch?: string,
+  selection: RepositoryKeymapSelection = {}
 ) {
   const { data } = await auth.createInstallationToken(installationId, { repository })
   const installationToken = (data as { token: string }).token
   const head = await resolveHeadCommit(installationToken, repository, branch)
   const ref = head.sha
-  const [listing, hostSnapshot] = await Promise.all([
-    listConfigDir(installationToken, repository, ref),
-    fetchHostKeymapSnapshot(installationToken, repository, ref)
-  ])
-  const originalCodeKeymap = findCodeKeymap(listing)
+  const listing = await listConfigDir(installationToken, repository, ref)
+  const inventory = await repositoryInventory(installationToken, repository, head.treeSha, listing)
+  const originalCodeKeymap = selectedKeymap(inventory, selection.keymapPath)
+  const mode = await ownershipMode(installationToken, repository, ref, inventory, selection.expectedMode)
+  const paths = repositoryKeymapPaths(originalCodeKeymap.path, mode)
+  requireRegularPath(inventory, paths.firmwareJson)
+  const json = await readFirmwareJson(installationToken, repository, paths.firmwareJson, ref)
+  const jsonChoiceRequired = mode !== 'legacy' && !json && inventory.entries.has('config/keymap.json')
+  const useLegacy = jsonChoiceRequired && selection.jsonSource === 'legacy'
+  if (useLegacy) {
+    requireRegularPath(inventory, 'config/keymap.json')
+    if (!await readFirmwareJson(installationToken, repository, 'config/keymap.json', ref)) throw new RepositorySelectionError('Legacy firmware JSON is invalid')
+  }
+  const host = await ownedHostSnapshot(installationToken, repository, ref, inventory, paths.snapshot, mode)
+  validateGeometryPaths(inventory, originalCodeKeymap, mode)
   const [info, keymap] = await Promise.all([
-    fetchInfoJson(installationToken, repository, originalCodeKeymap, ref),
-    fetchKeymap(installationToken, repository, originalCodeKeymap, ref)
+    fetchInfoJson(installationToken, repository, originalCodeKeymap, ref, mode),
+    fetchKeymap(installationToken, repository, originalCodeKeymap, ref, useLegacy ? 'config/keymap.json' : paths.firmwareJson, useLegacy ? undefined : json)
   ])
-  return { info, keymap, hostSnapshot, headSha: head.sha }
+  return { info, keymap, ...host, headSha: head.sha, keymapPath: originalCodeKeymap.path, ownershipMode: mode, jsonSource: useLegacy || (json && mode === 'legacy') ? 'legacy' : json ? 'owned' : 'dts', jsonChoiceRequired }
+}
+
+async function readFirmwareJson(token: string, repository: string, filePath: string, ref: string) {
+  try {
+    const { data } = await fetchFile(token, repository, filePath, { raw: true, ref })
+    try {
+      const parsed = parseJsonBody(data)
+      return isPrimaryKeymapJson(parsed) ? parsed : null
+    } catch { return null }
+  } catch (err) {
+    if (err instanceof MissingRepoFile) return null
+    throw err
+  }
+}
+
+async function ownedHostSnapshot(token: string, repository: string, ref: string, inventory: Inventory, snapshotPath: string, mode: RepositoryKeymapMode) {
+  try { requireRegularPath(inventory, snapshotPath) } catch { return { hostSnapshot: null, hostSnapshotError: 'incompatible' as const } }
+  const owned = inventory.entries.get(snapshotPath)
+  if (owned && !regularBlob(owned)) return { hostSnapshot: null, hostSnapshotError: 'incompatible' as const }
+  if (!owned && mode !== 'legacy' && inventory.entries.has(HOST_KEYMAP_SNAPSHOT_PATH)) {
+    return { hostSnapshot: null, hostSnapshotError: 'incompatible' as const }
+  }
+  return fetchHostKeymapSnapshot(token, repository, ref, snapshotPath, !!owned)
+}
+
+function validateGeometryPaths(inventory: Inventory, selected: ConfigDirEntry, mode: RepositoryKeymapMode) {
+  if (mode === 'legacy') requireRegularPath(inventory, 'config/info.json')
+  const matching = matchingInfoPath(selected)
+  if (matching) requireRegularPath(inventory, matching)
+}
+
+export async function fetchKeymapInventory(installationId: string, repository: string, branch?: string) {
+  const { data } = await auth.createInstallationToken(installationId, { repository })
+  const token = (data as { token: string }).token
+  const head = await resolveHeadCommit(token, repository, branch)
+  const listing = await listConfigDir(token, repository, head.sha)
+  const inventory = await repositoryInventory(token, repository, head.treeSha, listing)
+  return { candidates: inventory.candidates.map(({ name, path }) => ({ name, path })), headSha: head.sha }
 }
 
 export async function commitChanges(
@@ -381,7 +467,8 @@ export async function commitChanges(
   keymap: ParsedKeymap,
   hostSnapshot?: HostKeymapSnapshot | null,
   hostDeliverables?: HostKeymapDeliverableFile[] | null,
-  baseSha?: string | null
+  baseSha?: string | null,
+  selection: RepositoryKeymapSelection = {}
 ) {
   const { data } = await auth.createInstallationToken(installationId, { repository })
   const installationToken = (data as { token: string }).token
@@ -391,9 +478,32 @@ export async function commitChanges(
   }
   const ref = head.sha
   const listing = await listConfigDir(installationToken, repository, ref)
-  const originalCodeKeymap = findCodeKeymap(listing)
+  const inventory = await repositoryInventory(installationToken, repository, head.treeSha, listing)
+  const originalCodeKeymap = selectedKeymap(inventory, selection.keymapPath)
+  const mode = await ownershipMode(installationToken, repository, ref, inventory, selection.expectedMode)
+  const paths = repositoryKeymapPaths(originalCodeKeymap.path, mode)
+  requireRegularPath(inventory, paths.firmwareJson)
+  if (mode !== 'legacy' && inventory.entries.has('config/keymap.json') && !await readFirmwareJson(installationToken, repository, paths.firmwareJson, ref)) {
+    const choice = selection.jsonChoice
+    if (!choice || choice.repository !== repository || choice.branch !== branch || choice.keymapPath !== originalCodeKeymap.path || choice.headSha !== ref || !['dts', 'legacy'].includes(choice.input)) {
+      throw new RepositorySelectionError('Explicit per-file firmware JSON choice required at this revision')
+    }
+    if (choice.input === 'legacy') {
+      requireRegularPath(inventory, 'config/keymap.json')
+      if (!await readFirmwareJson(installationToken, repository, 'config/keymap.json', ref)) throw new RepositorySelectionError('Legacy firmware JSON is invalid')
+    } else {
+      await fetchKeymapFromDts(installationToken, repository, originalCodeKeymap, ref)
+    }
+  }
+  const remoteHost = await ownedHostSnapshot(installationToken, repository, ref, inventory, paths.snapshot, mode)
+  validateGeometryPaths(inventory, originalCodeKeymap, mode)
+  const info = await fetchInfoJson(installationToken, repository, originalCodeKeymap, ref, mode)
+  if (info != null) {
+    validateInfoJson(info)
+    if (pickInfoLayout(info).layout.length !== layout.length) throw new RepositorySelectionError('Selected geometry and submitted layout key count differ')
+  }
   const [template, originalSourceResult] = await Promise.all([
-    findCodeKeymapTemplate(listing, installationToken, repository, ref),
+    findCodeKeymapTemplate(listing, installationToken, repository, ref, originalCodeKeymap.path, mode, inventory),
     fetchFile(installationToken, repository, originalCodeKeymap.path, {
       raw: true,
       ref
@@ -415,23 +525,29 @@ export async function commitChanges(
       content: built.code
     },
     {
-      path: 'config/keymap.json',
+      path: paths.firmwareJson,
       mode: MODE_FILE,
       type: 'blob',
       content: built.json
     }
   ]
+  if (mode === 'scoped-new') tree.push({ path: REPOSITORY_KEYMAP_MODE_PATH, mode: MODE_FILE, type: 'blob', content: REPOSITORY_KEYMAP_MODE_CONTENT })
   const deliverable = collectHostDeliverables(hostDeliverables)
-  if (hostSnapshot) {
+  if (hostSnapshot && !remoteHost.hostSnapshotError) {
+    const parsed = parseHostKeymapSnapshot(hostSnapshot)
+    if (!parsed.ok || !isOwnedHostSnapshotCompatible(parsed.snapshot)) throw new RepositorySelectionError('Invalid or unresolved submitted host snapshot')
+    requireRegularPath(inventory, paths.snapshot)
     tree.push({
-      path: HOST_KEYMAP_SNAPSHOT_PATH,
+      path: paths.snapshot,
       mode: MODE_FILE,
       type: 'blob',
-      content: encodeHostKeymapSnapshot(hostSnapshot)
+      content: encodeHostKeymapSnapshot(parsed.snapshot)
     })
     for (const file of deliverable.files) {
+      const filePath = `${paths.hostRoot}${file.path.slice('host_keymap/'.length)}`
+      requireRegularPath(inventory, filePath)
       tree.push({
-        path: file.path,
+        path: filePath,
         mode: MODE_FILE,
         type: 'blob',
         content: file.content
@@ -471,6 +587,8 @@ export async function commitChanges(
 
   return {
     mode: built.mode,
-    warnings: [...built.warnings, ...deliverable.warnings]
+    warnings: [...built.warnings, ...deliverable.warnings],
+    hostWritesOmitted: !!remoteHost.hostSnapshotError,
+    ...(remoteHost.hostSnapshotError ? { hostSnapshotError: remoteHost.hostSnapshotError } : {})
   }
 }

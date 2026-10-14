@@ -1295,6 +1295,37 @@ describe('session and errors', () => {
 })
 
 describe('POST /github/keyboard-files commit', () => {
+  it('forwards selected identity and preserves server omission classification', async () => {
+    const commit = vi.mocked(files.commitChanges).mockResolvedValue({ mode: 'splice', warnings: [], hostWritesOmitted: true, hostSnapshotError: 'incompatible' })
+    const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark/main', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ layout: [{ x: 0, y: 0 }], keymap: parseKeymap(VALID_KEYMAP), keymapPath: 'config/b.keymap', expectedMode: 'scoped', baseSha: 'head' }) })
+    expect(res.status).toBe(200)
+    expect(commit.mock.calls[0]?.[8]).toEqual({ keymapPath: 'config/b.keymap', expectedMode: 'scoped' })
+    expect(await res.json()).toMatchObject({ hostWritesOmitted: true, hostSnapshotError: 'incompatible' })
+  })
+
+  it.each(['config/%2e%2e/b.keymap', 'config/b.keymap.template', '../b.keymap', 42])('refuses malformed selected identity %s before the service', async keymapPath => {
+    const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark/main', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ layout: [], keymap: parseKeymap(VALID_KEYMAP), keymapPath }) })
+    expect(res.status).toBe(400)
+    expect(files.commitChanges).not.toHaveBeenCalled()
+  })
+
+  it('returns selected path, JSON ownership and host incompatibility on load', async () => {
+    vi.mocked(files.fetchKeyboardFiles).mockResolvedValue({ info: VALID_INFO, keymap: VALID_KEYMAP, hostSnapshot: null, hostSnapshotError: 'invalid', headSha: 's', keymapPath: 'config/b.keymap', ownershipMode: 'scoped', jsonSource: 'dts', jsonChoiceRequired: true })
+    const { res } = await authedRequest('/github/keyboard-files/1/acme%2Flark?branch=main&keymapPath=config%2Fb.keymap')
+    expect(res.status).toBe(200)
+    expect(files.fetchKeyboardFiles).toHaveBeenCalledWith('1', 'acme/lark', 'main', { keymapPath: 'config/b.keymap' })
+    expect(await res.json()).toMatchObject({ keymapPath: 'config/b.keymap', hostSnapshotError: 'invalid', jsonChoiceRequired: true })
+  })
+
+  it('authorizes the inventory route before calling the service', async () => {
+    const list = vi.spyOn(files, 'fetchKeymapInventory').mockResolvedValue({ candidates: [{ name: 'b.keymap', path: 'config/b.keymap' }], headSha: 's' })
+    expect((await app.request('/github/keymaps/1/acme%2Flark?branch=main')).status).toBe(401)
+    expect(list).not.toHaveBeenCalled()
+    const { res } = await authedRequest('/github/keymaps/1/acme%2Flark?branch=main')
+    expect(res.status).toBe(200)
+    expect(list).toHaveBeenCalledWith('1', 'acme/lark', 'main')
+  })
+
   const layout = [{ x: 0, y: 0 }]
   const keymap = parseKeymap(VALID_KEYMAP)
   const deliverables = [

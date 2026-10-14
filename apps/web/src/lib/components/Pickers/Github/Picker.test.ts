@@ -3,6 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import github from '../../../github/api.svelte.js'
 import * as storage from '../../../github/storage'
 import type { GitHubRepo, KeyboardFilesResult } from '../../../github/api.svelte.js'
+import { editor } from '../../../editor.svelte.js'
+import * as hostStorage from '../../../host-layout-store'
+import type { GithubKeyboardSelection } from '../../../editor/types'
 import Picker from './Picker.svelte'
 
 // happy-dom comment nodes are not `instanceof Comment`. Svelte skips empty
@@ -44,7 +47,9 @@ describe('Github Picker', () => {
     default_branch: 'main'
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    editor.resetForTests()
+    await hostStorage.clearHostLayoutStore()
     target = document.createElement('div')
     document.body.appendChild(target)
     const modalRoot = document.createElement('div')
@@ -62,6 +67,7 @@ describe('Github Picker', () => {
 
   afterEach(() => {
     if (view) unmount(view)
+    editor.resetForTests()
     view = undefined
     target?.remove()
     localStorage.clear()
@@ -125,6 +131,58 @@ describe('Github Picker', () => {
         github: expect.objectContaining({ repository: repo.full_name, branch: 'only' })
       })
     )
+  })
+
+  it('retains the server-selected path for metadata and same-file Reload', async () => {
+    vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }])
+    const fetchFiles = vi.spyOn(github, 'fetchLayoutAndKeymap').mockResolvedValue({ layout: [{ x: 0, y: 0 }], keymap: { layers: [] }, hostSnapshot: null, warnings: [], headSha: 's', keymapPath: 'config/b.keymap', ownershipMode: 'scoped' })
+    const onSelect = open(vi.fn((event: Omit<GithubKeyboardSelection, 'source'>) => editor.selectKeyboard({ source: 'github', ...event })))
+    await vi.waitFor(() => expect(editor.githubMeta?.keymapPath).toBe('config/b.keymap'))
+    expect(onSelect.mock.calls[0][0].github).toMatchObject({ keymapPath: 'config/b.keymap', ownershipMode: 'scoped' })
+    clickButton('Reload')
+    await vi.waitFor(() => expect(fetchFiles).toHaveBeenLastCalledWith(repo.full_name, 'main', { keymapPath: 'config/b.keymap', expectedMode: 'scoped' }))
+  })
+
+  it.each(['Reload', 'branch change'])('keeps the accepted path after %s is refused by destination storage', async trigger => {
+    vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }, { name: 'dev' }])
+    const accepted: KeyboardFilesResult = {
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: { layers: [[{ value: '&kp', params: [{ value: 'A', params: [] }] }]] },
+      hostSnapshot: null, warnings: [], headSha: 's',
+      keymapPath: 'config/a.keymap', ownershipMode: 'scoped'
+    }
+    const fetchFiles = vi.spyOn(github, 'fetchLayoutAndKeymap')
+      .mockResolvedValue(accepted)
+      .mockResolvedValueOnce(accepted)
+      .mockResolvedValueOnce({ ...accepted, keymapPath: 'config/b.keymap', headSha: 't' })
+    const onSelect = open(vi.fn((event: Omit<GithubKeyboardSelection, 'source'>) => editor.selectKeyboard({ source: 'github', ...event })))
+    await vi.waitFor(() => expect(editor.githubMeta?.keymapPath).toBe('config/a.keymap'))
+    await onSelect.mock.results[0].value
+    const priorMeta = { ...editor.githubMeta }
+    const priorDraft = JSON.stringify(editor.draftKeymap)
+    const read = vi.spyOn(hostStorage, 'loadGithubHostCache').mockRejectedValue(new Error('unavailable'))
+    const changeBranch = (index: string) => {
+      const select = target.querySelector('#branch') as HTMLSelectElement
+      select.value = index
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+      flushSync()
+    }
+
+    if (trigger === 'Reload') clickButton('Reload')
+    else changeBranch('1')
+    await vi.waitFor(() => expect(editor.saveNotice?.messages).toContain('Could not read destination recovery. The current selection was retained.'))
+    expect(editor.githubMeta).toEqual(priorMeta)
+    expect(JSON.stringify(editor.draftKeymap)).toBe(priorDraft)
+    read.mockRestore()
+
+    if (trigger === 'Reload') clickButton('Reload')
+    else changeBranch('0')
+    await vi.waitFor(() => expect(fetchFiles).toHaveBeenCalledTimes(3))
+    expect(fetchFiles).toHaveBeenLastCalledWith(repo.full_name, 'main', {
+      keymapPath: 'config/a.keymap', expectedMode: 'scoped'
+    })
+    await vi.waitFor(() => expect(onSelect).toHaveBeenCalledTimes(3))
+    await onSelect.mock.results[2].value
   })
 
   it('selects a persisted branch that is still in the list over default_branch', async () => {

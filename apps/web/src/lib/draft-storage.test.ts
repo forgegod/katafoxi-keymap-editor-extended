@@ -17,6 +17,21 @@ function tinyKeymap(code: string): ParsedKeymap {
 }
 
 describe('draft-storage', () => {
+  it('isolates selected GitHub files with equal keyboard metadata from each other and legacy rows', async () => {
+    const input = { source: 'github', repo: 'acme/boards', branch: 'main', keyboard: 'same' }
+    const legacy = buildDraftIdentity(input)!
+    const a = buildDraftIdentity({ ...input, keymapPath: 'config/a.keymap' })!
+    const b = buildDraftIdentity({ ...input, keymapPath: 'config/b.keymap' })!
+    await saveStoredDraft(legacy, tinyKeymap('L'))
+    await saveStoredDraft(a, tinyKeymap('A'))
+    expect(await loadStoredDraft(b)).toBeNull()
+    expect((await loadStoredDraft(a))?.draftKeymap).toEqual(tinyKeymap('A'))
+    expect((await loadStoredDraft(legacy))?.draftKeymap).toEqual(tinyKeymap('L'))
+    expect(a.schemaVersion).toBe(2)
+    expect(draftIdentityKey(a)).not.toBe(draftIdentityKey(b))
+    expect(buildDraftIdentity({ ...input, keymapPath: '../bad.keymap' })).toBeNull()
+  })
+
   const identity = buildDraftIdentity({
     source: 'local',
     keyboard: 'lark'

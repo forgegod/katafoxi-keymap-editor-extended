@@ -34,7 +34,8 @@ export function isPublishCurrent(this: EditorState,
     if (!this.githubMeta || !github) return false
     if (
       this.githubMeta.repository !== github.repository ||
-      this.githubMeta.branch !== github.branch
+      this.githubMeta.branch !== github.branch ||
+      this.githubMeta.keymapPath !== github.keymapPath
     ) {
       return false
     }
@@ -44,6 +45,7 @@ export function isPublishCurrent(this: EditorState,
 
 /** ZMK draft and/or host snapshot need a GitHub Commit. */
 export function isPublishDirty(this: EditorState): boolean {
+  if (this.hasPendingFirmwareRecovery) return false
   return this.isDirty || this.isHostRepoDirty
 }
 

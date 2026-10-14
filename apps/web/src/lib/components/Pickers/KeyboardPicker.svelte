@@ -29,7 +29,7 @@
   type KeymapEvent = KeyboardSelection
 
   interface Props {
-    onSelect: (event: KeymapEvent) => void
+    onSelect: (event: KeymapEvent) => void | Promise<void>
     onLogout?: () => void
     /** Switch source and open the menu (coach-tour / Demo CTAs). */
     openSource?: string | null
@@ -223,7 +223,7 @@
     if (!selection) return
     // layer_names: normalizeParsedKeymap at editor accept (cloneParsedKeymap)
     if (event.userInitiated) menuOpen = false
-    onSelect(selection)
+    return onSelect(selection)
   }
 
   function connectGithub() {

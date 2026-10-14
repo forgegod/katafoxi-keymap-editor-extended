@@ -9,7 +9,8 @@
 - Hover is a read-only decode preview. Alt+click starts a host-edit session; choosing a glyph updates the host layout immediately. The first edit of a system layout makes a user copy.
 - Accept/Cancel end the host-edit session; Cancel is not rollback of already chosen glyphs. ZMK undo/redo does not undo host-layout edits.
 - Host language/profile selections and user layouts persist in the browser. Users can import supported xkb/KLC layouts and download Linux xkb or Windows .klc deliverables through the Host lane.
-- On GitHub, the host snapshot and generated host deliverables can accompany the firmware commit. A loaded repository snapshot takes precedence over cached host state; host repository changes and OS-install status are separate signals.
+- On GitHub, a compatible owned host snapshot and generated deliverables can accompany the firmware commit. The server independently omits all host writes for invalid, unsupported or ownership/reference-incompatible remote snapshots, even if replacements are submitted. A firmware-only receipt does not accept local host recovery as published.
+- Selected GitHub files have identity-scoped host caches and private working table IDs, preserving remote wire IDs without overwriting same-named global profiles or another selected file. Pending recovery takes precedence over a new remote snapshot; a clean invalid/unsupported reopen retains its last verified compatible host origin, or standard English when no verified origin exists. Host repository changes and OS-install status remain separate signals.
 - Focusing or hovering the layer strip expands its firmware rows. With Stack off, each row exposes Duplicate and Move; keyboard position selection and drag/drop share the [firmware operation boundary](CAP-001-firmware-keymap-editing.md). The base Move control announces that layer zero stays fixed. These controls are hidden in the resting strip and language-stack mode.
 - Firmware reorder recomposes legends and maps current eye preferences by logical layer through move, undo, redo and discard, including recovered drafts with no undo history. Unavailable stored layer marks and the raw-base preference are retained. Duplicate leaves eye preferences unchanged rather than automatically showing the copy.
 - Structural firmware operations clear transient hover/decode ownership without changing host language tables, assemblies, host repository dirty state or OS-delivery state. Moves change firmware priority, not host layout contents; existing conditional-layer cover warnings reflect the new indices. An open host-edit session blocks the operation rather than being discarded.
@@ -31,6 +32,7 @@
 
 - The Host lane downloads installation sources and guidance; it does not install layouts into the OS.
 - Browser-only assemblies are not additional GitHub keymap files. Repository host snapshot ownership still follows ADR 0005.
+- Headless identity/omission plumbing is implemented; the per-file picker, standalone destructive host reset, full transition protection and integrated browser-local status surfaces remain unimplemented. No host-discard or global-profile cleanup guarantee is claimed by this slice.
 - Leave-page confirmation follows unpublished firmware or a dirty GitHub host snapshot, even when firmware is unchanged. OS-install status and a browser-only host edit do not arm it by themselves. Downloading/installing host files is not a repository commit; firmware Discard draft does not discard host changes. The source handoff and browser-native dialog limits follow [CAP-002](CAP-002-keymap-sources-and-persistence.md).
 - Difference highlighting and keycap composition reflect selected layout tables, not live observation of the host OS or firmware execution.
 - Import/export supports documented subsets, not every xkb/KLC feature. Shared host registry access remains synchronous.
@@ -41,6 +43,8 @@
 - `apps/web/src/lib/host-layout-store.test.ts` — user layouts and storage boundaries.
 - `apps/web/src/lib/editor.host-edit.test.ts` — editing session clears when switching keyboards or logging out.
 - `apps/web/src/lib/host-keymap-snapshot.test.ts` — repository snapshot application and dirty state.
+- `apps/api/src/services/github/selected-files.test.ts` — server-side invalid/unsupported/incompatible omission, compatible owned co-commit and untouched legacy/other files.
+- `apps/web/src/lib/github-selected-identity.test.ts` — clean origin retention, omitted recovery across reload/publication, private tables versus global profiles, cross-session cache conflicts and stale load isolation.
 - `apps/web/src/App.test.ts` — a GitHub host-snapshot edit arms leave confirmation without a firmware edit and successful commit clears it; browser-only host edits and host-delivery status changes do not arm it. Firmware discard leaves browser-only host changes intact.
 - `packages/keymap-core/src/xkb-write.test.ts` — xkb export round-trips.
 - `packages/keymap-core/src/klc-write.test.ts` — KLC output.

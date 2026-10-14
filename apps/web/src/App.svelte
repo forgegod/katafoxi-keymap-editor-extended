@@ -155,11 +155,12 @@
           sentDraft,
           editor.buildCurrentHostKeymapSnapshot(),
           editor.buildCurrentHostKeymapDeliverables(),
-          gh.headSha
+          gh.headSha,
+          ...(gh.keymapPath ? [{ keymapPath: gh.keymapPath, expectedMode: gh.ownershipMode, jsonChoice: gh.jsonChoice }] : [])
         )
         return result.data
       },
-      reload: () => github.fetchLayoutAndKeymap(gh.repository, gh.branch)
+      reload: () => github.fetchLayoutAndKeymap(gh.repository, gh.branch, ...(gh.keymapPath ? [{ keymapPath: gh.keymapPath, expectedMode: gh.ownershipMode }] : []))
     })
     if (ok) buildRefresh += 1
   }
@@ -225,9 +226,7 @@
             <KeyboardPicker
               openSource={openSourceRequest}
               onOpenSourceConsumed={() => (openSourceRequest = null)}
-              onSelect={event => {
-                void editor.selectKeyboard(event)
-              }}
+              onSelect={event => editor.selectKeyboard(event)}
               onLogout={() => editor.clearLoadedKeymap()}
             />
           </div>

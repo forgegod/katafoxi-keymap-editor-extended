@@ -54,6 +54,55 @@ This does not remove the original editor’s `keymap.json` workflow; it document
 - `keymap.json` remains the editor interchange format (aligned with upstream).
 - Product GitHub path, the Clipboard **Copy .keymap** path, and the dev-local bridge share this contract via core.
 
+## CHG-004 amendment — selected GitHub file ownership
+
+This amendment implements the operator-approved CHG-004 persistence policy;
+it does not change this ADR's original acceptance date or claim that the pending
+picker/recovery interactions have shipped. Local and Clipboard retain the above
+contract. Independent phase review remains required by CHG-004.
+
+- GitHub identity includes the exact repository, explicit branch and direct
+  `config/<filename>.keymap` path. Inventory comes from a complete recursive git
+  tree pinned to the resolved head. Only regular blobs are eligible; unsafe,
+  encoded, nested, symlink and template paths cannot become selections. A sole
+  candidate may default only without an explicit path. An absent explicit path
+  never falls back to another file.
+- The durable mode marker is `config/.keymap-editor.json`, with exactly
+  `{ "version": 1, "mode": "scoped" }`. Its absence must be proved from the
+  complete pinned tree. Exactly one candidate with no marker or scoped evidence
+  is legacy mode. Multiple candidates without prior scoped evidence initialize
+  scoped mode on their first successful write. A valid marker keeps scoped mode
+  after data deletion or candidate-count shrinkage. Invalid/unreadable markers,
+  incomplete trees, or marker absence conflicting with scoped artifacts or the
+  caller's previously established scoped mode refuse writes. Manual marker
+  removal is not reverse migration. The marker is never automatically deleted.
+- Legacy mode retains `config/keymap.json` as primary and as output, without
+  consent prompts, marker creation or path migration. Scoped mode uses only
+  `config/<full-keymap-filename>.json` (e.g. `config/a.keymap.json`). Shared JSON
+  remains unassigned and untouched. Missing/invalid scoped JSON falls back to
+  the selected DTS with an explicit status, never another file's JSON.
+- Creating/replacing missing/invalid scoped JSON when legacy JSON exists requires
+  explicit choice of validated legacy JSON or acceptance of the selected DTS.
+  Consent carries repository, branch, selected path, pinned head SHA and chosen
+  input (`legacy` or `dts`); changed identity/revision invalidates it. A load with
+  `jsonSource=legacy` exposes the validated adoption model; ordinary load exposes
+  DTS until owned JSON exists. Edits to that selected model remain ordinary
+  edits, not consent. Refused consent/validation mutates no git objects. Consent
+  chooses firmware input only, not firmware-only host publication.
+- Scoped templates match the exact selected path plus `.template`. Legacy mode
+  additionally permits a sole unmatched template, never a guess among several.
+  Without a template, splice the selected existing source; disappearance is an
+  error, not permission to create a replacement or use the default template.
+- Legacy geometry retains shared `config/info.json` priority. Scoped geometry
+  uses only the safe matching `<stem>.json`, excluding reserved `info.json` and
+  `keymap.json`, otherwise binding-count inference with a warning. Geometry and
+  templates are read-only. Existing owned sidecars must be regular blobs; unsafe
+  ownership/types and invalid supplied geometry refuse the entire write.
+- GitHub browser identity keys are versioned and include the exact selected
+  path; non-GitHub keys retain their semantics. Unscoped legacy rows stay intact
+  and unattached unless a separately confirmed, verified sole-file adoption is
+  performed. A filename or matching keyboard/layout is not ownership proof.
+
 ## Consequences
 
 ### Positive

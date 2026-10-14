@@ -1,5 +1,9 @@
 import {
   loadKeyboardBundle,
+  isRepositoryKeymapPath,
+  isOwnedHostSnapshotCompatible,
+  type RepositoryKeymapMode,
+  type RepositoryKeymapSelection,
   parseHostKeymapSnapshot,
   type HostKeymapSnapshot,
   type LayoutKey,
@@ -9,6 +13,10 @@ import * as config from '../config'
 import type { HostSnapshotLoadError } from '../editor/types.js'
 
 export interface KeyboardFilesResult {
+  keymapPath?: string
+  ownershipMode?: RepositoryKeymapMode
+  jsonSource?: 'owned' | 'legacy' | 'dts'
+  jsonChoiceRequired?: boolean
   layout: LayoutKey[]
   keymap: ParsedKeymap
   hostSnapshot: HostKeymapSnapshot | null
@@ -22,13 +30,17 @@ export const HOST_SNAPSHOT_UNSUPPORTED_WARNING = 'host_snapshot_unsupported_vers
 export const HOST_SNAPSHOT_INVALID_WARNING = 'host_snapshot_invalid'
 
 /** Accept a validated snapshot at the SPA boundary; keep parse errors for Commit. */
-function hostSnapshotFromResponse(raw: unknown): {
+function hostSnapshotFromResponse(raw: unknown, error?: unknown): {
   hostSnapshot: HostKeymapSnapshot | null
   hostSnapshotError?: HostSnapshotLoadError
   warnings: string[]
 } {
+  if (error === 'invalid' || error === 'unsupported_version' || error === 'incompatible') {
+    return { hostSnapshot: null, hostSnapshotError: error, warnings: [error === 'incompatible' ? 'host_snapshot_incompatible' : error === 'unsupported_version' ? HOST_SNAPSHOT_UNSUPPORTED_WARNING : HOST_SNAPSHOT_INVALID_WARNING] }
+  }
   const parsed = parseHostKeymapSnapshot(raw)
   if (parsed.ok) {
+    if (!isOwnedHostSnapshotCompatible(parsed.snapshot)) return { hostSnapshot: null, hostSnapshotError: 'incompatible', warnings: [HOST_SNAPSHOT_INVALID_WARNING] }
     return { hostSnapshot: parsed.snapshot, warnings: [] }
   }
   if (parsed.error === 'missing') {
@@ -285,16 +297,31 @@ export class API extends EventEmitter {
     return { name: created.name }
   }
 
+  async fetchKeymaps(repo: string, branch: string): Promise<{ candidates: Array<{ name: string; path: string }>; headSha: string }> {
+    const installation = encodeURIComponent(this.repoInstallationMap![repo])
+    const { data } = await this._request(`/github/keymaps/${installation}/${encodeURIComponent(repo)}?${new URLSearchParams({ branch })}`)
+    const inventory = data as { candidates?: Array<{ name: string; path: string }>; headSha?: string }
+    if (!Array.isArray(inventory?.candidates) || typeof inventory.headSha !== 'string' || inventory.candidates.some(entry => !isRepositoryKeymapPath(entry.path) || entry.path !== `config/${entry.name}`)) throw new Error('Invalid keymap inventory')
+    return { candidates: inventory.candidates, headSha: inventory.headSha }
+  }
+
   async fetchLayoutAndKeymap(
     repo: string,
-    branch?: string | null
+    branch?: string | null,
+    selection: RepositoryKeymapSelection = {}
   ): Promise<KeyboardFilesResult> {
     const installation = encodeURIComponent(this.repoInstallationMap![repo])
     const repository = encodeURIComponent(repo)
     let path = `/github/keyboard-files/${installation}/${repository}`
-    if (branch) {
-      path += `?${new URLSearchParams({ branch }).toString()}`
+    const query = new URLSearchParams()
+    if (branch) query.set('branch', branch)
+    if (selection.keymapPath !== undefined) {
+      if (!isRepositoryKeymapPath(selection.keymapPath)) throw new Error('Invalid selected keymap path')
+      query.set('keymapPath', selection.keymapPath)
     }
+    if (selection.expectedMode) query.set('expectedMode', selection.expectedMode)
+    if (selection.jsonSource) query.set('jsonSource', selection.jsonSource)
+    if (query.size) path += `?${query}`
 
     try {
       const { data } = (await this._request(path)) as {
@@ -302,10 +329,16 @@ export class API extends EventEmitter {
           info: { layouts: Record<string, { layout: LayoutKey[] }> } | null
           keymap: ParsedKeymap
           hostSnapshot?: unknown
+          hostSnapshotError?: unknown
+          keymapPath?: string
+          ownershipMode?: RepositoryKeymapMode
+          jsonSource?: 'owned' | 'legacy' | 'dts'
+          jsonChoiceRequired?: boolean
           headSha?: unknown
         }
       }
-      const loaded = hostSnapshotFromResponse(data.hostSnapshot ?? null)
+      if ((data.keymapPath !== undefined && !isRepositoryKeymapPath(data.keymapPath)) || (selection.keymapPath !== undefined && data.keymapPath !== selection.keymapPath)) throw new Error('Response does not match the selected keymap file')
+      const loaded = hostSnapshotFromResponse(data.hostSnapshot ?? null, data.hostSnapshotError)
       const headSha = typeof data.headSha === 'string' ? data.headSha : ''
       try {
         const bundle = loadKeyboardBundle({
@@ -317,6 +350,10 @@ export class API extends EventEmitter {
             'Missing file config/info.json and keymap has no bindings to infer a layout from'
         })
         return {
+          ...(data.keymapPath ? { keymapPath: data.keymapPath } : {}),
+          ...(data.ownershipMode ? { ownershipMode: data.ownershipMode } : {}),
+          ...(data.jsonSource ? { jsonSource: data.jsonSource } : {}),
+          ...(data.jsonChoiceRequired !== undefined ? { jsonChoiceRequired: data.jsonChoiceRequired } : {}),
           layout: bundle.layout,
           keymap: bundle.keymap,
           hostSnapshot: loaded.hostSnapshot,
@@ -384,7 +421,8 @@ export class API extends EventEmitter {
     keymap: unknown,
     hostSnapshot?: unknown,
     hostDeliverables?: unknown,
-    baseSha?: string | null
+    baseSha?: string | null,
+    selection: RepositoryKeymapSelection = {}
   ) {
     const installation = encodeURIComponent(this.repoInstallationMap![repo])
     const repository = encodeURIComponent(repo)
@@ -398,7 +436,8 @@ export class API extends EventEmitter {
         keymap,
         hostSnapshot: hostSnapshot ?? null,
         hostDeliverables: hostDeliverables ?? null,
-        baseSha: baseSha ?? null
+        baseSha: baseSha ?? null,
+        ...selection
       }
     })
   }

@@ -7,6 +7,8 @@ import { config } from '../config.js'
 import {
   KeymapValidationError,
   InfoValidationError,
+  isRepositoryKeymapPath,
+  type RepositoryKeymapSelection,
   parseHostKeymapSnapshot,
   parseKeymap,
   validateKeymapJson,
@@ -354,6 +356,44 @@ githubRoutes.get('/installation/:installationId/:repository/branches', async c =
   }
 })
 
+function selectedFileRequest(raw: Record<string, unknown>): RepositoryKeymapSelection[] {
+  const selected: RepositoryKeymapSelection = {}
+  if (raw.keymapPath !== undefined) {
+    if (!isRepositoryKeymapPath(raw.keymapPath)) throw new files.RepositorySelectionError('Invalid selected keymap path')
+    selected.keymapPath = raw.keymapPath
+  }
+  if (raw.expectedMode !== undefined) {
+    if (!['legacy', 'scoped', 'scoped-new'].includes(raw.expectedMode as string)) throw new files.RepositorySelectionError('Invalid ownership mode')
+    selected.expectedMode = raw.expectedMode as RepositoryKeymapSelection['expectedMode']
+  }
+  if (raw.jsonSource !== undefined) {
+    if (raw.jsonSource !== 'legacy' && raw.jsonSource !== 'dts') throw new files.RepositorySelectionError('Invalid JSON source')
+    selected.jsonSource = raw.jsonSource
+  }
+  if (raw.jsonChoice !== undefined) {
+    const choice = raw.jsonChoice as Record<string, unknown> | null
+    if (!choice || typeof choice !== 'object' || typeof choice.repository !== 'string' || typeof choice.branch !== 'string' || !isRepositoryKeymapPath(choice.keymapPath) || typeof choice.headSha !== 'string' || (choice.input !== 'legacy' && choice.input !== 'dts')) {
+      throw new files.RepositorySelectionError('Invalid per-file JSON choice')
+    }
+    selected.jsonChoice = choice as RepositoryKeymapSelection['jsonChoice']
+  }
+  return Object.keys(selected).length ? [selected] : []
+}
+
+githubRoutes.get('/keymaps/:installationId/:repository', async c => {
+  const { installationId, repository: rawRepository } = c.req.param()
+  try {
+    const repository = installations.assertRepositoryName(rawRepository)
+    const branch = c.req.query('branch') ? installations.assertBranchName(c.req.query('branch')!) : undefined
+    await assertInstallationAccess(c.get('session'), installationId, repository)
+    return c.json(await files.fetchKeymapInventory(installationId, repository, branch))
+  } catch (err) {
+    if (err instanceof InstallationAccessError) return c.body(null, 403)
+    if (err instanceof files.RepositorySelectionError || err instanceof files.MissingRepoFile || err instanceof installations.RepositoryNameError || err instanceof installations.BranchNameError) return c.json({ name: err.name, errors: err.errors }, 400)
+    return handleGithubError(c, err)
+  }
+})
+
 githubRoutes.get('/keyboard-files/:installationId/:repository', async c => {
   const { installationId, repository: rawRepository } = c.req.param()
   const rawBranch = c.req.query('branch')
@@ -368,10 +408,11 @@ githubRoutes.get('/keyboard-files/:installationId/:repository', async c => {
       installationId,
       repository
     )
-    const { info, keymap, hostSnapshot, headSha } = await files.fetchKeyboardFiles(
+    const { info, keymap, hostSnapshot, headSha, ...ownership } = await files.fetchKeyboardFiles(
       installationId,
       repository,
-      branch
+      branch,
+      ...selectedFileRequest(c.req.query())
     )
     if (info != null) validateInfoJson(info)
     // JSON caches are catalog-validated by fetchKeyboardFiles; its .keymap
@@ -381,7 +422,8 @@ githubRoutes.get('/keyboard-files/:installationId/:repository', async c => {
       info: info ?? null,
       keymap: parseKeymap(keymap as { layers: string[][] }),
       hostSnapshot: hostSnapshot ?? null,
-      headSha
+      headSha,
+      ...ownership
     })
   } catch (err) {
     if (err instanceof InstallationAccessError) {
@@ -393,6 +435,7 @@ githubRoutes.get('/keyboard-files/:installationId/:repository', async c => {
     ) {
       return c.json({ name: err.name, errors: err.errors }, 400)
     }
+    if (err instanceof files.RepositorySelectionError) return c.json({ name: err.name, errors: err.errors }, 400)
     if (err instanceof files.MissingRepoFile) {
       console.error(`Validation error in ${rawRepository} (${rawBranch}):`, err.name, err.errors)
       return c.json({ name: err.name, path: err.path, errors: err.errors }, 400)
@@ -476,6 +519,9 @@ githubRoutes.post('/keyboard-files/:installationId/:repository/:branch', async c
     hostSnapshot?: unknown
     hostDeliverables?: unknown
     baseSha?: unknown
+    keymapPath?: unknown
+    expectedMode?: unknown
+    jsonChoice?: unknown
   }
   try {
     body = await c.req.json()
@@ -492,6 +538,7 @@ githubRoutes.post('/keyboard-files/:installationId/:repository/:branch', async c
       { requirePush: true }
     )
     const { keymap, layout, hostSnapshot, hostDeliverables, baseSha } = body
+    const selection = selectedFileRequest(body)
     if (!Array.isArray(layout)) {
       return c.json({ errors: ['layout must be an array'] }, 400)
     }
@@ -510,7 +557,7 @@ githubRoutes.post('/keyboard-files/:installationId/:repository/:branch', async c
       }
       snapshot = parsed.snapshot
     }
-    const { mode, warnings } = await files.commitChanges(
+    const result = await files.commitChanges(
       installationId,
       repository,
       branch,
@@ -520,9 +567,10 @@ githubRoutes.post('/keyboard-files/:installationId/:repository/:branch', async c
       Array.isArray(hostDeliverables)
         ? (hostDeliverables as HostKeymapDeliverableFile[])
         : null,
-      typeof baseSha === 'string' ? baseSha : null
+      typeof baseSha === 'string' ? baseSha : null,
+      ...selection
     )
-    return c.json({ ok: true, mode, warnings })
+    return c.json({ ok: true, ...result })
   } catch (err) {
     if (err instanceof InstallationAccessError) {
       return c.body(null, 403)
@@ -533,7 +581,7 @@ githubRoutes.post('/keyboard-files/:installationId/:repository/:branch', async c
     ) {
       return c.json({ name: err.name, errors: err.errors }, 400)
     }
-    if (err instanceof KeymapValidationError) {
+    if (err instanceof files.RepositorySelectionError || err instanceof files.MissingRepoFile || err instanceof InfoValidationError || err instanceof KeymapValidationError) {
       return c.json({ name: err.name, errors: err.errors }, 400)
     }
     if (err instanceof files.StaleRepoBase) {

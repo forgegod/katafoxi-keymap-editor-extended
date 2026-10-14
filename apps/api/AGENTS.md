@@ -12,6 +12,8 @@ Hono routes, GitHub services, sessions, and optional local adapter.
 
 OAuth credentials remain server-side; browser receives HttpOnly sid. Preserve state verification, origin checks, repository permissions, bounded requests, and stale-commit rejection. Local I/O is development-only, never a general file server.
 
+Selected GitHub files require exact regular-blob membership in a complete pinned tree. Use core's paths and ADR 0002's durable ownership marker; unknown mode refuses writes. Never fall back from a vanished selection. Recheck remote host ownership/schema at the write base and omit every host output for invalid, unsupported or incompatible snapshots; return omission in the receipt. A listed but unreadable blob is not a missing-file initialization opportunity.
+
 ## Work Guidance
 
 Share file contracts through keymap-core. Never log credentials or overwrite unrelated repository files. Mock GitHub in tests; do not test against user repositories.

@@ -1,4 +1,4 @@
-import { diffKeymaps } from '@keymap-editor/keymap-core'
+import { buildHostKeymapSnapshot, diffKeymaps, encodeHostKeymapSnapshot, standardHostLegendView } from '@keymap-editor/keymap-core'
 import {
   readClipboardOriginalSource,
   writeClipboardOriginalSource
@@ -8,13 +8,18 @@ import {
   deleteStoredDraft,
   draftIdentityKey,
   saveStoredDraft,
-  type DraftIdentity
+  loadStoredDraft,
+  type DraftIdentity,
+  type StoredDraft
 } from '../draft-storage'
 import {
   hostAssembliesSettingId,
   hostLegendSettingId,
   saveHostAssemblies,
-  saveHostLegendView
+  saveHostLegendView,
+  loadGithubHostCache,
+  saveGithubHostCache,
+  type GithubHostCache
 } from '../host-layout-store'
 import { formatKeymapSaveWarningNotices } from '../keymap-save-warnings.js'
 import { adoptHoldTaps, adoptSensorBindings, cloneLayout, cloneParsedKeymap } from './keymap-clone'
@@ -36,11 +41,22 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
     source: event.source,
     repo: githubMeta?.repository,
     branch: githubMeta?.branch,
+    keymapPath: githubMeta?.keymapPath,
     keyboard: event.keymap?.keyboard ?? null
   })
   const upcomingKey = upcomingIdentity
     ? draftIdentityKey(upcomingIdentity)
     : null
+
+  const currentIdentity = this.currentDraftIdentity()
+  const sameGithubIdentity = event.source === 'github' && this.source === 'github' && currentIdentity != null && upcomingKey === draftIdentityKey(currentIdentity)
+  if (sameGithubIdentity && (this.isDirty || this.hasLocalHostRecovery || this.hasPendingFirmwareRecovery)) {
+    if (event.github.headSha !== this.githubMeta?.headSha) {
+      this.saveNotice = { kind: 'warning', messages: ['Remote revision changed. Your unpublished firmware and host work and original publish base were retained.'] }
+    }
+    this.schedulePersist()
+    return
+  }
 
   if (
     event.source === 'github' &&
@@ -63,10 +79,27 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
     this.isDirty &&
     sameBaseline
 
+  // Read destination recovery before changing the active identity. A storage
+  // error is not evidence that the destination is clean.
+  let preparedHost: { cached: GithubHostCache | null } | undefined
+  let preparedDraft: { stored: StoredDraft | null } | undefined
+  if (event.source === 'github' && upcomingIdentity?.keymapPath && !alreadyHandled) {
+    try {
+      await this._hostCacheWrites
+      await this._draftWrites
+      preparedHost = { cached: await loadGithubHostCache(upcomingKey!) }
+      preparedDraft = { stored: await loadStoredDraft(upcomingIdentity) }
+    } catch {
+      if (selectToken === this._selectGeneration) this.saveNotice = { kind: 'error', messages: ['Could not read destination recovery. The current selection was retained.'] }
+      return
+    }
+    if (selectToken !== this._selectGeneration) return
+  }
+
+  this.hasPendingFirmwareRecovery = false
   this.source = event.source
   this.githubMeta = githubMeta ?? null
-  this._omitHostKeymapSnapshotOnCommit =
-    event.source === 'github' && event.hostSnapshotError === 'unsupported_version'
+  this.noteHostSnapshotLoad(event.source === 'github' ? event.hostSnapshotError : null)
   if (event.source !== 'github') {
     this._hostRepoBaselineEncoded = null
   }
@@ -119,10 +152,14 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
     }
   }
 
-  if (!alreadyHandled) {
+  if (!alreadyHandled && !(sameGithubIdentity && event.source === 'github' && event.hostSnapshotError)) {
+    const restoredGithubCache = event.source === 'github' && await this._loadGithubHostCache(event, selectToken, preparedHost)
+    if (selectToken !== this._selectGeneration) return
     const hostSnapshot =
       event.source === 'github' ? event.hostSnapshot : undefined
-    if (hostSnapshot) {
+    if (restoredGithubCache) {
+      // The identity-scoped cache already applied the origin and working state.
+    } else if (hostSnapshot) {
       await this._applyHostKeymapSnapshot(hostSnapshot, selectToken)
     } else {
       if (event.source === 'github') this._hostRepoBaselineEncoded = null
@@ -139,7 +176,7 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
     await this._maybeAddPreferredDemoLanguage(selectToken)
     if (selectToken !== this._selectGeneration) return
   }
-  await this._maybeRestorePersistedDraft(selectToken)
+  await this._maybeRestorePersistedDraft(selectToken, preparedDraft)
 }
 
 /**
@@ -156,6 +193,13 @@ export async function _preserveGithubSession(this: EditorState,
   const km = event.keymap
   if (!github || !km || !this.draftKeymap || !this.baselineKeymap) return false
   if (this.source !== 'github') return false
+  if (this.githubMeta?.keymapPath && github.keymapPath === this.githubMeta.keymapPath && upcomingIdentity && upcomingKey) {
+    return preserveSelectedGithubSession.call(this, event, upcomingIdentity, upcomingKey, selectToken)
+  }
+  if ((this.githubMeta?.keymapPath || github.keymapPath) && this.githubMeta?.keymapPath !== github.keymapPath) {
+    this.saveNotice = { kind: 'error', messages: ['Cannot carry drafts into a different keymap file.'] }
+    return true
+  }
   if (
     this.githubMeta &&
     this.githubMeta.repository !== github.repository
@@ -190,7 +234,75 @@ export async function _preserveGithubSession(this: EditorState,
   return true
 }
 
-/** Move draft + Host legend/assemblies IDB rows to the new identity key. */
+/** Selected-file branch carry copies and verifies; it never retires the source. */
+async function preserveSelectedGithubSession(this: EditorState, event: GithubKeyboardSelection, next: DraftIdentity, nextKey: string, token: number): Promise<boolean> {
+  const previous = this.currentDraftIdentity()!
+  const fail = (message: string) => {
+    if (token === this._selectGeneration) this.saveNotice = { kind: 'error', messages: [message] }
+    return true
+  }
+  if (event.github.repository !== this.githubMeta?.repository || !event.keymap || !this.baselineKeymap || !this.draftKeymap || !event.layout || !event.github.headSha || this.hasPendingFirmwareRecovery || diffKeymaps(event.keymap, this.baselineKeymap).length || JSON.stringify(event.layout) !== JSON.stringify(this.baselineLayout)) return fail('Cannot carry drafts: the selected file or copied baseline differs.')
+  if (this._omitHostKeymapSnapshotOnCommit && this.hasLocalHostRecovery) return fail('Browser-local host recovery must be resolved before carrying firmware to another branch.')
+  const carryHost = !this._omitHostKeymapSnapshotOnCommit
+  if (carryHost && (event.hostSnapshotError || (this._hostRepoBaselineEncoded !== null && (!event.hostSnapshot || encodeHostKeymapSnapshot(event.hostSnapshot) !== this._hostRepoBaselineEncoded)))) return fail('Cannot carry host work: the copied host baseline differs.')
+  const draft = cloneParsedKeymap(this.draftKeymap)
+  const layer = this._storedLayerOperation()
+  const host = this._encodeLiveHostSnapshot()
+  const originalBase = { headSha: this.githubMeta!.headSha!, keymap: cloneParsedKeymap(this.baselineKeymap), layout: cloneLayout(this.baselineLayout)! }
+  const current = () => token === this._selectGeneration &&
+    this.draftKeymap !== null && diffKeymaps(this.draftKeymap, draft).length === 0 &&
+    JSON.stringify(this._storedLayerOperation()) === JSON.stringify(layer) &&
+    this._encodeLiveHostSnapshot() === host
+  let destinationHost: GithubHostCache | null
+  let copiedDraft: StoredDraft | null = null
+  try {
+    await this._hostCacheWrites
+    await this._draftWrites
+    if (!current()) return fail('Work changed while preparing branch carry; retry with the current revision.')
+    destinationHost = await loadGithubHostCache(nextKey)
+    const standard = encodeHostKeymapSnapshot(buildHostKeymapSnapshot(standardHostLegendView(), []))
+    if (destinationHost && (carryHost || destinationHost.workingEncoded !== (destinationHost.baselineEncoded ?? standard))) throw new Error('Destination already has host recovery; load it separately')
+    const destination = await loadStoredDraft(next)
+    if (destination) throw new Error('Destination already has firmware recovery')
+    if (!current()) return fail('Work changed while preparing branch carry; retry with the current revision.')
+    if (this.isDirty) {
+      const previousRow = await loadStoredDraft(previous)
+      if (!previousRow || diffKeymaps(previousRow.draftKeymap, draft).length || JSON.stringify(previousRow.layerOperation) !== JSON.stringify(layer)) {
+        // Never replace a different stored revision on behalf of branch carry.
+        if (previousRow) throw new Error('Original firmware recovery differs; retain it before carrying')
+        await saveStoredDraft(previous, draft, layer, originalBase, { expected: null, isCurrent: current })
+      }
+      const retained = await loadStoredDraft(previous)
+      if (!retained || diffKeymaps(retained.draftKeymap, draft).length || JSON.stringify(retained.layerOperation) !== JSON.stringify(layer)) throw new Error('Original draft could not be verified')
+      await saveStoredDraft(next, draft, layer, { headSha: event.github.headSha, keymap: cloneParsedKeymap(event.keymap), layout: cloneLayout(event.layout)! }, { expected: null, isCurrent: current })
+      const copied = await loadStoredDraft(next)
+      if (!copied || diffKeymaps(copied.draftKeymap, draft).length || JSON.stringify(copied.layerOperation) !== JSON.stringify(layer)) throw new Error('Destination draft could not be verified')
+      copiedDraft = copied
+    }
+    if (!current()) return fail('Work changed while preparing branch carry; retry with the current revision.')
+    const remoteOrigin = event.hostSnapshot ? encodeHostKeymapSnapshot(event.hostSnapshot) : null
+    const copiedHost = carryHost
+      ? { baselineEncoded: this._hostRepoBaselineEncoded, baselineSha: this._hostRepoBaselineEncoded ? event.github.headSha : null, workingEncoded: host, headSha: event.github.headSha }
+      : { baselineEncoded: destinationHost?.baselineEncoded ?? remoteOrigin, baselineSha: destinationHost?.baselineSha ?? (remoteOrigin ? event.github.headSha : null), workingEncoded: destinationHost?.workingEncoded ?? remoteOrigin ?? standard, headSha: event.github.headSha }
+    const revision = await saveGithubHostCache(nextKey, copiedHost, destinationHost?.revision ?? 0, current)
+    destinationHost = await loadGithubHostCache(nextKey)
+    if (!destinationHost || JSON.stringify(destinationHost) !== JSON.stringify({ id: `github-host:${nextKey}`, ...copiedHost, revision })) throw new Error('Destination host recovery could not be verified')
+    if (!current()) return fail('Work changed while preparing branch carry; retry with the current revision.')
+  } catch (error) { return fail(error instanceof Error ? error.message : 'Could not retain branch recovery') }
+  this.githubMeta = event.github
+  this.baselineKeymap = cloneParsedKeymap(event.keymap)
+  this.layout = cloneLayout(event.layout)
+  this.baselineLayout = cloneLayout(event.layout)
+  this._handledDraftIdentityKey = nextKey
+  this._githubDraftRows.set(nextKey, copiedDraft)
+  await this._loadGithubHostCache(event, token, { cached: destinationHost })
+  if (token !== this._selectGeneration) return true
+  this.saveNotice = null
+  this.schedulePersist()
+  return true
+}
+
+/** Legacy unselected sessions retain their existing branch migration contract. */
 export async function _migrateSessionIdentity(this: EditorState, 
   previous: DraftIdentity | null,
   next: DraftIdentity | null

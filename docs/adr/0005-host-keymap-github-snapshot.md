@@ -105,6 +105,59 @@ must not be hand-edited as the round-trip path.
 Remembered assembly chips stay IndexedDB-only in this ADR. The snapshot covers
 the live legend view and the layout tables it points at.
 
+## CHG-004 amendment — owned snapshots and safe omission
+
+This amendment records the operator-approved persistence/recovery boundary for
+CHG-004; the original acceptance date remains unchanged. API enforcement and
+identity plumbing precede the separately reviewed picker and destructive recovery
+UI. The following rules supersede shared-path/invalid-load defaults above for
+selected GitHub files, not for Demo, Clipboard or Local.
+
+- Ownership mode follows ADR 0002. Legacy mode retains `host_keymap/`. Scoped
+  mode owns only `host_keymap/keymaps/<full-keymap-filename>/`, containing
+  `snapshot.json`, `linux/<lang>.xkb`, `windows/<lang>.klc` and
+  `windows/en-<lang>.klc`. Legacy and other files' roots remain untouched; no
+  cleanup deletes orphan deliverables. The snapshot schema remains version 1.
+- Reads distinguish missing, compatible, invalid, unsupported version and
+  ownership/reference incompatibility. An existing empty/corrupt snapshot is
+  invalid, not missing. Transport/access failure is a failed load. References
+  must resolve from snapshot-owned user tables or the core system registry.
+  Without an owned snapshot, an existing legacy snapshot in scoped mode is
+  incompatible, not absent; its contents cannot seed the selected file.
+- At the pinned write base the server independently rechecks ownership and the
+  remote snapshot. Invalid, unsupported or incompatible remote state omits ALL
+  snapshot and install-file writes, even when the caller supplies replacements.
+  Firmware may still commit after its own ownership/consent checks. Omission is
+  returned explicitly and cannot be interpreted as host publication. A missing
+  owned snapshot with no ambiguous legacy snapshot may be initialized normally.
+- Compatible owned host work remains co-committed with firmware, including after
+  a valid per-file firmware JSON choice. Host deliverable input uses the core
+  legacy-shaped logical paths, which the server validates without normalization
+  and maps beneath the selected root. No caller-selected root is authoritative.
+- GitHub same-identity Reload/reopen preserves unpublished firmware and host
+  recovery, with original publish provenance if the remote base changed. A
+  firmware-only receipt accepts only sent firmware, never local host recovery.
+  Publishable host dirtiness and browser-local host recovery are distinct.
+- Retain a last verified compatible host baseline (view/tables/identity/SHA)
+  separately from mutable recovery. A clean compatible-to-invalid/unsupported
+  load retains that origin without manufacturing dirty work. Only absence of a
+  verified baseline permits standard English fallback; a completed explicit reset
+  takes precedence over historical baselines. Identity-owned host tables must
+  not overwrite other identities or global profiles.
+- Pending phase-3 interaction: omitted writes keep host edits usable but
+  explicitly browser-local and unpublishable. Same-keymap Reload is not discard.
+  Confirmed `Discard local host edits` atomically resets only the named identity's
+  host working/recovery records to standard English, preserving firmware and
+  remote files. Cancellation/failure preserves recovery. This action is required
+  before transitions only when omitted writes coexist with local host work, not
+  for clean sessions or after compatible publication. Firmware protection is
+  independent. Full transaction/transition oracles remain in active CHG-004.
+- A deliberate Create-branch carry validates the same selected file and copied
+  baseline. Under omission with no host work it carries firmware only, not source
+  host recovery or historical host origin. Ordinary branch selection never
+  migrates drafts. GitHub keep-on-decline recovery does not change non-GitHub
+  decline-discards-firmware behavior.
+
 ## Consequences
 
 ### Positive

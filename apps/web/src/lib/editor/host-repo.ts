@@ -5,6 +5,8 @@ import {
   hostLayout,
   hostLayoutFromKeymapSnapshotKeys,
   hostLayoutMeta,
+  parseHostKeymapSnapshot,
+  standardHostLegendView,
   type HostKeymapDeliverableFile,
   type HostKeymapSnapshot,
   type HostLayout
@@ -14,12 +16,17 @@ import {
   deleteUserHostLayout,
   sanitizeHostLegendView,
   saveUserHostLayout,
+  loadGithubHostCache,
+  saveGithubHostCache,
   UNKNOWN_HOST_LAYOUT_NOTE,
+  type GithubHostCache,
   type HostLanguageId,
   type UserHostLayoutRecord
 } from '../host-layout-store'
 import { KEYMAP_SAVE_WARNING_MESSAGES } from '../keymap-save-warnings.js'
 import type { EditorState } from './state.svelte'
+import { draftIdentityKey } from '../draft-storage'
+import type { GithubKeyboardSelection } from './types'
 
 function liveHostLayouts(state: EditorState) {
   return state.userLayouts.flatMap(meta => {
@@ -45,13 +52,17 @@ export function noteHostSnapshotLoad(
   this: EditorState,
   error: HostSnapshotLoadError | null | undefined
 ) {
-  this._omitHostKeymapSnapshotOnCommit = error === 'unsupported_version'
+  this._omitHostKeymapSnapshotOnCommit = !!error
+  this._hostSnapshotLoadError = error ?? null
 }
 
-/** Re-show the unsupported-version notice after a ZMK-only Commit. */
+/** Re-show the actual omission reason after a firmware-only Commit. */
 export function retainHostSnapshotOmitWarning(this: EditorState) {
   if (!this._omitHostKeymapSnapshotOnCommit) return
-  const message = KEYMAP_SAVE_WARNING_MESSAGES.host_snapshot_unsupported_version
+  const code = this._hostSnapshotLoadError === 'unsupported_version'
+    ? 'host_snapshot_unsupported_version'
+    : this._hostSnapshotLoadError === 'invalid' ? 'host_snapshot_invalid' : 'host_snapshot_incompatible'
+  const message = `${KEYMAP_SAVE_WARNING_MESSAGES[code]} Host edits are browser-local and unpublishable to GitHub; Commit cannot save them.`
   const prev = this.saveNotice
   if (prev?.kind === 'error') return
   const messages = prev?.messages.includes(message)
@@ -68,7 +79,7 @@ export function buildCurrentHostKeymapSnapshot(this: EditorState): HostKeymapSna
   void this.hostLayoutRevision
   void this.hostLegend
   if (this._omitHostKeymapSnapshotOnCommit) return null
-  return buildHostKeymapSnapshot(this.hostLegend, liveHostLayouts(this))
+  return JSON.parse(this._encodeLiveHostSnapshot()) as HostKeymapSnapshot
 }
 
 /**
@@ -109,9 +120,14 @@ export function buildCurrentHostKeymapDeliverables(this: EditorState): HostKeyma
 export function _encodeLiveHostSnapshot(this: EditorState): string {
   void this.hostLayoutRevision
   void this.hostLegend
-  return encodeHostKeymapSnapshot(
-    buildHostKeymapSnapshot(this.hostLegend, liveHostLayouts(this))
-  )
+  const snapshot = buildHostKeymapSnapshot(this.hostLegend, liveHostLayouts(this))
+  return encodeHostKeymapSnapshot(remapSnapshot(snapshot, id => this._githubHostLayoutWireIds.get(id) ?? id))
+}
+
+function remapSnapshot(snapshot: HostKeymapSnapshot, mapId: (id: string) => string): HostKeymapSnapshot {
+  return { ...snapshot,
+    view: { ...snapshot.view, columns: snapshot.view.columns.map(column => ({ ...column, layoutId: mapId(column.layoutId) })) },
+    layouts: snapshot.layouts.map(layout => ({ ...layout, id: mapId(layout.id), origin: layout.origin.from === 'copy' ? { ...layout.origin, layoutId: mapId(layout.origin.layoutId) } : layout.origin })) }
 }
 
 /**
@@ -122,6 +138,64 @@ export function acceptHostRepoBaseline(this: EditorState, encoded?: string) {
   if (this._omitHostKeymapSnapshotOnCommit) return
   this._hostRepoBaselineEncoded =
     encoded !== undefined ? encoded : this._encodeLiveHostSnapshot()
+  this._hostRepoBaselineSha = this.githubMeta?.headSha ?? null
+  void this._persistGithubHostCache()
+}
+
+/** Capture before queueing: a later source switch cannot redirect this write. */
+export function _persistGithubHostCache(this: EditorState): Promise<void> {
+  const identity = this.currentDraftIdentity()
+  if (this.source !== 'github' || !identity?.keymapPath || this._loadingGithubHost === this._selectGeneration) return Promise.resolve()
+  const key = draftIdentityKey(identity)
+  const cache = { baselineEncoded: this._hostRepoBaselineEncoded, baselineSha: this._hostRepoBaselineSha, workingEncoded: this._encodeLiveHostSnapshot(), headSha: this.githubMeta?.headSha ?? '' }
+  const generation = this._selectGeneration
+  const write = this._hostCacheWrites.then(async () => {
+    const revision = await saveGithubHostCache(key, cache, this._hostCacheRevisions.get(key) ?? 0)
+    this._hostCacheRevisions.set(key, revision)
+  })
+  this._hostCacheWrites = write.catch(() => {
+    if (generation === this._selectGeneration) this._noteHostLayoutSaveFailed()
+  })
+  return this._hostCacheWrites
+}
+
+export async function _loadGithubHostCache(this: EditorState, event: GithubKeyboardSelection, selectToken: number, prepared?: { cached: GithubHostCache | null }) {
+  const identity = this.currentDraftIdentity()
+  if (!identity?.keymapPath) return false
+  await this._hostCacheWrites
+  const key = draftIdentityKey(identity)
+  const cached = prepared ? prepared.cached : await loadGithubHostCache(key)
+  if (selectToken !== this._selectGeneration) return true
+  this._hostCacheRevisions.set(key, cached?.revision ?? 0)
+  const standard = encodeHostKeymapSnapshot(buildHostKeymapSnapshot(standardHostLegendView(), []))
+  const pending = cached && cached.workingEncoded !== (cached.baselineEncoded ?? standard)
+  this._loadingGithubHost = selectToken
+  try {
+    if (cached && (pending || !event.hostSnapshot)) {
+      const parsed = parseHostKeymapSnapshot(cached.workingEncoded)
+      if (!parsed.ok) throw new Error('Invalid host recovery')
+      await this._applyHostKeymapSnapshot(parsed.snapshot, selectToken)
+      if (selectToken !== this._selectGeneration) return true
+      this._hostRepoBaselineEncoded = cached.baselineEncoded
+      this._hostRepoBaselineSha = cached.baselineSha
+      if (pending && this.githubMeta) this.githubMeta = { ...this.githubMeta, headSha: cached.headSha }
+    } else if (event.hostSnapshot) {
+      await this._applyHostKeymapSnapshot(event.hostSnapshot, selectToken)
+      if (selectToken !== this._selectGeneration) return true
+      this._hostRepoBaselineSha = event.github.headSha ?? null
+    } else {
+      this._hostRepoBaselineEncoded = null
+      this._hostRepoBaselineSha = null
+      this.hostLegend = standardHostLegendView()
+      await this._restoreHostAssemblies(selectToken)
+    }
+    if (selectToken !== this._selectGeneration) return true
+    this.noteHostSnapshotLoad(event.hostSnapshotError)
+  } finally {
+    if (this._loadingGithubHost === selectToken) this._loadingGithubHost = null
+  }
+  if (selectToken === this._selectGeneration) await this._persistGithubHostCache()
+  return true
 }
 
 /**
@@ -136,6 +210,14 @@ export async function _applyHostKeymapSnapshot(this: EditorState,
 ): Promise<void> {
   if (selectToken !== this._selectGeneration) return
   this._omitHostKeymapSnapshotOnCommit = false
+  this._githubHostLayoutWireIds = new Map()
+  const identity = this.currentDraftIdentity()
+  if (identity?.keymapPath && this.source === 'github') {
+    const key = draftIdentityKey(identity)
+    const localIds = new Map(snapshot.layouts.map(layout => [layout.id, `user:github:${encodeURIComponent(JSON.stringify([key, layout.id]))}`]))
+    this._githubHostLayoutWireIds = new Map([...localIds].map(([wire, local]) => [local, wire]))
+    snapshot = remapSnapshot(snapshot, id => localIds.get(id) ?? id)
+  }
   const records: UserHostLayoutRecord[] = snapshot.layouts.map(item => ({
     id: item.id,
     name: item.name,

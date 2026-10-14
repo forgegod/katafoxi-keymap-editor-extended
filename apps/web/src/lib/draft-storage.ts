@@ -3,7 +3,7 @@
  * Separate from GitHub picker localStorage and auth cookies.
  */
 
-import type { ParsedKeymap } from '@keymap-editor/keymap-core'
+import { isRepositoryKeymapPath, type ParsedKeymap, type LayoutKey } from '@keymap-editor/keymap-core'
 import type { StoredLayerOperationState } from './editor/layer-operation-state'
 
 import { idbRequest, openDb, txDone } from './idb'
@@ -20,6 +20,7 @@ export type DraftIdentity = {
   repo?: string
   branch?: string
   keyboard?: string
+  keymapPath?: string
 }
 
 export type StoredDraft = DraftIdentity & {
@@ -28,6 +29,13 @@ export type StoredDraft = DraftIdentity & {
   draftKeymap: ParsedKeymap
   layerOperation?: StoredLayerOperationState
   updatedAt: number
+  githubBaseline?: { headSha: string; keymap: ParsedKeymap; layout: LayoutKey[] }
+}
+
+export type DraftWriteGuard = {
+  expected: StoredDraft | null
+  isCurrent: () => boolean
+  accepted?: (record: StoredDraft | null) => void
 }
 
 export type DraftIdentityInput = {
@@ -35,10 +43,14 @@ export type DraftIdentityInput = {
   repo?: string | null
   branch?: string | null
   keyboard?: string | null
+  keymapPath?: string | null
 }
 
 /** Strict identity string; all fields that exist must match for restore. */
 export function draftIdentityKey(identity: DraftIdentity): string {
+  if (identity.source === 'github' && identity.schemaVersion === 2) {
+    return ['2', 'github', identity.repo ?? '', identity.branch ?? '', identity.keymapPath ?? ''].join('\0')
+  }
   return [
     String(identity.schemaVersion),
     identity.source,
@@ -52,13 +64,15 @@ export function buildDraftIdentity(
   input: DraftIdentityInput
 ): DraftIdentity | null {
   if (!input.source) return null
+  if (input.source === 'github' && input.keymapPath != null && !isRepositoryKeymapPath(input.keymapPath)) return null
   const identity: DraftIdentity = {
-    schemaVersion: DRAFT_SCHEMA_VERSION,
+    schemaVersion: input.source === 'github' && input.keymapPath ? 2 : DRAFT_SCHEMA_VERSION,
     source: input.source
   }
   if (input.repo) identity.repo = input.repo
   if (input.branch) identity.branch = input.branch
   if (input.keyboard) identity.keyboard = input.keyboard
+  if (input.source === 'github' && input.keymapPath) identity.keymapPath = input.keymapPath
   return identity
 }
 
@@ -102,13 +116,16 @@ export async function loadStoredDraft(
 export async function saveStoredDraft(
   identity: DraftIdentity,
   draftKeymap: ParsedKeymap,
-  layerOperation?: StoredLayerOperationState
+  layerOperation?: StoredLayerOperationState,
+  githubBaseline?: StoredDraft['githubBaseline'],
+  guard?: DraftWriteGuard
 ): Promise<void> {
   const record: StoredDraft = {
     ...identity,
     id: draftIdentityKey(identity),
     draftKeymap,
     ...(layerOperation ? { layerOperation } : {}),
+    ...(githubBaseline ? { githubBaseline } : {}),
     updatedAt: Date.now()
   }
 
@@ -116,22 +133,39 @@ export async function saveStoredDraft(
   try {
     const tx = db.transaction(STORE_NAME, 'readwrite')
     const store = tx.objectStore(STORE_NAME)
+    if (guard) {
+      const previous = await idbRequest<StoredDraft | undefined>(store.get(record.id))
+      if (!guard.isCurrent() || JSON.stringify(previous ?? null) !== JSON.stringify(guard.expected)) {
+        await txDone(tx)
+        throw new Error('Firmware recovery changed in another session')
+      }
+    }
     await idbRequest(store.put(record))
     await txDone(tx)
+    guard?.accepted?.(record)
   } finally {
     db.close()
   }
 }
 
 export async function deleteStoredDraft(
-  identity: DraftIdentity
+  identity: DraftIdentity,
+  guard?: DraftWriteGuard
 ): Promise<void> {
   const db = await openDraftDb()
   try {
     const tx = db.transaction(STORE_NAME, 'readwrite')
     const store = tx.objectStore(STORE_NAME)
+    if (guard) {
+      const previous = await idbRequest<StoredDraft | undefined>(store.get(draftIdentityKey(identity)))
+      if (!guard.isCurrent() || JSON.stringify(previous ?? null) !== JSON.stringify(guard.expected)) {
+        await txDone(tx)
+        throw new Error('Firmware recovery changed in another session')
+      }
+    }
     await idbRequest(store.delete(draftIdentityKey(identity)))
     await txDone(tx)
+    guard?.accepted?.(null)
   } finally {
     db.close()
   }

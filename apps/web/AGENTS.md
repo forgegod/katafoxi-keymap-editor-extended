@@ -18,6 +18,8 @@ KeyEditor previews use the session's full encoded draft once a behavior selectio
 
 ## Work Guidance
 
+GitHub draft/cache identity includes repository, branch and exact keymap path, not keyboard metadata. Keep unscoped legacy rows unattached; adoption UI is not implemented. Preserve original firmware provenance and separate immutable host origin from working recovery. Selected firmware writes/deletes and host-cache writes require transaction-time conflict checks. Read destination recovery before replacing live identity; branch carry copies/verifies without retiring source recovery. Omitted host publication cannot clear local host work. Picker selection, destructive host reset and full transition integration remain owned by CHG-004 Phase 3.
+
 Follow root keycapFace and CSS-sidecar rules. Pair material interaction changes with CAP tests and canonical wireframes.
 
 Layer-view tests distinguish stored preferences from effective rendered layers. `layerView.shown` may include unavailable layers; check current-layer bounds through core `effectiveShownLayers`, and preserve marks and `layer0Raw` across discard/undo/redo.

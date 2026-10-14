@@ -17,6 +17,7 @@ import {
   reservedHostProfileNames,
   standardHostLegendView,
   cloneHostLegendView,
+  parseHostKeymapSnapshot,
   type HostKeyLevels,
   type HostLanguageId,
   type HostLayout,
@@ -554,6 +555,46 @@ export async function saveHostAssemblies(
   } finally {
     db.close()
   }
+}
+
+/** Immutable verified origin and mutable working snapshot are distinct fields. */
+export type GithubHostCache = {
+  revision: number
+  baselineEncoded: string | null
+  baselineSha: string | null
+  workingEncoded: string
+  headSha: string
+}
+
+export async function loadGithubHostCache(identityKey: string): Promise<GithubHostCache | null> {
+  const db = await openHostDb()
+  try {
+    const tx = db.transaction(SETTINGS_STORE, 'readonly')
+    const row = await idbRequest<GithubHostCache | undefined>(tx.objectStore(SETTINGS_STORE).get(`github-host:${identityKey}`))
+    await txDone(tx)
+    if (!row) return null
+    if (!Number.isInteger(row.revision) || row.revision < 1 || typeof row.headSha !== 'string' || !parseHostKeymapSnapshot(row.workingEncoded).ok || (row.baselineEncoded !== null && (!parseHostKeymapSnapshot(row.baselineEncoded).ok || typeof row.baselineSha !== 'string'))) throw new Error('Invalid GitHub host recovery cache')
+    return row
+  } finally { db.close() }
+}
+
+/** Transaction-time compare protects another tab's recovery from stale writes. */
+export async function saveGithubHostCache(identityKey: string, cache: Omit<GithubHostCache, 'revision'>, expectedRevision: number, isCurrent: () => boolean = () => true): Promise<number> {
+  const db = await openHostDb()
+  try {
+    const tx = db.transaction(SETTINGS_STORE, 'readwrite')
+    const store = tx.objectStore(SETTINGS_STORE)
+    const id = `github-host:${identityKey}`
+    const previous = await idbRequest<GithubHostCache | undefined>(store.get(id))
+    if (!isCurrent() || (previous?.revision ?? 0) !== expectedRevision) {
+      await txDone(tx)
+      throw new Error('GitHub host recovery changed in another session')
+    }
+    const revision = expectedRevision + 1
+    await idbRequest(store.put({ id, ...cache, revision }))
+    await txDone(tx)
+    return revision
+  } finally { db.close() }
 }
 
 export async function clearHostLayoutStore(): Promise<void> {

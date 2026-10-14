@@ -5,10 +5,10 @@ This is the entry point to durable cross-cutting choices, not a second live arch
 | Decision | Authoritative record |
 | --- | --- |
 | GitHub-first persistence; Local is a development adapter | [ADR 0001](adr/0001-persistence-github-first.md) |
-| Shared file contract, source preservation, JSON priority and alias expansion | [ADR 0002](adr/0002-keymap-file-contract.md) |
+| Shared file contract, source preservation, JSON priority and alias expansion; CHG-004 selected-file ownership amendment | [ADR 0002](adr/0002-keymap-file-contract.md) |
 | Server-held GitHub OAuth credentials and opaque browser session | [ADR 0003](adr/0003-github-auth-server-session.md) |
 | Alt+click host editing and separate OS deliverables | [ADR 0004](adr/0004-host-edit-and-os-deliverables.md) |
-| Host snapshot/deliverables co-committed with firmware | [ADR 0005](adr/0005-host-keymap-github-snapshot.md) |
+| Compatible owned host snapshot/deliverables co-committed with firmware; CHG-004 omission/recovery amendment | [ADR 0005](adr/0005-host-keymap-github-snapshot.md) |
 
 ## Record authority
 

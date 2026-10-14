@@ -103,6 +103,35 @@ describe('API', () => {
     expect(onValidation).toHaveBeenCalledWith(body)
   })
 
+  it('carries exact selected path and server classification through load and commit', async () => {
+    const api = new API()
+    api.repoInstallationMap = { 'acme/lark': '42' }
+    const selection = { keymapPath: 'config/B board.keymap', expectedMode: 'scoped' as const }
+    fetchMock.mockResolvedValue(jsonResponse(200, { info: null, keymap: { layers: [['&kp B']] }, hostSnapshot: null, hostSnapshotError: 'incompatible', headSha: 's', ...selection, ownershipMode: 'scoped', jsonSource: 'dts', jsonChoiceRequired: true }))
+    const loaded = await api.fetchLayoutAndKeymap('acme/lark', 'main', selection)
+    expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get('keymapPath')).toBe(selection.keymapPath)
+    expect(loaded).toMatchObject({ keymapPath: selection.keymapPath, hostSnapshotError: 'incompatible', ownershipMode: 'scoped', jsonChoiceRequired: true })
+    fetchMock.mockResolvedValue(jsonResponse(200, { ok: true }))
+    await api.commitChanges('acme/lark', 'main', loaded.layout, loaded.keymap, null, null, 's', selection)
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject(selection)
+  })
+
+  it('refuses a mismatched selected-file load response', async () => {
+    const api = new API()
+    api.repoInstallationMap = { 'acme/lark': '42' }
+    fetchMock.mockResolvedValue(jsonResponse(200, { info: null, keymap: { layers: [['&kp A']] }, keymapPath: 'config/a.keymap' }))
+    await expect(api.fetchLayoutAndKeymap('acme/lark', 'main', { keymapPath: 'config/b.keymap' })).rejects.toThrow(/selected/i)
+  })
+
+  it('fetches the authorized keymap inventory for the explicit branch', async () => {
+    const api = new API()
+    api.repoInstallationMap = { 'acme/lark': '42' }
+    const inventory = { headSha: 's', candidates: [{ name: 'B board.keymap', path: 'config/B board.keymap' }] }
+    fetchMock.mockResolvedValue(jsonResponse(200, inventory))
+    expect(await api.fetchKeymaps('acme/lark', 'feature/x')).toEqual(inventory)
+    expect(fetchMock.mock.calls[0][0]).toBe('http://api.test/github/keymaps/42/acme%2Flark?branch=feature%2Fx')
+  })
+
   it('fetchLayoutAndKeymap treats a non-ok hostSnapshot as null', async () => {
     const api = new API()
     api.repoInstallationMap = { 'acme/lark': '42' }
@@ -354,14 +383,15 @@ describe('GitHub request contract', () => {
         info: { layouts: { default: { layout: CONTRACT_LAYOUT } } },
         keymap: CONTRACT_KEYMAP,
         hostSnapshot: null,
+        keymapPath: 'config/lark.keymap',
         headSha: 'abc123'
       })
     )
-    await api.fetchLayoutAndKeymap(CONTRACT_REPO, CONTRACT_BRANCH)
+    await api.fetchLayoutAndKeymap(CONTRACT_REPO, CONTRACT_BRANCH, { keymapPath: 'config/lark.keymap' })
     captured.push(recordedFetch('fetchLayoutAndKeymap', fetchMock))
 
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true }))
-    await api.commitChanges(CONTRACT_REPO, CONTRACT_BRANCH, CONTRACT_LAYOUT, CONTRACT_KEYMAP)
+    await api.commitChanges(CONTRACT_REPO, CONTRACT_BRANCH, CONTRACT_LAYOUT, CONTRACT_KEYMAP, null, null, null, { keymapPath: 'config/lark.keymap' })
     captured.push(recordedFetch('commitChanges', fetchMock))
 
     fetchMock.mockResolvedValueOnce(
