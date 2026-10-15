@@ -108,10 +108,13 @@ the live legend view and the layout tables it points at.
 ## CHG-004 amendment — owned snapshots and safe omission
 
 This amendment records the operator-approved persistence/recovery boundary for
-CHG-004; the original acceptance date remains unchanged. API enforcement and
-identity plumbing precede the separately reviewed picker and destructive recovery
-UI. The following rules supersede shared-path/invalid-load defaults above for
-selected GitHub files, not for Demo, Clipboard or Local.
+CHG-004; the original acceptance date remains unchanged. The selected-file picker
+and destructive recovery UI are implemented. [CAP-002](../product/capabilities/CAP-002-keymap-sources-and-persistence.md)
+and [CAP-003](../product/capabilities/CAP-003-host-layouts-and-legends.md) state
+their current behavior; [CHG-004](../changes/active/CHG-004-select-keymap-file-within-repository.md)
+keeps concise completed-phase evidence. The following rules supersede shared-path/
+invalid-load defaults above for selected GitHub files, not for Demo, Clipboard or
+Local.
 
 - Ownership mode follows ADR 0002. Legacy mode retains `host_keymap/`. Scoped
   mode owns only `host_keymap/keymaps/<full-keymap-filename>/`, containing
@@ -144,14 +147,15 @@ selected GitHub files, not for Demo, Clipboard or Local.
   verified baseline permits standard English fallback; a completed explicit reset
   takes precedence over historical baselines. Identity-owned host tables must
   not overwrite other identities or global profiles.
-- Pending phase-3 interaction: omitted writes keep host edits usable but
-  explicitly browser-local and unpublishable. Same-keymap Reload is not discard.
-  Confirmed `Discard local host edits` atomically resets only the named identity's
-  host working/recovery records to standard English, preserving firmware and
-  remote files. Cancellation/failure preserves recovery. This action is required
-  before transitions only when omitted writes coexist with local host work, not
-  for clean sessions or after compatible publication. Firmware protection is
-  independent. Full transaction/transition oracles remain in active CHG-004.
+- The implemented recovery UI keeps omitted-write host edits usable but explicitly
+  browser-local and unpublishable. Same-keymap Reload is not discard. Confirmed
+  `Discard local host edits` atomically resets only the named identity's host
+  working/recovery records to standard English, preserving firmware and remote
+  files. Cancellation/failure preserves recovery. This action is required before
+  transitions only when omitted writes coexist with local host work, not for clean
+  sessions or after compatible publication. Firmware protection is independent.
+  CAP-002/CAP-003 and CHG-004 provide the bounded behavior and evidence; they are
+  not full transaction/transition oracles.
 - A deliberate Create-branch carry validates the same selected file and copied
   baseline. Under omission with no host work it carries firmware only, not source
   host recovery or historical host origin. Ordinary branch selection never

@@ -68,12 +68,11 @@ These scopes partition the direct operator request into independently verifiable
 
 | Order | Change | Priority | Dependencies |
 | --- | --- | --- | --- |
-| 1 | [CHG-004 — Select a repository keymap file](active/CHG-004-select-keymap-file-within-repository.md) | P2 | None |
-| 2 | [CHG-005 — Visual ZMK macro editor](active/CHG-005-visual-zmk-macro-editor.md) | P3 | Preserve CHG-003 layer-reference safety contract |
-| 3 | [CHG-006 — Custom behavior definitions](active/CHG-006-custom-behavior-definition-editor.md) | P3 | CHG-005 shared reference contract |
-| 4 | [CHG-007 — Browser filesystem source](active/CHG-007-browser-filesystem-keymap-source.md) | P4 | CHG-004 identity/sidecars; CHG-002 leave policy |
-| 5 | [CHG-008 — ZMK-derived layout discovery](active/CHG-008-discover-layouts-from-zmk-metadata.md) | P4 | CHG-004 selected-keymap identity |
-| 6 | [CHG-010 — Publish/copy hardening follow-ups](active/CHG-010-publish-copy-hardening-followups.md) | P4 | CHG-002 phases 3–4 landed |
+| 1 | [CHG-005 — Visual ZMK macro editor](active/CHG-005-visual-zmk-macro-editor.md) | P3 | Preserve CHG-003 layer-reference safety contract |
+| 2 | [CHG-006 — Custom behavior definitions](active/CHG-006-custom-behavior-definition-editor.md) | P3 | CHG-005 shared reference contract |
+| 3 | [CHG-007 — Browser filesystem source](active/CHG-007-browser-filesystem-keymap-source.md) | P4 | CHG-004 identity/sidecars; CHG-002 leave policy |
+| 4 | [CHG-008 — ZMK-derived layout discovery](active/CHG-008-discover-layouts-from-zmk-metadata.md) | P4 | CHG-004 selected-keymap identity |
+| 5 | [CHG-010 — Publish/copy hardening follow-ups](active/CHG-010-publish-copy-hardening-followups.md) | P4 | CHG-002 phases 3–4 landed |
 
 The table orders remaining work; resume only the operator-selected scope. Each linked record owns its own phase state.
 
@@ -84,6 +83,7 @@ The table orders remaining work; resume only the operator-selected scope. Each l
 | [CHG-001 — Bluetooth/RGB command choices](archive/CHG-001-complete-bluetooth-rgb-command-catalog.md) | done |
 | [CHG-002 — Leave-page protection](archive/CHG-002-warn-before-leaving-unpublished-work.md) | done |
 | [CHG-003 — Duplicate/reorder firmware layers](archive/CHG-003-duplicate-and-reorder-firmware-layers.md) | done |
+| [CHG-004 — Select a repository keymap file](archive/CHG-004-select-keymap-file-within-repository.md) | done |
 | [CHG-009 — Correct stock ZMK behavior catalog](archive/CHG-009-correct-stock-zmk-behavior-catalog.md) | done |
 
 ## Review packages

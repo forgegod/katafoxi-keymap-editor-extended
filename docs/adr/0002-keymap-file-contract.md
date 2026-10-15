@@ -57,9 +57,13 @@ This does not remove the original editor’s `keymap.json` workflow; it document
 ## CHG-004 amendment — selected GitHub file ownership
 
 This amendment implements the operator-approved CHG-004 persistence policy;
-it does not change this ADR's original acceptance date or claim that the pending
-picker/recovery interactions have shipped. Local and Clipboard retain the above
-contract. Independent phase review remains required by CHG-004.
+the original acceptance date remains unchanged. The selected-file picker and
+destructive host-recovery UI are implemented; [CAP-002](../product/capabilities/CAP-002-keymap-sources-and-persistence.md)
+and [CAP-003](../product/capabilities/CAP-003-host-layouts-and-legends.md) state
+their current behavior, with concise completed-phase evidence in
+[CHG-004](../changes/active/CHG-004-select-keymap-file-within-repository.md#completed-phase-evidence).
+Per-file JSON adoption UI remains unimplemented. Local and Clipboard retain the
+above contract. Independent phase review remains required by CHG-004.
 
 - GitHub identity includes the exact repository, explicit branch and direct
   `config/<filename>.keymap` path. Inventory comes from a complete recursive git
