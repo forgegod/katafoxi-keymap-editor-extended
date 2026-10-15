@@ -55,6 +55,18 @@
       "expect": "splice"
     },
     {
+      "file": "macro-boundary-supported.keymap",
+      "layout": 4,
+      "warnings": [],
+      "expect": "splice"
+    },
+    {
+      "file": "macro-boundary-opaque.keymap",
+      "layout": 4,
+      "warnings": [],
+      "expect": "splice"
+    },
+    {
       "file": "crlf.keymap",
       "layout": 4,
       "warnings": [],

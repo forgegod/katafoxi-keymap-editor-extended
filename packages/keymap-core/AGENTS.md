@@ -26,6 +26,8 @@ Specification-only layer-operation probes live in `src/layer-operation-boundary.
 
 Keep schema-free helper preservation separate from declaration-aware operations. `src/layer-operations.test.ts` exercises the real operation API, source locality, strict refusal, append isolation and inverse permutations; do not count phase-1 expected-failure probes as operation acceptance. Preserve conditional sorting with duplicates and distinguish explicit full combo filters from global absent/empty filters.
 
+CHG-005 owns the specification-only `fixtures/corpus/macro-boundary-*.keymap` inputs. Their corpus manifest entries exercise existing opaque no-op preservation and ordinary key-edit locality through `src/fixture-roundtrip.test.ts`; they do not prove macro parsing, typing, authoring or safe deletion. The opaque fixture intentionally contains invalid definitions and unresolved dependencies. Keep proposed macro acceptance in the owning CHG until implemented and tested.
+
 ## Verification
 
 From repository root: pnpm --filter @keymap-editor/keymap-core test; pnpm --filter @keymap-editor/keymap-core lint.

@@ -1,0 +1,85 @@
+/*
+ * CHG-005 Phase 1 negative specification input (M03, M05, M06, M08, M09).
+ * Deliberately includes invalid/unsupported definitions, not a buildable example.
+ * Existing ordinary key edits must preserve all of these source intervals.
+ * Future isolated eligibility tests must remove the include/define coverage
+ * blockers before asserting a node-specific reason or safe deletion result.
+ */
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+#include <dt-bindings/zmk/bt.h>
+#include "unresolved-macros.dtsi"
+#define CUSTOM_WAIT 17
+
+/ {
+    macros {
+        unknown_property: unknown-property {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            vendor,extra = <1>;
+            bindings = <&kp A>;
+        };
+
+        alias_timing: alias-timing {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            wait-ms = <CUSTOM_WAIT>;
+            bindings = <&kp B>;
+        };
+
+        bad_command: bad-command {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            bindings = <&bt BT_SEL>; // Missing the explicit profile cell.
+        };
+
+        conflicting_types: conflicting-types {
+            compatible = "zmk,behavior-macro-one-param";
+            #binding-cells = <1>;
+            bindings = <&macro_param_1to1 &mo MACRO_PLACEHOLDER>,
+                       <&macro_param_1to1 &kp MACRO_PLACEHOLDER>;
+        };
+
+        cycle_a: cycle-a {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            bindings = <&cycle_b>;
+        };
+        cycle_b: cycle-b {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            bindings = <&cycle_a>;
+        };
+
+        external_call: external-call {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            bindings = <&external WRAP(1,2) 3>;
+        };
+
+        delete_me: delete-me {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            bindings = <&kp C>;
+        };
+    };
+
+    behaviors {
+        opaque_holder: opaque-holder {
+            compatible = "vendor,unknown-behavior";
+            #binding-cells = <0>;
+            bindings = <&delete_me>;
+            label = "Quoted brace }; and escaped quote \" stay text";
+        };
+    };
+
+    keymap {
+        compatible = "zmk,keymap";
+        base {
+            bindings = <&unknown_property &bad_command &external_call &kp A>;
+        };
+        lower {
+            bindings = <&alias_timing &conflicting_types 1 &cycle_a &kp B>;
+        };
+    };
+};
