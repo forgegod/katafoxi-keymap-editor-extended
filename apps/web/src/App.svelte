@@ -27,6 +27,7 @@
   import FirmwareBuild from './lib/components/FirmwareBuild.svelte'
   import ChromeStatus from './lib/components/Common/ChromeStatus.svelte'
   import Button from './lib/components/Common/Button.svelte'
+  import MacroPanel from './lib/components/MacroPanel.svelte'
 
   // Proxy so context consumers stay reactive to editor.definitions ($state).
   setDefinitionsContext({
@@ -240,6 +241,7 @@
 
           {#if editor.draftKeymap}
             <div class="chrome-group actions-history">
+              <MacroPanel />
               <Button
                 variant="icon"
                 class="history"

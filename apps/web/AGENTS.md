@@ -8,6 +8,8 @@ Browser editor.
 
 Svelte components, reactive editor state, source pickers, draft/host storage, and component tests.
 
+`src/lib/components/MacroPanel.svelte` owns staged macro interaction; `src/lib/macro-editor.ts` owns captured preview/confirm transactions. Core owns macro semantics, references and the shared writer.
+
 ## Local Contracts
 
 Keep ZMK parsing and file generation in keymap-core. Plain click edits ZMK; Alt+click edits host glyphs. UI chrome is English. Preserve accessibility, stale-load guards, draft identity, and separate firmware/host dirty state. Arm beforeunload while firmware is dirty, a GitHub host snapshot is unpublished, or GitHub firmware/host recovery remains pending (including omitted host writes); host-install status and non-GitHub host edits do not arm it. Keep pagehide and visibilitychange draft flushing independent of that guard.
@@ -42,7 +44,9 @@ The expanded non-stacked layer table exposes Duplicate and Move. Keyboard positi
 
 Keep logical layer IDs and source snapshots with undo/redo, copied baselines and versioned draft metadata; restore current eye preferences by identity, including discard after recovery with no history. Once used, identity tracking survives undo to a pre-operation step so delayed copy receipts cannot erase identity-only dirty state. Capture layer metadata for both publish and copy. It never enters firmware JSON or host snapshots.
 
-Every mounted key, encoder, combo-binding and layer-picker draft owner registers a synchronous operation guard and unregisters on destruction. Guard retained row drafts as well as visible sessions; check publication, host editing and staged definitions again at the transaction boundary. Structural operations clear central hover and the local decode owner, not host layout data.
+Every mounted key, encoder, combo-binding, layer-picker and macro draft owner registers a synchronous operation guard and unregisters on destruction. Guard retained row drafts as well as visible sessions; check publication, host editing and staged definitions again at the transaction boundary. Structural operations clear central hover and the local decode owner, not host layout data.
+
+Macro authoring accepts only source-free Demo or verified Clipboard source. Stage edits/use/delete until source preview confirmation; recheck the captured document/source and other draft guards. Carry the writer's source with its reparsed model through history and enable persistence of the matching snapshot for Clipboard recovery. Cancel/no-op must retain redo. Do not infer sensor-child compatibility or enable GitHub/local authoring from catalog membership. Text conversion uses core's explicit US ASCII contract, not Host legends; reject pasted CR before textarea normalization.
 
 ## Verification
 

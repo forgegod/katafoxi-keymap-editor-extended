@@ -9,12 +9,14 @@ Help ZMK keyboard users edit firmware bindings and understand the characters the
 | Boundary | Responsibility |
 | --- | --- |
 | `apps/web` | Svelte 5/Vite editor, source pickers, draft recovery, host editing, and downloads. |
-| `packages/keymap-core` | Shared TypeScript catalogs, firmware parse/splice/generate, combos, conditional layers, hold-taps, sensor bindings, host registry, composition, xkb/KLC and snapshot formats. |
+| `packages/keymap-core` | Shared TypeScript catalogs, firmware parse/splice/generate, bounded macro definitions/references, combos, conditional layers, hold-taps, sensor bindings, host registry, composition, xkb/KLC and snapshot formats. |
 | `apps/api` | Hono GitHub OAuth/App sessions and repository persistence; optional development-only local adapter. |
 | `apps/cloudflare` | Worker/container adapter hosting the same API and SPA. |
 | `e2e` | Browser verification using fixture keymaps and mocked GitHub services, plus production/static smoke. |
 
 The browser owns the interactive draft. Domain transformations stay in core; adapters do not invent another serializer. The API owns authentication secrets, not editor presentation.
+
+The browser MacroPanel stages interaction; `macro-editor.ts` captures and confirms core-generated previews against the same document/source revision. Clipboard macro transactions reuse document history/recovery snapshots to retain matching source and semantics. Authoring is limited to Demo and verified Clipboard; persistence adapters gain no new authoring API.
 
 ## Persistence and security
 

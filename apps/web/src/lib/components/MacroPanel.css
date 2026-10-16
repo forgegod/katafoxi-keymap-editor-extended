@@ -1,0 +1,4 @@
+.macro-panel { width: min(850px, 90vw); max-height: calc(100vh - 100px); overflow: auto; padding: 20px; background: var(--color-bg, #20272e); color: var(--color-text, #e1e7ed); border: 1px solid #52626c; border-radius: 8px; }
+.macro-panel pre { max-height: 320px; overflow: auto; padding: 12px; background: #171d22; color: #e1e7ed; white-space: pre-wrap; overflow-wrap: anywhere; }
+.macro-panel label { display: block; margin: 10px 0; }
+.macro-panel button { margin: 4px; }
