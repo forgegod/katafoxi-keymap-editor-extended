@@ -1,5 +1,6 @@
 import { encodeConditionalLayerFingerprint } from './dts-conditional-layers.js'
 import { encodeKeyBinding } from './keymap.js'
+import { encodeMacroFingerprint } from './zmk-macros.js'
 import type { KeyBindingNode, ParsedKeymap, ZmkCombo, ZmkHoldTap } from './types.js'
 
 export type KeymapChange =
@@ -48,6 +49,12 @@ export type KeymapChange =
       /** Empty when the behaviour was added. */
       before: string
       /** Empty when the behaviour was removed. */
+      after: string
+    }
+  | {
+      type: 'macro'
+      id: string
+      before: string
       after: string
     }
   | {
@@ -123,6 +130,12 @@ function holdTapMap(keymap: ParsedKeymap): Map<string, string> {
   for (const node of keymap.holdTaps ?? []) {
     map.set(node.code, encodeHoldTapFingerprint(node))
   }
+  return map
+}
+
+function macroMap(keymap: ParsedKeymap): Map<string, string> {
+  const map = new Map<string, string>()
+  for (const macro of keymap.macros ?? []) map.set(macro.code, encodeMacroFingerprint(macro))
   return map
 }
 
@@ -212,6 +225,15 @@ export function diffKeymaps(
     }
   }
 
+  const beforeMacros = macroMap(baseline)
+  const afterMacros = macroMap(draft)
+  const macroIds = new Set([...beforeMacros.keys(), ...afterMacros.keys()])
+  for (const id of [...macroIds].sort()) {
+    const before = beforeMacros.get(id) ?? ''
+    const after = afterMacros.get(id) ?? ''
+    if (before !== after) changes.push({ type: 'macro', id, before, after })
+  }
+
   // Include added/removed layers so the dirty summary counts encoder
   // turns that arrive with layer_add or clear with layer_remove.
   const sensorLayers = Math.max(baseCount, draftCount)
@@ -258,6 +280,10 @@ export function formatKeymapChange(change: KeymapChange): string {
       if (!change.before) return `${change.id} added: ${change.after}`
       if (!change.after) return `${change.id} removed: ${change.before}`
       return `${change.id}: ${change.before} → ${change.after}`
+    case 'macro':
+      if (!change.before) return `${change.id} macro added`
+      if (!change.after) return `${change.id} macro removed`
+      return `${change.id} macro changed`
     case 'sensor':
       return `L${change.layer} encoder ${change.index}: ${change.before || '(empty)'} → ${change.after || '(empty)'}`
   }
@@ -272,6 +298,7 @@ export function summarizeKeymapDiff(changes: KeymapChange[]): string {
   let combos = 0
   let conditionalLayers = 0
   let holdTaps = 0
+  let macros = 0
   let sensors = 0
   for (const change of changes) {
     switch (change.type) {
@@ -296,6 +323,9 @@ export function summarizeKeymapDiff(changes: KeymapChange[]): string {
       case 'hold_tap':
         holdTaps++
         break
+      case 'macro':
+        macros++
+        break
       case 'sensor':
         sensors++
         break
@@ -316,6 +346,7 @@ export function summarizeKeymapDiff(changes: KeymapChange[]): string {
     parts.push(countLabel(conditionalLayers, 'conditional layer', 'conditional layers'))
   }
   if (holdTaps > 0) parts.push(countLabel(holdTaps, 'behavior', 'behaviors'))
+  if (macros > 0) parts.push(countLabel(macros, 'macro', 'macros'))
   if (sensors > 0) parts.push(countLabel(sensors, 'encoder', 'encoders'))
   return parts.join(', ')
 }

@@ -4,7 +4,8 @@ import type {
   LayoutKey,
   ParsedKeymap,
   ZmkCombo,
-  ZmkHoldTap
+  ZmkHoldTap,
+  ZmkMacroDefinition
 } from './types.js'
 
 /** Shallow-clone each key so promote-absent edits do not mutate the load baseline. */
@@ -18,6 +19,16 @@ export function cloneSensorBinding(node: KeyBindingNode): KeyBindingNode {
   return {
     value: node.value,
     params: Array.isArray(node.params) ? node.params.map(cloneSensorBinding) : []
+  }
+}
+
+function cloneMacro(definition: ZmkMacroDefinition): ZmkMacroDefinition {
+  return {
+    ...definition,
+    steps: definition.steps.map(step =>
+      step.kind === 'behavior' ? { ...step } : { ...step, values: [...step.values] }
+    ),
+    diagnostics: [...definition.diagnostics]
   }
 }
 
@@ -69,6 +80,10 @@ export function cloneParsedKeymap(km: ParsedKeymap): ParsedKeymap {
       if (holdTap.params) copy.params = [...holdTap.params]
       return copy
     })
+  }
+  if (normalized.macros !== undefined) out.macros = normalized.macros.map(cloneMacro)
+  if (normalized.macroSourceFingerprint != null) {
+    out.macroSourceFingerprint = normalized.macroSourceFingerprint
   }
   if (normalized.sensorBindings) {
     out.sensorBindings = normalized.sensorBindings.map(row => row.map(cloneBinding))

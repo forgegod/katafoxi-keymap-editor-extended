@@ -14,6 +14,13 @@ import {
 } from './behavior-recipes.js'
 import { normalizeHoldTaps, spliceHoldTapsIntoDts } from './dts-behaviors.js'
 import {
+  encodeMacroFingerprint,
+  macroDefinitionsFingerprint,
+  macroMetadataSignatures,
+  normalizeZmkMacros,
+  spliceMacrosIntoDts
+} from './zmk-macros.js'
+import {
   compileMacros,
   findKeymapLayerNodes,
   findZmkKeymapBlock,
@@ -293,6 +300,8 @@ export function parseKeymap(keymap: {
   combos?: Array<DtsComboJson | ZmkCombo>
   conditionalLayers?: unknown
   holdTaps?: unknown
+  macros?: unknown
+  macroSourceFingerprint?: unknown
   sensorBindings?: unknown
   rgbLayerRecipe?: unknown
 }): ParsedKeymap {
@@ -307,6 +316,7 @@ export function parseKeymap(keymap: {
     : undefined
   const conditionalLayers = normalizeConditionalLayers(keymap.conditionalLayers)
   const holdTaps = normalizeHoldTaps(keymap.holdTaps)
+  const macros = normalizeZmkMacros(keymap.macros)
   const sensorBindings = normalizeSensorBindings(keymap.sensorBindings)
   const out: ParsedKeymap = {
     layers: keymap.layers.map((layer, i) => {
@@ -330,6 +340,10 @@ export function parseKeymap(keymap: {
   }
   if (conditionalLayers) out.conditionalLayers = conditionalLayers
   if (holdTaps) out.holdTaps = holdTaps
+  if (macros) out.macros = macros
+  if (typeof keymap.macroSourceFingerprint === 'string') {
+    out.macroSourceFingerprint = keymap.macroSourceFingerprint
+  }
   if (sensorBindings) {
     out.sensorBindings = sensorBindings.map(row => row.map(normalizeRgbLayerBinding))
   }
@@ -404,9 +418,15 @@ function generateKeymapCode(
 ): string {
   const names = keymap.layer_names ?? []
   const used = getBehavioursUsed(keymap)
+  for (const macro of keymap.macros ?? []) {
+    for (const step of macro.steps) {
+      if (step.kind === 'behavior') used.push(String(parseKeyBinding(step.binding).value))
+    }
+  }
   const behaviourHeaders = [
     ...new Set([
       ...used.flatMap(bind => behavioursByBind[bind]?.includes ?? []),
+      ...(keymap.macros?.length ? ['#include <dt-bindings/zmk/keys.h>', '#include <dt-bindings/zmk/modifiers.h>'] : []),
       ...(shouldEnsureRgbLayerRecipe(keymap) || used.includes(RGB_LAYER_RECIPE.code)
         ? [...RGB_LAYER_RECIPE.includes]
         : [])
@@ -482,17 +502,21 @@ export function generateKeymap(
 export function buildKeymapCode(
   layout: LayoutKey[],
   keymap: ParsedKeymap,
-  options?: { template?: string; originalSource?: string }
+  options?: { template?: string; originalSource?: string; allowSourceFreeMacros?: boolean }
 ): BuildKeymapCodeResult {
   const encoded = encodeKeymap(keymap)
   const layers = encoded.layers
   assertLayerKeyCounts(layout, layers)
+  if (encoded.macros !== undefined) encoded.macroSourceFingerprint = macroDefinitionsFingerprint(encoded.macros)
 
   const warnings: string[] = []
   const template = options?.template
   const originalSource = options?.originalSource
 
   if (typeof template === 'string' && template.length > 0) {
+    if (keymap.macros !== undefined) {
+      throw new KeymapValidationError(['Template save cannot apply source-backed macro definitions.'])
+    }
     return {
       code: applyModelBlocks(
         generateKeymapCode(layout, keymap, encoded, template),
@@ -523,10 +547,15 @@ export function buildKeymapCode(
   }
 
   warnings.push('generated_default_template')
+  if (keymap.macros !== undefined && options?.allowSourceFreeMacros !== true) {
+    throw new KeymapValidationError(['Macro definitions require matching source or explicit source-free provenance.'])
+  }
   return {
     code: applyModelBlocks(
       generateKeymapCode(layout, keymap, encoded, keymapTemplate),
-      keymap
+      keymap,
+      undefined,
+      options?.allowSourceFreeMacros === true
     ),
     json: generateKeymapJSON(layout, encoded),
     mode: 'default_template',
@@ -566,14 +595,15 @@ function holdTapFingerprint(node: ZmkHoldTap): string {
   return `${node.code}\n${encodeHoldTapFingerprint(node)}`
 }
 
-/** Sensors → combos → conditional layers → hold-taps → RGB layer recipe. */
+/** Sensors → combos → conditional layers → hold-taps → macros → RGB layer recipe. */
 function applyModelBlocks(
   code: string,
   keymap: ParsedKeymap,
-  original?: ParsedKeymap
+  original?: ParsedKeymap,
+  sourceFreeMacros = false
 ): string {
   const result = applyRgbLayerRecipe(
-    applyHoldTaps(
+    applyMacros(applyHoldTaps(
       applyConditionalLayers(
         applyCombos(applySensorBindings(code, keymap), keymap, original),
         keymap,
@@ -581,7 +611,7 @@ function applyModelBlocks(
       ),
       keymap,
       original
-    ),
+    ), keymap, original, sourceFreeMacros),
     keymap
   )
   return getBehavioursUsed(keymap).includes('&uc') ? ensureUnicodeInclude(result) : result
@@ -647,6 +677,22 @@ function applyHoldTaps(
   return spliceHoldTapsIntoDts(code, keymap.holdTaps)
 }
 
+function applyMacros(
+  code: string,
+  keymap: ParsedKeymap,
+  original?: ParsedKeymap,
+  sourceFree = false
+): string {
+  if (keymap.macros === undefined) return code
+  if (!sourceFree && (original?.macros !== undefined || keymap.macroSourceFingerprint !== undefined)) {
+    if (keymap.macroSourceFingerprint !== macroDefinitionsFingerprint(original?.macros ?? [])) {
+      throw new KeymapValidationError(['Macro metadata does not match the current source baseline. Reload before editing macros.'])
+    }
+  }
+  if (fingerprintsMatch(keymap.macros, original?.macros, encodeMacroFingerprint)) return code
+  return spliceMacrosIntoDts(code, keymap.macros, original?.macros, { sourceFree })
+}
+
 /**
  * Validate JSON against catalog and legacy import labels by default. Source imports
  * may preserve external references; this does not discover their schema or includes.
@@ -663,6 +709,7 @@ export function validateKeymapJson(
     const km = keymap as {
       layers?: unknown
       holdTaps?: Array<{ code?: unknown; override?: unknown }>
+      macros?: Array<{ code?: unknown; editable?: unknown }>
       rgbLayerRecipe?: unknown
     }
     const extraBehaviours = new Set(
@@ -673,6 +720,7 @@ export function validateKeymapJson(
     if (km.rgbLayerRecipe === true) {
       extraBehaviours.add(RGB_LAYER_RECIPE.code)
     }
+    for (const code of macroMetadataSignatures(km.macros, Array.isArray(km.layers) ? km.layers.length : 0).keys()) extraBehaviours.add(code)
     if (!Array.isArray(km.layers)) {
       errors.push('keymap must include "layers" array')
     } else {

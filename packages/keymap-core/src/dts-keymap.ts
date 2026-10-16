@@ -16,6 +16,7 @@ import {
 import { parseDtsConditionalLayersDetailed } from './dts-conditional-layers.js'
 import { detectRgbLayerRecipeFromDts } from './behavior-recipes.js'
 import { parseDtsHoldTapsDetailed } from './dts-behaviors.js'
+import { macroDefinitionsFingerprint, parseDtsMacros } from './zmk-macros.js'
 import {
   findAngleProp,
   findNamedBlock,
@@ -31,7 +32,7 @@ import {
   type DtsScan
 } from './dts-scan.js'
 import { KeymapValidationError } from './errors.js'
-import type { ZmkConditionalLayer, ZmkHoldTap } from './types.js'
+import type { ZmkConditionalLayer, ZmkHoldTap, ZmkMacroDefinition } from './types.js'
 
 const DEFINE_RE = /^#define[ \t]+(\w+)(?:[ \t]+(.+))?$/gm
 const MAX_MACRO_EXPAND_DEPTH = 32
@@ -286,6 +287,9 @@ export interface DtsKeymapJson {
    * numeric (`hold_tap_timing_unparsed`).
    */
   holdTaps?: ZmkHoldTap[]
+  /** Named macro definitions, including read-only definitions with diagnostics. */
+  macros?: ZmkMacroDefinition[]
+  macroSourceFingerprint?: string
   /**
    * One string array per layer. Omitted when no layer has `sensor-bindings`.
    * An empty inner array means that layer has no encoder property.
@@ -415,6 +419,7 @@ export function parseDtsKeymap(
   }
 
   const rgbLayerRecipe = detectRgbLayerRecipeFromDts(source, layers)
+  const macroParsed = parseDtsMacros(source)
 
   return {
     keyboard: meta.keyboard ?? 'unknown',
@@ -425,6 +430,10 @@ export function parseDtsKeymap(
     ...(ownedCombos !== undefined ? { combos: ownedCombos } : {}),
     ...(ownedConditional !== undefined ? { conditionalLayers: ownedConditional } : {}),
     ...(ownedHoldTaps !== undefined ? { holdTaps: ownedHoldTaps } : {}),
+    ...(macroParsed.definitions.length > 0 ? { macros: macroParsed.definitions } : {}),
+    ...(macroParsed.definitions.length > 0
+      ? { macroSourceFingerprint: macroDefinitionsFingerprint(macroParsed.definitions) }
+      : {}),
     ...(anySensor ? { sensorBindings: sensorRows } : {}),
     ...(rgbLayerRecipe ? { rgbLayerRecipe: true } : {}),
     warnings

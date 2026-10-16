@@ -39,7 +39,7 @@ Paths name existing seams, not a claim that future symbols or tests already exis
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
 | 1 | Specify the safe behavior boundary | done (`pnpm records:check`; focused core: 120 passed; Grok re-review: no findings) | `pnpm records:check` passes; acceptance matrix and proposed regression cases reviewed |
-| 2 | Implement and prove the domain slice | pending | `pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test` |
+| 2 | Implement and prove the domain slice | done (`core 1,006 passed, web 901 passed; Grok fifth review: no findings`) | `pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test` |
 | 3 | Integrate the interaction and visual handoff | pending | `pnpm --filter @keymap-editor/web test && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
 | 4 | Verify and close the change | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages` |
 
@@ -168,7 +168,7 @@ Use `docs/product/wireframes/generate.mjs` only for implemented CAP surfaces; re
 
 ## Execution state
 
-Phase 1 is complete specification/fixture work only. Macro authoring is not implemented; CAP-001 and canonical visuals remain unchanged. Phases 2–4 remain pending. The verified record transition is included in this checkpoint; passing preservation tests is not macro-authoring acceptance.
+Phases 1–2 are complete: the bounded core parse/model/splice, source-baseline and serialization slice is verified. Browser interaction remains deferred to Phase 3. CAP-001 and canonical visuals remain unchanged. Phases 3–4 remain pending.
 
 ### Candidate verification and review handoff
 
@@ -181,3 +181,16 @@ Phase 1 is complete specification/fixture work only. Macro authoring is not impl
 - DOX pass: core AGENTS.md now identifies the specification fixtures and their evidentiary limit. Root/docs/change/product/web contracts and child indexes stay unchanged because ownership, live behavior and review workflow did not change; no new durable directory boundary was introduced.
 - Fresh Grok re-review after material corrections found no defects. It checked the pinned ZMK v0.3.0 semantics, restored request baseline, pause forwarding, timing baselines, fixture/matrix claims and queue headroom. The reviewed record transition is included in this checkpoint; Phase 2 remains pending.
 - Residual review decisions: conservative include/opaque-source refusal, document-local (not cross-file) reference completeness, existing sensor-adapter child assignment without general adapter authoring, and the explicit ASCII/24-character generator limit with a 16-entry queue margin. Firmware compilation and physical host output are not verified; Phase 2 must prove the semantic/refusal matrix rather than treating the corpus's `splice` result as eligibility.
+
+### Phase 2 candidate evidence
+
+- The fourth review's high cross-container ordering defect is corrected fail-closed: before returning a macro splice, the full reparsed sequence fingerprint must equal the managed draft sequence. A requested order that cannot be represented without moving existing source definitions throws `KeymapValidationError`; JSON is not normalized and no unrelated nodes move. Prior ordered insertion, external-deletion fingerprint, absent-container batching, first-add, CRLF and explicit source-free behavior remain intact.
+- Strict TDD: `pnpm --filter @keymap-editor/keymap-core test -- src/zmk-macros.test.ts -t 'cross-container macro order'` first exited 1: 6 failed, 2 controls passed. Using `macro-boundary-supported.keymap` with its later `behaviors` macro, full-list append, existing-definition reorder and interleaved additions in LF/CRLF were incorrectly accepted by both direct splice and shared writer; each published pair failed JSON-first reload. After the minimal sequence-fingerprint guard, the same command exited 0: 8 passed. Representable container-end insertion preserves exact draft/source/JSON order, exterior bytes, CRLF and byte-identical code/JSON reload. Rejected inputs remain unchanged.
+- Full focused suite: `pnpm --filter @keymap-editor/keymap-core test -- src/zmk-macros.test.ts` exited 0: 142 passed, including container-only append, absent-container and source-free controls.
+- Exact Phase 2 gate: `pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test` exited 0 under Node `v24.21.0` and pnpm `9.15.0`: core 62 files, 1006 tests passed, 1 optional golden skipped; web 72 files, 901 tests passed. Existing XKB and mocked error-path diagnostics remained non-failing.
+- Workspace `pnpm lint` exited 0, including core/API/Cloudflare TypeScript checks and web Svelte checks with 0 errors and 0 warnings.
+- `pnpm records:check` and `git diff --check` exited 0.
+- The focused macro suite verifies bounded source parsing, opaque refusal diagnostics, source-local splices, complete-reference delete preflight, JSON/clone/diff lifecycle, stale source/JSON refusal, and the US ASCII mapping boundary.
+- Fifth independent Grok review of the frozen corrected candidate found no findings. Phase 2 is complete; Phases 3–4 remain pending. No push, deployment, credential change, or Phase 3 UI work was performed.
+- This correction does not certify the entire M01–M12 matrix. Existing gaps remain: macro-aware layer deletion, a dedicated sensor-adapter child assignment API, and browser history/recovery/interaction evidence. No firmware, hardware, browser/e2e or build acceptance is claimed.
+- DOX pass: core guidance records full-sequence equality and fail-closed ordering across containers, alongside the existing source fingerprint and insertion contracts. Parent/docs/product/web guidance, CAP-001, visuals and child indexes remain unchanged because this bounded core correction changes no ownership boundary or implemented browser surface.

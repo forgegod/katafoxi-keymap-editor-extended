@@ -54,6 +54,32 @@ export interface ZmkHoldTap {
   params?: string[]
 }
 
+/** A supported step in a named ZMK macro sequence. */
+export type ZmkMacroStep =
+  | { kind: 'behavior'; binding: string }
+  | { kind: 'control'; control: string; values: string[] }
+
+/**
+ * A named `zmk,behavior-macro*` definition. Source offsets stay internal to
+ * the parser/splicer so serialized keymap state is safe to reload.
+ */
+export interface ZmkMacroDefinition {
+  /** Phandle reference, including `&`, e.g. `&brackets`. */
+  code: string
+  label: string
+  nodeName: string
+  container: 'macros' | 'behaviors'
+  arity: 0 | 1 | 2
+  steps: ZmkMacroStep[]
+  tapMs?: number
+  waitMs?: number
+  labelText?: string
+  displayName?: string
+  /** False means source was recognized for preservation, not edit ownership. */
+  editable: boolean
+  diagnostics: string[]
+}
+
 export interface ParsedKeymap {
   keyboard?: string
   keymap?: string
@@ -78,6 +104,13 @@ export interface ParsedKeymap {
    * An array, including empty, is the editor's list and Save rewrites it.
    */
   holdTaps?: ZmkHoldTap[]
+  /**
+   * Named ZMK macros. Absent preserves source macros; an explicit list is a
+   * managed model and may be spliced only against the matching source.
+   */
+  macros?: ZmkMacroDefinition[]
+  /** Semantic macro baseline captured from the source revision, never an offset. */
+  macroSourceFingerprint?: string
   /**
    * Encoder turns, one list per layer (`sensor-bindings`).
    * Absent when the keymap has none and Save should leave those lines alone.
