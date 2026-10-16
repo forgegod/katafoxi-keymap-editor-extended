@@ -80,6 +80,20 @@ export interface ZmkMacroDefinition {
   diagnostics: string[]
 }
 
+/** Bounded named behavior metadata; source spans never enter persisted state. */
+export interface ZmkBehaviorDefinition {
+  code: string
+  label: string
+  nodeName: string
+  compatible: string
+  cellProperty: '#binding-cells' | '#sensor-binding-cells'
+  arity: number
+  bindings: string[]
+  properties: Record<string, number | string | true>
+  editable: boolean
+  diagnostics: string[]
+}
+
 export interface ParsedKeymap {
   keyboard?: string
   keymap?: string
@@ -111,6 +125,9 @@ export interface ParsedKeymap {
   macros?: ZmkMacroDefinition[]
   /** Semantic macro baseline captured from the source revision, never an offset. */
   macroSourceFingerprint?: string
+  /** Bounded named behaviors; absent preserves source, [] requests removal. */
+  behaviorDefinitions?: ZmkBehaviorDefinition[]
+  behaviorSourceFingerprint?: string
   /**
    * Encoder turns, one list per layer (`sensor-bindings`).
    * Absent when the keymap has none and Save should leave those lines alone.

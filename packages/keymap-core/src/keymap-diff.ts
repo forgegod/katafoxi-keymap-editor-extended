@@ -1,6 +1,7 @@
 import { encodeConditionalLayerFingerprint } from './dts-conditional-layers.js'
 import { encodeKeyBinding } from './keymap.js'
 import { encodeMacroFingerprint } from './zmk-macros.js'
+import { behaviorDefinitionsFingerprint } from './behavior-definitions.js'
 import type { KeyBindingNode, ParsedKeymap, ZmkCombo, ZmkHoldTap } from './types.js'
 
 export type KeymapChange =
@@ -52,7 +53,7 @@ export type KeymapChange =
       after: string
     }
   | {
-      type: 'macro'
+      type: 'macro' | 'behavior_definition'
       id: string
       before: string
       after: string
@@ -226,6 +227,13 @@ export function diffKeymaps(
   }
 
   const beforeMacros = macroMap(baseline)
+  const beforeDefinitions = new Map((baseline.behaviorDefinitions ?? []).map(item => [item.code, behaviorDefinitionsFingerprint([item])]))
+  const afterDefinitions = new Map((draft.behaviorDefinitions ?? []).map(item => [item.code, behaviorDefinitionsFingerprint([item])]))
+  for (const id of new Set([...beforeDefinitions.keys(), ...afterDefinitions.keys()])) {
+    const before = beforeDefinitions.get(id) ?? ''
+    const after = afterDefinitions.get(id) ?? ''
+    if (before !== after) changes.push({ type: 'behavior_definition', id, before, after })
+  }
   const afterMacros = macroMap(draft)
   const macroIds = new Set([...beforeMacros.keys(), ...afterMacros.keys()])
   for (const id of [...macroIds].sort()) {
@@ -284,6 +292,10 @@ export function formatKeymapChange(change: KeymapChange): string {
       if (!change.before) return `${change.id} macro added`
       if (!change.after) return `${change.id} macro removed`
       return `${change.id} macro changed`
+    case 'behavior_definition':
+      if (!change.before) return `${change.id} behavior added`
+      if (!change.after) return `${change.id} behavior removed`
+      return `${change.id} behavior changed`
     case 'sensor':
       return `L${change.layer} encoder ${change.index}: ${change.before || '(empty)'} → ${change.after || '(empty)'}`
   }
@@ -320,6 +332,7 @@ export function summarizeKeymapDiff(changes: KeymapChange[]): string {
       case 'conditional_layer':
         conditionalLayers++
         break
+      case 'behavior_definition':
       case 'hold_tap':
         holdTaps++
         break

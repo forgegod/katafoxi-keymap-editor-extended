@@ -38,7 +38,7 @@ Paths name existing seams, not a claim that future symbols or tests already exis
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
 | 1 | Specify the safe behavior boundary | done (`pnpm records:check` exits 0; corpus `fixture-roundtrip` 40 passed; final independent Grok review: no findings; specification and preservation fixtures only) | `pnpm records:check` passes; acceptance matrix and proposed regression cases reviewed |
-| 2 | Implement and prove the domain slice | pending | `pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test` |
+| 2 | Implement and prove the domain slice | done (`pnpm --filter @keymap-editor/keymap-core test`: 1,096 passed, 1 skipped; `pnpm --filter @keymap-editor/web test`: 918 passed; `pnpm --filter @keymap-editor/keymap-core lint`, `pnpm records:check`, and `git diff --check` exit 0; final independent Grok review: no findings) | `pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test` |
 | 3 | Integrate the interaction and visual handoff | pending | `pnpm --filter @keymap-editor/web test && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
 | 4 | Verify and close the change | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages` |
 
@@ -185,8 +185,10 @@ Use `docs/product/wireframes/generate.mjs` only for implemented CAP surfaces; re
 
 ## Execution state
 
-Phase 1 is complete: it specifies the bounded contract and adds source-preservation fixtures only. Three independent-review passes corrected the phandle versus phandle-array contract, opaque-fixture coverage limitations, the modifier-expression inventory, and the closed-include policy. The final authorized Grok review found no findings. No behavior-definition feature is implemented and no feature acceptance criterion is claimed; Phases 2–4 remain pending.
+Phase 1 is complete: it specifies the bounded contract and adds source-preservation fixtures only. Three independent-review passes corrected the phandle versus phandle-array contract, opaque-fixture coverage limitations, the modifier-expression inventory, and the closed-include policy. The final authorized Phase-1 Grok review found no findings. Phase 2 is complete: it implements bounded behavior-definition parsing/splicing, shared reference validation, model/save integration, and domain regressions. Its final independent Grok review found no findings. Phases 3–4 remain pending; no behavior-definition UI, CAP or wireframe changes are claimed.
 
 - Final Phase 1 checks: `pnpm records:check` exited 0 (3 capabilities, 10 change records, wireframe manifest in sync); `pnpm --filter @keymap-editor/keymap-core exec vitest run src/fixture-roundtrip.test.ts` exited 0 (1 file, 40 tests passed); `git diff --check` passed. Node `v24.21.0`, pnpm `9.15.0`.
 - Final independent review: authorized third fresh Grok review returned **No findings** after inspecting the complete candidate, including both untracked corpus fixtures. The tracked-path diff fingerprint was `0674d9f8efe8cad210bebb1a16fb7a42a26fe8b5cccee162ca5026441a9e0123`. No runtime, parser, UI, CAP or wireframe change.
+- Final Phase 2 checks: `pnpm --filter @keymap-editor/keymap-core test` exited 0 (64 files, 1,096 passed, 1 skipped); `pnpm --filter @keymap-editor/web test` exited 0 (73 files, 918 passed); `pnpm --filter @keymap-editor/keymap-core lint`, `pnpm records:check`, and `git diff --check` exited 0. Node `v24.21.0`, pnpm `9.15.0`.
+- Final Phase 2 independent review: fresh Grok review found **No findings** on full-diff SHA-256 `1dd2534901eb311009fa3e86e4e08796e4f8cc5a94f9a49015f5fda8a743ce59`; it confirmed the three corrected review findings and that the tree did not move during review.
 - Use Node 24 LTS and the repository-pinned pnpm; install Playwright Chromium for browser/render gates. If a gate cannot run, keep the phase pending or blocked and record the actual blocker.

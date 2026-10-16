@@ -82,6 +82,10 @@ export function cloneParsedKeymap(km: ParsedKeymap): ParsedKeymap {
     })
   }
   if (normalized.macros !== undefined) out.macros = normalized.macros.map(cloneMacro)
+  if (normalized.behaviorDefinitions !== undefined) out.behaviorDefinitions = normalized.behaviorDefinitions.map(item => ({
+    ...item, bindings: [...item.bindings], properties: { ...item.properties }, diagnostics: [...item.diagnostics]
+  }))
+  if (normalized.behaviorSourceFingerprint !== undefined) out.behaviorSourceFingerprint = normalized.behaviorSourceFingerprint
   if (normalized.macroSourceFingerprint != null) {
     out.macroSourceFingerprint = normalized.macroSourceFingerprint
   }

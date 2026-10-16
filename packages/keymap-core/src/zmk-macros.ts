@@ -1,4 +1,5 @@
 import { dominantEol } from './eol.js'
+import { behaviorGraphDefinitions, formatBehavior, normalizeBehaviorDefinitions } from './behavior-definitions.js'
 import keycodesData from '../data/zmk-keycodes.json' with { type: 'json' }
 import { KeymapValidationError } from './errors.js'
 import {
@@ -16,11 +17,11 @@ import { normalizeZmkKeycodes } from './keycodes.js'
 import { isModifierWrapCode, modifierHoldForKey } from './modifiers.js'
 import type { KeyBindingNode, KeycodeDef, ZmkMacroDefinition, ZmkMacroStep } from './types.js'
 
-const MACRO_COMPATIBLES: Record<string, number> = {
+const MACRO_COMPATIBLES: Record<string, number> = Object.assign(Object.create(null), {
   'zmk,behavior-macro': 0,
   'zmk,behavior-macro-one-param': 1,
   'zmk,behavior-macro-two-param': 2
-}
+})
 const ALLOWED_INCLUDES = new Set([
   'behaviors.dtsi',
   'behaviors/macros.dtsi',
@@ -49,11 +50,14 @@ const KEYCODES = new Set(normalizeZmkKeycodes(keycodesData as KeycodeDef[]).flat
 
 type Span = { start: number; end: number }
 type Property = { value: string; valueSpan: Span; statement: Span }
-type SourceDefinition = {
+export type SourceDefinition = {
   definition: ZmkMacroDefinition
   node: DtsChildNode
   container: 'macros' | 'behaviors'
   properties: Map<string, Property>
+  /** Schema adapter into the shared graph; never serialized as a macro. */
+  behavior?: true
+  sensor?: boolean
 }
 
 export interface MacroReferenceSite {
@@ -61,7 +65,7 @@ export interface MacroReferenceSite {
   start: number
   end: number
   path: string
-  kind: 'key' | 'combo' | 'macro' | 'sensor-child' | 'hold-tap' | 'opaque'
+  kind: 'key' | 'combo' | 'macro' | 'sensor-child' | 'hold-tap' | 'behavior-child' | 'sensor' | 'opaque'
   /** Complete ordinary invocation, when the site has a proven schema. */
   binding?: string
 }
@@ -72,7 +76,7 @@ export interface MacroParseResult {
 }
 
 
-function literalString(value: string): string | null {
+export function literalString(value: string): string | null {
   const trimmed = value.trim()
   if (!/^"(?:[^"\\]|\\.)*"$/.test(trimmed)) return null
   try {
@@ -83,7 +87,7 @@ function literalString(value: string): string | null {
   }
 }
 
-function decimal(value: string): number | null {
+export function decimal(value: string): number | null {
   const match = /^<\s*(0|[1-9][0-9]*)\s*>$/.exec(value.trim())
   if (!match) return null
   const number = Number(match[1])
@@ -94,7 +98,7 @@ function uint32Token(value: string): boolean {
   return /^(0|[1-9][0-9]*)$/.test(value) && Number.isSafeInteger(Number(value)) && Number(value) <= 0xffffffff
 }
 
-function nodeProperties(source: string, scan: DtsScan, child: DtsChildNode): {
+export function nodeProperties(source: string, scan: DtsScan, child: DtsChildNode, allowFlags = false): {
   properties: Map<string, Property>
   diagnostics: string[]
 } {
@@ -111,6 +115,16 @@ function nodeProperties(source: string, scan: DtsScan, child: DtsChildNode): {
       continue
     }
     const match = /^\s*([#A-Za-z_][\w,-]*)\s*=\s*([\s\S]*?)\s*$/.exec(statement)
+    const flag = allowFlags && /^\s*([A-Za-z_][\w,-]*)\s*$/.exec(statement)
+    if (flag) {
+      const name = flag[1]!
+      if (properties.has(name)) diagnostics.push(`Repeated property: ${name}`)
+      const position = start + offset + statement.indexOf(name)
+      properties.set(name, { value: '', valueSpan: { start: position, end: position + name.length },
+        statement: { start: position, end: start + offset + statement.length + 1 } })
+      offset += statement.length + 1
+      continue
+    }
     if (!match) {
       diagnostics.push(`Unsupported macro property or child node: ${trimmed.slice(0, 80)}`)
       offset += statement.length + 1
@@ -133,7 +147,7 @@ function nodeProperties(source: string, scan: DtsScan, child: DtsChildNode): {
   return { properties, diagnostics }
 }
 
-function parseGroups(raw: string): { groups: string[][]; diagnostics: string[] } {
+export function parseGroups(raw: string): { groups: string[][]; diagnostics: string[] } {
   const mask = scanDts(raw).masked
   const groups: string[][] = []
   const diagnostics: string[] = []
@@ -476,7 +490,7 @@ function sourceDefinition(
   return { definition, node: child, container, properties }
 }
 
-function rootBlock(scan: DtsScan): { open: number; close: number } | null {
+export function rootBlock(scan: DtsScan): { open: number; close: number } | null {
   const roots = [...scan.masked.matchAll(/\/\s*\{/g)]
   if (roots.length !== 1) return null
   const open = roots[0]!.index! + roots[0]![0].length - 1
@@ -520,7 +534,7 @@ function completeNodeBody(scan: DtsScan, start: number, end: number): boolean {
   return true
 }
 
-function sourceCoverageComplete(scan: DtsScan, source: string): boolean {
+export function sourceCoverageComplete(scan: DtsScan, source: string): boolean {
   const root = rootBlock(scan)
   if (!root || hasPreprocessorConditional(scan.masked)) return false
   // scanDts masks unterminated comments/strings too; coverage must not.
@@ -540,7 +554,7 @@ function sourceCoverageComplete(scan: DtsScan, source: string): boolean {
   return true
 }
 
-function collectSourceDefinitions(source: string): { definitions: SourceDefinition[]; coverage: boolean; signatures: Map<string, InputDomain[]>; layerCount?: number } {
+export function collectSourceDefinitions(source: string): { definitions: SourceDefinition[]; coverage: boolean; signatures: Map<string, InputDomain[]>; layerCount?: number } {
   const scan = scanDts(source)
   const root = rootBlock(scan)
   if (!root) return { definitions: [], coverage: false, signatures: new Map() }
@@ -565,7 +579,27 @@ function collectSourceDefinitions(source: string): { definitions: SourceDefiniti
       if (arity !== undefined) labels.set(`&${child.label}`, arity)
     }
   }
-  const definitions: SourceDefinition[] = []
+  const additions = behaviorGraphDefinitions(source)
+  for (const item of additions) labels.set(item.definition.code, item.definition.arity)
+  const definitions: SourceDefinition[] = [...additions]
+  for (const item of additions) {
+    const pending = new Set<number>()
+    for (const step of item.definition.steps) {
+      if (step.kind === 'control') {
+        const match = /^param_[12]to([12])$/.exec(step.control)
+        if (match) pending.add(Number(match[1]) - 1)
+        continue
+      }
+      const invocation = parseKeyBinding(step.binding)
+      for (const slot of pending) {
+        const domain = leafDomains(step.binding)[slot]
+        invocation.params[slot] = { value: domain === 'code' ? 'A' : domain === 'modifier' ? 'LSHFT' : '0', params: [] }
+      }
+      pending.clear()
+      const error = validateInvocation(encodeKeyBinding(invocation), labels, layerCount)
+      if (error) item.definition.diagnostics.push(error)
+    }
+  }
   for (const container of containers) {
     for (const child of iterateChildNodes(scan, { bodyStart: container.child.openBrace + 1, bodyEnd: container.child.closeBrace })) {
       const definition = sourceDefinition(source, scan, container.name, child, labels, layerCount)
@@ -607,7 +641,7 @@ function collectSourceDefinitions(source: string): { definitions: SourceDefiniti
     if (bindings.hasUnparsedFragment) continue
     for (const binding of bindings.binds) {
       const macro = byCode.get(String(parseKeyBinding(binding).value))
-      if (!macro) continue
+      if (!macro || macro.sensor) continue
       macro.definition.editable = false
       macro.definition.diagnostics = [...macro.definition.diagnostics, 'Macros cannot be used directly as sensor bindings']
     }
@@ -648,6 +682,7 @@ function collectSourceDefinitions(source: string): { definitions: SourceDefiniti
     if (declarations.filter(code => code === definition.code).length !== 1) definition.diagnostics.push('Duplicate macro label')
     for (const step of definition.steps) {
       const code = step.kind === 'control' ? `&macro_${step.control}` : String(parseKeyBinding(step.binding).value)
+      if (byCode.get(code)?.sensor) definition.diagnostics.push(`${code} is a sensor adapter, not an ordinary child invocation`)
       const stock = CONTROL_CODES.has(code) || code in ORDINARY_ARITY || code === '&bt'
       if (stock && declarations.includes(code)) definition.diagnostics.push(`${code} stock dependency is overridden`)
       if (stock && !includes.has('behaviors.dtsi') && !(CONTROL_CODES.has(code) && includes.has('behaviors/macros.dtsi'))) {
@@ -671,6 +706,11 @@ function collectSourceDefinitions(source: string): { definitions: SourceDefiniti
 /** Exact ordinary invocation validation, never a sensor-callback signature. */
 export function validateMacroInvocation(source: string, binding: string): string[] {
   const parsed = collectSourceDefinitions(source)
+  return validateGraphInvocation(source, binding, parsed)
+}
+
+/** Shared typed invocation check for macro and behavior schema adapters. */
+export function validateGraphInvocation(source: string, binding: string, parsed: ReturnType<typeof collectSourceDefinitions>): string[] {
   const invocation = parseKeyBinding(binding)
   const domains = parsed.signatures.get(String(invocation.value))
   if (!parsed.coverage || !domains) return ['Macro has no source-proven editable signature.']
@@ -686,7 +726,7 @@ export function validateMacroInvocation(source: string, binding: string): string
 export function parseDtsMacros(source: string): MacroParseResult {
   const parsed = collectSourceDefinitions(source)
   return {
-    definitions: parsed.definitions.map(item => ({ ...item.definition, steps: item.definition.steps.map(cloneStep), diagnostics: [...item.definition.diagnostics] })),
+    definitions: parsed.definitions.filter(item => !item.behavior).map(item => ({ ...item.definition, steps: item.definition.steps.map(cloneStep), diagnostics: [...item.definition.diagnostics] })),
     referenceCoverageComplete: parsed.coverage
   }
 }
@@ -803,7 +843,8 @@ function bindingSites(source: string, scan: DtsScan): MacroReferenceSite[] {
         if (parents.length === 1 && parents[0] === 'keymap') kind = 'key'
         if (parents.length === 1 && parents[0] === 'combos') kind = 'combo'
         if (parents.length === 1 && ['macros', 'behaviors'].includes(parents[0]!) && compatible && compatible in MACRO_COMPATIBLES) kind = 'macro'
-        if (compatible === 'zmk,behavior-hold-tap') kind = 'hold-tap'
+        if (compatible === 'zmk,behavior-hold-tap' || compatible === 'zmk,behavior-sticky-key') kind = 'hold-tap'
+        if (compatible === 'zmk,behavior-tap-dance' || compatible === 'zmk,behavior-mod-morph') kind = 'behavior-child'
         const adapterProperties = new Set(['compatible', '#sensor-binding-cells', 'bindings', 'tap-ms', 'label', 'display-name'])
         if (parents.length === 1 && parents[0] === 'behaviors' && child.label && compatible === 'zmk,behavior-sensor-rotate' &&
           decimal(properties.get('#sensor-binding-cells')?.value ?? '') === 0 && count === 2 && read.diagnostics.length === 0 &&
@@ -821,6 +862,20 @@ function bindingSites(source: string, scan: DtsScan): MacroReferenceSite[] {
             const absolute = bindings.valueSpan.start + group.index! + 1 + localStart
             sites.push({ reference: ref[0], start: absolute, end: absolute + text.length, kind,
               path: `${path.join('.')}.bindings[${ordinal++}]`, binding: text.replace(/\s+/g, ' ') })
+          }
+        }
+      }
+      const sensor = properties.get('sensor-bindings')
+      if (sensor && parents.length === 1 && parents[0] === 'keymap' && parseGroups(sensor.value).diagnostics.length === 0) {
+        const text = scan.masked.slice(sensor.valueSpan.start, sensor.valueSpan.end)
+        let ordinal = 0
+        for (const group of text.matchAll(/<([^<>]*)>/g)) {
+          const refs = [...group[1]!.matchAll(/&[A-Za-z_]\w*/g)]
+          for (const [index, ref] of refs.entries()) {
+            const binding = group[1]!.slice(ref.index!, refs[index + 1]?.index ?? group[1]!.length).trimEnd()
+            const start = sensor.valueSpan.start + group.index! + 1 + ref.index!
+            sites.push({ reference: ref[0], start, end: start + binding.length, kind: 'sensor',
+              path: `${path.join('.')}.sensor-bindings[${ordinal++}]`, binding: binding.replace(/\s+/g, ' ') })
           }
         }
       }
@@ -866,7 +921,32 @@ export function macroDeletePreflight(
   return { ok: true, sites: [] }
 }
 
-function applyEdits(source: string, edits: Array<{ start: number; end: number; text: string }>): string {
+/** Revalidate the shared graph and every incoming site of a changed signature. */
+export function validateDefinitionGraphChange(source: string, output: string): void {
+  const before = collectSourceDefinitions(source)
+  const after = collectSourceDefinitions(output)
+  for (const item of after.definitions) {
+    const old = before.definitions.find(previous => previous.definition.code === item.definition.code)
+    if ((!old || old.definition.editable) && !item.definition.editable) {
+      throw new KeymapValidationError([`${item.definition.code} failed graph revalidation: ${item.definition.diagnostics.join('; ')}`])
+    }
+  }
+  for (const [code, domains] of after.signatures) {
+    if (JSON.stringify(before.signatures.get(code)) === JSON.stringify(domains)) continue
+    const target = after.definitions.find(item => item.definition.code === code)!
+    for (const site of macroReferenceIndex(output, code)) {
+      const owner = after.definitions.find(item => site.start > item.node.openBrace && site.end <= item.node.closeBrace)
+      if (owner?.definition.editable && ['macro', 'behavior-child', 'hold-tap', 'sensor-child'].includes(site.kind)) continue
+      if (site.kind === 'sensor-child' && site.binding && !target.sensor &&
+        validateGraphInvocation(output, site.binding, after).length === 0) continue
+      if (!owner && site.binding && ['key', 'combo', 'sensor'].includes(site.kind) &&
+        Boolean(target.sensor) === (site.kind === 'sensor') && validateGraphInvocation(output, site.binding, after).length === 0) continue
+      throw new KeymapValidationError([`${code} signature change leaves an invalid or unproven incoming caller at ${site.path}.`])
+    }
+  }
+}
+
+export function applyEdits(source: string, edits: Array<{ start: number; end: number; text: string }>): string {
   const ordered = [...edits].sort((left, right) => right.start - left.start || right.end - left.end)
   for (let index = 1; index < ordered.length; index++) {
     if (ordered[index - 1]!.start < ordered[index]!.end) throw new KeymapValidationError(['Macro source edits overlap.'])
@@ -929,15 +1009,18 @@ function formatDefinition(definition: ZmkMacroDefinition, indent: string, eol: s
 }
 
 /** JSON metadata proves only its own bounded semantic graph, never source ownership. */
-export function macroMetadataSignatures(raw: unknown, layerCount: number): Map<string, InputDomain[]> {
-  const definitions = normalizeZmkMacros(raw)
-  if (!definitions) return new Map()
+export function macroMetadataSignatures(raw: unknown, layerCount: number, rawBehaviors?: unknown): Map<string, InputDomain[]> {
+  const definitions = normalizeZmkMacros(raw) ?? []
+  const behaviors = normalizeBehaviorDefinitions(rawBehaviors) ?? []
   const source = `${[...ALLOWED_INCLUDES].map(header => `#include <${header}>`).join('\n')}
 / {
   macros { ${definitions.filter(item => item.editable).map(item => formatDefinition(item, '', '\n')).join('\n')} };
+  behaviors { ${behaviors.filter(item => item.editable).map(item => formatBehavior(item, '\n')).join('\n')} };
   keymap { ${Array.from({ length: layerCount }, (_, index) => `layer_${index} { bindings = <&none>; };`).join('\n')} };
 };`
-  return collectSourceDefinitions(source).signatures
+  const graph = collectSourceDefinitions(source)
+  for (const item of graph.definitions) if (item.sensor) graph.signatures.delete(item.definition.code)
+  return graph.signatures
 }
 
 /**
@@ -955,6 +1038,7 @@ export function spliceMacrosIntoDts(
   if (!parsed.coverage) {
     throw new KeymapValidationError(['Macro source reference coverage is incomplete; macro edits are disabled.'])
   }
+  parsed.definitions = parsed.definitions.filter(item => !item.behavior)
   const sourceByCode = new Map(parsed.definitions.map(item => [item.definition.code, item]))
   if (macroDefinitionsFingerprint(baseline) !== macroDefinitionsFingerprint(parsed.definitions.map(item => item.definition))) {
     throw new KeymapValidationError(['Macro source baseline is stale. Reload before editing macros.'])
@@ -1053,21 +1137,8 @@ export function spliceMacrosIntoDts(
       throw new KeymapValidationError([`${next.code} failed macro edit revalidation: ${actual[0]?.definition.diagnostics.join('; ') ?? 'definition mismatch'}`])
     }
   }
-  for (const [code, domains] of parsed.signatures) {
-    const nextDomains = reparsed.signatures.get(code)
-    if (!nextDomains || JSON.stringify(domains) === JSON.stringify(nextDomains)) continue
-    for (const site of macroReferenceIndex(output, code)) {
-      if (site.kind === 'macro') {
-        // Forwarded arguments are validated by the owning macro's effective
-        // state, not as standalone literal invocations. Opaque owners prove none.
-        const owner = reparsed.definitions.find(item => site.start > item.node.openBrace && site.end <= item.node.closeBrace)
-        if (owner?.definition.editable) continue
-      } else if (['key', 'combo', 'sensor-child'].includes(site.kind) && site.binding &&
-        validateMacroInvocation(output, site.binding).length === 0) continue
-      throw new KeymapValidationError([`${code} signature change leaves an invalid or unproven incoming caller at ${site.path}.`])
-    }
-  }
-  if (macroDefinitionsFingerprint(reparsed.definitions.map(item => item.definition)) !== macroDefinitionsFingerprint(draft)) {
+  validateDefinitionGraphChange(source, output)
+  if (macroDefinitionsFingerprint(reparsed.definitions.filter(item => !item.behavior).map(item => item.definition)) !== macroDefinitionsFingerprint(draft)) {
     throw new KeymapValidationError(['Requested macro order cannot be represented without moving existing source definitions.'])
   }
   return output

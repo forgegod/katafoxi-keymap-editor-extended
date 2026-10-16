@@ -214,8 +214,9 @@ function readNodeHeader(
   masked: string,
   openBrace: number
 ): { label?: string; name: string; start: number } | null {
-  const nameSpan = identSpanEndingAt(masked, skipWsBack(masked, openBrace - 1))
-  if (!nameSpan) return null
+  const nameMatch = /([A-Za-z0-9,._+@-]+)\s*$/.exec(masked.slice(0, openBrace))
+  if (!nameMatch) return null
+  const nameSpan = { start: nameMatch.index, end: nameMatch.index + nameMatch[1]!.length }
   const name = source.slice(nameSpan.start, nameSpan.end)
   let start = nameSpan.start
   let i = skipWsBack(masked, nameSpan.start - 1)

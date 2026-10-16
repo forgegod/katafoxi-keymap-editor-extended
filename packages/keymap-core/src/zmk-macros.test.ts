@@ -340,7 +340,7 @@ describe('ZMK macro source ownership', () => {
     ['combo caller', 'combos { compatible = "zmk,combos"; combo { key-positions = <0>; bindings = <&target A>; }; };'],
     ['sensor child caller', 'behaviors { dial: dial { compatible = "zmk,behavior-sensor-rotate"; #sensor-binding-cells = <0>; bindings = <&target A>, <&none>; }; };'],
     ['raw incoming reference', 'holder { raw = <&target>; };'],
-    ['hold-tap child', 'behaviors { ht: ht { compatible = "zmk,behavior-hold-tap"; #binding-cells = <2>; bindings = <&target>, <&kp>; }; };'],
+    ['opaque hold-tap child', 'behaviors { ht: ht { compatible = "zmk,behavior-hold-tap"; #binding-cells = <2>; vendor,opaque; bindings = <&target>, <&kp>; }; };'],
     ['opaque macro caller', 'behaviors { caller: caller { compatible = "zmk,behavior-macro"; #binding-cells = <0>; unknown = <1>; bindings = <&target 0>; }; };'],
     ['transitive key caller', 'behaviors { caller: caller { compatible = "zmk,behavior-macro-one-param"; #binding-cells = <1>; bindings = <&macro_param_1to1 &target 0>; }; }; TRANSITIVE']
   ])('rejects a signature edit with an invalid or unproven %s atomically', (_name, incoming) => {

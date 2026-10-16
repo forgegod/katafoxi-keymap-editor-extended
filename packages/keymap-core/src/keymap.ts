@@ -13,6 +13,7 @@ import {
   spliceRgbLayerRecipeIntoDts
 } from './behavior-recipes.js'
 import { normalizeHoldTaps, spliceHoldTapsIntoDts } from './dts-behaviors.js'
+import { behaviorDefinitionsFingerprint, behaviorDeletePreflight, normalizeBehaviorDefinitions, parseDtsBehaviorDefinitions, spliceBehaviorDefinitionsIntoDts, validateChangedBehaviorInvocations } from './behavior-definitions.js'
 import {
   encodeMacroFingerprint,
   macroDefinitionsFingerprint,
@@ -302,6 +303,8 @@ export function parseKeymap(keymap: {
   holdTaps?: unknown
   macros?: unknown
   macroSourceFingerprint?: unknown
+  behaviorDefinitions?: unknown
+  behaviorSourceFingerprint?: unknown
   sensorBindings?: unknown
   rgbLayerRecipe?: unknown
 }): ParsedKeymap {
@@ -317,6 +320,7 @@ export function parseKeymap(keymap: {
   const conditionalLayers = normalizeConditionalLayers(keymap.conditionalLayers)
   const holdTaps = normalizeHoldTaps(keymap.holdTaps)
   const macros = normalizeZmkMacros(keymap.macros)
+  const behaviorDefinitions = normalizeBehaviorDefinitions(keymap.behaviorDefinitions)
   const sensorBindings = normalizeSensorBindings(keymap.sensorBindings)
   const out: ParsedKeymap = {
     layers: keymap.layers.map((layer, i) => {
@@ -341,6 +345,8 @@ export function parseKeymap(keymap: {
   if (conditionalLayers) out.conditionalLayers = conditionalLayers
   if (holdTaps) out.holdTaps = holdTaps
   if (macros) out.macros = macros
+  if (behaviorDefinitions !== undefined) out.behaviorDefinitions = behaviorDefinitions
+  if (typeof keymap.behaviorSourceFingerprint === 'string') out.behaviorSourceFingerprint = keymap.behaviorSourceFingerprint
   if (typeof keymap.macroSourceFingerprint === 'string') {
     out.macroSourceFingerprint = keymap.macroSourceFingerprint
   }
@@ -427,6 +433,7 @@ function generateKeymapCode(
     ...new Set([
       ...used.flatMap(bind => behavioursByBind[bind]?.includes ?? []),
       ...(keymap.macros?.length ? ['#include <dt-bindings/zmk/keys.h>', '#include <dt-bindings/zmk/modifiers.h>'] : []),
+      ...(keymap.behaviorDefinitions?.length ? ['#include <dt-bindings/zmk/keys.h>', '#include <dt-bindings/zmk/modifiers.h>', '#include <dt-bindings/zmk/bt.h>'] : []),
       ...(shouldEnsureRgbLayerRecipe(keymap) || used.includes(RGB_LAYER_RECIPE.code)
         ? [...RGB_LAYER_RECIPE.includes]
         : [])
@@ -502,7 +509,7 @@ export function generateKeymap(
 export function buildKeymapCode(
   layout: LayoutKey[],
   keymap: ParsedKeymap,
-  options?: { template?: string; originalSource?: string; allowSourceFreeMacros?: boolean }
+  options?: { template?: string; originalSource?: string; allowSourceFreeMacros?: boolean; allowSourceFreeBehaviors?: boolean }
 ): BuildKeymapCodeResult {
   const encoded = encodeKeymap(keymap)
   const layers = encoded.layers
@@ -514,8 +521,8 @@ export function buildKeymapCode(
   const originalSource = options?.originalSource
 
   if (typeof template === 'string' && template.length > 0) {
-    if (keymap.macros !== undefined) {
-      throw new KeymapValidationError(['Template save cannot apply source-backed macro definitions.'])
+    if (keymap.macros !== undefined || keymap.behaviorDefinitions !== undefined) {
+      throw new KeymapValidationError(['Template save cannot apply source-backed macro or behavior definitions.'])
     }
     return {
       code: applyModelBlocks(
@@ -534,12 +541,40 @@ export function buildKeymapCode(
     if (regionsText && macrosAppearInText(regionsText, compiled)) {
       warnings.push('macros_expanded')
     }
-    const spliced = spliceBindingsIntoDts(originalSource, {
+    const original = parseOriginalModel(originalSource)
+    let behaviorSource = originalSource
+    let working = keymap
+    if (keymap.behaviorDefinitions !== undefined) {
+      const baseline = parseDtsBehaviorDefinitions(originalSource).definitions
+      if ((baseline.length > 0 || keymap.behaviorSourceFingerprint !== undefined) &&
+        keymap.behaviorSourceFingerprint !== behaviorDefinitionsFingerprint(baseline)) {
+        throw new KeymapValidationError(['Behavior metadata does not match the current source baseline.'])
+      }
+      behaviorSource = spliceBehaviorDefinitionsIntoDts(originalSource, keymap.behaviorDefinitions, baseline)
+      if (behaviorSource !== originalSource) {
+        if (keymap.holdTaps !== undefined && !fingerprintsMatch(keymap.holdTaps, original?.holdTaps, holdTapFingerprint)) {
+          throw new KeymapValidationError(['Conflicting behavior-definition and legacy hold-tap edits; apply them separately.'])
+        }
+        working = { ...keymap, holdTaps: undefined }
+      }
+    }
+    const spliced = spliceBindingsIntoDts(behaviorSource, {
       layout,
       layers
     })
+    const code = applyModelBlocks(spliced, working, original)
+    validateChangedBehaviorInvocations(originalSource, code)
+    if (keymap.behaviorDefinitions !== undefined) {
+      const actual = parseDtsKeymap(code)
+      encoded.behaviorDefinitions = actual.behaviorDefinitions ?? []
+      encoded.behaviorSourceFingerprint = behaviorDefinitionsFingerprint(encoded.behaviorDefinitions)
+      if (behaviorSource !== originalSource) {
+        if (actual.holdTaps !== undefined) encoded.holdTaps = actual.holdTaps
+        else delete encoded.holdTaps
+      }
+    }
     return {
-      code: applyModelBlocks(spliced, keymap, parseOriginalModel(originalSource)),
+      code,
       json: generateKeymapJSON(layout, encoded),
       mode: 'splice',
       warnings
@@ -547,16 +582,31 @@ export function buildKeymapCode(
   }
 
   warnings.push('generated_default_template')
+  if (keymap.behaviorDefinitions !== undefined && options?.allowSourceFreeBehaviors !== true) throw new KeymapValidationError(['Behavior definitions require matching source or explicit source-free provenance.'])
   if (keymap.macros !== undefined && options?.allowSourceFreeMacros !== true) {
     throw new KeymapValidationError(['Macro definitions require matching source or explicit source-free provenance.'])
   }
-  return {
-    code: applyModelBlocks(
+  const working = keymap.behaviorDefinitions !== undefined ? {
+    ...keymap,
+    holdTaps: keymap.holdTaps?.filter(item => !keymap.behaviorDefinitions!.some(definition => definition.code === item.code))
+  } : keymap
+  let code = applyModelBlocks(
       generateKeymapCode(layout, keymap, encoded, keymapTemplate),
-      keymap,
+      working,
       undefined,
       options?.allowSourceFreeMacros === true
-    ),
+    )
+  if (keymap.behaviorDefinitions !== undefined) {
+    code = spliceBehaviorDefinitionsIntoDts(code, keymap.behaviorDefinitions, [], { sourceFree: true })
+    const actual = parseDtsKeymap(code)
+    encoded.behaviorDefinitions = actual.behaviorDefinitions ?? []
+    encoded.behaviorSourceFingerprint = behaviorDefinitionsFingerprint(encoded.behaviorDefinitions)
+    if (actual.holdTaps !== undefined) encoded.holdTaps = actual.holdTaps
+    else delete encoded.holdTaps
+    validateChangedBehaviorInvocations('', code)
+  }
+  return {
+    code,
     json: generateKeymapJSON(layout, encoded),
     mode: 'default_template',
     warnings
@@ -674,6 +724,12 @@ function applyHoldTaps(
   if (fingerprintsMatch(keymap.holdTaps, original?.holdTaps, holdTapFingerprint)) {
     return code
   }
+  for (const definition of parseDtsBehaviorDefinitions(code).definitions) {
+    if (definition.compatible !== 'zmk,behavior-hold-tap' ||
+      keymap.holdTaps.some(item => item.code === definition.code && !item.override)) continue
+    const preflight = behaviorDeletePreflight(code, definition.code)
+    if (!preflight.ok) throw new KeymapValidationError([preflight.error])
+  }
   return spliceHoldTapsIntoDts(code, keymap.holdTaps)
 }
 
@@ -710,6 +766,7 @@ export function validateKeymapJson(
       layers?: unknown
       holdTaps?: Array<{ code?: unknown; override?: unknown }>
       macros?: Array<{ code?: unknown; editable?: unknown }>
+      behaviorDefinitions?: unknown
       rgbLayerRecipe?: unknown
     }
     const extraBehaviours = new Set(
@@ -720,7 +777,7 @@ export function validateKeymapJson(
     if (km.rgbLayerRecipe === true) {
       extraBehaviours.add(RGB_LAYER_RECIPE.code)
     }
-    for (const code of macroMetadataSignatures(km.macros, Array.isArray(km.layers) ? km.layers.length : 0).keys()) extraBehaviours.add(code)
+    for (const code of macroMetadataSignatures(km.macros, Array.isArray(km.layers) ? km.layers.length : 0, km.behaviorDefinitions).keys()) extraBehaviours.add(code)
     if (!Array.isArray(km.layers)) {
       errors.push('keymap must include "layers" array')
     } else {
