@@ -1,6 +1,6 @@
 # CHG-006 — Create and configure custom behavior definitions
 
-**Status:** in-progress
+**Status:** done
 **External request:** Direct operator request: Incorporate the ../ai-software-blueprint/ into this project. Proceed with the feature gaps as proposed in change requests based on the new blueprint
 **Impacts:** CAP-001
 **Baseline:** `2bb062d9e613980cc8d7ef1e4c545b527ff1e9c2` on main; recheck branch and working-tree ownership before execution.
@@ -8,9 +8,9 @@
 
 ## Current boundary
 
-The fork has editable hold-tap timing and fixed presets, plus opaque external binding preservation. There is no general definition editor for tap-dance, mod-morph, sticky-key or sensor-rotate behaviors.
+The fork has bounded staged definition authoring for hold-tap, sticky-key/layer, tap-dance, mod-morph and zero-cell sensor-rotate on Demo and verified Clipboard. Unsupported source remains read-only/preserved; GitHub/local definition authoring, arbitrary schemas and parameterized sensor adapters are not supported. [CAP-001](../../product/capabilities/CAP-001-firmware-keymap-editing.md) records the current implementation and its distinct core, component and browser evidence.
 
-[Parity evidence](../upstream-gap-assessment.md). These are requested outcomes, not present capability claims.
+[Parity evidence](../upstream-gap-assessment.md) records the original gap. The frozen Phase 1 specification below is historical acceptance scope, not additional current capability or certification.
 
 ## Dependencies
 
@@ -40,7 +40,7 @@ Paths name existing seams, not a claim that future symbols or tests already exis
 | 1 | Specify the safe behavior boundary | done (`pnpm records:check` exits 0; corpus `fixture-roundtrip` 40 passed; final independent Grok review: no findings; specification and preservation fixtures only) | `pnpm records:check` passes; acceptance matrix and proposed regression cases reviewed |
 | 2 | Implement and prove the domain slice | done (`pnpm --filter @keymap-editor/keymap-core test`: 1,096 passed, 1 skipped; `pnpm --filter @keymap-editor/web test`: 918 passed; `pnpm --filter @keymap-editor/keymap-core lint`, `pnpm records:check`, and `git diff --check` exit 0; final independent Grok review: no findings) | `pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test` |
 | 3 | Integrate the interaction and visual handoff | done (`pnpm --filter @keymap-editor/web test`: 954 passed; `pnpm test:e2e`: 54 passed; wireframes generated/rendered; `pnpm records:check` and `git diff --check` passed; final independent Grok review: no findings) | `pnpm --filter @keymap-editor/web test && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
-| 4 | Verify and close the change | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages` |
+| 4 | Verify and close the change | done (exact full gate exited 0; core 1,118 passed / 1 skipped, API 270, web 954, Cloudflare 11, record regressions 72 passed; browser 54, production 5, Pages 2 passed / 2 intentionally skipped; fresh independent Grok review: No findings on frozen SHA-256 `533e7eaebb69d3477914144b8d02a8bcbbaea5d1da10518f3b16bf263874a115`) | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages` |
 
 ## Phase 1 — Specify the safe behavior boundary
 
@@ -49,9 +49,9 @@ Paths name existing seams, not a claim that future symbols or tests already exis
 1. Choose and pin the supported schema set and ownership model. Review upstream/ZMK schemas as requirements, not copied compiled app code.
 2. Define reference validation, rename/delete semantics, stock override handling and which properties require raw/read-only fallback. Add fixtures covering each supported family and unsupported properties.
 
-Everything in this section is a **proposed Phase 2/3 contract**. No behavior-definition feature, symbol or test is implemented by this phase; the only executable artifacts are source-preservation fixtures (below).
+This section preserves the **Phase 1 proposal for Phase 2/3**. Phase 1 itself implemented no behavior-definition feature; its only executable artifacts were source-preservation fixtures. Later implementation evidence belongs to CAP-001 and the verified phase receipts, not these historical future-tense requirements.
 
-### Pinned schema set (not implemented)
+### Pinned schema set (Phase 1 specification)
 
 Pin the definitions to ZMK **v0.3.0**, commit `edf5c0814fd3ea202e43aad2d68fd32e882a518c` — the same baseline CHG-005 used, not the moving development documentation. This is a bounded editor subset, not a promise to compile arbitrary firmware.
 
@@ -126,7 +126,7 @@ Both are registered in `packages/keymap-core/fixtures/corpus/manifest.json`, whi
 
 ### Acceptance and future regression matrix
 
-All outcomes below are **proposed Phase 2/3 acceptance, not passing tests today**. Existing macro fixture ownership is unchanged; the new fixtures do not widen any parser or UI in Phase 1.
+At Phase 1, all outcomes below were **proposed Phase 2/3 acceptance, not passing behavior tests**. Existing macro fixture ownership is unchanged; those fixtures did not widen any parser or UI in Phase 1. This matrix remains the original acceptance scope, not a claim that every cell has browser coverage.
 
 | ID | Fixture / variation | Required future assertion and seam |
 | --- | --- | --- |
@@ -143,7 +143,7 @@ All outcomes below are **proposed Phase 2/3 acceptance, not passing tests today*
 | B11 | Preserve `behavior-boundary-opaque.keymap` with its file-level coverage failure; add Phase-2 coverage-clean variants without `#define EXPR_TERM` to isolate each unsupported node/property class. | The original stays byte-identical and read-only under the file-level coverage refusal. Each isolated variant reports its class-specific actionable reason without normalization; the original fixture alone cannot prove per-node class diagnostics. |
 | B12 | Save-path equivalence and persistence. | A source-backed edit requires matching source/fingerprint; JSON reload reconciles against the live revision; template/Demo boundary and undo/redo match the macro contract; shared `buildKeymapCode` remains the only writer. |
 
-Concrete Phase-2 regression cases (to be added as executable tests, none exist yet): parse-and-identify each supported family from `behavior-boundary-supported.keymap`; reject embedded argument cells in hold-tap/sticky child bindings; a timing/flag/enum edit on one family with sibling-interval locality; a rename and a referenced-delete refusal; a stock `&mt` override coexistence check; and per-node class-specific read-only reasons using coverage-clean variants of the opaque input without `#define EXPR_TERM`, as required by B11. Keep the original opaque fixture as file-level refusal/preservation evidence only. Self/mutual-cycle refusal is added in Phase 2 as a synthetic test input (or a future dedicated fixture); the Phase-1 corpus has no recursive definition. Phase 3 supplies the actual interaction/visual evidence.
+Phase 1 proposed these concrete Phase-2 regression cases: parse-and-identify each supported family from `behavior-boundary-supported.keymap`; reject embedded argument cells in hold-tap/sticky child bindings; a timing/flag/enum edit on one family with sibling-interval locality; a rename and a referenced-delete refusal; a stock `&mt` override coexistence check; and per-node class-specific read-only reasons using coverage-clean variants of the opaque input without `#define EXPR_TERM`, as required by B11. The original opaque fixture remains file-level refusal/preservation evidence only. The Phase-1 corpus has no recursive definition; later synthetic tests own cycle-refusal evidence. CAP-001 distinguishes the subsequent domain tests from Phase-3 interaction/visual evidence.
 
 **Verification gate:** `pnpm records:check` passes; acceptance matrix and proposed regression cases reviewed.
 
@@ -169,6 +169,8 @@ Concrete Phase-2 regression cases (to be added as executable tests, none exist y
 
 **Goal:** Record current behavior only after every integration and visual gate passes.
 
+Required Phase 4 gate correction: remove the unused `ParsedKeymap` type import in `apps/web/src/lib/components/MacroPanel.svelte` reported by `pnpm lint`. This is behavior-neutral; no authoring boundary or earlier phase acceptance is expanded.
+
 1. Update impacted CAPs and implementation/test links. Inspect every changed canonical HTML/PNG; validate Primary surface declarations. Add any new current CAP only alongside real behavior and proof.
 2. Run the full integration gate below on the actual revision. Record exact commands/results, supported environment and remaining limitations. Retain any review package at its stable path and repair links.
 3. Only then mark all phases done with evidence, mark the CHG done and move it to archive; update the change index. Do not commit/push/deploy without separate authorization.
@@ -185,12 +187,24 @@ Use `docs/product/wireframes/generate.mjs` only for implemented CAP surfaces; re
 
 ## Execution state
 
-Phase 1 is complete: it specifies the bounded contract and adds source-preservation fixtures only. Three independent-review passes corrected the phandle versus phandle-array contract, opaque-fixture coverage limitations, the modifier-expression inventory, and the closed-include policy. The final authorized Phase-1 Grok review found no findings. Phase 2 is complete: it implements bounded behavior-definition parsing/splicing, shared reference validation, model/save integration, and domain regressions. Its final independent Grok review found no findings. Phase 3 is complete: the staged behavior-definition interaction, browser workflow, CAP and canonical schematic passed its gate and a final independent Grok review found no findings. Phase 4 remains pending and was not started.
+Phase 1 is complete: it specifies the bounded contract and adds source-preservation fixtures only. Three independent-review passes corrected the phandle versus phandle-array contract, opaque-fixture coverage limitations, the modifier-expression inventory, and the closed-include policy. The final authorized Phase-1 Grok review found no findings. Phase 2 is complete: it implements bounded behavior-definition parsing/splicing, shared reference validation, model/save integration, and domain regressions. Its final independent Grok review found no findings. Phase 3 is complete: the staged behavior-definition interaction, browser workflow, CAP and canonical schematic passed its gate and a final independent Grok review found no findings. Phase 4 is complete: the exact full gate passed and the operator confirmed a fresh independent Grok review returned No findings on the frozen candidate. Authorized record-only closure marks CHG-006 done and moves it to archive in the dedicated `chg-006-phase4` worktree. The archive candidate awaits final read-only review; no commit, primary-checkout integration, push or deployment is claimed or authorized.
 
 - Final Phase 1 checks: `pnpm records:check` exited 0 (3 capabilities, 10 change records, wireframe manifest in sync); `pnpm --filter @keymap-editor/keymap-core exec vitest run src/fixture-roundtrip.test.ts` exited 0 (1 file, 40 tests passed); `git diff --check` passed. Node `v24.21.0`, pnpm `9.15.0`.
 - Final independent review: authorized third fresh Grok review returned **No findings** after inspecting the complete candidate, including both untracked corpus fixtures. The tracked-path diff fingerprint was `0674d9f8efe8cad210bebb1a16fb7a42a26fe8b5cccee162ca5026441a9e0123`. No runtime, parser, UI, CAP or wireframe change.
 - Final Phase 2 checks: `pnpm --filter @keymap-editor/keymap-core test` exited 0 (64 files, 1,096 passed, 1 skipped); `pnpm --filter @keymap-editor/web test` exited 0 (73 files, 918 passed); `pnpm --filter @keymap-editor/keymap-core lint`, `pnpm records:check`, and `git diff --check` exited 0. Node `v24.21.0`, pnpm `9.15.0`.
 - Final Phase 2 independent review: fresh Grok review found **No findings** on full-diff SHA-256 `1dd2534901eb311009fa3e86e4e08796e4f8cc5a94f9a49015f5fda8a743ce59`; it confirmed the three corrected review findings and that the tree did not move during review.
 - Phase 3 final verification: `pnpm --filter @keymap-editor/keymap-core test` passed (64 files, 1,118 passed, 1 skipped); `pnpm --filter @keymap-editor/web test` passed (74 files, 954 passed); `pnpm test:e2e` passed (54 tests); `pnpm wireframes:generate`, `pnpm wireframes:render`, `pnpm records:check`, and `git diff --check` passed. Canonical CAP-001 Behaviors states were inspected without clipping or overlap. Node `v24.21.0`, pnpm `9.15.0`.
-- Phase 3 final independent review: fresh Grok review inspected the frozen corrected candidate against `98694ab` and returned **No findings**. It specifically rechecked source-free rename refusal, RGB/pinned-behavior layer operations, and absorbed hold-tap/preset deletion. Phase 4 remains pending.
-- Use Node 24 LTS and the repository-pinned pnpm; install Playwright Chromium for browser/render gates. If a gate cannot run, keep the phase pending or blocked and record the actual blocker.
+- Phase 3 final independent review: fresh Grok review inspected the frozen corrected candidate against `98694ab` and returned **No findings**. It specifically rechecked source-free rename refusal, RGB/pinned-behavior layer operations, and absorbed hold-tap/preset deletion.
+- Use Node 24 LTS and the repository-pinned pnpm; install Playwright Chromium for browser/render gates. If a started gate cannot run, keep the phase in-progress, mark the CHG blocked when appropriate, and record the actual blocker; never mark it done without evidence.
+
+### Phase 4 final verification and reviewed closure
+
+- Worktree: `chg-006-phase4`, based on `ead0ba010413d5e74afac287117557c3ea5a6150`; Node `v24.21.0`, pnpm `9.15.0`. The initial worktree was clean. `pnpm install --offline` exited 0, reusing 204 packages with zero downloads. Existing Playwright Chromium was sufficient.
+- Fresh-worktree prerequisite: the first full gate stopped in API tests because the core package exports `dist/index.js`, which was absent. `pnpm --filter @keymap-editor/keymap-core build` exited 0. The second full gate passed all tests, then exposed the unused `ParsedKeymap` import; removing only that type import fixed lint. The third full gate passed tests/lint/build but tsx startup failed with `listen EINVAL` on a 130-byte Unix socket path. Shortening `TMPDIR` to the worktree's `node_modules/t` produced a 106-byte socket path; `pnpm --filter @keymap-editor/api exec tsx -e 'console.log("tsx IPC startup passed")'` exited 0. No product behavior changed to accommodate either environment issue.
+- The exact full gate then exited 0: `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages`. Core: 64 files, 1,118 passed / 1 optional local golden skipped; API: 13 files, 270 passed; web: 74 files, 954 passed; Cloudflare: 1 file, 11 passed; record-validator regressions: 72 passed. Lint: zero errors/warnings. Core/web/API builds passed; Vite reported its non-fatal chunk-size warning. Browser: 54 passed; production: 5 passed; static Pages: 2 passed / 2 GitHub-only checks intentionally skipped because GitHub is disabled. No live OAuth or deployment verification is claimed.
+- Verification stayed local: `PAGES_TEST_URL` and `PAGES_EXPECT_GITHUB` were unset; fixture I/O used the worktree's `node_modules/.cache/chg-006-phase4/tmp/keymap-e2e`. No credentials, external writes, commit, push or deployment were used.
+- Canonical generation and rendering succeeded for all 3 CAPs and produced no tracked visual changes. CAP-001 is still honestly `partial` / `human`; its bounded behavior and implementation/test links were checked against `BehaviorPanel.svelte`, `macro-editor.ts`, component/core tests and `e2e/behaviors.spec.ts`. No CAP claim needed expansion or correction. Full all-family browser acceptance and remote definition-authoring adapters remain outside its claims.
+- CAP-001 HTML/PNG inspection: 1440×4900; all four Behaviors cards fit, with the final card ending at y=4414. The file-URL DOM check found no text outside those cards, no overflow, no page errors and no remote requests. Full-image inspection plus native-resolution crops `(20,3035)-(1420,3725)` and `(20,3710)-(1420,4455)` found no clipped text, overlapping controls or illegible labels. The visible states distinguish global definition properties, per-invocation arguments, whole existing encoder adapters, source-preview Apply, source restrictions and deletion/stale refusals. These are schematic checks, not runtime or firmware proof.
+- Inspected artifact SHA-256: HTML `fdf601690c5873f9dad6d1319d0f7d5e152a873e27187d22ed6ed1ba85cbb8a8`; PNG `57d7296fb60466b941ff87472826d49fda3839b00e97b0a731e381f46d1bf8fc` (canonical CAP-001 paths linked from CAP-001).
+- Final independent review: the operator confirmed a fresh Grok review returned **No findings** on frozen implementation-diff SHA-256 `533e7eaebb69d3477914144b8d02a8bcbbaea5d1da10518f3b16bf263874a115`. Before closure edits, `git diff --full-index` reproduced that exact fingerprint. This approval covers the frozen implementation candidate; the record-only archive candidate remains for final read-only review.
+- DOX pass: root, docs, changes, product and wireframe contracts were re-read for closure and remain unchanged because this receipt and the existing active-to-archive lifecycle introduce no new behavior, ownership, durable structure or operating contract. `docs/changes/README.md` removes CHG-006 from Current records and lists it as done in Archive. CAPs, wireframes, product code and scope remain unchanged by closure; the reviewed import cleanup is preserved. No later phase is started, and no commit, push, deployment or primary-checkout edit is performed.

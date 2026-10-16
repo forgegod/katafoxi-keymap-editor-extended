@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { encodeKeyBinding, macroDeletePreflight, macroMetadataSignatures, macroQueueWarnings, parseKeyBinding, textToUsAsciiMacro, validateMacroInvocation, type ParsedKeymap, type ZmkMacroDefinition, type ZmkMacroStep } from '@keymap-editor/keymap-core'
+  import { encodeKeyBinding, macroDeletePreflight, macroMetadataSignatures, macroQueueWarnings, parseKeyBinding, textToUsAsciiMacro, validateMacroInvocation, type ZmkMacroDefinition, type ZmkMacroStep } from '@keymap-editor/keymap-core'
   import { buildMacroPreview, captureMacroDocument, confirmMacroPreview, type MacroDocument } from '../macro-editor'
   import { editor } from '../editor.svelte.js'
   import Modal from './Common/Modal.svelte'
