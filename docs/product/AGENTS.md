@@ -16,7 +16,7 @@ CAPs describe existing behavior only, with implementation and behavior-test path
 
 Read README.md and ../changes/README.md. The generator is the only screen-definition source; proposed interactions remain with their CHG.
 
-CAP-001 owns the bounded macro dialog and its canonical firmware-editor schematic. Keep Demo/verified-Clipboard authoring distinct from source preservation, and separate tested UI outcomes from core-only coverage and the pending CHG-005 acceptance matrix.
+CAP-001 owns the bounded macro dialog and its canonical firmware-editor schematic. Keep Demo/verified-Clipboard authoring distinct from source preservation, and separate tested UI outcomes from core-only coverage. CHG-005's full M01–M12 acceptance matrix remains uncertified; its closure does not expand CAP-001's implemented boundary.
 
 ## Verification
 
