@@ -1,5 +1,5 @@
 import {
-  buildKeymapCode, cloneParsedKeymap, diffKeymaps, macroDefinitionsFingerprint, parseDtsMacros,
+  buildKeymapCode, cloneParsedKeymap, diffKeymaps, macroDefinitionsFingerprint, parseDtsMacros, parseKeymap,
   type ParsedKeymap
 } from '@keymap-editor/keymap-core'
 import type { EditorState } from './editor/state.svelte'
@@ -16,11 +16,11 @@ function checkBusy(editor: EditorState, ownGuard?: () => string | null) {
   }
 }
 
-export function captureMacroDocument(editor: EditorState, ownGuard?: () => string | null) {
+export function captureMacroDocument(editor: EditorState, ownGuard?: () => string | null, subject = 'Macro') {
   checkBusy(editor, ownGuard)
   if (!editor.draftKeymap || !editor.layout || !editor.layerOperationSnapshot) throw new Error('Load a document first.')
   if (editor.source !== 'demo' && (editor.source !== 'clipboard' || !editor.clipboardOriginalSource)) {
-    throw new Error('Macro authoring requires Demo or matching Clipboard source. GitHub/local and missing-source documents are read-only here.')
+    throw new Error(`${subject} authoring requires Demo or matching Clipboard source. GitHub/local and missing-source documents are read-only here.`)
   }
   return {
     keymap: editor.draftKeymap,
@@ -35,17 +35,34 @@ export function captureMacroDocument(editor: EditorState, ownGuard?: () => strin
 export type MacroDocument = ReturnType<typeof captureMacroDocument>
 
 export function buildMacroPreview(document: MacroDocument, keymap: ParsedKeymap) {
+  if (document.kind === 'demo' && keymap.behaviorDefinitions !== undefined) {
+    // Definition deletion/rename also removes its absorbed legacy mirror.
+    // Unmanaged presets and ordinary key-editor hold-tap updates stay separate.
+    const removed = new Set(document.keymap.behaviorDefinitions?.filter(item =>
+      item.compatible === 'zmk,behavior-hold-tap' && !keymap.behaviorDefinitions!.some(next => next.code === item.code)
+    ).map(item => item.code))
+    if (removed.size) keymap = { ...keymap, holdTaps: keymap.holdTaps?.filter(item => item.override || !removed.has(item.code)) }
+  }
   const built = buildKeymapCode(document.layout, keymap, {
     originalSource: document.kind === 'clipboard' ? document.source! : undefined,
-    allowSourceFreeMacros: document.kind === 'demo'
+    allowSourceFreeMacros: document.kind === 'demo',
+    allowSourceFreeBehaviors: document.kind === 'demo'
   })
   // A subsequent invocation must see a newly created definition in its source.
   // Carry the exact writer result with the semantic model in existing history.
-  const definitions = parseDtsMacros(built.code).definitions
+  const actual = parseKeymap(JSON.parse(built.json))
+  const definitions = document.kind === 'demo' ? actual.macros ?? [] : parseDtsMacros(built.code).definitions
   const next = cloneParsedKeymap(keymap)
   next.macros = definitions
   if (document.kind === 'clipboard') next.macroSourceFingerprint = macroDefinitionsFingerprint(definitions)
-  return { keymap: next, code: built.code }
+  // The shared writer also reconciles the overlapping legacy hold-tap view.
+  // Use its metadata, not a second UI serializer or the stale staged model.
+  if (keymap.behaviorDefinitions !== undefined) {
+    next.behaviorDefinitions = actual.behaviorDefinitions
+    next.behaviorSourceFingerprint = actual.behaviorSourceFingerprint
+    next.holdTaps = actual.holdTaps
+  }
+  return { keymap: next, code: built.code, definitionSource: built.generatedDefinitionSource ?? built.code }
 }
 
 export function confirmMacroPreview(editor: EditorState, document: MacroDocument, preview: ReturnType<typeof buildMacroPreview>) {

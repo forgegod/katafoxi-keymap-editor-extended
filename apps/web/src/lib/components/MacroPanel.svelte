@@ -9,7 +9,7 @@
   let open = $state(false)
   let draft = $state<ZmkMacroDefinition | null>(null)
   let captured: MacroDocument | null = null
-  let preview = $state.raw<{ keymap: ParsedKeymap; code: string } | null>(null)
+  let preview = $state.raw<ReturnType<typeof buildMacroPreview> | null>(null)
   let error = $state('')
   let editingCode = $state<string | null>(null)
   let tapMs = $state('')
@@ -82,6 +82,11 @@
     if (!draft || !captured || !editor.layout) return
     try {
       const definition = { ...$state.snapshot(draft), code: `&${draft.label}`, nodeName: editingCode ? draft.nodeName : draft.label, tapMs: timing(tapMs), waitMs: timing(waitMs) }
+      if (editingCode && definition.code !== editingCode) {
+        const current = buildMacroPreview(captured, captured.keymap)
+        const check = macroDeletePreflight(current.definitionSource, editingCode)
+        if (!check.ok) throw new Error(`${check.error} ${check.sites.map(site => site.path).join(', ')}`)
+      }
       const macros = editingCode ? captured.keymap.macros!.map(item => item.code === editingCode ? definition : item) : [...(captured.keymap.macros ?? []), definition]
       preview = buildMacroPreview(captured, { ...captured.keymap, macros })
       error = ''
@@ -105,7 +110,7 @@
     try {
       captured = captureMacroDocument(editor, draftGuard)
       const current = buildMacroPreview(captured, captured.keymap)
-      const check = macroDeletePreflight(current.code, macro.code)
+      const check = macroDeletePreflight(current.definitionSource, macro.code)
       if (!check.ok) throw new Error(`${check.error} ${check.sites.map(site => site.path).join(', ')}`)
       preview = buildMacroPreview(captured, { ...captured.keymap, macros: captured.keymap.macros!.filter(item => item.code !== macro.code) })
       replacement = `Delete ${macro.code}. No incoming references in this document. This does not prove references in other files.`
@@ -123,7 +128,7 @@
     try {
       const binding = [using.code, ...args].join(' ')
       const current = buildMacroPreview(captured, captured.keymap)
-      const errors = validateMacroInvocation(current.code, binding)
+      const errors = validateMacroInvocation(current.definitionSource, binding)
       if (errors.length) throw new Error(errors.join(' '))
       const before = destination === 'combo' ? captured.keymap.combos?.find(item => item.id === comboId)?.binding : captured.keymap.layers[layer]?.[key]
       if (!before) throw new Error('Choose an existing key or combo.')

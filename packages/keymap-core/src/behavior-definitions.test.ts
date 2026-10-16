@@ -62,6 +62,103 @@ describe.each([['LF', '\n'], ['CRLF', '\r\n']])('behavior addition locality (%s)
 })
 
 describe('bounded behavior definitions', () => {
+  it.each(['key', 'combo', 'sensor', 'behavior-child', 'macro-child'] as const)('refuses source-free referenced behavior rename at the writer (%s)', site => {
+    const sensor = site === 'sensor'
+    const draft = core.parseKeymap(core.parseDtsKeymap(definitionSource(sensor
+      ? 'compatible = "zmk,behavior-sensor-rotate"; #sensor-binding-cells = <0>; bindings = <&kp A>, <&kp B>;'
+      : 'compatible = "zmk,behavior-tap-dance"; #binding-cells = <0>; bindings = <&kp A>;')))
+    draft.rgbLayerRecipe = true
+    if (site === 'key') draft.layers[0][0] = core.parseKeyBinding('&custom')
+    if (site === 'combo') draft.combos = [{ id: 'chord', keyPositions: [0], binding: core.parseKeyBinding('&custom') }]
+    if (sensor) draft.sensorBindings = [[core.parseKeyBinding('&custom')]]
+    if (site === 'behavior-child') draft.behaviorDefinitions!.push({ ...draft.behaviorDefinitions![0], code: '&caller', label: 'caller', nodeName: 'caller', bindings: ['&custom'] })
+    if (site === 'macro-child') draft.macros = [{ code: '&caller', label: 'caller', nodeName: 'caller', container: 'macros', arity: 0, editable: true, diagnostics: [], steps: [{ kind: 'behavior', binding: '&custom' }] }]
+    const layout = [{ x: 0, y: 0 }]
+    const options = { allowSourceFreeBehaviors: true, allowSourceFreeMacros: true }
+    const baseline = core.buildKeymapCode(layout, draft, options)
+    const renamed = core.parseKeymap(JSON.parse(baseline.json))
+    Object.assign(renamed.behaviorDefinitions![0], { code: '&renamed', label: 'renamed' })
+    const before = structuredClone(renamed)
+    expect(() => core.buildKeymapCode(layout, renamed, options)).toThrow(/reference|signature|schema|invocation/i)
+    expect(renamed).toEqual(before)
+  })
+
+  it.each(['key', 'combo', 'sensor', 'behavior-child', 'macro-child'] as const)('refuses source-free referenced macro rename at the writer (%s)', site => {
+    const draft = core.parseKeymap({ layers: [['&none']], behaviorDefinitions: [], macros: [{
+      code: '&sequence', label: 'sequence', nodeName: 'sequence', container: 'macros', arity: 0,
+      editable: true, diagnostics: [], steps: [{ kind: 'behavior', binding: '&kp A' }]
+    }] })
+    draft.rgbLayerRecipe = true
+    if (site === 'key') draft.layers[0][0] = core.parseKeyBinding('&sequence')
+    if (site === 'combo') draft.combos = [{ id: 'chord', keyPositions: [0], binding: core.parseKeyBinding('&sequence') }]
+    if (site === 'behavior-child') draft.behaviorDefinitions = [{ code: '&caller', label: 'caller', nodeName: 'caller', compatible: 'zmk,behavior-tap-dance', cellProperty: '#binding-cells', arity: 0, bindings: ['&sequence'], properties: {}, editable: true, diagnostics: [] }]
+    if (site === 'macro-child') draft.macros!.push({ ...draft.macros![0], code: '&caller', label: 'caller', nodeName: 'caller', steps: [{ kind: 'behavior', binding: '&sequence' }] })
+    const layout = [{ x: 0, y: 0 }]
+    const options = { allowSourceFreeBehaviors: true, allowSourceFreeMacros: true }
+    const baseline = core.buildKeymapCode(layout, draft, options)
+    const renamed = core.parseKeymap(JSON.parse(baseline.json))
+    Object.assign(renamed.macros![0], { code: '&renamed', label: 'renamed' })
+    // Direct macro sensor calls are never valid, even when their old label vanished.
+    if (site === 'sensor') renamed.sensorBindings = [[core.parseKeyBinding('&sequence')]]
+    const before = structuredClone(renamed)
+    expect(() => core.buildKeymapCode(layout, renamed, options)).toThrow(/reference|signature|schema|invocation/i)
+    expect(renamed).toEqual(before)
+  })
+
+  it.each([false, true])('keeps the generated RGB recipe outside managed definition ownership (macros: %s)', withMacros => {
+    const draft = core.parseKeymap(core.parseDtsKeymap(supported))
+    draft.rgbLayerRecipe = true
+    draft.layers[0][1] = core.parseKeyBinding('&rgblayer 1 RGB_COLOR_HSB(2,3,4)')
+    if (withMacros) draft.macros = [{ code: '&sequence', label: 'sequence', nodeName: 'sequence', container: 'macros', arity: 0,
+      steps: [{ kind: 'behavior', binding: '&tap_pair' }], editable: true, diagnostics: [] }]
+    const layout = Array.from({ length: 4 }, (_, x) => ({ x, y: 0 }))
+    const options = { allowSourceFreeBehaviors: true, allowSourceFreeMacros: true }
+    const built = core.buildKeymapCode(layout, draft, options)
+    expect(built.code.match(/#include <dt-bindings\/zmk\/rgb.h>/g)).toHaveLength(1)
+    expect(built.code.match(/rgblayer:/g)).toHaveLength(1)
+    expect(built.code).toContain('&rgblayer 1 RGB_COLOR_HSB(2,3,4)')
+    const reload = core.parseKeymap(JSON.parse(built.json))
+    expect(reload.behaviorDefinitions?.every(item => item.editable)).toBe(true)
+    expect(reload.macros?.some(item => item.code === '&rgblayer')).not.toBe(true)
+    expect(core.buildKeymapCode(layout, reload, options).code).toBe(built.code)
+    expect(core.parseDtsBehaviorDefinitions(built.code).referenceCoverageComplete).toBe(false)
+    const invalid = core.cloneParsedKeymap(draft)
+    invalid.layers[0][0] = core.parseKeyBinding('&home_row UNKNOWN A')
+    expect(() => core.buildKeymapCode(layout, invalid, options)).toThrow()
+  })
+
+  it('does not silently drop stock overrides while assembling source-free definitions', () => {
+    const draft = core.parseKeymap(core.parseDtsKeymap(definitionSource(holdBody)))
+    draft.holdTaps!.push({ code: '&mt', override: true, tappingTermMs: 180 })
+    const before = structuredClone(draft)
+    expect(() => core.buildKeymapCode([{ x: 0, y: 0 }], draft, { allowSourceFreeBehaviors: true })).toThrow(/override|coverage/i)
+    expect(draft).toEqual(before)
+  })
+
+  it.each([false, true])('generates Demo behaviors alongside both named presets (macros: %s)', withMacros => {
+    const draft = core.parseKeymap({ layers: [['&hm LSHFT A', '&as LS(B) B', '&dance']] })
+    draft.holdTaps = core.ensureHoldTapPreset(core.ensureHoldTapPreset(undefined, '&hm'), '&as')
+    draft.behaviorDefinitions = [{ code: '&dance', label: 'dance', nodeName: 'dance',
+      compatible: 'zmk,behavior-tap-dance', cellProperty: '#binding-cells', arity: 0,
+      bindings: [withMacros ? '&sequence' : '&hm LSHFT A'], properties: {}, editable: true, diagnostics: [] }]
+    if (withMacros) draft.macros = [{ code: '&sequence', label: 'sequence', nodeName: 'sequence', container: 'macros', arity: 0,
+      steps: [{ kind: 'behavior', binding: '&hm LSHFT A' }], editable: true, diagnostics: [] }]
+    const layout = Array.from({ length: 3 }, (_, x) => ({ x, y: 0 }))
+    const options = { allowSourceFreeBehaviors: true, allowSourceFreeMacros: true }
+    const before = structuredClone(draft)
+    const built = core.buildKeymapCode(layout, draft, options)
+    const actual = core.parseKeymap(core.parseDtsKeymap(built.code))
+    expect(actual.behaviorDefinitions?.map(item => item.code).sort()).toEqual(['&as', '&dance', '&hm'])
+    expect(actual.behaviorDefinitions?.every(item => item.editable)).toBe(true)
+    // UI parameter hints are not DTS semantics (Homerow's mod is a kp code).
+    expect(actual.holdTaps?.map(({ params, ...item }) => item)).toEqual(draft.holdTaps.map(({ params, ...item }) => item))
+    const reload = core.parseKeymap(JSON.parse(built.json))
+    expect(reload.behaviorDefinitions).toEqual(actual.behaviorDefinitions)
+    expect(core.buildKeymapCode(layout, reload, options).code).toBe(built.code)
+    expect(core.buildKeymapCode(layout, reload, { originalSource: built.code }).code).toBe(built.code)
+    expect(draft).toEqual(before)
+  })
+
   it.each(['quick-release', 'lazy', 'ignore-modifiers'])('reports the bare presence-only requirement for valued flag %s', (name) => {
     const source = definitionSource(`compatible = "zmk,behavior-sticky-key"; #binding-cells = <1>; release-after-ms = <1200>; bindings = <&kp>; ${name} = <1>;`)
     const parsed = core.parseDtsBehaviorDefinitions(source)
@@ -115,6 +212,37 @@ describe('bounded behavior definitions', () => {
     expect(() => core.buildKeymapCode(layout, draft, { originalSource: supported.replace('tapping-term-ms = <280>', 'tapping-term-ms = <281>') })).toThrow(/baseline/i)
     expect(() => core.buildKeymapCode(layout, draft)).toThrow(/source/i)
     expect(() => core.buildKeymapCode(layout, draft, { template: '/ { {{rendered_layers}} };' })).toThrow(/template/i)
+  })
+  it('generates source-free mixed macro/behavior graphs atomically and still refuses invalid graphs', () => {
+    const source = definitionSource(holdBody, 'home_row').replace('keymap {', `
+      macros { sequence: sequence { compatible = "zmk,behavior-macro"; #binding-cells = <0>; bindings = <&home_row LSHFT A>; }; };
+      keymap {`)
+    const draft = core.parseKeymap(core.parseDtsKeymap(source))
+    // A behavior -> macro -> behavior chain needs both families before validation.
+    draft.behaviorDefinitions!.push({ code: '&dance', label: 'dance', nodeName: 'dance',
+      compatible: 'zmk,behavior-tap-dance', cellProperty: '#binding-cells', arity: 0,
+      bindings: ['&sequence'], properties: {}, editable: true, diagnostics: [] })
+    draft.layers[0]![0] = core.parseKeyBinding('&dance')
+    const layout = [{ x: 0, y: 0 }]
+    const options = { allowSourceFreeMacros: true, allowSourceFreeBehaviors: true }
+    const before = core.cloneParsedKeymap(draft)
+    const built = core.buildKeymapCode(layout, draft, options)
+    const reloaded = core.parseKeymap(JSON.parse(built.json))
+    expect(core.parseKeymap(core.parseDtsKeymap(built.code)).behaviorDefinitions).toEqual(reloaded.behaviorDefinitions)
+    expect(core.parseKeymap(core.parseDtsKeymap(built.code)).macros).toEqual(reloaded.macros)
+    expect(core.buildKeymapCode(layout, reloaded, { originalSource: built.code }).code).toBe(built.code)
+    expect(core.buildKeymapCode(layout, reloaded, options).code).toBe(built.code)
+    expect(draft).toEqual(before)
+    expect(() => core.buildKeymapCode(layout, draft, { allowSourceFreeBehaviors: true })).toThrow(/source/i)
+    for (const binding of ['&dance', '&missing', '&home_row UNKNOWN A']) {
+      const invalid = core.cloneParsedKeymap(draft)
+      invalid.macros![0]!.steps = [{ kind: 'behavior', binding }]
+      expect(() => core.buildKeymapCode(layout, invalid, options), binding).toThrow()
+    }
+    const collision = core.cloneParsedKeymap(draft)
+    collision.behaviorDefinitions![1]!.label = 'sequence'
+    collision.behaviorDefinitions![1]!.code = '&sequence'
+    expect(() => core.buildKeymapCode(layout, collision, options)).toThrow()
   })
   it('keeps stock-label collisions read-only rather than granting named ownership', () => {
     for (const label of ['mt', 'lt', 'kp', 'sys_reset', 'macro_tap', 'rgblayer']) {

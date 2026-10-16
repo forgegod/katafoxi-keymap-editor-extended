@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import fs from 'node:fs'
 import fc from 'fast-check'
 import * as core from './index.js'
 import type { ParsedKeymap } from './types.js'
@@ -14,6 +15,74 @@ const fixture = (): ParsedKeymap => core.parseKeymap({
 })
 
 describe('immutable layer operations', () => {
+  it.each([{ kind: 'duplicate', index: 1 }, { kind: 'reorder', order: [0, 2, 1] }] satisfies core.LayerOperation[])(
+    'operates on the pre-recipe Demo graph with a pinned behavior: %j', operation => {
+      const keymap = core.parseKeymap({ layers: [['&dance'], ['&rgblayer 1 RGB_COLOR_HSB(2,3,4)'], ['&none']], rgbLayerRecipe: true })
+      keymap.behaviorDefinitions = [{ code: '&dance', label: 'dance', nodeName: 'dance', compatible: 'zmk,behavior-tap-dance', cellProperty: '#binding-cells', arity: 0, bindings: ['&mo 1'], properties: {}, editable: true, diagnostics: [] }]
+      const options = { allowSourceFreeBehaviors: true, allowSourceFreeMacros: true }
+      const baseline = core.buildKeymapCode(layout, keymap, options)
+      const draft = core.parseKeymap(JSON.parse(baseline.json))
+      const before = structuredClone(draft)
+      const result = core.operateLayers({ keymap: draft, layout, operation, provenance: { kind: 'source-free' } })
+      expect(result.ok, result.ok ? '' : result.error).toBe(true)
+      if (!result.ok) return
+      const target = operation.kind === 'reorder' ? 2 : 1
+      expect(result.keymap.behaviorDefinitions![0].bindings).toEqual([`&mo ${target}`])
+      expect(core.encodeKeyBinding(result.keymap.layers[target][0])).toBe(`&rgblayer ${target} RGB_COLOR_HSB(2,3,4)`)
+      const saved = core.buildKeymapCode(layout, result.keymap, options)
+      expect(saved.code.match(/#include <dt-bindings\/zmk\/rgb.h>/g)).toHaveLength(1)
+      expect(saved.code.match(/rgblayer:/g)).toHaveLength(1)
+      expect(result.source).toContain('#include <dt-bindings/zmk/rgb.h>')
+      expect(core.parseDtsBehaviorDefinitions(saved.generatedDefinitionSource!).definitions).toEqual(result.keymap.behaviorDefinitions)
+      expect(core.buildKeymapCode(layout, core.parseKeymap(JSON.parse(saved.json)), options).code).toBe(saved.code)
+      expect(draft).toEqual(before)
+      // Exporting the owned recipe does not grant imported RGB source ownership.
+      const imported = core.parseKeymap(core.parseDtsKeymap(saved.code))
+      expect(core.operateLayers({ keymap: imported, layout, operation: { kind: 'duplicate', index: 1 }, provenance: { kind: 'source', originalSource: saved.code, baseline: imported } }).ok).toBe(false)
+    }
+  )
+
+  it.each(['source-free', 'source'] as const)('duplicates and reorders the pinned behavior graph through %s saves', kind => {
+    const source = fs.readFileSync(new URL('../fixtures/corpus/behavior-boundary-supported.keymap', import.meta.url), 'utf8')
+      .replace('<&kp A>, <&kp B>', '<&mo 1>, <&sticky_nav 1>')
+      .replace('<&kp C>, <&kp D>', '<&to 1>, <&kp D>')
+      .replace('<&kp C_VOL_UP>, <&kp C_VOL_DN>', '<&tog 1>, <&kp C_VOL_DN>')
+      .replace('<&kp>, <&kp>', '<&sticky_shift>, <&kp>')
+    const keymap = core.parseKeymap(core.parseDtsKeymap(source))
+    const layout = Array.from({ length: 4 }, (_, x) => ({ x, y: 0 }))
+    const before = structuredClone(keymap)
+    const duplicate = core.operateLayers({ keymap, layout, operation: { kind: 'duplicate', index: 1 },
+      provenance: kind === 'source' ? { kind, originalSource: source, baseline: keymap } : { kind } })
+    expect(duplicate.ok, duplicate.ok ? '' : duplicate.error).toBe(true)
+    if (!duplicate.ok) return
+    expect(duplicate.keymap.layers[2]).toEqual(keymap.layers[1])
+    expect(duplicate.keymap.behaviorDefinitions).toEqual(keymap.behaviorDefinitions)
+    const moved = core.operateLayers({ keymap: duplicate.keymap, layout, operation: { kind: 'reorder', order: [0, 2, 1] },
+      provenance: kind === 'source' ? { kind, originalSource: duplicate.source!, baseline: duplicate.keymap } : { kind } })
+    expect(moved.ok, moved.ok ? '' : moved.error).toBe(true)
+    if (!moved.ok) return
+    const definitions = moved.keymap.behaviorDefinitions!
+    expect(definitions.find(item => item.code === '&tap_pair')!.bindings).toEqual(['&mo 2', '&sticky_nav 2'])
+    expect(definitions.find(item => item.code === '&shift_pair')!.bindings).toEqual(['&to 2', '&kp D'])
+    expect(definitions.find(item => item.code === '&dial_volume')!.bindings).toEqual(['&tog 2', '&kp C_VOL_DN'])
+    expect(core.encodeKeyBinding(moved.keymap.layers[2][0])).toBe('&sticky_nav 2')
+    const saved = core.buildKeymapCode(layout, moved.keymap, { originalSource: moved.source! })
+    expect(saved.code).toBe(moved.source)
+    expect(core.parseKeymap(JSON.parse(saved.json)).behaviorDefinitions).toEqual(core.parseKeymap(core.parseDtsKeymap(saved.code)).behaviorDefinitions)
+    expect(keymap).toEqual(before)
+    if (kind === 'source') expect(saved.code.slice(0, saved.code.indexOf('/ {'))).toBe(source.slice(0, source.indexOf('/ {')))
+  })
+
+  it.each(['vendor,extra = <1>;', 'bindings = <&external>;'])('refuses opaque behavior definitions in layer operations: %s', extra => {
+    const source = `#include <behaviors.dtsi>\n#include <dt-bindings/zmk/keys.h>\n` + sourceFixture(`behaviors { dance: dance { compatible = "zmk,behavior-tap-dance"; #binding-cells = <0>; bindings = <&kp A>; ${extra} }; };`)
+    const keymap = core.parseKeymap(core.parseDtsKeymap(source))
+    for (const operation of [{ kind: 'duplicate', index: 1 }, { kind: 'reorder', order: [0, 2, 1, 3] }] satisfies core.LayerOperation[]) {
+      const before = structuredClone(keymap)
+      expect(core.operateLayers({ keymap, layout, operation, provenance: { kind: 'source', originalSource: source, baseline: keymap } }).ok).toBe(false)
+      expect(keymap).toEqual(before)
+    }
+  })
+
   it('derives forwarding slots from source, never from stale UI parameter hints', () => {
     const source = sourceFixture('behaviors { dual: dual { compatible = "zmk,behavior-hold-tap"; #binding-cells = <2>; bindings = <&kp>, <&mo>; }; };').replace('&lt 2 A', '&dual A 2')
     const keymap = core.parseKeymap(core.parseDtsKeymap(source))

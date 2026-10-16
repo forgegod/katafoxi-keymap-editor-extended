@@ -8,7 +8,7 @@ Browser editor.
 
 Svelte components, reactive editor state, source pickers, draft/host storage, and component tests.
 
-`src/lib/components/MacroPanel.svelte` owns staged macro interaction; `src/lib/macro-editor.ts` owns captured preview/confirm transactions. Core owns macro semantics, references and the shared writer.
+`src/lib/components/MacroPanel.svelte` and `BehaviorPanel.svelte` own staged macro and named-behavior interaction; `src/lib/macro-editor.ts` owns their shared captured preview/apply transactions. Core owns definition schemas, semantics, references and the shared writer.
 
 ## Local Contracts
 
@@ -44,9 +44,15 @@ The expanded non-stacked layer table exposes Duplicate and Move. Keyboard positi
 
 Keep logical layer IDs and source snapshots with undo/redo, copied baselines and versioned draft metadata; restore current eye preferences by identity, including discard after recovery with no history. Once used, identity tracking survives undo to a pre-operation step so delayed copy receipts cannot erase identity-only dirty state. Capture layer metadata for both publish and copy. It never enters firmware JSON or host snapshots.
 
-Every mounted key, encoder, combo-binding, layer-picker and macro draft owner registers a synchronous operation guard and unregisters on destruction. Guard retained row drafts as well as visible sessions; check publication, host editing and staged definitions again at the transaction boundary. Structural operations clear central hover and the local decode owner, not host layout data.
+Every mounted key, encoder, combo-binding, layer-picker, macro and behavior-definition draft owner registers a synchronous operation guard and unregisters on destruction. Guard retained row drafts as well as visible sessions; check publication, host editing and staged definitions again at the transaction boundary. Structural operations clear central hover and the local decode owner, not host layout data.
 
 Macro authoring accepts only source-free Demo or verified Clipboard source. Stage edits/use/delete until source preview confirmation; recheck the captured document/source and other draft guards. Carry the writer's source with its reparsed model through history and enable persistence of the matching snapshot for Clipboard recovery. Cancel/no-op must retain redo. Do not infer sensor-child compatibility or enable GitHub/local authoring from catalog membership. Text conversion uses core's explicit US ASCII contract, not Host legends; reject pasted CR before textarea normalization.
+
+Behaviors uses the same provenance/transaction boundary and core-authoritative coverage, including refusal for stock override blocks such as `&mt`. Distinguish global definition properties from per-invocation arguments before Apply. Ordinary Use targets existing keys/combos; zero-cell sensor-rotate Use replaces a whole existing encoder adapter, never creates hardware/slots. Unsupported definitions stay read-only with diagnostics. Preserve writer-reconciled behavior fingerprints and legacy hold-taps during interleaved macro/behavior edits.
+
+Macro and behavior invocation/rename/delete preflights consume the shared preview's `definitionSource`; render/export its full `code`. Only core's source-free generated graph may separate validation from the appended fixed RGB recipe. Clipboard retains full-source validation; never strip imported headers or recipes in the UI to grant ownership.
+
+Demo remains source-free after layer operations even when history retains generated source. In staged Demo definition deletion/rename, remove only the removed captured hold-tap definitions' legacy mirrors; retain unmanaged presets and keep normal key-editor hold-tap semantics separate. Clipboard reconciliation stays with the source-backed writer.
 
 ## Verification
 

@@ -2,6 +2,8 @@ import { assertCanSpliceKeymap, findKeymapLayerNodes, parseDtsKeymap } from './d
 import { encodeKeyBinding, encodeKeymap, loadBehaviorsData, parseKeyBinding, parseKeymap } from './keymap.js'
 import { findNamedBlock, iterateChildNodes, scanDts, tokenizeBindingsDetailed, type DtsChildNode, type DtsScan } from './dts-scan.js'
 import { spliceRgbLayerRecipeIntoDts } from './behavior-recipes.js'
+import { behaviorDefinitionsFingerprint, parseDtsBehaviorDefinitions } from './behavior-definitions.js'
+import { collectSourceDefinitions } from './zmk-macros.js'
 import { dominantEol } from './eol.js'
 import type { ParsedKeymap } from './types.js'
 
@@ -88,7 +90,9 @@ export function sourceModelFingerprint(keymap: ParsedKeymap): string {
       nodeName: holdTap.override ? undefined : holdTap.nodeName || holdTap.code.slice(1),
       bindings: holdTap.override ? undefined : holdTap.bindings?.length ? holdTap.bindings : ['&kp', '&kp']
     })),
-    sensorBindings: encoded.sensorBindings ?? encoded.layers.map(() => [])
+    sensorBindings: encoded.sensorBindings ?? encoded.layers.map(() => []),
+    // Hold-taps are already represented by their legacy view above.
+    behaviorDefinitions: behaviorDefinitionsFingerprint((encoded.behaviorDefinitions ?? []).filter(item => item.compatible !== 'zmk,behavior-hold-tap'))
   }
   const stable = (value: unknown): unknown => Array.isArray(value) ? value.map(stable) :
     value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => [k, stable(v)])) : value
@@ -110,6 +114,8 @@ export function inspectLayerOperationSource(source: string): { model: ParsedKeym
   const rootChildren = [...iterateChildNodes(scan, { bodyStart: open + 1, bodyEnd: close })]
   properties(source, scan, open + 1, close, rootChildren, [], 'root')
   const schemas = new Map<string, readonly string[]>()
+  const behaviorGraph = collectSourceDefinitions(source)
+  const behaviors = parseDtsBehaviorDefinitions(source).definitions
   const recipeDependencies = new Set<string>()
   const names = new Set<string>()
   for (const child of rootChildren) {
@@ -135,6 +141,14 @@ export function inspectLayerOperationSource(source: string): { model: ParsedKeym
           schemas.set(code, ['layer', 'hsb'])
           continue
         }
+        const definition = behaviors.find(item => item.code === code)
+        const signature = behaviorGraph.signatures.get(code)
+        if (definition?.editable && signature) {
+          schemas.set(code, signature.map(kind => kind === 'modifier' ? 'mod' : kind))
+          continue
+        }
+        // Retain the existing legacy hold-tap proof (including its label property).
+        // Other families require the complete pinned schema and reference graph.
         const p = properties(source, scan, node.openBrace + 1, node.closeBrace, [], ['compatible', '#binding-cells', 'bindings', 'tapping-term-ms', 'quick-tap-ms', 'require-prior-idle-ms', 'flavor', 'label'], path)
         if (!node.label || stringValue(p.get('compatible'), path) !== 'zmk,behavior-hold-tap' || !/^<\s*2\s*>$/.test(p.get('#binding-cells')?.value ?? '')) fail(path, 'unproven behavior definition')
         const refs = /^<\s*(&[A-Za-z_]\w*)\s*>\s*,\s*<\s*(&[A-Za-z_]\w*)\s*>$/.exec(scanDts(p.get('bindings')?.value ?? '').masked)
@@ -182,9 +196,10 @@ export function inspectLayerOperationSource(source: string): { model: ParsedKeym
   rawBindings.forEach((binding, index) => {
     if (encodeKeyBinding(parseKeyBinding(binding)) !== parsedBindings[index]) fail(`source binding ${binding}`, 'parser normalization loses or changes arguments')
   })
-  // A named definition replacing a stock forwarding child invalidates proof.
+  // Legacy proof assumes stock children. The pinned graph also proves named
+  // forwarding chains, including their dependencies and cycle/operand checks.
   for (const holdTap of raw.holdTaps ?? []) for (const ref of holdTap.bindings ?? []) {
-    if (schemas.has(ref)) fail(holdTap.code, `forwarding child ${ref} is overridden`)
+    if (schemas.has(ref) && !behaviors.some(item => item.code === holdTap.code && item.editable)) fail(holdTap.code, `forwarding child ${ref} is overridden`)
   }
   for (const ref of recipeDependencies) {
     if (schemas.has(ref)) fail('behaviors.rgblayer', `recipe dependency ${ref} is overridden`)

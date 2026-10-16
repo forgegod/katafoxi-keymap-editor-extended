@@ -15,11 +15,13 @@ import {
 import { normalizeHoldTaps, spliceHoldTapsIntoDts } from './dts-behaviors.js'
 import { behaviorDefinitionsFingerprint, behaviorDeletePreflight, normalizeBehaviorDefinitions, parseDtsBehaviorDefinitions, spliceBehaviorDefinitionsIntoDts, validateChangedBehaviorInvocations } from './behavior-definitions.js'
 import {
+  appendGeneratedDefinitions,
   encodeMacroFingerprint,
   macroDefinitionsFingerprint,
   macroMetadataSignatures,
   normalizeZmkMacros,
-  spliceMacrosIntoDts
+  spliceMacrosIntoDts,
+  validateGeneratedDefinitionReferences
 } from './zmk-macros.js'
 import {
   compileMacros,
@@ -55,6 +57,8 @@ export type BuildKeymapCodeMode = 'template' | 'splice' | 'default_template'
 
 export interface BuildKeymapCodeResult {
   code: string
+  /** Default-template graph before fixed recipes; validation only, never export. */
+  generatedDefinitionSource?: string
   json: string
   mode: BuildKeymapCodeMode
   warnings: string[]
@@ -420,7 +424,8 @@ function generateKeymapCode(
   layout: LayoutKey[],
   keymap: ParsedKeymap,
   encoded: EncodedKeymap,
-  template: string
+  template: string,
+  deferRgbRecipe = false
 ): string {
   const names = keymap.layer_names ?? []
   const used = getBehavioursUsed(keymap)
@@ -434,7 +439,7 @@ function generateKeymapCode(
       ...used.flatMap(bind => behavioursByBind[bind]?.includes ?? []),
       ...(keymap.macros?.length ? ['#include <dt-bindings/zmk/keys.h>', '#include <dt-bindings/zmk/modifiers.h>'] : []),
       ...(keymap.behaviorDefinitions?.length ? ['#include <dt-bindings/zmk/keys.h>', '#include <dt-bindings/zmk/modifiers.h>', '#include <dt-bindings/zmk/bt.h>'] : []),
-      ...(shouldEnsureRgbLayerRecipe(keymap) || used.includes(RGB_LAYER_RECIPE.code)
+      ...(!deferRgbRecipe && (shouldEnsureRgbLayerRecipe(keymap) || used.includes(RGB_LAYER_RECIPE.code))
         ? [...RGB_LAYER_RECIPE.includes]
         : [])
     ])
@@ -583,6 +588,9 @@ export function buildKeymapCode(
 
   warnings.push('generated_default_template')
   if (keymap.behaviorDefinitions !== undefined && options?.allowSourceFreeBehaviors !== true) throw new KeymapValidationError(['Behavior definitions require matching source or explicit source-free provenance.'])
+  if (keymap.behaviorDefinitions !== undefined && keymap.holdTaps?.some(item => item.override)) {
+    throw new KeymapValidationError(['Stock overrides prevent complete behavior reference coverage.'])
+  }
   if (keymap.macros !== undefined && options?.allowSourceFreeMacros !== true) {
     throw new KeymapValidationError(['Macro definitions require matching source or explicit source-free provenance.'])
   }
@@ -590,26 +598,47 @@ export function buildKeymapCode(
     ...keymap,
     holdTaps: keymap.holdTaps?.filter(item => !keymap.behaviorDefinitions!.some(definition => definition.code === item.code))
   } : keymap
+  // Prove the managed graph before adding our fixed recipe and its header.
+  // Only the editor-owned default template has this provenance.
+  const templateCode = generateKeymapCode(layout, keymap, encoded, keymapTemplate, keymap.behaviorDefinitions !== undefined)
+  const generatedBehaviors = keymap.behaviorDefinitions !== undefined
+    ? [
+        ...parseDtsBehaviorDefinitions(applyHoldTaps(
+          templateCode, working
+        )).definitions,
+        ...keymap.behaviorDefinitions
+      ]
+    : undefined
   let code = applyModelBlocks(
-      generateKeymapCode(layout, keymap, encoded, keymapTemplate),
-      working,
+      templateCode,
+      generatedBehaviors ? { ...working, holdTaps: undefined, macros: undefined } : working,
       undefined,
-      options?.allowSourceFreeMacros === true
+      options?.allowSourceFreeMacros === true,
+      generatedBehaviors !== undefined
     )
+  let generatedDefinitionSource: string | undefined
   if (keymap.behaviorDefinitions !== undefined) {
-    code = spliceBehaviorDefinitionsIntoDts(code, keymap.behaviorDefinitions, [], { sourceFree: true })
+    code = appendGeneratedDefinitions(code, keymap.macros ?? [], generatedBehaviors!)
     const actual = parseDtsKeymap(code)
     encoded.behaviorDefinitions = actual.behaviorDefinitions ?? []
     encoded.behaviorSourceFingerprint = behaviorDefinitionsFingerprint(encoded.behaviorDefinitions)
     if (actual.holdTaps !== undefined) encoded.holdTaps = actual.holdTaps
     else delete encoded.holdTaps
     validateChangedBehaviorInvocations('', code)
+    if (shouldEnsureRgbLayerRecipe(keymap)) {
+      generatedDefinitionSource = code
+      code = applyRgbLayerRecipe(`${RGB_LAYER_RECIPE.includes.join('\n')}\n${code}`, keymap)
+    }
+  }
+  if (keymap.macros !== undefined || keymap.behaviorDefinitions !== undefined) {
+    validateGeneratedDefinitionReferences(generatedDefinitionSource ?? code)
   }
   return {
     code,
     json: generateKeymapJSON(layout, encoded),
     mode: 'default_template',
-    warnings
+    warnings,
+    ...(generatedDefinitionSource !== undefined ? { generatedDefinitionSource } : {})
   }
 }
 
@@ -650,10 +679,10 @@ function applyModelBlocks(
   code: string,
   keymap: ParsedKeymap,
   original?: ParsedKeymap,
-  sourceFreeMacros = false
+  sourceFreeMacros = false,
+  deferRgbRecipe = false
 ): string {
-  const result = applyRgbLayerRecipe(
-    applyMacros(applyHoldTaps(
+  let result = applyMacros(applyHoldTaps(
       applyConditionalLayers(
         applyCombos(applySensorBindings(code, keymap), keymap, original),
         keymap,
@@ -661,9 +690,8 @@ function applyModelBlocks(
       ),
       keymap,
       original
-    ), keymap, original, sourceFreeMacros),
-    keymap
-  )
+    ), keymap, original, sourceFreeMacros)
+  if (!deferRgbRecipe) result = applyRgbLayerRecipe(result, keymap)
   return getBehavioursUsed(keymap).includes('&uc') ? ensureUnicodeInclude(result) : result
 }
 

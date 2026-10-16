@@ -1,5 +1,5 @@
 import { dominantEol } from './eol.js'
-import { behaviorGraphDefinitions, formatBehavior, normalizeBehaviorDefinitions } from './behavior-definitions.js'
+import { behaviorDefinitionsFingerprint, behaviorGraphDefinitions, formatBehavior, normalizeBehaviorDefinitions, parseDtsBehaviorDefinitions } from './behavior-definitions.js'
 import keycodesData from '../data/zmk-keycodes.json' with { type: 'json' }
 import { KeymapValidationError } from './errors.js'
 import {
@@ -12,10 +12,10 @@ import {
   type DtsChildNode,
   type DtsScan
 } from './dts-scan.js'
-import { encodeKeyBinding, parseKeyBinding } from './keymap.js'
+import { encodeKeyBinding, loadBehaviorsData, parseKeyBinding } from './keymap.js'
 import { normalizeZmkKeycodes } from './keycodes.js'
 import { isModifierWrapCode, modifierHoldForKey } from './modifiers.js'
-import type { KeyBindingNode, KeycodeDef, ZmkMacroDefinition, ZmkMacroStep } from './types.js'
+import type { KeyBindingNode, KeycodeDef, ZmkBehaviorDefinition, ZmkMacroDefinition, ZmkMacroStep } from './types.js'
 
 const MACRO_COMPATIBLES: Record<string, number> = Object.assign(Object.create(null), {
   'zmk,behavior-macro': 0,
@@ -1006,6 +1006,53 @@ function formatDefinition(definition: ZmkMacroDefinition, indent: string, eol: s
   if (definition.waitMs !== undefined) lines.push(`${inner}wait-ms = <${definition.waitMs}>;`)
   lines.push(`${inner}bindings = ${formatSteps(definition.steps)};`, `${indent}};`)
   return lines.join(eol)
+}
+
+/** Internal default-template path only: validate both families as one graph.
+ * Never use this to regenerate a source-backed document or bypass its splices.
+ */
+export function appendGeneratedDefinitions(source: string, macros: readonly ZmkMacroDefinition[], behaviors: readonly ZmkBehaviorDefinition[]): string {
+  const scan = scanDts(source)
+  const root = rootBlock(scan)
+  if (!root || findNamedBlock(source, scan, 'macros') || findNamedBlock(source, scan, 'behaviors')) {
+    throw new KeymapValidationError(['Generated definitions require an empty definition namespace.'])
+  }
+  const reserved = new Set([...Object.keys(ORDINARY_ARITY), ...CONTROL_CODES, '&bt', '&rgblayer'])
+  for (const item of macros) {
+    if (!item.editable || item.container !== 'macros' || reserved.has(item.code) ||
+        !/^[A-Za-z_]\w*$/.test(item.label) || item.code !== `&${item.label}` || !/^[A-Za-z0-9,._+@-]+$/.test(item.nodeName)) {
+      throw new KeymapValidationError(['Invalid generated macro identity.'])
+    }
+  }
+  for (const item of behaviors) {
+    if (!item.editable || !/^[A-Za-z_]\w*$/.test(item.label) || item.code !== `&${item.label}` || !/^[A-Za-z0-9,._+@-]+$/.test(item.nodeName)) {
+      throw new KeymapValidationError(['Invalid generated behavior identity.'])
+    }
+  }
+  const eol = dominantEol(source)
+  const text = (macros.length ? `${eol}    macros {${eol}${macros.map(item => formatDefinition(item, '        ', eol)).join(eol)}${eol}    };${eol}` : '') +
+    (behaviors.length ? `${eol}    behaviors {${eol}${behaviors.map(item => formatBehavior(item, eol)).join(eol)}${eol}    };${eol}` : '')
+  const output = applyEdits(source, [{ start: root.close, end: root.close, text }])
+  const graph = collectSourceDefinitions(output)
+  if (!graph.coverage) throw new KeymapValidationError(['Generated definition reference coverage is incomplete.'])
+  validateDefinitionGraphChange(source, output)
+  if (macroDefinitionsFingerprint(parseDtsMacros(output).definitions) !== macroDefinitionsFingerprint(macros) ||
+      behaviorDefinitionsFingerprint(parseDtsBehaviorDefinitions(output).definitions) !== behaviorDefinitionsFingerprint(behaviors)) {
+    throw new KeymapValidationError(['Generated definitions failed schema revalidation.'])
+  }
+  return output
+}
+
+/** Source-free generation cannot preserve unresolved external calls. */
+export function validateGeneratedDefinitionReferences(source: string): void {
+  const masked = scanDts(source).masked
+  const known = new Set([
+    ...loadBehaviorsData().map(item => item.code), ...CONTROL_CODES, '&reset', '&rgblayer',
+    ...[...masked.matchAll(/\b([A-Za-z_]\w*)\s*:/g)].map(match => `&${match[1]}`)
+  ])
+  for (const [code] of masked.matchAll(/&[A-Za-z_]\w*/g)) {
+    if (!known.has(code)) throw new KeymapValidationError([`Unresolved generated definition reference ${code}. Remove its incoming references before renaming or deleting it.`])
+  }
 }
 
 /** JSON metadata proves only its own bounded semantic graph, never source ownership. */

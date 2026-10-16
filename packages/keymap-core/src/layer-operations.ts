@@ -1,4 +1,6 @@
-import { buildKeymapCode, loadBehaviorsData } from './keymap.js'
+import { buildKeymapCode, encodeKeyBinding, loadBehaviorsData, parseKeyBinding } from './keymap.js'
+import { BEHAVIOR_DEFINITION_SCHEMAS, behaviorDefinitionsFingerprint } from './behavior-definitions.js'
+import { RGB_LAYER_RECIPE } from './behavior-recipes.js'
 import { cloneParsedKeymap, cloneSensorBinding } from './keymap-clone.js'
 import { copyLayerDisplayName, inspectLayerOperationSource, moveLayerSourceNodes, sourceModelFingerprint } from './layer-operation-source.js'
 import { isModifierWrapCode } from './modifiers.js'
@@ -82,6 +84,11 @@ function transformGraph(keymap: ParsedKeymap, map: number[], schemas: Map<string
     rule.ifLayers = rule.ifLayers.map((n, j) => map[target(n, map.length, `conditionalLayers[${i}].ifLayers[${j}]`)])
     rule.thenLayer = map[target(rule.thenLayer, map.length, `conditionalLayers[${i}].thenLayer`)]
   })
+  next.behaviorDefinitions?.forEach((definition, i) => {
+    if (!BEHAVIOR_DEFINITION_SCHEMAS[definition.compatible]?.bare) {
+      definition.bindings = definition.bindings.map((child, j) => encodeKeyBinding(binding(parseKeyBinding(child), `behaviorDefinitions[${i}].bindings[${j}]`)))
+    }
+  })
   return next
 }
 
@@ -108,6 +115,7 @@ export function operateLayers(input: LayerOperationInput): LayerOperationResult 
     if (keymap.sensorBindings && keymap.sensorBindings.length !== count) reject('sensorBindings', 'rows must align with layers')
     if (provenance.kind === 'unverified') reject('source', 'the actual save path must be verified')
     let original: string | undefined
+    let generatedRecipe = false
     let schemas = new Map<string, readonly string[]>()
     if (provenance.kind === 'source') {
       if (provenance.template) reject('template', 'template precedence has no verified operation-aware save path')
@@ -119,10 +127,13 @@ export function operateLayers(input: LayerOperationInput): LayerOperationResult 
       if (sourceModelFingerprint(current.model) !== sourceModelFingerprint(keymap)) reject('source', 'serialization does not represent the complete model')
       schemas = current.schemas
     } else {
-      original = buildKeymapCode(layout, keymap).code
+      const built = buildKeymapCode(layout, keymap, { allowSourceFreeBehaviors: true, allowSourceFreeMacros: true })
+      generatedRecipe = built.generatedDefinitionSource !== undefined
+      original = built.generatedDefinitionSource ?? built.code
       const generated = inspectLayerOperationSource(original)
       if (sourceModelFingerprint(generated.model) !== sourceModelFingerprint(keymap)) reject('source-free', 'generated source does not represent the complete model')
       schemas = generated.schemas
+      if (generatedRecipe) schemas.set(RGB_LAYER_RECIPE.code, RGB_LAYER_RECIPE.params)
     }
     const next = transformGraph(keymap, oldToNew, schemas, operation.kind === 'reorder')
     const names = keymap.layers.map((_, index) => keymap.layer_names?.[index] || `layer${index}`)
@@ -143,6 +154,12 @@ export function operateLayers(input: LayerOperationInput): LayerOperationResult 
       source = copyLayerDisplayName(original!, source, operation.index, name)
     }
     if (sourceModelFingerprint(inspectLayerOperationSource(source).model) !== sourceModelFingerprint(next)) reject('source', 'operation output does not represent the complete model')
+    if (next.behaviorDefinitions !== undefined) {
+      next.behaviorSourceFingerprint = behaviorDefinitionsFingerprint(next.behaviorDefinitions)
+    }
+    // The shared splice reapplies the owned recipe; its header must not enter
+    // definition proof. Imported source never takes this generated-only path.
+    if (generatedRecipe) source = `${RGB_LAYER_RECIPE.includes.join('\n')}\n${source}`
     return { ok: true, changed: true, keymap: next, source, oldToNew }
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : 'Layer operation could not be verified.' }

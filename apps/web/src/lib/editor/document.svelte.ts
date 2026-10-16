@@ -138,11 +138,11 @@ function applyLayerOperation(this: EditorState, operation: LayerOperation): Laye
   if (blocker) return refuse(blocker)
   if (snapshot.ids.length !== keymap.layers.length) return refuse('Layer identity is stale. Reload the saved document before changing layer order.')
   if (this.source === 'clipboard' && snapshot.source !== this.clipboardOriginalSource) return refuse('Source revision changed. Reload before changing layers.')
-  const provenance = this.source === 'clipboard' || this.source === 'demo'
-    ? snapshot.source
+  const provenance = this.source === 'demo'
+    ? { kind: 'source-free' as const }
+    : this.source === 'clipboard' && snapshot.source
       ? { kind: 'source' as const, originalSource: snapshot.source, baseline: snapshot.sourceModel }
-      : this.source === 'demo' ? { kind: 'source-free' as const } : { kind: 'unverified' as const }
-    : { kind: 'unverified' as const }
+      : { kind: 'unverified' as const }
   const result = operateLayers({ keymap, layout: this.layout, operation, provenance })
   if (!result.ok) return refuse(result.error)
   if (!result.changed) return result
