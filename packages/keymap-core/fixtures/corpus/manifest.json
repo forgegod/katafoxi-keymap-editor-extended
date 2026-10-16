@@ -67,6 +67,18 @@
       "expect": "splice"
     },
     {
+      "file": "behavior-boundary-supported.keymap",
+      "layout": 4,
+      "warnings": [],
+      "expect": "splice"
+    },
+    {
+      "file": "behavior-boundary-opaque.keymap",
+      "layout": 4,
+      "warnings": ["hold_tap_timing_unparsed"],
+      "expect": "splice"
+    },
+    {
       "file": "crlf.keymap",
       "layout": 4,
       "warnings": [],

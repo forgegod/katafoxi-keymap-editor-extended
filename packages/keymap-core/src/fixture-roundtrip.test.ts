@@ -238,7 +238,7 @@ describe('hard .keymap corpus', () => {
       .sort()
     expect(manifest.map(entry => entry.file).sort()).toEqual(onDisk)
     expect(manifest.length).toBeGreaterThanOrEqual(8)
-    expect(manifest.length).toBeLessThanOrEqual(12)
+    expect(manifest.length).toBeLessThanOrEqual(14)
   })
 
   it.each(spliceEntries)('$file: parse warnings match the manifest', entry => {

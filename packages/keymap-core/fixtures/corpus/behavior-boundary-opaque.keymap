@@ -1,0 +1,67 @@
+/*
+ * CHG-006 Phase 1 negative specification input.
+ * Deliberately includes unsupported/invalid definitions and property classes;
+ * not a buildable example. Existing ordinary key edits must preserve every
+ * interval below and never promote it to an editable behavior schema.
+ * File-level #define EXPR_TERM prevents complete closed-source coverage.
+ * Preservation only: B11 per-node class diagnostics need Phase-2 coverage-clean
+ * variants without that define; this input cannot isolate those reasons.
+ */
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+#define EXPR_TERM 280
+
+/ {
+    behaviors {
+        expr_timing: expr-timing {
+            compatible = "zmk,behavior-hold-tap";
+            #binding-cells = <2>;
+            tapping-term-ms = <EXPR_TERM>;
+            bindings = <&kp>, <&kp>;
+        };
+
+        wrong_cells: wrong-cells {
+            compatible = "zmk,behavior-sticky-key";
+            #binding-cells = <2>;
+            release-after-ms = <1000>;
+            bindings = <&kp>;
+        };
+
+        no_release: no-release {
+            compatible = "zmk,behavior-sticky-key";
+            #binding-cells = <1>;
+            bindings = <&kp>;
+        };
+
+        unknown_prop: unknown-prop {
+            compatible = "zmk,behavior-tap-dance";
+            #binding-cells = <0>;
+            vendor,extra = <1>;
+            bindings = <&kp A>;
+        };
+
+        expr_mods: expr-mods {
+            compatible = "zmk,behavior-mod-morph";
+            #binding-cells = <0>;
+            mods = <(MOD_LSFT|MOD_RSFT)>;
+            bindings = <&kp A>, <&kp B>;
+        };
+
+        vendor_dial: vendor-dial {
+            compatible = "zmk,behavior-sensor-rotate";
+            #sensor-binding-cells = <1>;
+            bindings = <&kp A>, <&kp B>;
+        };
+    };
+
+    keymap {
+        compatible = "zmk,keymap";
+        base {
+            bindings = <&expr_timing LSHFT A &wrong_cells LSHFT &no_release &kp A>;
+        };
+        lower {
+            bindings = <&unknown_prop &expr_mods &kp B &trans>;
+            sensor-bindings = <&vendor_dial 0>;
+        };
+    };
+};
