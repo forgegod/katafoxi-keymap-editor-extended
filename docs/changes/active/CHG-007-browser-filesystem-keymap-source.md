@@ -9,7 +9,7 @@
 
 ## Current boundary
 
-Local remains a gated Hono development adapter. The Phase 2 browser-filesystem domain slice is integrated; Phase 3 interaction, deterministic browser coverage and canonical visual handoff are in progress in this checkout. The bounded source writes one existing raw `.keymap` only. Current behavior is described by CAP-002/CAP-003; no Phase 3 completion or independent approval is recorded, and Phase 4 remains pending.
+Local remains a gated Hono development adapter. The Phase 2 browser-filesystem domain slice and Phase 3 interaction, deterministic browser coverage and canonical visual handoff are integrated. The bounded source writes one existing raw `.keymap` only. Current behavior is described by CAP-002/CAP-003; Phase 3 has independent approval and Phase 4 remains pending.
 
 [Parity evidence](../upstream-gap-assessment.md). These are requested outcomes, not present capability claims.
 
