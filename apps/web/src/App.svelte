@@ -191,11 +191,11 @@
           {#if editor.draftKeymap && (editor.isPublishDirty || editor.source !== 'demo')}
             <div class="chrome-group chrome-draft">
               <ChromeStatus
-                class="publish-status{!editor.isDirty && editor.isHostRepoDirty
+                class="publish-status{editor.source === 'filesystem' ? ' filesystem' : ''}{!editor.isDirty && editor.isHostRepoDirty
                   ? ' stacked'
                   : ''}"
                 dirty={editor.isPublishDirty || editor.hasLocalHostRecovery || editor.hasPendingFirmwareRecovery}
-                label={editor._omitHostKeymapSnapshotOnCommit && editor.hasLocalHostRecovery ? 'Browser-local' : editor.hasPendingFirmwareRecovery ? 'Recovery' : editor.isPublishDirty
+                label={editor.source === 'filesystem' ? editor.statusText.split(';')[0] : editor._omitHostKeymapSnapshotOnCommit && editor.hasLocalHostRecovery ? 'Browser-local' : editor.hasPendingFirmwareRecovery ? 'Recovery' : editor.isPublishDirty
                   ? editor.isDirty
                     ? 'Changed'
                     : 'Host\nchanged'
@@ -207,19 +207,23 @@
               <Button
                 variant="danger"
                 class="discard-draft"
-                title={editor.isDirty
+                title={editor.source === 'filesystem'
+                  ? 'Revert firmware to the verified browser baseline; does not resolve a pending save attempt or change disk or host files'
+                  : editor.isDirty
                   ? 'Revert all unpublished edits to the last loaded keymap'
                   : 'No unpublished edits to discard'}
                 disabled={!editor.isDirty || editor.saving}
                 onclick={() => {
                   const ok = window.confirm(
-                    'Discard all unpublished edits and restore the last loaded keymap?\n\nThis cannot be undone with Undo.'
+                    editor.source === 'filesystem'
+                      ? 'Discard the mutable firmware draft and restore its verified browser baseline? This does not resolve a pending save attempt, read or change disk files, or discard host edits.\n\nThis cannot be undone with Undo.'
+                      : 'Discard all unpublished edits and restore the last loaded keymap?\n\nThis cannot be undone with Undo.'
                   )
                   if (!ok) return
                   void editor.discardDraft()
                 }}
               >
-                Discard draft
+                {editor.source === 'filesystem' ? 'Discard firmware draft' : 'Discard draft'}
               </Button>
             </div>
           {/if}
@@ -229,6 +233,7 @@
               openSource={openSourceRequest}
               onOpenSourceConsumed={() => (openSourceRequest = null)}
               onSelect={async event => {
+                if (event.source === 'filesystem') return editor.selectFilesystemKeyboard(event)
                 await editor.selectKeyboard(event)
                 return editor.source === event.source && (event.source !== 'github' || (
                   editor.githubMeta?.repository === event.github.repository &&
@@ -274,6 +279,13 @@
           {/if}
 
           <div class="chrome-group actions-publish">
+            {#if editor.source === 'filesystem'}
+              <Button
+                variant="outline"
+                title="Open filesystem Save, reconnect and recovery controls"
+                onclick={() => (openSourceRequest = 'filesystem')}
+              >Filesystem actions</Button>
+            {/if}
             {#if editor.source === 'demo'}
               <span
                 class="demo-status"
@@ -343,6 +355,9 @@
         {/if}
       </div>
 
+      {#if editor.source === 'filesystem'}
+        <div class="save-notice warning" role="status" aria-label="Filesystem firmware status">{editor.statusText}</div>
+      {/if}
       {#if editor.source === 'github' && editor._omitHostKeymapSnapshotOnCommit}
         <div class="save-notice warning" role="status" aria-label="Host publication status">{editor.statusText}</div>
       {/if}
@@ -511,6 +526,10 @@
     width: 5.5rem;
     min-width: 5.5rem;
     justify-content: flex-start;
+  }
+
+  .chrome-pipelines :global(.publish-status.filesystem) {
+    width: auto;
   }
 
   /* Two-line host-repo dirty label inside the fixed status slot. */

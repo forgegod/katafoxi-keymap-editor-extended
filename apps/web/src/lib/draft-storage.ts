@@ -70,6 +70,8 @@ export type StoredDraft = DraftIdentity & {
 export type DraftWriteGuard = {
   expected: StoredDraft | null
   isCurrent: () => boolean
+  /** Destructive adoption may abort if consent expires while put is pending. */
+  verifyAfterPut?: boolean
   accepted?: (record: StoredDraft | null) => void
 }
 
@@ -162,6 +164,21 @@ export async function loadStoredDraft(
   }
 }
 
+/** Browser-only recovery inventory; listing never restores a draft or a handle. */
+export async function listStoredFilesystemDrafts(): Promise<StoredDraft[]> {
+  const db = await openDraftDb()
+  try {
+    const rows = await idbRequest<StoredDraft[]>(
+      db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).getAll()
+    )
+    return rows.filter(row => row.source === 'filesystem' && row.schemaVersion === 3 &&
+      validFilesystemId(row.filesystemDocumentId) && row.id === draftIdentityKey(row) && row.filesystem?.version === 1)
+      .sort((a, b) => b.updatedAt - a.updatedAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+  } finally {
+    db.close()
+  }
+}
+
 export async function saveStoredDraft(
   identity: DraftIdentity,
   draftKeymap: ParsedKeymap,
@@ -200,6 +217,11 @@ export async function saveStoredDraft(
       }
     }
     await idbRequest(store.put(record))
+    if (guard?.verifyAfterPut && !guard.isCurrent()) {
+      tx.abort()
+      await txDone(tx)
+      throw new Error('Firmware reload consent changed during persistence')
+    }
     await txDone(tx)
     guard?.accepted?.(record)
   } finally {

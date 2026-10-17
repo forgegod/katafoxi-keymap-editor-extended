@@ -72,7 +72,10 @@ export function statusText(this: EditorState): string {
     const status = this.hasPendingFirmwareRecovery ? 'Firmware recovery pending'
       : this.isDirty ? 'Firmware draft'
       : this.filesystemVerifiedSave ? 'Firmware saved' : 'Firmware loaded'
-    return `${status}; host files not written. Host edits remain browser-local.`
+    const recovery = this.filesystemRecovery?.attempt
+      ? ' Reconcile save checks fresh file identity and bytes without rewriting. Restore only restores the draft; it does not resolve the attempt.'
+      : this.hasPendingFirmwareRecovery ? ' Restore the stored draft explicitly or keep it stored.' : ''
+    return `${status}; host files not written. Raw .keymap only; sidecars are not synchronized. Host edits remain browser-local.${recovery}`
   }
   const firmwareRecovery = this.hasPendingFirmwareRecovery
     ? this.isDirty

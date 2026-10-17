@@ -28,7 +28,7 @@ Primary user workflows (aligned with upstream intent):
 | **Demo** | First-visit onboarding: bundled fixtures under `packages/keymap-core/fixtures/` (catalog in `fixtures/demo/`, Lark host maps in `fixtures/lark/`). Edits stay in the browser; there is no firmware write path. Loaded only via `apps/web/src/lib/demo/`. |
 | **GitHub** | Load/save `zmk-config` via GitHub App + OAuth. `config/info.json` is optional; when it is absent, a matching `config/<keymap-name>.json` physical layout is accepted. Without either, the board is a flat rectangle from the binding count (same idea as Clipboard). Commit still writes keymap (+ host snapshot), not layout. Host layouts ship in the same commit as `host_keymap/snapshot.json` ([ADR 0005](adr/0005-host-keymap-github-snapshot.md)); IndexedDB is draft/cache for that path. |
 | **Clipboard** | Paste `.keymap` (info.json optional — otherwise a flat rectangular board); **Copy .keymap** puts spliced firmware text on the system clipboard (and in a dialog) for paste into the user’s repo. |
-| **File System Access API** | Chromium: read/write local files without a Node file server (planned / restore) |
+| **Filesystem** | Capability-gated secure-context browser pickers: one existing raw `.keymap`, fresh exact-file authorization for every Save, read-only folder discovery and optional geometry. Host files and sidecars are not written; current boundaries and evidence are in [CAP-002](product/capabilities/CAP-002-keymap-sources-and-persistence.md). |
 
 The Node API exists mainly for **GitHub secrets and commits**. It is not the long-term home for “open my firmware folder on disk.” Host layout **tables** for GitHub live in the repo snapshot; the API only forwards that file with the keymap commit.
 

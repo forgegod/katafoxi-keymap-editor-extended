@@ -27,6 +27,8 @@ export const KEYMAP_SAVE_WARNING_MESSAGES: Record<string, string> = {
     'No info.json — using a flat rectangular board from the binding count. Paste info.json for the real layout.',
   github_inferred_layout:
     'No config/info.json — using a flat rectangular board from the binding count. Commit still updates the keymap only; add info.json for the real geometry.',
+  filesystem_inferred_layout:
+    'No layout JSON selected — using a flat rectangular board from the binding count, not physical geometry. Save writes only the raw .keymap; host files are not written.',
   host_snapshot_unsupported_version:
     'This repository has a newer host_keymap/snapshot.json than this editor can read. Commit will update the keymap only and leave that snapshot unchanged.',
   host_snapshot_invalid:

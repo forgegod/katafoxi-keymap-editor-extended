@@ -1,6 +1,7 @@
 import { assertLayerKeyCounts, buildFilesystemKeymap, isUserKeymapFilename, parseDtsKeymap, parseKeymap } from '@keymap-editor/keymap-core'
 import { buildDraftIdentity, loadStoredDraft, saveStoredDraft, type FilesystemAttempt, type FilesystemBaseline, type FilesystemRecovery, type StoredDraft } from '../draft-storage'
 import { validateGeometryJson } from '../filesystem-access'
+import { formatKeymapSaveWarnings } from '../keymap-save-warnings'
 import { dismissLegendDecode } from '../legend-decode-active'
 import { cloneParsedKeymap, cloneLayout } from './keymap-clone'
 import { cloneLayerSnapshot, initialLayerSnapshot, layerBaselineFingerprint, remapLayerIdentityView } from './layer-operation-state'
@@ -133,7 +134,7 @@ export async function selectFilesystemKeyboard(this: EditorState, event: Filesys
   this.hasPendingFirmwareRecovery = !!recovery.attempt || !equal(row.draftKeymap, this.baselineKeymap) ||
     !!(row.layerOperation && !equal(row.layerOperation.snapshot.ids, this._baselineLayerIds))
   this.clearHistory()
-  this.saveNotice = null
+  this.saveNotice = event.warnings?.length ? { kind: 'warning', messages: formatKeymapSaveWarnings(event.warnings) } : null
   return true
 }
 
@@ -512,4 +513,126 @@ export async function acceptFilesystemReceipt(this: EditorState, input: Filesyst
     if (current()) this.hasPendingFirmwareRecovery = true
     return false
   }
+}
+
+export type FilesystemReload = {
+  session: number
+  documentId: string
+  row: StoredDraft
+  recovery: FilesystemRecovery
+  draft: NonNullable<EditorState['draftKeymap']>
+  layout: NonNullable<EditorState['layout']>
+  layer: ReturnType<EditorState['_storedLayerOperation']>
+  baseline: NonNullable<EditorState['baselineKeymap']>
+  baselineLayout: NonNullable<EditorState['baselineLayout']>
+  baselineLayerIds: string[]
+  /** Array identities, not copies: any edit or undo/redo replaces them. */
+  undoStack: EditorState['undoStack']
+  redoStack: EditorState['redoStack']
+  dirty: boolean
+  pending: boolean
+}
+
+/**
+ * Synchronous consent capture BEFORE any disk read or picker yield. The caller
+ * proves fresh file identity, stages validated disk bytes, then calls
+ * {@link reloadFilesystemKeyboard} with this exact context.
+ */
+export function captureFilesystemReload(this: EditorState): FilesystemReload {
+  const row = this._filesystemRow
+  const recovery = this.filesystemRecovery
+  if (this.source !== 'filesystem' || !this.filesystemDocumentId || !recovery || !this.draftKeymap ||
+      !this.layout || !this.baselineKeymap || !this.baselineLayout || !row) throw new Error('No filesystem document to reload')
+  if (!equal(row.filesystem, recovery)) throw new Error('Filesystem recovery row is out of date')
+  const layer = this._storedLayerOperation()
+  return {
+    session: this._selectGeneration,
+    documentId: this.filesystemDocumentId,
+    row: copy(row),
+    recovery: copy(recovery),
+    draft: copy(this.draftKeymap),
+    layout: copy(this.layout),
+    layer: layer && copy(layer),
+    baseline: copy(this.baselineKeymap),
+    baselineLayout: copy(this.baselineLayout),
+    baselineLayerIds: [...this._baselineLayerIds],
+    undoStack: this.undoStack,
+    redoStack: this.redoStack,
+    dirty: this.isDirty,
+    pending: this.hasPendingFirmwareRecovery || !!recovery.attempt
+  }
+}
+
+/** Consent is bound to the captured session, identity, live revision and stored row. */
+function filesystemReloadIsCurrent(this: EditorState, context: FilesystemReload): boolean {
+  return this.source === 'filesystem' && this._selectGeneration === context.session &&
+    this.filesystemDocumentId === context.documentId &&
+    equal(this._filesystemRow, context.row) && equal(this.filesystemRecovery, context.recovery) &&
+    equal(this.draftKeymap, context.draft) && equal(this.layout, context.layout) &&
+    equal(this._storedLayerOperation(), context.layer) && equal(this.baselineKeymap, context.baseline) &&
+    equal(this.baselineLayout, context.baselineLayout) &&
+    this.undoStack === context.undoStack && this.redoStack === context.redoStack
+}
+
+/**
+ * Adopt a caller-proved, caller-staged disk read into browser state only. Never
+ * writes disk. Clean unchanged reload is a no-op that preserves history/aliases;
+ * dirty or pending work needs `confirmedDiscard`; the committed transaction
+ * precedes live replacement.
+ */
+export async function reloadFilesystemKeyboard(this: EditorState, input: FilesystemBaseline, context: FilesystemReload, confirmedDiscard = false): Promise<boolean> {
+  const baseline = copy(input)
+  const identity = this.currentDraftIdentity()
+  const current = () => filesystemReloadIsCurrent.call(this, context)
+  if (!identity || !current()) return false
+  try { validateBaseline(baseline) } catch { return false }
+  const recoveryCurrent = this.filesystemRecovery!
+  const unchanged = equal(baseline, recoveryCurrent.baseline)
+  const { dirty, pending } = context
+  if ((dirty || pending) && !confirmedDiscard) return false
+  // Clean unchanged reload revalidates identity but keeps the live document.
+  if (!dirty && !pending && unchanged) {
+    try {
+      const stored = await loadStoredDraft(identity)
+      return current() && equal(stored, context.row)
+    } catch { return false }
+  }
+  const recovery: FilesystemRecovery = { version: 1, baseline }
+  const presentation = presentedBaseline(recovery)
+  const snapshot = initialLayerSnapshot(presentation, baseline.source)
+  let committed = false
+  let newer = false
+  try {
+    await this._draftWrites
+    if (!current()) return false
+    await saveStoredDraft(identity, presentation, undefined, undefined, {
+      expected: context.row, isCurrent: current, verifyAfterPut: true, accepted: row => {
+        committed = true
+        if (this.source !== 'filesystem' || this.filesystemDocumentId !== context.documentId || this._selectGeneration !== context.session) return
+        // Compare before mutating the live revision this guard reads.
+        const stillCurrent = current()
+        this._filesystemRow = row
+        this.filesystemRecovery = recovery
+        this.baselineKeymap = cloneParsedKeymap(presentation)
+        this.baselineLayout = cloneLayout(baseline.layout)
+        this._baselineLayerIds = [...snapshot.ids]
+        this.hasPendingFirmwareRecovery = false
+        this.filesystemVerifiedSave = false
+        this.saveNotice = { kind: 'warning', messages: ['Firmware baseline reloaded from the selected file; this is not a save. Raw .keymap only; host files not written.'] }
+        if (stillCurrent) {
+          this.layerOperationSnapshot = snapshot
+          this.clearHistory()
+          this.draftKeymap = cloneParsedKeymap(presentation)
+          this.layout = cloneLayout(baseline.layout)
+        } else {
+          // Commit is authoritative, but newer work owns its snapshot/history.
+          // Never replace that metadata with the disk model's layer identities.
+          newer = true
+        }
+      }
+    }, recovery)
+    // Postcommit: a newer live edit must be retained against the new baseline.
+    if (committed && newer) await this.flushFilesystemDraft()
+    return committed
+  } catch { return false }
 }

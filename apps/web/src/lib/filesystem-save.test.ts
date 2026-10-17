@@ -63,6 +63,19 @@ async function fixture(options: { directory?: boolean; geometry?: boolean } = {}
 afterEach(async () => { await editor._draftWrites; editor.resetForTests(); vi.restoreAllMocks() })
 
 describe('filesystem one-file save domain', () => {
+  it('exposes Grant access only for the same prepared draft after a prompt outcome', async () => {
+    const f = await fixture()
+    expect(filesystemSave.canGrantFilesystemSaveAccess).toBeTypeOf('function')
+    expect(filesystemSave.canGrantFilesystemSaveAccess(editor)).toBe(false)
+    vi.mocked(f.picked.queryPermission!).mockResolvedValue('prompt')
+    expect(await saveFilesystemKeymap(editor, f.env, f.handles)).toBe(false)
+    expect(filesystemSave.canGrantFilesystemSaveAccess(editor)).toBe(true)
+    expect(f.picked.requestPermission).not.toHaveBeenCalled()
+    editor.renameLayer(0, 'New draft')
+    expect(filesystemSave.canGrantFilesystemSaveAccess(editor)).toBe(false)
+    expect(await filesystemSave.grantFilesystemSaveAccess(editor)).toBe(false)
+    expect(f.picked.requestPermission).not.toHaveBeenCalled()
+  })
   it.each(['retained', 'storage-failure'] as const)('keeps committed preparation retirement authoritative with newer work: %s', async followUp => {
     const f = await fixture()
     f.env.showOpenFilePicker = vi.fn(async () => { throw new DOMException('cancel', 'AbortError') })

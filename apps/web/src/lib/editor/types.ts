@@ -116,6 +116,7 @@ export type KeyboardSelectionSource = KeyboardSelection['source']
 export type KeymapPickerPayload =
   | DemoKeyboardSelection
   | ClipboardKeyboardSelection
+  | FilesystemKeyboardSelection
   | (Omit<GithubKeyboardSelection, 'source'> & { source?: 'github' })
   | (Omit<LocalKeyboardSelection, 'source'> & { source?: 'local' })
 

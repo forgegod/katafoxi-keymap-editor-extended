@@ -5,6 +5,7 @@ import {
   deleteStoredDraft,
   draftIdentityKey,
   loadStoredDraft,
+  listStoredFilesystemDrafts,
   saveStoredDraft
 } from './draft-storage'
 
@@ -17,6 +18,19 @@ function tinyKeymap(code: string): ParsedKeymap {
 }
 
 describe('draft-storage', () => {
+  it('lists disconnected filesystem recovery without mixing other source identities', async () => {
+    const identity = buildDraftIdentity({ source: 'filesystem', filesystemDocumentId: `fs:1:${crypto.randomUUID()}` })!
+    const other = buildDraftIdentity({ source: 'clipboard', keyboard: 'recovery-list' })!
+    const baseline = { route: { kind: 'file' as const }, bytes: [65], source: 'A', keymap: tinyKeymap('A'), layout: [{ x: 0, y: 0, row: 0, col: 0 }] }
+    await saveStoredDraft(identity, tinyKeymap('B'), undefined, undefined, { expected: null, isCurrent: () => true }, { version: 1, baseline })
+    await saveStoredDraft(other, tinyKeymap('C'))
+    const before = await loadStoredDraft(identity)
+    const rows = await listStoredFilesystemDrafts()
+    expect(rows.find(row => row.id === before!.id)).toEqual(before)
+    expect(rows.every(row => row.source === 'filesystem' && row.schemaVersion === 3)).toBe(true)
+    expect(await loadStoredDraft(identity)).toEqual(before)
+  })
+
   it('isolates selected GitHub files with equal keyboard metadata from each other and legacy rows', async () => {
     const input = { source: 'github', repo: 'acme/boards', branch: 'main', keyboard: 'same' }
     const legacy = buildDraftIdentity(input)!

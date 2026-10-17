@@ -17,13 +17,15 @@
   import GithubPicker, { type GithubChromeStatus } from './Github/Picker.svelte'
   import DemoPicker from './Demo/Picker.svelte'
   import ClipboardPicker from './Clipboard/Picker.svelte'
+  import FilesystemPicker from './Filesystem/Picker.svelte'
   import SourceMenu from './SourceMenu.svelte'
 
-  const SOURCE_BLURBS: Record<Exclude<KeyboardSelectionSource, 'filesystem'>, string> = {
+  const SOURCE_BLURBS: Record<KeyboardSelectionSource, string> = {
     demo: 'Try a sample keyboard',
     clipboard: 'Paste .keymap · no login',
     github: 'Commit to your firmware repo',
-    local: 'Dev sibling zmk-config'
+    local: 'Dev sibling zmk-config',
+    filesystem: 'Open a .keymap from this computer'
   }
 
   /** Outgoing selection for App → editor.selectKeyboard. */
@@ -48,7 +50,8 @@
       : null,
     config.enableGitHub
       ? { id: 'github' as const, name: 'GitHub', blurb: SOURCE_BLURBS.github }
-      : null
+      : null,
+    { id: 'filesystem' as const, name: 'Filesystem', blurb: SOURCE_BLURBS.filesystem }
   ])
 
   const selectedSource = localStorage.getItem('selectedSource')
@@ -72,6 +75,7 @@
     DEMO_CATALOG.find(entry => entry.id === readStoredDemoId())?.name ?? null
   )
   let clipboardKeyboard = $state<string | null>(null)
+  let fsStatus = $state<{ name: string | null; busy: boolean } | null>(null)
   let sourceRequest = 0
 
   async function changeSource(next: KeyboardSelectionSource) {
@@ -94,6 +98,9 @@
 
   const triggerLabel = $derived.by(() => {
     if (source === 'local') return 'Local'
+    if (source === 'filesystem') {
+      return fsStatus?.name ? `Filesystem · ${fsStatus.name}` : 'Filesystem'
+    }
     if (source === 'clipboard') {
       return clipboardKeyboard ? `Clipboard · ${clipboardKeyboard}` : 'Clipboard'
     }
@@ -107,6 +114,11 @@
 
   const triggerTitle = $derived.by(() => {
     if (source === 'local') return 'Local files'
+    if (source === 'filesystem') {
+      return fsStatus?.name
+        ? `Filesystem file: ${fsStatus.name}`
+        : 'Open a .keymap from this computer (folder discovery is read-only)'
+    }
     if (source === 'clipboard') {
       return clipboardKeyboard
         ? `Clipboard keyboard: ${clipboardKeyboard}`
@@ -224,19 +236,37 @@
       }
     }
 
+    if (source === 'filesystem') {
+      if (!('filesystem' in event) || !event.filesystem) return null
+      return {
+        source: 'filesystem',
+        filesystem: event.filesystem,
+        layout,
+        keymap,
+        warnings,
+        userInitiated: event.userInitiated
+      }
+    }
+
     return { source: 'local', layout, keymap, warnings }
   }
 
-  async function handleKeyboardSelected(event: KeymapPickerPayload) {
+  async function handleKeyboardSelected(event: KeymapPickerPayload): Promise<boolean> {
     const selection = stampSelection(event)
-    if (!selection) return
+    if (!selection) return false
+    const request = ++sourceRequest
     // layer_names: normalizeParsedKeymap at editor accept (cloneParsedKeymap)
     const accepted = await onSelect(selection)
-    if (source !== selection.source) return
+    // A newer gesture or a different live source owns the result now.
+    if (request !== sourceRequest) return false
+    if (source !== selection.source) return false
     if (accepted !== false) {
       localStorage.setItem('selectedSource', selection.source)
       if (event.userInitiated) menuOpen = false
-    } else if (editor.source) source = editor.source
+      return true
+    }
+    if (editor.source) source = editor.source
+    return false
   }
 
   function connectGithub() {
@@ -288,7 +318,7 @@
     <SourceMenu
       label={triggerLabel}
       title={triggerTitle}
-      busy={source === 'github' && !!gh?.loading}
+      busy={(source === 'github' && !!gh?.loading) || (source === 'filesystem' && !!fsStatus?.busy)}
       accent={source === 'demo'}
       popup={gate === null}
       bind:open={menuOpen}
@@ -324,18 +354,25 @@
       {/if}
       {#if source === 'demo'}
         <DemoPicker
-          onSelect={handleKeyboardSelected}
+          onSelect={async event => { await handleKeyboardSelected(event) }}
           onConnectClipboard={connectClipboard}
           onConnectGithub={config.enableGitHub ? connectGithub : undefined}
           showGithubCta={config.enableGitHub}
         />
       {/if}
       {#if source === 'clipboard'}
-        <ClipboardPicker onSelect={handleKeyboardSelected} />
+        <ClipboardPicker onSelect={async event => { await handleKeyboardSelected(event) }} />
+      {/if}
+      {#if source === 'filesystem'}
+        <FilesystemPicker
+          onSelect={handleKeyboardSelected}
+          onUseClipboard={connectClipboard}
+          onStatus={status => (fsStatus = status)}
+        />
       {/if}
       {#if source === 'github'}
         <GithubPicker
-          onSelect={handleKeyboardSelected}
+          onSelect={async event => { await handleKeyboardSelected(event) }}
           onStatus={status => (gh = status)}
           {onLogout}
         />

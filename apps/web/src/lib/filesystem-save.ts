@@ -82,6 +82,13 @@ export function saveFilesystemKeymap(state: EditorState, env: FilesystemAccessEn
   return runSave(state, env, handles)
 }
 
+/** Non-prompting UI eligibility; the gesture repeats these same guards. */
+export function canGrantFilesystemSaveAccess(state: EditorState): boolean {
+  const pending = pendingGrants.get(state)
+  return !!pending && !state.saving && !state.hasPendingFirmwareRecovery &&
+    !state.filesystemRecovery?.attempt && state.filesystemAttemptMatchesDraft(pending.attempt)
+}
+
 /** Separate fresh gesture; this is the only orchestrator action that may prompt. */
 export function grantFilesystemSaveAccess(state: EditorState): Promise<boolean> {
   const pending = pendingGrants.get(state)
