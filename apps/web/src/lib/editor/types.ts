@@ -1,6 +1,7 @@
 import type { KeysymRejection, HostKeymapSnapshot, LayoutKey, ParsedKeymap, RepositoryKeymapMode, RepositoryJsonChoice } from '@keymap-editor/keymap-core'
 import type { DemoHostLayoutSeed } from '../demo/host-seeds.js'
 import type { HostLanguageId } from '../host-layout-store'
+import type { FilesystemBaseline } from '../draft-storage'
 
 export type HostSnapshotLoadError = 'unsupported_version' | 'invalid' | 'incompatible'
 
@@ -89,6 +90,11 @@ export type GithubKeyboardSelection = KeyboardSelectionBase & {
   hostSnapshotError?: HostSnapshotLoadError
 }
 
+export type FilesystemKeyboardSelection = KeyboardSelectionBase & {
+  source: 'filesystem'
+  filesystem: { documentId: string; baseline: FilesystemBaseline }
+}
+
 export type LocalKeyboardSelection = KeyboardSelectionBase & {
   source: 'local'
 }
@@ -99,6 +105,7 @@ export type KeyboardSelection =
   | ClipboardKeyboardSelection
   | GithubKeyboardSelection
   | LocalKeyboardSelection
+  | FilesystemKeyboardSelection
 
 export type KeyboardSelectionSource = KeyboardSelection['source']
 

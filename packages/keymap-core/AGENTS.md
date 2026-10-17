@@ -6,7 +6,7 @@ Shared domain.
 
 ## Ownership
 
-Firmware parse/splice/generate, binding catalogs, host layouts, composed legends, fixture data, and domain tests.
+Firmware parse/splice/generate, binding catalogs, host layouts, composed legends, fixture data, and domain tests. `filesystem-keymap.ts` owns the browser-filesystem firmware-only save boundary.
 
 ## Local Contracts
 
@@ -21,6 +21,8 @@ JSON validation and primary-source detection retain `&reset` as an exact legacy 
 ## Work Guidance
 
 Add focused round-trip and locality tests for file transformations. Preserve unknown external binding parameters. ZMK macros are not C preprocessor aliases. Demo boards belong in fixtures.
+
+`buildFilesystemKeymap` is the only core entry for the browser filesystem source: it splices one existing raw `.keymap` via `buildKeymapCode` and returns only `{ code, mode: 'splice', warnings }`. It refuses a missing/blank source, any mode other than `splice`, and any parameter beyond `keymap`/`layout`/`originalSource` (template, JSON sidecar or other extra outputs). Do not widen it to templates, multi-file saves or host outputs.
 
 Specification-only layer-operation probes live in `src/layer-operation-boundary.test.ts`, owned by CHG-003. They characterize existing seams, not shipped duplicate/reorder behavior. Expected-failure probes run with `it.fails` normally; `CHG003_RED=1` exposes their ordinary assertion failures for review. Do not count those probes as passing operation acceptance or implement their fixes outside the owning phase.
 

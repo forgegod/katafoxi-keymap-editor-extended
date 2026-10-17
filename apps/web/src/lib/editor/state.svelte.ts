@@ -25,7 +25,8 @@ import {
   type ZmkHoldTap
 } from '@keymap-editor/keymap-core'
 import type { Definitions } from '../context'
-import type { StoredDraft } from '../draft-storage'
+import type { FilesystemRecovery, StoredDraft } from '../draft-storage'
+import * as filesystemDocument from './filesystem-document'
 import type { StoredHostAssembly, UserHostLayout } from '../host-layout-store'
 import { assignEditorApi, GETTER_NAMES, type BoundMixin } from './assign-api'
 import { hostLegendAnchorIndex, legendHoversEqual } from './helpers'
@@ -50,6 +51,7 @@ import type {
 export interface EditorState
   extends BoundMixin<typeof documentApi>,
     BoundMixin<typeof persistDraft>,
+    BoundMixin<typeof filesystemDocument>,
     BoundMixin<typeof selectKeyboardApi>,
     BoundMixin<typeof publishBridge>,
     BoundMixin<typeof hostLegendApi>,
@@ -77,6 +79,10 @@ export class EditorState {
   definitions = $state<Definitions | null>(null)
   source = $state<KeyboardSelectionSource | null>(null)
   githubMeta = $state<GithubMeta | null>(null)
+  filesystemDocumentId = $state<string | null>(null)
+  filesystemRecovery = $state.raw<FilesystemRecovery | null>(null)
+  _filesystemRow: StoredDraft | null = null
+  filesystemVerifiedSave = $state(false)
   /** Pasted `.keymap` kept for clipboard splice / Copy. */
   clipboardOriginalSource = $state<string | null>(null)
   layout = $state<LayoutKey[] | null>(null)
@@ -314,6 +320,10 @@ export class EditorState {
     this.endHostEditSession()
     this.legendHover = null
     this.source = null
+    this.filesystemDocumentId = null
+    this.filesystemRecovery = null
+    this._filesystemRow = null
+    this.filesystemVerifiedSave = false
     this.githubMeta = null
     this._dropUnavailableHostLayouts()
     this.clipboardOriginalSource = null
@@ -363,6 +373,7 @@ export class EditorState {
 
 for (const mod of [
   documentApi,
+  filesystemDocument,
   persistDraft,
   selectKeyboardApi,
   publishBridge,

@@ -52,6 +52,7 @@ function draftMatchesLayout(
 export function currentDraftIdentity(this: EditorState): DraftIdentity | null {
   return buildDraftIdentity({
     source: this.source,
+    filesystemDocumentId: this.filesystemDocumentId,
     repo: this.githubMeta?.repository,
     branch: this.githubMeta?.branch,
     keymapPath: this.githubMeta?.keymapPath,
@@ -86,6 +87,7 @@ export function flushPendingPersist(this: EditorState) {
 
 export async function _flushPersist(this: EditorState, token: number) {
   if (token !== this._persistGeneration) return false
+  if (this.source === 'filesystem') return this.flushFilesystemDraft()
   if (this._firmwareRecoveryLoading) return false
   if (this.hasPendingFirmwareRecovery) {
     if (this.isDirty) this.saveNotice = { kind: 'error', messages: [this.statusText] }
@@ -144,6 +146,7 @@ export async function _flushPersist(this: EditorState, token: number) {
 
 /** Drop persisted draft for current identity; cancels pending writes. */
 export async function clearPersistedDraft(this: EditorState) {
+  if (this.source === 'filesystem') { await this.flushFilesystemDraft(); return }
   this._persistGeneration += 1
   this._cancelPersistTimer()
   this._handledDraftIdentityKey = null
@@ -316,11 +319,11 @@ export function _draftIdentityMatches(this: EditorState, identityKey: string): b
 }
 
 export function _storedLayerOperation(this: EditorState): StoredLayerOperationState | undefined {
-  if (!this.baselineKeymap || !this.layerOperationSnapshot?.identityAware) return undefined
+  if (!this.baselineKeymap || !this.layerOperationSnapshot || (!this.layerOperationSnapshot.identityAware && this.source !== 'filesystem')) return undefined
   return {
     version: 1,
     baselineFingerprint: layerBaselineFingerprint(this.baselineKeymap),
-    baselineSource: this._baselineClipboardSource,
+    baselineSource: this.source === 'filesystem' ? this.filesystemRecovery!.baseline.source : this._baselineClipboardSource,
     baselineIds: [...this._baselineLayerIds],
     snapshot: cloneLayerSnapshot(this.layerOperationSnapshot),
     view: { ...this.layerView, shown: [...this.layerView.shown] }

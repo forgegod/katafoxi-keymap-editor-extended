@@ -28,6 +28,9 @@ import type { EditorState } from './state.svelte'
 import { cloneLayerSnapshot, initialLayerSnapshot, remapLayerIdentityView, type LayerOperationSnapshot } from './layer-operation-state'
 
 function firmwareEditBlocker(state: EditorState): string | null {
+  if (state.source === 'filesystem' && state.hasPendingFirmwareRecovery) return state.filesystemRecovery?.attempt
+    ? 'Firmware editing is blocked by an unresolved save attempt. Reconcile save requires fresh file identity and byte checks. Restore only restores the draft; it does not resolve the attempt.'
+    : 'Firmware editing is blocked while stored recovery is pending. Restore it explicitly or keep it stored.'
   if (state.source !== 'github' || !state.githubMeta?.keymapPath) return null
   if (state._firmwareRecoveryLoading) return 'Firmware editing is blocked while recovery is being checked. Wait for loading to finish.'
   return state.hasPendingFirmwareRecovery
@@ -65,6 +68,12 @@ export function changes(this: EditorState): KeymapChange[] {
 
 export function statusText(this: EditorState): string {
   if (!this.draftKeymap) return ''
+  if (this.source === 'filesystem') {
+    const status = this.hasPendingFirmwareRecovery ? 'Firmware recovery pending'
+      : this.isDirty ? 'Firmware draft'
+      : this.filesystemVerifiedSave ? 'Firmware saved' : 'Firmware loaded'
+    return `${status}; host files not written. Host edits remain browser-local.`
+  }
   const firmwareRecovery = this.hasPendingFirmwareRecovery
     ? this.isDirty
       ? 'Live firmware differs from stored recovery and is not saved in this browser. Do not reload or close this page; both revisions were kept separate and switching is blocked.'
@@ -448,6 +457,7 @@ export function redo(this: EditorState) {
  * Host layout table edits are unchanged (not part of ZMK draft history).
  */
 export async function discardDraft(this: EditorState): Promise<boolean> {
+  if (this.source === 'filesystem') return this.discardFilesystemDraft()
   if (!this.baselineKeymap || !this.draftKeymap || !this.isDirty) return false
   restoreLayerSnapshot.call(this, {
     ...initialLayerSnapshot(this.baselineKeymap, this._baselineClipboardSource),

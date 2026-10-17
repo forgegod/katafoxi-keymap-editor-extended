@@ -19,7 +19,7 @@
   import ClipboardPicker from './Clipboard/Picker.svelte'
   import SourceMenu from './SourceMenu.svelte'
 
-  const SOURCE_BLURBS: Record<KeyboardSelectionSource, string> = {
+  const SOURCE_BLURBS: Record<Exclude<KeyboardSelectionSource, 'filesystem'>, string> = {
     demo: 'Try a sample keyboard',
     clipboard: 'Paste .keymap · no login',
     github: 'Commit to your firmware repo',
@@ -142,7 +142,7 @@
     ) {
       return
     }
-    const ids = sourceChoices.map(choice => choice.id)
+    const ids: KeyboardSelectionSource[] = sourceChoices.map(choice => choice.id)
     if (ids.length === 0) return
     event.preventDefault()
     const current =

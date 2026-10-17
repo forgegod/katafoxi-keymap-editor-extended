@@ -56,6 +56,7 @@ function refuseHostRecoveryTransition(state: EditorState): boolean {
 
 /** Verify retention before releasing an identity. Storage is not publication. */
 export async function retainWorkForTransition(this: EditorState): Promise<boolean> {
+  if (this.source === 'filesystem') return this.retainFilesystemWork()
   if (this.source !== 'github') {
     if (!this.isDirty) return true
     const identity = this.currentDraftIdentity()
@@ -126,6 +127,8 @@ export async function retainWorkForTransition(this: EditorState): Promise<boolea
 }
 
 export async function selectKeyboard(this: EditorState, event: KeyboardSelection) {
+  if (this.source === 'filesystem' && this.saving) return
+  if (event.source === 'filesystem') { await this.selectFilesystemKeyboard(event); return }
   const transition = ++this._transitionGeneration
   const githubMeta = event.source === 'github' ? event.github : undefined
   const upcomingIdentity = buildDraftIdentity({

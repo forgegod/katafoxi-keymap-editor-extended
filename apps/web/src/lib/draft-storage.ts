@@ -21,6 +21,40 @@ export type DraftIdentity = {
   branch?: string
   keyboard?: string
   keymapPath?: string
+  filesystemDocumentId?: string
+}
+
+/** Transferable firmware recovery only; browser handles live in a separate DB. */
+export type FilesystemBaseline = {
+  route: { kind: 'file' } | { kind: 'directory'; entryName: string }
+  bytes: number[]
+  source: string
+  keymap: ParsedKeymap
+  layout: LayoutKey[]
+  geometry?: { name: string; bytes: number[] }
+}
+
+export type FilesystemRecovery = {
+  version: 1
+  baseline: FilesystemBaseline
+  /** Baseline presentation only; never changes the source-derived firmware. */
+  display?: { version: 1; layerNames?: string[]; layerIds: string[] }
+  attempt?: FilesystemAttempt
+}
+
+export type FilesystemAttempt = {
+  /** Absent on legacy journals: always treat those as unresolved. */
+  version?: 1
+  stage?: 'prepared' | 'write-possible'
+  id: string
+  documentId: string
+  session: number
+  baseline: FilesystemBaseline
+  sent: ParsedKeymap
+  layout: LayoutKey[]
+  layer?: StoredLayerOperationState
+  code: string
+  bytes: number[]
 }
 
 export type StoredDraft = DraftIdentity & {
@@ -30,6 +64,7 @@ export type StoredDraft = DraftIdentity & {
   layerOperation?: StoredLayerOperationState
   updatedAt: number
   githubBaseline?: { headSha: string; keymap: ParsedKeymap; layout: LayoutKey[] }
+  filesystem?: FilesystemRecovery
 }
 
 export type DraftWriteGuard = {
@@ -44,10 +79,15 @@ export type DraftIdentityInput = {
   branch?: string | null
   keyboard?: string | null
   keymapPath?: string | null
+  filesystemDocumentId?: string | null
 }
 
 /** Strict identity string; all fields that exist must match for restore. */
 export function draftIdentityKey(identity: DraftIdentity): string {
+  if (identity.source === 'filesystem') {
+    if (identity.schemaVersion !== 3 || !validFilesystemId(identity.filesystemDocumentId)) throw new Error('Invalid filesystem identity')
+    return ['3', 'filesystem', identity.filesystemDocumentId].join('\0')
+  }
   if (identity.source === 'github' && identity.schemaVersion === 2) {
     return ['2', 'github', identity.repo ?? '', identity.branch ?? '', identity.keymapPath ?? ''].join('\0')
   }
@@ -64,6 +104,11 @@ export function buildDraftIdentity(
   input: DraftIdentityInput
 ): DraftIdentity | null {
   if (!input.source) return null
+  if (input.source === 'filesystem') {
+    return validFilesystemId(input.filesystemDocumentId)
+      ? { schemaVersion: 3, source: 'filesystem', filesystemDocumentId: input.filesystemDocumentId }
+      : null
+  }
   if (input.source === 'github' && input.keymapPath != null && !isRepositoryKeymapPath(input.keymapPath)) return null
   const identity: DraftIdentity = {
     schemaVersion: input.source === 'github' && input.keymapPath ? 2 : DRAFT_SCHEMA_VERSION,
@@ -74,6 +119,10 @@ export function buildDraftIdentity(
   if (input.keyboard) identity.keyboard = input.keyboard
   if (input.source === 'github' && input.keymapPath) identity.keymapPath = input.keymapPath
   return identity
+}
+
+function validFilesystemId(value: unknown): value is string {
+  return typeof value === 'string' && /^fs:1:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value)
 }
 
 function draftIdentitiesMatch(
@@ -118,14 +167,24 @@ export async function saveStoredDraft(
   draftKeymap: ParsedKeymap,
   layerOperation?: StoredLayerOperationState,
   githubBaseline?: StoredDraft['githubBaseline'],
-  guard?: DraftWriteGuard
+  guard?: DraftWriteGuard,
+  filesystem?: FilesystemRecovery
 ): Promise<void> {
+  if (identity.source === 'filesystem' && (!guard || !filesystem)) throw new Error('Filesystem recovery requires a verified baseline and revision guard')
+  if (identity.source === 'filesystem') {
+    // Capture before opening IndexedDB: callers may continue editing while it yields.
+    draftKeymap = JSON.parse(JSON.stringify(draftKeymap))
+    layerOperation = layerOperation && JSON.parse(JSON.stringify(layerOperation))
+    filesystem = JSON.parse(JSON.stringify(filesystem))
+    guard = { ...guard!, expected: JSON.parse(JSON.stringify(guard!.expected)) }
+  }
   const record: StoredDraft = {
     ...identity,
     id: draftIdentityKey(identity),
     draftKeymap,
     ...(layerOperation ? { layerOperation } : {}),
     ...(githubBaseline ? { githubBaseline } : {}),
+    ...(filesystem ? { filesystem } : {}),
     updatedAt: Date.now()
   }
 
@@ -152,6 +211,7 @@ export async function deleteStoredDraft(
   identity: DraftIdentity,
   guard?: DraftWriteGuard
 ): Promise<void> {
+  if (identity.source === 'filesystem' && !guard) throw new Error('Filesystem recovery deletion requires a revision guard')
   const db = await openDraftDb()
   try {
     const tx = db.transaction(STORE_NAME, 'readwrite')
