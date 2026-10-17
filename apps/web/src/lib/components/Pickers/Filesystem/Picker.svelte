@@ -878,7 +878,13 @@
           Save .keymap
         </button>
         {#if grantable}
-          <button type="button" disabled={busy} onclick={() => void grant()}>Grant access</button>
+          <button
+            type="button"
+            class="fs-grant-access"
+            title="Allow this site to write the selected .keymap"
+            disabled={busy}
+            onclick={() => void grant()}
+          >Grant write access</button>
         {/if}
         {#if canReconcile}
           <button type="button" disabled={busy} onclick={() => void reconcile()}>Reconcile save</button>
@@ -1001,6 +1007,19 @@
   .fs-actions button:disabled {
     cursor: not-allowed;
     opacity: 0.55;
+  }
+
+  /* A saved file is blocked until the explicit browser write grant. */
+  .fs-actions .fs-grant-access:not(:disabled) {
+    background: var(--danger-wash);
+    border-color: var(--danger-border);
+    color: var(--danger-ink);
+    font-weight: 700;
+  }
+
+  .fs-actions .fs-grant-access:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--danger-wash) 70%, var(--danger-border));
+    border-color: var(--danger-ink);
   }
 
   .fs-list {

@@ -385,10 +385,12 @@ describe('FilesystemPicker', () => {
     flushSync()
 
     button('Save .keymap').click()
-    await vi.waitFor(() => expect(buttonContaining('Grant access')).toBeTruthy())
+    await vi.waitFor(() => expect(buttonContaining('Grant write access')).toBeTruthy())
+    const grant = button('Grant write access')
+    expect(grant.classList.contains('fs-grant-access')).toBe(true)
     expect(stream.write).not.toHaveBeenCalled()
 
-    button('Grant access').click()
+    grant.click()
     await vi.waitFor(() => expect(stream.close).toHaveBeenCalled())
     expect(picked.requestPermission).toHaveBeenCalledWith({ mode: 'readwrite' })
   })

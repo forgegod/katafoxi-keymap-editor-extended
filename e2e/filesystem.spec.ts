@@ -11,7 +11,7 @@
  * functions.
  *
  * Covered controls: Filesystem source radio, Open file, Open folder,
- * Choose layout JSON, Open without layout, Save .keymap, Grant access,
+ * Choose layout JSON, Open without layout, Save .keymap, Grant write access,
  * Reconcile save, Reconnect, Restore draft, Discard firmware draft and
  * reload, Use Clipboard.
  *
@@ -324,7 +324,7 @@ test.describe('filesystem source (synthetic picker doubles)', () => {
     await expect(save).toBeEnabled()
     await save.click()
     await expect(fsNotice(page)).toContainText(/access action is required|explicit access/i)
-    const grant = saving.getByRole('button', { name: 'Grant access' })
+    const grant = saving.getByRole('button', { name: 'Grant write access' })
     await expect(grant).toBeVisible()
     await grant.click()
 
@@ -366,7 +366,7 @@ test.describe('filesystem source (synthetic picker doubles)', () => {
     const saving = await openFilesystemActions(page)
     await saving.getByRole('button', { name: 'Save .keymap' }).click()
     await expect(fsNotice(page)).toContainText(/access action is required|explicit access/i)
-    await saving.getByRole('button', { name: 'Grant access' }).click()
+    await saving.getByRole('button', { name: 'Grant write access' }).click()
     await expect(fsNotice(page)).toContainText(/not granted|denied|draft.*unchanged/i)
     expect(await fsDisk(page, 'a.keymap')).not.toContain('&kp F13')
     const log = await fsLog(page)

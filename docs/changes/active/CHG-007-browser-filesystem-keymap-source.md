@@ -46,7 +46,7 @@ Paths name existing seams, not a claim that future symbols or tests already exis
 | --- | --- | --- | --- |
 | 1 | Specify the safe behavior boundary | done (`pnpm records:check && git diff --check` exit 0; frozen planning diff `3620047ef5592eee551a01615729a97db50bef9110ad7e2f79f6ed944ea4cfe9`; Grok `review-browser-filesystem-phase1-frozen`: No findings) | `pnpm records:check && git diff --check` exits 0; S01–S16 and R01–R21 are source-grounded and independently approved on the frozen Phase-1-only diff |
 | 2 | Implement and prove the domain slice | done (core/web gate rerun passed; [fresh final autonomous review](../reviews/CHG-007/phase-2-final-autonomous-review.md): No findings) | `pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test` |
-| 3 | Integrate the interaction and visual handoff | done (web 81 files / 1,216 tests; 69 Playwright tests; canonical render/record gate passed; supported-Edge manual picker check passed; [final autonomous review](../reviews/CHG-007/phase-3-final-autonomous-review.md): No findings) | `pnpm --filter @keymap-editor/web test && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
+| 3 | Integrate the interaction and visual handoff | done (web 81 files / 1,216 tests; 69 Playwright tests; canonical render/record gate passed; [permission CTA review](../reviews/CHG-007/phase-3-permission-cta-review.md): No findings) | `pnpm --filter @keymap-editor/web test && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
 | 4 | Verify and close the change | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages` |
 
 ## Phase 1 — Specify the safe behavior boundary
@@ -262,7 +262,7 @@ Use `docs/product/wireframes/generate.mjs` only for implemented CAP surfaces; re
 
 ## Execution state
 
-Phase 3 is **done**: the exact gate passed, a supported-Edge real-picker check passed, and the [final autonomous review](../reviews/CHG-007/phase-3-final-autonomous-review.md) returned **No findings**. Phase 4 remains **pending** and was not started. The following Phase 1/2 evidence is historical and does not certify the Phase 3 interaction diff.
+Phase 3 is **done**: the post-gate `Grant write access` correction passed the exact gate and the [permission CTA review](../reviews/CHG-007/phase-3-permission-cta-review.md) returned **No findings**. The earlier supported-Edge real-picker check remains valid because the correction only changes the in-app permission CTA presentation. Phase 4 remains **pending** and was not started. The following Phase 1/2 evidence is historical and does not certify the Phase 3 interaction diff.
 
 Phase 1 is done against execution base `56bc119f39af481f9c4d7353de869be5ca8ea96c` on `main`: the corrected specification diff `3620047ef5592eee551a01615729a97db50bef9110ad7e2f79f6ed944ea4cfe9` passed the record/diff gates and independent Grok review `review-browser-filesystem-phase1-frozen` returned **No findings**. The original request baseline above is retained. Commit `b25827934947125d9fecea8a61b360ac761b4709` carries the Phase-1 done row on the target ref.
 
