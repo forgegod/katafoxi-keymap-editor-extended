@@ -1,0 +1,16 @@
+/* Synthetic firmware input. Metadata is supplied separately, never included. */
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+/ {
+    keymap {
+        compatible = "zmk,keymap";
+        base {
+            bindings = <&kp A &kp B &kp C &kp D>;
+            sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN &inc_dec_kp PG_UP PG_DN>;
+        };
+        lower {
+            bindings = <&kp E &kp F &kp G &kp H>;
+            sensor-bindings = <&inc_dec_kp RIGHT LEFT &inc_dec_kp UP DOWN>;
+        };
+    };
+};

@@ -26,6 +26,8 @@ Add focused round-trip and locality tests for file transformations. Preserve unk
 
 Specification-only layer-operation probes live in `src/layer-operation-boundary.test.ts`, owned by CHG-003. They characterize existing seams, not shipped duplicate/reorder behavior. Expected-failure probes run with `it.fails` normally; `CHG003_RED=1` exposes their ordinary assertion failures for review. Do not count those probes as passing operation acceptance or implement their fixes outside the owning phase.
 
+CHG-008's specification-only layout corpus and acceptance contract live in `fixtures/layout-discovery/`, under its child DOX. `src/layout-discovery-boundary.test.ts` validates fixture integrity and characterizes existing load/write seams; it does not parse discovery metadata or certify proposed outcomes. Keep electrical coordinates separate from writer row/column ordering, and do not ship these synthetic fixtures as a board catalog.
+
 Keep schema-free helper preservation separate from declaration-aware operations. `src/layer-operations.test.ts` exercises the real operation API, source locality, strict refusal, append isolation and inverse permutations; do not count phase-1 expected-failure probes as operation acceptance. Preserve conditional sorting with duplicates and distinguish explicit full combo filters from global absent/empty filters.
 
 CHG-005 owns the specification-only `fixtures/corpus/macro-boundary-*.keymap` inputs and `src/zmk-macros.ts`. The macro module parses only the bounded ZMK macro subset, preserves unsupported source as read-only diagnostics, keeps source offsets internal, and requires matching semantic source metadata before mutating a source-backed definition. `src/zmk-macros.test.ts` covers parsing, source locality, reference-safe deletion, lifecycle serialization, and US-ASCII conversion. The opaque fixture intentionally contains invalid definitions and unresolved dependencies; it must never grant authoring ownership.
@@ -48,4 +50,6 @@ From repository root: pnpm --filter @keymap-editor/keymap-core test; pnpm --filt
 
 ## Child DOX Index
 
-None.
+| Child | Owns |
+| --- | --- |
+| `fixtures/layout-discovery/AGENTS.md` | CHG-008 synthetic metadata, proposed discovery acceptance and fixture evidence boundaries. |

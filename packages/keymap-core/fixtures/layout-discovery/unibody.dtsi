@@ -1,0 +1,16 @@
+/* Synthetic specification input; no real keyboard or GPIO configuration. */
+/ {
+    chosen { zmk,matrix-transform = &spec_transform; };
+    spec_transform: transform {
+        compatible = "zmk,matrix-transform";
+        rows = <2>;
+        columns = <2>;
+        map = <RC(1,1) RC(0,0) RC(1,0) RC(0,1)>;
+    };
+    spec_encoder_a: encoder_a { compatible = "alps,ec11"; };
+    spec_encoder_b: encoder_b { compatible = "alps,ec11"; };
+    sensors {
+        compatible = "zmk,keymap-sensors";
+        sensors = <&spec_encoder_b &spec_encoder_a>;
+    };
+};

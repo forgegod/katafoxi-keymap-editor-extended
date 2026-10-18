@@ -1,0 +1,29 @@
+/* Synthetic source-declared geometry, not measured hardware. */
+/ {
+    chosen { zmk,physical-layout = &spec_physical; };
+    spec_transform: transform {
+        compatible = "zmk,matrix-transform";
+        rows = <2>;
+        columns = <2>;
+        map = <RC(1,1) RC(0,0) RC(1,0) RC(0,1)>;
+    };
+    key_physical_attrs: key_physical_attrs {
+        compatible = "zmk,key-physical-attrs";
+        #key-cells = <7>;
+    };
+    spec_physical: physical {
+        compatible = "zmk,physical-layout";
+        display-name = "Synthetic geometry";
+        transform = <&spec_transform>;
+        keys = <&key_physical_attrs 100 100 0 0 0 0 0>,
+               <&key_physical_attrs 125 100 125 0 0 0 0>,
+               <&key_physical_attrs 100 100 0 150 0 0 0>,
+               <&key_physical_attrs 100 100 125 150 (-1500) 125 150>;
+    };
+    spec_encoder_a: encoder_a { compatible = "alps,ec11"; };
+    spec_encoder_b: encoder_b { compatible = "alps,ec11"; };
+    sensors {
+        compatible = "zmk,keymap-sensors";
+        sensors = <&spec_encoder_b &spec_encoder_a>;
+    };
+};

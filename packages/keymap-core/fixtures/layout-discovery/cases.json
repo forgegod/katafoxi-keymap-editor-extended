@@ -1,0 +1,693 @@
+{
+  "fixtureSchema": 1,
+  "status": "specification-only",
+  "referenceRevision": "edf5c0814fd3ea202e43aad2d68fd32e882a518c",
+  "keymap": "bindings.keymap",
+  "cases": [
+    {
+      "id": "unibody",
+      "metadata": "unibody.dtsi",
+      "proposedOutcome": "candidate",
+      "orderedPositions": [
+        [
+          1,
+          1
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "normalizedLayout": [
+        {
+          "row": 0,
+          "col": 0,
+          "x": 1,
+          "y": 1
+        },
+        {
+          "row": 0,
+          "col": 1,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "row": 0,
+          "col": 2,
+          "x": 0,
+          "y": 1
+        },
+        {
+          "row": 0,
+          "col": 3,
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "sensorLabels": [
+        "spec_encoder_b",
+        "spec_encoder_a"
+      ]
+    },
+    {
+      "id": "compatible-underscore",
+      "metadata": "unibody.dtsi",
+      "proposedOutcome": "candidate",
+      "orderedPositions": [
+        [
+          1,
+          1
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "normalizedLayout": [
+        {
+          "row": 0,
+          "col": 0,
+          "x": 1,
+          "y": 1
+        },
+        {
+          "row": 0,
+          "col": 1,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "row": 0,
+          "col": 2,
+          "x": 0,
+          "y": 1
+        },
+        {
+          "row": 0,
+          "col": 3,
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "sensorLabels": [
+        "spec_encoder_b",
+        "spec_encoder_a"
+      ],
+      "metadataEdits": [
+        {
+          "old": "compatible = \"zmk,matrix-transform\";",
+          "new": "compatible = \"zmk,matrix_transform\";"
+        }
+      ]
+    },
+    {
+      "id": "chosen-underscore",
+      "metadata": "unibody.dtsi",
+      "proposedOutcome": "candidate",
+      "orderedPositions": [
+        [
+          1,
+          1
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "normalizedLayout": [
+        {
+          "row": 0,
+          "col": 0,
+          "x": 1,
+          "y": 1
+        },
+        {
+          "row": 0,
+          "col": 1,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "row": 0,
+          "col": 2,
+          "x": 0,
+          "y": 1
+        },
+        {
+          "row": 0,
+          "col": 3,
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "sensorLabels": [
+        "spec_encoder_b",
+        "spec_encoder_a"
+      ],
+      "metadataEdits": [
+        {
+          "old": "zmk,matrix-transform = &spec_transform;",
+          "new": "zmk,matrix_transform = &spec_transform;"
+        }
+      ]
+    },
+    {
+      "id": "split",
+      "metadata": "split.dtsi",
+      "proposedOutcome": "candidate",
+      "orderedPositions": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "normalizedLayout": [
+        {
+          "row": 0,
+          "col": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "row": 0,
+          "col": 1,
+          "x": 3,
+          "y": 1
+        },
+        {
+          "row": 0,
+          "col": 2,
+          "x": 1,
+          "y": 0
+        },
+        {
+          "row": 0,
+          "col": 3,
+          "x": 2,
+          "y": 1
+        }
+      ],
+      "sensorLabels": [
+        "spec_encoder_b",
+        "spec_encoder_a"
+      ],
+      "parts": [
+        {
+          "id": "left",
+          "rows": 1,
+          "columns": 2,
+          "offset": [
+            0,
+            0
+          ],
+          "events": [
+            {
+              "local": [
+                0,
+                0
+              ],
+              "bindingIndex": 0
+            },
+            {
+              "local": [
+                0,
+                1
+              ],
+              "bindingIndex": 2
+            }
+          ]
+        },
+        {
+          "id": "right",
+          "rows": 1,
+          "columns": 2,
+          "offset": [
+            1,
+            2
+          ],
+          "events": [
+            {
+              "local": [
+                0,
+                1
+              ],
+              "bindingIndex": 1
+            },
+            {
+              "local": [
+                0,
+                0
+              ],
+              "bindingIndex": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "physical",
+      "metadata": "physical.dtsi",
+      "proposedOutcome": "candidate",
+      "orderedPositions": [
+        [
+          1,
+          1
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "normalizedLayout": [
+        {
+          "row": 0,
+          "col": 0,
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "u": 1,
+          "h": 1,
+          "r": 0,
+          "rx": 0,
+          "ry": 0
+        },
+        {
+          "row": 0,
+          "col": 1,
+          "x": 1.25,
+          "y": 0,
+          "w": 1.25,
+          "u": 1.25,
+          "h": 1,
+          "r": 0,
+          "rx": 0,
+          "ry": 0
+        },
+        {
+          "row": 0,
+          "col": 2,
+          "x": 0,
+          "y": 1.5,
+          "w": 1,
+          "u": 1,
+          "h": 1,
+          "r": 0,
+          "rx": 0,
+          "ry": 0
+        },
+        {
+          "row": 0,
+          "col": 3,
+          "x": 1.25,
+          "y": 1.5,
+          "w": 1,
+          "u": 1,
+          "h": 1,
+          "r": -15,
+          "rx": 1.25,
+          "ry": 1.5
+        }
+      ],
+      "sensorLabels": [
+        "spec_encoder_b",
+        "spec_encoder_a"
+      ]
+    },
+    {
+      "id": "sensors",
+      "metadata": "unibody.dtsi",
+      "proposedOutcome": "candidate",
+      "orderedPositions": [
+        [
+          1,
+          1
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "normalizedLayout": [
+        {
+          "row": 0,
+          "col": 0,
+          "x": 1,
+          "y": 1
+        },
+        {
+          "row": 0,
+          "col": 1,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "row": 0,
+          "col": 2,
+          "x": 0,
+          "y": 1
+        },
+        {
+          "row": 0,
+          "col": 3,
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "sensorLabels": [
+        "spec_encoder_b",
+        "spec_encoder_a"
+      ]
+    },
+    {
+      "id": "duplicate",
+      "metadata": "unibody.dtsi",
+      "proposedOutcome": "fallback",
+      "reason": "duplicate matrix position",
+      "metadataEdits": [
+        {
+          "old": "RC(0,1)",
+          "new": "RC(1,1)"
+        }
+      ]
+    },
+    {
+      "id": "invalid-position",
+      "metadata": "unibody.dtsi",
+      "proposedOutcome": "fallback",
+      "reason": "matrix position outside declared extent",
+      "metadataEdits": [
+        {
+          "old": "RC(0,1)",
+          "new": "RC(2,1)"
+        }
+      ]
+    },
+    {
+      "id": "negative-position",
+      "metadata": "unibody.dtsi",
+      "proposedOutcome": "fallback",
+      "reason": "negative matrix position",
+      "metadataEdits": [
+        {
+          "old": "RC(0,1)",
+          "new": "RC(-1,1)"
+        }
+      ]
+    },
+    {
+      "id": "fractional-position",
+      "metadata": "unibody.dtsi",
+      "proposedOutcome": "fallback",
+      "reason": "noninteger matrix position",
+      "metadataEdits": [
+        {
+          "old": "RC(0,1)",
+          "new": "RC(0.5,1)"
+        }
+      ]
+    },
+    {
+      "id": "offset-out-of-range",
+      "metadata": "split.dtsi",
+      "proposedOutcome": "fallback",
+      "reason": "part event outside declared global extent",
+      "metadataEdits": [
+        {
+          "old": "col-offset = <2>;",
+          "new": "col-offset = <4>;"
+        }
+      ]
+    },
+    {
+      "id": "physical-count",
+      "metadata": "physical.dtsi",
+      "proposedOutcome": "fallback",
+      "reason": "physical key count differs from map",
+      "metadataEdits": [
+        {
+          "old": ",\n               <&key_physical_attrs 100 100 125 150 (-1500) 125 150>",
+          "new": ""
+        }
+      ]
+    },
+    {
+      "id": "physical-duplicate",
+      "metadata": "physical.dtsi",
+      "proposedOutcome": "fallback",
+      "reason": "duplicate physical origin",
+      "metadataEdits": [
+        {
+          "old": "<&key_physical_attrs 125 100 125 0 0 0 0>",
+          "new": "<&key_physical_attrs 125 100 0 0 0 0 0>"
+        }
+      ]
+    },
+    {
+      "id": "missing",
+      "metadata": null,
+      "proposedOutcome": "fallback",
+      "reason": "no metadata"
+    },
+    {
+      "id": "count-mismatch",
+      "metadata": "unibody.dtsi",
+      "proposedOutcome": "fallback",
+      "reason": "map length differs from each layer",
+      "bindings": [
+        [
+          "&kp A",
+          "&kp B",
+          "&kp C"
+        ],
+        [
+          "&kp E",
+          "&kp F",
+          "&kp G"
+        ]
+      ]
+    },
+    {
+      "id": "layer-mismatch",
+      "metadata": "unibody.dtsi",
+      "proposedOutcome": "error",
+      "reason": "firmware layer counts disagree",
+      "bindings": [
+        [
+          "&kp A",
+          "&kp B",
+          "&kp C",
+          "&kp D"
+        ],
+        [
+          "&kp E",
+          "&kp F",
+          "&kp G"
+        ]
+      ]
+    },
+    {
+      "id": "expression",
+      "metadata": "unibody.dtsi",
+      "proposedOutcome": "fallback",
+      "reason": "unsupported expression",
+      "metadataEdits": [
+        {
+          "old": "RC(0,1)",
+          "new": "RC(0,(1 + 0))"
+        }
+      ]
+    },
+    {
+      "id": "include",
+      "metadata": "unibody.dtsi",
+      "proposedOutcome": "fallback",
+      "reason": "unresolved include can override metadata",
+      "metadataEdits": [
+        {
+          "old": "/ {",
+          "new": "#include \"unresolved-layout.dtsi\"\n/ {"
+        }
+      ]
+    },
+    {
+      "id": "keymap-metadata-include",
+      "metadata": "unibody.dtsi",
+      "proposedOutcome": "fallback",
+      "reason": "selected-keymap include can declare or override metadata without a proved bounded source",
+      "keymapEdits": [
+        {
+          "old": "#include <dt-bindings/zmk/keys.h>\n",
+          "new": "#include <dt-bindings/zmk/keys.h>\n#include \"unresolved-layout.dtsi\"\n"
+        }
+      ]
+    },
+    {
+      "id": "conflicting-chosen",
+      "metadata": "unibody.dtsi",
+      "proposedOutcome": "fallback",
+      "reason": "chosen spellings disagree",
+      "metadataEdits": [
+        {
+          "old": "chosen { zmk,matrix-transform = &spec_transform; };",
+          "new": "chosen { zmk,matrix-transform = &spec_transform; zmk,matrix_transform = &other_transform; };\n    other_transform: other { compatible = \"zmk,matrix-transform\"; rows = <2>; columns = <2>; map = <RC(0,0) RC(0,1) RC(1,0) RC(1,1)>; };"
+        }
+      ]
+    },
+    {
+      "id": "missing-reference",
+      "metadata": "unibody.dtsi",
+      "proposedOutcome": "fallback",
+      "reason": "chosen target does not exist",
+      "metadataEdits": [
+        {
+          "old": "zmk,matrix-transform = &spec_transform;",
+          "new": "zmk,matrix-transform = &missing_transform;"
+        }
+      ]
+    },
+    {
+      "id": "sensor-duplicate",
+      "metadata": "unibody.dtsi",
+      "proposedOutcome": "fallback",
+      "reason": "duplicate sensor label",
+      "metadataEdits": [
+        {
+          "old": "sensors = <&spec_encoder_b &spec_encoder_a>;",
+          "new": "sensors = <&spec_encoder_b &spec_encoder_b>;"
+        }
+      ]
+    },
+    {
+      "id": "sensor-count",
+      "metadata": "unibody.dtsi",
+      "proposedOutcome": "fallback",
+      "reason": "nonempty layer sensor count differs from declared list",
+      "keymapEdits": [
+        {
+          "old": "sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN &inc_dec_kp PG_UP PG_DN>;",
+          "new": "sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN>;"
+        }
+      ]
+    },
+    {
+      "id": "sensor-missing",
+      "metadata": "unibody.dtsi",
+      "proposedOutcome": "candidate",
+      "reason": "sensor association unverified: no zmk,keymap-sensors node",
+      "orderedPositions": [
+        [
+          1,
+          1
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "normalizedLayout": [
+        {
+          "row": 0,
+          "col": 0,
+          "x": 1,
+          "y": 1
+        },
+        {
+          "row": 0,
+          "col": 1,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "row": 0,
+          "col": 2,
+          "x": 0,
+          "y": 1
+        },
+        {
+          "row": 0,
+          "col": 3,
+          "x": 1,
+          "y": 0
+        }
+      ],
+      "metadataEdits": [
+        {
+          "old": "    sensors {\n        compatible = \"zmk,keymap-sensors\";\n        sensors = <&spec_encoder_b &spec_encoder_a>;\n    };\n",
+          "new": ""
+        }
+      ]
+    },
+    {
+      "id": "sensor-property-missing",
+      "metadata": "unibody.dtsi",
+      "proposedOutcome": "fallback",
+      "reason": "invalid sensor metadata: present zmk,keymap-sensors node lacks required sensors property",
+      "metadataEdits": [
+        {
+          "old": "sensors = <&spec_encoder_b &spec_encoder_a>;",
+          "new": ""
+        }
+      ]
+    }
+  ]
+}
