@@ -1,6 +1,6 @@
 # CHG-010 — Publish/copy hardening follow-ups
 
-**Status:** planned
+**Status:** in-progress
 **External request:** Direct operator request: Save the issues / improvement candidates for later runs in a CHR
 **Impacts:** CAP-002
 **Baseline:** `33b33f1aaa9c923a06e0c71ec7d609cbbbed8cea` on main; original CHG-002 review evidence is retained below as historical context.
@@ -94,7 +94,7 @@ with interface cleanup.
 
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
-| 1 | Reproduce or bound the flaky model property | pending | three consecutive `pnpm --filter @keymap-editor/web test` runs exit 0 |
+| 1 | Reproduce or bound the flaky model property | in-progress | three consecutive `pnpm --filter @keymap-editor/web test` runs exit 0 |
 | 2 | Apply the four code/documentation tightenings | pending | `pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint` exit 0 |
 | 3 | Confirm no CAP-002 drift and close | pending | `pnpm records:check && pnpm test && pnpm lint && pnpm build` exit 0 |
 
