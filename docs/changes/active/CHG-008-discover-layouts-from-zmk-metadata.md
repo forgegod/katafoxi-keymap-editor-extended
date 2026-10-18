@@ -39,7 +39,7 @@ Paths name existing seams, not a claim that future symbols or tests already exis
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
 | 1 | Specify the safe behavior boundary | done (`pnpm records:check`; focused core tests; core lint exit 0 @ 6450a19f796c465ccde47003ddffab172a5d1fc9) | `pnpm records:check` passes; acceptance matrix and proposed regression cases reviewed |
-| 2 | Implement and prove the domain slice | in-progress | `pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/api test && pnpm --filter @keymap-editor/web test` |
+| 2 | Implement and prove the domain slice | done (`pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/api test && pnpm --filter @keymap-editor/web test` exit 0 @ f46c22a7dec7987ac23c61fc991bd18fcfd4d4bb) | `pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/api test && pnpm --filter @keymap-editor/web test` |
 | 3 | Integrate the interaction and visual handoff | pending | `pnpm --filter @keymap-editor/web test && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
 | 4 | Verify and close the change | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages` |
 
