@@ -68,8 +68,7 @@ These scopes partition the direct operator request into independently verifiable
 
 | Order | Change | Priority | Dependencies |
 | --- | --- | --- | --- |
-| 1 | [CHG-008 — ZMK-derived layout discovery](active/CHG-008-discover-layouts-from-zmk-metadata.md) | P4 | CHG-004 selected-keymap identity |
-| 2 | [CHG-010 — Publish/copy hardening follow-ups](active/CHG-010-publish-copy-hardening-followups.md) | P4 | CHG-002 phases 3–4 landed |
+| 1 | [CHG-010 — Publish/copy hardening follow-ups](active/CHG-010-publish-copy-hardening-followups.md) | P4 | CHG-002 phases 3–4 landed |
 
 The table orders remaining work; resume only the operator-selected scope. Each linked record owns its own phase state.
 
@@ -84,6 +83,7 @@ The table orders remaining work; resume only the operator-selected scope. Each l
 | [CHG-005 — Visual ZMK macro editor](archive/CHG-005-visual-zmk-macro-editor.md) | done |
 | [CHG-006 — Custom behavior definitions](archive/CHG-006-custom-behavior-definition-editor.md) | done |
 | [CHG-007 — Browser filesystem source](archive/CHG-007-browser-filesystem-keymap-source.md) | done |
+| [CHG-008 — ZMK-derived layout discovery](archive/CHG-008-discover-layouts-from-zmk-metadata.md) | done |
 | [CHG-009 — Correct stock ZMK behavior catalog](archive/CHG-009-correct-stock-zmk-behavior-catalog.md) | done |
 
 ## Review packages

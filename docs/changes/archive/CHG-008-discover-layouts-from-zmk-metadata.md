@@ -1,6 +1,6 @@
 # CHG-008 — Discover keyboard layouts from ZMK metadata
 
-**Status:** in-progress
+**Status:** done
 **External request:** Direct operator request: Incorporate the ../ai-software-blueprint/ into this project. Proceed with the feature gaps as proposed in change requests based on the new blueprint
 **Impacts:** CAP-001, CAP-002
 **Baseline:** `2bb062d9e613980cc8d7ef1e4c545b527ff1e9c2` on main; recheck branch and working-tree ownership before execution.
@@ -41,7 +41,7 @@ Paths name existing seams, not a claim that future symbols or tests already exis
 | 1 | Specify the safe behavior boundary | done (`pnpm records:check`; focused core tests; core lint exit 0 @ 6450a19f796c465ccde47003ddffab172a5d1fc9) | `pnpm records:check` passes; acceptance matrix and proposed regression cases reviewed |
 | 2 | Implement and prove the domain slice | done (`pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/api test && pnpm --filter @keymap-editor/web test` exit 0 @ f46c22a7dec7987ac23c61fc991bd18fcfd4d4bb) | `pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/api test && pnpm --filter @keymap-editor/web test` |
 | 3 | Integrate the interaction and visual handoff | done (`pnpm --filter @keymap-editor/web test && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exit 0 @ a05cafad84c79e5e4e957cd315348350262c4b48) | `pnpm --filter @keymap-editor/web test && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
-| 4 | Verify and close the change | in-progress | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages` |
+| 4 | Verify and close the change | done (`pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages` exit 0 @ 3e49c1c1d148834d6a1229b6d1ef40f4d91c2a0e) | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages` |
 
 ## Phase 1 — Specify the safe behavior boundary
 
@@ -90,4 +90,4 @@ Use `docs/product/wireframes/generate.mjs` only for implemented CAP surfaces; re
 
 ## Execution state
 
-Phase 1 is complete. Its synthetic core acceptance contract and proposed regression corpus are integrated at `6450a19f796c465ccde47003ddffab172a5d1fc9`; `pnpm records:check`, focused core tests and core lint passed on that target revision, and the final independent Grok review returned No findings. Phase 2 is complete at `f46c22a7dec7987ac23c61fc991bd18fcfd4d4bb`; its core, API and web unit gates passed. Phase 3 is complete at `a05cafad84c79e5e4e957cd315348350262c4b48`; its web, browser, canonical visual and record gates passed after final independent review. Phase 4 is in progress. Use Node 24 LTS and the repository-pinned pnpm; install Playwright Chromium for browser/render gates. If a later gate cannot run, keep its phase in progress or blocked and record the actual blocker.
+Phase 1 is complete. Its synthetic core acceptance contract and proposed regression corpus are integrated at `6450a19f796c465ccde47003ddffab172a5d1fc9`; `pnpm records:check`, focused core tests and core lint passed on that target revision, and the final independent Grok review returned No findings. Phase 2 is complete at `f46c22a7dec7987ac23c61fc991bd18fcfd4d4bb`; its core, API and web unit gates passed. Phase 3 is complete at `a05cafad84c79e5e4e957cd315348350262c4b48`; its web, browser, canonical visual and record gates passed after final independent review. Phase 4 completed at `3e49c1c1d148834d6a1229b6d1ef40f4d91c2a0e`: Node 24.21.0 and pnpm 9.15.0 ran the full gate on the clean target checkout; canonical HTML/PNG output matched the committed artifacts, CAP-001/CAP-002 stayed current with `Primary surface: human`, and the final independent Grok review returned No findings. A fresh verification worktree first required `pnpm --filter @keymap-editor/keymap-core build` because its local core `dist` output was absent; the unmodified complete gate was then rerun from generation and passed. The target full-gate rerun passed without that prerequisite. Static Pages retains its two deliberate GitHub-auth skips; no live OAuth, real-board validation, firmware flashing, arbitrary include fetching, or filesystem/local discovery support is claimed.
