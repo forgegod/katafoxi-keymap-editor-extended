@@ -195,6 +195,35 @@ export function inferRectangularLayout(
   })
 }
 
+/** Load-time safety: geometry must not drop, overwrite or reorder firmware slots. */
+export function validateLayoutBindingOrder(layout: LayoutKey[], layers: readonly (readonly unknown[])[]): void {
+  validateInfoJson({ layouts: { default: { layout } } })
+  if (!layout.length || !layers.length) throw new KeymapValidationError(['Layout and firmware layers must be nonempty'])
+  for (let index = 0; index < layers.length; index++) {
+    if (layers[index].length !== layout.length) throw new KeymapValidationError([
+      `Layer ${index} has ${layers[index].length} bindings but layout has ${layout.length} keys`
+    ])
+  }
+  let previous: [number, number] | undefined
+  for (let index = 0; index < layout.length; index++) {
+    const key = layout[index]
+    for (const prop of ['x', 'y', 'w', 'u', 'h', 'r', 'rx', 'ry'] as const) {
+      const value = key[prop]
+      if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value))) throw new InfoValidationError([`Layout key ${index} ${prop} must be finite`])
+    }
+    for (const prop of ['w', 'u', 'h'] as const) {
+      if (key[prop] !== undefined && key[prop]! <= 0) throw new InfoValidationError([`Layout key ${index} ${prop} must be positive`])
+    }
+    const row = key.row ?? 0
+    const col = key.col ?? index
+    if (!Number.isSafeInteger(row) || !Number.isSafeInteger(col) ||
+        (previous && (row < previous[0] || (row === previous[0] && col <= previous[1])))) {
+      throw new InfoValidationError(['Layout row/col slots must be unique and preserve binding order; correct the explicit layout'])
+    }
+    previous = [row, col]
+  }
+}
+
 /** True when the layout slot exists only to hold a matrix/keymap index. */
 function isAbsentLayoutKey(key: LayoutKey): boolean {
   return key.absent === true

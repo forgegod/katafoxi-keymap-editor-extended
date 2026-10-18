@@ -1,5 +1,7 @@
 import { KeymapValidationError } from './errors.js'
-import { inferRectangularLayout, validateInfoJson } from './layout.js'
+import { inferRectangularLayout, validateInfoJson, validateLayoutBindingOrder } from './layout.js'
+import { resolveCatalogLayout } from './layout-catalog.js'
+import type { CatalogLayoutResult, LayoutCatalogRequest } from './layout-catalog.js'
 import type { LayoutKey, ParsedKeymap } from './types.js'
 
 /** ZMK `info.json` layouts object (id/name optional). */
@@ -52,6 +54,8 @@ export function pickInfoLayout(
 }
 
 export type LoadKeyboardBundleOptions = {
+  /** Opt-in domain preview only. Existing adapters do not automatically discover or accept geometry. */
+  discovery?: LayoutCatalogRequest
   /** Parsed info.json root, or null/undefined when absent. */
   infoJson?: unknown | null
   /** Already-parsed keymap (after DTS/JSON parse or from an API adapter). */
@@ -70,6 +74,7 @@ export type LoadKeyboardBundleOptions = {
 }
 
 export type KeyboardBundle = {
+  discovery?: CatalogLayoutResult
   layout: LayoutKey[]
   layoutName: string
   keyboard: string
@@ -78,13 +83,14 @@ export type KeyboardBundle = {
   inferredLayout: boolean
 }
 
-function hasUsableLayouts(info: unknown): info is InfoJsonLayouts {
-  if (!info || typeof info !== 'object') return false
+function hasEmptyLayouts(info: unknown): boolean {
+  if (!info || typeof info !== 'object' || Array.isArray(info)) return false
   const layouts = (info as InfoJsonLayouts).layouts
   return (
     !!layouts &&
     typeof layouts === 'object' &&
-    Object.keys(layouts).length > 0
+    !Array.isArray(layouts) &&
+    Object.keys(layouts).length === 0
   )
 }
 
@@ -106,8 +112,12 @@ export function loadKeyboardBundle(
 
   const warnings: string[] = []
 
-  if (hasUsableLayouts(infoJson)) {
+  if (infoJson != null && !hasEmptyLayouts(infoJson)) {
+    if (Array.isArray(infoJson) || Array.isArray((infoJson as InfoJsonLayouts).layouts)) {
+      throw new KeymapValidationError(['Explicit layout JSON must contain a layouts object, not an array'])
+    }
     const picked = pickInfoLayout(infoJson, { fallbackKeyboard })
+    validateLayoutBindingOrder(picked.layout, keymap.layers)
     return {
       layout: picked.layout,
       layoutName: picked.layoutName,
@@ -124,6 +134,18 @@ export function loadKeyboardBundle(
   }
 
   const layout = inferRectangularLayout(keyCount)
+  validateLayoutBindingOrder(layout, keymap.layers)
+  const discovery = options.discovery ? resolveCatalogLayout({ ...options.discovery, keymap }) : undefined
+  if (discovery?.status === 'candidate') {
+    validateLayoutBindingOrder(discovery.layout.layout, keymap.layers)
+    return {
+      layout: discovery.layout.layout,
+      layoutName: discovery.layout.physicalLayout ?? discovery.layout.transform,
+      keyboard: fallbackKeyboard, keymap, warnings, discovery,
+      inferredLayout: discovery.layout.geometry === 'electrical-inference'
+    }
+  }
+  if (discovery) warnings.push(`layout_discovery_${discovery.reason}`)
   if (inferredLayoutWarning) warnings.push(inferredLayoutWarning)
 
   return {
@@ -132,6 +154,7 @@ export function loadKeyboardBundle(
     keyboard: fallbackKeyboard,
     keymap,
     warnings,
-    inferredLayout: true
+    inferredLayout: true,
+    ...(discovery ? { discovery } : {})
   }
 }

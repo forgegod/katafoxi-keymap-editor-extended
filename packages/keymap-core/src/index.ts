@@ -5,6 +5,8 @@ export * from './keymap.js'
 export * from './repository-keymap.js'
 export * from './keymap-clone.js'
 export * from './keyboard-bundle.js'
+export * from './layout-discovery.js'
+export * from './layout-catalog.js'
 export type { KeymapChange } from './keymap-diff.js'
 export {
   diffKeymaps,

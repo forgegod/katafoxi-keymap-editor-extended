@@ -76,6 +76,23 @@ describe('pickInfoLayout', () => {
 })
 
 describe('loadKeyboardBundle', () => {
+  it.each([{}, { layouts: null }, { layouts: [] }, false, 'not JSON geometry'])('does not treat malformed explicit input as absent: %j', infoJson => {
+    expect(() => loadKeyboardBundle({ keymap, infoJson })).toThrow()
+  })
+
+  it.each([
+    [{ x: Infinity, y: 0 }, { x: 1, y: 0 }],
+    [{ x: 0, y: 0, w: 0 }, { x: 1, y: 0 }],
+    [{ x: 0, y: 0, row: 0, col: 0 }, { x: 1, y: 0, row: 0, col: 0 }],
+    [{ x: 0, y: 0, row: 1, col: 0 }, { x: 1, y: 0, row: 0, col: 0 }]
+  ])('refuses unsafe explicit geometry instead of silently repairing it: %j', (...layout) => {
+    expect(() => loadKeyboardBundle({ keymap, infoJson: { layouts: { default: { layout } } } })).toThrow()
+  })
+
+  it('refuses inconsistent layers before inferring a truncated fallback', () => {
+    expect(() => loadKeyboardBundle({ keymap: parseKeymap({ layers: [['&kp A'], ['&kp B', '&kp C']] }) })).toThrow(/count|layer/i)
+  })
+
   it('picks layout from info.json without inferring', () => {
     const bundle = loadKeyboardBundle({ infoJson: info, keymap })
     expect(bundle.inferredLayout).toBe(false)
