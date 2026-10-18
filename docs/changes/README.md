@@ -64,13 +64,7 @@ Use installed `application-records` and `phased-plan-*` skills when available. T
 
 ## Current records
 
-These scopes partition the direct operator request into independently verifiable changes. Each linked record owns its phase state. Creating or listing a request does not by itself implement it. Read the [bounded upstream assessment](upstream-gap-assessment.md), then resume the selected CHG rather than making a second plan.
-
-| Order | Change | Priority | Dependencies |
-| --- | --- | --- | --- |
-| 1 | [CHG-010 — Publish/copy hardening follow-ups](active/CHG-010-publish-copy-hardening-followups.md) | P4 | CHG-002 phases 3–4 landed |
-
-The table orders remaining work; resume only the operator-selected scope. Each linked record owns its own phase state.
+There are no active change records. Read the [bounded upstream assessment](upstream-gap-assessment.md) before creating a new record.
 
 ## Archive
 
@@ -85,6 +79,7 @@ The table orders remaining work; resume only the operator-selected scope. Each l
 | [CHG-007 — Browser filesystem source](archive/CHG-007-browser-filesystem-keymap-source.md) | done |
 | [CHG-008 — ZMK-derived layout discovery](archive/CHG-008-discover-layouts-from-zmk-metadata.md) | done |
 | [CHG-009 — Correct stock ZMK behavior catalog](archive/CHG-009-correct-stock-zmk-behavior-catalog.md) | done |
+| [CHG-010 — Publish/copy hardening follow-ups](archive/CHG-010-publish-copy-hardening-followups.md) | done |
 
 ## Review packages
 

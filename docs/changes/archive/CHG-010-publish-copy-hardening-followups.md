@@ -1,6 +1,6 @@
 # CHG-010 — Publish/copy hardening follow-ups
 
-**Status:** in-progress
+**Status:** done
 **External request:** Direct operator request: Save the issues / improvement candidates for later runs in a CHR
 **Impacts:** CAP-002
 **Baseline:** `33b33f1aaa9c923a06e0c71ec7d609cbbbed8cea` on main; original CHG-002 review evidence is retained below as historical context.
@@ -96,7 +96,7 @@ with interface cleanup.
 | --- | --- | --- | --- |
 | 1 | Reproduce or bound the flaky model property | done (pnpm --filter @keymap-editor/web test exit 0 @ 5ef70f5eec624597efe5fbc30a908c082ba19fbd) | three consecutive `pnpm --filter @keymap-editor/web test` runs exit 0 |
 | 2 | Apply the four code/documentation tightenings | done (pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint exit 0 @ 0aba7369f352de952757a01de79176125711504c) | `pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint` exit 0 |
-| 3 | Confirm no CAP-002 drift and close | in-progress | `pnpm records:check && pnpm test && pnpm lint && pnpm build` exit 0 |
+| 3 | Confirm no CAP-002 drift and close | done (pnpm records:check && pnpm test && pnpm lint && pnpm build exit 0 @ 62148b00e5d785c557907828a4d93546149a5c5b) | `pnpm records:check && pnpm test && pnpm lint && pnpm build` exit 0 |
 
 ## Phase 1 — Reproduce or bound the flaky model property
 
