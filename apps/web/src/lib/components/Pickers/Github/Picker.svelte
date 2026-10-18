@@ -27,6 +27,7 @@
   interface Props {
     onSelect: (event: {
       github: GithubMeta
+      layoutDiscoveryInput?: import('../../../layout-discovery').LayoutDiscoveryInput
       layout: LayoutKey[]
       keymap: ParsedKeymap
       hostSnapshot?: HostKeymapSnapshot | null

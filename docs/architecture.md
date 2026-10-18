@@ -33,6 +33,8 @@ Detailed contracts remain in [ADRs](adr/README.md), [TARGET_SYSTEM](TARGET_SYSTE
 
 ## Source preservation and limits
 
+Layout discovery uses core's bounded literal-metadata parser/catalog resolver. Clipboard/GitHub keep explicit geometry precedence and the editable rectangle fallback; the browser accepts session geometry only after a source-bound preview and acknowledgement. GitHub supplies optional raw selected source at the pinned head. Imported catalog artifacts are offline curator inputs, not a bundled board inventory or remotely resolved includes. Export is a separate validated JSON download; no persistence adapter gains geometry writes. Current interaction and trust limits are in CAP-001/002.
+
 The shared save contract chooses a supplied template, an existing-source splice, or a noisy default-template fallback. Preserve untouched source and reject ambiguous edits rather than guessing. Existing opaque behavior parameters survive import/edit/export; that is not a general behavior-definition editor. C preprocessor aliases and ZMK macro behaviors are distinct.
 
 Current user-visible outcomes and bounded gaps are indexed by [capabilities](product/index.md). Planned parity features are tracked only in [active changes](changes/README.md).

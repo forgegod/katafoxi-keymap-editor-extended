@@ -469,6 +469,19 @@ describe('fetchKeyboardFiles', () => {
     expect(requestUrls(request).some(url => url.endsWith(`/${KEYMAP_PATH}`))).toBe(false)
   })
 
+  it('returns pinned selected source for discovery without geometry and never writes', async () => {
+    const request = mockGithub({
+      config: [{ name: 'lark.keymap', path: KEYMAP_PATH }],
+      [KEYMAP_PATH]: DTS
+    }, { missing: ['config/info.json', 'config/lark.json', 'config/keymap.json', HOST_KEYMAP_SNAPSHOT_PATH] })
+    const result = await fetchKeyboardFiles('1', REPO, 'main')
+    expect(result.layoutSource).toBe(DTS)
+    const reads = requestOptions(request).filter(opts => contentsPath(requestUrl(opts)) === KEYMAP_PATH)
+    expect(reads.length).toBeGreaterThan(0)
+    for (const read of reads) expect(read.params).toEqual({ ref: result.headSha })
+    expect(requestOptions(request).every(opts => !opts.method || opts.method === 'GET')).toBe(true)
+  })
+
   it('returns null info when info.json is missing', async () => {
     const listing = [
       { name: 'lark.keymap', path: KEYMAP_PATH },

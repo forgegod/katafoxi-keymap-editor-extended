@@ -85,6 +85,7 @@ export class EditorState {
   filesystemVerifiedSave = $state(false)
   /** Pasted `.keymap` kept for clipboard splice / Copy. */
   clipboardOriginalSource = $state<string | null>(null)
+  layoutDiscoveryInput = $state.raw<import('../layout-discovery').LayoutDiscoveryInput | null>(null)
   layout = $state<LayoutKey[] | null>(null)
   /**
    * Layout as last loaded. Scheme-mode `promoteAbsentKey` mutates `layout` only;
@@ -320,6 +321,7 @@ export class EditorState {
     this.endHostEditSession()
     this.legendHover = null
     this.source = null
+    this.layoutDiscoveryInput = null
     this.filesystemDocumentId = null
     this.filesystemRecovery = null
     this._filesystemRow = null

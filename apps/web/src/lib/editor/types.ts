@@ -52,6 +52,7 @@ export type GithubMeta = {
 
 /** Shared board payload present on every keymap-selection source. */
 type KeyboardSelectionBase = {
+  layoutDiscoveryInput?: import('../layout-discovery').LayoutDiscoveryInput
   layout?: LayoutKey[] | null
   keymap?: ParsedKeymap | null
   warnings?: string[]

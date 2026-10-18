@@ -16,6 +16,8 @@ Selected GitHub files require exact regular-blob membership in a complete pinned
 
 ## Work Guidance
 
+When geometry is absent, the GitHub load response may supply the selected raw `.keymap` at the same pinned head for browser discovery. Failed optional source reads disable discovery, not usable JSON-first editing. Never substitute generated firmware, follow metadata includes, or expand the commit write set to geometry.
+
 Share file contracts through keymap-core. Never log credentials or overwrite unrelated repository files. Mock GitHub in tests; do not test against user repositories.
 
 ## Verification

@@ -32,6 +32,8 @@ Primary user workflows (aligned with upstream intent):
 
 The Node API exists mainly for **GitHub secrets and commits**. It is not the long-term home for “open my firmware folder on disk.” Host layout **tables** for GitHub live in the repo snapshot; the API only forwards that file with the keymap commit.
 
+After a Clipboard/GitHub rectangular load, **Layout discovery** can preview an explicitly supplied, attributed offline metadata catalog and accept validated session geometry. Explicit layout JSON still wins; unknown/invalid metadata preserves the editable fallback. Acceptance and JSON download are separate explicit actions, neither a layout-file write. No real-board catalog or remote include resolution is bundled; current provenance, ambiguity and source-proof limits are in [CAP-002](product/capabilities/CAP-002-keymap-sources-and-persistence.md).
+
 ### Dev-only local bridge
 
 Sibling/`zmk-config` junction + `GET/POST /layout|/keymap` is a **development adapter** so we can iterate on a cloned firmware repo quickly. Do not grow product features that *require* this path. Prefer the same file contracts as GitHub (parse/generate/splice in `keymap-core`). Host layouts on the local adapter stay in the browser (IndexedDB); GitHub uses `host_keymap/snapshot.json` ([ADR 0005](adr/0005-host-keymap-github-snapshot.md)).

@@ -232,6 +232,9 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
   }
   this.hasPendingFirmwareRecovery = false
   this.source = event.source
+  this.layoutDiscoveryInput = event.source === 'clipboard'
+    ? { code: event.clipboardOriginalSource ?? null, explicit: !event.clipboardInferredLayout }
+    : event.source === 'github' ? event.layoutDiscoveryInput ?? null : null
   this.githubMeta = githubMeta ?? null
   this.noteHostSnapshotLoad(event.source === 'github' ? event.hostSnapshotError : null)
   if (event.source !== 'github') {

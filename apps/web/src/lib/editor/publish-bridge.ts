@@ -65,7 +65,9 @@ export function applyPublished(
   this._baselineLayerIds = [...publishedLayer.ids]
   this._baselineClipboardSource = this.source === 'clipboard' ? this.clipboardOriginalSource : null
   this.baselineKeymap = cloneParsedKeymap(reloaded)
-  if (this.layout) this.baselineLayout = cloneLayout(this.layout)
+  // Copy publishes firmware only; optional discovery must not replace the loaded rectangle.
+  const sessionOnlyLayout = this.source === 'clipboard' && this.layoutDiscoveryInput?.explicit === false
+  if (this.layout && !sessionOnlyLayout) this.baselineLayout = cloneLayout(this.layout)
   const draftUnchanged =
     !sentDraft ||
     !this.draftKeymap ||

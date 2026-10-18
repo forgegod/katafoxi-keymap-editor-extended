@@ -13,6 +13,7 @@ import * as config from '../config'
 import type { HostSnapshotLoadError } from '../editor/types.js'
 
 export interface KeyboardFilesResult {
+  layoutDiscoveryInput?: import('../layout-discovery').LayoutDiscoveryInput
   keymapPath?: string
   ownershipMode?: RepositoryKeymapMode
   jsonSource?: 'owned' | 'legacy' | 'dts'
@@ -335,6 +336,7 @@ export class API extends EventEmitter {
           jsonSource?: 'owned' | 'legacy' | 'dts'
           jsonChoiceRequired?: boolean
           headSha?: unknown
+          layoutSource?: unknown
         }
       }
       if ((data.keymapPath !== undefined && !isRepositoryKeymapPath(data.keymapPath)) || (selection.keymapPath !== undefined && data.keymapPath !== selection.keymapPath)) throw new Error('Response does not match the selected keymap file')
@@ -355,6 +357,8 @@ export class API extends EventEmitter {
           ...(data.jsonSource ? { jsonSource: data.jsonSource } : {}),
           ...(data.jsonChoiceRequired !== undefined ? { jsonChoiceRequired: data.jsonChoiceRequired } : {}),
           layout: bundle.layout,
+          layoutDiscoveryInput: { explicit: data.info != null, code: typeof data.layoutSource === 'string' ? data.layoutSource : null,
+            sourceId: JSON.stringify([repo, branch, data.keymapPath]), sourceRevision: headSha },
           keymap: bundle.keymap,
           hostSnapshot: loaded.hostSnapshot,
           ...(loaded.hostSnapshotError

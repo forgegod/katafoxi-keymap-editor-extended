@@ -418,7 +418,16 @@ export async function fetchKeyboardFiles(
     fetchInfoJson(installationToken, repository, originalCodeKeymap, ref, mode),
     fetchKeymap(installationToken, repository, originalCodeKeymap, ref, useLegacy ? 'config/keymap.json' : paths.firmwareJson, useLegacy ? undefined : json)
   ])
-  return { info, keymap, ...host, headSha: head.sha, keymapPath: originalCodeKeymap.path, ownershipMode: mode, jsonSource: useLegacy || (json && mode === 'legacy') ? 'legacy' : json ? 'owned' : 'dts', jsonChoiceRequired }
+  // Discovery must inspect the exact selected source, never a generated stand-in.
+  // Failure disables this optional preview, not an otherwise usable JSON load.
+  let layoutSource: string | null = null
+  if (info === null) {
+    try {
+      const raw = await fetchFile(installationToken, repository, originalCodeKeymap.path, { raw: true, ref })
+      if (typeof raw.data === 'string') layoutSource = raw.data
+    } catch { /* The browser reports source-unavailable; no discovery on missing proof. */ }
+  }
+  return { info, keymap, layoutSource, ...host, headSha: head.sha, keymapPath: originalCodeKeymap.path, ownershipMode: mode, jsonSource: useLegacy || (json && mode === 'legacy') ? 'legacy' : json ? 'owned' : 'dts', jsonChoiceRequired }
 }
 
 async function readFirmwareJson(token: string, repository: string, filePath: string, ref: string) {

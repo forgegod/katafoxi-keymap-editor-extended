@@ -225,6 +225,7 @@
       return {
         source: 'github',
         github: event.github,
+        layoutDiscoveryInput: event.layoutDiscoveryInput,
         layout,
         keymap,
         warnings,

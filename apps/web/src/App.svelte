@@ -29,6 +29,7 @@
   import Button from './lib/components/Common/Button.svelte'
   import MacroPanel from './lib/components/MacroPanel.svelte'
   import BehaviorPanel from './lib/components/BehaviorPanel.svelte'
+  import LayoutDiscovery from './lib/components/LayoutDiscovery.svelte'
 
   // Proxy so context consumers stay reactive to editor.definitions ($state).
   setDefinitionsContext({
@@ -249,6 +250,7 @@
             <div class="chrome-group actions-history">
               <MacroPanel />
               <BehaviorPanel />
+              <LayoutDiscovery />
               <Button
                 variant="icon"
                 class="history"

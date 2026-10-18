@@ -14,6 +14,15 @@ const board = () => `<div class="board">${['Q', 'W', 'E', 'R', 'T', 'Y', 'A', 'S
 const layerRows = (names = ['Base', 'Lower', 'Raise']) => `<table class="layer-rows"><thead><tr><th>Layer</th><th>Firmware actions</th></tr></thead><tbody>${names.map((name, index) => `<tr><th>${index} · ${name}</th><td>${chip('Duplicate')} ${chip(index === 0 ? 'Move · fixed' : 'Move')}</td></tr>`).join('')}</tbody></table>`
 const firmwareLayers = () => card('Expanded layer table · Stack off', `<p class="eyebrow">Demo or verified Clipboard source</p>${layerRows()}<p>Duplicate appends “Lower copy”; keys and encoder turns are independent. References still target original layers. One firmware undo step.</p><h3>Move Lower — separate staged example</h3><div class="field">New layer position · 2 · Raise ▾</div><div class="actions">${chip('Apply move', true)}${chip('Cancel')}</div><p>Keyboard: Move → position → Apply. Or drag Move onto another Move control. Layer 0 stays fixed; moves change priority, not reference targets.</p><p class="muted">Focus follows the moved control. Cancel / Escape / unchanged position retain redo. Duplicate keeps focus on its source control.</p>`)
 
+const layoutDiscovery = () => `<h2>Layout discovery · Clipboard / GitHub</h2>
+<div class="columns"><div>
+${card('1 · Optional catalog preview', `<p>No supplied geometry → editable binding-count rectangle. Open Layout discovery from firmware chrome on a clean document.</p><div class="field">Catalog JSON · version + entries<br>Reviewed resolved metadata; no bundled keyboard inventory</div>${chips(['Load catalog'])}<div class="field">Board / shield / revision · synthetic-board / no shield / 1 ▾<br>Candidate type · Transform ▾<br>Candidate label · second</div>${chips(['Resolved metadata and candidate labels', 'Preview layout'])}<p>Ambiguous unchosen layouts require an exact type/label. This never overrides firmware chosen declarations or fetches includes.</p>`)}
+${notice('Unavailable — separate example states', 'Unknown board, invalid coordinates, unsupported includes or count mismatch: no candidate, Accept or Export. Keep the current editable rectangle or supply explicit layout JSON. Invalid catalog: correct the artifact and Load catalog again.')}
+</div><div>
+${card('2 · Candidate — separate preview state', `<p class="eyebrow">Inferred electrical arrangement — not measured physical geometry</p><div class="field">Document: example/config · main · config/example.keymap<br>Source revision: pinned head<br>Catalog revision: synthetic-v1 / content digest<br>Source: https://example.invalid/synthetic · immutable commit<br>Path: layout.dtsi · MIT · Synthetic example notice<br>Metadata SHA-256: content digest<br>Transform: second · zmk,matrix-transform · offsets 0, 0<br>Sensors: association unverified; firmware slots retained</div><p>Binding origins (schematic): 1 2 / 3 0. Binding order stays 0, 1, 2, 3. Scheme shows serialization slots, not electrical coordinates. Physical metadata is source-declared, not independently measured.</p><div class="field">☐ I acknowledge unverified firmware compatibility<br>and trust this catalog provenance</div><div class="actions">${chip('Accept layout · disabled until acknowledged')}${chip('Export layout JSON')}${chip('Cancel')}</div><p>Accept changes session geometry only. Export downloads validated JSON separately; it does not accept the preview or publish firmware/host work. No layout-file overwrite. Reload requires a new preview or explicit JSON.</p>`)}
+${notice('Blocked / stale — separate states', 'Supplied layout JSON takes precedence; discovery cannot replace it. Dirty work, recovery or open drafts block capture. Changed source/document or stale GitHub proof refuses Accept and Export: close and reload/reopen. Cancel keeps layout, bindings and history.')}
+</div></div>`
+
 const screens = [
   {
     id: 'CAP-001', slug: 'firmware-keymap-editing', title: 'Firmware keymap editing',
@@ -31,6 +40,7 @@ ${notice('Soft Off · firmware / hardware prerequisite', 'CONFIG_ZMK_PM_SOFT_OFF
 ${notice('Layer operation refused — separate example state', 'Unverified source/include or open draft: no layer change. Review the source or definition externally, or close the named edit session. GitHub / dev-local / source-less Clipboard operations remain refused; no unsafe override.')}
 ${card('Clipboard round trip — separate result state', '<p>Copy .keymap retains supported source-node identity and exterior text. Re-import keeps remapped targets; a second unchanged export is stable.</p><p>Raw DTS uses node names: “Lower copy” returns as layer_4. JSON-first reload keeps UI names. Clipboard input normalizes line endings and trims outer whitespace.</p>')}
 </div></div>
+${layoutDiscovery()}
 <h2>Macros · separate dialog states</h2>
 <p class="intro">Schematic flow from the chrome Macros button. Demo or verified Clipboard source only; not GitHub/local authoring or a sensor-child editor.</p>
 <div class="columns"><div>
@@ -54,6 +64,7 @@ ${card('4 · Source preview — Apply boundary', `<p>Review the source before ap
     id: 'CAP-002', slug: 'keymap-sources-and-persistence', title: 'Keymap sources and persistence',
     summary: 'Choose a source; keep browser drafts distinct from published files.',
     body: `<div class="sources" style="grid-template-columns:repeat(5,1fr)">${card('Demo', '<p>Bundled keyboards. No login or firmware write/export.</p>')}${card('Clipboard', '<p>Paste .keymap; optional layout JSON. Copy .keymap exports firmware.</p>')}${card('Filesystem', '<p>Browser pickers. One existing raw .keymap only; folders discover read-only.</p>')}${card('GitHub', '<p>Authorized repository, branch and exact keymap file.</p>')}${card('Local · dev only', '<p>Configured server adapter, not browser file access.</p>')}</div>
+${layoutDiscovery()}
 <h2>Filesystem · separate interaction states</h2>
 <div class="columns"><div>
 ${card('Open file — staged before acceptance', `${chips(['Open file', 'Open folder', 'Use Clipboard'])}<div class="field">Staged firmware: example.keymap</div>${chips(['Choose layout JSON', 'Open without layout', 'Cancel candidate'])}<p>Choose layout JSON is a separate gesture, not a chained picker. Invalid or cancelled layout selection keeps the candidate and old editor. Open without layout explicitly uses inferred rectangular geometry.</p>${notice('Unavailable / denied — separate state', 'Secure-context picker support is checked per route. Unsupported routes use Clipboard; folder-only discovery stays read-only. Runtime policy or permission failures preserve work, with no server fallback.')}`)}
@@ -108,7 +119,7 @@ function html(title, body) {
 await mkdir(path.join(root, 'html'), { recursive: true })
 const manifest = { screens: screens.map(({ id, slug, title }) => ({
   id, title, html: `html/${id}-${slug}.html`, png: `exports/${id}-${slug}.png`,
-  viewport: { width: 1440, height: id === 'CAP-001' ? 4900 : id === 'CAP-003' ? 2400 : 3600 }
+  viewport: { width: 1440, height: id === 'CAP-001' ? 6200 : id === 'CAP-003' ? 2400 : 4900 }
 })) }
 for (const [index, screen] of screens.entries()) {
   const body = `<header><strong>Keymap Editor</strong><div class="chips">${chip('ZMK · firmware')}${chip('Host · OS layout')}</div><span class="eyebrow">${screen.id} · current surface</span></header><main><h1>${escape(screen.title)}</h1><p class="intro">${escape(screen.summary)}</p>${screen.body}</main><footer>Canonical schematic, not an application screenshot. Synthetic examples and separate example states. Current bounded behavior only; no proposed parity features are shown as shipped. <a href="../index.html">All capabilities</a></footer>`

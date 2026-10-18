@@ -1,0 +1,32 @@
+.layout-discovery {
+  box-sizing: border-box;
+  width: min(860px, 90vw);
+  max-height: 85vh;
+  overflow: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--text);
+  background: var(--surface);
+}
+.layout-discovery :is(h2, h3, p) { margin: 0; }
+.layout-discovery p { line-height: 1.4; }
+.layout-discovery label { display: flex; flex-direction: column; gap: 5px; }
+.layout-discovery :is(textarea, select, input:not([type="checkbox"])) {
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 6px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.layout-discovery textarea { width: 100%; font-family: monospace; resize: vertical; }
+.layout-discovery pre { max-height: 200px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.layout-provenance { overflow-wrap: anywhere; font-size: 0.85rem; color: var(--text-muted); }
+.layout-choice, .layout-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.layout-discovery .layout-ack { flex-direction: row; align-items: center; }
+.layout-discovery [role="alert"] { color: var(--danger-ink); }
+.layout-map { position: relative; height: 160px; overflow: auto; border: 1px solid var(--border); flex-shrink: 0; }
+.layout-map span { position: absolute; display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--text-muted); border-radius: 3px; }
