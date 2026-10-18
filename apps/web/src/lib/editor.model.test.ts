@@ -21,7 +21,7 @@ import { editor } from './editor.svelte.js'
 import { HISTORY_LIMIT } from './editor/types.js'
 
 const NUM_RUNS = 50
-const FC = { numRuns: NUM_RUNS }
+const FC = { numRuns: NUM_RUNS, verbose: true }
 
 const trans: KeyBindingNode = { value: '&trans', params: [] }
 const esc: KeyBindingNode = {
@@ -536,7 +536,13 @@ describe('EditorState model commands', () => {
     assertInvariants(editor, false)
   })
 
-  it('preserves indexes, dirty flag, and history on random commands', async () => {
+  // CHG-009 captured addLayer → toggleShownLayer(4) → discardDraft with this
+  // seed. Replay the whole property (not its shrink path) alongside fresh runs:
+  // stored marks can outlive a layer, but effective rendered indexes cannot.
+  it.each([
+    { name: 'fresh seed', parameters: FC },
+    { name: 'stored-view regression seed 1662916000', parameters: { ...FC, seed: 1662916000 } }
+  ])('preserves indexes, dirty flag, and history on random commands ($name)', async ({ parameters }) => {
     await fc.assert(
       fc.asyncProperty(
         fc.commands(allCommands, { maxCommands: 40 }),
@@ -547,7 +553,7 @@ describe('EditorState model commands', () => {
           await fc.asyncModelRun(() => ({ model, real: editor }), cmds)
         }
       ),
-      FC
+      parameters
     )
   }, 20_000)
 
