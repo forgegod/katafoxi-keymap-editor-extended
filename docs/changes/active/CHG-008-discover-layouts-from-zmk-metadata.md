@@ -38,7 +38,7 @@ Paths name existing seams, not a claim that future symbols or tests already exis
 
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
-| 1 | Specify the safe behavior boundary | in-progress | `pnpm records:check` passes; acceptance matrix and proposed regression cases reviewed |
+| 1 | Specify the safe behavior boundary | done (`pnpm records:check`; focused core tests; core lint exit 0 @ 6450a19f796c465ccde47003ddffab172a5d1fc9) | `pnpm records:check` passes; acceptance matrix and proposed regression cases reviewed |
 | 2 | Implement and prove the domain slice | pending | `pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/api test && pnpm --filter @keymap-editor/web test` |
 | 3 | Integrate the interaction and visual handoff | pending | `pnpm --filter @keymap-editor/web test && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
 | 4 | Verify and close the change | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm test:e2e:prod && pnpm test:e2e:pages` |
@@ -90,4 +90,4 @@ Use `docs/product/wireframes/generate.mjs` only for implemented CAP surfaces; re
 
 ## Execution state
 
-Phase 1 is reserved. No feature acceptance criterion or phase gate has been claimed complete. Use Node 24 LTS and the repository-pinned pnpm; install Playwright Chromium for browser/render gates. If a gate cannot run, keep the phase in progress or blocked and record the actual blocker.
+Phase 1 is complete. Its synthetic core acceptance contract and proposed regression corpus are integrated at `6450a19f796c465ccde47003ddffab172a5d1fc9`; `pnpm records:check`, focused core tests and core lint passed on that target revision, and the final independent Grok review returned No findings. No feature acceptance criterion is claimed implemented. Phases 2–4 remain pending. Use Node 24 LTS and the repository-pinned pnpm; install Playwright Chromium for browser/render gates. If a later gate cannot run, keep its phase in progress or blocked and record the actual blocker.
