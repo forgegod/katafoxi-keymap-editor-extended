@@ -646,11 +646,28 @@ describe('editor publish / draft persistence', () => {
     expect(editor.saveNotice?.kind).toBe('warning')
 
     editor.updateKeymap(km('B', 'clipboard'))
-    editor.applyClipboardCopied(km('B', 'clipboard'), {
-      warnings: ['generated_default_template']
-    })
+    editor.applyClipboardCopied(km('B', 'clipboard'))
     expect(editor.saveNotice).toBeNull()
     expect(editor.isDirty).toBe(false)
+  })
+
+  it('accepts the sent clipboard draft as the second argument without losing newer edits', async () => {
+    await editor.selectKeyboard({
+      source: 'clipboard',
+      layout: [{ x: 0, y: 0, row: 0, col: 0 }],
+      keymap: km('A', 'clipboard')
+    })
+    const sentDraft = km('B', 'clipboard')
+    editor.updateKeymap(sentDraft)
+    editor.captureLayerOperationSnapshot(sentDraft)
+    editor.updateKeymap(km('C', 'clipboard'))
+
+    editor.applyClipboardCopied(km('B', 'clipboard'), sentDraft)
+
+    expect(editor.baselineKeymap).toEqual(km('B', 'clipboard'))
+    expect(editor.draftKeymap).toEqual(km('C', 'clipboard'))
+    expect(editor.isDirty).toBe(true)
+    expect(editor.saveNotice).toBeNull()
   })
 
   it('keeps dirty draft and Host languages when preserveSession retargets the branch', async () => {

@@ -7,7 +7,7 @@ import {
 } from '@keymap-editor/keymap-core'
 import { buildClipboardExport } from '../clipboard/export.js'
 import { formatKeymapSaveWarnings } from '../keymap-save-warnings.js'
-import type { GithubMeta, SaveNotice } from './types.js'
+import type { SaveNotice } from './types.js'
 
 export type ClipboardCopySheet = {
   code: string
@@ -18,7 +18,7 @@ export type ClipboardCopySheet = {
 }
 
 export type ClipboardCopyEditor = {
-  readonly source: string | null
+  readonly source: 'clipboard'
   saving: boolean
   layout: LayoutKey[] | null
   draftKeymap: ParsedKeymap | null
@@ -26,12 +26,19 @@ export type ClipboardCopyEditor = {
   saveNotice: SaveNotice | null
   beginPublish(): number
   captureLayerOperationSnapshot?(sentDraft: ParsedKeymap): boolean
-  isPublishCurrent(token: number, source: string | null, github: GithubMeta | null): boolean
-  applyClipboardCopied(reloaded: ParsedKeymap, saveMeta?: unknown, sentDraft?: ParsedKeymap): void
+  isClipboardCopyCurrent(token: number): boolean
+  applyClipboardCopied(reloaded: ParsedKeymap, sentDraft?: ParsedKeymap): void
 }
 
 export type CopyClipboardKeymapOptions = {
   writeText?: (text: string) => Promise<void>
+}
+
+/** Refine the shared editor at the caller boundary without copying its reactive state. */
+export function isClipboardCopyEditor(
+  editor: Omit<ClipboardCopyEditor, 'source'> & { readonly source: string | null }
+): editor is ClipboardCopyEditor {
+  return editor.source === 'clipboard'
 }
 
 /** Build, splice, and copy the current clipboard-session .keymap. */
@@ -39,7 +46,7 @@ export async function copyClipboardKeymap(
   editor: ClipboardCopyEditor,
   options: CopyClipboardKeymapOptions = {}
 ): Promise<ClipboardCopySheet | undefined> {
-  if (editor.source !== 'clipboard' || !editor.layout || !editor.draftKeymap || editor.saving) return
+  if (!editor.layout || !editor.draftKeymap || editor.saving) return
   editor.saving = true
   const token = editor.beginPublish()
   const sentDraft = cloneParsedKeymap(editor.draftKeymap)
@@ -57,12 +64,9 @@ export async function copyClipboardKeymap(
     }))
     if (layerIdentityCaptured && sentDraft.layer_names) reloaded.layer_names = [...sentDraft.layer_names]
     const onCopied = () => {
-      if (!editor.isPublishCurrent(token, 'clipboard', null)) return
+      if (!editor.isClipboardCopyCurrent(token)) return
       editor.clipboardOriginalSource = built.code
-      editor.applyClipboardCopied(reloaded, {
-        mode: built.mode,
-        warnings: built.warnings
-      }, sentDraft)
+      editor.applyClipboardCopied(reloaded, sentDraft)
     }
     let copied = false
     const writeText =
@@ -74,7 +78,7 @@ export async function copyClipboardKeymap(
       copied = false
     }
 
-    if (!editor.isPublishCurrent(token, 'clipboard', null)) return
+    if (!editor.isClipboardCopyCurrent(token)) return
 
     if (copied) onCopied()
 
@@ -85,12 +89,12 @@ export async function copyClipboardKeymap(
       onCopied
     }
   } catch (err) {
-    if (!editor.isPublishCurrent(token, 'clipboard', null)) return
+    if (!editor.isClipboardCopyCurrent(token)) return
     const message =
       err instanceof Error ? err.message : 'Could not build the .keymap export'
     editor.saveNotice = { kind: 'error', messages: [message] }
     return undefined
   } finally {
-    if (editor.isPublishCurrent(token, 'clipboard', null)) editor.saving = false
+    if (editor.isClipboardCopyCurrent(token)) editor.saving = false
   }
 }

@@ -3,14 +3,14 @@ import {
   KeymapValidationError,
   type ParsedKeymap
 } from '@keymap-editor/keymap-core'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, assert, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { loadClipboardBundle } from '../clipboard/load.js'
 import * as clipboardExport from '../clipboard/export.js'
 import { readClipboardOriginalSource } from '../clipboard/session.js'
 import * as session from '../clipboard/session.js'
 import * as draftStorage from '../draft-storage'
 import { editor } from '../editor.svelte.js'
-import { copyClipboardKeymap } from './clipboard-copy'
+import { copyClipboardKeymap, isClipboardCopyEditor, type ClipboardCopyEditor } from './clipboard-copy'
 
 /** Minimal pasted .keymap: includes stay in the preamble; two keys to edit. */
 const PASTED_SOURCE = `#include <behaviors.dtsi>
@@ -57,6 +57,11 @@ async function pasteFixture() {
   return bundle
 }
 
+function clipboardEditor() {
+  assert(isClipboardCopyEditor(editor))
+  return editor
+}
+
 describe('copyClipboardKeymap', () => {
   const identity = draftStorage.buildDraftIdentity({ source: 'clipboard', keyboard: 'clipboard' })!
 
@@ -83,7 +88,7 @@ describe('copyClipboardKeymap', () => {
     const writeSource = vi.spyOn(session, 'writeClipboardOriginalSource')
     writeSource.mockClear()
 
-    const sheet = await copyClipboardKeymap(editor, { writeText })
+    const sheet = await copyClipboardKeymap(clipboardEditor(), { writeText })
 
     expect(sheet).toBeDefined()
     expect(writeText).toHaveBeenCalledTimes(1)
@@ -99,18 +104,40 @@ describe('copyClipboardKeymap', () => {
     expect(readClipboardOriginalSource(identity!)).toBe(code)
   })
 
+  it('checks clipboard copy currency against both generation and live source', async () => {
+    await pasteFixture()
+    const token = editor.beginPublish()
+    expect(editor.isClipboardCopyCurrent(token)).toBe(true)
+    editor.source = 'local'
+    expect(editor.isClipboardCopyCurrent(token)).toBe(false)
+    editor.source = 'clipboard'
+    const nextToken = editor.beginPublish()
+    expect(editor.isClipboardCopyCurrent(token)).toBe(false)
+    expect(editor.isClipboardCopyCurrent(nextToken)).toBe(true)
+  })
+
+  it('narrows the live editor to the clipboard-only copy contract', async () => {
+    expectTypeOf<ClipboardCopyEditor['source']>().toEqualTypeOf<'clipboard'>()
+    await pasteFixture()
+    expect(isClipboardCopyEditor(editor)).toBe(true)
+    for (const source of [null, 'demo', 'local', 'github', 'filesystem'] as const) {
+      editor.source = source
+      expect(isClipboardCopyEditor(editor)).toBe(false)
+    }
+  })
+
   it('splices a second Copy onto the first Copy output, not the original paste', async () => {
     await pasteFixture()
     editor.updateKeymap(setKey(editor.draftKeymap!, 0, 'ESC'))
     const firstWrite = vi.fn(async (_text: string) => {})
-    const first = await copyClipboardKeymap(editor, { writeText: firstWrite })
+    const first = await copyClipboardKeymap(clipboardEditor(), { writeText: firstWrite })
     expect(first?.code).toBeTruthy()
     expect(editor.clipboardOriginalSource).toBe(first!.code)
 
     const exportSpy = vi.spyOn(clipboardExport, 'buildClipboardExport')
     editor.updateKeymap(setKey(editor.draftKeymap!, 1, 'TAB'))
     const secondWrite = vi.fn(async (_text: string) => {})
-    const second = await copyClipboardKeymap(editor, { writeText: secondWrite })
+    const second = await copyClipboardKeymap(clipboardEditor(), { writeText: secondWrite })
 
     expect(exportSpy.mock.calls[0][2]).toBe(first!.code)
     expect(exportSpy.mock.calls[0][2]).not.toBe(PASTED_SOURCE.trim())
@@ -127,7 +154,7 @@ describe('copyClipboardKeymap', () => {
       throw new Error('clipboard denied')
     })
 
-    const sheet = await copyClipboardKeymap(editor, { writeText })
+    const sheet = await copyClipboardKeymap(clipboardEditor(), { writeText })
 
     expect(sheet?.copied).toBe(false)
     expect(sheet?.code).toContain('&kp ESC')
@@ -143,7 +170,7 @@ describe('copyClipboardKeymap', () => {
     const writeText = vi.fn(() => new Promise<void>(resolve => {
       finishWrite = resolve
     }))
-    const copying = copyClipboardKeymap(editor, { writeText })
+    const copying = copyClipboardKeymap(clipboardEditor(), { writeText })
     editor.updateKeymap(setKey(editor.draftKeymap!, 1, 'TAB'))
     finishWrite()
 
@@ -164,7 +191,7 @@ describe('copyClipboardKeymap', () => {
     await pasteFixture()
     editor.updateKeymap(setKey(editor.draftKeymap!, 0, 'ESC'))
     let finishWrite!: () => void
-    const copying = copyClipboardKeymap(editor, {
+    const copying = copyClipboardKeymap(clipboardEditor(), {
       writeText: () => new Promise<void>(resolve => { finishWrite = resolve })
     })
     editor.undo()
@@ -187,7 +214,7 @@ describe('copyClipboardKeymap', () => {
       const bundle = await pasteFixture()
       editor.updateKeymap(setKey(editor.draftKeymap!, 0, 'ESC'))
       let finishWrite!: () => void
-      const copying = copyClipboardKeymap(editor, {
+      const copying = copyClipboardKeymap(clipboardEditor(), {
         writeText: () => new Promise<void>(resolve => { finishWrite = resolve })
       })
       if (destination === 'logout') {
@@ -221,7 +248,7 @@ describe('copyClipboardKeymap', () => {
   it('accepts only the exported snapshot after a successful sheet retry', async () => {
     await pasteFixture()
     editor.updateKeymap(setKey(editor.draftKeymap!, 0, 'ESC'))
-    const sheet = await copyClipboardKeymap(editor, {
+    const sheet = await copyClipboardKeymap(clipboardEditor(), {
       writeText: async () => { throw new Error('clipboard denied') }
     })
     expect(sheet?.copied).toBe(false)
@@ -236,7 +263,7 @@ describe('copyClipboardKeymap', () => {
   it('ignores a sheet retry baseline after the same clipboard identity is re-pasted', async () => {
     await pasteFixture()
     editor.updateKeymap(setKey(editor.draftKeymap!, 0, 'ESC'))
-    const sheet = await copyClipboardKeymap(editor, {
+    const sheet = await copyClipboardKeymap(clipboardEditor(), {
       writeText: async () => { throw new Error('clipboard denied') }
     })
     await pasteFixture()
@@ -257,7 +284,7 @@ describe('copyClipboardKeymap', () => {
       code: 'not a keymap', mode: 'splice', warnings: []
     })
     const writeText = vi.fn(async () => {})
-    expect(await copyClipboardKeymap(editor, { writeText })).toBeUndefined()
+    expect(await copyClipboardKeymap(clipboardEditor(), { writeText })).toBeUndefined()
     expect(writeText).not.toHaveBeenCalled()
     expect(editor.clipboardOriginalSource).toBe(original)
     expect(readClipboardOriginalSource(editor.currentDraftIdentity()!)).toBe(original)
@@ -271,13 +298,13 @@ describe('copyClipboardKeymap', () => {
     await pasteFixture()
     editor.updateKeymap(setKey(editor.draftKeymap!, 0, 'ESC'))
     let finishOld!: () => void
-    const oldCopy = copyClipboardKeymap(editor, {
+    const oldCopy = copyClipboardKeymap(clipboardEditor(), {
       writeText: () => new Promise<void>(resolve => { finishOld = resolve })
     })
     await pasteFixture()
     editor.updateKeymap(setKey(editor.draftKeymap!, 1, 'TAB'))
     let finishNew!: () => void
-    const newCopy = copyClipboardKeymap(editor, {
+    const newCopy = copyClipboardKeymap(clipboardEditor(), {
       writeText: () => new Promise<void>(resolve => { finishNew = resolve })
     })
     finishOld()
@@ -298,7 +325,7 @@ describe('copyClipboardKeymap', () => {
     })
     const writeText = vi.fn(async (_text: string) => {})
 
-    const sheet = await copyClipboardKeymap(editor, { writeText })
+    const sheet = await copyClipboardKeymap(clipboardEditor(), { writeText })
 
     expect(sheet).toBeUndefined()
     expect(writeText).not.toHaveBeenCalled()
@@ -316,7 +343,7 @@ describe('copyClipboardKeymap', () => {
     editor.saving = true
     const writeText = vi.fn(async (_text: string) => {})
 
-    const sheet = await copyClipboardKeymap(editor, { writeText })
+    const sheet = await copyClipboardKeymap(clipboardEditor(), { writeText })
 
     expect(sheet).toBeUndefined()
     expect(writeText).not.toHaveBeenCalled()

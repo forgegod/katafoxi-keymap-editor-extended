@@ -7,7 +7,7 @@
   import { hasEscapeOverlay } from './lib/escape-stack'
   import { publishKeymap } from './lib/publish-keymap'
   import { reloadLocalKeyboard } from './lib/api'
-  import { copyClipboardKeymap, type ClipboardCopySheet } from './lib/editor/clipboard-copy'
+  import { copyClipboardKeymap, isClipboardCopyEditor, type ClipboardCopySheet } from './lib/editor/clipboard-copy'
   import {
     armBeforeUnloadConfirmation,
     needsUnpublishedLeaveWarning
@@ -169,6 +169,7 @@
   }
 
   async function handleCopyClipboard() {
+    if (!isClipboardCopyEditor(editor)) return
     const sheet = await copyClipboardKeymap(editor)
     if (sheet) clipboardExport = sheet
   }

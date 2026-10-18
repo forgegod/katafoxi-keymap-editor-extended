@@ -19,6 +19,11 @@ export function beginPublish(this: EditorState): number {
   return this._publishGeneration
 }
 
+/** Clipboard receipts need the live source and generation, not a GitHub identity. */
+export function isClipboardCopyCurrent(this: EditorState, token: number): boolean {
+  return token === this._publishGeneration && this.source === 'clipboard'
+}
+
 /**
  * True when a reload result still matches the publish that started it
  * (same generation, source, and GitHub identity).
@@ -107,7 +112,6 @@ export function applyPublished(
 export function applyClipboardCopied(
   this: EditorState,
   reloaded: ParsedKeymap,
-  _saveMeta?: unknown,
   sentDraft?: ParsedKeymap
 ) {
   applyPublished.call(this, reloaded, undefined, sentDraft)

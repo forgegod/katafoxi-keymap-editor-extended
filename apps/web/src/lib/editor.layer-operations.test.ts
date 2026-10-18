@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildKeymapCode, cloneParsedKeymap, composeLayerRows, conditionalLayerCoverWarning, parseDtsKeymap, parseKeyBinding, parseKeymap, toggleShownLayer } from '@keymap-editor/keymap-core'
 import { editor } from './editor.svelte.js'
 import { buildDraftIdentity, deleteStoredDraft, loadStoredDraft } from './draft-storage'
-import { copyClipboardKeymap } from './editor/clipboard-copy'
+import { copyClipboardKeymap, isClipboardCopyEditor } from './editor/clipboard-copy'
 import { publishKeymap } from './publish-keymap'
 import { claimLegendDecode, resetLegendDecodeActive } from './legend-decode-active'
 
@@ -15,6 +15,11 @@ const fixture = () => ({
 
 async function selectFixture() {
   await editor.selectKeyboard({ source: 'demo', layout, keymap: fixture() })
+}
+
+function clipboardEditor() {
+  assert(isClipboardCopyEditor(editor))
+  return editor
 }
 
 beforeEach(async () => {
@@ -38,7 +43,7 @@ describe('layer identity lifecycle', () => {
     editor.layerView = { shown: [0, 1, 7], layer0Raw: true }
     expect(editor.reorderLayers([0, 2, 1, 3]).ok).toBe(true)
     const sent = cloneParsedKeymap(editor.draftKeymap!)
-    const sheet = await copyClipboardKeymap(editor, { writeText: async () => { throw new Error('denied') } })
+    const sheet = await copyClipboardKeymap(clipboardEditor(), { writeText: async () => { throw new Error('denied') } })
     expect(sheet?.copied).toBe(false)
     expect(editor.isDirty).toBe(true)
     expect(editor.reorderLayers([0, 2, 1, 3]).ok).toBe(true)
@@ -64,7 +69,7 @@ describe('layer identity lifecycle', () => {
     const keymap = parseKeymap(parseDtsKeymap(source, { keyboard: 'clipboard-layer-operations' }))
     await editor.selectKeyboard({ source: 'clipboard', layout, keymap, clipboardOriginalSource: source })
     expect(editor.duplicateLayer(1).ok).toBe(true)
-    const sheet = await copyClipboardKeymap(editor, { writeText: async () => { throw new Error('denied') } })
+    const sheet = await copyClipboardKeymap(clipboardEditor(), { writeText: async () => { throw new Error('denied') } })
     await editor.selectKeyboard({ source: 'clipboard', layout, keymap, clipboardOriginalSource: source })
     const snapshot = editor.layerOperationSnapshot
     sheet!.onCopied()
@@ -135,7 +140,7 @@ describe('layer identity lifecycle', () => {
     editor.layerView = { shown: [0, 1, 7], layer0Raw: true }
     expect(editor.reorderLayers([0, 2, 1, 3]).ok).toBe(true)
     let finishWrite!: () => void
-    const copying = copyClipboardKeymap(editor, {
+    const copying = copyClipboardKeymap(clipboardEditor(), {
       writeText: () => new Promise<void>(resolve => { finishWrite = resolve })
     })
     editor.undo()
@@ -278,7 +283,7 @@ describe('layer identity lifecycle', () => {
     await editor.selectKeyboard({ source: 'clipboard', layout, keymap, clipboardOriginalSource: source })
     editor.layerView = { shown: [0, 1, 7], layer0Raw: true }
     expect(editor.reorderLayers([0, 2, 1, 3]).ok).toBe(true)
-    const copied = await copyClipboardKeymap(editor, { writeText: async () => {} })
+    const copied = await copyClipboardKeymap(clipboardEditor(), { writeText: async () => {} })
     expect(copied?.copied).toBe(true)
     expect(editor.isDirty).toBe(false)
     const published = cloneParsedKeymap(editor.baselineKeymap!)
