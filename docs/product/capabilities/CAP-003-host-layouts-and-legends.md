@@ -7,6 +7,7 @@
 
 - Composed keycaps show host-resolved glyphs from selected language layouts alongside firmware layer bindings. The shared keycapFace contract uses four level slots per displayed language, with at most two languages on the keycap.
 - Hover is a read-only decode preview. Alt+click starts a host-edit session; choosing a glyph updates the host layout immediately. The first edit of a system layout makes a user copy.
+- At 360×640, the Alt+click Host symbol catalog and locked decode card remain inside the viewport without overlapping. The catalog adjusts its initial or remembered frame around the card and scrolls its own symbol content; the level cells and session actions remain unobstructed. This is a bounded narrow-viewport layout outcome, not a guarantee for every viewport or arbitrary card size.
 - Accept/Cancel end the host-edit session; Cancel is not rollback of already chosen glyphs. ZMK undo/redo does not undo host-layout edits.
 - Host language/profile selections and user layouts persist in the browser. Users can import supported xkb/KLC layouts and download Linux xkb or Windows .klc deliverables through the Host lane.
 - Filesystem firmware Save writes no host snapshot or install files. Its persistent chrome distinguishes loaded firmware, a firmware draft, verified firmware Save and pending recovery, always disclosing that host files are not written and host edits stay browser-local. Host-only edits do not enable Save .keymap or arm leave confirmation. Firmware Save, reconciliation and Discard preserve host profiles, assemblies and delivery status; Linux/Windows downloads remain separate Host-lane actions.
@@ -26,6 +27,7 @@
 - `packages/keymap-core/src/host-keymap-deliverables.ts`
 - `apps/web/src/lib/editor/host-legend.svelte.ts`
 - `apps/web/src/lib/components/LegendDecodeCard.svelte`
+- `apps/web/src/lib/components/HostSymbolPicker.svelte` and `apps/web/src/lib/components/host-symbol-geometry.ts` — viewport-clamped catalog placement around the locked decode card, including remembered frames, with an internally scrolling symbol body.
 - `apps/web/src/lib/components/HostPipeline.svelte`
 - `apps/web/src/lib/editor/host-repo.ts`
 - `apps/web/src/lib/host-layout-store.ts` — revision-checked host working writes and atomic identity-only discard.
@@ -45,6 +47,8 @@
 ## Verification
 
 - `apps/web/src/lib/components/Keyboard/Keys/Key.test.ts` — composed faces, click/Alt+click and host editing.
+- `e2e/host-symbol-picker-layout.spec.ts` — Alt+click on a synthetic Clipboard key at 360×640 opens the catalog and locked decode card with non-overlapping, viewport-contained bounds.
+- `apps/web/src/lib/components/HostSymbolPicker.test.ts` — catalog interaction plus geometry cases for gutter clearance, overlapping frames, already-clear placement and vertical stacking; these geometry checks are not browser remembered-frame recovery or an all-screen/card-size matrix.
 - `apps/web/src/lib/host-layout-store.test.ts` — user layouts and storage boundaries.
 - `apps/web/src/lib/editor.host-edit.test.ts` — editing session clears when switching keyboards or logging out.
 - `apps/web/src/lib/host-keymap-snapshot.test.ts` — repository snapshot application and dirty state.
