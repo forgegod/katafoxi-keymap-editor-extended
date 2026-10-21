@@ -2,7 +2,7 @@
 
 **Status:** in-progress
 **External request:** Direct operator request: Fix design divergence in the Macros and Behaviors controls and their dialogs, and fix clipping in the key mapping editor.
-**Impacts:** CAP-001
+**Impacts:** CAP-001, CAP-003
 **Baseline:** `93e82f4bc8d79f6ece1908749067e0697273a7ae` on main
 **Priority:** P2 — editor controls must remain legible and reachable at ordinary desktop widths
 
@@ -13,14 +13,16 @@ The firmware chrome offers Macros and Behaviors beside history controls. Both pa
 - Macros and Behaviors use the same shared chrome-button treatment as neighbouring toolbar actions.
 - Macro and Behavior dialogs use the editor surface, fit the viewport, and retain one internal scroll region rather than overflowing the modal shell.
 - The KeyEditor exposes every stock behavior chip by wrapping parameterized choices inside the dialog instead of clipping the final choices horizontally.
+- An Alt+click host-edit session places the Host symbol catalog away from its locked decode card at narrow viewport widths, without allowing either surface to leave the viewport.
 
 ## Acceptance criteria
 
 - The Macros and Behaviors launchers are shared outline chrome buttons with their existing accessible names and dialog behavior.
 - Macro and Behavior dialogs expose their named title, fit within the viewport, and scroll their own content without horizontal cropping at ordinary desktop and narrow viewport widths.
 - A KeyEditor with the full stock parameterized behavior catalog wraps behavior choices onto visible rows; no parameterized choice is hidden by an overflow boundary.
+- At 360×640, the Alt+click Host symbol catalog and locked decode card do not overlap and both remain entirely within the viewport.
 - Existing Macro, Behavior, KeyEditor, Escape, and source-preview transactions retain their current behavior and accessibility names.
-- CAP-001's canonical editor schematic and generated HTML/PNG depict the current compact editor/dialog hierarchy after implementation.
+- CAP-001 and CAP-003's canonical schematics and generated HTML/PNGs depict the current compact editor/dialog hierarchy and unobstructed Host edit session after implementation.
 
 ## Owned implementation and evidence seams
 
@@ -28,13 +30,18 @@ The firmware chrome offers Macros and Behaviors beside history controls. Both pa
 - `apps/web/src/lib/components/BehaviorPanel.svelte`
 - `apps/web/src/lib/components/MacroPanel.css`
 - `apps/web/src/lib/components/KeyEditor/KeyEditor.css`
+- `apps/web/src/lib/components/HostSymbolPicker.svelte`
+- `apps/web/src/lib/components/host-symbol-geometry.ts`
 - `apps/web/src/lib/components/MacroPanel.test.ts`
 - `apps/web/src/lib/components/BehaviorPanel.test.ts`
 - `apps/web/src/lib/components/KeyEditor/KeyEditor.test.ts`
+- `apps/web/src/lib/components/HostSymbolPicker.test.ts`
 - `e2e/macros.spec.ts`
 - `e2e/behaviors.spec.ts`
 - `e2e/definition-dialog-layout.spec.ts`
+- `e2e/host-symbol-picker-layout.spec.ts`
 - `docs/product/capabilities/CAP-001-firmware-keymap-editing.md`
+- `docs/product/capabilities/CAP-003-host-layouts-and-legends.md`
 - `docs/product/wireframes/generate.mjs`
 
 Paths name existing seams, not a claim that every planned selector or test already exists. Re-read the applicable DOX chain before each edit. Core parsing, definition transactions, source-preview confirmation, and persistence contracts are out of scope.
@@ -42,9 +49,9 @@ Paths name existing seams, not a claim that every planned selector or test alrea
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
 | 1 | Specify visual contract and regression evidence | done (expected-red focused component/browser checks; green KeyEditor catalog and desktop-layout guards; `pnpm --filter @keymap-editor/web lint` exit 0 @ ad1bd9d6a13dcf70d8331b658217f98dcc9f6376) | Focused component and browser regression tests establish the contract, and CAP scope review defers current-state updates until implementation |
-| 2 | Implement the contained dialog and KeyEditor layout | pending | `pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/macros.spec.ts e2e/behaviors.spec.ts e2e/definition-dialog-layout.spec.ts` exits 0 |
+| 2 | Implement contained definition dialogs, KeyEditor, and host-picker layout | pending | `pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/macros.spec.ts e2e/behaviors.spec.ts e2e/definition-dialog-layout.spec.ts e2e/host-symbol-picker-layout.spec.ts` exits 0 |
 | 3 | Integrate current-state records and canonical visuals | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0 |
-| 4 | Verify and close the change | pending | `pnpm records:check && pnpm test && pnpm lint && pnpm build` exits 0 |
+| 4 | Verify and close the change | pending | `pnpm records:check && pnpm test && pnpm test:e2e && pnpm lint && pnpm build` exits 0 |
 
 ## Phase 1 — Specify visual contract and regression evidence
 
@@ -56,7 +63,7 @@ Paths name existing seams, not a claim that every planned selector or test alrea
 
 **Verification gate:** Focused component and browser regression tests establish the contract, and CAP scope review defers current-state updates until implementation.
 
-## Phase 2 — Implement the contained dialog and KeyEditor layout
+## Phase 2 — Implement contained definition dialogs, KeyEditor, and host-picker layout
 
 **Goal:** Deliver the visual correction without changing staged definition/key-binding semantics.
 
@@ -64,15 +71,16 @@ Paths name existing seams, not a claim that every planned selector or test alrea
 2. Replace stale dialog colors and content-box sizing with the current surface tokens and a viewport-contained internal scroll layout.
 3. Let parameterized KeyEditor behavior chips wrap within the editor width rather than hiding overflow; retain compact chips and the parameterless second group.
 4. Keep dialog Escape, backdrop, focus-trap, source-preview, and stale-transaction behavior unchanged.
+5. Keep the Alt+click Host symbol catalog within the viewport and clear of the locked decode card, including when its initial placement or a stored frame would otherwise overlap at 360×640. Preserve drag, resize, and host-edit focus behavior.
 
-**Verification gate:** `pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/macros.spec.ts e2e/behaviors.spec.ts e2e/definition-dialog-layout.spec.ts` exits 0.
+**Verification gate:** `pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/macros.spec.ts e2e/behaviors.spec.ts e2e/definition-dialog-layout.spec.ts e2e/host-symbol-picker-layout.spec.ts` exits 0.
 
 ## Phase 3 — Integrate current-state records and canonical visuals
 
 **Goal:** Make the visual reference and present capability record match the delivered UI.
 
-1. Update CAP-001's visible dialog/editor outcome and implementation/evidence entries if paths change.
-2. Update the CAP-001 schematic in `docs/product/wireframes/generate.mjs` to show the compact chrome launchers, viewport-contained dialog content, and wrapped behavior choices.
+1. Update CAP-001 and CAP-003's visible dialog/editor outcomes and implementation/evidence entries if paths change.
+2. Update the CAP-001 and CAP-003 schematics in `docs/product/wireframes/generate.mjs` to show the compact chrome launchers, viewport-contained dialog content, wrapped behavior choices, and the unobstructed Alt+click Host edit session.
 3. Regenerate the canonical HTML and PNG, inspect the changed render, and keep the product manifest/index consistent.
 
 **Verification gate:** `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0.
@@ -85,7 +93,7 @@ Paths name existing seams, not a claim that every planned selector or test alrea
 2. Reinspect the changed dialog and KeyEditor screenshots at desktop and narrow viewport widths.
 3. Mark each verified phase done with its exact command and implementation SHA, archive the CHG, and update the change index. Do not push or deploy.
 
-**Verification gate:** `pnpm records:check && pnpm test && pnpm lint && pnpm build` exits 0.
+**Verification gate:** `pnpm records:check && pnpm test && pnpm test:e2e && pnpm lint && pnpm build` exits 0.
 
 ## Out of scope
 
