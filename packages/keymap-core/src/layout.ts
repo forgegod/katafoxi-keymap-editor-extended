@@ -251,6 +251,28 @@ export function promoteAbsentLayoutKey(
   })
 }
 
+/**
+ * CHG-011 phase-1 proposal, NOT implemented: add a separate file-aware helper
+ * validateLayoutInfoJson(info: unknown, options: {
+ *   kind: 'shared' | 'named'; path: string
+ * }): InfoJsonLayouts | null (InfoJsonLayouts is defined in keyboard-bundle.ts).
+ *
+ * Adapters supply parsed JSON and its exact repository-relative diagnostic path.
+ * Only kind='named' with no own `layouts` member returns null (not a layout).
+ * A present member, including null/scalar/array/empty object, must validate or
+ * throw InfoValidationError with that path; never treat invalid data as absent.
+ * Accepted roots/layouts must be non-array objects and pass validateInfoJson;
+ * return the original root without mutation. Missing files and JSON syntax
+ * failures belong to adapters; syntax failures are errors, not ignored files.
+ * Shared config/info.json always takes the strict branch. Keep this validator
+ * strict and path-free, and keep loadKeyboardBundle's legacy empty-layout case.
+ *
+ * GitHub fetchInfoJson and Local readLayoutInfo will call the helper without
+ * changing filename rules, legacy/scoped precedence, discovery or writes.
+ * Null enables existing GitHub rectangle inference; Local still requires layout
+ * metadata (no new Local fallback is specified). Spec fixtures and current-seam
+ * evidence: upstream-source-boundary.test.ts, not adapter acceptance tests.
+ */
 export function validateInfoJson(info: unknown): void {
   const errors: string[] = []
 

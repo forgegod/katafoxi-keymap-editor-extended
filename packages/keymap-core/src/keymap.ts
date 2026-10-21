@@ -846,6 +846,20 @@ export function validateKeymapJson(
 /**
  * True when keymap.json is non-empty and passes validateKeymapJson.
  * Empty shells (`[]`, `[[]]`) and invalid binds are not primary — callers fall back to .keymap.
+ *
+ * CHG-011 phase-1 proposal, NOT implemented (upstream f74a94d): inspect raw
+ * keymap.json binding strings in every layers row, combos[].binding and every
+ * sensorBindings row. An exact leading label of &hm or &as requires an array
+ * holdTaps entry with that same code and override !== true. Another preset, an
+ * override, or same-label macros/behaviorDefinitions cannot supply this
+ * dependency. This is not preset synthesis, firmware validation or
+ * stock-catalog membership; do not scan argument tokens as leading labels.
+ * Keep the existing label grammar, catalog/legacy checks, declared-model rules
+ * for other labels and explicit allowUnknownBehaviors source-import path.
+ * Missing-node layer inputs without same-label metadata already fail
+ * incidentally; combo/sensor sites and same-label macros/behaviorDefinitions
+ * expose gaps with CHG011_RED=1. Do not count those specification probes as
+ * implemented dependency proof.
  */
 export function isPrimaryKeymapJson(value: unknown): boolean {
   if (typeof value !== 'object' || value === null) return false
