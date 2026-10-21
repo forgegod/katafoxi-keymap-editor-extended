@@ -1,6 +1,6 @@
 # CHG-011 — Upstream named-layout validation and hold-tap dependency
 
-**Status:** planned
+**Status:** in-progress
 **External request:** Direct operator request: Evaluate the upstream and fork changes made since the last upstream assessment, then incorporate the ones that do not conflict with this project's current direction; local CHG decisions overrule conflicting upstream direction.
 **Impacts:** CAP-001, CAP-002
 **Baseline:** `8fb50d6f9689a3b738f1400b737778e4dfe780dc` on main
@@ -44,7 +44,7 @@ Paths name existing seams, not a claim that future symbols or tests already exis
 
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
-| 1 | Specify the named-layout and hold-tap dependency contract | pending | CAP and focused test change reviewed |
+| 1 | Specify the named-layout and hold-tap dependency contract | in-progress | CAP and focused test change reviewed |
 | 2 | Implement the core and adapter contract | pending | `pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/api test` exit 0 |
 | 3 | Integrate the browser error surface, records, and visuals | pending | `pnpm --filter @keymap-editor/web test && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exit 0 |
 | 4 | Verify and close the change | pending | `pnpm records:check && pnpm test && pnpm lint && pnpm build` exit 0 |
