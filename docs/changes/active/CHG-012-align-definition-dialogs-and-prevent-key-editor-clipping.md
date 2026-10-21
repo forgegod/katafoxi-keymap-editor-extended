@@ -49,7 +49,7 @@ Paths name existing seams, not a claim that every planned selector or test alrea
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
 | 1 | Specify visual contract and regression evidence | done (expected-red focused component/browser checks; green KeyEditor catalog and desktop-layout guards; `pnpm --filter @keymap-editor/web lint` exit 0 @ ad1bd9d6a13dcf70d8331b658217f98dcc9f6376) | Focused component and browser regression tests establish the contract, and CAP scope review defers current-state updates until implementation |
-| 2 | Implement contained definition dialogs, KeyEditor, and host-picker layout | pending | `pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/macros.spec.ts e2e/behaviors.spec.ts e2e/definition-dialog-layout.spec.ts e2e/host-symbol-picker-layout.spec.ts` exits 0 |
+| 2 | Implement contained definition dialogs, KeyEditor, and host-picker layout | in-progress | `pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/macros.spec.ts e2e/behaviors.spec.ts e2e/definition-dialog-layout.spec.ts e2e/host-symbol-picker-layout.spec.ts` exits 0 |
 | 3 | Integrate current-state records and canonical visuals | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0 |
 | 4 | Verify and close the change | pending | `pnpm records:check && pnpm test && pnpm test:e2e && pnpm lint && pnpm build` exits 0 |
 
