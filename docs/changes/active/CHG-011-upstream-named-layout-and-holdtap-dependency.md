@@ -45,7 +45,7 @@ Paths name existing seams, not a claim that future symbols or tests already exis
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
 | 1 | Specify the named-layout and hold-tap dependency contract | done (pnpm --filter @keymap-editor/keymap-core test -- src/upstream-source-boundary.test.ts src/keymap.test.ts src/dts-behaviors.test.ts src/dts-combos.test.ts src/dts-sensors.test.ts src/behavior-definitions.test.ts; pnpm --filter @keymap-editor/keymap-core lint; pnpm records:check exit 0 @ f377f1d8085ea27fa026cb42f551bab7f1a5296a) | CAP and focused test change reviewed |
-| 2 | Implement the core and adapter contract | pending | `pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/api test` exit 0 |
+| 2 | Implement the core and adapter contract | in-progress | `pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/api test` exit 0 |
 | 3 | Integrate the browser error surface, records, and visuals | pending | `pnpm --filter @keymap-editor/web test && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exit 0 |
 | 4 | Verify and close the change | pending | `pnpm records:check && pnpm test && pnpm lint && pnpm build` exit 0 |
 
