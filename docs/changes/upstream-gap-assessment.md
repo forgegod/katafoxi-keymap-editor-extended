@@ -38,9 +38,9 @@ The intermediate fork moved after the first assessment. Its 20 commits split int
 | `ad1998d` | Load matching config layouts for named keymaps | Already in this repository as `2bb062d` |
 | `bd446c6` | Recognize `&sys_reset` and `&studio_unlock` bindings | Already in this repository as `0650405` |
 | `aa83775` | Load well-formed unknown behaviors everywhere | Argument retention already present; catalog relaxation declined |
-| `e58928b` | Accept named layout JSON only with a valid `layouts` object | Accepted, [CHG-011](active/CHG-011-upstream-named-layout-and-holdtap-dependency.md) |
-| `3646de4` | Cover a named-layout keymap with reset, Unicode, encoders | Accepted as CHG-011 regression coverage |
-| `f74a94d` | Require a declared node for `&hm` and `&as` in `keymap.json` | Accepted, CHG-011 |
+| `e58928b` | Accept named layout JSON only with a valid `layouts` object | Closed by [CHG-011](archive/CHG-011-upstream-named-layout-and-holdtap-dependency.md) |
+| `3646de4` | Cover a named-layout keymap with reset, Unicode, encoders | Closed as CHG-011 regression coverage |
+| `f74a94d` | Require a declared node for `&hm` and `&as` in `keymap.json` | Closed by CHG-011 |
 | `a2ef691` | Let the host language list overflow visibly | Declined |
 | `abec2b9`, `aef03c0` | Meta tags, robots.txt, sitemap.xml, Open Graph | Not applicable |
 | `0ed3f70` | Cross-Origin-Resource-Policy for og.jpg | Not applicable |
@@ -48,10 +48,10 @@ The intermediate fork moved after the first assessment. Its 20 commits split int
 | `ebbe710`, `01232db` | og.jpg image updates | Not applicable |
 | `be21bd9` | Optional local Chromium executable path | Not applicable |
 
-Evidence for the two accepted gaps, taken against this repository at `8fb50d6`:
+Evidence for the two accepted gaps, as they stood against this repository at `8fb50d6`. Both are now closed by [CHG-011](archive/CHG-011-upstream-named-layout-and-holdtap-dependency.md); the evidence below is the pre-change state:
 
-- The named-layout rule is absent. `packages/keymap-core/src/layout.ts` has no helper that distinguishes a layout file from other JSON, `packages/keymap-core/src/errors.ts` gives `InfoValidationError` no path, and `apps/web/src/lib/components/Pickers/Github/ValidationErrors.svelte` maps the error title to a fixed `config/info.json`. A named `config/<keymap>.json` carrying no `layouts` object therefore fails the whole load with `info must define "layouts"`, and a broken named file is blamed on the shared one.
-- The hold-tap dependency rule is unstated. `packages/keymap-core/src/keymap.ts` rejects `&hm` and `&as` in a `keymap.json` only because those codes are absent from the stock catalog, not because a dependency is checked. The observable result matches the upstream rule today, and would stop matching if the catalog later gained those codes.
+- The named-layout rule was absent. `packages/keymap-core/src/layout.ts` had no helper that distinguishes a layout file from other JSON, `packages/keymap-core/src/errors.ts` gave `InfoValidationError` no path, and `apps/web/src/lib/components/Pickers/Github/ValidationErrors.svelte` mapped the error title to a fixed `config/info.json`. A named `config/<keymap>.json` carrying no `layouts` object therefore failed the whole load with `info must define "layouts"`, and a broken named file was blamed on the shared one.
+- The hold-tap dependency rule was unstated. `packages/keymap-core/src/keymap.ts` rejected `&hm` and `&as` in a `keymap.json` only because those codes are absent from the stock catalog, not because a dependency is checked. The observable result matched the upstream rule then, and would have stopped matching if the catalog later gained those codes.
 
 ### Declined directions
 
