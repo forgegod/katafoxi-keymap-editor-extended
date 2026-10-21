@@ -3,6 +3,7 @@
   import { BEHAVIOR_DEFINITION_SCHEMAS, HOLD_TAP_FLAVORS, behaviorDeletePreflight, encodeKeyBinding, macroMetadataSignatures, parseDtsBehaviorDefinitions, parseKeyBinding, validateBehaviorInvocation, type ZmkBehaviorDefinition } from '@keymap-editor/keymap-core'
   import { buildMacroPreview, captureMacroDocument, confirmMacroPreview, type MacroDocument } from '../macro-editor'
   import { editor } from '../editor.svelte.js'
+  import Button from './Common/Button.svelte'
   import Modal from './Common/Modal.svelte'
   import './MacroPanel.css'
 
@@ -125,7 +126,7 @@
   }
 </script>
 
-<button onclick={() => open = true}>Behaviors</button>
+<Button onclick={() => open = true}>Behaviors</Button>
 {#if open}
   <Modal ariaLabel="Behaviors" onBackdrop={() => { cancel(); open = false }}>
     <section class="macro-panel">

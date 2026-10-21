@@ -3,6 +3,7 @@
   import { encodeKeyBinding, macroDeletePreflight, macroMetadataSignatures, macroQueueWarnings, parseKeyBinding, textToUsAsciiMacro, validateMacroInvocation, type ZmkMacroDefinition, type ZmkMacroStep } from '@keymap-editor/keymap-core'
   import { buildMacroPreview, captureMacroDocument, confirmMacroPreview, type MacroDocument } from '../macro-editor'
   import { editor } from '../editor.svelte.js'
+  import Button from './Common/Button.svelte'
   import Modal from './Common/Modal.svelte'
   import './MacroPanel.css'
 
@@ -142,7 +143,7 @@
   }
 </script>
 
-<button onclick={() => open = true}>Macros</button>
+<Button onclick={() => open = true}>Macros</Button>
 {#if open}
   <Modal ariaLabel={textDialog ? 'Text to sequence' : 'Macros'} onBackdrop={() => { cancel(); open = false }}>
     <section class="macro-panel">

@@ -229,10 +229,11 @@
     overflow: hidden;
   }
 
-  /* Value-taking behaviours stay on one line (no wrap, no scroll). */
+  /* Keep every value-taking behavior selectable at narrow widths. */
   .key-editor-behaviour-groups .key-editor-chips[data-behaviour-group='params'] {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 3px;
+    overflow: visible;
   }
 
   .key-editor-behaviour-groups
