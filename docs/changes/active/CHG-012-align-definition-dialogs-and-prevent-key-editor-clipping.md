@@ -50,7 +50,7 @@ Paths name existing seams, not a claim that every planned selector or test alrea
 | --- | --- | --- | --- |
 | 1 | Specify visual contract and regression evidence | done (expected-red focused component/browser checks; green KeyEditor catalog and desktop-layout guards; `pnpm --filter @keymap-editor/web lint` exit 0 @ ad1bd9d6a13dcf70d8331b658217f98dcc9f6376) | Focused component and browser regression tests establish the contract, and CAP scope review defers current-state updates until implementation |
 | 2 | Implement contained definition dialogs, KeyEditor, and host-picker layout | done (`pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/macros.spec.ts e2e/behaviors.spec.ts e2e/definition-dialog-layout.spec.ts e2e/host-symbol-picker-layout.spec.ts` exit 0 @ be47c7e8089eb148acdc1e72175f0262dc40f2fb) | `pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/macros.spec.ts e2e/behaviors.spec.ts e2e/definition-dialog-layout.spec.ts e2e/host-symbol-picker-layout.spec.ts` exits 0 |
-| 3 | Integrate current-state records and canonical visuals | in-progress | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0 |
+| 3 | Integrate current-state records and canonical visuals | done (`pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exit 0 @ 6e8f566c70f6034660dc359538c5bc8088f2948d) | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0 |
 | 4 | Verify and close the change | pending | `pnpm records:check && pnpm test && pnpm test:e2e && pnpm lint && pnpm build` exits 0 |
 
 ## Phase 1 — Specify visual contract and regression evidence
