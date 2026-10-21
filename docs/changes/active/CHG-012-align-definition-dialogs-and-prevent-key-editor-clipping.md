@@ -1,6 +1,6 @@
 # CHG-012 — Align definition dialogs and prevent KeyEditor clipping
 
-**Status:** planned
+**Status:** in-progress
 **External request:** Direct operator request: Fix design divergence in the Macros and Behaviors controls and their dialogs, and fix clipping in the key mapping editor.
 **Impacts:** CAP-001
 **Baseline:** `93e82f4bc8d79f6ece1908749067e0697273a7ae` on main
@@ -40,7 +40,7 @@ Paths name existing seams, not a claim that every planned selector or test alrea
 
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
-| 1 | Specify visual contract and regression evidence | pending | Focused component and browser regression tests fail before implementation and the CAP change is reviewed |
+| 1 | Specify visual contract and regression evidence | in-progress | Focused component and browser regression tests fail before implementation and the CAP change is reviewed |
 | 2 | Implement the contained dialog and KeyEditor layout | pending | `pnpm --filter @keymap-editor/web test && pnpm test:e2e -- e2e/macros.spec.ts e2e/behaviors.spec.ts` exits 0 |
 | 3 | Integrate current-state records and canonical visuals | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0 |
 | 4 | Verify and close the change | pending | `pnpm records:check && pnpm test && pnpm lint && pnpm build` exits 0 |
