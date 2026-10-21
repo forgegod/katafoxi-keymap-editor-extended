@@ -5,7 +5,8 @@ import {
   HOST_KEYMAP_SNAPSHOT_PATH,
   isRepositoryKeymapPath,
   isOwnedHostSnapshotCompatible,
-  validateInfoJson,
+  InfoValidationError,
+  validateLayoutInfoJson,
   pickInfoLayout,
   repositoryKeymapPaths,
   REPOSITORY_KEYMAP_MODE_PATH,
@@ -353,6 +354,17 @@ function matchingInfoPath(keymap: ConfigDirEntry): string | null {
   return filename ? path.posix.join(path.posix.dirname(keymap.path), filename) : null
 }
 
+function parseLayoutInfo(data: unknown, filePath: string, kind: 'shared' | 'named') {
+  let info: unknown
+  try {
+    info = parseJsonBody(data)
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new InfoValidationError(['Layout file must contain valid JSON'], filePath)
+    throw error
+  }
+  return validateLayoutInfoJson(info, { kind, path: filePath })
+}
+
 async function fetchInfoJson(
   installationToken: string,
   repository: string,
@@ -367,7 +379,7 @@ async function fetchInfoJson(
       'config/info.json',
       { raw: true, ref }
     )
-    return parseJsonBody(infoRaw)
+    return parseLayoutInfo(infoRaw, 'config/info.json', 'shared')
   } catch (err) {
     if (!(err instanceof MissingRepoFile)) throw err
   }
@@ -382,7 +394,7 @@ async function fetchInfoJson(
       fallbackPath,
       { raw: true, ref }
     )
-    return parseJsonBody(infoRaw)
+    return parseLayoutInfo(infoRaw, fallbackPath, 'named')
   } catch (err) {
     if (err instanceof MissingRepoFile) return null
     throw err
@@ -508,7 +520,6 @@ export async function commitChanges(
   validateGeometryPaths(inventory, originalCodeKeymap, mode)
   const info = await fetchInfoJson(installationToken, repository, originalCodeKeymap, ref, mode)
   if (info != null) {
-    validateInfoJson(info)
     if (pickInfoLayout(info).layout.length !== layout.length) throw new RepositorySelectionError('Selected geometry and submitted layout key count differ')
   }
   const [template, originalSourceResult] = await Promise.all([

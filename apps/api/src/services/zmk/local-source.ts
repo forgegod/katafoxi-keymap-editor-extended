@@ -2,12 +2,14 @@ import fs from 'node:fs'
 import path from 'node:path'
 import {
   buildKeymapCode,
+  InfoValidationError,
   isPrimaryKeymapJson,
   isUserKeymapFilename,
   matchingInfoJsonFilename,
   parseDtsKeymap,
   parseKeymap,
   pickInfoLayout,
+  validateLayoutInfoJson,
   type BuildKeymapCodeResult,
   type LayoutKey,
   type ParsedKeymap
@@ -24,17 +26,28 @@ const EMPTY_KEYMAP = {
 
 function matchingInfoPath(keymapFile: string): string | null {
   const filename = matchingInfoJsonFilename(keymapFile)
-  return filename ? path.join(config.ZMK_CONFIG_PATH, 'config', filename) : null
+  return filename ? `config/${filename}` : null
 }
 
 function missingLayoutInfo(): Error & { code: 'ENOENT' } {
   return Object.assign(new Error('Layout info.json not found'), { code: 'ENOENT' as const })
 }
 
-function readLayoutInfo(): unknown {
-  const infoPath = path.join(config.ZMK_CONFIG_PATH, 'config', 'info.json')
+function readLayoutFile(filePath: string, kind: 'shared' | 'named') {
+  const source = fs.readFileSync(path.join(config.ZMK_CONFIG_PATH, filePath), 'utf8')
+  let info: unknown
   try {
-    return JSON.parse(fs.readFileSync(infoPath, 'utf8'))
+    info = JSON.parse(source)
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new InfoValidationError(['Layout file must contain valid JSON'], filePath)
+    throw error
+  }
+  return validateLayoutInfoJson(info, { kind, path: filePath })
+}
+
+function readLayoutInfo(): unknown {
+  try {
+    return readLayoutFile('config/info.json', 'shared')
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
   }
@@ -44,7 +57,8 @@ function readLayoutInfo(): unknown {
     const fallbackPath = matchingInfoPath(keymapFile)
     if (fallbackPath) {
       try {
-        return JSON.parse(fs.readFileSync(fallbackPath, 'utf8'))
+        const info = readLayoutFile(fallbackPath, 'named')
+        if (info !== null) return info
       } catch (err) {
         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
       }

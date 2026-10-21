@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { KeymapValidationError } from '@keymap-editor/keymap-core'
+import { InfoValidationError, KeymapValidationError } from '@keymap-editor/keymap-core'
 import { config } from '../config.js'
 import * as zmk from '../services/zmk/local-source.js'
 import { keyboardsRoutes } from './keyboards.js'
@@ -222,6 +222,20 @@ describe('keyboards routes when ENABLE_LOCAL is true', () => {
     expect(res.status).toBe(400)
     expect(await res.json()).toEqual({ error: 'invalid' })
     expect(leak).toHaveBeenCalled()
+  })
+
+  describe.each(['config/info.json', 'config/specimen.json'])('layout diagnostic %s', filePath => {
+    it.each(['GET', 'POST'])('%s keeps the sanitized invalid response without exposing file metadata', async method => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const error = new InfoValidationError(['Layout file must contain valid JSON'], filePath)
+      vi.spyOn(zmk, 'loadLayout').mockImplementation(() => { throw error })
+      vi.spyOn(zmk, 'saveLocalKeymap').mockImplementation(() => { throw error })
+      const res = method === 'GET' ? await app.request('/layout') : await app.request('/keymap', {
+        method, headers: jsonPostHeaders(), body: JSON.stringify(KEYMAP)
+      })
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'invalid' })
+    })
   })
 
   it('GET /keymap returns 500 JSON when keymap parsing throws TypeError', async () => {

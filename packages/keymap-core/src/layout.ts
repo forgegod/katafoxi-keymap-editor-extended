@@ -1,5 +1,6 @@
 import type { LayoutKey } from './types.js'
 import type { LineEnding } from './eol.js'
+import type { InfoJsonLayouts } from './keyboard-bundle.js'
 import { InfoValidationError, KeymapValidationError } from './errors.js'
 
 export { InfoValidationError } from './errors.js'
@@ -252,27 +253,30 @@ export function promoteAbsentLayoutKey(
 }
 
 /**
- * CHG-011 phase-1 proposal, NOT implemented: add a separate file-aware helper
- * validateLayoutInfoJson(info: unknown, options: {
- *   kind: 'shared' | 'named'; path: string
- * }): InfoJsonLayouts | null (InfoJsonLayouts is defined in keyboard-bundle.ts).
- *
- * Adapters supply parsed JSON and its exact repository-relative diagnostic path.
- * Only kind='named' with no own `layouts` member returns null (not a layout).
- * A present member, including null/scalar/array/empty object, must validate or
- * throw InfoValidationError with that path; never treat invalid data as absent.
- * Accepted roots/layouts must be non-array objects and pass validateInfoJson;
- * return the original root without mutation. Missing files and JSON syntax
- * failures belong to adapters; syntax failures are errors, not ignored files.
- * Shared config/info.json always takes the strict branch. Keep this validator
- * strict and path-free, and keep loadKeyboardBundle's legacy empty-layout case.
- *
- * GitHub fetchInfoJson and Local readLayoutInfo will call the helper without
- * changing filename rules, legacy/scoped precedence, discovery or writes.
- * Null enables existing GitHub rectangle inference; Local still requires layout
- * metadata (no new Local fallback is specified). Spec fixtures and current-seam
- * evidence: upstream-source-boundary.test.ts, not adapter acceptance tests.
+ * Validate parsed file metadata without changing its identity or contents.
+ * Named JSON without an own layouts member is unrelated metadata; shared info
+ * is always strict. Present invalid layouts never become absence. Adapters own
+ * missing-file and JSON syntax handling and supply the exact diagnostic path.
  */
+export function validateLayoutInfoJson(
+  info: unknown,
+  options: { kind: 'shared' | 'named'; path: string }
+): InfoJsonLayouts | null {
+  if (options.kind === 'named' &&
+      (typeof info !== 'object' || info === null || !Object.hasOwn(info, 'layouts'))) return null
+  try {
+    if (Array.isArray(info)) throw new InfoValidationError(['info.json root must be an object'])
+    if (info && typeof info === 'object' && Array.isArray((info as Record<string, unknown>).layouts)) {
+      throw new InfoValidationError(['layouts must be an object'])
+    }
+    validateInfoJson(info)
+  } catch (error) {
+    if (error instanceof InfoValidationError) throw new InfoValidationError(error.errors, options.path)
+    throw error
+  }
+  return info as InfoJsonLayouts
+}
+
 export function validateInfoJson(info: unknown): void {
   const errors: string[] = []
 

@@ -847,25 +847,36 @@ export function validateKeymapJson(
  * True when keymap.json is non-empty and passes validateKeymapJson.
  * Empty shells (`[]`, `[[]]`) and invalid binds are not primary — callers fall back to .keymap.
  *
- * CHG-011 phase-1 proposal, NOT implemented (upstream f74a94d): inspect raw
- * keymap.json binding strings in every layers row, combos[].binding and every
- * sensorBindings row. An exact leading label of &hm or &as requires an array
- * holdTaps entry with that same code and override !== true. Another preset, an
- * override, or same-label macros/behaviorDefinitions cannot supply this
- * dependency. This is not preset synthesis, firmware validation or
- * stock-catalog membership; do not scan argument tokens as leading labels.
- * Keep the existing label grammar, catalog/legacy checks, declared-model rules
- * for other labels and explicit allowUnknownBehaviors source-import path.
- * Missing-node layer inputs without same-label metadata already fail
- * incidentally; combo/sensor sites and same-label macros/behaviorDefinitions
- * expose gaps with CHG011_RED=1. Do not count those specification probes as
- * implemented dependency proof.
+ * Exact leading &hm/&as labels in layers, combos and sensors require matching
+ * non-override holdTaps metadata. Same-label macros/behaviorDefinitions do not
+ * supply this dependency. This selection rule does not change source imports,
+ * synthesize presets, scan argument tokens or grant stock catalog membership.
  */
 export function isPrimaryKeymapJson(value: unknown): boolean {
   if (typeof value !== 'object' || value === null) return false
   const layers = (value as { layers?: unknown }).layers
   if (!Array.isArray(layers) || layers.length === 0) return false
   if (!layers.some(layer => Array.isArray(layer) && layer.length > 0)) return false
+  const km = value as {
+    holdTaps?: Array<{ code?: unknown; override?: unknown } | null>
+    combos?: Array<{ binding?: unknown } | null>
+    sensorBindings?: unknown
+  }
+  const declaredHoldTaps = new Set(
+    (Array.isArray(km.holdTaps) ? km.holdTaps : [])
+      .filter(row => row && row.override !== true)
+      .map(row => row!.code)
+  )
+  const bindings: unknown[] = [
+    ...layers.flatMap(layer => Array.isArray(layer) ? layer : []),
+    ...(Array.isArray(km.combos) ? km.combos.map(combo => combo?.binding) : []),
+    ...(Array.isArray(km.sensorBindings)
+      ? km.sensorBindings.flatMap(layer => Array.isArray(layer) ? layer : []) : [])
+  ]
+  for (const binding of bindings) {
+    const label = typeof binding === 'string' ? binding.match(/^&(hm|as)(?=\s|$)/)?.[0] : undefined
+    if (label && !declaredHoldTaps.has(label)) return false
+  }
   try {
     validateKeymapJson(value)
     return true

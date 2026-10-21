@@ -7,7 +7,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { encodeKeyBinding } from '@keymap-editor/keymap-core'
+import { encodeKeyBinding, ensureHoldTapPreset, InfoValidationError } from '@keymap-editor/keymap-core'
 import { config } from '../../config.js'
 import * as zmk from './local-source.js'
 
@@ -42,6 +42,65 @@ beforeEach(() => {
 afterEach(() => {
   config.ZMK_CONFIG_PATH = previousZmkPath
   fs.rmSync(tmpRoot, { recursive: true, force: true })
+})
+
+describe('CHG-011 Local layout boundary', () => {
+  it.each(['{"settings":true}', '{"layers":[["&kp Z"]]}', 'null', '[]', 'false', '"settings"'])
+  ('ignores named non-layout %s but still requires layout metadata', content => {
+    fs.rmSync(path.join(tmpRoot, 'config/info.json'))
+    fs.writeFileSync(path.join(tmpRoot, 'config/lark.json'), content)
+    expect(() => zmk.loadLayout()).toThrow(expect.objectContaining({ code: 'ENOENT', message: 'Layout info.json not found' }))
+    expect(zmk.loadKeymap().layers).toHaveLength(7)
+  })
+
+  describe.each(['config/info.json', 'config/lark.json'])('%s diagnostics', filePath => {
+    it.each(['{}', '{"layouts":null}', '{"layouts":[]}', '{"layouts":{}}',
+      '{"layouts":{"default":{"layout":[{"x":"bad","y":0}]}}}', '{not-json'])
+    ('retains the repository-relative path for %s', content => {
+      if (filePath !== 'config/info.json') fs.rmSync(path.join(tmpRoot, 'config/info.json'))
+      fs.writeFileSync(path.join(tmpRoot, filePath), content)
+      // Absent layouts is ignorable only in the named case.
+      if (content === '{}' && filePath !== 'config/info.json') {
+        expect(() => zmk.loadLayout()).toThrow(expect.objectContaining({ code: 'ENOENT' }))
+      } else {
+        expect(() => zmk.loadLayout()).toThrow(InfoValidationError)
+        expect(() => zmk.loadLayout()).toThrow(expect.objectContaining({ path: filePath }))
+      }
+      try { zmk.loadLayout() } catch (error) { expect(String(error)).not.toContain(tmpRoot) }
+    })
+  })
+
+  it('prefers shared info without reading invalid named metadata', () => {
+    const layout = zmk.loadLayout()
+    fs.writeFileSync(path.join(tmpRoot, 'config/lark.json'), '{not-json')
+    expect(zmk.loadLayout()).toEqual(layout)
+  })
+
+  it('does not use reserved firmware JSON as named geometry', () => {
+    fs.rmSync(path.join(tmpRoot, 'config/info.json'))
+    fs.renameSync(path.join(tmpRoot, 'config/lark.keymap'), path.join(tmpRoot, 'config/keymap.keymap'))
+    fs.writeFileSync(path.join(tmpRoot, 'config/keymap.json'), JSON.stringify({ layouts: { default: { layout: [{ x: 0, y: 0 }] } } }))
+    expect(() => zmk.loadLayout()).toThrow(expect.objectContaining({ code: 'ENOENT' }))
+  })
+})
+
+describe.each(['&hm', '&as'])('CHG-011 Local %s dependency selection', code => {
+  it.each(['layers', 'combos', 'sensorBindings'])('falls back for undeclared %s but accepts matching holdTaps', site => {
+    const json = {
+      layers: [[site === 'layers' ? `${code} 0 A` : '&kp Z']],
+      combos: site === 'combos' ? [{ id: 'probe', keyPositions: [0], binding: `${code} 0 A` }] : [],
+      sensorBindings: site === 'sensorBindings' ? [[`${code} 0 A`]] : [],
+      holdTaps: [] as ReturnType<typeof ensureHoldTapPreset>
+    }
+    const filePath = path.join(tmpRoot, 'config/keymap.json')
+    fs.writeFileSync(filePath, JSON.stringify(json))
+    expect(zmk.loadKeymap().layers).toHaveLength(7)
+    json.holdTaps = ensureHoldTapPreset(undefined, code)
+    fs.writeFileSync(filePath, JSON.stringify(json))
+    const loaded = zmk.loadKeymap()
+    expect(loaded.layers.map(layer => layer.map(encodeKeyBinding))).toEqual(json.layers)
+    expect(loaded.holdTaps).toEqual(json.holdTaps)
+  })
 })
 
 describe('local-source LARK fixture', () => {

@@ -13,14 +13,12 @@ import {
   parseDtsMacros,
   parseKeymap,
   validateInfoJson,
+  validateLayoutInfoJson,
   validateKeymapJson
 } from './index.js'
 
-// CHG-011 phase 1: fixture/specification evidence, NOT adapter acceptance.
-// The proposed validateLayoutInfoJson seam in layout.ts does not exist yet.
-// These cases pin its inputs/outcomes while exercising only existing validators.
-// Phase 2 must run them through the real helper and both adapters; phase 3 must
-// prove the HTTP error path survives into the browser. No fake helper is used.
+// Core selection/path regressions; adapters have separate transport tests.
+// Browser error presentation remains CHG-011 phase 3 work.
 const namedPath = 'config/specimen.json'
 const sharedPath = 'config/info.json'
 const validInfo = { layouts: { default: { layout: [{ x: 0, y: 0 }] } } }
@@ -39,14 +37,16 @@ const invalidLayouts = [
   { name: 'missing layout array', info: { layouts: { default: {} } } },
   { name: 'invalid geometry', info: { layouts: { default: { layout: [{ x: 'bad', y: 0 }] } } } }
 ]
-const layoutCases = [
-  ...nonLayouts.map(item => ({ ...item, path: namedPath, kind: 'named', proposed: 'ignore' })),
-  ...nonLayouts.map(item => ({ ...item, path: sharedPath, kind: 'shared', proposed: 'error' })),
+const layoutCases: Array<{
+  name: string; info: unknown; path: string; kind: 'named' | 'shared'; outcome: string
+}> = [
+  ...nonLayouts.map(item => ({ ...item, path: namedPath, kind: 'named' as const, outcome: 'ignore' })),
+  ...nonLayouts.map(item => ({ ...item, path: sharedPath, kind: 'shared' as const, outcome: 'error' })),
   ...[namedPath, sharedPath].flatMap(path => invalidLayouts.map(item => ({
-    ...item, path, kind: path === namedPath ? 'named' : 'shared', proposed: 'error'
+    ...item, path, kind: path === namedPath ? 'named' as const : 'shared' as const, outcome: 'error'
   }))),
-  { name: 'valid named', info: validInfo, path: namedPath, kind: 'named', proposed: 'layout' },
-  { name: 'valid shared', info: validInfo, path: sharedPath, kind: 'shared', proposed: 'layout' }
+  { name: 'valid named', info: validInfo, path: namedPath, kind: 'named', outcome: 'layout' },
+  { name: 'valid shared', info: validInfo, path: sharedPath, kind: 'shared', outcome: 'layout' }
 ]
 
 function validationError(info: unknown): InfoValidationError {
@@ -59,30 +59,37 @@ function validationError(info: unknown): InfoValidationError {
   throw new Error('Fixture must fail the existing strict info validator')
 }
 
-describe('CHG-011 layout specification fixtures (not selection/path acceptance)', () => {
-  it.each(layoutCases)('$kind $name: proposed $proposed at $path', item => {
+describe('CHG-011 file-aware layout validation', () => {
+  it.each(layoutCases)('$kind $name: $outcome at $path', item => {
     const before = structuredClone(item.info)
-    if (item.proposed === 'layout') {
-      expect(() => validateInfoJson(item.info)).not.toThrow()
+    if (item.outcome === 'error') {
+      expect(() => validateLayoutInfoJson(item.info, item)).toThrow(InfoValidationError)
+      expect(() => validateLayoutInfoJson(item.info, item)).toThrow(expect.objectContaining({ path: item.path }))
     } else {
-      expect(validationError(item.info).errors.length).toBeGreaterThan(0)
-      // Only named JSON with no own layouts member is proposed as ignorable.
-      if (item.proposed === 'ignore') {
-        expect(item.kind).toBe('named')
-        expect(item.info !== null && typeof item.info === 'object' &&
-          Object.hasOwn(item.info, 'layouts')).toBe(false)
-      }
+      expect(validateLayoutInfoJson(item.info, item)).toBe(item.outcome === 'ignore' ? null : item.info)
     }
     expect(item.info).toEqual(before)
   })
 
-  it('characterizes the missing path field without claiming error transport exists', () => {
+  it('keeps bare validation path-free and preserves the existing error contract', () => {
     const error = validationError(invalidLayouts[5].info)
     expect(error.name).toBe('InfoValidationError')
     expect(error.message).toBe(error.errors.join('; '))
-    expect(error).not.toHaveProperty('path')
-    // Proposed: the future file-aware helper throws this error with path equal
-    // to namedPath or sharedPath; bare validateInfoJson stays path-free.
+    expect(error.path).toBeUndefined()
+    expect(() => validateLayoutInfoJson(invalidLayouts[5].info, { kind: 'named', path: namedPath }))
+      .toThrow(expect.objectContaining({ name: error.name, message: error.message, errors: error.errors, path: namedPath }))
+  })
+
+  it('requires an own layouts member and rejects present undefined and array containers', () => {
+    expect(validateLayoutInfoJson(Object.create(validInfo), { kind: 'named', path: namedPath })).toBeNull()
+    for (const info of [
+      { layouts: undefined },
+      { layouts: [validInfo.layouts.default] },
+      Object.assign([], validInfo)
+    ]) {
+      expect(() => validateLayoutInfoJson(info, { kind: 'named', path: namedPath }))
+        .toThrow(expect.objectContaining({ name: 'InfoValidationError', path: namedPath }))
+    }
   })
 
   it('keeps the existing filename/reserved-sidecar boundary', () => {
@@ -92,22 +99,19 @@ describe('CHG-011 layout specification fixtures (not selection/path acceptance)'
     }
   })
 
-  it('characterizes rectangle fallback only after an adapter supplies absence', () => {
+  it('enables rectangle inference for ignored named files without relaxing bundle validation', () => {
     const keymap = parseKeymap({ layers: [['&kp A']] })
-    const bundle = loadKeyboardBundle({ keymap, infoJson: null })
+    const infoJson = validateLayoutInfoJson(nonLayouts[0].info, { kind: 'named', path: namedPath })
+    const bundle = loadKeyboardBundle({ keymap, infoJson })
     expect(bundle.inferredLayout).toBe(true)
     expect(bundle.layout).toEqual(inferRectangularLayout(1))
     expect(bundle.keymap).toBe(keymap)
     expect(() => loadKeyboardBundle({ keymap, infoJson: nonLayouts[0].info }))
       .toThrow(InfoValidationError)
-    // Existing bundle-only compatibility; NOT permission for a file adapter
-    // to ignore a present empty layouts object at the proposed strict seam.
+    // Existing bundle-only compatibility does not relax file validation.
     expect(loadKeyboardBundle({ keymap, infoJson: { layouts: {} } }).inferredLayout).toBe(true)
   })
 })
-
-// Run CHG011_RED=1 to expose these expected failures as ordinary assertions.
-const boundary = process.env.CHG011_RED === '1' ? it : it.fails
 
 // Raw JSON sites from upstream f74a94d, not parsed KeyBindingNode values.
 const bindingSites = [
@@ -138,8 +142,8 @@ describe.each([
     expect(loadBehaviorsData().some(item => item.code === code)).toBe(false)
   })
 
-  describe.each(bindingSites.slice(1))('$site raw dependency (proposed)', ({ json }) => {
-    boundary.each(missingDeclarations)('requires matching non-override holdTaps: $name', ({ holdTaps }) => {
+  describe.each(bindingSites.slice(1))('$site raw dependency', ({ json }) => {
+    it.each(missingDeclarations)('requires matching non-override holdTaps: $name', ({ holdTaps }) => {
       expect(isPrimaryKeymapJson({ ...json(binding), ...(holdTaps === undefined ? {} : { holdTaps }) }))
         .toBe(false)
     })
@@ -181,14 +185,21 @@ describe.each([
     expect(() => validateKeymapJson({ layers: [[code]], behaviorDefinitions })).not.toThrow()
   })
 
-  describe.each(bindingSites)('$site same-label metadata (proposed)', ({ json }) => {
-    boundary('requires holdTaps even if a same-label macro is declared', () => {
+  describe.each(bindingSites)('$site same-label metadata', ({ json }) => {
+    it('requires holdTaps even if a same-label macro is declared', () => {
       expect(isPrimaryKeymapJson({ ...json(code), macros })).toBe(false)
     })
 
-    boundary('requires holdTaps even if a same-label behaviorDefinition is declared', () => {
+    it('requires holdTaps even if a same-label behaviorDefinition is declared', () => {
       expect(isPrimaryKeymapJson({ ...json(code), behaviorDefinitions })).toBe(false)
     })
+  })
+
+  it.each(bindingSites)('checks only the exact leading label in $site', ({ json }) => {
+    expect(isPrimaryKeymapJson(json(`${code}\t0 A`))).toBe(false)
+    expect(isPrimaryKeymapJson(json(`&reset ${code} opaque`))).toBe(true)
+    expect(() => validateKeymapJson(json(binding), { allowUnknownBehaviors: true })).not.toThrow()
+    expect(isPrimaryKeymapJson({ ...json(binding), holdTaps: [{ code, override: false }] })).toBe(true)
   })
 })
 

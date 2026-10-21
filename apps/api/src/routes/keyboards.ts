@@ -127,7 +127,7 @@ keyboardsRoutes.post('/keymap', async c => {
     const { mode, warnings } = zmk.saveLocalKeymap(keymap)
     return c.json({ ok: true, mode, warnings })
   } catch (err) {
-    if (err instanceof SyntaxError) {
+    if (err instanceof SyntaxError || err instanceof InfoValidationError) {
       return c.json({ error: 'invalid' }, 400)
     }
     if (err instanceof KeymapValidationError) {

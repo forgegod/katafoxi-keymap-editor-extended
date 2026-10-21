@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../index.js'
 import {
   KeymapValidationError,
+  InfoValidationError,
   buildHostKeymapSnapshot,
   parseHostKeymapSnapshot,
   parseKeymap,
@@ -941,6 +942,27 @@ describe('session and errors', () => {
       keymap: parseKeymap(VALID_KEYMAP),
       hostSnapshot: null,
       headSha: 'abc123'
+    })
+  })
+
+  describe.each(['config/info.json', 'config/specimen.json', undefined])('layout error path %s', filePath => {
+    it.each(['GET', 'POST'])('%s preserves file attribution and the path-free legacy shape', async method => {
+      const error = new InfoValidationError(['Invalid layout metadata'], filePath)
+      const expected = {
+        name: error.name, errors: error.errors,
+        ...(filePath === undefined ? {} : { path: filePath })
+      }
+      vi.mocked(files.fetchKeyboardFiles).mockRejectedValue(error)
+      vi.mocked(files.commitChanges).mockRejectedValue(error)
+      const { res } = await authedRequest(`/github/keyboard-files/1/acme%2Flark${method === 'POST' ? '/main' : ''}`, {
+        method,
+        ...(method === 'POST' ? {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keymap: parseKeymap(VALID_KEYMAP), layout: [{ x: 0, y: 0 }], baseSha: 'abc123' })
+        } : {})
+      })
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual(expected)
     })
   })
 

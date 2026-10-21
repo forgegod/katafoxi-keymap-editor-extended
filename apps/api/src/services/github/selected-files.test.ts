@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { encodeHostKeymapSnapshot, parseHostKeymapSnapshot, parseKeymap, REPOSITORY_KEYMAP_MODE_CONTENT, REPOSITORY_KEYMAP_MODE_PATH } from '@keymap-editor/keymap-core'
+import { encodeHostKeymapSnapshot, ensureHoldTapPreset, loadKeyboardBundle, parseHostKeymapSnapshot, parseKeymap, REPOSITORY_KEYMAP_MODE_CONTENT, REPOSITORY_KEYMAP_MODE_PATH } from '@keymap-editor/keymap-core'
 import * as api from './api.js'
 import * as auth from './auth.js'
 import * as files from './files.js'
@@ -59,6 +59,76 @@ const save = (selection: object = { keymapPath: b }, host: unknown = null, deliv
   files.commitChanges('1', repo, 'main', layout, edited(), host as never, deliverables as never, sha, selection)
 
 afterEach(() => vi.restoreAllMocks())
+
+describe.each(['legacy', 'scoped', 'scoped-new'])('CHG-011 %s layout files', mode => {
+  function blobsForMode(): Record<string, string> {
+    const blobs: Record<string, string> = baseBlobs()
+    delete blobs['config/keymap.json']
+    if (mode !== 'scoped') delete blobs[REPOSITORY_KEYMAP_MODE_PATH]
+    if (mode === 'legacy') delete blobs[a]
+    return blobs
+  }
+  const load = () => files.fetchKeyboardFiles('1', repo, 'main', { keymapPath: b })
+
+  it.each(['{"settings":true}', '{"layers":[["&kp Z"]]}', 'null', '[]', 'false', '"settings"'])
+  ('ignores unrelated named JSON %s and retains inference/source discovery', async content => {
+    const f = fixture({ ...blobsForMode(), 'config/b.json': content })
+    const loaded = await load()
+    expect(loaded).toMatchObject({ info: null, ownershipMode: mode, layoutSource: source('&kp B &kp C') })
+    const bundle = loadKeyboardBundle({ keymap: parseKeymap(loaded.keymap as { layers: string[][] }), infoJson: loaded.info })
+    expect(bundle.inferredLayout).toBe(true)
+    expect(bundle.layout).toHaveLength(2)
+    expect(f.writes).toEqual([])
+  })
+
+  it.each(['{"layouts":null}', '{"layouts":false}', '{"layouts":[]}', '{"layouts":{}}',
+    '{"layouts":{"default":{}}}', '{"layouts":{"default":{"layout":[{"x":"bad","y":0}]}}}', '{not-json'])
+  ('attributes invalid named JSON %s on load and save without writes', async content => {
+    const f = fixture({ ...blobsForMode(), 'config/b.json': content })
+    const error = { name: 'InfoValidationError', path: 'config/b.json', errors: expect.any(Array) }
+    await expect(load()).rejects.toMatchObject(error)
+    await expect(save()).rejects.toMatchObject(error)
+    expect(f.writes).toEqual([])
+  })
+
+  it('retains the shared-versus-named precedence for this ownership mode', async () => {
+    const named = { layouts: { LAYOUT: { layout } } }
+    const shared = { ...named, name: 'Shared geometry' }
+    const f = fixture({ ...blobsForMode(), 'config/info.json': JSON.stringify(shared) })
+    expect((await load()).info).toEqual(mode === 'legacy' ? shared : named)
+    expect(f.request.mock.calls.some(([o]) => typeof o !== 'string' && o.url.endsWith('/contents/config/info.json')))
+      .toBe(mode === 'legacy')
+  })
+
+  it.each(['{}', 'null', '{"layouts":{}}', '{not-json'])
+  ('does not bypass broken shared JSON %s in legacy mode or consult it in scoped mode', async content => {
+    const f = fixture({ ...blobsForMode(), 'config/info.json': content })
+    if (mode === 'legacy') {
+      await expect(load()).rejects.toMatchObject({ name: 'InfoValidationError', path: 'config/info.json' })
+      expect(f.request.mock.calls.some(([o]) => typeof o !== 'string' && o.url.endsWith('/contents/config/b.json'))).toBe(false)
+    } else {
+      expect((await load()).info).toEqual({ layouts: { LAYOUT: { layout } } })
+    }
+    expect(f.writes).toEqual([])
+  })
+})
+
+describe.each(['&hm', '&as'])('CHG-011 GitHub %s dependency selection', code => {
+  it.each(['layers', 'combos', 'sensorBindings'])('falls back for undeclared %s but accepts matching holdTaps', async site => {
+    const json = {
+      layers: [[site === 'layers' ? `${code} 0 A` : '&kp Z', '&kp Y']],
+      combos: site === 'combos' ? [{ id: 'probe', keyPositions: [0, 1], binding: `${code} 0 A` }] : [],
+      sensorBindings: site === 'sensorBindings' ? [[`${code} 0 A`]] : [],
+      holdTaps: [] as ReturnType<typeof ensureHoldTapPreset>
+    }
+    const f = fixture({ ...baseBlobs(), [`${b}.json`]: JSON.stringify(json) })
+    expect((await files.fetchKeyboardFiles('1', repo, 'main', { keymapPath: b })).keymap).toMatchObject({ layers: [['&kp B', '&kp C']] })
+    json.holdTaps = ensureHoldTapPreset(undefined, code)
+    f.blobs[`${b}.json`] = JSON.stringify(json)
+    expect((await files.fetchKeyboardFiles('1', repo, 'main', { keymapPath: b })).keymap).toEqual(json)
+    expect(f.writes).toEqual([])
+  })
+})
 
 describe('selected keymap ownership', () => {
   it.each(['POST trees', 'POST commits', 'PATCH refs'])('leaves selected and unrelated remote blobs intact after %s failure', async failure => {

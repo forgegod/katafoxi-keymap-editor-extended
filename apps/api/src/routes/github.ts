@@ -442,7 +442,7 @@ githubRoutes.get('/keyboard-files/:installationId/:repository', async c => {
     }
     if (err instanceof InfoValidationError || err instanceof KeymapValidationError) {
       console.error(`Validation error in ${rawRepository} (${rawBranch}):`, err.name, err.errors)
-      return c.json({ name: err.name, errors: err.errors }, 400)
+      return c.json({ name: err.name, errors: err.errors, ...(err instanceof InfoValidationError ? { path: err.path } : {}) }, 400)
     }
     return handleGithubError(c, err)
   }
@@ -582,7 +582,7 @@ githubRoutes.post('/keyboard-files/:installationId/:repository/:branch', async c
       return c.json({ name: err.name, errors: err.errors }, 400)
     }
     if (err instanceof files.RepositorySelectionError || err instanceof files.MissingRepoFile || err instanceof InfoValidationError || err instanceof KeymapValidationError) {
-      return c.json({ name: err.name, errors: err.errors }, 400)
+      return c.json({ name: err.name, errors: err.errors, ...(err instanceof InfoValidationError ? { path: err.path } : {}) }, 400)
     }
     if (err instanceof files.StaleRepoBase) {
       return c.json({ name: err.name, errors: err.errors }, 409)

@@ -42,7 +42,7 @@ const LISTING_NO_TEMPLATE = [
   { name: 'lark.keymap', path: KEYMAP_PATH }
 ]
 
-const INFO = { id: 'lark', name: 'LARK' }
+const INFO = { id: 'lark', name: 'LARK', layouts: { LAYOUT: { layout: [{ x: 0, y: 0 }] } } }
 const KEYMAP_JSON = {
   keyboard: 'lark',
   keymap: 'lark',
