@@ -550,6 +550,37 @@ describe('Github Picker', () => {
     expect(target.querySelector('.branch-value')).toBeNull()
   })
 
+  it.each([
+    { name: 'InfoValidationError', path: 'config/specimen.json', file: 'config/specimen.json' },
+    { name: 'InfoValidationError', path: 'config/info.json', file: 'config/info.json' },
+    { name: 'InfoValidationError', path: undefined, file: 'config/info.json' },
+    { name: 'KeymapValidationError', path: undefined, file: 'config/keymap.json' }
+  ])('attributes API $name ($path) to $file without accepting the failed load', async ({ name, path, file }) => {
+    vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }])
+    const errors = ['layouts must define at least one layout', 'Review the supplied metadata']
+    const payload = { name, ...(path ? { path } : {}), errors }
+    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(payload), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    }))
+    const loggedError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const onSelect = open()
+
+    await vi.waitFor(() => expect(target.querySelector('.dialog h2')?.textContent).toBe(name))
+    expect(target.querySelector('.dialog code')?.textContent).toBe(file)
+    expect([...target.querySelectorAll('.dialog li')].map(item => item.textContent?.trim())).toEqual(errors)
+    expect(loggedError).toHaveBeenCalledWith('Failed to load keymap and layout from github', payload)
+    expect(onSelect).not.toHaveBeenCalled()
+    expect(storage.getPersistedKeymap(repo.full_name, 'main')).toBeNull()
+    expect(target.querySelector('.repo-value')?.textContent?.trim()).toBe(repo.full_name)
+    expect(target.querySelector('.branch-value')?.textContent?.trim()).toBe('main')
+
+    clickButton('Ok')
+    expect(target.querySelector('.dialog')).toBeNull()
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
   it('shows a validation error from the singleton and keeps the repo and branch', async () => {
     vi.spyOn(github, 'fetchRepoBranches').mockResolvedValue([{ name: 'main' }])
     vi.spyOn(github, 'fetchLayoutAndKeymap').mockRejectedValue(

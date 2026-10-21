@@ -6,6 +6,7 @@
     onDismiss: () => void
     title: string
     errors: string[]
+    path?: string
     otherRepoOrBranchAvailable?: boolean
   }
 
@@ -13,6 +14,7 @@
     onDismiss,
     title,
     errors,
+    path,
     otherRepoOrBranchAvailable = false
   }: Props = $props()
 
@@ -22,7 +24,7 @@
     return undefined
   }
 
-  const file = $derived(fileFromTitle(title))
+  const file = $derived(path ?? fileFromTitle(title))
 </script>
 
 <Modal>

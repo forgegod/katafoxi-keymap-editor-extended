@@ -37,6 +37,25 @@ Local, GitHub, and Clipboard adapters all call the same `buildKeymapCode` helper
 2. Otherwise read raw `.keymap` → `parseDtsKeymap` (then the usual parse/encode path).
 3. Never treat `*.keymap.template` as the keymap file to overwrite as “the” source keymap.
 
+Primary JSON containing `&hm` or `&as` as the leading binding label in layers,
+combos or sensor bindings requires the matching non-override `holdTaps` node.
+A same-label macro or behavior definition alone is insufficient. Without that
+dependency, JSON is not primary and loading falls back to raw DTS. This does not
+add presets or unknown/lookalike/malformed labels to the stock catalog.
+
+Geometry is separate from firmware JSON priority. Legacy GitHub and Local first
+read shared `config/info.json`; only its absence permits safe matching
+`config/<stem>.json`. Scoped GitHub uses matching named geometry only, as below.
+A named file is ignored when its parsed JSON has no own `layouts` member. A
+present `layouts` value must pass layout validation; null, arrays and empty
+objects are errors, not absence. Malformed JSON also fails. Shared info is always
+strict, including when `layouts` is missing. Adapters attach the exact relative
+file path to `InfoValidationError.path`, and the GitHub dialog displays it with
+the diagnostics (legacy title-based filenames remain for path-free responses).
+Ignoring unrelated named metadata enables the existing GitHub binding-count
+rectangle when no other geometry applies; Local still requires layout metadata.
+These rules neither write geometry nor change Clipboard/Filesystem loading.
+
 After the first successful Save, `keymap.json` is written and becomes the primary reload source (bindings may already be expanded — see below).
 
 ### `#define` macros — lossy accept
@@ -99,7 +118,9 @@ above contract. Independent phase review remains required by CHG-004.
   error, not permission to create a replacement or use the default template.
 - Legacy geometry retains shared `config/info.json` priority. Scoped geometry
   uses only the safe matching `<stem>.json`, excluding reserved `info.json` and
-  `keymap.json`, otherwise binding-count inference with a warning. Geometry and
+  `keymap.json`; missing or ignored non-layout JSON leaves binding-count inference
+  with a warning. Present invalid layouts or malformed JSON fail with that file's
+  path, never fall back to shared geometry. Geometry and
   templates are read-only. Existing owned sidecars must be regular blobs; unsafe
   ownership/types and invalid supplied geometry refuse the entire write.
 - GitHub browser identity keys are versioned and include the exact selected

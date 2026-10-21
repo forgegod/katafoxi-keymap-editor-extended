@@ -59,7 +59,7 @@
   let keymaps = $state<Array<{ name: string; path: string }>>([])
   let loadingKeymaps = $state(false)
   let selectedKeymapPath = $state<string | null>(null)
-  let loadError: { name?: string; errors?: string[] } | null = $state(null)
+  let loadError: { name?: string; errors?: string[]; path?: string } | null = $state(null)
   let loadWarnings: string[] | null = $state(null)
   /** Shared by effect loads and Reload so a late response cannot overwrite a newer one. */
   let keyboardLoadGeneration = 0
@@ -255,7 +255,7 @@
 
   $effect(() => {
     const onValidation = (err: unknown) => {
-      loadError = err as { name?: string; errors?: string[] }
+      loadError = err as { name?: string; errors?: string[]; path?: string }
       loadingKeyboard = false
     }
     github.on('repo-validation-error', onValidation)
@@ -560,6 +560,7 @@
       <ValidationErrors
         title={loadError.name || 'Error'}
         errors={loadError.errors || []}
+        path={loadError.path}
         otherRepoOrBranchAvailable={
           repositoryChoices.length > 1 || branchChoices.length > 0
         }
