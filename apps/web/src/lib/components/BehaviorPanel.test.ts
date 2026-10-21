@@ -48,6 +48,12 @@ beforeEach(async () => {
 })
 afterEach(() => { unmount(view); target.remove(); editor.resetForTests(); vi.unstubAllGlobals() })
 
+it('uses the shared outline chrome launcher', () => {
+  const launcher = button('Behaviors')
+  expect(launcher.classList.contains('ui-btn')).toBe(true)
+  expect(launcher.getAttribute('data-variant')).toBe('outline')
+})
+
 it('creates a staged tap-dance with global scope notice and paired undo', () => {
   click('Behaviors'); click('New behavior')
   input('Behavior label', 'tap_pair')

@@ -44,6 +44,12 @@ beforeEach(async () => {
 })
 afterEach(() => { unmount(view); target.remove(); editor.resetForTests(); vi.unstubAllGlobals() })
 
+it('uses the shared outline chrome launcher', () => {
+  const launcher = button('Macros')
+  expect(launcher.classList.contains('ui-btn')).toBe(true)
+  expect(launcher.getAttribute('data-variant')).toBe('outline')
+})
+
 it('creates a staged macro through the SPA as one undoable edit', () => {
   click('Macros')
   click('New macro')

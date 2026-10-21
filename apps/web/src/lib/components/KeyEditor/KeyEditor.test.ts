@@ -1,4 +1,4 @@
-import { getBehaviorCatalog, type CatalogChoice } from '@keymap-editor/keymap-core'
+import { getBehaviorCatalog, isInstantBehavior, type CatalogChoice } from '@keymap-editor/keymap-core'
 import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { SearchBox } from '../../context'
@@ -230,6 +230,43 @@ describe('KeyEditor value catalog', () => {
     expect(instantCodes).not.toContain('&kp')
     expect(instantCodes).not.toContain('&kt')
     expect([...paramCodes, ...instantCodes]).not.toContain('&reset')
+  })
+
+  it('renders every parameterized stock behaviour in the value-taking group', () => {
+    open({
+      bindingLabel: '&kp A',
+      behaviours,
+      editorSlots: [
+        slot(0, 'behaviour', '&kp', 'Behaviour'),
+        slot(1, 'code', 'A', 'Key')
+      ],
+      activeCodeIndex: 1,
+      choices: codeChoices,
+      onSelectBehaviour: () => {},
+      onSelectValue: () => {},
+      onActivateSlot: () => {},
+      onConfirm: () => {},
+      onCancel: () => {}
+    })
+
+    const parameterized = [...target.querySelectorAll('[data-behaviour-group="params"] .key-editor-chip')]
+      .map(el => (el.textContent ?? '').trim())
+      .sort()
+    const renderedInstant =
+      [...target.querySelectorAll('[data-behaviour-group="instant"] .key-editor-chip')]
+        .map(el => (el.textContent ?? '').trim())
+    const expected = (behaviours as CatalogChoice[])
+      .filter(choice => !isInstantBehavior(choice))
+      .map((choice: CatalogChoice) => String(choice.code))
+      .sort()
+    const expectedInstant = (behaviours as CatalogChoice[])
+      .filter(choice => isInstantBehavior(choice))
+      .map((choice: CatalogChoice) => String(choice.code))
+      .sort()
+
+    expect(expected.length).toBeGreaterThan(0)
+    expect(parameterized).toEqual(expected)
+    expect(renderedInstant.sort()).toEqual(expectedInstant)
   })
 
   it.each([
