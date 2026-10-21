@@ -1,8 +1,8 @@
 <script lang="ts">
   import Icon from './Common/Icon.svelte'
 
-  const href = 'https://github.com/katafoxi/keymap-editor-extended'
-  const label = 'keymap-editor-extended'
+  const href = 'https://github.com/forgegod/katafoxi-keymap-editor-extended'
+  const label = 'forgegod/katafoxi-keymap-editor-extended'
 </script>
 
 <a
@@ -10,7 +10,7 @@
   {href}
   target="_blank"
   rel="noreferrer"
-  title="github.com/katafoxi/keymap-editor-extended"
+  title="github.com/forgegod/katafoxi-keymap-editor-extended"
   aria-label="{label} on GitHub"
 >
   <span class="icon-slot">

@@ -1,170 +1,155 @@
-# <img alt="Keymap Editor Icon" height="24px" src="./apps/web/public/editor-icon.png" /> Keymap Editor
+# <img alt="Keymap Editor Icon" height="24px" src="./apps/web/public/editor-icon.png" /> ZMK Keymap Editor Extended
 
-Browser editor for [ZMK](https://zmk.dev/) keyboard users: edit firmware bindings and see what each key **actually types** under the selected host-language layouts.
+**A browser editor for ZMK keymaps that also shows what the selected host OS layout will type.**
 
-**Try this fork:** [forgegod.github.io/katafoxi-keymap-editor-extended](https://forgegod.github.io/katafoxi-keymap-editor-extended/)
+## Use the live editor
 
-Public testing build: **Demo + Clipboard**, including the Unicode picker and ZMK behavior compatibility fixes. No installation or GitHub login required. [Testing releases](https://github.com/forgegod/katafoxi-keymap-editor-extended/releases) include a downloadable static build.
+**[Open zmkee.forgegod.workers.dev](https://zmkee.forgegod.workers.dev/)**
 
-**Hosted Hono API + editor:** [zmkee.forgegod.workers.dev](https://zmkee.forgegod.workers.dev/). Runs on Cloudflare independently of a local computer. Demo, Clipboard, and the GitHub source are enabled. Repository access requires GitHub login and installation of the [zmkee GitHub App](https://github.com/apps/zmkee) on the repositories you want to edit.
+This is this fork's live, same-origin SPA and API deployment. It supports:
 
-This testing fork ([forgegod/katafoxi-keymap-editor-extended](https://github.com/forgegod/katafoxi-keymap-editor-extended)) builds on [katafoxi/keymap-editor-extended](https://github.com/katafoxi/keymap-editor-extended), which extends [nickcoutsos/keymap-editor](https://github.com/nickcoutsos/keymap-editor). The original extended app is [zmk-keymap-editor.com](https://zmk-keymap-editor.com/); it is a separate deployment and may not include this fork's changes. Upstream discussion: [Talk to me!](https://github.com/nickcoutsos/keymap-editor/discussions).
+- **Demo** keyboards with no account;
+- **Clipboard** import and export of a `.keymap` with optional layout JSON;
+- **GitHub** loading and commits through the [zmkee GitHub App](https://github.com/apps/zmkee) after OAuth login and App installation on the target repository; and
+- capability-gated browser **Filesystem** access for one existing raw `.keymap`.
 
-## What this fork adds
+The hosted service runs the Svelte editor and Hono API on Cloudflare. GitHub OAuth tokens remain on the server; the browser receives only an HttpOnly session cookie. The [health endpoint](https://zmkee.forgegod.workers.dev/health) is public, but repository loading and commits require sign-in and authorization.
 
-You combine:
+There is also a static [GitHub Pages testing build](https://forgegod.github.io/katafoxi-keymap-editor-extended/). It is useful for Demo, Clipboard, and supported browser Filesystem workflows, but it cannot provide GitHub login, repository commits, or the development-only Local adapter.
 
-1. **Firmware** — ZMK layers, hold-taps, behaviours (`&kp`, `&mt`, `&lt`, …), combos, conditional layers, encoders
-2. **Host layouts** — OS language tables (EN, RU, UK, DE, …) with AltGr levels
+## What this editor is for
 
-so each keycap can show composed legends (e.g. `qQ` + `йЙ`) while you still edit the ZMK binding. Host glyphs are editable with **Alt+click** on a composed row; plain click opens the ZMK key editor.
+ZMK tells the keyboard what keycodes or behaviors to send. The host OS layout determines the resulting characters. This editor keeps those two concerns visible together:
 
-Monorepo: Svelte 5 + Vite (`apps/web`), thin Hono API (`apps/api`), shared domain in `packages/keymap-core`.
+1. Edit the ZMK binding that the firmware sends.
+2. See composed keycap legends for the selected host-language layouts and modifier levels.
+3. Use **Alt+click** to edit a host-layout glyph; ordinary click remains a ZMK-binding edit.
+4. Export, copy, save, or commit the firmware through the chosen source boundary.
 
-## Screenshots
+For example, one keycap can show firmware output and composed English/Russian glyphs such as `qQ` and `йЙ`, rather than making a user mentally translate one from the other.
 
-### Demo — real board layout
+![Demo board with composed English and Russian legends](docs/screenshots/demo-lark.png)
 
-First visit opens **Demo · Corne**. The [Demo catalog](packages/keymap-core/fixtures/demo/catalog.json) also includes Glove80, Kyria, Sofle, Lily58, Sweep, Planck, nice!60, Kabarga, Lark, PNCATEHO, and more. A short spotlight tour covers click / Alt+click, layers, and bringing your own keymap. If the browser prefers Russian, Ukrainian, or German, that language is added as a second host column. Edits stay in the browser until you use **Clipboard**, **GitHub**, or **Local**. Replay the tour anytime with **Tour** in the top-right corner.
+## Fork lineage and credits
 
-![Demo board with composed legends (Lark example with EN + RU)](docs/screenshots/demo-lark.png)
+This project respectfully builds on two open-source projects:
 
-### Clipboard — `.keymap` only
+- [nickcoutsos/keymap-editor](https://github.com/nickcoutsos/keymap-editor) — the original ZMK keymap editor and the source of the upstream project.
+- [katafoxi/keymap-editor-extended](https://github.com/katafoxi/keymap-editor-extended) — the intermediate extended fork that introduced the host-layout direction and its separate deployment at [zmk-keymap-editor.com](https://zmk-keymap-editor.com/).
 
-Paste a ZMK `.keymap` without `info.json` (Clipboard), or open a GitHub `zmk-config` that lacks a layout file: the app draws a **flat rectangular** board from the binding count so you can still edit. GitHub and Local also accept `config/<keymap-name>.json` when `config/info.json` is absent. Clipboard **Copy .keymap** / GitHub **Commit** update the keymap; add a layout file when you want the real geometry.
+This repository, [forgegod/katafoxi-keymap-editor-extended](https://github.com/forgegod/katafoxi-keymap-editor-extended), diverged from that line and contains its own implementation, tests, deployment adapter, and documentation. The live implementation for this repository is **[zmkee.forgegod.workers.dev](https://zmkee.forgegod.workers.dev/)**. Upstream and intermediate deployments are separate services and do not necessarily contain this fork's changes.
 
-![Clipboard mode with inferred rectangular layout](docs/screenshots/clipboard-inferred.png)
+The code is MIT licensed. ZMK keycode data is derived from ZMK documentation, also MIT licensed.
 
-### Scheme — matrix row/col
+## What this fork adds and extends
 
-**Scheme** overlays matrix coordinates and row/column guides on the physical layout (useful when wiring or checking `info.json`).
+The list below describes implemented behavior in this checkout. It does not claim every feature of either upstream project, every ZMK behavior, or every operating-system layout format.
 
-![Scheme mode on Lily58](docs/screenshots/scheme-lily58.png)
+### Host layouts and composed legends
 
-### Host edit — Alt+click
+- Composed keycap faces with four modifier-level slots per displayed language and up to two languages on a keycap.
+- System and user host-layout profiles, persistent language selection, remembered legend assemblies, and language-stack/difference views.
+- Read-only hover decode; **Alt+click** begins an explicit host-edit session. Editing a system layout first creates a user copy.
+- Host glyph editing independent from ZMK undo/redo, with explicit Accept/Cancel session controls.
+- Import of supported xkb/KLC layouts and downloadable Linux xkb and Windows `.klc` deliverables from the Host lane.
+- GitHub commits can co-commit a compatible, owned host-layout snapshot and generated host deliverables with the firmware. The server rejects invalid, unsupported, ambiguous, or unowned host output instead of publishing browser state it cannot prove.
+- Clear source boundaries: browser Filesystem saves never write host snapshots or installation files; browser-only host work stays browser-local until a compatible GitHub commit.
 
-Hover peeks at host levels; **Alt+click** locks an edit session (Accept / Cancel). System layouts fork to a user copy on first change; Linux (xkb) and Windows (`.klc`) install live in the Host lane.
+![Host glyph editing and symbol catalog](docs/screenshots/host-edit.png)
 
-![Host symbol catalog and decode edit for EN + RU](docs/screenshots/host-edit.png)
+### Firmware editing beyond a basic key grid
 
-### Several national layouts
+- Staged key editor for ZMK bindings, keys, modifiers, layer references, mouse/device commands, output selection, and supported stock behaviors.
+- Source-preserving import/edit/export: known edits splice into existing DTS where proven safe, while external and opaque bindings/arguments are retained rather than silently normalized.
+- Layers: add, rename, delete, duplicate, reorder, keyboard-accessible move controls, drag/drop parity, and undo/redo-aware reference remapping where the source model proves it is safe.
+- Visual **combos**, including bindings, positions, timeouts, layer filters, slow release, prior idle time, and chord-oriented board/dictionary views.
+- Conditional-layer rules and per-layer encoder `sensor-bindings` with directional editing.
+- Hold-tap timing, Homerow/Autoshift presets, the fixed `&rgblayer` recipe, and compact firmware legends.
+- Bounded visual authoring for supported macros and custom behavior definitions on Demo and verified Clipboard sources, including source preview and confirmation before rewriting. Unsupported or unproven definitions remain read-only and source-preserved.
+- `&uc` Unicode picker with curated aliases and input-mode choices; existing aliases and opaque bindings survive round trips. Firmware module/configuration and host input setup remain the user's responsibility.
+- Recognition of current ZMK behaviors such as `&sys_reset` and `&studio_unlock`, while retaining legacy imported `&reset` without converting it.
 
-Legend strip: show/hide languages and pick system or user profiles. **Stack** and **Differences** sit on the assembly line (left of remembered chips), not in the Host lane. Up to two languages on the keycap; more columns in the table.
+![Matrix Scheme view](docs/screenshots/scheme-lily58.png)
 
-![Legend strip with multiple languages and layers](docs/screenshots/host-legend-languages.png)
+### Safer source, draft, and persistence workflows
 
-## Keymap sources
+| Source | What it does | Important boundary |
+| --- | --- | --- |
+| **Demo** | Loads bundled sample keyboards and supports in-browser exploration. | No firmware publication. |
+| **Clipboard** | Imports `.keymap` text, optionally with layout JSON; **Copy .keymap** writes the generated source to the system clipboard. | Manual transfer back to a firmware repository. |
+| **Filesystem** | Opens one existing raw `.keymap`, or discovers direct entries in a chosen folder. | Every Save requires fresh same-file picker proof and writes firmware only — no sidecars, layouts, host files, or multi-file save. |
+| **GitHub** | Loads an authorized `zmk-config`, lets the user choose an eligible keymap file, and commits against a pinned base SHA. | Stale heads reject the commit instead of overwriting newer remote work. |
+| **Local** | Development adapter for a configured sibling `zmk-config`. | Not the browser Filesystem source and not the product's long-term persistence path. |
 
-| Source | Role |
-|--------|------|
-| **Demo** | Bundled fixtures for first visit (default Corne). No firmware write. Short coach tour; optional second host language from the browser locale. |
-| **Clipboard** | Paste `.keymap` (`info.json` optional). **Copy .keymap** → system clipboard + preview dialog. |
-| **GitHub** | Load/commit `zmk-config` via GitHub App + OAuth. `config/info.json` is optional; a matching `config/<keymap-name>.json` is also accepted (flat rectangular board otherwise). Host layouts share the commit as `host_keymap/snapshot.json` (+ Linux/Windows install files). **Latest** firmware artifact chip when available. |
-| **Local** | Dev adapter to a sibling `zmk-config` (junction). Not the long-term product path. |
+Additional workflow improvements:
 
-Product persistence is **GitHub-first**; Local is for iterating against a cloned firmware tree; Clipboard is browser-only paste/export. Save/load rules: [ADR 0001](docs/adr/0001-persistence-github-first.md), [ADR 0002](docs/adr/0002-keymap-file-contract.md), host snapshot [ADR 0005](docs/adr/0005-host-keymap-github-snapshot.md).
+- Browser draft/cache recovery, native leave-page protection for unpublished firmware or protected GitHub recovery, and explicit discard/reconcile paths.
+- Exact GitHub repository/branch/keymap-file identity, remembered selections, explicit missing/ambiguous file states, and path-specific layout errors.
+- Optional offline layout discovery for Clipboard/GitHub: import a reviewed catalog, inspect provenance and a preview, then explicitly adopt session-only geometry or download validated JSON. The editor does not fetch arbitrary includes or guess hardware from a filename.
+- Editable rectangular fallback when a usable physical layout is absent; it reflects binding count, not real keyboard geometry.
+- Source-preserving firmware commits and guarded host-snapshot co-commit rules shared by the API and browser.
 
-## Editor highlights
+![Clipboard with inferred rectangular geometry](docs/screenshots/clipboard-inferred.png)
 
-- One **KeyEditor**: behaviour chips, then the value grid (keys, layers, mods, mouse/BT commands). Enter applies; Esc cancels. Hold-tap timing for `&mt` and `&lt`, plus Homerow (`&hm`) and Autoshift (`&as`); Apply adds a missing preset and Save rewrites those nodes ([ADR 0002](docs/adr/0002-keymap-file-contract.md)).
-- **Recipes**: built-in `&rgblayer` (layer + RGB color) from Presets — board shows `Ln` plus a color swatch; Save splices a fixed macro node when needed.
-- **Unicode input**: `&uc` picker for Normal/Shift characters, curated `UC_*` aliases, and input-mode switches. Existing aliases and opaque external bindings survive Apply and export. Firmware still needs the `urob/zmk-unicode` module and the matching host setup; the editor does not install either ([setup and limitations](docs/unicode-picker.md)).
-- **ZMK compatibility**: recognizes `&sys_reset` and `&studio_unlock`, and preserves unknown external behavior parameters when importing and editing existing source.
-- Compact ZMK legends (`L1`, `⌃`, hold-tap pills) in `keymap-core`.
-- Visual **Combos**: list + board key-positions, binding via KeyEditor, timeout / layers / slow-release / prior-idle props; gap beads for adjacent pairs, anchor beads for non-adjacent/multi-key chords. Dense chord boards get a typewriter **combo dictionary** under the board (hover peeks, click selects).
-- **Encoders**: per-layer `sensor-bindings` (clockwise / counter-clockwise) shown above the board, following the legend-row hover. A new layer copies the previous list. The knob press stays a normal key.
-- **Conditional layers** on the layer strip: the shown layer keeps an accent rail, and hovering it highlights the keys that hold those layers.
-- Undo / redo, **Draft** / Ready status, Discard draft.
-- Host lane: Ready / Changed / Saved, Linux and Windows install dialogs, assemblies (remembered legend sets). On GitHub, Commit/Load round-trip the host snapshot with ZMK.
-- Light / dark theme (default dark).
-- Lane labels: **ZMK** = what the firmware sends; **Host** = what the OS types.
+### Product and runtime work in this repository
 
-## Not in this tree (yet)
+- Svelte 5 + Vite SPA, thin Hono API, and shared TypeScript domain package (`packages/keymap-core`) for parsing, serialization, layout composition, and host-format generation.
+- Cloudflare Worker/container adapter that hosts the same SPA/API deployment without relying on a local computer at runtime.
+- Demo catalog with Corne, Glove80, Kabarga, Kyria, Lark, Lily58, nice!60, Planck, PNCATEHO, Sofle, Sweep, and other fixture-backed layouts.
+- Light and dark themes, an editor tour, Scheme coordinates, keyboard/source status chrome, and explicit ZMK-versus-Host lanes.
+- Unit, component, API, Cloudflare, record-validation, and Playwright browser coverage for the implemented boundaries.
 
-Upstream or planned: browser **File System Access**, visual **macro** / custom **behavior** editors (beyond fixed recipes such as `&rgblayer`), auto-generated layouts from ZMK DTS. See [upstream README](https://github.com/nickcoutsos/keymap-editor/blob/master/README.md) for the classic feature list.
+## Deliberate limits
 
-Vision and contracts: [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md). The [prioritized change requests](docs/changes/README.md#current-records) cover remaining gaps, including layer duplication/reordering and keymap-file selection. An active CHG is not a completed feature; its record owns phase state.
+- This is not a firmware compiler, flasher, general DTS/C-preprocessor editor, or OS-layout installer.
+- Macro and behavior authoring intentionally supports a bounded, validated subset. It does not turn opaque source, remote repositories, or arbitrary ZMK definitions into safe editable syntax.
+- Host-layout imports/exports support documented xkb/KLC subsets, not every feature of those formats.
+- Physical geometry is accepted only from supplied metadata or an explicit reviewed catalog choice. A fallback rectangle is not a hardware claim.
+- Browser storage and recovery are not publication. Review generated firmware diffs and build/flash through your normal ZMK workflow.
+
+The precise behavior and test evidence live in the [capability index](docs/product/index.md), not in this overview. Pending work belongs in [change records](docs/changes/README.md), not in the feature list above.
 
 ## Run locally
 
-Use Node 24 LTS and the pinned pnpm 9.15.0. The current web-test stack has browser-storage failures under Node 26; do not treat that runtime as a verified test environment.
+Use Node 24.21.0 (pinned in `.nvmrc`) and pnpm 9.15.0.
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-UI: `http://127.0.0.1:5173` · API: `http://127.0.0.1:8080`.
+The local SPA runs at `http://127.0.0.1:5173`; the API runs at `http://127.0.0.1:8080`.
 
-Full setup (env, Local junction, GitHub App): [running-locally.md](running-locally.md).
+For environment setup, the development Local adapter, GitHub App configuration, and source-specific workflows, see [running-locally.md](running-locally.md). For managed deployment, see [Cloudflare Containers](docs/deploy-cloudflare.md); for a VPS deployment, see [VPS deployment](docs/deploy-vps.md).
 
-## Hosted app
-
-### This fork's public testing build
-
-Open **[forgegod.github.io/katafoxi-keymap-editor-extended](https://forgegod.github.io/katafoxi-keymap-editor-extended/)**.
-
-1. Explore the bundled keyboards in **Demo**.
-2. Choose **Clipboard** from the source menu, paste your `.keymap`, and optionally paste `info.json` for the physical layout.
-3. Click a key to edit its binding. Choose **Unicode input** (`&uc`) to test characters, aliases, or input-mode switches.
-4. Use **Copy .keymap** to copy the result back to your firmware repository. Review the diff before building or flashing firmware.
-
-This is a static GitHub Pages site: **GitHub login/commits and Local filesystem access are disabled**. Demo drafts and host layouts stay in this browser; Clipboard export is manual. The site does not build or flash firmware. HTTPS enables clipboard access (your browser may ask for permission).
-
-The [Pages workflow](.github/workflows/pages.yml) validates the subpath build on pull requests and publishes it when `main` changes. The URL follows `main`, not a pinned release. Versioned downloads are on the [releases page](https://github.com/forgegod/katafoxi-keymap-editor-extended/releases).
-
-### Full SPA + API deployment
-
-The original extended app is **[zmk-keymap-editor.com](https://zmk-keymap-editor.com/)**, maintained separately from this testing fork. To host this fork with GitHub login and commits, run the Hono API and SPA on the same origin and configure your own GitHub App.
-
-Deploy: [docs/deploy-vps.md](docs/deploy-vps.md) (Docker + Caddy on a VPS).
-
-For managed hosting without an always-on local computer, the optional `apps/cloudflare` adapter runs the same Hono API and SPA using Cloudflare Containers. See [docs/deploy-cloudflare.md](docs/deploy-cloudflare.md) for Workers Paid prerequisites, deployment commands, cost controls, and GitHub App setup. The hosted runtime uses the zmkee App; credentials stay in Cloudflare runtime secrets, not in the browser or Docker image.
-
-## Docs
-
-| Doc | Content |
-|-----|---------|
-| [running-locally.md](running-locally.md) | Install, Demo, Clipboard, Local, GitHub, tests |
-| [docs/deploy-vps.md](docs/deploy-vps.md) | Production deploy on a VPS + domain |
-| [docs/deploy-cloudflare.md](docs/deploy-cloudflare.md) | Managed Hono + SPA containers, billing/account checks, GitHub App setup |
-| [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md) | Product vision |
-| [docs/architecture.md](docs/architecture.md) | Current runtime and maintenance boundaries |
-| [docs/design-decisions.md](docs/design-decisions.md) | Durable decisions and existing ADR index |
-| [docs/product/index.md](docs/product/index.md) | Current capabilities with executable evidence |
-| [docs/product/wireframes/index.html](docs/product/wireframes/index.html) | Generated schematics of current capability surfaces |
-| [docs/changes/README.md](docs/changes/README.md) | Prioritized feature-gap requests and execution lifecycle |
-| [docs/adr/](docs/adr/README.md) | Architecture decisions |
-| [AGENTS.md](AGENTS.md) | Root DOX contract and child ownership index |
-
-## Tests
+## Development checks
 
 ```bash
-pnpm test          # Record-validator tests + Vitest: core, API, web, Cloudflare
-pnpm lint          # TypeScript and Svelte checks
-pnpm build         # Shared core, SPA, and Hono API
-pnpm test:e2e      # Playwright smoke (separate)
-pnpm test:e2e:prod # Production SPA/API smoke
-pnpm test:e2e:pages # Static subpath build: Demo + Clipboard, no API
+pnpm test            # Workspace tests plus product-record validation
+pnpm lint            # TypeScript and Svelte checks
+pnpm build           # keymap-core, SPA, and Hono API
+pnpm test:e2e        # Playwright browser smoke tests
+pnpm test:e2e:prod   # Production SPA/API smoke tests
+pnpm test:e2e:pages  # Static Pages workflow smoke tests
 ```
 
-## Maintaining capabilities and changes
-
-This project adopts the DOX/CAP/CHG maintenance structure from AI Software Blueprint without replacing the application or its existing ADRs. No sibling checkout or agent skill installation is needed for normal verification.
-
-- [CAPs](docs/product/index.md) describe current behavior and link implementation/tests.
-- [Active CHGs](docs/changes/README.md#current-records) own progress for material requests. Start with CHG-001 unless another scope is selected; all gap requests are initially planned.
-- Read root and applicable child `AGENTS.md` contracts before editing. Keep future proposals out of current capability records and canonical visuals.
-- Generate canonical visuals from their source; do not hand-edit HTML or PNG exports. Inspect rendered output before claiming a visual handoff.
+The product documentation uses CAP records for implemented behavior and CHG records for material work in progress. Regenerate and inspect canonical product schematics when changing a human-facing capability:
 
 ```bash
-pnpm exec playwright install chromium # Once for browser tests/rendering
 pnpm wireframes:generate
 pnpm wireframes:render
 pnpm records:check
-pnpm test:records
 ```
 
-## License
+## Documentation map
 
-MIT. The ZMK keycode list is taken from the ZMK documentation, also MIT.
+| Document | Purpose |
+| --- | --- |
+| [running-locally.md](running-locally.md) | Local setup, source workflows, and tests |
+| [docs/architecture.md](docs/architecture.md) | Current runtime, persistence, and security boundaries |
+| [docs/TARGET_SYSTEM.md](docs/TARGET_SYSTEM.md) | Product vision and editor contracts |
+| [docs/product/index.md](docs/product/index.md) | Implemented capabilities and executable evidence |
+| [docs/changes/README.md](docs/changes/README.md) | Change-record lifecycle and remaining requests |
+| [docs/adr/README.md](docs/adr/README.md) | Architecture decision records |
+| [docs/deploy-cloudflare.md](docs/deploy-cloudflare.md) | Cloudflare deployment and operational constraints |
+| [AGENTS.md](AGENTS.md) | Repository ownership and contribution contracts |
