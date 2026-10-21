@@ -66,7 +66,7 @@ Use installed `application-records` and `phased-plan-*` skills when available. T
 
 | Change | Status |
 | --- | --- |
-| [CHG-012 — Align definition dialogs and prevent KeyEditor clipping](active/CHG-012-align-definition-dialogs-and-prevent-key-editor-clipping.md) | planned |
+| [CHG-012 — Align definition dialogs and prevent KeyEditor clipping](active/CHG-012-align-definition-dialogs-and-prevent-key-editor-clipping.md) | in-progress |
 
 Read the [bounded upstream assessment](upstream-gap-assessment.md) before creating a record for upstream parity work.
 
