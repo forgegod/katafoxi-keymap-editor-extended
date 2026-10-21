@@ -64,7 +64,13 @@ Use installed `application-records` and `phased-plan-*` skills when available. T
 
 ## Current records
 
-There are no active change records. Read the [bounded upstream assessment](upstream-gap-assessment.md) before creating a new record.
+These scopes partition the direct operator request into independently verifiable changes. Each linked record owns its phase state. Creating or listing a request does not by itself implement it. Read the [bounded upstream assessment](upstream-gap-assessment.md), then resume the selected CHG rather than making a second plan.
+
+| Order | Change | Priority | Dependencies |
+| --- | --- | --- | --- |
+| 1 | [CHG-011 — Upstream named-layout validation and hold-tap dependency](active/CHG-011-upstream-named-layout-and-holdtap-dependency.md) | P3 | none |
+
+The table orders remaining work; resume only the operator-selected scope. Each linked record owns its own phase state.
 
 ## Archive
 
