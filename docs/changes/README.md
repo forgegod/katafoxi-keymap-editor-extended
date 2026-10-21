@@ -64,7 +64,11 @@ Use installed `application-records` and `phased-plan-*` skills when available. T
 
 ## Current records
 
-There are no active change records. Read the [bounded upstream assessment](upstream-gap-assessment.md) before creating a new record.
+| Change | Status |
+| --- | --- |
+| [CHG-012 — Align definition dialogs and prevent KeyEditor clipping](active/CHG-012-align-definition-dialogs-and-prevent-key-editor-clipping.md) | planned |
+
+Read the [bounded upstream assessment](upstream-gap-assessment.md) before creating a record for upstream parity work.
 
 ## Archive
 
