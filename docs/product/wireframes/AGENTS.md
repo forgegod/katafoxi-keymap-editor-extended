@@ -14,7 +14,9 @@ One matching HTML/PNG pair per human CAP; no future feature or review package en
 
 ## Work Guidance
 
-Read parent product and change contracts. Edit the generator, not generated HTML/PNG. Preserve the editor's dark, compact ZMK/Host visual language. Show relevant error/empty/permission consequences as explicit example states. Source changes require regeneration, rendering, DOM/layout checks and visual inspection.
+Read parent product and change contracts. Edit the generator, not generated HTML/PNG. Preserve the editor's compact, theme-aware ZMK/Host visual language. Show relevant error/empty/permission consequences as explicit example states. Source changes require regeneration, rendering, DOM/layout checks and visual inspection.
+
+Follow [the editor design language](../../ui-design-language.md) for hierarchy, typography, semantic color and compact control treatment. The app supports light and dark themes; schematic visual consistency does not replace runtime computed-style and interaction evidence in both themes.
 
 ## Verification
 

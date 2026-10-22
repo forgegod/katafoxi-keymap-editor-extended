@@ -66,6 +66,8 @@ Use installed `application-records` and `phased-plan-*` skills when available. T
 
 | Change | Status |
 | --- | --- |
+| [CHG-013 — Unicode host-layout compatibility](active/CHG-013-unicode-host-layout-compatibility.md) | planned |
+| [CHG-014 — Restore editor design language](active/CHG-014-restore-editor-design-language.md) | planned |
 
 
 Read the [bounded upstream assessment](upstream-gap-assessment.md) before creating a record for upstream parity work.

@@ -32,6 +32,8 @@ KeyEditor previews use the session's full encoded draft once a behavior selectio
 
 ## Work Guidance
 
+For every UI change, follow [the editor design language](../../docs/ui-design-language.md): use the shared theme/type roles and ordinary Button primitive, take compact panel hierarchy from Combos, and style internal controls across all affected states rather than only the launcher. Preserve semantic variants and verify computed styles, focus/disabled states and wrapping in both themes with real browser evidence.
+
 Layout discovery is an optional Clipboard/GitHub session-geometry transaction. Supplied JSON wins. Capture actual source proof and document/history state; refuse dirty/recovery/busy/staged work and recheck on Accept/Export. Delegate metadata parsing and order validation to core. Catalog imports are offline curator artifacts, not verified hardware inventory; disclose attribution and unverified compatibility. Acceptance never writes files or publishes firmware/host work; JSON download is separate. Do not automatically persist/reapply catalog choices or extend discovery into Filesystem/Local.
 
 Discovery acceptance changes only the live display layout, never `baselineLayout`: branch carry and persisted GitHub recovery retain the loaded repository geometry, and firmware Discard restores that loaded layout as well as the baseline bindings.

@@ -16,6 +16,8 @@ Keep architecture current. Preserve existing ADR identities; design-decisions.md
 
 Read product and change contracts before creating records or visuals. Deployment guides never contain secrets.
 
+`ui-design-language.md` owns the extracted editor visual rules for contributors and AI agents. Ground them in the shared tokens/primitives and Combos reference; distinguish a contributor requirement from a current, test-backed CAP claim. Web and canonical-wireframe guidance link this single contract rather than maintaining competing palettes or rule copies.
+
 ## Verification
 
 Run pnpm records:check for records and applicable product tests for behavior claims.
