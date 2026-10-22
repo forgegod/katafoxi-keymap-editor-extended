@@ -1,13 +1,13 @@
 # CHG-013 — Make Unicode input coexist safely with host layouts
 
-**Status:** planned
+**Status:** in-progress
 **External request:** Direct operator request following maintainer feedback on [upstream PR #1](https://github.com/katafoxi/keymap-editor-extended/pull/1): keep `&uc` and host layouts available together, but make its English-layout runtime requirement explicit and verifiable from editor-managed host data.
 **Impacts:** CAP-001
 **Baseline:** `bb64d04119f8817b0cc0250178514af5b68ffd95`
 
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
-| 1 | Establish a shared `&uc` host-layout compatibility contract | pending | Focused keymap-core compatibility tests and lint exit 0 |
+| 1 | Establish a shared `&uc` host-layout compatibility contract | in-progress | Focused keymap-core compatibility tests and lint exit 0 |
 | 2 | Expose the bounded compatibility state in the Unicode picker | pending | Focused web component/session tests and web lint exit 0 |
 | 3 | Integrate current product evidence and canonical visuals | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e` exit 0; rendered CAP-001 schematic inspected |
 
