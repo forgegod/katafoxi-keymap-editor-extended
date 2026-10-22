@@ -7,7 +7,7 @@
 
 ## Request boundary and observed drift
 
-Use the repository's CHG identity convention for the requested change record. This is a new follow-up, not a reopening or reinterpretation of completed CHG-012 evidence. CHG-013 remains independent and planned; its future Unicode UI must follow the same contributor design rules without expanding this implementation scope.
+Use the repository's CHG identity convention for the requested change record. This is a new follow-up, not a reopening or reinterpretation of completed CHG-012 evidence. CHG-013 remains independent; its future Unicode UI must follow the same contributor design rules without expanding this implementation scope.
 
 Source inspection at the baseline establishes:
 
