@@ -5,6 +5,7 @@ import {
   unicodeBindingState,
   unicodeAliasBinding,
   unicodeModeBinding,
+  unicodeHostLayoutCompatibility,
   UNICODE_ALIASES,
   UNICODE_MODES,
   ensureUnicodeInclude
@@ -12,6 +13,8 @@ import {
 import { parseKeyBinding, encodeKeyBinding, parseKeymap, buildKeymapCode, validateKeymapJson } from './keymap.js'
 import { getBehaviourParams } from './keycodes.js'
 import { loadBehaviorsData } from './keymap.js'
+import { hostLayout } from './host-layout-registry.js'
+import { withHostKey } from './host-layout.js'
 
 const layout = [{ x: 0, y: 0, row: 0, col: 0 }]
 
@@ -53,6 +56,17 @@ describe('ZMK Unicode input', () => {
       expect(unicodeBindingState(unicodeModeBinding(mode.code))).toEqual({ kind: 'mode', mode: mode.code })
     }
     expect(unicodeBindingState(parseKeyBinding('&uc 0xffffff 1'))).toEqual({ kind: 'mode', mode: 'UC_SET_LINUX' })
+  })
+
+  it('checks the editor-managed English base level without rejecting Shift or AltGr symbols', () => {
+    const us = hostLayout('system-us')!
+    const shifted = withHostKey(us, 'N1', 1, 'at')!
+    const altGr = withHostKey(shifted, 'N1', 2, 'EuroSign')!
+    const remapped = withHostKey(altGr, 'N1', 0, 'exclam')!
+
+    expect(unicodeHostLayoutCompatibility(us)).toEqual({ compatible: true, missing: [] })
+    expect(unicodeHostLayoutCompatibility(altGr)).toEqual({ compatible: true, missing: [] })
+    expect(unicodeHostLayoutCompatibility(remapped)).toEqual({ compatible: false, missing: ['1'] })
   })
 
   it('keeps unrecognized external aliases opaque', () => {

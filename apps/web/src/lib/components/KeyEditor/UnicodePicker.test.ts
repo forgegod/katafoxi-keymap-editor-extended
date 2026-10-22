@@ -1,4 +1,11 @@
-import { encodeKeyBinding, parseKeyBinding, type KeyBindingNode } from '@keymap-editor/keymap-core'
+import {
+  encodeKeyBinding,
+  hostLayout,
+  parseKeyBinding,
+  withHostKey,
+  type HostLayout,
+  type KeyBindingNode
+} from '@keymap-editor/keymap-core'
 import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import UnicodePicker from './UnicodePicker.svelte'
@@ -7,11 +14,11 @@ let target: HTMLDivElement
 let view: ReturnType<typeof mount> | undefined
 const change = vi.fn<(binding: KeyBindingNode | null) => void>()
 
-function open(code = '&uc') {
+function open(code = '&uc', hostLayout?: HostLayout) {
   change.mockClear()
   target = document.createElement('div')
   document.body.appendChild(target)
-  view = mount(UnicodePicker, { target, props: { value: parseKeyBinding(code), onChange: change } })
+  view = mount(UnicodePicker, { target, props: { value: parseKeyBinding(code), onChange: change, hostLayout } })
   flushSync()
 }
 function input(label: string, value: string) {
@@ -46,6 +53,14 @@ describe('UnicodePicker', () => {
     input('Normal Unicode character or code point', 'U+D800')
     expect(lastBinding()).toBeNull()
     expect(target.querySelector('[role="alert"]')?.textContent).toContain('surrogates')
+  })
+
+  it('warns when the selected English layout remaps a required unshifted service key', () => {
+    const incompatible = withHostKey(hostLayout('system-us')!, 'N1', 0, 'exclam')!
+    open('&uc 0xE4 0', incompatible)
+
+    expect(target.querySelector('[data-unicode-host-layout="incompatible"]')?.textContent).toContain('1')
+    expect(target.textContent).toContain('active English layout')
   })
 
   it('selects an upstream alias without rewriting it into numeric cells', () => {

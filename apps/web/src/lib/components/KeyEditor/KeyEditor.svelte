@@ -26,6 +26,7 @@
     nextTaxonomyContexts,
     sortBehaviorsByRole,
     parseKeyBinding,
+    type HostLayout,
     type KeyBindingNode,
     type CatalogChoice
   } from '@keymap-editor/keymap-core'
@@ -77,6 +78,8 @@
     usedKeycodes?: ReadonlyMap<string, readonly number[]>
     usedRevision?: string
     usedLayerLabels?: readonly string[]
+    /** Selected English host table, used only for the `&uc` prerequisite note. */
+    unicodeHostLayout?: HostLayout
     /** Sensor turns: no hold-tap presets, multiple keycode params stay editable. */
     variant?: 'key' | 'encoder'
     onSelectBehaviour: (choice: Choice) => void
@@ -99,6 +102,7 @@
     usedKeycodes,
     usedRevision = '',
     usedLayerLabels = [],
+    unicodeHostLayout,
     variant = 'key',
     onSelectBehaviour,
     onSelectValue,
@@ -602,6 +606,7 @@
       {#if unicodeEdit}
         <UnicodePicker
           value={parseKeyBinding(bindingLabel)}
+          hostLayout={unicodeHostLayout}
           onChange={binding => {
             unicodeReady = binding != null
             if (binding) onSelectBehaviour({ code: '&uc', unicodeBinding: binding })

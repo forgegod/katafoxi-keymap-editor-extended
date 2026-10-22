@@ -3,13 +3,15 @@
   import {
     UNICODE_ALIASES, UNICODE_MODES, UNICODE_DOCS_URL,
     unicodeAliasBinding, unicodeBinding, unicodeBindingState,
-    unicodeCodePoint, unicodeCodePointLabel, unicodeGlyph, unicodeModeBinding,
+    unicodeCodePoint, unicodeCodePointLabel, unicodeGlyph, unicodeHostLayoutCompatibility, unicodeModeBinding,
+    type HostLayout,
     type KeyBindingNode
   } from '@keymap-editor/keymap-core'
 
-  let { value, onChange }: {
+  let { value, onChange, hostLayout }: {
     value: KeyBindingNode
     onChange: (binding: KeyBindingNode | null) => void
+    hostLayout?: HostLayout
   } = $props()
   const original = untrack(() => value)
   const initial = unicodeBindingState(original)
@@ -29,6 +31,7 @@
     return (!group || row.group === group) && text.toLowerCase().includes(query.trim().toLowerCase())
   }))
   const modeInfo = $derived(UNICODE_MODES.find(row => row.code === mode))
+  const hostCompatibility = $derived(hostLayout ? unicodeHostLayoutCompatibility(hostLayout) : null)
 
   onMount(() => onChange(initial || opaque ? original : null))
 
@@ -70,7 +73,18 @@
     <button type="button" aria-pressed={kind === 'character'} data-unicode-kind="character" onclick={() => chooseKind('character')}>Character</button>
     <button type="button" aria-pressed={kind === 'mode'} data-unicode-kind="mode" onclick={() => chooseKind('mode')}>Input mode switch</button>
   </div>
-  <p class="unicode-note">Requires urob/zmk-unicode in west.yml and host input setup with a US keyboard layout. Save adds the module header; it does not install the module or configure your OS. <a href={UNICODE_DOCS_URL} target="_blank" rel="noopener noreferrer">Setup instructions</a></p>
+  <p class="unicode-note">Requires urob/zmk-unicode in west.yml and host input setup. `&uc` works only while a compatible English layout is active; it does not work while a national layout is active. Save adds the module header; it does not install the module, switch layouts, or configure your OS. <a href={UNICODE_DOCS_URL} target="_blank" rel="noopener noreferrer">Setup instructions</a></p>
+  {#if hostCompatibility}
+    <p class="unicode-note" data-unicode-host-layout={hostCompatibility.compatible ? 'compatible' : 'incompatible'}>
+      {#if hostCompatibility.compatible}
+        The selected English layout keeps the required unshifted digits and A–F/U. Keep it as the active English layout when using `&uc`; Space and Enter must also remain available. The editor cannot observe your operating system's active layout.
+      {:else}
+        The selected English layout remaps unshifted {hostCompatibility.missing.join(', ')}. `&uc` is not reliable until those keys are restored; use a compatible active English layout. The editor cannot observe your operating system's active layout.
+      {/if}
+    </p>
+  {:else}
+    <p class="unicode-note" data-unicode-host-layout="unknown">The editor cannot check the selected English layout. Keep its unshifted digits, A–F, U, Space, and Enter available, and make it the active English layout when using `&uc`.</p>
+  {/if}
   {#if opaque}
     <p class="unicode-note">This external expression is kept unchanged. Enter code points or pick an alias to replace it.</p>
   {/if}

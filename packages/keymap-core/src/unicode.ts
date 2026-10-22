@@ -1,5 +1,6 @@
 import aliasesData from '../data/zmk-unicode-aliases.json' with { type: 'json' }
 import type { KeyBindingNode } from './types.js'
+import type { HostLayout } from './host-layout.js'
 import { scanDts } from './dts-scan.js'
 import { dominantEol } from './eol.js'
 
@@ -33,6 +34,34 @@ export const UNICODE_MODES = Object.freeze([
   { code: 'UC_SET_WIN_ALT', value: 4, name: 'Windows (HexNumpad)', setup: 'Requires EnableHexNumpad on Windows; limited to U+FFFF and not recommended upstream.' },
   { code: 'UC_SET_EMACS', value: 5, name: 'Emacs', setup: 'Uses the Emacs insert-char command.' }
 ].map(mode => Object.freeze(mode)))
+
+/**
+ * Base-level characters that the editor-managed English table can prove for
+ * the module's service sequence. Space and Enter are required at runtime too,
+ * but are not character levels in these host layout tables.
+ */
+const UNICODE_SERVICE_BASE = Object.freeze([
+  ...[...'1234567890'].map(character => [`N${character}`, character] as const),
+  ...[...'ABCDEF'].map(character => [character, character.toLowerCase()] as const),
+  ['U', 'u'] as const
+])
+
+export interface UnicodeHostLayoutCompatibility {
+  compatible: boolean
+  /** Required service characters not present on their unshifted host level. */
+  missing: readonly string[]
+}
+
+/**
+ * Check only the editable host-table portion of the Unicode service sequence.
+ * The browser cannot establish which OS layout is active when the key is used.
+ */
+export function unicodeHostLayoutCompatibility(layout: HostLayout): UnicodeHostLayoutCompatibility {
+  const missing = UNICODE_SERVICE_BASE.flatMap(([zmk, character]) =>
+    layout.byZmk.get(zmk)?.glyphs[0] === character ? [] : [character]
+  )
+  return { compatible: missing.length === 0, missing }
+}
 
 /** Unicode scalar input, not a grapheme/string sequence. Zero is the module sentinel. */
 export function unicodeCodePoint(input: string | number): number | null {

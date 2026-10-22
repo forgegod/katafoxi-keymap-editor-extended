@@ -38,8 +38,16 @@ Follow the complete [module setup instructions](https://github.com/urob/zmk-unic
    the module revision to the ZMK release (for example `v0.3`).
 2. Configure the host's input system: WinCompose on Windows, Unicode Hex Input
    on macOS, IBus/GTK Unicode input on Linux, or the documented alternative.
-3. Use a US host keyboard layout; upstream does not support alternative layouts
-   for the emitted Unicode input sequence.
+3. Invoke `&uc` only while the compatible English layout is active. The module
+   sends the unshifted number row `0`–`9`, `a`–`f`, `u`, Space, and Enter as a
+   service sequence; a national layout active at that moment does not satisfy it.
+
+The picker checks the editor-managed English layout's unshifted digits and
+`a`–`f` / `u` levels. A symbol on Shift or AltGr of a number-row key is safe;
+replacing its unshifted digit is not. The check is advisory: the browser cannot
+observe or switch the operating system's active layout, and Space/Enter must
+remain available in the installed English layout. National layouts may remain
+installed and shown by the editor, but must not be active when `&uc` runs.
 
 When `&uc` is used, the shared save builder ensures
 `#include <behaviors/unicode.dtsi>` is present on splice, template, and default
@@ -65,9 +73,11 @@ The application makes no network request for these tables at runtime.
 ## Executable evidence
 
 - `packages/keymap-core/src/unicode.test.ts`: scalar validation, aliases,
-  six mode switches, opaque expressions, and source/header preservation.
+  six mode switches, source/header preservation, and the unshifted English
+  service-key check (including Shift/AltGr-safe number-row changes).
 - `apps/web/src/lib/components/KeyEditor/UnicodePicker.test.ts`: field input,
-  invalid scalar rejection, alias selection, mode switches, opaque expressions.
+  invalid scalar rejection, alias selection, mode switches, opaque expressions,
+  and the incompatible-English-layout warning.
 - `apps/web/src/lib/components/KeyEditor/KeyEditor.test.ts`: Apply gating.
 - `apps/web/src/lib/key-edit-session.test.ts`: complete binding assignment and
   no-op macro preservation.

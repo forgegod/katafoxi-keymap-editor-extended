@@ -64,8 +64,12 @@ Click a stacked keycap row. One dialog edits that layer’s ZMK binding:
 
 The `&uc` behavior has a dedicated [Unicode picker](unicode-picker.md) for
 normal/Shift code points, curated upstream aliases, and runtime input-mode
-switches. It requires `urob/zmk-unicode` and host input setup; Save adds the
-module header but never changes `west.yml` or OS settings.
+switches. It requires `urob/zmk-unicode` and host input setup. `&uc` works only
+while a compatible English layout is active: its service sequence needs unshifted
+`0`–`9`, `a`–`f`, `u`, Space, and Enter. National layouts may remain available,
+and Shift/AltGr number-row symbols may differ, but the browser cannot switch or
+detect the OS's active layout. Save adds the module header but never changes
+`west.yml` or OS settings.
 
 ## Conditional layers
 
