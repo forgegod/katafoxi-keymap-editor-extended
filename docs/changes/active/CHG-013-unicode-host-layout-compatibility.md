@@ -7,7 +7,7 @@
 
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
-| 1 | Establish a shared `&uc` host-layout compatibility contract | in-progress | Focused keymap-core compatibility tests and lint exit 0 |
+| 1 | Establish a shared `&uc` host-layout compatibility contract | done (pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/keymap-core lint exit 0 @ 7c150bcf6265e5b8992152c4c51e6174fff5b409) | Focused keymap-core compatibility tests and lint exit 0 |
 | 2 | Expose the bounded compatibility state in the Unicode picker | pending | Focused web component/session tests and web lint exit 0 |
 | 3 | Integrate current product evidence and canonical visuals | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e` exit 0; rendered CAP-001 schematic inspected |
 
