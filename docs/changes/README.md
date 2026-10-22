@@ -66,7 +66,7 @@ Use installed `application-records` and `phased-plan-*` skills when available. T
 
 | Change | Status |
 | --- | --- |
-| [CHG-012 — Align definition dialogs and prevent KeyEditor clipping](active/CHG-012-align-definition-dialogs-and-prevent-key-editor-clipping.md) | in-progress |
+
 
 Read the [bounded upstream assessment](upstream-gap-assessment.md) before creating a record for upstream parity work.
 
@@ -85,6 +85,7 @@ Read the [bounded upstream assessment](upstream-gap-assessment.md) before creati
 | [CHG-009 — Correct stock ZMK behavior catalog](archive/CHG-009-correct-stock-zmk-behavior-catalog.md) | done |
 | [CHG-010 — Publish/copy hardening follow-ups](archive/CHG-010-publish-copy-hardening-followups.md) | done |
 | [CHG-011 — Upstream named-layout validation and hold-tap dependency](archive/CHG-011-upstream-named-layout-and-holdtap-dependency.md) | done |
+| [CHG-012 — Align definition dialogs and prevent KeyEditor clipping](archive/CHG-012-align-definition-dialogs-and-prevent-key-editor-clipping.md) | done |
 
 ## Review packages
 
