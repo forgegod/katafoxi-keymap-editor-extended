@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { HOST_KEY_IDS } from './host-key-id.js'
+import { HOST_LAYOUT_KEY_IDS } from './host-key-id.js'
 import { builtinHostLayoutSpecs, primarySystemLayoutId } from './host-layout-catalog.js'
 import {
   hostLayoutFromSymbols,
@@ -35,7 +35,7 @@ function writtenKeysymCounts(text: string): number[] {
 }
 
 function expectedKeyOrder(layout: HostLayout): string[] {
-  return HOST_KEY_IDS.filter(host => layout.byZmk.has(host.zmk)).map(host => host.xkb)
+  return HOST_LAYOUT_KEY_IDS.filter(host => layout.byZmk.has(host.zmk)).map(host => host.xkb)
 }
 
 function roundTrip(
@@ -79,7 +79,7 @@ describe('hostLayoutToXkbSection', () => {
     ])
   }
 
-  it('writes a standalone section with keys in HOST_KEY_IDS order', () => {
+  it('writes a standalone section with keys in HOST_LAYOUT_KEY_IDS order', () => {
     const text = hostLayoutToXkbSection(layout, { section: 'basic', name: 'Sample' })
     expect(text).toContain('xkb_symbols "basic"')
     expect(text).toContain('name[Group1]= "Sample";')

@@ -15,6 +15,7 @@ export {
 } from './keymap-diff.js'
 export * from './keycodes.js'
 export * from './unicode.js'
+export * from './unicode-host-layout.js'
 export * from './catalog.js'
 export * from './modifiers.js'
 export * from './behaviors.js'

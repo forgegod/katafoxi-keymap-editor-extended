@@ -80,6 +80,31 @@ function digits(): HostKeySeed[] {
   }))
 }
 
+// Table-only service identities must not widen hostKeyByZmk: browser callers
+// use that existing lookup to decide whether a key has an editable decode card.
+const SERVICE_SEEDS: readonly HostKeySeed[] = [
+  {
+    zmk: 'SPACE',
+    aliases: ['SPC'],
+    hid: 0x2c,
+    xkb: 'SPCE',
+    evdev: 57,
+    evdevName: 'KEY_SPACE',
+    vk: 'VK_SPACE',
+    vkCode: 0x20
+  },
+  {
+    zmk: 'ENTER',
+    aliases: ['RET', 'RETURN'],
+    hid: 0x28,
+    xkb: 'RTRN',
+    evdev: 28,
+    evdevName: 'KEY_ENTER',
+    vk: 'VK_RETURN',
+    vkCode: 0x0d
+  }
+]
+
 const SEEDS: readonly HostKeySeed[] = [
   ...digits(),
   {
@@ -324,7 +349,14 @@ function buildIndexes(keys: readonly HostKeyId[]): {
 
 export const HOST_KEY_IDS: readonly HostKeyId[] = Object.freeze(SEEDS.map(freeze))
 
+/** Full table inventory for parsing/editing/serialization, not UI eligibility. */
+export const HOST_LAYOUT_KEY_IDS: readonly HostKeyId[] = Object.freeze([
+  ...HOST_KEY_IDS,
+  ...SERVICE_SEEDS.map(freeze)
+])
+
 const INDEX = buildIndexes(HOST_KEY_IDS)
+const LAYOUT_INDEX = buildIndexes(HOST_LAYOUT_KEY_IDS)
 
 function normalizeName(raw: string): string {
   return raw.trim().replace(/^<|>$/g, '').toUpperCase()
@@ -349,4 +381,15 @@ export function hostKeyByHid(usage: number): HostKeyId | undefined {
 /** Windows virtual-key name (`VK_A`) → the same host key, or undefined. */
 export function hostKeyByVk(name: string): HostKeyId | undefined {
   return INDEX.byVk.get(normalizeName(name))
+}
+
+/** Table lookup including service rows that have no character decode card. */
+export function hostLayoutKeyByZmk(token: string): HostKeyId | undefined {
+  const name = normalizeName(token)
+  return LAYOUT_INDEX.byZmk.get(name) ??
+    (name.startsWith('KC_') ? LAYOUT_INDEX.byZmk.get(name.slice(3)) : undefined)
+}
+
+export function hostLayoutKeyByXkb(name: string): HostKeyId | undefined {
+  return LAYOUT_INDEX.byXkb.get(normalizeName(name))
 }

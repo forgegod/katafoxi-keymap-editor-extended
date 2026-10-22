@@ -149,7 +149,7 @@ ENDKBD
     expect(glyphs(parsed.base, 'N9')).toEqual(['9', '(', '', ''])
   })
 
-  it('round-trips every builtin layout through .klc without glyph differences', () => {
+  it('round-trips KLC-managed rows of every builtin layout without glyph differences', () => {
     const klcGlyphs = (values: readonly string[] | undefined): string[] =>
       (values ?? ['', '', '', '']).map(glyph => {
         const chars = [...glyph]
@@ -167,9 +167,24 @@ ENDKBD
         hostLayoutToKlc(source, { name: spec.name, locale: windowsLocale(spec.language) })
       )
       for (const [zmk, levels] of source.byZmk) {
+        // Service keys can be represented in host tables, but the KLC writer
+        // still owns only scanned character rows (Space is a fixed output).
+        if (!HOST_KEY_IDS.some(key => key.zmk === zmk && key.scan !== undefined)) continue
         expect(klcGlyphs(glyphs(parsed.base, zmk)), `${spec.id} ${zmk}`).toEqual(klcGlyphs(levels.glyphs))
       }
     }
+  })
+
+  it('keeps KLC service output unchanged by Space and Enter table entries', () => {
+    const source = systemLayout('system-us')
+    const changed = withHostKey(withHostKey(source, 'SPACE', 0, 'nobreakspace')!, 'ENTER', 0, 'Tab')!
+    const options = { name: 'US', locale: windowsLocale('en') }
+    const original = hostLayoutToKlc(source, options)
+    expect(hostLayoutToKlc(changed, options)).toBe(original)
+    expect(original).toContain('39\tSPACE\t0\t0020\t0020\t0020')
+    const parsed = parseKlc(original)
+    expect(parsed.base.byZmk.has('SPACE')).toBe(false)
+    expect(parsed.base.byZmk.has('ENTER')).toBe(false)
   })
 
   it('reads a LAYOUT row with double tabs the same as with single tabs', () => {

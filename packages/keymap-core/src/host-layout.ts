@@ -1,4 +1,4 @@
-import { hostKeyByXkb, hostKeyByZmk } from './host-key-id.js'
+import { hostLayoutKeyByXkb, hostLayoutKeyByZmk } from './host-key-id.js'
 import { deadKeySpacingGlyph } from './klc-dead.js'
 import { parseXkbSymbolsSection, type ParseXkbOptions } from './xkb-symbols.js'
 import { keysymToGlyph } from './xkb-keysyms.js'
@@ -72,7 +72,7 @@ export function hostLayoutFromSymbols(
     strictIncludes: options.strictIncludes,
     warnings: options.warnings
   })) {
-    const host = hostKeyByXkb(xkb)
+    const host = hostLayoutKeyByXkb(xkb)
     if (!host) continue
     byZmk.set(host.zmk, levelsFromKeysyms(keysyms))
   }
@@ -90,7 +90,7 @@ export function hostLayoutFromKeysyms(
 ): HostLayout {
   const byZmk = new Map<string, HostKeyLevels>()
   for (const [zmk, keysyms] of entries) {
-    const host = hostKeyByZmk(zmk)
+    const host = hostLayoutKeyByZmk(zmk)
     if (!host) continue
     byZmk.set(host.zmk, levelsFromKeysyms([...keysyms]))
   }
@@ -167,7 +167,7 @@ export function withHostKey(
   level: number,
   keysym: string
 ): HostLayout | undefined {
-  const host = hostKeyByZmk(zmk)
+  const host = hostLayoutKeyByZmk(zmk)
   if (!host) return undefined
   if (!Number.isInteger(level) || level < 0 || level > 3) return undefined
   const byZmk = cloneHostLayoutMap(layout)

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { hostKeyByHid, hostKeyByVk, hostKeyByXkb, hostKeyByZmk, HOST_KEY_IDS } from './host-key-id.js'
+import { hostLayoutKeyByXkb, hostLayoutKeyByZmk, HOST_LAYOUT_KEY_IDS } from './host-key-id.js'
 
 /**
  * `key <NAME>` tokens in the LARK host symbols (English `au` basic and
@@ -120,6 +121,27 @@ describe('host key ids', () => {
     for (const token of ['COLON', 'EXCL', 'AT', 'PIPE', 'TILDE', 'QMARK', 'PLUS', 'KC_COLON']) {
       expect(hostKeyByZmk(token), token).toBeUndefined()
     }
+  })
+
+  it('represents Space and Enter without adding character-face or KLC rows', () => {
+    const space = hostLayoutKeyByZmk('SPACE')!
+    const enter = hostLayoutKeyByZmk('ENTER')!
+    expect(space).toMatchObject({ hid: 0x2c, xkb: 'SPCE', evdev: 57, vk: 'VK_SPACE', vkCode: 0x20 })
+    expect(enter).toMatchObject({ hid: 0x28, xkb: 'RTRN', evdev: 28, vk: 'VK_RETURN', vkCode: 0x0d })
+    expect(space.scan).toBeUndefined()
+    expect(enter.scan).toBeUndefined()
+    expect(hostLayoutKeyByZmk('SPC')).toBe(space)
+    expect(hostLayoutKeyByZmk('RET')).toBe(enter)
+    expect(hostLayoutKeyByZmk('RETURN')).toBe(enter)
+    expect(hostLayoutKeyByXkb('SPCE')).toBe(space)
+    expect(hostLayoutKeyByXkb('RTRN')).toBe(enter)
+    for (const token of ['SPACE', 'SPC', 'ENTER', 'RET', 'RETURN']) {
+      expect(hostKeyByZmk(token)).toBeUndefined()
+    }
+    expect(hostKeyByXkb('SPCE')).toBeUndefined()
+    expect(hostKeyByXkb('RTRN')).toBeUndefined()
+    expect(HOST_LAYOUT_KEY_IDS).toHaveLength(55)
+    expect(new Set(HOST_LAYOUT_KEY_IDS.map(key => key.hid)).size).toBe(HOST_LAYOUT_KEY_IDS.length)
   })
 
   it('gives every row a unique hid, xkb name, evdev code, and vk', () => {

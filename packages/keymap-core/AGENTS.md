@@ -12,6 +12,10 @@ Firmware parse/splice/generate, binding catalogs, host layouts, composed legends
 
 Pure domain code shared by browser and API. Preserve untouched source text; fail closed on unsupported ambiguous edits. No concrete keyboards in product logic. Keep keycapFace as the sole face-packing contract. Keep host registry synchronous.
 
+`unicodeHostLayoutCompatibility` checks only the caller-selected English table's base keysyms for digits, A–F, U, Space and Return; it returns compatible/incompatible/unavailable with missing/remapped key diagnostics. It never selects a language, reads cached glyphs, repairs a table or proves active OS/firmware input behavior. Builtin registry tables materialize common Space/Enter defaults before explicit section overrides; imports, user tables and snapshots retain missing rows.
+
+`HOST_LAYOUT_KEY_IDS` and `hostLayoutKeyBy*` include table-only Space/Enter identities for core editing, XKB and snapshot round trips. Keep the existing `HOST_KEY_IDS`/`hostKeyBy*` inventory unchanged: browser edit eligibility and composition use it. Service rows have no `scan`; fixed KLC service output remains unchanged. Older snapshots and KLC imports without these rows cannot prove full compatibility; do not silently migrate them in the checker.
+
 `repository-keymap.ts` owns exact selected-path validation, deterministic legacy/scoped sidecar paths and host-reference compatibility. Never normalize an unsafe path into an allowed identity or resolve missing repository user tables through the browser-global registry. Adapters prove pinned-tree ownership and permissions before using these pure rules.
 
 JSON validation and primary-source detection retain `&reset` as an exact legacy import label, separate from the stock picker catalog, docs links, and role ordering. Preserve its token and opaque arguments; never rewrite it to `&sys_reset` or infer a schema. Other unknown labels still require the existing explicit source-import option or declared-model allowance.

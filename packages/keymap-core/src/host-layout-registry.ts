@@ -9,6 +9,7 @@ import { hostLanguage, type HostLanguageId } from './host-languages.js'
 import {
   cloneHostLayoutTable,
   freezeHostLayoutTable,
+  hostLayoutFromKeysyms,
   hostLayoutFromSymbols,
   type HostKeyLevels,
   type HostLayout
@@ -49,9 +50,18 @@ function metaFromSpec(spec: BuiltinHostLayoutSpec): HostLayoutMeta {
 function parseBuiltin(spec: BuiltinHostLayoutSpec): HostLayout {
   const cached = parsedBuiltins.get(spec.id)
   if (cached) return cached
-  const layout = freezeHostLayoutTable(
-    hostLayoutFromSymbols(spec.source, spec.section, spec.id, spec.files)
-  )
+  // Builtin language sections omit the common PC service keys. Materialize
+  // those defaults here only; explicit section mappings take precedence.
+  // Imported/user tables and snapshots must retain missing keys as missing.
+  const defaults = hostLayoutFromKeysyms(spec.id, [
+    ['SPACE', ['space', 'space']],
+    ['ENTER', ['Return', 'Return']]
+  ])
+  const parsed = hostLayoutFromSymbols(spec.source, spec.section, spec.id, spec.files)
+  const layout = freezeHostLayoutTable({
+    id: spec.id,
+    byZmk: new Map([...defaults.byZmk, ...parsed.byZmk])
+  })
   parsedBuiltins.set(spec.id, layout)
   return layout
 }

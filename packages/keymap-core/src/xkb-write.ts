@@ -1,10 +1,10 @@
 /**
  * Write one self-contained `xkb_symbols` section from a host layout.
- * Keys follow `HOST_KEY_IDS` order. Missing keys are omitted. Each key
+ * Keys follow `HOST_LAYOUT_KEY_IDS` order. Missing keys are omitted. Each key
  * has four keysym names; absent levels are `NoSymbol`.
  */
 
-import { HOST_KEY_IDS } from './host-key-id.js'
+import { HOST_LAYOUT_KEY_IDS } from './host-key-id.js'
 import type { HostLayout } from './host-layout.js'
 import { KEYSYM } from './xkb-symbols.js'
 
@@ -31,7 +31,7 @@ export function hostLayoutToXkbSection(
     `    name[Group1]= ${quoteXkb(options.name)};`,
     ''
   ]
-  for (const host of HOST_KEY_IDS) {
+  for (const host of HOST_LAYOUT_KEY_IDS) {
     const levels = layout.byZmk.get(host.zmk)
     if (!levels) continue
     const keysyms = levels.keysyms.map(keysymName).join(', ')

@@ -46,6 +46,19 @@ afterEach(() => {
 })
 
 describe('host layout registry', () => {
+  it('materializes Space and Enter defaults in the built-in US table', () => {
+    const us = hostLayout('system-us')!
+    expect(us.byZmk.get('SPACE')?.keysyms).toEqual(['space', 'space', 'NoSymbol', 'NoSymbol'])
+    expect(us.byZmk.get('ENTER')?.keysyms).toEqual(['Return', 'Return', 'NoSymbol', 'NoSymbol'])
+    expect(Object.isFrozen(us.byZmk.get('SPACE'))).toBe(true)
+    expect(Object.isFrozen(us.byZmk.get('ENTER'))).toBe(true)
+  })
+
+  it('retains explicit built-in service levels over common defaults', () => {
+    expect(hostLayout('system-de-e1')?.byZmk.get('SPACE')?.keysyms)
+      .toEqual(['space', 'space', 'nobreakspace', 'NoSymbol'])
+  })
+
   it('looks up builtins without treating them as registered', () => {
     expect(hostLayoutMeta(BUILTIN_RU)).toMatchObject({
       id: BUILTIN_RU,

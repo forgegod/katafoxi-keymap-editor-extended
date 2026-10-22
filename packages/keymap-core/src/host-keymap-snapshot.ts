@@ -4,7 +4,7 @@
  * @see docs/adr/0005-host-keymap-github-snapshot.md
  */
 
-import { hostKeyByZmk } from './host-key-id.js'
+import { hostLayoutKeyByZmk } from './host-key-id.js'
 import { isHostLanguageId, type HostLanguageId } from './host-languages.js'
 import type { HostKeyLevels, HostLayout } from './host-layout.js'
 import { cloneHostLegendView } from './host-legend-view.js'
@@ -160,7 +160,7 @@ function parseKeyRow(
   if (typeof row.zmk !== 'string' || !row.zmk) return null
   const keysyms = parseKeysyms(row.keysyms)
   if (!keysyms) return null
-  const host = hostKeyByZmk(row.zmk)
+  const host = hostLayoutKeyByZmk(row.zmk)
   if (!host) {
     warnings.push(`unknown_zmk:${row.zmk}`)
     return undefined
