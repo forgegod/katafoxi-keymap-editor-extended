@@ -1,6 +1,6 @@
 # CHG-014 — Restore the editor design language in definition dialogs
 
-**Status:** in-progress
+**Status:** done
 **External request:** Direct operator request: With the intruduction of the latest features (CHR) the design does not follow the overall design language. `<button>` is without any styling. Extract the design language from e.g. `<aside class="combo-panel svelte-1k8qld4" aria-label="Combos">` and define them as rules for future ai agents. Creaet CHR with the phased-plan-design skill to fix this design drifts in the implementation
 **Impacts:** CAP-001
 **Baseline:** `bb64d04119f8817b0cc0250178514af5b68ffd95` on main
@@ -50,7 +50,7 @@ Proposed new evidence seam: `e2e/editor-design-language.spec.ts` (does not exist
 | --- | --- | --- | --- |
 | 1 | Restore Macros dialog controls and reusable styling | done (`pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/macros.spec.ts e2e/definition-dialog-layout.spec.ts e2e/editor-design-language.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exit 0 @ 0bd09ac9660558aa6178f6fc4d7b8f71e0d50e38) | `pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/macros.spec.ts e2e/definition-dialog-layout.spec.ts e2e/editor-design-language.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect Macro runtime states and CAP-001 render |
 | 2 | Align all Behaviors dialog states with the same primitives | done (`pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/macros.spec.ts e2e/behaviors.spec.ts e2e/definition-dialog-layout.spec.ts e2e/editor-design-language.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exit 0 @ e213f8d15944f77ea4175752c36f8565faf206b2) | `pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/macros.spec.ts e2e/behaviors.spec.ts e2e/definition-dialog-layout.spec.ts e2e/editor-design-language.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect both dialogs and CAP-001 render |
-| 3 | Verify integrated design conformance and close the change | in-progress | `pnpm records:check && pnpm test && pnpm test:e2e && pnpm lint && pnpm build && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect final application matrix and CAP-001 render |
+| 3 | Verify integrated design conformance and close the change | done (`pnpm records:check && pnpm test && pnpm test:e2e && pnpm lint && pnpm build && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exit 0 @ 48dec61917df4cf73d8e73e5b9aa3e6aed21d926) | `pnpm records:check && pnpm test && pnpm test:e2e && pnpm lint && pnpm build && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect final application matrix and CAP-001 render |
 
 ## Phase 1 — Restore Macros dialog controls and reusable styling
 
@@ -86,7 +86,6 @@ Proposed new evidence seam: `e2e/editor-design-language.spec.ts` (does not exist
 
 ## Out of scope
 
-- Starting phase 3 as part of phase-2 closeout; phase 2 is complete and phase 3 remains pending.
 - Rewriting the application stack, installing a design framework or redesigning the palette/keycaps/Host paper surfaces.
 - A repository-wide raw-button ban, universal CSS reset, bulk migration of source pickers or an unsupported claim that every screen has been audited.
 - Changing Filesystem Grant write access semantics, recovery behavior, GitHub publication, domain serialization, source ownership or staged definition transactions.
