@@ -1,6 +1,6 @@
 # CHG-013 — Make Unicode input coexist safely with host layouts
 
-**Status:** in-progress
+**Status:** done
 **External request:** Direct operator request following maintainer feedback on [upstream PR #1](https://github.com/katafoxi/keymap-editor-extended/pull/1): keep `&uc` and host layouts available together, but make its English-layout runtime requirement explicit and verifiable from editor-managed host data.
 **Impacts:** CAP-001
 **Baseline:** `bb64d04119f8817b0cc0250178514af5b68ffd95`
@@ -9,7 +9,7 @@
 | --- | --- | --- | --- |
 | 1 | Establish a shared `&uc` host-layout compatibility contract | done (pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/keymap-core lint exit 0 @ 7c150bcf6265e5b8992152c4c51e6174fff5b409) | Focused keymap-core compatibility tests and lint exit 0 |
 | 2 | Expose the bounded compatibility state in the Unicode picker | done (pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/unicode-picker.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check exit 0 @ 9bfafecd6dc666dfb99ee036de5b72307a07db2d) | `pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/unicode-picker.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
-| 3 | Final integration and closure | in-progress | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e` exit 0; rendered CAP-001 schematic inspected |
+| 3 | Final integration and closure | done (pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e exit 0 @ 2873143fc60229d6bd6b7c0d626e0ea9ead4a73c) | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e` exit 0; rendered CAP-001 schematic inspected |
 
 ## Phase 1 — Establish a shared `&uc` host-layout compatibility contract
 

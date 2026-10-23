@@ -66,7 +66,6 @@ Use installed `application-records` and `phased-plan-*` skills when available. T
 
 | Change | Status |
 | --- | --- |
-| [CHG-013 — Unicode host-layout compatibility](active/CHG-013-unicode-host-layout-compatibility.md) | planned |
 | [CHG-014 — Restore editor design language](active/CHG-014-restore-editor-design-language.md) | planned |
 
 
@@ -88,6 +87,7 @@ Read the [bounded upstream assessment](upstream-gap-assessment.md) before creati
 | [CHG-010 — Publish/copy hardening follow-ups](archive/CHG-010-publish-copy-hardening-followups.md) | done |
 | [CHG-011 — Upstream named-layout validation and hold-tap dependency](archive/CHG-011-upstream-named-layout-and-holdtap-dependency.md) | done |
 | [CHG-012 — Align definition dialogs and prevent KeyEditor clipping](archive/CHG-012-align-definition-dialogs-and-prevent-key-editor-clipping.md) | done |
+| [CHG-013 — Unicode host-layout compatibility](archive/CHG-013-unicode-host-layout-compatibility.md) | done |
 
 ## Review packages
 
