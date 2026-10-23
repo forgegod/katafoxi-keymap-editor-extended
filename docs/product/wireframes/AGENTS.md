@@ -18,7 +18,7 @@ Read parent product and change contracts. Edit the generator, not generated HTML
 
 Follow [the editor design language](../../ui-design-language.md) for hierarchy, typography, semantic color and compact control treatment. The app supports light and dark themes; schematic visual consistency does not replace runtime computed-style and interaction evidence in both themes.
 
-CAP-001's Macro studies extract their semantic color roles from `apps/web/src/app.css` during generation and follow `prefers-color-scheme` in standalone HTML. The canonical PNG uses the renderer's dark manifest viewport. Inspect the Macro studies separately in both themes and at desktop/narrow widths; other legacy schematic sections are not an all-surface theme-conformance claim.
+CAP-001's Macro and Behavior studies share the generator's existing control/group styles, extract their semantic color roles from `apps/web/src/app.css` during generation and follow `prefers-color-scheme` in standalone HTML. The canonical PNG uses the renderer's dark manifest viewport. Inspect these studies separately in both themes and at desktop/narrow widths; other legacy schematic sections are not an all-surface theme-conformance claim.
 
 ## Verification
 

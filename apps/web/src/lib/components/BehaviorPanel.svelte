@@ -6,6 +6,7 @@
   import Button from './Common/Button.svelte'
   import Modal from './Common/Modal.svelte'
   import './MacroPanel.css'
+  import './DefinitionDialog.css'
 
   let open = $state(false)
   let draft = $state<ZmkBehaviorDefinition | null>(null)
@@ -129,17 +130,20 @@
 <Button onclick={() => open = true}>Behaviors</Button>
 {#if open}
   <Modal ariaLabel="Behaviors" onBackdrop={() => { cancel(); open = false }}>
-    <section class="macro-panel">
+    <section class="macro-panel definition-dialog">
       <h2>Behaviors</h2>
       {#if sourceReadOnly}<p aria-label="Behavior authoring availability">Read-only: {sourceReadOnly}</p>{/if}
       <p>Global definition: changes affect every reference. Invocation arguments stay per key, combo or encoder.</p>
       {#if preview}
         <p aria-label="Binding replacement">{replacement || 'Review the source before applying the global definition.'}</p>
         <pre aria-label="Behavior source preview">{preview.code}</pre>
-        <button onclick={confirm}>Apply changes</button>
-        <button onclick={cancel}>Cancel</button>
+        <div class="definition-actions">
+          <Button variant="accent" onclick={confirm}>Apply changes</Button>
+          <Button onclick={cancel}>Cancel</Button>
+        </div>
       {:else if using}
         <h3>Use {using.code}</h3>
+        <div class="definition-group">
         <label>Destination <select aria-label="Behavior destination" value={destination} onchange={event => destination = event.currentTarget.value}>{#if using.cellProperty === '#sensor-binding-cells'}<option value="sensor">Existing encoder</option>{:else}<option value="key">Key</option><option value="combo" disabled={!editor.draftKeymap?.combos?.length}>Existing combo</option>{/if}</select></label>
         {#if destination === 'combo'}
           <label>Combo <select aria-label="Behavior target combo" value={comboId} onchange={event => comboId = event.currentTarget.value}>{#each editor.draftKeymap?.combos ?? [] as combo}<option value={combo.id}>{combo.id} · {encodeKeyBinding(combo.binding)}</option>{/each}</select></label>
@@ -153,43 +157,60 @@
           {/if}
         {/if}
         {#each args as arg, index}<label>Argument {index + 1} · {domains[index] ?? 'unproven'} <input aria-label={`Behavior argument ${index + 1}`} value={arg} oninput={event => args[index] = event.currentTarget.value} /></label>{/each}
-        <button onclick={prepareBinding}>Preview binding</button>
-        <button onclick={cancel}>Cancel</button>
+        </div>
+        <div class="definition-actions">
+          <Button onclick={prepareBinding}>Preview binding</Button>
+          <Button onclick={cancel}>Cancel</Button>
+        </div>
       {:else if draft}
+        <div class="definition-group">
         <label>Behavior label <input aria-label="Behavior label" value={draft.label} oninput={event => { if (draft) draft.label = event.currentTarget.value }} /></label>
         <label>Behavior type <select aria-label="Behavior type" value={draft.compatible} disabled={editingCode !== null} onchange={event => changeType(event.currentTarget.value)}>{#each Object.keys(BEHAVIOR_DEFINITION_SCHEMAS) as compatible}<option value={compatible}>{compatible.replace('zmk,behavior-', '')}</option>{/each}</select></label>
         <p>Node: {editingCode ? draft.nodeName : draft.label} · {draft.cellProperty}: {draft.arity}. Existing type, node name and cell count stay fixed.</p>
+        </div>
         {#if schema?.bare}<p>Bare child references forward invocation arguments; do not add argument cells here. Sticky-layer uses sticky-key with a layer child such as &amp;mo.</p>{:else}<p>Child bindings are complete invocations, including required arguments.</p>{/if}
         {#each draft.bindings as binding, index}
+          <div class="definition-group">
           <label>Child {index + 1} binding <input aria-label={`Child ${index + 1} binding`} value={binding} oninput={event => { if (draft) draft.bindings[index] = event.currentTarget.value }} /></label>
           {#if schema?.count === 0}
-            <button aria-label={`Move child ${index + 1} up`} disabled={index === 0} onclick={() => moveChild(index, -1)}>Up</button>
-            <button aria-label={`Move child ${index + 1} down`} disabled={index === draft.bindings.length - 1} onclick={() => moveChild(index, 1)}>Down</button>
-            <button aria-label={`Remove child ${index + 1}`} disabled={draft.bindings.length === 1} onclick={() => { if (draft) draft.bindings = draft.bindings.filter((_, i) => i !== index) }}>Remove</button>
+            <div class="definition-actions">
+              <Button aria-label={`Move child ${index + 1} up`} disabled={index === 0} onclick={() => moveChild(index, -1)}>Up</Button>
+              <Button aria-label={`Move child ${index + 1} down`} disabled={index === draft.bindings.length - 1} onclick={() => moveChild(index, 1)}>Down</Button>
+              <Button variant="danger" aria-label={`Remove child ${index + 1}`} disabled={draft.bindings.length === 1} onclick={() => { if (draft) draft.bindings = draft.bindings.filter((_, i) => i !== index) }}>Remove</Button>
+            </div>
           {/if}
+          </div>
         {/each}
-        {#if schema?.count === 0}<button onclick={() => draft?.bindings.push('&kp A')}>Add child</button>{/if}
+        {#if schema?.count === 0}<div class="definition-actions"><Button onclick={() => draft?.bindings.push('&kp A')}>Add child</Button></div>{/if}
+        <div class="definition-group">
         {#each Object.entries(schema?.properties ?? {}) as [name, kind]}
           {#if kind === 'flag'}
-            <label><input type="checkbox" aria-label={name} checked={values[name] === 'true'} onchange={event => values[name] = event.currentTarget.checked ? 'true' : ''} /> {name}</label>
+            <label class="definition-check"><input type="checkbox" aria-label={name} checked={values[name] === 'true'} onchange={event => values[name] = event.currentTarget.checked ? 'true' : ''} /> {name}</label>
           {:else if kind === 'flavor'}
             <label>{name} <select aria-label={name} value={values[name] ?? ''} onchange={event => values[name] = event.currentTarget.value}><option value="">Absent (firmware default)</option>{#each HOLD_TAP_FLAVORS as flavor}<option value={flavor.id}>{flavor.id}</option>{/each}</select></label>
           {:else}
             <label>{name} {schema?.required?.includes(name) ? '(required)' : '(optional)'} <input aria-label={name} inputmode="numeric" value={values[name] ?? ''} oninput={event => values[name] = event.currentTarget.value} placeholder="Decimal uint32; blank leaves absent" /></label>
           {/if}
         {/each}
-        <button onclick={prepare}>Preview changes</button>
-        <button onclick={cancel}>Cancel</button>
+        </div>
+        <div class="definition-actions">
+          <Button onclick={prepare}>Preview changes</Button>
+          <Button onclick={cancel}>Cancel</Button>
+        </div>
       {:else}
-        {#each editor.draftKeymap?.behaviorDefinitions ?? [] as definition}<p>{definition.code} · {definition.compatible}
-          <button aria-label={`Edit ${definition.code}`} disabled={!!sourceReadOnly || !definition.editable} onclick={() => start(definition)}>Edit</button>
-          <button aria-label={`Use ${definition.code}`} disabled={!!sourceReadOnly || !definition.editable} onclick={() => use(definition)}>Use</button>
-          <button aria-label={`Delete ${definition.code}`} disabled={!!sourceReadOnly} onclick={() => remove(definition)}>Delete</button>
-        </p>
+        {#each editor.draftKeymap?.behaviorDefinitions ?? [] as definition}<div class="definition-group">
+          <p><code>{definition.code}</code> · {definition.compatible}</p>
+          <div class="definition-actions">
+            <Button aria-label={`Edit ${definition.code}`} disabled={!!sourceReadOnly || !definition.editable} onclick={() => start(definition)}>Edit</Button>
+            <Button aria-label={`Use ${definition.code}`} disabled={!!sourceReadOnly || !definition.editable} onclick={() => use(definition)}>Use</Button>
+            <Button variant="danger" aria-label={`Delete ${definition.code}`} disabled={!!sourceReadOnly} onclick={() => remove(definition)}>Delete</Button>
+          </div>
         {#if !definition.editable}<p aria-label={`Behavior diagnostics ${definition.code}`}>Read-only: {definition.diagnostics.join('; ')}. Review unsupported source externally and reload; it is preserved, never converted to a supported schema.</p>{/if}
-        {/each}
-        <button disabled={!!sourceReadOnly} onclick={() => start()}>New behavior</button>
-        <button onclick={() => open = false}>Close</button>
+        </div>{/each}
+        <div class="definition-actions">
+          <Button disabled={!!sourceReadOnly} onclick={() => start()}>New behavior</Button>
+          <Button onclick={() => open = false}>Close</Button>
+        </div>
       {/if}
       {#if error}<p role="alert">{error}</p>{/if}
     </section>

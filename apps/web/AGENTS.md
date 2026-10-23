@@ -10,7 +10,7 @@ Svelte components, reactive editor state, source pickers, draft/host storage, an
 
 `src/lib/components/MacroPanel.svelte` and `BehaviorPanel.svelte` own staged macro and named-behavior interaction; `src/lib/macro-editor.ts` owns their shared captured preview/apply transactions. Core owns definition schemas, semantics, references and the shared writer.
 
-`src/lib/components/DefinitionDialog.css` owns opt-in `.definition-dialog`, `.definition-group`, `.definition-check` and `.definition-actions` presentation. Macros adopts it with Common/Button actions; Behavior contents keep their legacy styling until separately migrated. `MacroPanel.css` retains shared viewport/scroll containment. Keep these sidecars split and ordinary button variants/sizing in Common/Button.
+`src/lib/components/DefinitionDialog.css` owns opt-in `.definition-dialog`, `.definition-group`, `.definition-check` and `.definition-actions` presentation. Macros and Behaviors adopt it with Common/Button actions. `MacroPanel.css` retains shared viewport/scroll containment. Keep these sidecars split and ordinary button variants/sizing in Common/Button.
 
 ## Local Contracts
 
@@ -82,7 +82,7 @@ Demo remains source-free after layer operations even when history retains genera
 
 From repository root: pnpm --filter @keymap-editor/web test; pnpm --filter @keymap-editor/web lint. Use Node 24 LTS for verification; Node 26 currently causes happy-dom storage failures.
 
-`pnpm exec playwright test e2e/editor-design-language.spec.ts` checks bounded Macro control styles, keyboard/disabled states and wrapping in light/dark at desktop/narrow viewports; it does not certify Behavior content conformance.
+`pnpm exec playwright test e2e/editor-design-language.spec.ts` checks bounded Macro/Behavior control styles, keyboard/disabled states and wrapping in light/dark at 1280×720 and 360×640. Behavior examples cover ordered tap-dance, hold-tap flavor, sticky-key flags/typed invocation, mod-morph required fields, sensor-rotate, opaque diagnostics and source restrictions; this is not exhaustive schema certification.
 
 ## Child DOX Index
 
