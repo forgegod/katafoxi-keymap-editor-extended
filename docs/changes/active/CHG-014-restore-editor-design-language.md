@@ -49,7 +49,7 @@ Proposed new evidence seam: `e2e/editor-design-language.spec.ts` (does not exist
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
 | 1 | Restore Macros dialog controls and reusable styling | done (`pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/macros.spec.ts e2e/definition-dialog-layout.spec.ts e2e/editor-design-language.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exit 0 @ 0bd09ac9660558aa6178f6fc4d7b8f71e0d50e38) | `pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/macros.spec.ts e2e/definition-dialog-layout.spec.ts e2e/editor-design-language.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect Macro runtime states and CAP-001 render |
-| 2 | Align all Behaviors dialog states with the same primitives | in-progress | `pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/macros.spec.ts e2e/behaviors.spec.ts e2e/definition-dialog-layout.spec.ts e2e/editor-design-language.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect both dialogs and CAP-001 render |
+| 2 | Align all Behaviors dialog states with the same primitives | done (`pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/macros.spec.ts e2e/behaviors.spec.ts e2e/definition-dialog-layout.spec.ts e2e/editor-design-language.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exit 0 @ e213f8d15944f77ea4175752c36f8565faf206b2) | `pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/macros.spec.ts e2e/behaviors.spec.ts e2e/definition-dialog-layout.spec.ts e2e/editor-design-language.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect both dialogs and CAP-001 render |
 | 3 | Verify integrated design conformance and close the change | pending | `pnpm records:check && pnpm test && pnpm test:e2e && pnpm lint && pnpm build && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect final application matrix and CAP-001 render |
 
 ## Phase 1 — Restore Macros dialog controls and reusable styling
@@ -86,7 +86,7 @@ Proposed new evidence seam: `e2e/editor-design-language.spec.ts` (does not exist
 
 ## Out of scope
 
-- Starting phases 2 or 3 as part of this record-consistency repair; phase 1 is complete and phases 2–3 remain pending.
+- Starting phase 3 as part of phase-2 closeout; phase 2 is complete and phase 3 remains pending.
 - Rewriting the application stack, installing a design framework or redesigning the palette/keycaps/Host paper surfaces.
 - A repository-wide raw-button ban, universal CSS reset, bulk migration of source pickers or an unsupported claim that every screen has been audited.
 - Changing Filesystem Grant write access semantics, recovery behavior, GitHub publication, domain serialization, source ownership or staged definition transactions.
