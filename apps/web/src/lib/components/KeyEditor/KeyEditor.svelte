@@ -27,6 +27,7 @@
     sortBehaviorsByRole,
     parseKeyBinding,
     type KeyBindingNode,
+    type UnicodeHostLayoutCompatibility,
     type CatalogChoice
   } from '@keymap-editor/keymap-core'
   import {
@@ -70,6 +71,7 @@
 
   interface Props {
     bindingLabel: string
+    unicodeCompatibility?: UnicodeHostLayoutCompatibility
     behaviours: Choice[]
     editorSlots: EditorSlot[]
     activeCodeIndex: number
@@ -92,6 +94,7 @@
 
   let {
     bindingLabel,
+    unicodeCompatibility,
     behaviours,
     editorSlots,
     activeCodeIndex,
@@ -607,6 +610,7 @@
       {#if unicodeEdit}
         <UnicodePicker
           value={parseKeyBinding(bindingLabel)}
+          compatibility={unicodeCompatibility}
           onChange={binding => {
             unicodeReady = binding != null
             if (binding) onSelectBehaviour({ code: '&uc', unicodeBinding: binding })

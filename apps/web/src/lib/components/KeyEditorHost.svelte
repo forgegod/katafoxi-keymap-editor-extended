@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { CatalogChoice, HsbColor } from '@keymap-editor/keymap-core'
+  import { hostLayout, unicodeHostLayoutCompatibility } from '@keymap-editor/keymap-core'
   import { editor } from '../editor.svelte.js'
   import type { EditorSlot } from '../key-editor'
   import Modal from './Common/Modal.svelte'
@@ -51,6 +52,10 @@
   }: Props = $props()
 
   const encoderEdit = $derived(variant === 'encoder')
+  const unicodeCompatibility = $derived.by(() => {
+    void editor.hostLayoutRevision
+    return unicodeHostLayoutCompatibility(hostLayout(editor.activeProfileId('en')))
+  })
 
   function applyStaged(staged?: KeyEditorConfirmStaged | null) {
     if (staged?.holdTaps?.length) editor.armHoldTapsForNextUpdate(staged.holdTaps)
@@ -63,6 +68,7 @@
   <Modal onBackdrop={onCancel} ariaLabel={encoderEdit ? 'Edit encoder' : 'Edit key'}>
     <KeyEditor
       {bindingLabel}
+      {unicodeCompatibility}
       {behaviours}
       {editorSlots}
       {activeCodeIndex}

@@ -2,6 +2,11 @@ import {
   encodeKeyBinding,
   parseKeyBinding,
   addHostLanguage,
+  assignHostLanguageLayout,
+  hostLayout,
+  registerHostLayout,
+  unregisterHostLayout,
+  withHostKey,
   toggleHostLanguage,
   type HostLegendView,
   type KeyBindingNode
@@ -96,6 +101,8 @@ describe('Key click editor', () => {
     target?.remove()
     editor.resetForTests()
     resetLegendDecodeActive()
+    unregisterHostLayout('user:unicode-en')
+    unregisterHostLayout('user:unicode-national')
   })
 
   function open(
@@ -126,6 +133,108 @@ describe('Key click editor', () => {
     flushSync()
     return onUpdate
   }
+
+  it('propagates the selected English compatibility into the Unicode picker', () => {
+    const binding = parseKeyBinding('&uc UC_DE_AE')
+    const onUpdate = open({ value: String(binding.value), params: binding.params })
+    clickKey()
+    const status = editorDialog()?.querySelector('[role="status"][aria-label="Unicode host-layout compatibility"]')
+    expect(status?.textContent).toContain('Compatible English layout')
+    expect(status?.textContent).toContain('editor-selected English profile')
+    clickApply()
+    expect(encodedUpdate(onUpdate)).toBe('&uc UC_DE_AE')
+  })
+
+  it('refreshes only the selected English table, independent of national visibility and cached glyphs', () => {
+    const us = hostLayout('system-us')!
+    const changed = withHostKey(us, 'N1', 0, 'exclam')!
+    const english = { id: 'user:unicode-en', language: 'en', name: 'English test', flag: '', origin: 'user' } as const
+    const national = { id: 'user:unicode-national', language: 'de', name: 'National test', flag: '', origin: 'user' } as const
+    registerHostLayout(english, { ...us, id: english.id })
+    registerHostLayout(national, { ...changed, id: national.id })
+    editor.hostLegend = toggleHostLanguage(assignHostLanguageLayout(
+      assignHostLanguageLayout(addHostLanguage(editor.hostLegend, 'de'), 'de', national.id),
+      'en', english.id
+    ), 'en')
+    const before = JSON.stringify(editor.hostLegend)
+    const binding = parseKeyBinding('&uc UC_DE_AE')
+    const onUpdate = open({ value: String(binding.value), params: binding.params })
+    clickKey()
+    const status = () => editorDialog()?.querySelector('[aria-label="Unicode host-layout compatibility"]')?.textContent
+    expect(status()).toContain('Compatible English layout')
+
+    // Registry replacement under the same ID must invalidate the check. A
+    // compatible national table and stale US glyphs cannot mask the base edit.
+    registerHostLayout(national, { ...us, id: national.id })
+    const byZmk = new Map(changed.byZmk)
+    byZmk.set('N1', { ...byZmk.get('N1')!, glyphs: us.byZmk.get('N1')!.glyphs })
+    registerHostLayout(english, { ...changed, id: english.id, byZmk })
+    editor.hostLayoutRevision += 1
+    flushSync()
+    expect(status()).toContain('Incompatible English layout')
+    expect(status()).toContain('N1: remapped; expected 1; found exclam')
+    expect(onUpdate).not.toHaveBeenCalled()
+    expect(JSON.stringify(editor.hostLegend)).toBe(before)
+    editor.hostLegend = assignHostLanguageLayout(editor.hostLegend, 'en', 'system-us')
+    flushSync()
+    expect(status()).toContain('Compatible English layout')
+    editor.hostLegend = assignHostLanguageLayout(editor.hostLegend, 'en', english.id)
+    flushSync()
+    expect(status()).toContain('Incompatible English layout')
+    clickApply()
+    expect(encodedUpdate(onUpdate)).toBe('&uc UC_DE_AE')
+    expect(hostLayout(english.id)?.byZmk.get('N1')?.keysyms[0]).toBe('exclam')
+    expect(hostLayout(national.id)?.byZmk.get('N1')?.keysyms[0]).toBe('1')
+  })
+
+  it.each(['missing English column', 'missing English table'])('keeps %s unavailable rather than using a national or default table', reason => {
+    editor.hostLegend = addHostLanguage(editor.hostLegend, 'de')
+    if (reason === 'missing English column') {
+      editor.hostLegend = { ...editor.hostLegend, columns: editor.hostLegend.columns.filter(column => column.language !== 'en') }
+    } else {
+      editor.hostLegend = { ...editor.hostLegend, columns: editor.hostLegend.columns.map(column => column.language === 'en' ? { ...column, layoutId: 'user:unicode-missing' } : column) }
+    }
+    const before = JSON.stringify(editor.hostLegend)
+    const binding = parseKeyBinding('&uc UC_EXTERNAL_NAME')
+    const onUpdate = open({ value: String(binding.value), params: binding.params })
+    clickKey()
+    expect(editorDialog()?.querySelector('[role="status"][aria-label="Unicode host-layout compatibility"]')?.textContent).toContain('English layout unavailable')
+    clickApply()
+    expect(encodedUpdate(onUpdate)).toBe('&uc UC_EXTERNAL_NAME')
+    expect(JSON.stringify(editor.hostLegend)).toBe(before)
+  })
+
+  it.each(['incompatible', 'unavailable'])('keeps editing, Apply and Cancel usable with an %s English layout', state => {
+    const english = { id: 'user:unicode-en', language: 'en', name: 'English test', flag: '', origin: 'user' } as const
+    registerHostLayout(english, { ...withHostKey(hostLayout('system-us')!, 'A', 0, 'q')!, id: english.id })
+    editor.hostLegend = assignHostLanguageLayout(editor.hostLegend, 'en', english.id)
+    if (state === 'unavailable') unregisterHostLayout(english.id)
+    const before = JSON.stringify(editor.hostLegend)
+    const binding = parseKeyBinding('&uc UC_DE_AE')
+    const onUpdate = open({ value: String(binding.value), params: binding.params })
+    clickKey()
+    const editNormal = (value: string) => {
+      const field = editorDialog()!.querySelector<HTMLInputElement>('[aria-label="Normal Unicode character or code point"]')!
+      field.value = value
+      field.dispatchEvent(new Event('input', { bubbles: true }))
+      flushSync()
+    }
+    expect(editorDialog()?.textContent).toContain('Warning only')
+    editNormal('€')
+    editorDialog()!.querySelector<HTMLButtonElement>('[aria-label="Cancel"]')!.click()
+    flushSync()
+    expect(onUpdate).not.toHaveBeenCalled()
+    clickKey()
+    expect(editorDialog()?.querySelector<HTMLInputElement>('[aria-label="Normal Unicode character or code point"]')?.value).toBe('U+00E4')
+    editNormal('U+D800')
+    expect(editorDialog()?.querySelector<HTMLButtonElement>('.key-editor-ok')?.disabled).toBe(true)
+    editNormal('€')
+    expect(editorDialog()?.querySelector<HTMLButtonElement>('.key-editor-ok')?.disabled).toBe(false)
+    clickApply()
+    expect(encodedUpdate(onUpdate)).toBe('&uc 0x20AC 0xC4')
+    expect(JSON.stringify(editor.hostLegend)).toBe(before)
+    expect(encodeKeyBinding(binding)).toBe('&uc UC_DE_AE')
+  })
 
   it('washes an unpublished layer row and names the previous binding', () => {
     open()

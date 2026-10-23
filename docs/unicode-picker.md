@@ -20,7 +20,36 @@ host-layout glyph editing. It edits the firmware binding, not the host keymap.
   Apply. Unknown external expressions are kept opaque until explicitly replaced.
 - Apply commits the staged key edit. Cancel leaves the original binding alone.
 
-![Unicode picker](screenshots/unicode-picker.png)
+Current compatibility states are illustrated in the canonical
+[CAP-001 HTML](product/wireframes/html/CAP-001-firmware-keymap-editing.html) and
+[PNG](product/wireframes/exports/CAP-001-firmware-keymap-editing.png).
+
+## English-layout compatibility
+
+The picker shows a named, polite status region for the editor-selected English
+profile. KeyEditorHost computes the shared core result from that profile's table
+and passes it through KeyEditor to UnicodePicker. It refreshes when the selected
+profile or registered table changes, even when the English column is hidden.
+It does not substitute a national layout, another English profile, or cached
+display glyphs.
+
+- Compatible English layout: the table preserves the required unshifted outputs
+  for digits, A–F, U, Space and Enter.
+- Incompatible English layout: the picker lists the core's missing/remapped
+  service keys, expected keysyms and actual keysyms (or no mapping).
+- English layout unavailable: the English column or its table is absent; no
+  compatibility conclusion is possible.
+
+Incompatible and unavailable are warnings, not editing restrictions. Valid
+Unicode input still permits Apply, invalid scalars still block Apply, and Cancel
+retains the original binding. No-op Apply preserves aliases and opaque tokens.
+The check neither repairs mappings nor changes host profiles or firmware bindings.
+
+`&uc` requires a compatible English layout to be active in the OS while used.
+A national layout may remain installed. The editor cannot detect, select, or
+modify the OS active layout. A compatible result concerns only editor-managed
+base outputs; it does not validate module installation, mode-specific shortcuts,
+host input software, or physical firmware output.
 
 ## Input-mode switches
 
@@ -38,8 +67,11 @@ Follow the complete [module setup instructions](https://github.com/urob/zmk-unic
    the module revision to the ZMK release (for example `v0.3`).
 2. Configure the host's input system: WinCompose on Windows, Unicode Hex Input
    on macOS, IBus/GTK Unicode input on Linux, or the documented alternative.
-3. Use a US host keyboard layout; upstream does not support alternative layouts
-   for the emitted Unicode input sequence.
+3. Keep a compatible English layout active while using `&uc`. Standard US passes
+   the editor's bounded service-key check. Other layouts are not certified by
+   this check; upstream's setup instructions remain authoritative. A national
+   layout may stay installed, but must not be assumed to accept the emitted
+   Unicode input sequence.
 
 When `&uc` is used, the shared save builder ensures
 `#include <behaviors/unicode.dtsi>` is present on splice, template, and default
@@ -67,12 +99,22 @@ The application makes no network request for these tables at runtime.
 - `packages/keymap-core/src/unicode.test.ts`: scalar validation, aliases,
   six mode switches, opaque expressions, and source/header preservation.
 - `apps/web/src/lib/components/KeyEditor/UnicodePicker.test.ts`: field input,
-  invalid scalar rejection, alias selection, mode switches, opaque expressions.
+  invalid scalar rejection, alias selection, mode switches, opaque expressions,
+  accessible warning states and immutable core diagnostics.
+- `apps/web/src/lib/components/Keyboard/Keys/Key.test.ts`: selected-English result
+  propagation through KeyEditorHost and KeyEditor, hidden English/national
+  independence, table-revision refresh, missing column/table, warning-only
+  Apply/Cancel, and unchanged alias/opaque bindings.
+- `packages/keymap-core/src/unicode-host-layout.test.ts`: base-output contract,
+  missing/remapped keys, non-base edits and snapshot/import boundaries.
 - `apps/web/src/lib/components/KeyEditor/KeyEditor.test.ts`: Apply gating.
 - `apps/web/src/lib/key-edit-session.test.ts`: complete binding assignment and
   no-op macro preservation.
 - `e2e/unicode-picker.spec.ts`: browser editing, Copy .keymap, include insertion,
-  input-mode binding, and Cancel.
+  input-mode binding, and Cancel; visible compatibility states with synthetic
+  editor-managed tables, token-based status styling in light/dark themes at
+  1280×720 and 360×640, keyboard focus and Escape. No OS-state or firmware-runtime
+  claims follow from these fixtures.
 
 Firmware compilation and physical host input are not tested by the browser
 suite; successful editor checks do not prove module installation or OS setup.

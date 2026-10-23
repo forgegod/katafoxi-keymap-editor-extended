@@ -30,6 +30,8 @@ Hydration preserves imported arguments beyond catalog arity and keeps undeclared
 
 KeyEditor previews use the session's full encoded draft once a behavior selection is synchronized. Editable slots omit opaque/excess arguments and must not replace that source-preserving preview.
 
+KeyEditorHost computes Unicode compatibility only from the editor-selected English profile/table, tracking hostLayoutRevision, and passes the core result through KeyEditor to UnicodePicker without mutation. Keep all three accessible states advisory: no national/default fallback, mapping repair, OS-layout detection/switching or compatibility-based Apply block. Preserve scalar validation and staged Cancel/no-op/source contracts.
+
 ## Work Guidance
 
 For every UI change, follow [the editor design language](../../docs/ui-design-language.md): use the shared theme/type roles and ordinary Button primitive, take compact panel hierarchy from Combos, and style internal controls across all affected states rather than only the launcher. Preserve semantic variants and verify computed styles, focus/disabled states and wrapping in both themes with real browser evidence.

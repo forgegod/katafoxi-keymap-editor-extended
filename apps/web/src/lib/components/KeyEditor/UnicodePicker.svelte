@@ -4,11 +4,12 @@
     UNICODE_ALIASES, UNICODE_MODES, UNICODE_DOCS_URL,
     unicodeAliasBinding, unicodeBinding, unicodeBindingState,
     unicodeCodePoint, unicodeCodePointLabel, unicodeGlyph, unicodeModeBinding,
-    type KeyBindingNode
+    type KeyBindingNode, type UnicodeHostLayoutCompatibility
   } from '@keymap-editor/keymap-core'
 
-  let { value, onChange }: {
+  let { value, compatibility, onChange }: {
     value: KeyBindingNode
+    compatibility?: UnicodeHostLayoutCompatibility
     onChange: (binding: KeyBindingNode | null) => void
   } = $props()
   const original = untrack(() => value)
@@ -70,7 +71,27 @@
     <button type="button" aria-pressed={kind === 'character'} data-unicode-kind="character" onclick={() => chooseKind('character')}>Character</button>
     <button type="button" aria-pressed={kind === 'mode'} data-unicode-kind="mode" onclick={() => chooseKind('mode')}>Input mode switch</button>
   </div>
-  <p class="unicode-note">Requires urob/zmk-unicode in west.yml and host input setup with a US keyboard layout. Save adds the module header; it does not install the module or configure your OS. <a href={UNICODE_DOCS_URL} target="_blank" rel="noopener noreferrer">Setup instructions</a></p>
+  <div class="unicode-compatibility" class:unicode-warning={compatibility?.status !== 'compatible'} role="status" aria-label="Unicode host-layout compatibility" aria-atomic="true">
+    {#if compatibility?.status === 'compatible'}
+      <strong>Compatible English layout</strong>
+      <p>The editor-selected English profile preserves the required unshifted service keys.</p>
+    {:else if compatibility?.status === 'incompatible'}
+      <strong>Incompatible English layout</strong>
+      <p>The editor-selected English profile has missing or remapped service keys.</p>
+      <ul>
+        {#each compatibility.issues as issue}
+          <li><code>{issue.zmk}</code>: {issue.reason}; expected <code>{issue.expectedKeysym}</code>; found <code>{issue.actualKeysym || 'no mapping'}</code>.</li>
+        {/each}
+      </ul>
+      <p>Warning only: Unicode editing and Apply remain available. No host mappings or firmware bindings are repaired.</p>
+    {:else}
+      <strong>English layout unavailable</strong>
+      <p>The editor-selected English profile has no available table to check.</p>
+      <p>Warning only: Unicode editing and Apply remain available. No fallback to another layout.</p>
+    {/if}
+  </div>
+  <p class="unicode-note">&amp;uc requires a compatible English layout to be active in the OS while used. A national layout may remain installed. The editor cannot detect, select, or modify the OS active layout.</p>
+  <p class="unicode-note">Requires urob/zmk-unicode in west.yml and host input setup. Save adds the module header; it does not install the module or configure your OS. <a href={UNICODE_DOCS_URL} target="_blank" rel="noopener noreferrer">Setup instructions</a></p>
   {#if opaque}
     <p class="unicode-note">This external expression is kept unchanged. Enter code points or pick an alias to replace it.</p>
   {/if}
@@ -118,6 +139,10 @@
 
 <style>
   .unicode-picker { display: grid; gap: 0.7rem; }
+  .unicode-compatibility { display: grid; gap: 6px; min-width: 0; padding: 7px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-sunken); color: var(--text); font-size: var(--font-sm); overflow-wrap: anywhere; }
+  .unicode-compatibility p, .unicode-compatibility ul { margin: 0; }
+  .unicode-compatibility ul { padding-left: 1.4em; }
+  .unicode-warning { color: var(--warn-ink); background: var(--warn-wash); border-color: var(--warn-border); }
   .unicode-tabs, .unicode-fields { display: flex; gap: 0.7rem; flex-wrap: wrap; }
   label { display: grid; gap: 0.3rem; flex: 1; min-width: 10rem; }
   input, select, button { font: inherit; color: inherit; background: var(--fill-subtle); border: 1px solid var(--border); border-radius: 0.4rem; padding: 0.4rem 0.6rem; }

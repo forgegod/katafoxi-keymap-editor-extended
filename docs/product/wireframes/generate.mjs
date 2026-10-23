@@ -42,11 +42,21 @@ const hostEditViewport = () => `<div class="viewport-study host-viewport" aria-l
 <section class="host-catalog" aria-label="Host symbol catalog"><div class="catalog-chrome"><strong>Symbols</strong><span>⠿</span></div><div class="catalog-body">${chips(['Clear'])}<p>Tab next level · Shift+Tab previous</p><h3>Letters · expanded</h3>${chips(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'])}<h3>Symbols · excerpt</h3>${chips(['€', '£', '$', '©', '®', '°'])}<h3>Modifiers · excerpt</h3>${chips(['Shift_L', 'Control_L', 'NoSymbol'])}</div></section>
 </div>`
 
+const unicodePicker = () => `<section aria-label="Unicode picker compatibility examples">
+<h2>Unicode picker · editor-managed English compatibility</h2>
+<div class="columns"><div>
+${card('Edit key · &uc · compatible example', `<div class="binding">&amp;uc UC_DE_AE</div>${chips(['Character', 'Input mode switch'])}<div role="status" aria-label="Unicode host-layout compatibility"><strong>Compatible English layout</strong><p>The editor-selected English profile preserves the required unshifted service keys.</p></div><p>&amp;uc requires a compatible English layout to be active in the OS while used. A national layout may remain installed. The editor cannot detect, select, or modify the OS active layout.</p><div class="field">Normal · U+00E4<br>With Shift · U+00C4<br>Normal: ä · Shift: Ä</div>${chips(['Common aliases · UC_DE_AE', 'Group · All aliases'])}<div class="actions">${chip('Cancel')}${chip('Apply', true)}</div><p>Requires module installation and host input setup. Save adds the module header; it does not install or configure either.</p>`)}
+</div><div>
+${card('Incompatible English layout · separate warning state', `<div class="notice" role="status" aria-label="Unicode host-layout compatibility"><strong>Incompatible English layout</strong><p>The editor-selected English profile has missing or remapped service keys.</p><ul><li>N1: remapped; expected 1; found exclam.</li><li>ENTER: missing; expected Return; found no mapping.</li></ul></div><p>Warning only: Unicode editing and Apply remain available. No host mappings or firmware bindings are repaired.</p>${chips(['Cancel', 'Apply'])}`)}
+${card('English layout unavailable · separate warning state', `<div class="notice" role="status" aria-label="Unicode host-layout compatibility"><strong>English layout unavailable</strong><p>The editor-selected English profile has no available table to check.</p></div><p>No fallback to a national layout or another English profile. Warning only: Unicode editing and Apply remain available.</p>${chips(['Cancel', 'Apply'])}`)}
+<p class="muted">Checks only base outputs for digits, A–F, U, Space and Enter. No OS-state detection, module validation or firmware execution. Cancel/no-op retains bindings and host layouts.</p>
+</div></div></section>`
+
 const screens = [
   {
     id: 'CAP-001', slug: 'firmware-keymap-editing', title: 'Firmware keymap editing',
     summary: 'Edit a binding without replacing the rest of the keymap.',
-    body: `${definitionShells()}<div class="columns"><div>
+    body: `${unicodePicker()}${definitionShells()}<div class="columns"><div>
 ${card('Layers and board', `${chips(['Base · Rename', 'Lower · Rename', 'Add Layer', 'Delete layer'])}${board()}${chips(['Combos', 'Colors', 'Scheme'])}<p>Also: conditional layers, encoder CW/CCW, hold-tap timing, Homerow / Autoshift, fixed Layer + RGB recipe.</p><p>Bluetooth: BT_DISC + profile 0–4, BT_CLR_ALL.<br>RGB: RGB_ON / RGB_OFF; no general color editor.</p>`)}
 ${firmwareLayers()}
 ${card('Applied draft — separate example state', `${chips(['Changed', 'Undo', 'Discard draft', 'Copy .keymap'])}<p>Apply edits the draft; reopen retains it. Cancel drops staged changes. Clipboard: Copy .keymap exports source. Dirty firmware warns on leave (also Demo): Stay keeps edits; Leave never publishes. Discard affects firmware only.</p>`)}

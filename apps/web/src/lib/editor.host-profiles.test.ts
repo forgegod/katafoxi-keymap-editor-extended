@@ -9,11 +9,13 @@ import {
   decodeKlc,
   hostLayout,
   hostLayoutsToCapsKlc,
+  HOST_KEY_IDS,
   parseKlc,
   primarySystemLayoutId,
   sameHostLegendView,
   standardHostLegendView,
   standardLayerView,
+  unicodeHostLayoutCompatibility,
   windowsLocale,
   withHostKey,
   type HostLayout,
@@ -84,7 +86,7 @@ describe('editor host profiles', () => {
     vi.restoreAllMocks()
   })
 
-  it('exports a user layout as UTF-16 LE .klc that parseKlc round-trips', async () => {
+  it('round-trips KLC-managed rows without inventing Unicode service-key compatibility', async () => {
     editor.beginSaveHostProfile('en')
     expect(await editor.confirmHostProfileName('Home')).toBeNull()
     const layoutId = editor.activeProfileId('en')
@@ -102,7 +104,23 @@ describe('editor host profiles', () => {
     const parsed = parseKlc(decodeKlc(exported.bytes))
     expect(parsed.kind).toBe('single')
     expect(parsed.description).toBe('Home')
-    expect(keysymTable(parsed.base)).toEqual(keysymTable(source))
+    const managedKeys = new Set(HOST_KEY_IDS.filter(key => key.scan !== undefined).map(key => key.zmk))
+    const sourceRows = keysymTable(source)
+    expect(keysymTable(parsed.base)).toEqual(Object.fromEntries(
+      Object.entries(sourceRows).filter(([zmk]) => managedKeys.has(zmk))
+    ))
+    // Phase 1 added service rows to host tables, not to the KLC import contract.
+    expect(source.byZmk.has('SPACE')).toBe(true)
+    expect(source.byZmk.has('ENTER')).toBe(true)
+    expect(parsed.base.byZmk.has('SPACE')).toBe(false)
+    expect(parsed.base.byZmk.has('ENTER')).toBe(false)
+    expect(unicodeHostLayoutCompatibility(parsed.base)).toEqual({
+      status: 'incompatible',
+      issues: [
+        { zmk: 'SPACE', expectedKeysym: 'space', actualKeysym: null, reason: 'missing' },
+        { zmk: 'ENTER', expectedKeysym: 'Return', actualKeysym: null, reason: 'missing' }
+      ]
+    })
 
     expect(editor.exportUserHostLayoutKlc(primarySystemLayoutId('en')!)).toBeNull()
     expect(editor.exportUserHostLayoutKlc('system-us')).toBeNull()
