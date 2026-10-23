@@ -1,6 +1,6 @@
 # CHG-014 — Restore the editor design language in definition dialogs
 
-**Status:** planned
+**Status:** in-progress
 **External request:** Direct operator request: With the intruduction of the latest features (CHR) the design does not follow the overall design language. `<button>` is without any styling. Extract the design language from e.g. `<aside class="combo-panel svelte-1k8qld4" aria-label="Combos">` and define them as rules for future ai agents. Creaet CHR with the phased-plan-design skill to fix this design drifts in the implementation
 **Impacts:** CAP-001
 **Baseline:** `bb64d04119f8817b0cc0250178514af5b68ffd95` on main
@@ -48,7 +48,7 @@ Proposed new evidence seam: `e2e/editor-design-language.spec.ts` (does not exist
 
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
-| 1 | Restore Macros dialog controls and reusable styling | pending | `pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/macros.spec.ts e2e/definition-dialog-layout.spec.ts e2e/editor-design-language.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect Macro runtime states and CAP-001 render |
+| 1 | Restore Macros dialog controls and reusable styling | in-progress | `pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/macros.spec.ts e2e/definition-dialog-layout.spec.ts e2e/editor-design-language.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect Macro runtime states and CAP-001 render |
 | 2 | Align all Behaviors dialog states with the same primitives | pending | `pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/macros.spec.ts e2e/behaviors.spec.ts e2e/definition-dialog-layout.spec.ts e2e/editor-design-language.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect both dialogs and CAP-001 render |
 | 3 | Verify integrated design conformance and close the change | pending | `pnpm records:check && pnpm test && pnpm test:e2e && pnpm lint && pnpm build && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect final application matrix and CAP-001 render |
 
