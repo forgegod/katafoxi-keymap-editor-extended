@@ -1,6 +1,6 @@
 # CHG-015 — Keep legend Alt columns reachable
 
-**Status:** in-progress
+**Status:** done
 **External request:** Direct operator request: I've found a clipping issues in the Alt-Menu. how can the clipping testing be improved to prevent these glitches
 **Impacts:** CAP-003
 **Baseline:** `dc1d992941361fadb1f8fea0efeb4f2f2a8c7657` on main
@@ -40,7 +40,7 @@ The new browser spec `e2e/legend-clipping.spec.ts` does not exist at planning ti
 | --- | --- | --- | --- |
 | 1 | Make Alt columns and Choose language reachable | done (phase-1 gate exit 0 @ 21ed9999c37eaff33c37c829ea21bdbb82f84b91) | `pnpm exec playwright test e2e/legend-clipping.spec.ts && pnpm --filter @keymap-editor/web lint && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect the Demo legend at 360×640 and 1280×720 |
 | 2 | Apply the same reachability check to open legend menus | done (pnpm exec playwright test e2e/legend-clipping.spec.ts exit 0 @ 1fbc4135bf23dfcf508a1e7c300762d5fdb2ada9) | `pnpm exec playwright test e2e/legend-clipping.spec.ts` exits 0 with the profile menu and language list open at 360×640 and 1280×720 |
-| 3 | Integrate current-state records and close | in-progress | `pnpm records:check && pnpm test && pnpm test:e2e && pnpm lint && pnpm build && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect the CAP-003 render |
+| 3 | Integrate current-state records and close | done (`pnpm records:check; pnpm test; pnpm test:e2e; pnpm lint; pnpm build; pnpm wireframes:generate; pnpm wireframes:render; pnpm records:check` exit 0 @ 23c1af99178e02b71b4893f3c62d715e52993f3f) | `pnpm records:check && pnpm test && pnpm test:e2e && pnpm lint && pnpm build && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect the CAP-003 render |
 
 ## Phase 1 — Make Alt columns and Choose language reachable
 
