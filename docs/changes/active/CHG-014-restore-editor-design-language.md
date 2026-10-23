@@ -86,7 +86,7 @@ Proposed new evidence seam: `e2e/editor-design-language.spec.ts` (does not exist
 
 ## Out of scope
 
-- Starting any phase as part of this planning request; all rows remain pending.
+- Starting phases 2 or 3 as part of this record-consistency repair; phase 1 is complete and phases 2–3 remain pending.
 - Rewriting the application stack, installing a design framework or redesigning the palette/keycaps/Host paper surfaces.
 - A repository-wide raw-button ban, universal CSS reset, bulk migration of source pickers or an unsupported claim that every screen has been audited.
 - Changing Filesystem Grant write access semantics, recovery behavior, GitHub publication, domain serialization, source ownership or staged definition transactions.
