@@ -1,0 +1,109 @@
+/* Opt-in definition contents; shell/scroll ownership stays in MacroPanel.css.
+   Ordinary actions are Common/Button, never a raw-button reset. */
+.definition-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: var(--font-md);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.definition-dialog > * {
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.definition-dialog h2,
+.definition-dialog h3,
+.definition-dialog p,
+.definition-dialog pre {
+  margin: 0;
+}
+
+.definition-dialog h2 { font-size: var(--font-xl); }
+.definition-dialog h3 { font-size: var(--font-lg); }
+.definition-dialog p { color: var(--text-muted); font-size: var(--font-sm); }
+
+.definition-group {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface-sunken) 55%, transparent);
+}
+
+.definition-dialog label {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+/* Include the portal's app root to override the source-picker select rule. */
+#app-root .definition-dialog :is(input:not([type='checkbox']), select, textarea) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 24px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-sunken);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--font-md);
+  line-height: 1.4;
+}
+
+.definition-dialog textarea { resize: vertical; }
+
+#app-root .definition-dialog :is(input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+#app-root .definition-dialog :is(input, select, textarea):disabled {
+  color: var(--text-disabled);
+  border-color: var(--border-subtle);
+  cursor: not-allowed;
+}
+
+.definition-dialog .definition-check {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.definition-check input { flex: none; accent-color: var(--accent); }
+
+.definition-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.definition-dialog pre {
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: var(--font-sm);
+}
+
+.definition-dialog [role='alert'],
+.definition-dialog [role='status'] {
+  padding: 7px 8px;
+  border: 1px solid var(--warn-border);
+  border-radius: 6px;
+  background: var(--warn-wash);
+  color: var(--warn-ink);
+}
+
+.definition-dialog [role='status'] p { color: inherit; }

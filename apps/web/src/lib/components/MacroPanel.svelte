@@ -6,6 +6,7 @@
   import Button from './Common/Button.svelte'
   import Modal from './Common/Modal.svelte'
   import './MacroPanel.css'
+  import './DefinitionDialog.css'
 
   let open = $state(false)
   let draft = $state<ZmkMacroDefinition | null>(null)
@@ -146,14 +147,16 @@
 <Button onclick={() => open = true}>Macros</Button>
 {#if open}
   <Modal ariaLabel={textDialog ? 'Text to sequence' : 'Macros'} onBackdrop={() => { cancel(); open = false }}>
-    <section class="macro-panel">
+    <section class="macro-panel definition-dialog">
       <h2>Macros</h2>
       {#if textDialog}
         <h3>Text to sequence</h3>
         <p>Create a new zero-parameter tap sequence, never append to an existing press/release state. The active Host language is not used.</p>
+        <div class="definition-group">
         <label>Text <textarea aria-label="Macro text" bind:value={text} oninput={() => pasteError = ''} onpaste={pasteText} rows="4"></textarea></label>
-        <label><input type="checkbox" aria-label="Use US QWERTY / ASCII mapping" bind:checked={acknowledged} /> Use US QWERTY / ASCII mapping</label>
+        <label class="definition-check"><input type="checkbox" aria-label="Use US QWERTY / ASCII mapping" bind:checked={acknowledged} /> Use US QWERTY / ASCII mapping</label>
         <p>Printable ASCII, LF and TAB only; no Unicode fallback.</p>
+        </div>
         {#if pasteError}<p role="alert">{pasteError}</p>{/if}
         {#if !generated.ok}
           <p role="alert">{generated.errors.join(' ')}</p>
@@ -161,15 +164,20 @@
           <pre aria-label="Generated sequence">{generated.steps.map(step => step.kind === 'behavior' ? step.binding : '').join('\n')}</pre>
           {#each generated.warnings as warning}<p>{warning}</p>{/each}
         {:else}<p>Enter text to preview. Empty text makes no change.</p>{/if}
-        <button disabled={!!pasteError || !acknowledged || !generated.ok || !generated.changed} onclick={generate}>Use generated sequence</button>
-        <button onclick={cancel}>Cancel</button>
+        <div class="definition-actions">
+          <Button disabled={!!pasteError || !acknowledged || !generated.ok || !generated.changed} onclick={generate}>Use generated sequence</Button>
+          <Button onclick={cancel}>Cancel</Button>
+        </div>
       {:else if preview}
         <p aria-label="Binding replacement">{replacement || 'Review the resulting source. Confirm replaces the staged definition; Cancel keeps the document unchanged.'}</p>
         <pre aria-label="Macro source preview">{preview.code}</pre>
-        <button onclick={confirm}>Confirm changes</button>
-        <button onclick={cancel}>Cancel</button>
+        <div class="definition-actions">
+          <Button variant="accent" onclick={confirm}>Confirm changes</Button>
+          <Button onclick={cancel}>Cancel</Button>
+        </div>
       {:else if using}
         <h3>Use {using.code}</h3>
+        <div class="definition-group">
         <label>Destination <select aria-label="Macro destination" value={destination} onchange={event => destination = event.currentTarget.value}><option value="key">Key</option><option value="combo" disabled={!editor.draftKeymap?.combos?.length}>Existing combo</option></select></label>
         {#if destination === 'combo'}
         <label>Combo <select aria-label="Macro target combo" value={comboId} onchange={event => comboId = event.currentTarget.value}>{#each editor.draftKeymap?.combos ?? [] as combo}<option value={combo.id}>{combo.id} · {encodeKeyBinding(combo.binding)}</option>{/each}</select></label>
@@ -178,44 +186,57 @@
         <label>Key position <select aria-label="Macro target key" value={key} onchange={event => key = Number(event.currentTarget.value)}>{#each editor.draftKeymap?.layers[layer] ?? [] as binding, index}<option value={index}>{index} · {encodeKeyBinding(binding)}</option>{/each}</select></label>
         {/if}
         {#each args as arg, index}<label>Argument {index + 1} · {domains[index] ?? 'unproven'} <input aria-label={`Macro argument ${index + 1}`} value={arg} oninput={event => args[index] = event.currentTarget.value} /></label>{/each}
-        <button onclick={prepareBinding}>Preview binding</button>
-        <button onclick={cancel}>Cancel</button>
+        </div>
+        <div class="definition-actions">
+          <Button onclick={prepareBinding}>Preview binding</Button>
+          <Button onclick={cancel}>Cancel</Button>
+        </div>
       {:else if draft}
+        <div class="definition-group">
           <label>Macro label <input aria-label="Macro label" value={draft.label} oninput={event => { if (draft) draft.label = event.currentTarget.value }} /></label>
           <label>Display name <input aria-label="Display name" value={draft.displayName ?? ''} oninput={event => { if (draft) draft.displayName = event.currentTarget.value || undefined }} /></label>
           <label>Parameter count <select aria-label="Parameter count" value={draft.arity} disabled={editingCode !== null} onchange={event => { if (draft) draft.arity = Number(event.currentTarget.value) as 0 | 1 | 2 }}><option value="0">0</option><option value="1">1</option><option value="2">2</option></select></label>
           <p>Existing parameter counts stay fixed. Forward each input to the next behavior using a parameter control and MACRO_PLACEHOLDER. Types are inferred by core from all uses.</p>
           <label>Tap time (ms) <input aria-label="Tap time (ms)" inputmode="numeric" bind:value={tapMs} placeholder="Firmware default" /></label>
           <label>Wait time (ms) <input aria-label="Wait time (ms)" inputmode="numeric" bind:value={waitMs} placeholder="Firmware default" /></label>
+        </div>
           <h3>Sequence</h3>
           <p>Wait time sets the delay after subsequent events; it is not a standalone sleep.</p>
           {#each draft.steps as step, index}
-            <div class="macro-step">
+            <div class="macro-step definition-group">
               <label>Step {index + 1} <select aria-label={`Step ${index + 1} type`} value={step.kind === 'behavior' ? 'behavior' : step.control} onchange={event => stepType(index, event.currentTarget.value)}><option value="behavior">Behavior binding</option>{#each controls as control}<option value={control}>{control}</option>{/each}</select></label>
               {#if step.kind === 'behavior'}
                 <input aria-label={`Step ${index + 1} binding`} value={step.binding} oninput={event => setStep(index, { kind: 'behavior', binding: event.currentTarget.value })} />
               {:else if step.control.endsWith('_time')}
                 <input aria-label={`Step ${index + 1} milliseconds`} inputmode="numeric" value={step.values[0]} oninput={event => setStep(index, { ...step, values: [event.currentTarget.value] })} />
               {/if}
-              <button aria-label={`Move step ${index + 1} up`} disabled={index === 0} onclick={() => move(index, -1)}>Up</button>
-              <button aria-label={`Move step ${index + 1} down`} disabled={index === draft.steps.length - 1} onclick={() => move(index, 1)}>Down</button>
-              <button aria-label={`Remove step ${index + 1}`} onclick={() => { if (draft) draft.steps = draft.steps.filter((_, i) => i !== index) }}>Remove</button>
+              <div class="definition-actions">
+                <Button aria-label={`Move step ${index + 1} up`} disabled={index === 0} onclick={() => move(index, -1)}>Up</Button>
+                <Button aria-label={`Move step ${index + 1} down`} disabled={index === draft.steps.length - 1} onclick={() => move(index, 1)}>Down</Button>
+                <Button variant="danger" aria-label={`Remove step ${index + 1}`} onclick={() => { if (draft) draft.steps = draft.steps.filter((_, i) => i !== index) }}>Remove</Button>
+              </div>
             </div>
           {/each}
-          <button disabled={draft.steps.length >= 256} onclick={() => { draft?.steps.push({ kind: 'behavior', binding: '&kp A' }) }}>Add step</button>
-          <button onclick={prepare}>Preview changes</button>
-        <button onclick={cancel}>Cancel</button>
+        <div class="definition-actions">
+          <Button disabled={draft.steps.length >= 256} onclick={() => { draft?.steps.push({ kind: 'behavior', binding: '&kp A' }) }}>Add step</Button>
+          <Button onclick={prepare}>Preview changes</Button>
+          <Button onclick={cancel}>Cancel</Button>
+        </div>
       {:else}
-        {#each editor.draftKeymap?.macros ?? [] as macro}<div class="macro-list-item"><p>{macro.code} {macro.displayName ?? ''}
-          <button aria-label={`Edit ${macro.code}`} disabled={!macro.editable} onclick={() => start(macro)}>Edit</button>
-          <button aria-label={`Use ${macro.code}`} disabled={!macro.editable} onclick={() => use(macro)}>Use</button>
-          <button aria-label={`Delete ${macro.code}`} onclick={() => remove(macro)}>Delete</button>
-        </p>
+        {#each editor.draftKeymap?.macros ?? [] as macro}<div class="macro-list-item definition-group">
+          <p><code>{macro.code}</code> {macro.displayName ?? ''}</p>
+          <div class="definition-actions">
+            <Button aria-label={`Edit ${macro.code}`} disabled={!macro.editable} onclick={() => start(macro)}>Edit</Button>
+            <Button aria-label={`Use ${macro.code}`} disabled={!macro.editable} onclick={() => use(macro)}>Use</Button>
+            <Button variant="danger" aria-label={`Delete ${macro.code}`} onclick={() => remove(macro)}>Delete</Button>
+          </div>
         {#if !macro.editable}<p aria-label={`Macro diagnostics ${macro.code}`}>Read-only: {macro.diagnostics.join('; ')}</p>{/if}
         </div>{/each}
-        <button onclick={() => start()}>New macro</button>
-        <button onclick={() => { text = ''; pasteError = ''; acknowledged = false; textDialog = true }}>Text to sequence</button>
-        <button onclick={() => open = false}>Close</button>
+        <div class="definition-actions">
+          <Button onclick={() => start()}>New macro</Button>
+          <Button onclick={() => { text = ''; pasteError = ''; acknowledged = false; textDialog = true }}>Text to sequence</Button>
+          <Button onclick={() => open = false}>Close</Button>
+        </div>
       {/if}
       {#if error}<p role="alert">{error}</p>{/if}
       {#if warnings.length}<div aria-label="Macro warnings" role="status">{#each warnings as warning}<p>{warning}</p>{/each}</div>{/if}

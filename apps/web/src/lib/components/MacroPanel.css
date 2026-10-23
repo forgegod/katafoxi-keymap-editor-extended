@@ -21,5 +21,6 @@
   overflow-wrap: anywhere;
 }
 
-.macro-panel label { display: block; margin: 10px 0; }
-.macro-panel button { margin: 4px; }
+/* Legacy Behavior contents retain their layout until their control migration. */
+.macro-panel:not(.definition-dialog) label { display: block; margin: 10px 0; }
+.macro-panel:not(.definition-dialog) button { margin: 4px; }

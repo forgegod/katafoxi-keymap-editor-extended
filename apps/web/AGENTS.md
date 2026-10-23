@@ -10,6 +10,8 @@ Svelte components, reactive editor state, source pickers, draft/host storage, an
 
 `src/lib/components/MacroPanel.svelte` and `BehaviorPanel.svelte` own staged macro and named-behavior interaction; `src/lib/macro-editor.ts` owns their shared captured preview/apply transactions. Core owns definition schemas, semantics, references and the shared writer.
 
+`src/lib/components/DefinitionDialog.css` owns opt-in `.definition-dialog`, `.definition-group`, `.definition-check` and `.definition-actions` presentation. Macros adopts it with Common/Button actions; Behavior contents keep their legacy styling until separately migrated. `MacroPanel.css` retains shared viewport/scroll containment. Keep these sidecars split and ordinary button variants/sizing in Common/Button.
+
 ## Local Contracts
 
 Keep ZMK parsing and file generation in keymap-core. Plain click edits ZMK; Alt+click edits host glyphs. UI chrome is English. Preserve accessibility, stale-load guards, draft identity, and separate firmware/host dirty state. Arm beforeunload while firmware is dirty, filesystem firmware recovery remains pending, a GitHub host snapshot is unpublished, or GitHub firmware/host recovery remains pending (including omitted host writes); host-install status and non-GitHub host edits do not arm it. Keep pagehide and visibilitychange draft flushing independent of that guard.
@@ -79,6 +81,8 @@ Demo remains source-free after layer operations even when history retains genera
 ## Verification
 
 From repository root: pnpm --filter @keymap-editor/web test; pnpm --filter @keymap-editor/web lint. Use Node 24 LTS for verification; Node 26 currently causes happy-dom storage failures.
+
+`pnpm exec playwright test e2e/editor-design-language.spec.ts` checks bounded Macro control styles, keyboard/disabled states and wrapping in light/dark at desktop/narrow viewports; it does not certify Behavior content conformance.
 
 ## Child DOX Index
 

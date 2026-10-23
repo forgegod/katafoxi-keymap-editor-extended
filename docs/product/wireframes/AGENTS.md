@@ -18,6 +18,8 @@ Read parent product and change contracts. Edit the generator, not generated HTML
 
 Follow [the editor design language](../../ui-design-language.md) for hierarchy, typography, semantic color and compact control treatment. The app supports light and dark themes; schematic visual consistency does not replace runtime computed-style and interaction evidence in both themes.
 
+CAP-001's Macro studies extract their semantic color roles from `apps/web/src/app.css` during generation and follow `prefers-color-scheme` in standalone HTML. The canonical PNG uses the renderer's dark manifest viewport. Inspect the Macro studies separately in both themes and at desktop/narrow widths; other legacy schematic sections are not an all-surface theme-conformance claim.
+
 ## Verification
 
 From repository root: `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check`. Install Chromium with `pnpm exec playwright install chromium` if absent. Rendering checks page errors, heading visibility, horizontal overflow and manifest path bounds; it does not prove product behavior. Run CAP-linked unit/e2e tests separately.
