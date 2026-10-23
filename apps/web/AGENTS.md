@@ -58,7 +58,7 @@ Fence host view, table and assembly mutations while hostRecoveryBusy; a committe
 
 Follow root keycapFace and CSS-sidecar rules. Pair material interaction changes with CAP tests and canonical wireframes.
 
-The legend panel owns horizontal scrolling within the available chrome width. Scroll the complete table without wrapping its headers away from layer cells or ellipsizing rotated Alt glyphs. Keep notes and layer confirmations outside the table scrollport; language/profile popovers use viewport positioning to escape its clip while retaining DOM ownership for focus and dismissal. Keep profile/language selection and Alt-toggle semantics separate from layout.
+The legend panel owns horizontal scrolling within the available chrome width. Scroll the complete table without wrapping its headers away from layer cells or ellipsizing rotated Alt glyphs. Keep notes and layer confirmations outside the table scrollport; language/profile popovers use viewport positioning to escape its clip while retaining DOM ownership for focus and dismissal. The profile list consumes the popover action's available-height limit and scrolls vertically above the viewport bottom. Keep profile/language selection and Alt-toggle semantics separate from layout.
 
 Layer-view tests distinguish stored preferences from effective rendered layers. `layerView.shown` may include unavailable layers; check current-layer bounds through core `effectiveShownLayers`, and preserve marks and `layer0Raw` across discard/undo/redo. Keep captured model-property seeds as additional replay cases, not replacements for fresh random runs.
 
@@ -86,7 +86,7 @@ From repository root: pnpm --filter @keymap-editor/web test; pnpm --filter @keym
 
 `pnpm exec playwright test e2e/editor-design-language.spec.ts` checks bounded Macro/Behavior control styles, keyboard/disabled states and wrapping in light/dark at 1280×720 and 360×640. Behavior examples cover ordered tap-dance, hold-tap flavor, sticky-key flags/typed invocation, mod-morph required fields, sensor-rotate, opaque diagnostics and source restrictions; this is not exhaustive schema certification.
 
-`pnpm exec playwright test e2e/legend-clipping.spec.ts` checks Demo Corne's resting/expanded AltGr, AltGr+Shift and Choose controls at those viewports/themes. Measure boxes and text ranges; accept offscreen controls only through viewport-contained auto/scroll ancestry that exposes both. It also checks that the auto-focused layer Delete confirmation is painted outside the scrollport and Escape cancels without editing. Open-menu reachability is not covered.
+`pnpm exec playwright test e2e/legend-clipping.spec.ts` checks Demo Corne's resting/expanded AltGr, AltGr+Shift and Choose controls at those viewports/themes, plus every item in the German system-profile menu and Add/change language lists with English and German present. Measure boxes and text ranges; accept offscreen controls only through viewport-contained auto/scroll ancestry that exposes both, and verify hit-testing. Viewport-fixed menus escape outer DOM scroll clips, not the viewport; SVG-only controls still require full boxes. It also checks that the auto-focused layer Delete confirmation is painted outside the scrollport and Escape cancels without editing.
 
 ## Child DOX Index
 

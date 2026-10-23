@@ -1,7 +1,7 @@
 import { expect, test, type Locator } from '@playwright/test'
 
 /** Check painted text as well as boxes, before Playwright can auto-scroll a click. */
-async function expectReachable(control: Locator) {
+async function expectReachable(control: Locator, hasText = true) {
   await expect(control).toBeVisible()
   const measure = () => control.evaluate(element => {
     const box = (rect: DOMRect) => ({
@@ -52,12 +52,16 @@ async function expectReachable(control: Locator) {
         if (/^(hidden|clip|auto|scroll)$/.test(overflow) &&
           !painted.every(bounds => contains(port, bounds, axis))) issues.push(`${name} clips ${axis}`)
       }
+      // Chromium reports no offsetParent for viewport-fixed menus. Their own
+      // scrollport clips items, but outer DOM ancestors do not; the viewport
+      // checks above still apply. A transformed containing block is not exempt.
+      if (style.position === 'fixed' && ancestor.offsetParent === null) break
     }
     return { border, text, issues, scrollers }
   })
 
   const before = await measure()
-  expect(before.text.length, 'control has measurable text').toBeGreaterThan(0)
+  if (hasText) expect(before.text.length, 'control has measurable text').toBeGreaterThan(0)
   if (before.issues.length) {
     expect(before.scrollers.length, `No viewport-contained auto/scroll ancestor: ${JSON.stringify(before)}`)
       .toBeGreaterThan(0)
@@ -65,6 +69,10 @@ async function expectReachable(control: Locator) {
   await control.evaluate(element => element.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' }))
   await expect.poll(async () => (await measure()).issues, `Full box/text must be exposed: ${JSON.stringify(before)}`)
     .toEqual([])
+  await expect.poll(() => control.evaluate(element => {
+    const rect = element.getBoundingClientRect()
+    return element.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2))
+  }), 'Exposed control must be painted and hit-testable').toBe(true)
 }
 
 for (const theme of ['light', 'dark'] as const) {
@@ -100,7 +108,7 @@ for (const theme of ['light', 'dark'] as const) {
       await expectReachable(controls[2])
       await expect(controls[2]).toBeEnabled()
       await expect(controls[2]).toBeFocused()
-      // Do not open profile/language menus here: their reachability is a separate phase.
+      // Open-menu coverage below uses a second host language.
       await expect(controls[2]).toHaveAttribute('aria-expanded', 'false')
       const alignment = await legend.locator('table').evaluate(table => {
         const headers = Array.from(table.querySelectorAll('thead th'), cell => cell.getBoundingClientRect())
@@ -113,6 +121,85 @@ for (const theme of ['light', 'dark'] as const) {
       expect(alignment.length).toBeGreaterThan(1)
       expect(alignment.every(Boolean)).toBe(true)
       await page.screenshot({ path: info.outputPath('legend-expanded.png') })
+    })
+
+    test(`second-language legend menus are reachable · ${theme} ${viewport.width}x${viewport.height}`, async ({ page }, info) => {
+      await page.setViewportSize(viewport)
+      await page.addInitScript(() => localStorage.setItem('coachTourDone', '1'))
+      await page.goto('/')
+      await expect(page.getByTestId('source-menu-trigger')).toHaveAccessibleName('Demo keyboard: Corne')
+      if (theme === 'light') await page.getByRole('button', { name: 'Color theme: Dark' }).click()
+      await expect(page.locator('html')).toHaveAttribute('data-color-scheme', theme)
+      await page.evaluate(() => document.fonts.ready)
+      const legend = page.getByRole('region', { name: 'Host legend', exact: true })
+      await legend.getByRole('button', { name: 'Computer language', exact: true }).click()
+      await legend.getByRole('option', { name: 'German', exact: true }).click()
+      const profile = legend.getByRole('button', { name: /^Profile German:/ })
+      await expect(profile).toHaveAccessibleName('Profile German: System')
+      await expect(legend.getByRole('button', { name: /^Profile / })).toHaveCount(2)
+      await expectReachable(profile)
+      await profile.click()
+      const menu = legend.getByRole('menu', { name: 'Profile German', exact: true })
+      await expect(menu).toBeVisible()
+      await page.screenshot({ path: info.outputPath('legend-profile-open.png') })
+      const items = menu.getByRole('menuitem')
+      await expect(items).toHaveCount(46) // 22 system profiles, their Copy actions and two imports.
+      for (const item of await items.all()) {
+        // Copy actions paint an SVG rather than a text node; still check their full boxes.
+        await expectReachable(item, !(await item.getAttribute('aria-label'))?.startsWith('Copy '))
+      }
+      await page.screenshot({ path: info.outputPath('legend-profile-scrolled.png') })
+      const lastProfile = menu.getByRole('menuitem', { name: 'noted', exact: true })
+      await expectReachable(lastProfile)
+      await lastProfile.click()
+      await expect(menu).toHaveCount(0)
+      await expect(profile).toHaveAccessibleName('Profile German: noted')
+      await profile.press('Enter')
+      await expect(menu.getByRole('menuitem', { name: 'noted', exact: true })).toHaveAttribute('aria-current', 'true')
+      await expectReachable(menu.getByRole('menuitem', { name: 'System', exact: true }))
+      await menu.getByRole('menuitem', { name: 'System', exact: true }).press('Enter')
+      await expect(profile).toHaveAccessibleName('Profile German: System')
+      await profile.click()
+      await page.keyboard.press('Escape')
+      await expect(menu).toHaveCount(0)
+      await expect(profile).toBeFocused()
+
+      // The far-right Add language trigger moves further out once German is present.
+      const add = legend.getByRole('button', { name: 'Add language', exact: true })
+      await expectReachable(add)
+      await add.click()
+      const languages = legend.getByRole('listbox', { name: 'Language', exact: true })
+      await expect(languages.getByRole('option')).toHaveCount(18)
+      await expect(languages.getByRole('option', { name: 'Bulgarian', exact: true })).toBeFocused()
+      await page.screenshot({ path: info.outputPath('legend-add-language-open.png') })
+      for (const option of await languages.getByRole('option').all()) await expectReachable(option)
+      await page.screenshot({ path: info.outputPath('legend-add-language-scrolled.png') })
+      await page.keyboard.press('Escape')
+      await expect(languages).toHaveCount(0)
+      await expect(add).toHaveAttribute('aria-expanded', 'false')
+
+      const language = legend.getByRole('button', { name: 'Language German', exact: true })
+      await expectReachable(language, false)
+      await language.click()
+      await expect(languages.getByRole('option')).toHaveCount(20)
+      const selected = languages.getByRole('option', { name: 'German', exact: true })
+      await expect(selected).toBeDisabled()
+      await expect(selected).toHaveAttribute('aria-selected', 'true')
+      await expect(languages.getByRole('option', { name: 'Bulgarian', exact: true })).toBeFocused()
+      await page.screenshot({ path: info.outputPath('legend-language-open.png') })
+      for (const option of await languages.getByRole('option').all()) await expectReachable(option)
+      await page.screenshot({ path: info.outputPath('legend-language-scrolled.png') })
+      await page.mouse.click(0, 0)
+      await expect(languages).toHaveCount(0)
+      await expect(profile).toHaveAccessibleName('Profile German: System')
+      await language.click()
+      const remove = languages.getByRole('option', { name: 'Remove language', exact: true })
+      await expectReachable(remove)
+      await remove.click()
+      await expect(languages).toHaveCount(0)
+      await expect(profile).toHaveCount(0)
+      await expect(legend.getByRole('button', { name: 'Profile English: System', exact: true })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled()
     })
 
     test(`layer delete confirmation escapes the legend scroller · ${theme} ${viewport.width}x${viewport.height}`, async ({ page }, info) => {

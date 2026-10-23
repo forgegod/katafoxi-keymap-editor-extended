@@ -482,7 +482,7 @@
     left: 0;
     z-index: var(--z-popover);
     min-width: 14rem;
-    max-height: min(48rem, 90vh);
+    max-height: min(48rem, 90vh, var(--legend-popover-max-height, 90vh));
     margin: 0;
     padding: 4px 0;
     overflow: auto;
