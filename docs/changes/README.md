@@ -66,7 +66,7 @@ Use installed `application-records` and `phased-plan-*` skills when available. T
 
 | Change | Status |
 | --- | --- |
-| [CHG-015 — Keep legend Alt columns reachable](active/CHG-015-keep-legend-alt-columns-reachable.md) | planned |
+| [CHG-015 — Keep legend Alt columns reachable](active/CHG-015-keep-legend-alt-columns-reachable.md) | in-progress |
 
 Read the [bounded upstream assessment](upstream-gap-assessment.md) before creating a record for upstream parity work.
 
