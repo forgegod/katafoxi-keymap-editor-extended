@@ -8,8 +8,8 @@
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
 | 1 | Establish a shared `&uc` host-layout compatibility contract | done (pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/keymap-core lint exit 0 @ 7c150bcf6265e5b8992152c4c51e6174fff5b409) | Focused keymap-core compatibility tests and lint exit 0 |
-| 2 | Expose the bounded compatibility state in the Unicode picker | pending | Focused web component/session tests and web lint exit 0 |
-| 3 | Integrate current product evidence and canonical visuals | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e` exit 0; rendered CAP-001 schematic inspected |
+| 2 | Expose the bounded compatibility state in the Unicode picker | pending | `pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/unicode-picker.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
+| 3 | Final integration and closure | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e` exit 0; rendered CAP-001 schematic inspected |
 
 ## Phase 1 — Establish a shared `&uc` host-layout compatibility contract
 
@@ -26,21 +26,21 @@
 
 **Goal:** A person configuring `&uc` can see the compatibility result and the runtime limit without the editor claiming it can observe or change the operating system input state.
 
-1. Feed the selected editor-managed English layout's core result into the `&uc` picker.
-2. State that `&uc` works only while the compatible English layout is active; a national layout may remain installed but does not satisfy the service sequence while active.
-3. Keep the picker usable with a warning for an incompatible or unavailable editor-managed English layout. Do not silently rewrite base mappings, disable host layouts, switch the OS layout, change `west.yml`, or claim host-state detection.
-4. Cover compatible and incompatible visible states, accessibility text, and existing Apply/Cancel/source-preserving behavior.
+1. Obtain only the active English profile/table selected by the editor and pass its `unicodeHostLayoutCompatibility` core result as input through `KeyEditorHost` and `KeyEditor` into `UnicodePicker`; do not recreate compatibility logic in Svelte or mutate the result.
+2. Render accessible English-only compatible, incompatible, and unavailable picker states. Explain that `&uc` requires a compatible English layout while active; a national layout may stay installed, but the editor cannot detect, select, or modify the operating system's active layout.
+3. Keep incompatible and unavailable states warning-only: retain Unicode editing, Apply/Cancel behavior, source preservation, host layouts, firmware bindings, and no-op behavior. Do not repair host mappings, switch layouts, touch `west.yml`, `.conf`, or `default-mode`, detect host state, or change firmware/module setup.
+4. Update CAP-001, `docs/unicode-picker.md`, and `docs/product/wireframes/generate.mjs`; regenerate the CAP-001 canonical HTML/PNG and inspect its rendered compatibility state. Record only proven present-tense behavior, implementation/behavior-test evidence, and links to both canonical artifacts from CAP-001.
+5. Add focused component/session regressions for result propagation and every visible state, including accessibility text and compatible/incompatible/unavailable behavior. Update `e2e/unicode-picker.spec.ts` only to prove the changed visible picker state; do not claim OS or firmware runtime validation.
 
-**Verification gate:** `pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint` exits 0.
+**Verification gate:** `pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/unicode-picker.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check`
 
-## Phase 3 — Integrate current product evidence and canonical visuals
+## Phase 3 — Final integration and closure
 
-**Goal:** The repository's current behaviour, user-facing prerequisite, and visual reference accurately describe the implemented compatibility boundary.
+**Goal:** Verify the integrated Phase 2 vertical slice against the full project gate, preserve its evidence, and close CHG-013 without expanding its scope.
 
-1. Update CAP-001, the Unicode picker documentation, and applicable target/architecture contract text only after the implementation and tests establish the final behaviour.
-2. Update the CAP-001 canonical wireframe generator, render the matching HTML/PNG, and inspect the rendered compatibility state.
-3. Reconcile the external PR feedback as provenance without treating upstream review status as local implementation evidence.
-4. Run the full product, record, visual, and browser gates before closing the change.
+1. Recheck the integrated CAP-001, Unicode-picker documentation, canonical HTML/PNG, focused evidence, and browser workflow against the completed Phase 2 behavior; preserve factual Phase 1 and Phase 2 evidence.
+2. Run the full product, record, visual, and browser gate and inspect the rendered CAP-001 schematic before closing the change.
+3. Reconcile the external PR feedback as provenance without treating upstream review status as local implementation evidence. After the full gate passes, complete and archive the CHG through the record-closeout protocol, update its index entries, and rerun `pnpm records:check` against the archived state.
 
 **Verification gate:** `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e` exits 0; inspect the rendered CAP-001 schematic.
 
