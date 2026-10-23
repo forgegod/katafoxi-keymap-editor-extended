@@ -74,6 +74,7 @@
   const open = $derived(forceOpen || hovered || focused || busy || draggedMove != null || restoringFocus)
 
   function captureRestingSize() {
+    if (open) return
     const body = panelEl?.querySelector('.legend-body')
     if (!(body instanceof HTMLElement)) return
     sizerWidth = body.offsetWidth
@@ -445,7 +446,9 @@
     style:height={open && sizerHeight ? `${sizerHeight}px` : undefined}
   ></div>
   <div class="legend-panel" class:overlay={open} bind:this={panelEl}>
-    {@render legendTable(visibleRows)}
+    <div class="legend-scroll">
+      {@render legendTable(visibleRows)}
+    </div>
     <HostProfileBar />
     {#if pendingDelete}
       <div class="delete-confirm" role="alertdialog" aria-modal="true" aria-label="Delete layer">
@@ -477,6 +480,8 @@
     align-items: flex-start;
     gap: 16px 24px;
     width: max-content;
+    max-width: 100%;
+    min-width: 0;
     padding: 0;
     font-size: var(--font-md);
     color: var(--text-muted);
@@ -484,6 +489,7 @@
 
   .legend-sizer {
     display: none;
+    max-width: 100%;
     pointer-events: none;
   }
 
@@ -495,7 +501,13 @@
   .legend-panel {
     position: relative;
     z-index: 4;
+    max-width: 100%;
     background: transparent;
+  }
+
+  .legend-scroll {
+    /* Only the table scrolls; notes and confirmation stay outside its clip. */
+    overflow-x: auto;
   }
 
   .legend-panel.overlay {
@@ -519,6 +531,8 @@
 
   .legend-body {
     display: flex;
+    /* Scroll the whole table, never wrap headers away from their layer cells. */
+    width: max-content;
     align-items: flex-start;
     gap: 10px;
   }

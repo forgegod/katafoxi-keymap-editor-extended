@@ -10,6 +10,7 @@
   import { editor } from '../editor.svelte.js'
   import { isUserHostLayoutId } from '../host-layout-store.js'
   import { clickOutside } from '../actions/click-outside'
+  import { legendPopover } from '../actions/legend-popover'
   import { pushEscapeHandler } from '../escape-stack'
   import ProfileImportKlc from './ProfileImportKlc.svelte'
   import ProfileImportXkb from './ProfileImportXkb.svelte'
@@ -69,9 +70,11 @@
 
   $effect(() => {
     if (!open || importKind == null || !importPaneEl) return
+    const popover = legendPopover(importPaneEl)
     const focusable = importPaneEl.querySelector(IMPORT_FOCUSABLE)
     if (focusable instanceof HTMLElement) focusable.focus({ preventScroll: true })
     else importPaneEl.focus({ preventScroll: true })
+    return () => popover?.destroy()
   })
 
   function beginImport(kind: 'xkb' | 'klc', event: MouseEvent) {
@@ -288,7 +291,7 @@
       onBack={() => (importKind = null)}
     />
   {:else if open}
-    <ul class="profile-list" role="menu" aria-label="Profile {languageName}">
+    <ul class="profile-list" role="menu" aria-label="Profile {languageName}" use:legendPopover>
       {#each customs as profile (profile.id)}
         <li class="profile-row" role="none">
           <button

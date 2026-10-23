@@ -6,6 +6,7 @@
 ## Behaviour
 
 - Composed keycaps show host-resolved glyphs from selected language layouts alongside firmware layer bindings. The shared keycapFace contract uses four level slots per displayed language, with at most two languages on the keycap.
+- On Demo Corne at 360×640 and 1280×720 in light and dark themes, the legend's AltGr, AltGr+Shift and Computer language / Choose controls fit in the viewport or are fully exposed by scrolling the legend horizontally. Their border boxes and text remain intact, and the layer columns stay aligned. This bounded claim covers the resting and expanded strip, not opened profile or language menus.
 - Hover is a read-only decode preview. Alt+click starts a host-edit session; choosing a glyph updates the host layout immediately. The first edit of a system layout makes a user copy.
 - At 360×640, the Alt+click Host symbol catalog and locked decode card remain inside the viewport without overlapping. The catalog adjusts its initial or remembered frame around the card and scrolls its own symbol content; the level cells and session actions remain unobstructed. This is a bounded narrow-viewport layout outcome, not a guarantee for every viewport or arbitrary card size.
 - Accept/Cancel end the host-edit session; Cancel is not rollback of already chosen glyphs. ZMK undo/redo does not undo host-layout edits.
@@ -33,6 +34,7 @@
 - `apps/web/src/lib/host-layout-store.ts` — revision-checked host working writes and atomic identity-only discard.
 - `apps/web/src/App.svelte` and `apps/web/src/lib/editor/select-keyboard.ts` — browser-local status, standalone discard and transition guard.
 - `apps/web/src/lib/components/HostLegendPicker.svelte` and `apps/web/src/lib/components/HostLegendLayerRow.svelte` — expanded firmware rows, keyboard/drag controls and feedback.
+- `apps/web/src/lib/components/HostLegendPicker.svelte` — viewport-bounded horizontal scrollport for the complete legend table; Alt glyphs retain their existing size and rotation.
 - `apps/web/src/lib/editor/document.svelte.ts` and `apps/web/src/lib/editor/persist-draft.ts` — logical layer/view identity across history and recovery.
 
 ## Rules and boundaries
@@ -46,6 +48,7 @@
 
 ## Verification
 
+- `e2e/legend-clipping.spec.ts` — Demo Corne at 360×640 and 1280×720 in both themes: named control boxes and text ranges, viewport-contained auto/scroll ancestry and full exposure after scrolling, reversible pointer/keyboard Alt toggles, Choose focus and layer-column alignment. Body/html hidden overflow does not qualify as scroll reachability; opened menus are not covered.
 - `apps/web/src/lib/components/Keyboard/Keys/Key.test.ts` — composed faces, click/Alt+click and host editing.
 - `e2e/host-symbol-picker-layout.spec.ts` — Alt+click on a synthetic Clipboard key at 360×640 opens the catalog and locked decode card with non-overlapping, viewport-contained bounds.
 - `apps/web/src/lib/components/HostSymbolPicker.test.ts` — catalog interaction plus geometry cases for gutter clearance, overlapping frames, already-clear placement and vertical stacking; these geometry checks are not browser remembered-frame recovery or an all-screen/card-size matrix.

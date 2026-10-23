@@ -20,6 +20,8 @@ Follow [the editor design language](../../ui-design-language.md) for hierarchy, 
 
 CAP-001's Macro and Behavior studies share the generator's existing control/group styles, extract their semantic color roles from `apps/web/src/app.css` during generation and follow `prefers-color-scheme` in standalone HTML. The canonical PNG uses the renderer's dark manifest viewport. Inspect these studies separately in both themes and at desktop/narrow widths; other legacy schematic sections are not an all-surface theme-conformance claim.
 
+CAP-003's legend detail shows separate initial and scrolled-right narrow states with the same app-derived theme roles. Its table scrolls as a unit; the scrolled example is initialized in generated HTML so the PNG exposes both Alt columns and Choose. It illustrates closed controls only, not open-menu reachability.
+
 ## Verification
 
 From repository root: `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check`. Install Chromium with `pnpm exec playwright install chromium` if absent. Rendering checks page errors, heading visibility, horizontal overflow and manifest path bounds; it does not prove product behavior. Run CAP-linked unit/e2e tests separately.

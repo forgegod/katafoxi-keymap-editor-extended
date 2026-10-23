@@ -21,6 +21,7 @@
   import EyeToggle from './EyeToggle.svelte'
   import PressToggle from './Common/PressToggle.svelte'
   import HostProfileMenu from './HostProfileMenu.svelte'
+  import { legendPopover } from '../actions/legend-popover'
   import LangFlag from './LangFlag.svelte'
 
   const REMOVE_LANGUAGE = '__remove__'
@@ -188,6 +189,7 @@
             class="lang-list"
             role="listbox"
             aria-label="Language"
+            use:legendPopover
             use:focusLangList
             onpointerdown={holdLangMenu}
           >
@@ -254,6 +256,7 @@
                   class="lang-list"
                   role="listbox"
                   aria-label="Language"
+                  use:legendPopover
                   use:focusLangList
                   onpointerdown={holdLangMenu}
                 >
