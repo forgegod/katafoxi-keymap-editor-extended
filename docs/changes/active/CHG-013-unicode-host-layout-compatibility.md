@@ -8,7 +8,7 @@
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
 | 1 | Establish a shared `&uc` host-layout compatibility contract | done (pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/keymap-core lint exit 0 @ 7c150bcf6265e5b8992152c4c51e6174fff5b409) | Focused keymap-core compatibility tests and lint exit 0 |
-| 2 | Expose the bounded compatibility state in the Unicode picker | in-progress | `pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/unicode-picker.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
+| 2 | Expose the bounded compatibility state in the Unicode picker | done (pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/unicode-picker.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check exit 0 @ 9bfafecd6dc666dfb99ee036de5b72307a07db2d) | `pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/unicode-picker.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
 | 3 | Final integration and closure | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e` exit 0; rendered CAP-001 schematic inspected |
 
 ## Phase 1 — Establish a shared `&uc` host-layout compatibility contract
