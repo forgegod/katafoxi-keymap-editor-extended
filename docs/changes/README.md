@@ -66,6 +66,7 @@ Use installed `application-records` and `phased-plan-*` skills when available. T
 
 | Change | Status |
 | --- | --- |
+| [CHG-016 — Align Unicode picker controls with the editor design language](active/CHG-016-align-unicode-picker-controls.md) | planned |
 
 Read the [bounded upstream assessment](upstream-gap-assessment.md) before creating a record for upstream parity work.
 
