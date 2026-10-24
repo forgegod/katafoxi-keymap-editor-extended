@@ -34,6 +34,8 @@ KeyEditor previews use the session's full encoded draft once a behavior selectio
 
 KeyEditorHost computes Unicode compatibility only from the editor-selected English profile/table, tracking hostLayoutRevision, and passes the core result through KeyEditor to UnicodePicker without mutation. Keep all three accessible states advisory: no national/default fallback, mapping repair, OS-layout detection/switching or compatibility-based Apply block. Preserve scalar validation and staged Cancel/no-op/source contracts.
 
+UnicodePicker owns specialized token-themed 22px tabs, 24px fields/selects and compact wrapping alias choices; do not reuse combo classes or alter ordinary Button sizing. The KeyEditor main scrollport owns the entire picker, including unfiltered aliases; no nested alias scroller or hidden-overflow substitute. Keep Apply/Cancel outside that scrollport.
+
 ## Work Guidance
 
 For every UI change, follow [the editor design language](../../docs/ui-design-language.md): use the shared theme/type roles and ordinary Button primitive, take compact panel hierarchy from Combos, and style internal controls across all affected states rather than only the launcher. Preserve semantic variants and verify computed styles, focus/disabled states and wrapping in both themes with real browser evidence.
@@ -83,6 +85,8 @@ Demo remains source-free after layer operations even when history retains genera
 ## Verification
 
 From repository root: pnpm --filter @keymap-editor/web test; pnpm --filter @keymap-editor/web lint. Use Node 24 LTS for verification; Node 26 currently causes happy-dom storage failures.
+
+`pnpm exec playwright test e2e/unicode-picker.spec.ts` checks compact controls, pressed/hover/keyboard-focus styles, invalid-input disabled Apply, all unfiltered controls' box/text reachability through the main scrollport, filtered aliases and mode selection in light/dark at 1280×720 and 360×640. Preserve the compatibility, staged-edit and source-preserving Copy cases alongside visual checks.
 
 `pnpm exec playwright test e2e/editor-design-language.spec.ts` checks bounded Macro/Behavior control styles, keyboard/disabled states and wrapping in light/dark at 1280×720 and 360×640. Behavior examples cover ordered tap-dance, hold-tap flavor, sticky-key flags/typed invocation, mod-morph required fields, sensor-rotate, opaque diagnostics and source restrictions; this is not exhaustive schema certification.
 

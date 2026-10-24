@@ -138,19 +138,72 @@
 </section>
 
 <style>
-  .unicode-picker { display: grid; gap: 0.7rem; }
+  .unicode-picker {
+    display: grid;
+    flex: none;
+    min-width: 0;
+    gap: 6px;
+    color: var(--text);
+    font-size: var(--font-sm);
+    line-height: 1.35;
+  }
   .unicode-compatibility { display: grid; gap: 6px; min-width: 0; padding: 7px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-sunken); color: var(--text); font-size: var(--font-sm); overflow-wrap: anywhere; }
   .unicode-compatibility p, .unicode-compatibility ul { margin: 0; }
   .unicode-compatibility ul { padding-left: 1.4em; }
   .unicode-warning { color: var(--warn-ink); background: var(--warn-wash); border-color: var(--warn-border); }
-  .unicode-tabs, .unicode-fields { display: flex; gap: 0.7rem; flex-wrap: wrap; }
-  label { display: grid; gap: 0.3rem; flex: 1; min-width: 10rem; }
-  input, select, button { font: inherit; color: inherit; background: var(--fill-subtle); border: 1px solid var(--border); border-radius: 0.4rem; padding: 0.4rem 0.6rem; }
-  button { cursor: pointer; }
-  button[aria-pressed="true"] { outline: 2px solid var(--accent); }
-  .unicode-note { font-size: 0.85rem; opacity: 0.85; margin: 0; }
-  .unicode-aliases { display: grid; grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); gap: 0.4rem; max-height: 14rem; overflow: auto; }
-  .unicode-aliases button { display: grid; gap: 0.3rem; text-align: left; }
-  .unicode-aliases code { font-size: 0.75rem; overflow-wrap: anywhere; }
-  [role="alert"] { color: var(--danger); margin: 0; }
+  .unicode-tabs, .unicode-fields { display: flex; gap: 6px; flex-wrap: wrap; }
+  .unicode-tabs { gap: 4px; }
+  .unicode-picker label { display: grid; gap: 3px; flex: 1 1 10rem; min-width: 0; color: var(--text-muted); }
+
+  /* Opt in locally; override the app's ordinary 30px select chrome. */
+  .unicode-picker input,
+  :global(#app-root) .unicode-picker select {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    height: 24px;
+    min-height: 24px;
+    padding: 0 6px;
+    font: inherit;
+    color: var(--text);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+
+  .unicode-tabs button, .unicode-aliases button {
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 22px;
+    padding: 2px 7px;
+    font: inherit;
+    line-height: 1.2;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+  }
+  .unicode-tabs button[aria-pressed="true"] {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  }
+  .unicode-tabs button:hover, .unicode-aliases button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .unicode-picker input:focus-visible,
+  :global(#app-root) .unicode-picker select:focus,
+  .unicode-tabs button:focus-visible, .unicode-aliases button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .unicode-note { color: var(--text-muted); margin: 0; overflow-wrap: anywhere; }
+  /* KeyEditor main owns vertical scrolling, including the unfiltered catalog. */
+  .unicode-aliases { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr)); gap: 4px; }
+  .unicode-aliases button { display: grid; gap: 1px; padding: 2px 6px; text-align: left; }
+  .unicode-aliases code { font-size: var(--font-xs); line-height: 1.2; overflow-wrap: anywhere; }
+  .unicode-aliases p { margin: 0; color: var(--text-muted); }
+  [role="alert"] { color: var(--danger-ink); margin: 0; overflow-wrap: anywhere; }
 </style>

@@ -20,7 +20,7 @@ Read README.md and ../changes/README.md. The generator is the only screen-defini
 
 CAP-001 owns the bounded Macros and Behaviors dialogs and their canonical firmware-editor schematic. Keep Demo/verified-Clipboard authoring distinct from source preservation, and separate tested UI outcomes from core-only coverage. Behaviors distinguishes global properties, per-invocation operands, existing whole encoder slots and source-preview Apply; stock overrides remain coverage-restricted. CHG-005's full M01–M12 acceptance matrix remains uncertified; its closure does not expand CAP-001's implemented boundary.
 
-CAP-001 also owns Unicode-picker compatibility states. Its canonical schematic shows compatible, incompatible and unavailable editor-selected English tables as separate examples; warnings never imply OS-state detection, layout switching, mapping repair or firmware-runtime certification.
+CAP-001 also owns Unicode-picker compact controls and compatibility states. Its canonical schematic shows narrow initial/scrolled character views, mode/invalid-input states, and compatible, incompatible and unavailable editor-selected English tables as separate examples; warnings never imply OS-state detection, layout switching, mapping repair or firmware-runtime certification.
 
 ## Verification
 

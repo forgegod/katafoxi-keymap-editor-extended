@@ -20,6 +20,8 @@ Follow [the editor design language](../../ui-design-language.md) for hierarchy, 
 
 CAP-001's Macro and Behavior studies share the generator's existing control/group styles, extract their semantic color roles from `apps/web/src/app.css` during generation and follow `prefers-color-scheme` in standalone HTML. The canonical PNG uses the renderer's dark manifest viewport. Inspect these studies separately in both themes and at desktop/narrow widths; other legacy schematic sections are not an all-surface theme-conformance claim.
 
+CAP-001's Unicode study also extracts app theme roles. Show separate initial/scrolled 360×640 character views with one main scrollport, compact tabs/fields/alias choices, and mode, invalid-scalar and compatibility states. Initialize the scrolled example in generated HTML; inspect the study in both themes and desktop/narrow widths without treating the schematic as runtime proof.
+
 CAP-003's legend detail shows separate initial and scrolled-right narrow states with the same app-derived theme roles. Its table scrolls as a unit; the scrolled example is initialized in generated HTML so the PNG exposes both Alt columns and Choose. Separate English-plus-German profile-menu states show a viewport-bounded vertical scrollport before and after scrolling to the last profile and import actions. Initialize both scroll axes in generated HTML; these schematics do not certify arbitrary profiles or import dialogs.
 
 ## Verification
