@@ -66,7 +66,7 @@ Use installed `application-records` and `phased-plan-*` skills when available. T
 
 | Change | Status |
 | --- | --- |
-| [CHG-016 — Align Unicode picker controls with the editor design language](active/CHG-016-align-unicode-picker-controls.md) | planned |
+
 
 Read the [bounded upstream assessment](upstream-gap-assessment.md) before creating a record for upstream parity work.
 
@@ -89,6 +89,7 @@ Read the [bounded upstream assessment](upstream-gap-assessment.md) before creati
 | [CHG-013 — Unicode host-layout compatibility](archive/CHG-013-unicode-host-layout-compatibility.md) | done |
 | [CHG-014 — Restore editor design language](archive/CHG-014-restore-editor-design-language.md) | done |
 | [CHG-015 — Keep legend Alt columns reachable](archive/CHG-015-keep-legend-alt-columns-reachable.md) | done |
+| [CHG-016 — Align Unicode picker controls with the editor design language](archive/CHG-016-align-unicode-picker-controls.md) | done |
 
 ## Review packages
 
