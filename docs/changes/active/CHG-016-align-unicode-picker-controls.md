@@ -33,7 +33,7 @@ Runtime inspection opened the real Demo KeyEditor and selected `&uc`. At the des
 
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
-| 1 | Restore compact Unicode picker controls and browser evidence | in-progress | `pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/unicode-picker.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect Unicode runtime states and CAP-001 render |
+| 1 | Restore compact Unicode picker controls and browser evidence | done (pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/unicode-picker.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check exit 0 @ a0a0259be90bd4795e393881e21ee88638f8e4ce) | `pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/unicode-picker.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect Unicode runtime states and CAP-001 render |
 | 2 | Integrate the current-state record and close the change | pending | `pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect the final Unicode runtime matrix and CAP-001 render |
 
 ## Phase 1 — Restore compact Unicode picker controls and browser evidence
