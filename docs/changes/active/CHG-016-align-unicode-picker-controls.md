@@ -1,6 +1,6 @@
 # CHG-016 — Align Unicode picker controls with the editor design language
 
-**Status:** planned
+**Status:** in-progress
 **External request:** Direct operator request: After visual inspection the UI elements of the unicode-picker are not following the design rules applied. E.g. the buttons and imput elements are too large. Verify this before create a CHG with the phased-plan-design skill
 **Impacts:** CAP-001
 **Baseline:** `15f9e426e80ff956f3c85c96be673436986b4777` on main
@@ -33,7 +33,7 @@ Runtime inspection opened the real Demo KeyEditor and selected `&uc`. At the des
 
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
-| 1 | Restore compact Unicode picker controls and browser evidence | pending | `pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/unicode-picker.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect Unicode runtime states and CAP-001 render |
+| 1 | Restore compact Unicode picker controls and browser evidence | in-progress | `pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/web lint && pnpm exec playwright test e2e/unicode-picker.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect Unicode runtime states and CAP-001 render |
 | 2 | Integrate the current-state record and close the change | pending | `pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exits 0; inspect the final Unicode runtime matrix and CAP-001 render |
 
 ## Phase 1 — Restore compact Unicode picker controls and browser evidence
