@@ -66,6 +66,7 @@ Use installed `application-records` and `phased-plan-*` skills when available. T
 
 | Change | Status |
 | --- | --- |
+| [CHG-017 — Complete behavior documentation help](active/CHG-017-complete-behavior-documentation-help.md) | planned |
 
 
 Read the [bounded upstream assessment](upstream-gap-assessment.md) before creating a record for upstream parity work.
