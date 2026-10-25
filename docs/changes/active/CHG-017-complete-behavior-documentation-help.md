@@ -1,6 +1,6 @@
 # CHG-017 — Complete behavior documentation help
 
-**Status:** planned
+**Status:** in-progress
 **External request:** Direct operator request: Some of the `key-editor-chips" data-behaviour-group="params" role="group" aria-label="Behaviours that take a value"` buttons do not have a tooltip with online help reference e.g. "&uc" to https://github.com/urob/zmk-unicode/blob/main/README.md Research for missing buttons where the documentation could be. If this not distinct make proposals to the operator and discuss the options, witch are the best alternative. The result should be applied to a new CHR by the phased-plan-design skill afterwards
 **Impacts:** CAP-001
 **Baseline:** `da39a091d3de7fae6108bd0d7990afeba0c3cc78` on main
@@ -53,7 +53,7 @@ These are existing ownership seams, not a requirement to edit every named file. 
 
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
-| 1 | Complete built-in behavior help with interaction evidence | pending | `pnpm --filter @keymap-editor/keymap-core build && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/clipboard.spec.ts e2e/unicode-picker.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
+| 1 | Complete built-in behavior help with interaction evidence | in-progress | `pnpm --filter @keymap-editor/keymap-core build && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/clipboard.spec.ts e2e/unicode-picker.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
 | 2 | Add proven hold-tap and Layer + RGB recipe help | pending | `pnpm --filter @keymap-editor/keymap-core build && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/clipboard.spec.ts e2e/definition-dialog-layout.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
 | 3 | Verify integrated help coverage and close the change | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e` |
 
