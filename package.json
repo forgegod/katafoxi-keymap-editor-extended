@@ -7,6 +7,7 @@
     "dev": "pnpm --filter @keymap-editor/keymap-core build && node scripts/dev-servers.mjs",
     "build": "pnpm --filter @keymap-editor/keymap-core build && pnpm --filter @keymap-editor/web build && pnpm --filter @keymap-editor/api build",
     "start": "pnpm --filter @keymap-editor/api start",
+    "deploy": "pnpm --filter @keymap-editor/cloudflare run deploy",
     "test": "pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/api test && pnpm --filter @keymap-editor/web test && pnpm --filter @keymap-editor/cloudflare test && pnpm test:records",
     "test:coverage": "pnpm --filter @keymap-editor/keymap-core test:coverage && pnpm --filter @keymap-editor/api test:coverage && pnpm --filter @keymap-editor/web test:coverage",
     "test:e2e": "playwright test",
