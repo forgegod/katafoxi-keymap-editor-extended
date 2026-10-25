@@ -13,7 +13,8 @@
     isStockHoldTap,
     parseHsbToken,
     RGB_LAYER_RECIPE,
-    zmkBehaviorDocsUrl,
+    zmkBehaviorHelp,
+    type ZmkBehaviorHelpContext,
     type HoldTapPreset,
     type HsbColor,
     type ZmkHoldTap,
@@ -89,6 +90,7 @@
     onConfirm: (staged?: KeyEditorConfirmStaged | null) => void
     onCancel: () => void
     holdTaps?: ZmkHoldTap[]
+    helpContext?: ZmkBehaviorHelpContext
     onChangeHoldTaps?: (next: ZmkHoldTap[]) => void
   }
 
@@ -111,6 +113,7 @@
     onConfirm,
     onCancel,
     holdTaps,
+    helpContext,
     onChangeHoldTaps
   }: Props = $props()
 
@@ -246,14 +249,14 @@
   }
 
   function presetTitle(item: HoldTapPreset): string {
-    const docs = zmkBehaviorDocsUrl(item.code) ? 'Ctrl+click: docs' : ''
+    const docs = zmkBehaviorHelp(item.code)?.hint
     return [item.description, docs].filter(Boolean).join('\n')
   }
 
   function choosePresetClick(event: MouseEvent, next: HoldTapPreset) {
     if (event.ctrlKey || event.metaKey) {
       event.preventDefault()
-      const url = zmkBehaviorDocsUrl(next.code)
+      const url = zmkBehaviorHelp(next.code)?.url
       if (url) window.open(url, '_blank', 'noopener,noreferrer')
       return
     }
@@ -287,6 +290,17 @@
     const prev = layerColors[layer]
     if (prev && prev.h === next.h && prev.s === next.s && prev.b === next.b) return
     layerColors = { ...layerColors, [layer]: next }
+  }
+
+  const rgbLayerHelp = zmkBehaviorHelp(RGB_LAYER_RECIPE.code, { recipe: 'rgb-layer' })
+
+  function chooseRgbLayerClick(event: MouseEvent, layer: number) {
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault()
+      if (rgbLayerHelp) window.open(rgbLayerHelp.url, '_blank', 'noopener,noreferrer')
+      return
+    }
+    chooseRgbLayer(layer)
   }
 
   function chooseRgbLayer(layer: number, color: HsbColor = swatchColor(layer)) {
@@ -536,6 +550,7 @@
       <div class="key-editor-choice-block" data-behavior-choice>
         <BehaviourRow
           behaviours={behaviourChoices}
+          {helpContext}
           activeCode={behaviourValue}
           onChoose={chooseBehaviour}
         />
@@ -564,11 +579,11 @@
                 >
                   <SelectChip
                     active={rgbLayerEdit && Number(layerSlot?.value) === layer}
-                    title={RGB_LAYER_RECIPE.description}
+                    title={[RGB_LAYER_RECIPE.description, rgbLayerHelp?.hint].filter(Boolean).join('\n')}
                     aria-label={`${RGB_LAYER_RECIPE.name} · layer ${layer}`}
                     data-behavior-recipe={RGB_LAYER_RECIPE.code}
                     data-rgblayer-layer={layer}
-                    onclick={() => chooseRgbLayer(layer)}
+                    onclick={event => chooseRgbLayerClick(event, layer)}
                   >
                     {RGB_LAYER_RECIPE.code}_{layer}
                   </SelectChip>

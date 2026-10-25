@@ -1,8 +1,65 @@
 import { describe, expect, it } from 'vitest'
 import { getBehaviorCatalog } from './catalog.js'
-import { zmkBehaviorDocsUrl } from './zmk-docs.js'
+import { parseDtsKeymap } from './dts-keymap.js'
+import { mergeHoldTapCatalog } from './behaviors.js'
+import { zmkBehaviorDocsUrl, zmkBehaviorHelp } from './zmk-docs.js'
 
 describe('zmkBehaviorDocsUrl', () => {
+  const namedSource = (properties = '') => `#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+/ {
+  behaviors {
+    kestrel: arbitrary_node {
+      compatible = "zmk,behavior-hold-tap";
+      #binding-cells = <2>;
+      bindings = <&kp>, <&kp>;
+      tapping-term-ms = <180>;
+      ${properties}
+    };
+  };
+  keymap { compatible = "zmk,keymap"; base { bindings = <&kestrel LCTRL A>; }; };
+};`
+
+  it('resolves an arbitrary named hold-tap only with document-proven metadata', () => {
+    const document = parseDtsKeymap(namedSource())
+    const before = JSON.stringify(document)
+    expect(mergeHoldTapCatalog(getBehaviorCatalog(), document.holdTaps).byCode['&kestrel'].holdTap).toBe(true)
+    expect(zmkBehaviorDocsUrl('&kestrel')).toBeNull()
+    expect(zmkBehaviorDocsUrl('&kestrel', document)).toBe('https://zmk.dev/docs/keymaps/behaviors/hold-tap')
+    expect(JSON.stringify(document)).toBe(before)
+  })
+
+  it('refuses opaque definitions, unproven models, lookalikes and legacy reset', () => {
+    for (const properties of ['tapping-term-ms = <OPAQUE>;', 'unsupported-property;']) {
+      const document = parseDtsKeymap(namedSource(properties))
+      expect(zmkBehaviorDocsUrl('&kestrel', document)).toBeNull()
+    }
+    for (const code of ['&kestrel', '&custom_hold_tap', '&hm_lookalike', '&reset']) {
+      expect(zmkBehaviorDocsUrl(code, { holdTaps: [{ code }] })).toBeNull()
+      expect(zmkBehaviorDocsUrl(code, { holdTaps: [{ code, override: true, bindings: ['&kp', '&kp'] }] })).toBeNull()
+    }
+    const document = parseDtsKeymap(namedSource())
+    expect(zmkBehaviorDocsUrl('&custom_hold_tap', document)).toBeNull()
+    expect(zmkBehaviorDocsUrl('&reset', { holdTaps: [{ code: '&reset', bindings: ['&kp', '&kp'] }] })).toBeNull()
+  })
+
+  it('classifies exact bindings, proven families and explicitly requested recipe patterns', () => {
+    expect(zmkBehaviorHelp('&uc')).toMatchObject({ kind: 'binding', hint: 'Ctrl+click: docs' })
+    for (const code of ['&hm', '&as']) {
+      expect(zmkBehaviorHelp(code)).toMatchObject({ kind: 'family', hint: 'Ctrl+click: docs — hold-tap family, not this definition.' })
+    }
+    expect(zmkBehaviorHelp('&kestrel', parseDtsKeymap(namedSource()))).toMatchObject({ kind: 'family' })
+    expect(zmkBehaviorDocsUrl('&rgblayer', { recipe: 'rgb-layer' })).toBe('https://zmk.dev/docs/keymaps/behaviors/macros#layer--underglow-color')
+    expect(zmkBehaviorHelp('&rgblayer', { recipe: 'rgb-layer' })).toEqual({
+      kind: 'recipe-pattern',
+      url: 'https://zmk.dev/docs/keymaps/behaviors/macros#layer--underglow-color',
+      hint: 'Ctrl+click: docs — ZMK macro pattern, not exact editor recipe documentation.'
+    })
+    for (const code of ['&rgblayer_1', '&rgblayer_2', '&custom', '&reset', 'constructor', '__proto__']) {
+      expect(zmkBehaviorHelp(code, { recipe: 'rgb-layer' })).toBeNull()
+    }
+  })
+
   const builtins = {
     '&kp': 'keymaps/behaviors/key-press',
     '&kt': 'keymaps/behaviors/key-toggle',

@@ -34,6 +34,8 @@ KeyEditor previews use the session's full encoded draft once a behavior selectio
 
 Behavior-chip help uses core's known destination and the existing descriptive native title. Ctrl/Meta-click opens `_blank` with `noopener,noreferrer` before selection or staging; ordinary pointer/Space selection and Apply/Cancel remain separate. Browser tests record `window.open` rather than navigate remote documentation, and verify unchanged drafts/history plus chip reachability in both themes.
 
+KeyEditorHost passes the current document as help context; do not substitute a catalog `holdTap` hint or parameter count for proof. All per-layer RGB selection chips consume core's recipe-pattern help before color memory or preset/recipe mutation. Retain restore-black copy and keep adjacent HSB inputs outside the help handler. Family/pattern hints must not claim exact custom-definition documentation.
+
 KeyEditorHost computes Unicode compatibility only from the editor-selected English profile/table, tracking hostLayoutRevision, and passes the core result through KeyEditor to UnicodePicker without mutation. Keep all three accessible states advisory: no national/default fallback, mapping repair, OS-layout detection/switching or compatibility-based Apply block. Preserve scalar validation and staged Cancel/no-op/source contracts.
 
 UnicodePicker owns specialized token-themed 22px tabs, 24px fields/selects and compact wrapping alias choices; do not reuse combo classes or alter ordinary Button sizing. The KeyEditor main scrollport owns the entire picker, including unfiltered aliases; no nested alias scroller or hidden-overflow substitute. Keep Apply/Cancel outside that scrollport.

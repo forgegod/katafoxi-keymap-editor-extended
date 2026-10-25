@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { CatalogChoice, HsbColor, ZmkHoldTap } from '@keymap-editor/keymap-core'
+  import type { CatalogChoice, HsbColor, ZmkHoldTap, ZmkBehaviorHelpContext } from '@keymap-editor/keymap-core'
   import { untrack } from 'svelte'
   import { setSearchContext, type SearchBox } from '../../context'
   import type { EditorSlot } from '../../key-editor'
@@ -23,6 +23,7 @@
     onConfirm: (staged?: KeyEditorConfirmStaged | null) => void
     onCancel: () => void
     holdTaps?: ZmkHoldTap[]
+    helpContext?: ZmkBehaviorHelpContext
     onChangeHoldTaps?: (next: ZmkHoldTap[]) => void
   }
 
@@ -86,6 +87,7 @@
   {onConfirm}
   {onCancel}
   {holdTaps}
+  helpContext={scene.helpContext}
   {onChangeHoldTaps}
   onToggleHold={variant === 'encoder' ? undefined : () => {}}
 />

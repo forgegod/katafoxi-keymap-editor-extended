@@ -79,7 +79,7 @@ ${card('English layout unavailable · separate warning state', `<div class="unic
 <p class="muted">Checks only base outputs for digits, A–F, U, Space and Enter. No OS-state detection, module validation or firmware execution. Cancel/no-op retains bindings and host layouts.</p>
 </div></div></section><script>document.fonts.ready.then(() => document.querySelectorAll('[data-unicode-scroll-bottom]').forEach(port => { port.scrollTop = port.scrollHeight }))</script>`
 
-const behaviorHelp = () => `<section class="unicode-study behavior-help" aria-label="Built-in behavior documentation help">
+const behaviorHelp = () => `<section class="unicode-study behavior-help" aria-label="Behavior documentation help">
 <h2>Behavior chips · documentation without selecting</h2>
 <p>Canonical schematic · native title examples are written out below for review, not a new help popover.</p>
 <div class="unicode-preview"><code>&amp;kp A</code><button type="button">Apply</button><button type="button">Cancel</button></div>
@@ -87,9 +87,12 @@ const behaviorHelp = () => `<section class="unicode-study behavior-help" aria-la
 <div><button type="button" title="Unicode input via urob/zmk-unicode; requires firmware module and host input setup&#10;Ctrl+click: docs">&amp;uc</button><p>Third-party module · urob/zmk-unicode README</p><p><code>github.com/urob/zmk-unicode/blob/main/README.md</code></p></div>
 <div><button type="button" title="Incremental Key Press&#10;Ctrl+click: docs">&amp;inc_dec_kp</button><p>ZMK · Encoder Rotation</p><p><code>zmk.dev/docs/features/encoders#rotation</code></p></div>
 <div><button type="button" title="Studio Unlock&#10;Applies immediately.&#10;Ctrl+click: docs">&amp;studio_unlock</button><p>ZMK · Studio Unlock Behavior</p><p><code>zmk.dev/docs/keymaps/behaviors/studio-unlock</code></p></div>
+<div><button type="button" title="Hold-tap, 180 ms&#10;Ctrl+click: docs — hold-tap family, not this definition.">&amp;kestrel</button><p>Document-proven named hold-tap · family reference, not this label's timing or children.</p><p><code>zmk.dev/docs/keymaps/behaviors/hold-tap</code></p><p>Presets <button type="button" title="Homerow modifiers&#10;Ctrl+click: docs — hold-tap family, not this definition.">&amp;hm</button> <button type="button" title="Auto Shift&#10;Ctrl+click: docs — hold-tap family, not this definition.">&amp;as</button> retain family help and ordinary staged selection.</p></div>
+<div><p>Presets · Layer + RGB</p><button type="button" title="Hold a layer and set underglow color; release restores black.&#10;Ctrl+click: docs — ZMK macro pattern, not exact editor recipe documentation.">&amp;rgblayer_0</button> <button type="button" title="Hold a layer and set underglow color; release restores black.&#10;Ctrl+click: docs — ZMK macro pattern, not exact editor recipe documentation.">&amp;rgblayer_1</button><p>Each layer chip opens the ZMK macro pattern, not exact editor recipe documentation. Editor release restores black; the upstream example uses another release color.</p><p><code>zmk.dev/docs/keymaps/behaviors/macros#layer--underglow-color</code></p><p>Adjacent HSB swatches remain color controls, not help launchers.</p></div>
+<div><button type="button" title="External binding">&amp;custom_hold_tap</button><p>Unlinked boundary · a familiar name, two parameters or a choice hint is not proof. Opaque/unproven definitions and legacy <code>&amp;reset</code> have no help gesture.</p></div>
 </div>
 <p>Native title: description + <code>Ctrl+click: docs</code>. Ctrl or Meta-click opens the known reference in a new tab; <code>&amp;kp A</code> and any staged Unicode input stay unchanged. Ordinary click or Space selects; Apply still commits the staged binding.</p>
-<p>No module/OS detection or installation, firmware execution or device unlock. Unknown bindings and legacy <code>&amp;reset</code> receive no invented help; legacy reset is not a stock choice.</p>
+<p>Help preserves unchanged or changed drafts, preset/recipe flags, colors and existing redo. No module/OS detection or installation, firmware execution or device unlock; legacy reset is not a stock choice.</p>
 </section>`
 
 const screens = [

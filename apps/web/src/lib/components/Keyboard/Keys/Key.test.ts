@@ -1,6 +1,8 @@
 import {
   encodeKeyBinding,
   parseKeyBinding,
+  parseDtsKeymap,
+  parseKeymap,
   addHostLanguage,
   assignHostLanguageLayout,
   hostLayout,
@@ -195,6 +197,78 @@ describe('Key click editor', () => {
     } finally {
       opened.mockRestore()
     }
+  })
+
+  it.each(['cancel', 'apply'])('preserves real named hold-tap and recipe drafts, colors and redo before %s', ending => {
+    const source = `#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+/ {
+  behaviors { kestrel: arbitrary { compatible = "zmk,behavior-hold-tap"; #binding-cells = <2>; bindings = <&kp>, <&kp>; }; };
+  keymap { compatible = "zmk,keymap"; base { bindings = <&kestrel LCTRL A>; }; lower { bindings = <&trans>; }; };
+};`
+    editor.baselineKeymap = parseKeymap(parseDtsKeymap(source))
+    editor.draftKeymap = editor.baselineKeymap
+    editor.clipboardOriginalSource = source
+    editor.updateKeymap({ ...editor.draftKeymap, layers: [[parseKeyBinding('&kp B')], [parseKeyBinding('&trans')]] })
+    editor.undo()
+    expect(editor.canRedo).toBe(true)
+    const snapshot = () => JSON.stringify({
+      draft: editor.draftKeymap, baseline: editor.baselineKeymap,
+      undo: editor.undoStack, redo: editor.redoStack, source: editor.clipboardOriginalSource,
+      layers: editor.layerOperationSnapshot, holdTaps: editor._holdTapsOnNextUpdate,
+      rgb: editor._rgbLayerRecipeOnNextUpdate, host: editor.hostLegend, dirty: editor.isDirty
+    })
+    const before = snapshot()
+    const binding = parseKeyBinding('&kestrel LCTRL A')
+    const onUpdate = open({ value: String(binding.value), params: binding.params })
+    const opened = vi.spyOn(window, 'open').mockReturnValue(null)
+    try {
+      clickKey()
+      const colors = () => [...editorDialog()!.querySelectorAll<HTMLInputElement>('[data-hsb-picker] input')].map(el => el.value)
+      for (const changed of [false, true]) {
+        if (changed) {
+          const color = editorDialog()!.querySelector<HTMLInputElement>('[data-rgblayer-color="1"] input')!
+          color.value = '#00ff00'
+          color.dispatchEvent(new Event('input', { bubbles: true }))
+          flushSync()
+        }
+        const preview = editorDialog()!.querySelector('.binding')!.textContent
+        const beforeColors = colors()
+        if (changed) expect(preview).toBe('&rgblayer 1 RGB_COLOR_HSB(85,255,255)')
+        else expect(preview).toBe('&kestrel LCTRL A')
+        const chips = [...editorDialog()!.querySelectorAll<HTMLButtonElement>('.key-editor-chip')].filter(el =>
+          el.textContent?.trim() === '&kestrel' || el.hasAttribute('data-behavior-recipe') || el.hasAttribute('data-behavior-preset'))
+        expect(chips).toHaveLength(5)
+        for (const chip of chips) {
+          expect(chip.title).toContain('Ctrl+click: docs')
+          for (const modifier of ['ctrlKey', 'metaKey']) {
+            opened.mockClear()
+            chip.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, [modifier]: true }))
+            flushSync()
+            expect(opened).toHaveBeenCalledOnce()
+            expect(opened).toHaveBeenCalledWith(chip.hasAttribute('data-behavior-recipe')
+              ? 'https://zmk.dev/docs/keymaps/behaviors/macros#layer--underglow-color'
+              : 'https://zmk.dev/docs/keymaps/behaviors/hold-tap', '_blank', 'noopener,noreferrer')
+            expect(editorDialog()!.querySelector('.binding')!.textContent).toBe(preview)
+            expect(colors()).toEqual(beforeColors)
+            expect(snapshot()).toBe(before)
+            expect(onUpdate).not.toHaveBeenCalled()
+          }
+        }
+      }
+      if (ending === 'apply') {
+        clickApply()
+        expect(encodedUpdate(onUpdate)).toBe('&rgblayer 1 RGB_COLOR_HSB(85,255,255)')
+        expect(editor._rgbLayerRecipeOnNextUpdate).toBe(true)
+      } else {
+        editorDialog()!.querySelector<HTMLButtonElement>('[aria-label="Cancel"]')!.click()
+        flushSync()
+        expect(onUpdate).not.toHaveBeenCalled()
+        expect(snapshot()).toBe(before)
+        clickKey()
+        expect(editorDialog()!.querySelector('.binding')!.textContent).toBe('&kestrel LCTRL A')
+      }
+    } finally { opened.mockRestore() }
   })
 
   it('propagates the selected English compatibility into the Unicode picker', () => {

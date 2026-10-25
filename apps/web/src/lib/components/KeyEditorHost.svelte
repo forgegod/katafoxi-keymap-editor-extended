@@ -70,6 +70,7 @@
       {bindingLabel}
       {unicodeCompatibility}
       {behaviours}
+      helpContext={editor.draftKeymap ?? editor.baselineKeymap ?? undefined}
       {editorSlots}
       {activeCodeIndex}
       {choices}

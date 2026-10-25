@@ -1,4 +1,4 @@
-import { getBehaviorCatalog, isInstantBehavior, type CatalogChoice } from '@keymap-editor/keymap-core'
+import { getBehaviorCatalog, isInstantBehavior, mergeHoldTapCatalog, parseDtsKeymap, type CatalogChoice } from '@keymap-editor/keymap-core'
 import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { SearchBox } from '../../context'
@@ -328,6 +328,52 @@ describe('KeyEditor value catalog', () => {
     } finally {
       window.open = original
     }
+  })
+
+  it('uses document proof for named-family help without staging or trusting choice hints', () => {
+    const document = parseDtsKeymap(`#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+/ {
+  behaviors {
+    kestrel: arbitrary { compatible = "zmk,behavior-hold-tap"; #binding-cells = <2>; bindings = <&kp>, <&kp>; };
+    opaque: opaque { compatible = "zmk,behavior-hold-tap"; #binding-cells = <2>; bindings = <&kp>, <&kp>; unsupported-property; };
+  };
+  keymap { compatible = "zmk,keymap"; base { bindings = <&kp A>; }; };
+};`)
+    const selected: unknown[] = []
+    const applied: unknown[] = []
+    const opened: unknown[][] = []
+    const original = window.open
+    window.open = ((...args: unknown[]) => { opened.push(args); return null }) as typeof window.open
+    try {
+      open({
+        bindingLabel: '&kp A',
+        behaviours: [...mergeHoldTapCatalog(getBehaviorCatalog(), document.holdTaps).list,
+          { code: '&hm_lookalike', holdTap: true, params: ['code', 'code'] },
+          { code: '&unknown', params: ['code', 'code'] }, { code: '&reset', params: [] }],
+        helpContext: document,
+        editorSlots: [slot(0, 'behaviour', '&kp', 'Behaviour'), slot(1, 'code', 'A', 'Key')],
+        activeCodeIndex: 1, choices: codeChoices,
+        onSelectBehaviour: choice => selected.push(choice), onSelectValue: () => {}, onActivateSlot: () => {},
+        onConfirm: staged => applied.push(staged), onCancel: () => {}
+      })
+      for (const code of ['&kestrel', '&opaque', '&hm_lookalike', '&unknown', '&reset']) {
+        const chip = [...target.querySelectorAll('.key-editor-chip')].find(el => el.textContent?.trim() === code)!
+        if (code === '&kestrel') expect(chip.getAttribute('title')).toContain('hold-tap family, not this definition')
+        else expect(chip.getAttribute('title')).not.toContain('Ctrl+click: docs')
+        for (const modifier of ['ctrlKey', 'metaKey']) {
+          opened.length = 0
+          chip.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, [modifier]: true }))
+          flushSync()
+          expect(opened).toEqual(code === '&kestrel' ? [['https://zmk.dev/docs/keymaps/behaviors/hold-tap', '_blank', 'noopener,noreferrer']] : [])
+          expect(selected).toEqual([])
+          expect(applied).toEqual([])
+          expect(target.querySelector('.binding')?.textContent).toBe('&kp A')
+        }
+      }
+      target.querySelector<HTMLButtonElement>('[aria-label="Apply"]')!.click()
+      expect(applied).toEqual([{}])
+    } finally { window.open = original }
   })
 
   it('keeps unknown and legacy chips descriptive but without invented help', () => {
@@ -913,6 +959,67 @@ describe('KeyEditor value catalog', () => {
     ;(cw as HTMLButtonElement).click()
     flushSync()
     expect(activated).toEqual([1])
+  })
+
+  it.each(['none', 'hold-tap', 'recipe'])('keeps every recipe help click outside %s staging and color controls', staged => {
+    const selected: unknown[] = []
+    const applied: unknown[] = []
+    const changed: unknown[] = []
+    const opened: unknown[][] = []
+    const original = window.open
+    window.open = ((...args: unknown[]) => { opened.push(args); return null }) as typeof window.open
+    try {
+      open({
+        bindingLabel: '&kp A', behaviours,
+        editorSlots: [slot(0, 'behaviour', '&kp', 'Behaviour'), slot(1, 'code', 'A', 'Key')],
+        activeCodeIndex: 1, choices: codeChoices,
+        onSelectBehaviour: choice => selected.push(choice), onSelectValue: () => {}, onActivateSlot: () => {},
+        onSelectHsb: color => changed.push(color), onChangeHoldTaps: nodes => changed.push(nodes),
+        onConfirm: value => applied.push(value), onCancel: () => {}
+      })
+      if (staged === 'hold-tap') target.querySelector<HTMLButtonElement>('[data-behavior-preset="&hm"]')!.click()
+      if (staged === 'recipe') {
+        const color = target.querySelector<HTMLInputElement>('[data-rgblayer-color="2"] input')!
+        color.value = '#00ff00'
+        color.dispatchEvent(new Event('input', { bubbles: true }))
+      }
+      flushSync()
+      const before = target.querySelector('.binding')?.textContent
+      const picks = JSON.stringify(selected)
+      const colors = () => [...target.querySelectorAll<HTMLInputElement>('[data-hsb-picker] input')].map(el => el.value)
+      const beforeColors = colors()
+      const chips = [...target.querySelectorAll<HTMLButtonElement>('[data-behavior-recipe], [data-behavior-preset]')]
+      expect(chips).toHaveLength(6)
+      for (const chip of chips) {
+        const recipe = chip.hasAttribute('data-behavior-recipe')
+        expect(chip.title).toContain(recipe ? 'release restores black' : 'Ctrl+click: docs')
+        expect(chip.title).toContain(recipe ? 'ZMK macro pattern, not exact editor recipe documentation' : 'hold-tap family')
+        for (const modifier of ['ctrlKey', 'metaKey']) {
+          opened.length = 0
+          const event = new MouseEvent('click', { bubbles: true, cancelable: true, [modifier]: true })
+          chip.dispatchEvent(event)
+          flushSync()
+          expect(event.defaultPrevented).toBe(true)
+          expect(opened).toEqual([[recipe ? 'https://zmk.dev/docs/keymaps/behaviors/macros#layer--underglow-color' : 'https://zmk.dev/docs/keymaps/behaviors/hold-tap', '_blank', 'noopener,noreferrer']])
+          expect(JSON.stringify(selected)).toBe(picks)
+          expect(changed).toEqual([])
+          expect(applied).toEqual([])
+          expect(colors()).toEqual(beforeColors)
+          expect(target.querySelector('.binding')?.textContent).toBe(before)
+        }
+      }
+      opened.length = 0
+      const color = target.querySelector<HTMLInputElement>('[data-rgblayer-color="1"] input')!
+      expect(color.closest('label')!.title).not.toContain('Ctrl+click')
+      const event = new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true })
+      color.dispatchEvent(event)
+      expect(event.defaultPrevented).toBe(false)
+      expect(opened).toEqual([])
+      // Inspect private local flags through the existing Apply payload, not a test-only hook.
+      target.querySelector<HTMLButtonElement>('[aria-label="Apply"]')!.click()
+      if (staged === 'hold-tap') expect(applied).toEqual([{ holdTaps: [expect.objectContaining({ code: '&hm' })] }])
+      else expect(applied).toEqual([staged === 'recipe' ? { rgbLayerRecipe: true } : {}])
+    } finally { window.open = original }
   })
 
   it('offers per-layer &rgblayer chips in Presets', () => {

@@ -2,18 +2,20 @@
   import {
     catalogChoiceTooltip,
     isInstantBehavior,
-    zmkBehaviorDocsUrl,
+    zmkBehaviorHelp,
+    type ZmkBehaviorHelpContext,
     type CatalogChoice
   } from '@keymap-editor/keymap-core'
   import SelectChip from '../Common/SelectChip.svelte'
 
   interface Props {
     behaviours: CatalogChoice[]
+    helpContext?: ZmkBehaviorHelpContext
     activeCode?: string | number
     onChoose: (choice: CatalogChoice) => void
   }
 
-  let { behaviours, activeCode, onChoose }: Props = $props()
+  let { behaviours, helpContext, activeCode, onChoose }: Props = $props()
 
   const parameterized = $derived(behaviours.filter(b => !isInstantBehavior(b)))
   const instant = $derived(behaviours.filter(b => isInstantBehavior(b)))
@@ -24,14 +26,14 @@
       description: choice.description || choice.name
     })
     const instantNote = isInstantBehavior(choice) ? 'Applies immediately.' : ''
-    const docs = zmkBehaviorDocsUrl(choice.code) ? 'Ctrl+click: docs' : ''
+    const docs = zmkBehaviorHelp(choice.code, helpContext)?.hint
     return [base, instantNote, docs].filter(Boolean).join('\n')
   }
 
   function handleBehaviourClick(event: MouseEvent, choice: CatalogChoice) {
     if (event.ctrlKey || event.metaKey) {
       event.preventDefault()
-      const url = zmkBehaviorDocsUrl(choice.code)
+      const url = zmkBehaviorHelp(choice.code, helpContext)?.url
       if (url) window.open(url, '_blank', 'noopener,noreferrer')
       return
     }

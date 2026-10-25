@@ -1,3 +1,6 @@
+import type { ZmkBehaviorDefinition, ZmkHoldTap } from './types.js'
+import { RGB_LAYER_RECIPE_CODE } from './behavior-recipes.js'
+
 const BEHAVIOR_DOCS: Record<string, string> = {
   '&kp': 'https://zmk.dev/docs/keymaps/behaviors/key-press',
   '&kt': 'https://zmk.dev/docs/keymaps/behaviors/key-toggle',
@@ -33,10 +36,58 @@ const BEHAVIOR_DOCS: Record<string, string> = {
   '&none': 'https://zmk.dev/docs/keymaps/behaviors/none'
 }
 
-/** Known binding help: ZMK references, third-party module docs and preset family pages. */
+/** Document metadata, not a label/arity guess or a UI choice's holdTap hint. */
+export interface ZmkBehaviorHelpContext {
+  holdTaps?: readonly ZmkHoldTap[]
+  behaviorDefinitions?: readonly ZmkBehaviorDefinition[]
+  /** Only the editor-owned recipe selection surface supplies this context. */
+  recipe?: 'rgb-layer'
+}
+
+export interface ZmkBehaviorHelp {
+  kind: 'binding' | 'family' | 'recipe-pattern'
+  url: string
+  hint: string
+}
+
+function provenHoldTap(code: string, context: ZmkBehaviorHelpContext): boolean {
+  const definitions = context.behaviorDefinitions?.filter(item => item.code === code) ?? []
+  // The legacy timing parser can retain metadata for an opaque definition.
+  // Never promote that metadata to help when the definition parser refused it.
+  if (definitions.some(item => !item.editable || item.compatible !== 'zmk,behavior-hold-tap')) return false
+  return context.holdTaps?.some(item =>
+    item.code === code && !item.override && item.bindings?.length === 2
+  ) ?? false
+}
+
+/** Known binding help plus document-proven named hold-tap family references. */
 export function zmkBehaviorDocsUrl(
-  code: string | number | undefined
+  code: string | number | undefined,
+  context: ZmkBehaviorHelpContext = {}
 ): string | null {
-  if (code == null) return null
-  return BEHAVIOR_DOCS[String(code)] ?? null
+  return zmkBehaviorHelp(code, context)?.url ?? null
+}
+
+/** Shared destination and semantic category; never infers a family from arity/name. */
+export function zmkBehaviorHelp(
+  code: string | number | undefined,
+  context: ZmkBehaviorHelpContext = {}
+): ZmkBehaviorHelp | null {
+  if (code == null || code === '&reset') return null
+  if (code === RGB_LAYER_RECIPE_CODE && context.recipe === 'rgb-layer') {
+    return {
+      kind: 'recipe-pattern',
+      url: 'https://zmk.dev/docs/keymaps/behaviors/macros#layer--underglow-color',
+      hint: 'Ctrl+click: docs — ZMK macro pattern, not exact editor recipe documentation.'
+    }
+  }
+  const exact = Object.hasOwn(BEHAVIOR_DOCS, String(code)) ? BEHAVIOR_DOCS[String(code)] : null
+  const family = code === '&hm' || code === '&as' || (!exact && provenHoldTap(String(code), context))
+  if (family) {
+    return {
+      kind: 'family', url: BEHAVIOR_DOCS['&mt']!,
+      hint: 'Ctrl+click: docs — hold-tap family, not this definition.'
+    }
+  }
+  return exact ? { kind: 'binding', url: exact, hint: 'Ctrl+click: docs' } : null
 }

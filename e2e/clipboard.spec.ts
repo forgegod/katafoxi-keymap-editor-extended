@@ -233,6 +233,115 @@ test.describe('Clipboard source', () => {
     })
   }
 
+  test('named-family and every recipe-layer help preserve drafts, colors, redo and source', async ({ page }) => {
+    const source = `// Help must not rewrite definitions or create a recipe.
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+/ {
+  behaviors {
+    kestrel: arbitrary { compatible = "zmk,behavior-hold-tap"; #binding-cells = <2>; bindings = <&kp>, <&kp>; tapping-term-ms = <180>; };
+    opaque: opaque { compatible = "zmk,behavior-hold-tap"; #binding-cells = <2>; bindings = <&kp>, <&kp>; unsupported-property; };
+  };
+  keymap {
+    compatible = "zmk,keymap";
+    base { bindings = <&kestrel LCTRL A &kp B &custom_hold_tap X Y &reset>; };
+    lower { bindings = <&trans &trans &trans &trans>; };
+    raise { bindings = <&trans &trans &trans &trans>; };
+  };
+};`
+    const picker = await openClipboardPicker(page)
+    await picker.getByRole('textbox', { name: /Paste your board \.keymap/ }).fill(source)
+    await picker.getByRole('button', { name: 'Load', exact: true }).click()
+    await editKey(page, page.getByRole('button', { name: '&kp B, layer 0', exact: true }), 'F13')
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    const redo = page.getByRole('button', { name: 'Redo', exact: true })
+    await expect(redo).toBeEnabled()
+    const state = () => page.evaluate(async () => {
+      const modulePath = '/src/lib/editor.svelte.ts'
+      const { editor } = await import(/* @vite-ignore */ modulePath)
+      return JSON.stringify({ draft: editor.draftKeymap, baseline: editor.baselineKeymap,
+        undo: editor.undoStack, redo: editor.redoStack, source: editor.clipboardOriginalSource,
+        layers: editor.layerOperationSnapshot, holdTaps: editor._holdTapsOnNextUpdate,
+        rgb: editor._rgbLayerRecipeOnNextUpdate, host: editor.hostLegend, dirty: editor.isDirty })
+    })
+    const before = await state()
+    const opened: unknown[][] = []
+    await page.exposeFunction('recordFamilyHelp', (...args: unknown[]) => opened.push(args))
+    await page.evaluate(() => {
+      window.open = ((...args: unknown[]) => {
+        void (window as unknown as { recordFamilyHelp: (...args: unknown[]) => Promise<void> }).recordFamilyHelp(...args)
+        return null
+      }) as typeof window.open
+    })
+    const original = page.getByRole('button', { name: '&kestrel LCTRL A, layer 0', exact: true })
+    const dialog = page.getByRole('dialog', { name: 'Edit key', exact: true })
+    await original.click()
+    const recipes = dialog.locator('[data-behavior-recipe]')
+    await expect(recipes).toHaveCount(3)
+    for (const stage of ['unchanged', 'homerow', 'autoshift', 'recipe']) {
+      if (stage === 'homerow') await dialog.locator('[data-behavior-preset="&hm"]').press('Space')
+      if (stage === 'autoshift') await dialog.locator('[data-behavior-preset="&as"]').click()
+      if (stage === 'recipe') {
+        // Color input remains a color editor and stages a green layer-2 recipe.
+        await dialog.locator('[data-rgblayer-color="2"] input').fill('#00ff00')
+        await expect(dialog.locator('.binding')).toHaveText('&rgblayer 2 RGB_COLOR_HSB(85,255,255)')
+      }
+      const preview = await dialog.locator('.binding').textContent()
+      const colors = () => dialog.locator('[data-hsb-picker] input').evaluateAll(elements => elements.map(el => (el as HTMLInputElement).value))
+      const beforeColors = await colors()
+      for (const chip of [dialog.getByRole('button', { name: '&kestrel', exact: true }),
+        ...await dialog.locator('[data-behavior-preset]').all(), ...await recipes.all()]) {
+        const recipe = await chip.getAttribute('data-behavior-recipe') !== null
+        await expect(chip).toHaveAttribute('title', recipe ? /release restores black.*\nCtrl\+click: docs — ZMK macro pattern, not exact editor recipe documentation/ : /hold-tap family, not this definition/)
+        for (const modifier of ['Control', 'Meta'] as const) {
+          opened.length = 0
+          await chip.click({ modifiers: [modifier] })
+          await expect.poll(() => opened).toEqual([[recipe
+            ? 'https://zmk.dev/docs/keymaps/behaviors/macros#layer--underglow-color'
+            : 'https://zmk.dev/docs/keymaps/behaviors/hold-tap', '_blank', 'noopener,noreferrer']])
+          await expect(dialog.locator('.binding')).toHaveText(preview!)
+          expect(await colors()).toEqual(beforeColors)
+          expect(await state()).toBe(before)
+        }
+      }
+      const opaque = dialog.getByRole('button', { name: '&opaque', exact: true })
+      await expect(opaque).not.toHaveAttribute('title', /Ctrl\+click/)
+      opened.length = 0
+      for (const modifier of ['Control', 'Meta'] as const) await opaque.click({ modifiers: [modifier] })
+      expect(opened).toEqual([])
+      expect(await state()).toBe(before)
+      await expect(dialog.locator('.binding')).toHaveText(preview!)
+      for (const swatch of await dialog.locator('[data-hsb-picker] label').all()) {
+        await expect(swatch).not.toHaveAttribute('title', /Ctrl\+click/)
+      }
+    }
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    expect(await state()).toBe(before)
+    await original.click()
+    await expect(dialog.locator('.binding')).toHaveText('&kestrel LCTRL A')
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    expect(await state()).toBe(before)
+    await expect(redo).toBeEnabled()
+    await redo.click()
+    await expect(page.getByRole('button', { name: '&kp F13, layer 0', exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await page.getByRole('button', { name: 'Copy .keymap' }).click()
+    await expect(page.getByRole('dialog', { name: 'Exported keymap' }).getByRole('status')).toContainText('Copied to the system clipboard')
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(source)
+    await page.keyboard.press('Escape')
+    await original.click()
+    // Ordinary Apply follows the existing history path even for an unchanged
+    // key; only help/Cancel above promise to preserve the existing redo stack.
+    await dialog.getByRole('button', { name: 'Apply', exact: true }).click()
+    await expect(original).toBeVisible()
+    await original.click()
+    await dialog.locator('[data-rgblayer-layer="1"]').press('Space')
+    await expect(dialog.locator('.binding')).toContainText('&rgblayer 1 RGB_COLOR_HSB(')
+    await expect(original).toBeVisible()
+    await dialog.getByRole('button', { name: 'Apply', exact: true }).click()
+    await expect(page.getByRole('button', { name: /^&rgblayer 1 .*layer 0$/ })).toBeVisible()
+  })
+
   test('stock documentation help preserves redo and source while ordinary Studio Unlock selection stays staged', async ({ page }) => {
     const source = `// Existing encoder binding and user-owned source remain unchanged by help.
 #include <behaviors.dtsi>

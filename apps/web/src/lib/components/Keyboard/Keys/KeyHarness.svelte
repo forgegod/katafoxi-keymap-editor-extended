@@ -1,6 +1,7 @@
 <script lang="ts">
   import {
     getBehaviorCatalog,
+    mergeHoldTapCatalog,
     getKeycodeCatalog,
     layerLegendSymbol,
     type HostLegendView,
@@ -40,17 +41,13 @@
     onUpdate = () => {}
   }: Props = $props()
 
-  const definitions = {
+  const definitions = $derived({
     keycodes: getKeycodeCatalog(),
-    behaviours: getBehaviorCatalog()
-  }
-  const layers = [
-    {
-      code: 0,
-      symbol: layerLegendSymbol(0),
-      description: 'Layer 0'
-    }
-  ]
+    behaviours: mergeHoldTapCatalog(getBehaviorCatalog(), editor.draftKeymap?.holdTaps)
+  })
+  const layers = $derived((editor.draftKeymap?.layers ?? [[]]).map((_, code) => ({
+    code, symbol: layerLegendSymbol(code), description: `Layer ${code}`
+  })))
   const search = $derived.by(() => buildSearchContext(definitions, layers))
 
   setSearchContext({
