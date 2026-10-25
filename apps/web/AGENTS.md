@@ -32,6 +32,8 @@ Hydration preserves imported arguments beyond catalog arity and keeps undeclared
 
 KeyEditor previews use the session's full encoded draft once a behavior selection is synchronized. Editable slots omit opaque/excess arguments and must not replace that source-preserving preview.
 
+Behavior-chip help uses core's known destination and the existing descriptive native title. Ctrl/Meta-click opens `_blank` with `noopener,noreferrer` before selection or staging; ordinary pointer/Space selection and Apply/Cancel remain separate. Browser tests record `window.open` rather than navigate remote documentation, and verify unchanged drafts/history plus chip reachability in both themes.
+
 KeyEditorHost computes Unicode compatibility only from the editor-selected English profile/table, tracking hostLayoutRevision, and passes the core result through KeyEditor to UnicodePicker without mutation. Keep all three accessible states advisory: no national/default fallback, mapping repair, OS-layout detection/switching or compatibility-based Apply block. Preserve scalar validation and staged Cancel/no-op/source contracts.
 
 UnicodePicker owns specialized token-themed 22px tabs, 24px fields/selects and compact wrapping alias choices; do not reuse combo classes or alter ordinary Button sizing. The KeyEditor main scrollport owns the entire picker, including unfiltered aliases; no nested alias scroller or hidden-overflow substitute. Keep Apply/Cancel outside that scrollport.

@@ -233,6 +233,73 @@ test.describe('Clipboard source', () => {
     })
   }
 
+  test('stock documentation help preserves redo and source while ordinary Studio Unlock selection stays staged', async ({ page }) => {
+    const source = `// Existing encoder binding and user-owned source remain unchanged by help.
+#include <behaviors.dtsi>
+/ {
+  keymap {
+    compatible = "zmk,keymap";
+    default_layer { bindings = <&kp A &inc_dec_kp C_VOL_UP C_VOL_DN>; };
+  };
+};`
+    const picker = await openClipboardPicker(page)
+    await picker.getByRole('textbox', { name: /Paste your board \.keymap/ }).fill(source)
+    await picker.getByRole('button', { name: 'Load', exact: true }).click()
+    const original = page.getByRole('button', { name: '&kp A, layer 0', exact: true })
+    await editKey(page, original, 'F13')
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    const redo = page.getByRole('button', { name: 'Redo', exact: true })
+    await expect(redo).toBeEnabled()
+    const opened: unknown[][] = []
+    await page.exposeFunction('recordBehaviorHelp', (...args: unknown[]) => opened.push(args))
+    await page.evaluate(() => {
+      window.open = ((...args: unknown[]) => {
+        void (window as unknown as { recordBehaviorHelp: (...args: unknown[]) => Promise<void> }).recordBehaviorHelp(...args)
+        return null
+      }) as typeof window.open
+    })
+    await original.click()
+    const dialog = page.getByRole('dialog', { name: 'Edit key' })
+    for (const [code, url] of [
+      ['&inc_dec_kp', 'https://zmk.dev/docs/features/encoders#rotation'],
+      ['&studio_unlock', 'https://zmk.dev/docs/keymaps/behaviors/studio-unlock']
+    ]) {
+      for (const modifier of ['Control', 'Meta'] as const) {
+        opened.length = 0
+        await dialog.getByRole('button', { name: code, exact: true }).click({ modifiers: [modifier] })
+        await expect.poll(() => opened).toEqual([[url, '_blank', 'noopener,noreferrer']])
+        await expect(dialog.locator('.binding')).toHaveText('&kp A')
+        await expect(original).toBeVisible()
+      }
+    }
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(redo).toBeEnabled()
+    await redo.click()
+    await expect(page.getByRole('button', { name: '&kp F13, layer 0', exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await page.getByRole('button', { name: 'Copy .keymap' }).click()
+    await expect(page.getByRole('dialog', { name: 'Exported keymap' }).getByRole('status')).toContainText('Copied to the system clipboard')
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(source)
+    await page.keyboard.press('Escape')
+    await original.click()
+    await dialog.getByRole('button', { name: '&studio_unlock', exact: true }).press('Space')
+    await expect(dialog.locator('.binding')).toHaveText('&studio_unlock')
+    await expect(original).toBeVisible()
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await original.click()
+    await dialog.getByRole('button', { name: '&studio_unlock', exact: true }).press('Space')
+    await expect(original).toBeVisible()
+    await dialog.getByRole('button', { name: 'Apply', exact: true }).click()
+    await expect(page.getByRole('button', { name: '&studio_unlock, layer 0', exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Copy .keymap' }).click()
+    await expect(page.getByRole('dialog', { name: 'Exported keymap' }).getByRole('status')).toContainText('Copied to the system clipboard')
+    const copied = await page.evaluate(() => navigator.clipboard.readText())
+    expect(copied.slice(0, copied.indexOf('bindings = <'))).toBe(source.slice(0, source.indexOf('bindings = <')))
+    expect(copied.match(/bindings\s*=\s*<([^>]+)>/)?.[1]?.trim().replace(/\s+/g, ' '))
+      .toBe('&studio_unlock &inc_dec_kp C_VOL_UP C_VOL_DN')
+    expect(copied.slice(copied.indexOf('>;'))).toBe(source.slice(source.indexOf('>;')))
+  })
+
   test.describe('CHG-009 stock picker integration', () => {
     const stockCases = [
       { behavior: '&out', argument: 'OUT_NONE' },

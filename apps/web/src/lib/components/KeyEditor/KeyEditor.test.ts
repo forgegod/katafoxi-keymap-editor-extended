@@ -274,9 +274,13 @@ describe('KeyEditor value catalog', () => {
     ['&gresc', 'https://zmk.dev/docs/keymaps/behaviors/mod-morph#behavior-binding'],
     ['&soft_off', 'https://zmk.dev/docs/keymaps/behaviors/soft-off'],
     ['&sys_reset', 'https://zmk.dev/docs/keymaps/behaviors/reset'],
-    ['&bootloader', 'https://zmk.dev/docs/keymaps/behaviors/reset']
-  ])('opens %s stock documentation without staging a binding', (code, url) => {
+    ['&bootloader', 'https://zmk.dev/docs/keymaps/behaviors/reset'],
+    ['&uc', 'https://github.com/urob/zmk-unicode/blob/main/README.md'],
+    ['&inc_dec_kp', 'https://zmk.dev/docs/features/encoders#rotation'],
+    ['&studio_unlock', 'https://zmk.dev/docs/keymaps/behaviors/studio-unlock']
+  ])('opens %s documentation with Ctrl and Meta without staging a binding', (code, url) => {
     const selected: unknown[] = []
+    const confirmed: unknown[] = []
     const opened: unknown[][] = []
     const original = window.open
     window.open = ((...args: unknown[]) => {
@@ -293,16 +297,69 @@ describe('KeyEditor value catalog', () => {
         onSelectBehaviour: choice => selected.push(choice),
         onSelectValue: () => {},
         onActivateSlot: () => {},
-        onConfirm: () => {},
+        onConfirm: (staged: unknown) => confirmed.push(staged),
         onCancel: () => {}
       })
       const chip = [...target.querySelectorAll('.key-editor-chip')].find(
         el => el.textContent?.trim() === code
       )
       expect(chip?.getAttribute('title')).toContain('Ctrl+click: docs')
-      chip!.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }))
+      const choice = behaviours.find((choice: CatalogChoice) => choice.code === code)!
+      expect(chip?.getAttribute('title')).toContain(choice.description || choice.name)
+      for (const modifier of ['ctrlKey', 'metaKey']) {
+        opened.length = 0
+        const event = new MouseEvent('click', { bubbles: true, cancelable: true, [modifier]: true })
+        chip!.dispatchEvent(event)
+        flushSync()
+        expect(event.defaultPrevented).toBe(true)
+        expect(opened).toEqual([[url, '_blank', 'noopener,noreferrer']])
+        expect(selected).toEqual([])
+        expect(confirmed).toEqual([])
+        expect(target.querySelector('.binding')?.textContent).toBe('&kp A')
+      }
+      // Ordinary pointer selection still reaches the existing staging callback.
+      ;(chip as HTMLButtonElement).click()
       flushSync()
-      expect(opened).toEqual([[url, '_blank', 'noopener,noreferrer']])
+      // Unicode also emits its initialized scalar draft after selection.
+      expect(selected.length).toBeGreaterThan(0)
+      for (const selection of selected) expect(selection).toMatchObject({ code })
+      expect(selected[0]).toMatchObject({ code })
+      expect(confirmed).toEqual([])
+    } finally {
+      window.open = original
+    }
+  })
+
+  it('keeps unknown and legacy chips descriptive but without invented help', () => {
+    const selected: unknown[] = []
+    const opened: unknown[] = []
+    const original = window.open
+    window.open = ((...args: unknown[]) => { opened.push(args); return null }) as typeof window.open
+    try {
+      open({
+        bindingLabel: '&kp A',
+        behaviours: [
+          ...behaviours,
+          { code: '&custom', name: 'External binding', params: ['raw', 'raw'] },
+          { code: '&reset', name: 'Legacy binding', params: [] }
+        ],
+        editorSlots: [slot(0, 'behaviour', '&kp', 'Behaviour'), slot(1, 'code', 'A', 'Key')],
+        activeCodeIndex: 1,
+        choices: codeChoices,
+        onSelectBehaviour: (choice: CatalogChoice) => selected.push(choice),
+        onSelectValue: () => {}, onActivateSlot: () => {},
+        onConfirm: () => { throw new Error('help must not confirm') }, onCancel: () => {}
+      })
+      for (const code of ['&custom', '&reset']) {
+        const chip = [...target.querySelectorAll('.key-editor-chip')].find(el => el.textContent?.trim() === code)!
+        expect(chip.getAttribute('title')).toContain(code === '&custom' ? 'External binding' : 'Legacy binding')
+        expect(chip.getAttribute('title')).not.toContain('Ctrl+click: docs')
+        for (const modifier of ['ctrlKey', 'metaKey']) {
+          chip.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, [modifier]: true }))
+          flushSync()
+        }
+      }
+      expect(opened).toEqual([])
       expect(selected).toEqual([])
       expect(target.querySelector('.binding')?.textContent).toBe('&kp A')
     } finally {

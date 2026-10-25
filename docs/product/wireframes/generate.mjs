@@ -79,11 +79,24 @@ ${card('English layout unavailable · separate warning state', `<div class="unic
 <p class="muted">Checks only base outputs for digits, A–F, U, Space and Enter. No OS-state detection, module validation or firmware execution. Cancel/no-op retains bindings and host layouts.</p>
 </div></div></section><script>document.fonts.ready.then(() => document.querySelectorAll('[data-unicode-scroll-bottom]').forEach(port => { port.scrollTop = port.scrollHeight }))</script>`
 
+const behaviorHelp = () => `<section class="unicode-study behavior-help" aria-label="Built-in behavior documentation help">
+<h2>Behavior chips · documentation without selecting</h2>
+<p>Canonical schematic · native title examples are written out below for review, not a new help popover.</p>
+<div class="unicode-preview"><code>&amp;kp A</code><button type="button">Apply</button><button type="button">Cancel</button></div>
+<div class="help-examples">
+<div><button type="button" title="Unicode input via urob/zmk-unicode; requires firmware module and host input setup&#10;Ctrl+click: docs">&amp;uc</button><p>Third-party module · urob/zmk-unicode README</p><p><code>github.com/urob/zmk-unicode/blob/main/README.md</code></p></div>
+<div><button type="button" title="Incremental Key Press&#10;Ctrl+click: docs">&amp;inc_dec_kp</button><p>ZMK · Encoder Rotation</p><p><code>zmk.dev/docs/features/encoders#rotation</code></p></div>
+<div><button type="button" title="Studio Unlock&#10;Applies immediately.&#10;Ctrl+click: docs">&amp;studio_unlock</button><p>ZMK · Studio Unlock Behavior</p><p><code>zmk.dev/docs/keymaps/behaviors/studio-unlock</code></p></div>
+</div>
+<p>Native title: description + <code>Ctrl+click: docs</code>. Ctrl or Meta-click opens the known reference in a new tab; <code>&amp;kp A</code> and any staged Unicode input stay unchanged. Ordinary click or Space selects; Apply still commits the staged binding.</p>
+<p>No module/OS detection or installation, firmware execution or device unlock. Unknown bindings and legacy <code>&amp;reset</code> receive no invented help; legacy reset is not a stock choice.</p>
+</section>`
+
 const screens = [
   {
     id: 'CAP-001', slug: 'firmware-keymap-editing', title: 'Firmware keymap editing',
     summary: 'Edit a binding without replacing the rest of the keymap.',
-    body: `${macroStudy()}${unicodePicker()}${definitionShells()}<div class="columns"><div>
+    body: `${behaviorHelp()}${macroStudy()}${unicodePicker()}${definitionShells()}<div class="columns"><div>
 ${card('Layers and board', `${chips(['Base · Rename', 'Lower · Rename', 'Add Layer', 'Delete layer'])}${board()}${chips(['Combos', 'Colors', 'Scheme'])}<p>Also: conditional layers, encoder CW/CCW, hold-tap timing, Homerow / Autoshift, fixed Layer + RGB recipe.</p><p>Bluetooth: BT_DISC + profile 0–4, BT_CLR_ALL.<br>RGB: RGB_ON / RGB_OFF; no general color editor.</p>`)}
 ${firmwareLayers()}
 ${card('Applied draft — separate example state', `${chips(['Changed', 'Undo', 'Discard draft', 'Copy .keymap'])}<p>Apply edits the draft; reopen retains it. Cancel drops staged changes. Clipboard: Copy .keymap exports source. Dirty firmware warns on leave (also Demo): Stay keeps edits; Leave never publishes. Discard affects firmware only.</p>`)}
@@ -197,6 +210,7 @@ const unicodeCss = `
 .unicode-study{${roles(appCss.match(/:root \{([\s\S]*?)\n\}/)[1])}color-scheme:light;font-size:12px;line-height:1.4;color:var(--text);background:var(--surface);padding:8px 10px;margin:16px 0;border-radius:8px}
 @media(prefers-color-scheme:dark){.unicode-study{${roles(appCss.match(/:root\[data-color-scheme="dark"\] \{([\s\S]*?)\n\}/)[1])}color-scheme:dark}}
 .unicode-study h2{font-size:15px;margin:0 0 6px}.unicode-study p{margin:6px 0;overflow-wrap:anywhere}.unicode-study .muted{color:var(--text-muted)}.unicode-study .columns{gap:8px}.unicode-study .columns>div{min-width:0}.unicode-study .card{padding:8px 10px;background:var(--surface);border-color:var(--border)}
+.help-examples{display:flex;flex-wrap:wrap;gap:8px}.help-examples>div{flex:1 1 240px;min-width:0;padding:7px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface-sunken)}.behavior-help code{overflow-wrap:anywhere}.behavior-help .unicode-preview{flex-wrap:wrap}.behavior-help button{font-size:11px}.behavior-help button[title^="Studio Unlock"]{border-style:dashed}
 .unicode-viewport{width:360px;max-width:100%;height:640px;margin:auto;padding:72px 11px 8px;background:var(--surface-sunken);border:1px solid var(--border)}.unicode-preview{display:flex;justify-content:center;align-items:center;gap:8px;min-height:48px;margin-bottom:12px}.unicode-main{max-height:496px;overflow-y:auto;padding:10px 14px 12px;background:var(--surface);border-radius:8px}.unicode-tabs{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0}.unicode-study button{font:inherit;min-height:22px;padding:1px 7px;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:4px;overflow-wrap:anywhere}.unicode-study button[aria-pressed=true]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--surface))}.unicode-study :focus-visible{outline:2px solid var(--accent);outline-offset:1px}.unicode-study button:disabled{color:var(--text-disabled);background:var(--surface-sunken);border-color:var(--border-subtle)}
 .unicode-fields{display:flex;flex-wrap:wrap;gap:6px}.unicode-study label{display:grid;gap:3px;flex:1 1 160px;min-width:0;color:var(--text-muted)}.unicode-study input,.unicode-study select{box-sizing:border-box;width:100%;min-width:0;height:24px;font:inherit;color:var(--text);background:var(--surface-sunken);border:1px solid var(--border);border-radius:4px;padding:0 6px}.unicode-study .unicode-alias{display:grid;gap:2px;padding:3px 6px;text-align:left;width:100%;margin-top:6px}.unicode-alias code{font-size:11px;overflow-wrap:anywhere}.unicode-status{padding:7px 8px;background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px}.unicode-status.warning{color:var(--warn-ink);background:var(--warn-wash);border-color:var(--warn-border)}.unicode-error{color:var(--danger-ink)}
 `
@@ -206,7 +220,7 @@ function html(title, body) {
 await mkdir(path.join(root, 'html'), { recursive: true })
 const manifest = { screens: screens.map(({ id, slug, title }) => ({
   id, title, html: `html/${id}-${slug}.html`, png: `exports/${id}-${slug}.png`,
-  viewport: { width: 1440, height: id === 'CAP-001' ? 7200 : id === 'CAP-003' ? 3600 : 4900 }
+  viewport: { width: 1440, height: id === 'CAP-001' ? 7500 : id === 'CAP-003' ? 3600 : 4900 }
 })) }
 for (const [index, screen] of screens.entries()) {
   const body = `<header><strong>Keymap Editor</strong><div class="chips">${chip('ZMK · firmware')}${chip('Host · OS layout')}</div><span class="eyebrow">${screen.id} · current surface</span></header><main><h1>${escape(screen.title)}</h1><p class="intro">${escape(screen.summary)}</p>${screen.body}</main><footer>Canonical schematic, not an application screenshot. Synthetic examples and separate example states. Current bounded behavior only; no proposed parity features are shown as shipped. <a href="../index.html">All capabilities</a></footer>`

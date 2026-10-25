@@ -134,6 +134,69 @@ describe('Key click editor', () => {
     return onUpdate
   }
 
+  it.each(['cancel', 'apply'])('keeps built-in help out of the real session and history before %s', ending => {
+    const binding = parseKeyBinding('&uc UC_DE_AE')
+    editor.baselineKeymap = { layer_names: ['base'], layers: [[binding]] }
+    editor.draftKeymap = editor.baselineKeymap
+    editor.updateKeymap({ ...editor.draftKeymap, layers: [[parseKeyBinding('&kp B')]] })
+    editor.undo()
+    expect(editor.canRedo).toBe(true)
+    const snapshot = () => JSON.stringify({
+      draft: editor.draftKeymap, baseline: editor.baselineKeymap,
+      undo: editor.undoStack, redo: editor.redoStack,
+      source: editor.clipboardOriginalSource, layers: editor.layerOperationSnapshot,
+      holdTaps: editor._holdTapsOnNextUpdate, rgb: editor._rgbLayerRecipeOnNextUpdate,
+      host: editor.hostLegend, dirty: editor.isDirty
+    })
+    const before = snapshot()
+    const onUpdate = open({ value: String(binding.value), params: binding.params })
+    const opened = vi.spyOn(window, 'open').mockReturnValue(null)
+    try {
+      clickKey()
+      for (const changed of [false, true]) {
+        if (changed) {
+          const field = editorDialog()!.querySelector<HTMLInputElement>('[aria-label="Normal Unicode character or code point"]')!
+          field.value = '€'
+          field.dispatchEvent(new Event('input', { bubbles: true }))
+          flushSync()
+        }
+        const expected = changed ? '&uc 0x20AC 0xC4' : '&uc UC_DE_AE'
+        for (const [code, url] of [
+          ['&uc', 'https://github.com/urob/zmk-unicode/blob/main/README.md'],
+          ['&inc_dec_kp', 'https://zmk.dev/docs/features/encoders#rotation'],
+          ['&studio_unlock', 'https://zmk.dev/docs/keymaps/behaviors/studio-unlock']
+        ]) {
+          const chip = [...editorDialog()!.querySelectorAll('.key-editor-chip')].find(el => el.textContent?.trim() === code)!
+          expect(chip.getAttribute('title')).toContain('Ctrl+click: docs')
+          for (const modifier of ['ctrlKey', 'metaKey']) {
+            opened.mockClear()
+            chip.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, [modifier]: true }))
+            flushSync()
+            expect(opened).toHaveBeenCalledOnce()
+            expect(opened).toHaveBeenCalledWith(url, '_blank', 'noopener,noreferrer')
+            expect(editorDialog()!.querySelector('.binding')?.textContent).toBe(expected)
+            expect(onUpdate).not.toHaveBeenCalled()
+            expect(snapshot()).toBe(before)
+          }
+        }
+      }
+      if (ending === 'apply') {
+        clickApply()
+        expect(encodedUpdate(onUpdate)).toBe('&uc 0x20AC 0xC4')
+      } else {
+        editorDialog()!.querySelector<HTMLButtonElement>('[aria-label="Cancel"]')!.click()
+        flushSync()
+        expect(onUpdate).not.toHaveBeenCalled()
+        clickKey()
+        expect(editorDialog()!.querySelector('.binding')?.textContent).toBe('&uc UC_DE_AE')
+      }
+      // This harness reports Apply via onUpdate; help must never publish globally.
+      expect(snapshot()).toBe(before)
+    } finally {
+      opened.mockRestore()
+    }
+  })
+
   it('propagates the selected English compatibility into the Unicode picker', () => {
     const binding = parseKeyBinding('&uc UC_DE_AE')
     const onUpdate = open({ value: String(binding.value), params: binding.params })

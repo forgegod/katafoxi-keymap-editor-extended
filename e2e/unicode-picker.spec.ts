@@ -184,6 +184,77 @@ async function expectCompactControl(control: Locator, role: 'tab' | 'field' | 'a
 
 for (const theme of ['light', 'dark'] as const) {
   for (const viewport of [{ width: 1280, height: 720 }, { width: 360, height: 640 }]) {
+    test(`Built-in documentation help in ${theme} at ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
+      await page.setViewportSize(viewport)
+      if (theme === 'light') await page.getByRole('button', { name: 'Color theme: Dark' }).click()
+      const opened: unknown[][] = []
+      // Record only the browser boundary: real modified pointer events still
+      // traverse SelectChip/BehaviourRow. No remote site or popup is needed.
+      await page.exposeFunction('recordBehaviorHelp', (...args: unknown[]) => opened.push(args))
+      await page.evaluate(() => {
+        window.open = ((...args: unknown[]) => {
+          void (window as unknown as { recordBehaviorHelp: (...args: unknown[]) => Promise<void> }).recordBehaviorHelp(...args)
+          return null
+        }) as typeof window.open
+      })
+      const documentState = () => page.evaluate(async () => {
+        const modulePath = '/src/lib/editor.svelte.ts'
+        const { editor } = await import(/* @vite-ignore */ modulePath)
+        return JSON.stringify({
+          draft: editor.draftKeymap, baseline: editor.baselineKeymap,
+          undo: editor.undoStack, redo: editor.redoStack,
+          source: editor.clipboardOriginalSource, layers: editor.layerOperationSnapshot,
+          holdTaps: editor._holdTapsOnNextUpdate, rgb: editor._rgbLayerRecipeOnNextUpdate,
+          host: editor.hostLegend, dirty: editor.isDirty
+        })
+      })
+      const before = await documentState()
+      await page.getByRole('button', { name: '&kp A, layer 0', exact: true }).click()
+      const dialog = page.getByRole('dialog', { name: 'Edit key' })
+      await page.evaluate(() => document.fonts.ready)
+      const chips = dialog.locator('[data-behaviour-group] button')
+      await expect(chips).toHaveCount(28)
+      for (const chip of await chips.all()) {
+        await expect(chip).toHaveAttribute('title', /Ctrl\+click: docs/)
+        await expectPickerReachable(chip)
+      }
+      for (const staged of [false, true]) {
+        if (staged) {
+          // Space selects; Enter applies an already complete current binding.
+          await dialog.getByRole('button', { name: '&uc', exact: true }).press('Space')
+          await dialog.getByRole('textbox', { name: 'Normal Unicode character or code point' }).fill('€')
+        }
+        const binding = staged ? '&uc 0x20AC 0' : '&kp A'
+        for (const [code, url] of [
+          ['&uc', 'https://github.com/urob/zmk-unicode/blob/main/README.md'],
+          ['&inc_dec_kp', 'https://zmk.dev/docs/features/encoders#rotation'],
+          ['&studio_unlock', 'https://zmk.dev/docs/keymaps/behaviors/studio-unlock']
+        ]) {
+          const chip = dialog.getByRole('button', { name: code, exact: true })
+          for (const modifier of ['Control', 'Meta'] as const) {
+            opened.length = 0
+            await chip.click({ modifiers: [modifier] })
+            await expect.poll(() => opened).toEqual([[url, '_blank', 'noopener,noreferrer']])
+            await expect(dialog.locator('.binding')).toHaveText(binding)
+            expect(await documentState()).toBe(before)
+          }
+        }
+        await dialog.getByRole('button', { name: '&uc', exact: true }).focus()
+        await page.keyboard.press('Shift+Tab')
+        await page.keyboard.press('Tab')
+        const unicodeChip = dialog.getByRole('button', { name: '&uc', exact: true })
+        await expect(unicodeChip).toBeFocused()
+        expect(await unicodeChip.evaluate(element => ({
+          visible: element.matches(':focus-visible'), outline: getComputedStyle(element).outlineWidth,
+          theme: document.documentElement.dataset.colorScheme
+        }))).toEqual({ visible: true, outline: '2px', theme })
+        await page.screenshot({ path: testInfo.outputPath(`behavior-help-${staged ? 'staged' : 'unchanged'}.png`) })
+      }
+      await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+      expect(await documentState()).toBe(before)
+      await expect(page.getByRole('button', { name: '&kp A, layer 0', exact: true })).toBeFocused()
+    })
+
     test(`Unicode compact controls in ${theme} at ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
       await page.setViewportSize(viewport)
       if (theme === 'light') await page.getByRole('button', { name: 'Color theme: Dark' }).click()

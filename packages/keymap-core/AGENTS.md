@@ -20,6 +20,8 @@ Pure domain code shared by browser and API. Preserve untouched source text; fail
 
 JSON validation and primary-source detection retain `&reset` as an exact legacy import label, separate from the stock picker catalog, docs links, and role ordering. Preserve its token and opaque arguments; never rewrite it to `&sys_reset` or infer a schema. Other unknown labels still require the existing explicit source-import option or declared-model allowance.
 
+`zmkBehaviorDocsUrl` owns the local exact-code help allowlist: ZMK references, the third-party urob Unicode README, and existing preset family pages. Keep documentation lookup separate from catalog/schema membership and firmware installation or compatibility; unknown and legacy labels have no inferred fallback.
+
 `operateLayers` owns immutable duplicate/reorder preflight and transforms; `layer-operation-source.ts` owns its closed source subset and logical node moves. Require actual source plus matching baseline, or positively source-free provenance; templates and unknown save paths reject. Derive layer slots from verified forwarding definitions, not UI hints or recursive numeric-token searches. Canonical recipes also require unoverridden dependencies. Plain save/delete helpers retain their existing contracts.
 
 ## Work Guidance
