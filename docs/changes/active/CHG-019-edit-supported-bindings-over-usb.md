@@ -1,13 +1,13 @@
 # CHG-019 — Edit supported bindings over USB
 
-**Status:** planned
+**Status:** in-progress
 **External request:** Direct operator request: create the change records needed so this editor can change keyboard keys over USB without flashing, using the existing ZMK Studio RPC as the transport and `../zmkfirmware-zmk-studio/` as the reference client.
 **Impacts:** CAP-001, CAP-002
 **Baseline:** `ebc658622d3a5139bab9af0f71359e597ccee09e`
 
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
-| 1 | Map a fake Studio session into an editor selection | pending | `pnpm --filter @keymap-editor/keymap-core test -- src/studio-rpc-session.test.ts` exits 0 |
+| 1 | Map a fake Studio session into an editor selection | in-progress | `pnpm --filter @keymap-editor/keymap-core test -- src/studio-rpc-session.test.ts` exits 0 |
 | 2 | Connect USB from the source picker | pending | `pnpm --filter @keymap-editor/web test -- src/lib/usb-studio.test.ts` exits 0 |
 | 3 | Write one accepted binding and save keyboard settings | pending | `pnpm --filter @keymap-editor/web test -- src/lib/usb-studio-write.test.ts` exits 0 |
 | 4 | Integrate current source records and visuals | pending | `pnpm records:check && pnpm wireframes:generate && pnpm wireframes:render && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test` exits 0 |
