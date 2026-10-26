@@ -66,8 +66,8 @@ Use installed `application-records` and `phased-plan-*` skills when available. T
 
 | Change | Status |
 | --- | --- |
-
-No active change records.
+| [CHG-019 — Edit supported bindings over USB](active/CHG-019-edit-supported-bindings-over-usb.md) | planned |
+| [CHG-020 — Write unicode bindings over USB](active/CHG-020-write-unicode-bindings-over-usb.md) | planned |
 
 Read the [bounded upstream assessment](upstream-gap-assessment.md) before creating a record for upstream parity work.
 
