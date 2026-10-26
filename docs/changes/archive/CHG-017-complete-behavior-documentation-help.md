@@ -1,13 +1,13 @@
 # CHG-017 — Complete behavior documentation help
 
-**Status:** in-progress
+**Status:** done
 **External request:** Direct operator request: Some of the `key-editor-chips" data-behaviour-group="params" role="group" aria-label="Behaviours that take a value"` buttons do not have a tooltip with online help reference e.g. "&uc" to https://github.com/urob/zmk-unicode/blob/main/README.md Research for missing buttons where the documentation could be. If this not distinct make proposals to the operator and discuss the options, witch are the best alternative. The result should be applied to a new CHR by the phased-plan-design skill afterwards
 **Impacts:** CAP-001
 **Baseline:** `da39a091d3de7fae6108bd0d7990afeba0c3cc78` on main
 
 ## Outcome and approved scope
 
-Complete documentation discovery for the KeyEditor's value-taking behavior chips, the adjacent missing Studio Unlock link, type-proven named hold-taps, and the separate Layer + RGB recipe chips. Preserve the current native tooltip and Ctrl/Meta-click help interaction, ordinary selection, and staged Apply/Cancel boundary. This is a planning-only record: no phase is reserved or started, and no implementation, regression tests, current-state CAP claims or canonical visuals are changed by its creation.
+Complete documentation help for the KeyEditor's value-taking behavior chips, the adjacent Studio Unlock link, type-proven named hold-taps, and the separate Layer + RGB recipe chips. The delivered contract preserves the native tooltip and Ctrl/Meta-click help interaction, ordinary selection, and staged Apply/Cancel boundary. Phases 1 and 2 implemented the bounded interaction slices; phase 3 verified the integrated target, CAP-001, canonical visuals and complete gate without introducing a new implementation diff.
 
 The operator selected Encoder Rotation for `&inc_dec_kp`, expanded scope to the Layer + RGB controls as well as known catalog/type-proven hold-tap coverage, and selected the upstream Layer + underglow color example as recipe background with an explicit editor-specific restore-black explanation. Record creation/validation/commit is authorized separately from implementation; no push is authorized.
 
@@ -55,7 +55,7 @@ These are existing ownership seams, not a requirement to edit every named file. 
 | --- | --- | --- | --- |
 | 1 | Complete built-in behavior help with interaction evidence | done (`pnpm --filter @keymap-editor/keymap-core build && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/clipboard.spec.ts e2e/unicode-picker.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exit 0 @ dcda849e2e648d1ede1c268d8f6c0aff6af3f2d2) | `pnpm --filter @keymap-editor/keymap-core build && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/clipboard.spec.ts e2e/unicode-picker.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
 | 2 | Add proven hold-tap and Layer + RGB recipe help | done (`pnpm --filter @keymap-editor/keymap-core build && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/clipboard.spec.ts e2e/definition-dialog-layout.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exit 0 @ d4ec8369725825917ea9bd606d8981f7c8bb13eb) | `pnpm --filter @keymap-editor/keymap-core build && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/clipboard.spec.ts e2e/definition-dialog-layout.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
-| 3 | Verify integrated help coverage and close the change | in-progress | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e` |
+| 3 | Verify integrated help coverage and close the change | done (`pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e` exit 0 @ c98c22093df1ba9847397271b1fd34bfe4c372eb) | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e` |
 
 ## Phase 1 — Complete built-in behavior help with interaction evidence
 
@@ -90,7 +90,13 @@ These are existing ownership seams, not a requirement to edit every named file. 
 3. Confirm CAP-001 retains `Primary surface: human` and links the current [canonical HTML](../../product/wireframes/html/CAP-001-firmware-keymap-editing.html) and [canonical PNG](../../product/wireframes/exports/CAP-001-firmware-keymap-editing.png). Inspect the regenerated help states and representative runtime captures in both themes at 1280×720 and 360×640. Structural record validation alone is not visual approval.
 4. Perform the DOX pass, required independent implementation/evidence review and factual record review. Only after the gate and reviews pass, reconcile the current-state narrative, record actual evidence and archive this CHG with the required index repair. No earlier phase archives it.
 
-**Verification gate:** Run the phase-3 table command with exit 0 and complete the visual, review and DOX checks above. No current behavior or completed work is claimed by the pending rows in this plan.
+**Verification gate:** Passed on the clean reserved target at `c98c22093df1ba9847397271b1fd34bfe4c372eb`, with visual, independent review and DOX checks completed. The initial e2e launch failed before browser tests because the inherited long `TMPDIR` caused `tsx` socket `EINVAL`; the unchanged full chain was rerun once with a verified short alias to the same authorized scratch directory and exited 0. No product, test or record change was made to obtain the passing run.
+
+## Completion evidence
+
+- The complete phase-3 command passed with Node 24.21.0 and pnpm 9.15.0: 1,470 core tests (one optional local golden skip), 367 API tests, 1,258 web tests, 11 Cloudflare tests, 72 record tests and 142 browser tests passed; lint reported zero errors and warnings.
+- Regeneration and rendering left CAP-001's canonical HTML, PNG, manifest and index unchanged. The help study and runtime evidence were inspected in light/dark at 1280×720 and 360×640.
+- An independent read-only review found no candidate defect. It required this archival batch to remove stale planning-only wording, record the completed gate, and repair the change index. The pre-existing selected-RGB wording that says it applies immediately remains outside this help-contract closure; this record does not claim it was corrected.
 
 ## Out of scope
 
@@ -98,4 +104,4 @@ These are existing ownership seams, not a requirement to edit every named file. 
 - Adding/removing behavior choices, repairing includes, normalizing opaque source, changing Unicode or RGB recipe semantics, or widening definition-authoring permissions.
 - Guessing documentation for arbitrary custom labels/macros, inventing stock status for editor presets, or linking every unknown binding to a generic page.
 - A new custom tooltip component, help panel, mobile/touch-help flow, online guide deployment, analytics, runtime link checker or network-dependent test gate.
-- Phase reservation/execution, deployment or push under the planning-only authorization.
+- Deploying, pushing, starting another phase, or changing runtime behavior outside the completed documentation-help scope.

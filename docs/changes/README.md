@@ -66,7 +66,7 @@ Use installed `application-records` and `phased-plan-*` skills when available. T
 
 | Change | Status |
 | --- | --- |
-| [CHG-017 — Complete behavior documentation help](active/CHG-017-complete-behavior-documentation-help.md) | planned |
+| None | — |
 
 
 Read the [bounded upstream assessment](upstream-gap-assessment.md) before creating a record for upstream parity work.
@@ -91,6 +91,7 @@ Read the [bounded upstream assessment](upstream-gap-assessment.md) before creati
 | [CHG-014 — Restore editor design language](archive/CHG-014-restore-editor-design-language.md) | done |
 | [CHG-015 — Keep legend Alt columns reachable](archive/CHG-015-keep-legend-alt-columns-reachable.md) | done |
 | [CHG-016 — Align Unicode picker controls with the editor design language](archive/CHG-016-align-unicode-picker-controls.md) | done |
+| [CHG-017 — Complete behavior documentation help](archive/CHG-017-complete-behavior-documentation-help.md) | done |
 
 ## Review packages
 
