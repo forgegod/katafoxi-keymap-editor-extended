@@ -228,7 +228,9 @@ for (const theme of ['light', 'dark'] as const) {
         for (const [code, url] of [
           ['&uc', 'https://github.com/urob/zmk-unicode/blob/main/README.md'],
           ['&inc_dec_kp', 'https://zmk.dev/docs/features/encoders#rotation'],
-          ['&studio_unlock', 'https://zmk.dev/docs/keymaps/behaviors/studio-unlock']
+          ['&studio_unlock', 'https://zmk.dev/docs/keymaps/behaviors/studio-unlock'],
+          ['&trans', 'https://zmk.dev/docs/keymaps/behaviors/misc#transparent'],
+          ['&none', 'https://zmk.dev/docs/keymaps/behaviors/misc#none']
         ]) {
           const chip = dialog.getByRole('button', { name: code, exact: true })
           for (const modifier of ['Control', 'Meta'] as const) {

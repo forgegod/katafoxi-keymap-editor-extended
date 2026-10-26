@@ -32,8 +32,8 @@ const BEHAVIOR_DOCS: Record<string, string> = {
   '&sys_reset': 'https://zmk.dev/docs/keymaps/behaviors/reset',
   '&bootloader': 'https://zmk.dev/docs/keymaps/behaviors/reset',
   '&studio_unlock': 'https://zmk.dev/docs/keymaps/behaviors/studio-unlock',
-  '&trans': 'https://zmk.dev/docs/keymaps/behaviors/transparent',
-  '&none': 'https://zmk.dev/docs/keymaps/behaviors/none'
+  '&trans': 'https://zmk.dev/docs/keymaps/behaviors/misc#transparent',
+  '&none': 'https://zmk.dev/docs/keymaps/behaviors/misc#none'
 }
 
 /** Document metadata, not a label/arity guess or a UI choice's holdTap hint. */

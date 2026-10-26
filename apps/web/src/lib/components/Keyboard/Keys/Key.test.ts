@@ -166,7 +166,9 @@ describe('Key click editor', () => {
         for (const [code, url] of [
           ['&uc', 'https://github.com/urob/zmk-unicode/blob/main/README.md'],
           ['&inc_dec_kp', 'https://zmk.dev/docs/features/encoders#rotation'],
-          ['&studio_unlock', 'https://zmk.dev/docs/keymaps/behaviors/studio-unlock']
+          ['&studio_unlock', 'https://zmk.dev/docs/keymaps/behaviors/studio-unlock'],
+          ['&trans', 'https://zmk.dev/docs/keymaps/behaviors/misc#transparent'],
+          ['&none', 'https://zmk.dev/docs/keymaps/behaviors/misc#none']
         ]) {
           const chip = [...editorDialog()!.querySelectorAll('.key-editor-chip')].find(el => el.textContent?.trim() === code)!
           expect(chip.getAttribute('title')).toContain('Ctrl+click: docs')
@@ -237,18 +239,21 @@ describe('Key click editor', () => {
         if (changed) expect(preview).toBe('&rgblayer 1 RGB_COLOR_HSB(85,255,255)')
         else expect(preview).toBe('&kestrel LCTRL A')
         const chips = [...editorDialog()!.querySelectorAll<HTMLButtonElement>('.key-editor-chip')].filter(el =>
-          el.textContent?.trim() === '&kestrel' || el.hasAttribute('data-behavior-recipe') || el.hasAttribute('data-behavior-preset'))
-        expect(chips).toHaveLength(5)
+          ['&kestrel', '&trans', '&none'].includes(el.textContent?.trim() ?? '') || el.hasAttribute('data-behavior-recipe') || el.hasAttribute('data-behavior-preset'))
+        expect(chips).toHaveLength(7)
         for (const chip of chips) {
+          const code = chip.textContent?.trim()
+          const url = code === '&trans' ? 'https://zmk.dev/docs/keymaps/behaviors/misc#transparent'
+            : code === '&none' ? 'https://zmk.dev/docs/keymaps/behaviors/misc#none'
+              : chip.hasAttribute('data-behavior-recipe') ? 'https://zmk.dev/docs/keymaps/behaviors/macros#layer--underglow-color'
+                : 'https://zmk.dev/docs/keymaps/behaviors/hold-tap'
           expect(chip.title).toContain('Ctrl+click: docs')
           for (const modifier of ['ctrlKey', 'metaKey']) {
             opened.mockClear()
             chip.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, [modifier]: true }))
             flushSync()
             expect(opened).toHaveBeenCalledOnce()
-            expect(opened).toHaveBeenCalledWith(chip.hasAttribute('data-behavior-recipe')
-              ? 'https://zmk.dev/docs/keymaps/behaviors/macros#layer--underglow-color'
-              : 'https://zmk.dev/docs/keymaps/behaviors/hold-tap', '_blank', 'noopener,noreferrer')
+            expect(opened).toHaveBeenCalledWith(url, '_blank', 'noopener,noreferrer')
             expect(editorDialog()!.querySelector('.binding')!.textContent).toBe(preview)
             expect(colors()).toEqual(beforeColors)
             expect(snapshot()).toBe(before)

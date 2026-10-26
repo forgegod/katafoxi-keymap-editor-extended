@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "vitest run --exclude src/lib/components/Pickers/Filesystem/Picker.test.ts && vitest run src/lib/components/Pickers/Filesystem/Picker.test.ts",
     "test:coverage": "vitest run --coverage --coverage.include=src/** --coverage.exclude=**/*.test.ts",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "lint": "svelte-check --tsconfig ./tsconfig.app.json"

@@ -84,8 +84,8 @@ describe('zmkBehaviorDocsUrl', () => {
     '&soft_off': 'keymaps/behaviors/soft-off',
     '&sys_reset': 'keymaps/behaviors/reset',
     '&bootloader': 'keymaps/behaviors/reset',
-    '&trans': 'keymaps/behaviors/transparent',
-    '&none': 'keymaps/behaviors/none',
+    '&trans': 'keymaps/behaviors/misc#transparent',
+    '&none': 'keymaps/behaviors/misc#none',
     '&inc_dec_kp': 'features/encoders#rotation',
     '&studio_unlock': 'keymaps/behaviors/studio-unlock',
     '&uc': 'https://github.com/urob/zmk-unicode/blob/main/README.md'
@@ -100,7 +100,17 @@ describe('zmkBehaviorDocsUrl', () => {
   })
 
   it.each(Object.entries(builtins))('retains the exact selected destination for %s', (code, path) => {
-    expect(zmkBehaviorDocsUrl(code)).toBe(path.startsWith('https:') ? path : `https://zmk.dev/docs/${path}`)
+    const url = path.startsWith('https:') ? path : `https://zmk.dev/docs/${path}`
+    expect(zmkBehaviorDocsUrl(code)).toBe(url)
+    expect(zmkBehaviorHelp(code)).toEqual({ kind: 'binding', url, hint: 'Ctrl+click: docs' })
+  })
+
+  it.each([
+    ['&trans', 'transparent'],
+    ['&none', 'none']
+  ])('rejects the obsolete standalone route for %s', (code, fragment) => {
+    expect(zmkBehaviorDocsUrl(code)).not.toBe(`https://zmk.dev/docs/keymaps/behaviors/${fragment}`)
+    expect(zmkBehaviorHelp(code)?.url).not.toBe(`https://zmk.dev/docs/keymaps/behaviors/${fragment}`)
   })
 
   it('maps known behaviours to zmk.dev pages', () => {

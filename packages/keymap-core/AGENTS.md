@@ -22,6 +22,8 @@ JSON validation and primary-source detection retain `&reset` as an exact legacy 
 
 `zmkBehaviorHelp` owns local destinations, exact-binding/family/recipe-pattern categories and English hints; `zmkBehaviorDocsUrl` remains its URL-only compatible wrapper. Named-family help uses document `holdTaps` metadata (non-override, both children), never a choice flag/name/arity, and matching opaque/non-hold-tap definition metadata vetoes it. Recipe help requires explicit editor-owned context; arbitrary suffixed labels and legacy reset stay unlinked. Help never grants catalog/schema membership, authoring ownership or firmware compatibility.
 
+Transparent and None use the exact Miscellaneous Behaviors fragments `misc#transparent` and `misc#none`, not standalone routes. Keep the complete destination inventory offline; remote page/anchor checks are separate maintenance evidence, never resolver or unit-test network requests.
+
 `operateLayers` owns immutable duplicate/reorder preflight and transforms; `layer-operation-source.ts` owns its closed source subset and logical node moves. Require actual source plus matching baseline, or positively source-free provenance; templates and unknown save paths reject. Derive layer slots from verified forwarding definitions, not UI hints or recursive numeric-token searches. Canonical recipes also require unoverridden dependencies. Plain save/delete helpers retain their existing contracts.
 
 ## Work Guidance

@@ -277,7 +277,9 @@ describe('KeyEditor value catalog', () => {
     ['&bootloader', 'https://zmk.dev/docs/keymaps/behaviors/reset'],
     ['&uc', 'https://github.com/urob/zmk-unicode/blob/main/README.md'],
     ['&inc_dec_kp', 'https://zmk.dev/docs/features/encoders#rotation'],
-    ['&studio_unlock', 'https://zmk.dev/docs/keymaps/behaviors/studio-unlock']
+    ['&studio_unlock', 'https://zmk.dev/docs/keymaps/behaviors/studio-unlock'],
+    ['&trans', 'https://zmk.dev/docs/keymaps/behaviors/misc#transparent'],
+    ['&none', 'https://zmk.dev/docs/keymaps/behaviors/misc#none']
   ])('opens %s documentation with Ctrl and Meta without staging a binding', (code, url) => {
     const selected: unknown[] = []
     const confirmed: unknown[] = []
@@ -961,7 +963,7 @@ describe('KeyEditor value catalog', () => {
     expect(activated).toEqual([1])
   })
 
-  it.each(['none', 'hold-tap', 'recipe'])('keeps every recipe help click outside %s staging and color controls', staged => {
+  it.each(['none', 'hold-tap', 'recipe'])('keeps recipe and miscellaneous binding help outside %s staging and color controls', staged => {
     const selected: unknown[] = []
     const applied: unknown[] = []
     const changed: unknown[] = []
@@ -1001,6 +1003,23 @@ describe('KeyEditor value catalog', () => {
           flushSync()
           expect(event.defaultPrevented).toBe(true)
           expect(opened).toEqual([[recipe ? 'https://zmk.dev/docs/keymaps/behaviors/macros#layer--underglow-color' : 'https://zmk.dev/docs/keymaps/behaviors/hold-tap', '_blank', 'noopener,noreferrer']])
+          expect(JSON.stringify(selected)).toBe(picks)
+          expect(changed).toEqual([])
+          expect(applied).toEqual([])
+          expect(colors()).toEqual(beforeColors)
+          expect(target.querySelector('.binding')?.textContent).toBe(before)
+        }
+      }
+      for (const [code, url] of [
+        ['&trans', 'https://zmk.dev/docs/keymaps/behaviors/misc#transparent'],
+        ['&none', 'https://zmk.dev/docs/keymaps/behaviors/misc#none']
+      ]) {
+        const chip = [...target.querySelectorAll<HTMLButtonElement>('.key-editor-chip')].find(el => el.textContent?.trim() === code)!
+        for (const modifier of ['ctrlKey', 'metaKey']) {
+          opened.length = 0
+          chip.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, [modifier]: true }))
+          flushSync()
+          expect(opened).toEqual([[url, '_blank', 'noopener,noreferrer']])
           expect(JSON.stringify(selected)).toBe(picks)
           expect(changed).toEqual([])
           expect(applied).toEqual([])

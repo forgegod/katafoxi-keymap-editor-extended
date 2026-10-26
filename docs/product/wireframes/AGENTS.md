@@ -24,6 +24,8 @@ CAP-001's Unicode study also extracts app theme roles. Show separate initial/scr
 
 CAP-001's help study uses those theme roles and labels native-title excerpts as review annotations, not a custom help UI. Distinguish stock/module exact references, document-proven named hold-tap/preset family help and per-layer RGB macro-pattern help. Retain restore-black meaning, ordinary preset staging, separate HSB color controls and the unlinked unknown/opaque/legacy boundary. Help never implies installation, OS detection or binding execution.
 
+Show Transparent and None as exact binding references to their full Miscellaneous Behaviors fragment URLs. Keep the native-title/staged-selection presentation; schematic references do not certify future remote availability.
+
 CAP-003's legend detail shows separate initial and scrolled-right narrow states with the same app-derived theme roles. Its table scrolls as a unit; the scrolled example is initialized in generated HTML so the PNG exposes both Alt columns and Choose. Separate English-plus-German profile-menu states show a viewport-bounded vertical scrollport before and after scrolling to the last profile and import actions. Initialize both scroll axes in generated HTML; these schematics do not certify arbitrary profiles or import dialogs.
 
 ## Verification

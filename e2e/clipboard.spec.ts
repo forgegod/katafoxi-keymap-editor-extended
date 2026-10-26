@@ -290,15 +290,21 @@ test.describe('Clipboard source', () => {
       const colors = () => dialog.locator('[data-hsb-picker] input').evaluateAll(elements => elements.map(el => (el as HTMLInputElement).value))
       const beforeColors = await colors()
       for (const chip of [dialog.getByRole('button', { name: '&kestrel', exact: true }),
+        dialog.getByRole('button', { name: '&trans', exact: true }), dialog.getByRole('button', { name: '&none', exact: true }),
         ...await dialog.locator('[data-behavior-preset]').all(), ...await recipes.all()]) {
         const recipe = await chip.getAttribute('data-behavior-recipe') !== null
-        await expect(chip).toHaveAttribute('title', recipe ? /release restores black.*\nCtrl\+click: docs — ZMK macro pattern, not exact editor recipe documentation/ : /hold-tap family, not this definition/)
+        const code = (await chip.textContent())?.trim()
+        const miscellaneous = code === '&trans' || code === '&none'
+        const url = code === '&trans' ? 'https://zmk.dev/docs/keymaps/behaviors/misc#transparent'
+          : code === '&none' ? 'https://zmk.dev/docs/keymaps/behaviors/misc#none'
+            : recipe ? 'https://zmk.dev/docs/keymaps/behaviors/macros#layer--underglow-color'
+              : 'https://zmk.dev/docs/keymaps/behaviors/hold-tap'
+        await expect(chip).toHaveAttribute('title', miscellaneous ? /Ctrl\+click: docs$/
+          : recipe ? /release restores black.*\nCtrl\+click: docs — ZMK macro pattern, not exact editor recipe documentation/ : /hold-tap family, not this definition/)
         for (const modifier of ['Control', 'Meta'] as const) {
           opened.length = 0
           await chip.click({ modifiers: [modifier] })
-          await expect.poll(() => opened).toEqual([[recipe
-            ? 'https://zmk.dev/docs/keymaps/behaviors/macros#layer--underglow-color'
-            : 'https://zmk.dev/docs/keymaps/behaviors/hold-tap', '_blank', 'noopener,noreferrer']])
+          await expect.poll(() => opened).toEqual([[url, '_blank', 'noopener,noreferrer']])
           await expect(dialog.locator('.binding')).toHaveText(preview!)
           expect(await colors()).toEqual(beforeColors)
           expect(await state()).toBe(before)
@@ -342,8 +348,9 @@ test.describe('Clipboard source', () => {
     await expect(page.getByRole('button', { name: /^&rgblayer 1 .*layer 0$/ })).toBeVisible()
   })
 
-  test('stock documentation help preserves redo and source while ordinary Studio Unlock selection stays staged', async ({ page }) => {
-    const source = `// Existing encoder binding and user-owned source remain unchanged by help.
+  for (const selection of ['&studio_unlock', '&trans', '&none']) {
+    test(`stock documentation help preserves redo and source while ordinary ${selection} selection stays staged`, async ({ page }) => {
+      const source = `// Existing encoder binding and user-owned source remain unchanged by help.
 #include <behaviors.dtsi>
 / {
   keymap {
@@ -351,63 +358,67 @@ test.describe('Clipboard source', () => {
     default_layer { bindings = <&kp A &inc_dec_kp C_VOL_UP C_VOL_DN>; };
   };
 };`
-    const picker = await openClipboardPicker(page)
-    await picker.getByRole('textbox', { name: /Paste your board \.keymap/ }).fill(source)
-    await picker.getByRole('button', { name: 'Load', exact: true }).click()
-    const original = page.getByRole('button', { name: '&kp A, layer 0', exact: true })
-    await editKey(page, original, 'F13')
-    await page.getByRole('button', { name: 'Undo', exact: true }).click()
-    const redo = page.getByRole('button', { name: 'Redo', exact: true })
-    await expect(redo).toBeEnabled()
-    const opened: unknown[][] = []
-    await page.exposeFunction('recordBehaviorHelp', (...args: unknown[]) => opened.push(args))
-    await page.evaluate(() => {
-      window.open = ((...args: unknown[]) => {
-        void (window as unknown as { recordBehaviorHelp: (...args: unknown[]) => Promise<void> }).recordBehaviorHelp(...args)
-        return null
-      }) as typeof window.open
-    })
-    await original.click()
-    const dialog = page.getByRole('dialog', { name: 'Edit key' })
-    for (const [code, url] of [
-      ['&inc_dec_kp', 'https://zmk.dev/docs/features/encoders#rotation'],
-      ['&studio_unlock', 'https://zmk.dev/docs/keymaps/behaviors/studio-unlock']
-    ]) {
-      for (const modifier of ['Control', 'Meta'] as const) {
-        opened.length = 0
-        await dialog.getByRole('button', { name: code, exact: true }).click({ modifiers: [modifier] })
-        await expect.poll(() => opened).toEqual([[url, '_blank', 'noopener,noreferrer']])
-        await expect(dialog.locator('.binding')).toHaveText('&kp A')
-        await expect(original).toBeVisible()
+      const picker = await openClipboardPicker(page)
+      await picker.getByRole('textbox', { name: /Paste your board \.keymap/ }).fill(source)
+      await picker.getByRole('button', { name: 'Load', exact: true }).click()
+      const original = page.getByRole('button', { name: '&kp A, layer 0', exact: true })
+      await editKey(page, original, 'F13')
+      await page.getByRole('button', { name: 'Undo', exact: true }).click()
+      const redo = page.getByRole('button', { name: 'Redo', exact: true })
+      await expect(redo).toBeEnabled()
+      const opened: unknown[][] = []
+      await page.exposeFunction('recordBehaviorHelp', (...args: unknown[]) => opened.push(args))
+      await page.evaluate(() => {
+        window.open = ((...args: unknown[]) => {
+          void (window as unknown as { recordBehaviorHelp: (...args: unknown[]) => Promise<void> }).recordBehaviorHelp(...args)
+          return null
+        }) as typeof window.open
+      })
+      await original.click()
+      const dialog = page.getByRole('dialog', { name: 'Edit key' })
+      for (const [code, url] of [
+        ['&inc_dec_kp', 'https://zmk.dev/docs/features/encoders#rotation'],
+        ['&studio_unlock', 'https://zmk.dev/docs/keymaps/behaviors/studio-unlock'],
+        ['&trans', 'https://zmk.dev/docs/keymaps/behaviors/misc#transparent'],
+        ['&none', 'https://zmk.dev/docs/keymaps/behaviors/misc#none']
+      ]) {
+        for (const modifier of ['Control', 'Meta'] as const) {
+          opened.length = 0
+          await dialog.getByRole('button', { name: code, exact: true }).click({ modifiers: [modifier] })
+          await expect.poll(() => opened).toEqual([[url, '_blank', 'noopener,noreferrer']])
+          await expect(dialog.locator('.binding')).toHaveText('&kp A')
+          await expect(original).toBeVisible()
+        }
       }
-    }
-    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
-    await expect(redo).toBeEnabled()
-    await redo.click()
-    await expect(page.getByRole('button', { name: '&kp F13, layer 0', exact: true })).toBeVisible()
-    await page.getByRole('button', { name: 'Undo', exact: true }).click()
-    await page.getByRole('button', { name: 'Copy .keymap' }).click()
-    await expect(page.getByRole('dialog', { name: 'Exported keymap' }).getByRole('status')).toContainText('Copied to the system clipboard')
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(source)
-    await page.keyboard.press('Escape')
-    await original.click()
-    await dialog.getByRole('button', { name: '&studio_unlock', exact: true }).press('Space')
-    await expect(dialog.locator('.binding')).toHaveText('&studio_unlock')
-    await expect(original).toBeVisible()
-    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
-    await original.click()
-    await dialog.getByRole('button', { name: '&studio_unlock', exact: true }).press('Space')
-    await expect(original).toBeVisible()
-    await dialog.getByRole('button', { name: 'Apply', exact: true }).click()
-    await expect(page.getByRole('button', { name: '&studio_unlock, layer 0', exact: true })).toBeVisible()
-    await page.getByRole('button', { name: 'Copy .keymap' }).click()
-    await expect(page.getByRole('dialog', { name: 'Exported keymap' }).getByRole('status')).toContainText('Copied to the system clipboard')
-    const copied = await page.evaluate(() => navigator.clipboard.readText())
-    expect(copied.slice(0, copied.indexOf('bindings = <'))).toBe(source.slice(0, source.indexOf('bindings = <')))
-    expect(copied.match(/bindings\s*=\s*<([^>]+)>/)?.[1]?.trim().replace(/\s+/g, ' '))
-      .toBe('&studio_unlock &inc_dec_kp C_VOL_UP C_VOL_DN')
-    expect(copied.slice(copied.indexOf('>;'))).toBe(source.slice(source.indexOf('>;')))
-  })
+      await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+      await expect(redo).toBeEnabled()
+      await redo.click()
+      await expect(page.getByRole('button', { name: '&kp F13, layer 0', exact: true })).toBeVisible()
+      await page.getByRole('button', { name: 'Undo', exact: true }).click()
+      await page.getByRole('button', { name: 'Copy .keymap' }).click()
+      await expect(page.getByRole('dialog', { name: 'Exported keymap' }).getByRole('status')).toContainText('Copied to the system clipboard')
+      expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(source)
+      await page.keyboard.press('Escape')
+      await original.click()
+      await dialog.getByRole('button', { name: selection, exact: true }).press('Space')
+      await expect(dialog.locator('.binding')).toHaveText(selection)
+      await expect(original).toBeVisible()
+      await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+      await original.click()
+      await dialog.getByRole('button', { name: selection, exact: true }).click()
+      await expect(original).toBeVisible()
+      await dialog.getByRole('button', { name: 'Apply', exact: true }).click()
+      const qualifier = selection === '&trans' ? ', passes through' : selection === '&none' ? ', silent' : ''
+      await expect(page.getByRole('button', { name: `${selection}, layer 0${qualifier}`, exact: true })).toBeVisible()
+      await page.getByRole('button', { name: 'Copy .keymap' }).click()
+      await expect(page.getByRole('dialog', { name: 'Exported keymap' }).getByRole('status')).toContainText('Copied to the system clipboard')
+      const copied = await page.evaluate(() => navigator.clipboard.readText())
+      expect(copied.slice(0, copied.indexOf('bindings = <'))).toBe(source.slice(0, source.indexOf('bindings = <')))
+      expect(copied.match(/bindings\s*=\s*<([^>]+)>/)?.[1]?.trim().replace(/\s+/g, ' '))
+        .toBe(`${selection} &inc_dec_kp C_VOL_UP C_VOL_DN`)
+      expect(copied.slice(copied.indexOf('>;'))).toBe(source.slice(source.indexOf('>;')))
+    })
+  }
 
   test.describe('CHG-009 stock picker integration', () => {
     const stockCases = [

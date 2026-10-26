@@ -84,6 +84,8 @@ const behaviorHelp = () => `<section class="unicode-study behavior-help" aria-la
 <p>Canonical schematic · native title examples are written out below for review, not a new help popover.</p>
 <div class="unicode-preview"><code>&amp;kp A</code><button type="button">Apply</button><button type="button">Cancel</button></div>
 <div class="help-examples">
+<div><button type="button" title="&amp;trans — Transparent&#10;Applies immediately.&#10;Ctrl+click: docs">&amp;trans</button><p>ZMK · Miscellaneous Behaviors · Transparent</p><p><code>https://zmk.dev/docs/keymaps/behaviors/misc#transparent</code></p></div>
+<div><button type="button" title="&amp;none — None&#10;Applies immediately.&#10;Ctrl+click: docs">&amp;none</button><p>ZMK · Miscellaneous Behaviors · None</p><p><code>https://zmk.dev/docs/keymaps/behaviors/misc#none</code></p></div>
 <div><button type="button" title="Unicode input via urob/zmk-unicode; requires firmware module and host input setup&#10;Ctrl+click: docs">&amp;uc</button><p>Third-party module · urob/zmk-unicode README</p><p><code>github.com/urob/zmk-unicode/blob/main/README.md</code></p></div>
 <div><button type="button" title="Incremental Key Press&#10;Ctrl+click: docs">&amp;inc_dec_kp</button><p>ZMK · Encoder Rotation</p><p><code>zmk.dev/docs/features/encoders#rotation</code></p></div>
 <div><button type="button" title="Studio Unlock&#10;Applies immediately.&#10;Ctrl+click: docs">&amp;studio_unlock</button><p>ZMK · Studio Unlock Behavior</p><p><code>zmk.dev/docs/keymaps/behaviors/studio-unlock</code></p></div>
@@ -91,7 +93,7 @@ const behaviorHelp = () => `<section class="unicode-study behavior-help" aria-la
 <div><p>Presets · Layer + RGB</p><button type="button" title="Hold a layer and set underglow color; release restores black.&#10;Ctrl+click: docs — ZMK macro pattern, not exact editor recipe documentation.">&amp;rgblayer_0</button> <button type="button" title="Hold a layer and set underglow color; release restores black.&#10;Ctrl+click: docs — ZMK macro pattern, not exact editor recipe documentation.">&amp;rgblayer_1</button><p>Each layer chip opens the ZMK macro pattern, not exact editor recipe documentation. Editor release restores black; the upstream example uses another release color.</p><p><code>zmk.dev/docs/keymaps/behaviors/macros#layer--underglow-color</code></p><p>Adjacent HSB swatches remain color controls, not help launchers.</p></div>
 <div><button type="button" title="External binding">&amp;custom_hold_tap</button><p>Unlinked boundary · a familiar name, two parameters or a choice hint is not proof. Opaque/unproven definitions and legacy <code>&amp;reset</code> have no help gesture.</p></div>
 </div>
-<p>Native title: description + <code>Ctrl+click: docs</code>. Ctrl or Meta-click opens the known reference in a new tab; <code>&amp;kp A</code> and any staged Unicode input stay unchanged. Ordinary click or Space selects; Apply still commits the staged binding.</p>
+<p>Native title: description + <code>Ctrl+click: docs</code>. Ctrl or Meta-click opens the full reference, including its fragment, with <code>_blank</code> and <code>noopener,noreferrer</code>; <code>&amp;kp A</code> and any staged Unicode input stay unchanged. Ordinary click or Space selects; Apply still commits the staged binding and Cancel retains the original.</p>
 <p>Help preserves unchanged or changed drafts, preset/recipe flags, colors and existing redo. No module/OS detection or installation, firmware execution or device unlock; legacy reset is not a stock choice.</p>
 </section>`
 
