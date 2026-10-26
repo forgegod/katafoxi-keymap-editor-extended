@@ -7,7 +7,7 @@
 
 ## Outcome and scope
 
-Correct every evidenced broken behavior-help destination while preserving CHG-017's native-title, Ctrl/Meta-click, safe-window and no-edit contracts. This follow-up owns the two confirmed corrections, full destination-inventory evidence, offline regression coverage and CAP-001's matching canonical help schematic. This record is planning only; neither phase has started and product mappings remain unchanged.
+Correct every evidenced broken behavior-help destination while preserving CHG-017's native-title, Ctrl/Meta-click, safe-window and no-edit contracts. This follow-up owns the two confirmed corrections, full destination-inventory evidence, offline regression coverage and CAP-001's matching canonical help schematic. Phase 1 corrected the two mappings and is complete; Phase 2 remains pending verification and closure.
 
 [CHG-017](../archive/CHG-017-complete-behavior-documentation-help.md) is already archived. Preserve its phase evidence rather than reopen or reset it. Its baseline inventory explicitly did not certify live health of the pre-existing mappings, and its new tests retained the incorrect Transparent/None URLs. The two bad mappings predate that change; CHG-017's coverage did not discover them. This is a destination-correctness follow-up, not a replacement progress authority for the completed work.
 
@@ -81,7 +81,7 @@ Read the applicable DOX chain before each edit. These seams do not require chang
 
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
-| 1 | Correct destinations with interaction and current-state evidence | in-progress | `pnpm --filter @keymap-editor/keymap-core build && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/clipboard.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
+| 1 | Correct destinations with interaction and current-state evidence | done (`pnpm --filter @keymap-editor/keymap-core build && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/clipboard.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exit 0 @ d1a667f1067fd82ddb5f32e682bd47219d64a91f) | `pnpm --filter @keymap-editor/keymap-core build && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/clipboard.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
 | 2 | Verify integrated documentation help and close the follow-up | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e` |
 
 ## Phase 1 — Correct destinations with interaction and current-state evidence
