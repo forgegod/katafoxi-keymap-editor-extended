@@ -66,8 +66,8 @@ Use installed `application-records` and `phased-plan-*` skills when available. T
 
 | Change | Status |
 | --- | --- |
-| [CHG-018 — Correct behavior documentation destinations](active/CHG-018-correct-behavior-documentation-destinations.md) | planned |
 
+No active change records.
 
 Read the [bounded upstream assessment](upstream-gap-assessment.md) before creating a record for upstream parity work.
 
@@ -92,6 +92,7 @@ Read the [bounded upstream assessment](upstream-gap-assessment.md) before creati
 | [CHG-015 — Keep legend Alt columns reachable](archive/CHG-015-keep-legend-alt-columns-reachable.md) | done |
 | [CHG-016 — Align Unicode picker controls with the editor design language](archive/CHG-016-align-unicode-picker-controls.md) | done |
 | [CHG-017 — Complete behavior documentation help](archive/CHG-017-complete-behavior-documentation-help.md) | done |
+| [CHG-018 — Correct behavior documentation destinations](archive/CHG-018-correct-behavior-documentation-destinations.md) | done |
 
 ## Review packages
 

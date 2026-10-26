@@ -1,13 +1,13 @@
 # CHG-018 — Correct behavior documentation destinations
 
-**Status:** in-progress
+**Status:** done
 **External request:** Direct operator request: The documentation links introduced with CHG-017 are not correct, e.g. for "&trans" the documentation page is "https://zmk.dev/docs/keymaps/behaviors/misc#transparent" instead of "https://zmk.dev/docs/keymaps/behaviors/transparent". Verify all the links for existence and update the existing CHG-017 or create a new own with phased-plan-design skill
 **Impacts:** CAP-001
 **Baseline:** `ea1c301b40fb94bf433da934e24b8924b678bd12` on main
 
 ## Outcome and scope
 
-Correct every evidenced broken behavior-help destination while preserving CHG-017's native-title, Ctrl/Meta-click, safe-window and no-edit contracts. This follow-up owns the two confirmed corrections, full destination-inventory evidence, offline regression coverage and CAP-001's matching canonical help schematic. Phase 1 corrected the two mappings and is complete; Phase 2 remains pending verification and closure.
+Correct every evidenced broken behavior-help destination while preserving CHG-017's native-title, Ctrl/Meta-click, safe-window and no-edit contracts. This follow-up owns the two confirmed corrections, full destination-inventory evidence, offline regression coverage and CAP-001's matching canonical help schematic. Phase 1 corrected the two mappings; Phase 2 verified the integrated target and archived this completed follow-up.
 
 [CHG-017](../archive/CHG-017-complete-behavior-documentation-help.md) is already archived. Preserve its phase evidence rather than reopen or reset it. Its baseline inventory explicitly did not certify live health of the pre-existing mappings, and its new tests retained the incorrect Transparent/None URLs. The two bad mappings predate that change; CHG-017's coverage did not discover them. This is a destination-correctness follow-up, not a replacement progress authority for the completed work.
 
@@ -82,7 +82,7 @@ Read the applicable DOX chain before each edit. These seams do not require chang
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
 | 1 | Correct destinations with interaction and current-state evidence | done (`pnpm --filter @keymap-editor/keymap-core build && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/clipboard.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exit 0 @ d1a667f1067fd82ddb5f32e682bd47219d64a91f) | `pnpm --filter @keymap-editor/keymap-core build && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/clipboard.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
-| 2 | Verify integrated documentation help and close the follow-up | in-progress | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e` |
+| 2 | Verify integrated documentation help and close the follow-up | done (`pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e` exit 0 @ 7993a4d28dbff98f6344d9de1504b98dfa0bfcce) | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e` |
 
 ## Phase 1 — Correct destinations with interaction and current-state evidence
 
@@ -107,6 +107,13 @@ Read the applicable DOX chain before each edit. These seams do not require chang
 4. Complete the DOX pass, required independent implementation/evidence review and separate factual record review. Only after the integrated gate and audits pass, record the actual outcomes, archive this CHG and repair the change index. Preserve CHG-017's archived evidence.
 
 **Verification gate:** The phase-2 table command exits 0 on the integrated target; the reconciled live audit has no unresolved runtime destination/anchor failures; current CAP-001, inspected visuals and behavior evidence agree. Only this final verified phase archives the follow-up.
+
+## Phase 2 verification evidence
+
+- On 2026-10-26, the unchanged integrated revision `7993a4d28dbff98f6344d9de1504b98dfa0bfcce` passed the full gate with Node 24.21.0 and pnpm 9.15.0: generation, rendering, record validation, workspace tests, lint, build and 144 browser tests all exited 0. The optional local core golden remained skipped because its git-ignored snapshot is absent.
+- A fresh HTTPS audit reconciled the resolver's 30 literal mappings to 23 unique runtime destinations. All runtime responses were HTTP 200 without redirects; all five runtime fragments matched returned HTML IDs. The separate unused Sensor Rotation alternative also returned HTTP 200 with its verified anchor. Miscellaneous Behaviors documents both `&trans` and `&none` at their emitted fragments.
+- CAP-001 retained `Primary surface: human`, corrected help boundaries and canonical HTML/PNG links. Regenerated canonical and representative browser help states were inspected in light/dark at 1280×720 and 360×640; no in-scope visual or interaction drift was found.
+- An independent read-only review found no findings. This verification-only phase produced no implementation diff; the target and dedicated worktree remained clean at the verified revision.
 
 ## Out of scope
 
