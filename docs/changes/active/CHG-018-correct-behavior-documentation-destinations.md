@@ -82,7 +82,7 @@ Read the applicable DOX chain before each edit. These seams do not require chang
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
 | 1 | Correct destinations with interaction and current-state evidence | done (`pnpm --filter @keymap-editor/keymap-core build && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/clipboard.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` exit 0 @ d1a667f1067fd82ddb5f32e682bd47219d64a91f) | `pnpm --filter @keymap-editor/keymap-core build && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/clipboard.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
-| 2 | Verify integrated documentation help and close the follow-up | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e` |
+| 2 | Verify integrated documentation help and close the follow-up | in-progress | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e` |
 
 ## Phase 1 — Correct destinations with interaction and current-state evidence
 
