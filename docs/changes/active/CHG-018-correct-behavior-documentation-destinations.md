@@ -1,6 +1,6 @@
 # CHG-018 — Correct behavior documentation destinations
 
-**Status:** planned
+**Status:** in-progress
 **External request:** Direct operator request: The documentation links introduced with CHG-017 are not correct, e.g. for "&trans" the documentation page is "https://zmk.dev/docs/keymaps/behaviors/misc#transparent" instead of "https://zmk.dev/docs/keymaps/behaviors/transparent". Verify all the links for existence and update the existing CHG-017 or create a new own with phased-plan-design skill
 **Impacts:** CAP-001
 **Baseline:** `ea1c301b40fb94bf433da934e24b8924b678bd12` on main
@@ -81,7 +81,7 @@ Read the applicable DOX chain before each edit. These seams do not require chang
 
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
-| 1 | Correct destinations with interaction and current-state evidence | pending | `pnpm --filter @keymap-editor/keymap-core build && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/clipboard.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
+| 1 | Correct destinations with interaction and current-state evidence | in-progress | `pnpm --filter @keymap-editor/keymap-core build && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test && pnpm exec playwright test e2e/clipboard.spec.ts && pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check` |
 | 2 | Verify integrated documentation help and close the follow-up | pending | `pnpm wireframes:generate && pnpm wireframes:render && pnpm records:check && pnpm test && pnpm lint && pnpm build && pnpm test:e2e` |
 
 ## Phase 1 — Correct destinations with interaction and current-state evidence
