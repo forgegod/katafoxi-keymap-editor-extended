@@ -12,6 +12,10 @@ Firmware parse/splice/generate, binding catalogs, host layouts, composed legends
 
 Pure domain code shared by browser and API. Preserve untouched source text; fail closed on unsupported ambiguous edits. No concrete keyboards in product logic. Keep keycapFace as the sole face-packing contract. Keep host registry synchronous.
 
+`studio-rpc-session.ts` owns the transport-free Studio response mapper and numeric `setLayerBinding` encoder. `mapStudioRpcSession` requires the exact unlocked `core.getLockState` enum before accepting reads; missing/locked responses return unavailable, never an empty selection. Its USB-tagged selection retains firmware layer IDs, behavior IDs, both uint32 parameter cells, metadata and physical layouts; numeric binding trees are session-local identities, not devicetree aliases or file-export input. Physical coordinates/angles convert from hundredths without reordering key slots.
+
+Studio responses use a closed schema: reject malformed/incomplete identities, unknown fields and explicit combos, conditional layers, sensor bindings, macro definitions or custom behavior definitions (including hold-taps) with named reasons. Even empty unsupported extension fields refuse. Each layer must supply at least the active physical layout's key count; validate and map only that visible prefix, ignoring firmware-sized hidden tails entirely. Hidden slots never supply aliases, keymap content or write locations. RPC omission does not prove those features are absent from the flashed firmware; advertised behavior IDs/display names are not definition payloads or stock-alias proof. `buildStudioSetLayerBinding` returns an encoded request only, not metadata acceptance, write authorization or persistence. Callers own live-session freshness, disconnect/lock invalidation and metadata validation before sending; no serial, React, host glyph, source-file or save path belongs here.
+
 `unicodeHostLayoutCompatibility` checks only the caller-selected English table's base keysyms for digits, A–F, U, Space and Return; it returns compatible/incompatible/unavailable with missing/remapped key diagnostics. It never selects a language, reads cached glyphs, repairs a table or proves active OS/firmware input behavior. Builtin registry tables materialize common Space/Enter defaults before explicit section overrides; imports, user tables and snapshots retain missing rows.
 
 `HOST_LAYOUT_KEY_IDS` and `hostLayoutKeyBy*` include table-only Space/Enter identities for core editing, XKB and snapshot round trips. Keep the existing `HOST_KEY_IDS`/`hostKeyBy*` inventory unchanged: browser edit eligibility and composition use it. Service rows have no `scan`; fixed KLC service output remains unchanged. Older snapshots and KLC imports without these rows cannot prove full compatibility; do not silently migrate them in the checker.
@@ -63,6 +67,8 @@ Source-backed managed macro saves compare a present source fingerprint even when
 ## Verification
 
 From repository root: pnpm --filter @keymap-editor/keymap-core test; pnpm --filter @keymap-editor/keymap-core lint.
+
+`src/studio-rpc-session.test.ts` uses synthetic decoded Studio fixtures for numeric/geometry preservation, unlock/missing-response gating, named refusals and lossless binding request encoding; it does not certify hardware or browser transport.
 
 ## Child DOX Index
 
