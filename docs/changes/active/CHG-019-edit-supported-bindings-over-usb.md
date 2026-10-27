@@ -8,7 +8,7 @@
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
 | 1 | Map a fake Studio session into an editor selection | done (`pnpm --filter @keymap-editor/keymap-core test -- src/studio-rpc-session.test.ts` exit 0 @ 3981b9752b8cae6100f5cd885e8992bc87fa09aa) | `pnpm --filter @keymap-editor/keymap-core test -- src/studio-rpc-session.test.ts` exits 0 |
-| 2 | Connect USB from the source picker | pending | `pnpm --filter @keymap-editor/web test -- src/lib/usb-studio.test.ts` exits 0 |
+| 2 | Connect USB from the source picker | in-progress | `pnpm --filter @keymap-editor/web test -- src/lib/usb-studio.test.ts` exits 0 |
 | 3 | Write one accepted binding and save keyboard settings | pending | `pnpm --filter @keymap-editor/web test -- src/lib/usb-studio-write.test.ts` exits 0 |
 | 4 | Integrate current source records and visuals | pending | `pnpm records:check && pnpm wireframes:generate && pnpm wireframes:render && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test` exits 0 |
 
