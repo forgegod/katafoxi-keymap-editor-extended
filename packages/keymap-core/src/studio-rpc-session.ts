@@ -79,7 +79,7 @@ export type StudioRpcRefusalReason =
   | 'invalid-response' | 'unsupported-field' | 'invalid-active-layout'
   | 'binding-count-mismatch' | 'duplicate-layer-id' | 'duplicate-behavior-id'
   | 'unknown-behavior-id' | 'missing-behavior-details'
-  | 'invalid-binding' | 'invalid-location'
+  | 'invalid-binding' | 'invalid-location' | 'metadata-refusal'
 
 export type StudioRpcRefusal = { status: 'refused'; reason: StudioRpcRefusalReason; path: string }
 
@@ -383,4 +383,37 @@ export function buildStudioSetLayerBinding(
       layerId: selection.studio.layerIds[layerIndex], keyPosition, binding: wireBinding
     } } }
   }
+}
+
+/** One advertised parameter set must accept BOTH wire cells; absence is not proof. */
+export function buildValidatedStudioSetLayerBinding(
+  session: unknown, layerIndex: number, keyPosition: number, binding: KeyBindingNode
+): StudioSetLayerBindingResult {
+  const encoded = buildStudioSetLayerBinding(session, layerIndex, keyPosition, binding)
+  if (encoded.status !== 'encoded') return encoded
+  const mapped = mapStudioRpcSession(session)
+  if (mapped.status !== 'ready') return mapped
+  const { behaviorId, param1, param2 } = encoded.request.keymap.setLayerBinding.binding
+  const details = mapped.selection.studio.behaviors.find(item => item.id === behaviorId)!
+  const accepts = (value: number, options: StudioParameterValue[]): boolean => {
+    if (!options.length) return value === 0
+    return options.some(option => {
+      if (option.nil) return value === 0
+      if (option.constant !== undefined) return value === option.constant
+      if (option.range) return value >= option.range.min && value <= option.range.max
+      if (option.layerId) return mapped.selection.studio.layerIds.includes(value)
+      if (option.hidUsage) {
+        // Plain keyboard/consumer usages only; do not infer modifier encodings.
+        const page = value >>> 16
+        const id = value & 0xffff
+        return id > 0 && ((page === 7 && id <= option.hidUsage.keyboardMax) ||
+          (page === 12 && id <= option.hidUsage.consumerMax))
+      }
+      return false
+    })
+  }
+  if (!details.metadata.some(set => accepts(param1, set.param1) && accepts(param2, set.param2))) {
+    return { status: 'refused', reason: 'metadata-refusal', path: 'binding.params' }
+  }
+  return encoded
 }

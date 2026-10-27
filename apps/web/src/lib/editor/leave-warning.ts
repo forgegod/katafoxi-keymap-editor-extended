@@ -13,10 +13,13 @@ export type UnpublishedLeaveState = {
   readonly isHostRepoDirty: boolean
   readonly hasLocalHostRecovery?: boolean
   readonly hasPendingFirmwareRecovery?: boolean
+  readonly source?: string | null
+  readonly usbStatus?: { dirty?: boolean } | null
 }
 
 export function needsUnpublishedLeaveWarning(state: UnpublishedLeaveState): boolean {
-  return state.isDirty || state.isHostRepoDirty || !!state.hasLocalHostRecovery || !!state.hasPendingFirmwareRecovery
+  return state.isDirty || state.isHostRepoDirty || !!state.hasLocalHostRecovery || !!state.hasPendingFirmwareRecovery ||
+    (state.source === 'usb' && state.usbStatus?.dirty === true)
 }
 
 export function armBeforeUnloadConfirmation(event: BeforeUnloadEvent): void {

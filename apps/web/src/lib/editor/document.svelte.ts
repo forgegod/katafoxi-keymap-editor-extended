@@ -28,7 +28,7 @@ import type { EditorState } from './state.svelte'
 import { cloneLayerSnapshot, initialLayerSnapshot, remapLayerIdentityView, type LayerOperationSnapshot } from './layer-operation-state'
 
 function firmwareEditBlocker(state: EditorState): string | null {
-  if (state.source === 'usb') return 'USB snapshot is read-only. Keyboard writes are not enabled.'
+  if (state.source === 'usb') return 'USB board is read-only. Use the USB source controls for metadata-validated keyboard settings writes.'
   if (state.source === 'filesystem' && state.hasPendingFirmwareRecovery) return state.filesystemRecovery?.attempt
     ? 'Firmware editing is blocked by an unresolved save attempt. Reconcile save requires fresh file identity and byte checks. Restore only restores the draft; it does not resolve the attempt.'
     : 'Firmware editing is blocked while stored recovery is pending. Restore it explicitly or keep it stored.'
@@ -69,7 +69,7 @@ export function changes(this: EditorState): KeymapChange[] {
 
 export function statusText(this: EditorState): string {
   if (!this.draftKeymap) return ''
-  if (this.source === 'usb') return 'USB snapshot — read-only; no keyboard settings, .keymap, host files or GitHub commits written.'
+  if (this.source === 'usb') return this.usbStatus?.message || 'USB snapshot — board read-only; use USB source controls to write keyboard settings, not .keymap, host files, GitHub or Clipboard.'
   if (this.source === 'filesystem') {
     const status = this.hasPendingFirmwareRecovery ? 'Firmware recovery pending'
       : this.isDirty ? 'Firmware draft'
@@ -462,6 +462,7 @@ export function redo(this: EditorState) {
  * Host layout table edits are unchanged (not part of ZMK draft history).
  */
 export async function discardDraft(this: EditorState): Promise<boolean> {
+  if (this.source === 'usb') return false
   if (this.source === 'filesystem') return this.discardFilesystemDraft()
   if (!this.baselineKeymap || !this.draftKeymap || !this.isDirty) return false
   restoreLayerSnapshot.call(this, {

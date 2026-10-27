@@ -30,6 +30,8 @@ Transparent and None use the exact Miscellaneous Behaviors fragments `misc#trans
 
 `operateLayers` owns immutable duplicate/reorder preflight and transforms; `layer-operation-source.ts` owns its closed source subset and logical node moves. Require actual source plus matching baseline, or positively source-free provenance; templates and unknown save paths reject. Derive layer slots from verified forwarding definitions, not UI hints or recursive numeric-token searches. Canonical recipes also require unoverridden dependencies. Plain save/delete helpers retain their existing contracts.
 
+`buildValidatedStudioSetLayerBinding` adds pure metadata acceptance to the lossless encoder without granting live-session authorization. Both uint32 cells must match the same advertised parameter set. Empty metadata refuses; empty cell options/nil allow only zero. Constants, nonnegative values within advertised ranges, actual firmware layer IDs and bounded plain keyboard/consumer HID usages are supported. Unknown/malformed metadata, excess/nested arguments and inferred modifier/signed encodings refuse rather than truncate or guess. The browser must supply fresh metadata, guard the live connection and verify acknowledgements/readback separately.
+
 ## Work Guidance
 
 Add focused round-trip and locality tests for file transformations. Preserve unknown external binding parameters. ZMK macros are not C preprocessor aliases. Demo boards belong in fixtures.

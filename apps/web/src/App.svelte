@@ -196,8 +196,8 @@
                 class="publish-status{editor.source === 'filesystem' ? ' filesystem' : ''}{!editor.isDirty && editor.isHostRepoDirty
                   ? ' stacked'
                   : ''}"
-                dirty={editor.isPublishDirty || editor.hasLocalHostRecovery || editor.hasPendingFirmwareRecovery}
-                label={editor.source === 'usb' ? 'Read-only' : editor.source === 'filesystem' ? editor.statusText.split(';')[0] : editor._omitHostKeymapSnapshotOnCommit && editor.hasLocalHostRecovery ? 'Browser-local' : editor.hasPendingFirmwareRecovery ? 'Recovery' : editor.isPublishDirty
+                dirty={editor.isPublishDirty || editor.hasLocalHostRecovery || editor.hasPendingFirmwareRecovery || (editor.source === 'usb' && !!editor.usbStatus?.dirty)}
+                label={editor.source === 'usb' ? editor.usbStatus?.state === 'disconnected' ? 'USB disconnected' : editor.usbStatus?.dirty ? 'USB unsaved' : 'USB settings' : editor.source === 'filesystem' ? editor.statusText.split(';')[0] : editor._omitHostKeymapSnapshotOnCommit && editor.hasLocalHostRecovery ? 'Browser-local' : editor.hasPendingFirmwareRecovery ? 'Recovery' : editor.isPublishDirty
                   ? editor.isDirty
                     ? 'Changed'
                     : 'Host\nchanged'
@@ -206,6 +206,7 @@
                     : 'Saved'}
                 title={editor.statusText}
               />
+              {#if editor.source !== 'usb'}
               <Button
                 variant="danger"
                 class="discard-draft"
@@ -227,6 +228,7 @@
               >
                 {editor.source === 'filesystem' ? 'Discard firmware draft' : 'Discard draft'}
               </Button>
+              {/if}
             </div>
           {/if}
 

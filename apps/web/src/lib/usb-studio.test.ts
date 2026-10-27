@@ -19,6 +19,7 @@ import { call_rpc, create_rpc_connection, type Notification, type RequestRespons
 const responses = () => ({
   getDeviceInfo: { core: { getDeviceInfo: { name: 'Test keyboard', serialNumber: new Uint8Array([1]) } } },
   getLockState: { core: { getLockState: 1 } },
+  checkUnsavedChanges: { keymap: { checkUnsavedChanges: false } },
   listAllBehaviors: { behaviors: { listAllBehaviors: { behaviors: [7] } } },
   getBehaviorDetails: { behaviors: { getBehaviorDetails: { id: 7, displayName: 'Key press', metadata: [] } } },
   getPhysicalLayouts: { keymap: { getPhysicalLayouts: { activeLayoutIndex: 0, layouts: [{ name: 'Test layout', keys: [{ x: 0, y: 0, width: 100, height: 100, r: 0, rx: 0, ry: 0 }] }] } } },
@@ -149,7 +150,7 @@ describe('USB Studio source picker', () => {
       { core: { getDeviceInfo: true } }, { core: { getLockState: true } },
       { behaviors: { listAllBehaviors: true } }, { behaviors: { getBehaviorDetails: { behaviorId: 7 } } },
       { keymap: { getPhysicalLayouts: true } }, { keymap: { getKeymap: true } },
-      { core: { getLockState: true } }
+      { core: { getLockState: true } }, { keymap: { checkUnsavedChanges: true } }
     ])
   })
 
@@ -219,13 +220,13 @@ describe('USB Studio source picker', () => {
       { core: { getLockState: true } },
       { behaviors: { listAllBehaviors: true } }, { behaviors: { getBehaviorDetails: { behaviorId: 7 } } },
       { keymap: { getPhysicalLayouts: true } }, { keymap: { getKeymap: true } },
-      { core: { getLockState: true } }
+      { core: { getLockState: true } }, { keymap: { checkUnsavedChanges: true } }
     ])
     notifications.enqueue({ core: { lockStateChanged: 0 } })
     await vi.waitFor(() => expect(target.textContent).toContain('Locked'))
     notifications.enqueue({ core: { lockStateChanged: 1 } })
     await vi.waitFor(() => expect(target.textContent).toContain('Unlocked'))
-    expect(call_rpc).toHaveBeenCalledTimes(8)
+    expect(call_rpc).toHaveBeenCalledTimes(9)
     expect(select).toHaveBeenCalledTimes(1)
   })
 

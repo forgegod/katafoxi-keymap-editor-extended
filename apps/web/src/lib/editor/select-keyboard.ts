@@ -54,6 +54,17 @@ export function captureUsbLoadGuard(this: EditorState): () => boolean {
   return () => sourceUnchanged() && history() === before
 }
 
+/** Accept only the live USB owner's verified readback; never file/history publication. */
+export function acceptUsbStudioState(this: EditorState, status: import('../usb-studio').UsbStudioStatus,
+  selection?: import('./types').UsbKeyboardSelection, update?: import('../usb-studio').UsbStudioUpdate): void {
+  if (this.source !== 'usb' || !selection || this.usbSelection !== selection) return
+  this.usbStatus = status
+  if (update) {
+    this.draftKeymap = cloneParsedKeymap(update.keymap)
+    this.baselineKeymap = cloneParsedKeymap(update.baseline)
+  }
+}
+
 function refuseHostRecoveryTransition(state: EditorState): boolean {
   if (state.source !== 'github' || !state.githubMeta?.keymapPath) return false
   if (state.hostRecoveryBusy) return true
@@ -64,6 +75,10 @@ function refuseHostRecoveryTransition(state: EditorState): boolean {
 
 /** Verify retention before releasing an identity. Storage is not publication. */
 export async function retainWorkForTransition(this: EditorState): Promise<boolean> {
+  if (this.source === 'usb') {
+    if (this.usbStatus?.busy) return false
+    return !this.usbStatus?.dirty || window.confirm('Leave unsaved or unverified USB settings? They are not retained as a browser draft and may not survive disconnect. This does not save keyboard settings or any file.')
+  }
   if (this.source === 'filesystem') return this.retainFilesystemWork()
   if (this.source !== 'github') {
     if (!this.isDirty) return true
@@ -244,6 +259,7 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
   this.hasPendingFirmwareRecovery = false
   this.source = event.source
   this.usbSelection = event.source === 'usb' ? event : null
+  this.usbStatus = null
   this.layoutDiscoveryInput = event.source === 'clipboard'
     ? { code: event.clipboardOriginalSource ?? null, explicit: !event.clipboardInferredLayout }
     : event.source === 'github' ? event.layoutDiscoveryInput ?? null : null

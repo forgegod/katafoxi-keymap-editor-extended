@@ -375,7 +375,7 @@ describe('App chrome', () => {
     }))
   })
 
-  it('labels USB snapshots read-only rather than saved', async () => {
+  it('labels USB settings separately from file saves and omits generic draft discard', async () => {
     await renderApp()
     await loadKeyboard({
       source: 'usb',
@@ -384,10 +384,10 @@ describe('App chrome', () => {
       usb: { deviceName: 'Test keyboard', isCurrent: () => true },
       studio: { layerIds: [9], behaviors: [], physicalLayouts: { activeLayoutIndex: 0, layouts: [] }, availableLayers: 1, maxLayerNameLength: 16 }
     })
-    expect(target.querySelector('.publish-status')?.textContent?.trim()).toBe('Read-only')
-    expect(target.querySelector('.publish-status')?.getAttribute('title')).toContain('no keyboard settings, .keymap, host files or GitHub commits written')
+    expect(target.querySelector('.publish-status')?.textContent?.trim()).toBe('USB settings')
+    expect(target.querySelector('.publish-status')?.getAttribute('title')).toContain('not .keymap, host files, GitHub or Clipboard')
     expect(buttonMatching(target, /^(Write|Commit|Copy \.keymap)$/)).toBeUndefined()
-    expect((target.querySelector('.discard-draft') as HTMLButtonElement).disabled).toBe(true)
+    expect(target.querySelector('.discard-draft')).toBeNull()
   })
 
   it('keeps short pipeline statuses and a stable Discard control', async () => {

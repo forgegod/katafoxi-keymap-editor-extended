@@ -79,6 +79,7 @@ export class EditorState {
   definitions = $state<Definitions | null>(null)
   source = $state<KeyboardSelectionSource | null>(null)
   usbSelection = $state.raw<import('./types').UsbKeyboardSelection | null>(null)
+  usbStatus = $state<import('../usb-studio').UsbStudioStatus | null>(null)
   githubMeta = $state<GithubMeta | null>(null)
   filesystemDocumentId = $state<string | null>(null)
   filesystemRecovery = $state.raw<FilesystemRecovery | null>(null)
@@ -323,6 +324,7 @@ export class EditorState {
     this.legendHover = null
     this.source = null
     this.usbSelection = null
+    this.usbStatus = null
     this.layoutDiscoveryInput = null
     this.filesystemDocumentId = null
     this.filesystemRecovery = null

@@ -32,13 +32,23 @@
   }: Props = $props()
 
   let popover: HTMLDivElement | undefined = $state()
+  let menu: HTMLDivElement | undefined = $state()
   $effect(() => {
     if (!viewportBound || !popover) return
     return legendPopover(popover)?.destroy
   })
 </script>
 
+<svelte:window onkeydown={event => {
+  if (!viewportBound || !open || event.key !== 'Escape') return
+  event.preventDefault()
+  event.stopPropagation()
+  open = false
+  menu?.querySelector<HTMLButtonElement>('[data-testid="source-menu-trigger"]')?.focus()
+}} />
+
 <div
+  bind:this={menu}
   class="source-menu"
   use:clickOutside={{ enabled: open, handler: () => { open = false } }}
 >
