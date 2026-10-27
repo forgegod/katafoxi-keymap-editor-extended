@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@keymap-editor/keymap-core": "workspace:*",
+    "@zmkfirmware/zmk-studio-ts-client": "0.0.18",
     "fuzzysort": "^3.1.0"
   },
   "devDependencies": {

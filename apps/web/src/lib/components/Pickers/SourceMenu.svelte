@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
   import { clickOutside } from '../../actions/click-outside'
+  import { legendPopover } from '../../actions/legend-popover'
   import Button from '../Common/Button.svelte'
   import Spinner from '../Common/Spinner.svelte'
 
@@ -12,6 +13,7 @@
     accent?: boolean
     /** When false, the trigger runs `onActivate` and does not open the menu. */
     popup?: boolean
+    viewportBound?: boolean
     open?: boolean
     onActivate?: () => void
     children: Snippet
@@ -23,10 +25,17 @@
     busy = false,
     accent = false,
     popup = true,
+    viewportBound = false,
     open = $bindable(false),
     onActivate,
     children
   }: Props = $props()
+
+  let popover: HTMLDivElement | undefined = $state()
+  $effect(() => {
+    if (!viewportBound || !popover) return
+    return legendPopover(popover)?.destroy
+  })
 </script>
 
 <div
@@ -55,7 +64,7 @@
     <Spinner class="source-busy" />
   {/if}
   <!-- Kept mounted so a closed menu still loads the keymap. `hidden` removes it from layout. -->
-  <div class="source-popover" role="dialog" aria-label={title} hidden={!open}>
+  <div bind:this={popover} class="source-popover" class:viewport-bound={viewportBound} role="dialog" aria-label={title} hidden={!open}>
     {@render children()}
   </div>
 </div>
@@ -153,6 +162,12 @@
     border: 1px solid var(--border);
     border-radius: 6px;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+  }
+
+  /* USB actions must stay reachable even when chrome extends past the viewport. */
+  .source-popover.viewport-bound {
+    min-width: min(16rem, calc(100vw - 24px));
+    max-height: min(70vh, 36rem, var(--legend-popover-max-height, 70vh));
   }
 
   /* Demo grid is compact; still cap to the viewport on short screens. */

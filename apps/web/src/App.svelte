@@ -197,7 +197,7 @@
                   ? ' stacked'
                   : ''}"
                 dirty={editor.isPublishDirty || editor.hasLocalHostRecovery || editor.hasPendingFirmwareRecovery}
-                label={editor.source === 'filesystem' ? editor.statusText.split(';')[0] : editor._omitHostKeymapSnapshotOnCommit && editor.hasLocalHostRecovery ? 'Browser-local' : editor.hasPendingFirmwareRecovery ? 'Recovery' : editor.isPublishDirty
+                label={editor.source === 'usb' ? 'Read-only' : editor.source === 'filesystem' ? editor.statusText.split(';')[0] : editor._omitHostKeymapSnapshotOnCommit && editor.hasLocalHostRecovery ? 'Browser-local' : editor.hasPendingFirmwareRecovery ? 'Recovery' : editor.isPublishDirty
                   ? editor.isDirty
                     ? 'Changed'
                     : 'Host\nchanged'

@@ -14,6 +14,8 @@ Svelte components, reactive editor state, source pickers, draft/host storage, an
 
 ## Local Contracts
 
+USB Studio snapshots are read-only, session-local numeric RPC data, not file or host-snapshot sources. Capture the accepted editor revision synchronously at Connect before permission/RPC reads; recheck it and connection/lock currency after retention and before replacement. Refusal, denial, missing responses and disconnect preserve the accepted document, history, provenance and host state. Keep Disconnect reachable while connecting/locked/unlocked and show explicit read-only chrome, never generic Saved. USB opts into SourceMenu's viewport-bounded positioning without changing other source menus. Only the exact accepted USB selection may update remembered source; failed loads keep their refusal/retry status visible.
+
 Keep ZMK parsing and file generation in keymap-core. Plain click edits ZMK; Alt+click edits host glyphs. UI chrome is English. Preserve accessibility, stale-load guards, draft identity, and separate firmware/host dirty state. Arm beforeunload while firmware is dirty, filesystem firmware recovery remains pending, a GitHub host snapshot is unpublished, or GitHub firmware/host recovery remains pending (including omitted host writes); host-install status and non-GitHub host edits do not arm it. Keep pagehide and visibilitychange draft flushing independent of that guard.
 
 Filesystem source state is isolated by its versioned opaque document ID. Store transferable firmware baseline and recovery in draft storage, but keep browser file handles in their own opt-in, origin-local store. Every filesystem Save must use a fresh file-picker handle proved equivalent to the accepted firmware file; directory grants remain discovery-only. The domain modules preserve uncertain recovery and refuse sidecar, host, multi-file, API, GitHub, or publication paths. `components/Pickers/Filesystem/` owns source/access/recovery interaction; `KeyboardPicker` passes the real acceptance result through to it. Never prompt or read disk on mount; every picker and permission request starts synchronously in its own explicit gesture. Keep optional layout selection separate from firmware selection.
@@ -89,6 +91,8 @@ Demo remains source-free after layer operations even when history retains genera
 ## Verification
 
 From repository root: pnpm --filter @keymap-editor/web test; pnpm --filter @keymap-editor/web lint. Use Node 24 LTS for verification; Node 26 currently causes happy-dom storage failures.
+
+Vitest inlines `@zmkfirmware/zmk-studio-ts-client` so Vite resolves its extensionless browser ESM imports. USB picker tests isolate persisted recovery and confirmation state, mock Web Serial/RPC, and exercise delayed permission/read/retention refusals; they do not certify a physical keyboard.
 
 The normal web `test` script runs all unaffected tests with Vitest's default file parallelism, explicitly excluding `src/lib/components/Pickers/Filesystem/Picker.test.ts`, then runs that exact file in a separate Vitest process. The picker test exercises browser-like filesystem recovery, IndexedDB and editor state; it passed alone but flaked only beside the parallel suite. This process split is containment, not a claimed root-cause fix. Keep Vitest's default per-file isolation in both invocations; do not use `--no-isolate` or serialize the unaffected suite.
 

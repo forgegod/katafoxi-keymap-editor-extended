@@ -46,7 +46,7 @@ export async function copyClipboardKeymap(
   editor: ClipboardCopyEditor,
   options: CopyClipboardKeymapOptions = {}
 ): Promise<ClipboardCopySheet | undefined> {
-  if (!editor.layout || !editor.draftKeymap || editor.saving) return
+  if (editor.source !== 'clipboard' || !editor.layout || !editor.draftKeymap || editor.saving) return
   editor.saving = true
   const token = editor.beginPublish()
   const sentDraft = cloneParsedKeymap(editor.draftKeymap)

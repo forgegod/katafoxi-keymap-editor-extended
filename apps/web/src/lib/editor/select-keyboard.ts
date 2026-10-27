@@ -46,6 +46,14 @@ function captureSourceRevision(state: EditorState): () => boolean {
   return () => state.draftKeymap === document && encode() === before
 }
 
+/** Capture before USB permission/RPC reads, not after they have yielded to edits. */
+export function captureUsbLoadGuard(this: EditorState): () => boolean {
+  const sourceUnchanged = captureSourceRevision(this)
+  const history = () => JSON.stringify([this.undoStack, this.redoStack])
+  const before = history()
+  return () => sourceUnchanged() && history() === before
+}
+
 function refuseHostRecoveryTransition(state: EditorState): boolean {
   if (state.source !== 'github' || !state.githubMeta?.keymapPath) return false
   if (state.hostRecoveryBusy) return true
@@ -127,6 +135,7 @@ export async function retainWorkForTransition(this: EditorState): Promise<boolea
 }
 
 export async function selectKeyboard(this: EditorState, event: KeyboardSelection) {
+  if (event.source === 'usb' && !event.usb.isCurrent()) return
   if (this.source === 'filesystem' && this.saving) return
   if (event.source === 'filesystem') { await this.selectFilesystemKeyboard(event); return }
   const transition = ++this._transitionGeneration
@@ -165,6 +174,7 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
   if (currentIdentity && upcomingKey !== draftIdentityKey(currentIdentity) && !(event.source === 'github' && event.preserveSession)) {
     if (!await this.retainWorkForTransition() || transition !== this._transitionGeneration) return
   }
+  if (event.source === 'usb' && !event.usb.isCurrent()) return
   if (this.hostRecoveryBusy) return
   const selectToken = ++this._selectGeneration
   // Supersede the old hydration lock even if this selection returns early.
@@ -230,8 +240,10 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
     this.saveNotice = { kind: 'error', messages: ['Could not verify local recovery. The current selection and unpublished work were retained.'] }
     return
   }
+  if (event.source === 'usb' && !event.usb.isCurrent()) return
   this.hasPendingFirmwareRecovery = false
   this.source = event.source
+  this.usbSelection = event.source === 'usb' ? event : null
   this.layoutDiscoveryInput = event.source === 'clipboard'
     ? { code: event.clipboardOriginalSource ?? null, explicit: !event.clipboardInferredLayout }
     : event.source === 'github' ? event.layoutDiscoveryInput ?? null : null
@@ -290,6 +302,9 @@ export async function selectKeyboard(this: EditorState, event: KeyboardSelection
       links: links.length > 0 ? links : undefined
     }
   }
+
+  // RPC snapshots have no file/draft identity or host snapshot to hydrate.
+  if (event.source === 'usb') return
 
   // Do not accept firmware edits until hydration and the recovery decision end.
   this._firmwareRecoveryLoading = event.source === 'github' && !!githubMeta?.keymapPath && !!event.keymap && restoreFirmware

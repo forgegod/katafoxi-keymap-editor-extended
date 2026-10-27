@@ -19,9 +19,11 @@
   import ClipboardPicker from './Clipboard/Picker.svelte'
   import FilesystemPicker from './Filesystem/Picker.svelte'
   import SourceMenu from './SourceMenu.svelte'
+  import UsbPicker from './UsbPicker.svelte'
 
   const SOURCE_BLURBS: Record<KeyboardSelectionSource, string> = {
     demo: 'Try a sample keyboard',
+    usb: 'Read a ZMK Studio keyboard over USB',
     clipboard: 'Paste .keymap · no login',
     github: 'Commit to your firmware repo',
     local: 'Dev sibling zmk-config',
@@ -45,6 +47,7 @@
   const sourceChoices = compact([
     { id: 'demo' as const, name: 'Demo', blurb: SOURCE_BLURBS.demo },
     { id: 'clipboard' as const, name: 'Clipboard', blurb: SOURCE_BLURBS.clipboard },
+    { id: 'usb' as const, name: 'USB', blurb: SOURCE_BLURBS.usb },
     config.enableLocal
       ? { id: 'local' as const, name: 'Local', blurb: SOURCE_BLURBS.local }
       : null,
@@ -97,6 +100,7 @@
   )
 
   const triggerLabel = $derived.by(() => {
+    if (source === 'usb') return 'USB'
     if (source === 'local') return 'Local'
     if (source === 'filesystem') {
       return fsStatus?.name ? `Filesystem · ${fsStatus.name}` : 'Filesystem'
@@ -113,6 +117,7 @@
   })
 
   const triggerTitle = $derived.by(() => {
+    if (source === 'usb') return 'Connect a ZMK Studio keyboard over USB'
     if (source === 'local') return 'Local files'
     if (source === 'filesystem') {
       return fsStatus?.name
@@ -183,6 +188,7 @@
     if (!source || !event.keymap) return null
     if ('source' in event && event.source !== source) return null
     const { layout, keymap, warnings } = event
+    if (source === 'usb') return 'usb' in event ? event : null
 
     if (source === 'demo') {
       const demo = 'demo' in event ? event.demo : undefined
@@ -261,12 +267,13 @@
     // A newer gesture or a different live source owns the result now.
     if (request !== sourceRequest) return false
     if (source !== selection.source) return false
-    if (accepted !== false) {
+    if (accepted !== false && (selection.source !== 'usb' || editor.usbSelection === selection)) {
       localStorage.setItem('selectedSource', selection.source)
       if (event.userInitiated) menuOpen = false
       return true
     }
-    if (editor.source) source = editor.source
+    // Keep USB refusal/retry status visible without changing the accepted source.
+    if (selection.source !== 'usb' && editor.source) source = editor.source
     return false
   }
 
@@ -322,6 +329,7 @@
       busy={(source === 'github' && !!gh?.loading) || (source === 'filesystem' && !!fsStatus?.busy)}
       accent={source === 'demo'}
       popup={gate === null}
+      viewportBound={source === 'usb'}
       bind:open={menuOpen}
       onActivate={runGate}
     >
@@ -363,6 +371,9 @@
       {/if}
       {#if source === 'clipboard'}
         <ClipboardPicker onSelect={async event => { await handleKeyboardSelected(event) }} />
+      {/if}
+      {#if source === 'usb'}
+        <UsbPicker onSelect={handleKeyboardSelected} onUseClipboard={connectClipboard} />
       {/if}
       {#if source === 'filesystem'}
         <FilesystemPicker

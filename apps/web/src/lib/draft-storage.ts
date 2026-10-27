@@ -105,7 +105,8 @@ export function draftIdentityKey(identity: DraftIdentity): string {
 export function buildDraftIdentity(
   input: DraftIdentityInput
 ): DraftIdentity | null {
-  if (!input.source) return null
+  // Numeric Studio IDs belong to one live RPC session, never browser file recovery.
+  if (!input.source || input.source === 'usb') return null
   if (input.source === 'filesystem') {
     return validFilesystemId(input.filesystemDocumentId)
       ? { schemaVersion: 3, source: 'filesystem', filesystemDocumentId: input.filesystemDocumentId }

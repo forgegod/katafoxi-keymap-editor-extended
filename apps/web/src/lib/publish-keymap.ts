@@ -50,6 +50,7 @@ export async function publishKeymap(
     >
   }
 ): Promise<boolean> {
+  if (editor.source === 'usb') return false
   const publishDirty =
     typeof editor.isPublishDirty === 'boolean' ? editor.isPublishDirty : editor.isDirty
   if (editor.saving || !publishDirty || !editor.draftKeymap) return false

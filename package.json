@@ -23,6 +23,9 @@
     "node": ">=20"
   },
   "packageManager": "pnpm@9.15.0",
+  "pnpm": {
+    "neverBuiltDependencies": ["@zmkfirmware/zmk-studio-ts-client"]
+  },
   "license": "MIT",
   "devDependencies": {
     "@playwright/test": "^1.63.0"

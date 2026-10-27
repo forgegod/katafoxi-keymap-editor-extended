@@ -1,4 +1,4 @@
-import type { KeysymRejection, HostKeymapSnapshot, LayoutKey, ParsedKeymap, RepositoryKeymapMode, RepositoryJsonChoice } from '@keymap-editor/keymap-core'
+import type { KeysymRejection, HostKeymapSnapshot, LayoutKey, ParsedKeymap, RepositoryKeymapMode, RepositoryJsonChoice, StudioRpcSelection } from '@keymap-editor/keymap-core'
 import type { DemoHostLayoutSeed } from '../demo/host-seeds.js'
 import type { HostLanguageId } from '../host-layout-store'
 import type { FilesystemBaseline } from '../draft-storage'
@@ -100,8 +100,13 @@ export type LocalKeyboardSelection = KeyboardSelectionBase & {
   source: 'local'
 }
 
-/** Keymap load/selection event stamped by source (Demo / Clipboard / GitHub / Local). */
+export type UsbKeyboardSelection = KeyboardSelectionBase & StudioRpcSelection & {
+  usb: { deviceName: string; isCurrent: () => boolean }
+}
+
+/** Keymap load/selection event stamped by its source. */
 export type KeyboardSelection =
+  | UsbKeyboardSelection
   | DemoKeyboardSelection
   | ClipboardKeyboardSelection
   | GithubKeyboardSelection
@@ -115,6 +120,7 @@ export type KeyboardSelectionSource = KeyboardSelection['source']
  * live chip (GitHub/Local often omit `source`; Demo/Clipboard include it).
  */
 export type KeymapPickerPayload =
+  | UsbKeyboardSelection
   | DemoKeyboardSelection
   | ClipboardKeyboardSelection
   | FilesystemKeyboardSelection

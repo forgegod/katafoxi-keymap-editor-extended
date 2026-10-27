@@ -28,6 +28,7 @@ import type { EditorState } from './state.svelte'
 import { cloneLayerSnapshot, initialLayerSnapshot, remapLayerIdentityView, type LayerOperationSnapshot } from './layer-operation-state'
 
 function firmwareEditBlocker(state: EditorState): string | null {
+  if (state.source === 'usb') return 'USB snapshot is read-only. Keyboard writes are not enabled.'
   if (state.source === 'filesystem' && state.hasPendingFirmwareRecovery) return state.filesystemRecovery?.attempt
     ? 'Firmware editing is blocked by an unresolved save attempt. Reconcile save requires fresh file identity and byte checks. Restore only restores the draft; it does not resolve the attempt.'
     : 'Firmware editing is blocked while stored recovery is pending. Restore it explicitly or keep it stored.'
@@ -68,6 +69,7 @@ export function changes(this: EditorState): KeymapChange[] {
 
 export function statusText(this: EditorState): string {
   if (!this.draftKeymap) return ''
+  if (this.source === 'usb') return 'USB snapshot — read-only; no keyboard settings, .keymap, host files or GitHub commits written.'
   if (this.source === 'filesystem') {
     const status = this.hasPendingFirmwareRecovery ? 'Firmware recovery pending'
       : this.isDirty ? 'Firmware draft'

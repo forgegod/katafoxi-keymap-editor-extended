@@ -12,6 +12,8 @@ export default defineConfig({
     conditions: ['browser']
   },
   test: {
+    // The browser client ships extensionless ESM imports; let Vite resolve them.
+    server: { deps: { inline: ['@zmkfirmware/zmk-studio-ts-client'] } },
     include: ['src/**/*.test.ts'],
     environment: 'happy-dom',
     setupFiles: ['./src/test-setup.ts'],

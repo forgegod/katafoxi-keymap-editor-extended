@@ -224,7 +224,8 @@ describe('KeyboardPicker', () => {
 
     const onSelect = open()
 
-    expect(target.querySelectorAll('.source-card')).toHaveLength(5)
+    expect([...target.querySelectorAll<HTMLElement>('.source-card')].map(card => card.dataset.source))
+      .toEqual(['demo', 'clipboard', 'usb', 'local', 'github', 'filesystem'])
     expect(target.querySelector('.source-card.selected')).toBeNull()
     expect(localStorage.getItem('selectedSource')).toBe('nope')
     expect(target.querySelector('#repo')).toBeNull()
