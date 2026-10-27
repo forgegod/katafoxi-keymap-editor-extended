@@ -8,7 +8,7 @@
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
 | 1 | Map a fake Studio session into an editor selection | done (`pnpm --filter @keymap-editor/keymap-core test -- src/studio-rpc-session.test.ts` exit 0 @ 3981b9752b8cae6100f5cd885e8992bc87fa09aa) | `pnpm --filter @keymap-editor/keymap-core test -- src/studio-rpc-session.test.ts` exits 0 |
-| 2 | Connect USB from the source picker | in-progress | `pnpm --filter @keymap-editor/web test -- src/lib/usb-studio.test.ts` exits 0 |
+| 2 | Connect USB from the source picker | done (`pnpm install --frozen-lockfile && pnpm --filter @keymap-editor/web test -- src/lib/usb-studio.test.ts` exit 0 @ 52b36c852eb52911c318fed4bfdb6e62f1614310) | `pnpm --filter @keymap-editor/web test -- src/lib/usb-studio.test.ts` exits 0 |
 | 3 | Write one accepted binding and save keyboard settings | pending | `pnpm --filter @keymap-editor/web test -- src/lib/usb-studio-write.test.ts` exits 0 |
 | 4 | Integrate current source records and visuals | pending | `pnpm records:check && pnpm wireframes:generate && pnpm wireframes:render && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test` exits 0 |
 
@@ -35,6 +35,8 @@
 5. Do not write a `.keymap`, host snapshot, or GitHub commit from this source.
 
 **Verification gate:** `pnpm --filter @keymap-editor/web test -- src/lib/usb-studio.test.ts` exits 0.
+
+**Closeout evidence:** The first target gate at `52b36c852eb52911c318fed4bfdb6e62f1614310` exited 1 because the locked Studio client package was not installed in `node_modules`. `pnpm install --frozen-lockfile` left the lockfile unchanged, then the target gate exited 0 (83 files / 1,259 tests, then 2 files / 56 tests).
 
 ## Phase 3 — Write one accepted binding and save keyboard settings
 
