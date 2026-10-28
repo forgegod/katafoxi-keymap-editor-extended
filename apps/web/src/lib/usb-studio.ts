@@ -1,4 +1,4 @@
-import { buildStudioSetLayerBinding, buildValidatedStudioSetLayerBinding, mapStudioRpcSession, type KeyBindingNode, type ParsedKeymap } from '@keymap-editor/keymap-core'
+import { buildStudioSetLayerBinding, buildValidatedStudioSetLayerBinding, expandStudioUnicodeBinding, mapStudioRpcSession, validateStudioUnicodeMetadata, type KeyBindingNode, type ParsedKeymap } from '@keymap-editor/keymap-core'
 import { call_rpc, create_rpc_connection, type RpcConnection, type Notification } from '@zmkfirmware/zmk-studio-ts-client'
 import { connect as serial_connect } from '@zmkfirmware/zmk-studio-ts-client/transport/serial'
 import type { UsbKeyboardSelection } from './editor/types'
@@ -67,20 +67,34 @@ export class UsbStudio {
     if (!this.writable(session) || version !== session.lockVersion) throw new Error('USB operation refused: session changed or keyboard locked.')
   }
 
-  async setBinding(layerIndex: number, keyPosition: number, binding: KeyBindingNode): Promise<boolean> {
+  /** Source &uc applies require an explicit firmware ID; display names are not aliases. */
+  async setBinding(layerIndex: number, keyPosition: number, binding: KeyBindingNode, unicodeBehaviorId?: number): Promise<boolean> {
     const session = this.session
     if (!session || !this.writable(session) || session.busy) return false
-    const candidate = structuredClone(binding)
+    let candidate = structuredClone(binding)
+    const unicode = candidate.value === '&uc'
     const version = session.lockVersion
     session.busy = true
     this.report(session)
     try {
+      if (unicode) {
+        const cells = expandStudioUnicodeBinding(candidate)
+        if (!cells) throw new Error('USB binding refused: invalid Unicode binding.')
+        if (unicodeBehaviorId === undefined) throw new Error('USB binding refused: select a firmware behavior ID for Unicode.')
+        candidate = { value: unicodeBehaviorId, params: [
+          { value: cells.param1, params: [] }, { value: cells.param2, params: [] }
+        ] }
+      }
       const shape = buildStudioSetLayerBinding(session.responses, layerIndex, keyPosition, candidate)
       if (shape.status !== 'encoded') throw new Error(`USB binding refused: ${shape.reason}`)
       const before = await this.readSettings(session, version)
       if (JSON.stringify(before.keymap) !== JSON.stringify(session.snapshot!.keymap)) throw new Error('USB binding refused: keyboard changed; reconnect before writing.')
       const details = await this.request(session, { behaviors: { getBehaviorDetails: { behaviorId: shape.request.keymap.setLayerBinding.binding.behaviorId } } })
       this.assertWritable(session, version)
+      if (unicode) {
+        const accepted = validateStudioUnicodeMetadata(details, shape.request.keymap.setLayerBinding.binding)
+        if (accepted.status !== 'accepted') throw new Error(`USB binding refused: ${accepted.reason}${accepted.path ? ` (${accepted.path})` : ''}`)
+      }
       const responses = { ...before.responses, getBehaviorDetails: (session.responses!.getBehaviorDetails as Array<{ behaviors?: { getBehaviorDetails?: { id: number } } }>).map(old =>
         old.behaviors?.getBehaviorDetails?.id === candidate.value ? details : old) }
       const encoded = buildValidatedStudioSetLayerBinding(responses, layerIndex, keyPosition, candidate)
