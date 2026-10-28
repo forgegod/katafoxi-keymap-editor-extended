@@ -1,4 +1,5 @@
 import type { KeyBindingNode, LayoutKey, ParsedKeymap } from './types.js'
+import { unicodeCodePoint } from './unicode.js'
 
 // Structural subset of decoded @zmkfirmware/zmk-studio-ts-client 0.0.18.
 // No transport dependency: callers supply responses from one current session.
@@ -79,7 +80,7 @@ export type StudioRpcRefusalReason =
   | 'invalid-response' | 'unsupported-field' | 'invalid-active-layout'
   | 'binding-count-mismatch' | 'duplicate-layer-id' | 'duplicate-behavior-id'
   | 'unknown-behavior-id' | 'missing-behavior-details'
-  | 'invalid-binding' | 'invalid-location' | 'metadata-refusal'
+  | 'invalid-binding' | 'invalid-location' | 'metadata-refusal' | 'missing-unicode-parameter-set'
 
 export type StudioRpcRefusal = { status: 'refused'; reason: StudioRpcRefusalReason; path: string }
 
@@ -189,6 +190,16 @@ function validateParameter(value: unknown, path: string): void {
   } else record(entry[kind], [], detailPath)
 }
 
+function validateMetadata(input: unknown, path: string): void {
+  for (const [mi, value] of array(input, path).entries()) {
+    const setPath = `${path}.${mi}`
+    const set = record(value, ['param1', 'param2'], setPath)
+    for (const key of ['param1', 'param2']) {
+      for (const [vi, value] of array(set[key], `${setPath}.${key}`).entries()) validateParameter(value, `${setPath}.${key}.${vi}`)
+    }
+  }
+}
+
 function validateSession(input: unknown): StudioRpcSessionResponses {
   const session = record(input, ['getLockState', 'listAllBehaviors', 'getBehaviorDetails', 'getPhysicalLayouts', 'getKeymap'], '')
   response(session.getLockState, 'core', 'getLockState')
@@ -210,13 +221,7 @@ function validateSession(input: unknown): StudioRpcSessionResponses {
     requireValid(behaviorIds.has(id), `${path}.id`, 'unknown-behavior-id')
     detailIds.add(id)
     text(details.displayName, `${path}.displayName`)
-    for (const [mi, value] of array(details.metadata, `${path}.metadata`).entries()) {
-      const setPath = `${path}.metadata.${mi}`
-      const set = record(value, ['param1', 'param2'], setPath)
-      for (const key of ['param1', 'param2']) {
-        for (const [vi, value] of array(set[key], `${setPath}.${key}`).entries()) validateParameter(value, `${setPath}.${key}.${vi}`)
-      }
-    }
+    validateMetadata(details.metadata, `${path}.metadata`)
   }
   requireValid(detailIds.size === behaviorIds.size, 'getBehaviorDetails', 'missing-behavior-details')
 
@@ -416,4 +421,57 @@ export function buildValidatedStudioSetLayerBinding(
     return { status: 'refused', reason: 'metadata-refusal', path: 'binding.params' }
   }
   return encoded
+}
+
+export type StudioUnicodeMetadataResult =
+  | { status: 'accepted' }
+  | StudioRpcUnavailable
+  | StudioRpcRefusal
+
+/**
+ * Probe a decoded getBehaviorDetails response for already-expanded Unicode cells.
+ * The caller supplies the resolved firmware behavior ID; display names are not aliases.
+ * Acceptance is not session freshness, write authorization, an RPC send or persistence.
+ */
+export function validateStudioUnicodeMetadata(
+  input: unknown, binding: StudioBehaviorBinding
+): StudioUnicodeMetadataResult {
+  try {
+    const wire = record(binding, ['behaviorId', 'param1', 'param2'], 'binding')
+    integer(wire.behaviorId, 'binding.behaviorId', 0, 0x7fffffff)
+    const param1 = integer(wire.param1, 'binding.param1')
+    const param2 = integer(wire.param2, 'binding.param2')
+    if (param1 === 0xffffff) {
+      requireValid(param2 <= 5, 'binding.param2')
+    } else {
+      requireValid(unicodeCodePoint(param1) !== null, 'binding.param1')
+      requireValid(unicodeCodePoint(param2) !== null, 'binding.param2')
+    }
+  } catch (error) {
+    if (error instanceof SessionMappingError) return {
+      status: 'refused', reason: 'invalid-binding', path: error.result.path ?? 'binding'
+    }
+    throw error
+  }
+  const path = 'getBehaviorDetails.behaviors.getBehaviorDetails'
+  try {
+    const details = record(response(input, 'behaviors', 'getBehaviorDetails'), ['id', 'displayName', 'metadata'], path)
+    const id = integer(details.id, `${path}.id`)
+    requireValid(id === binding.behaviorId, `${path}.id`, 'unknown-behavior-id')
+    text(details.displayName, `${path}.displayName`)
+    const missingSet: StudioRpcRefusal = {
+      status: 'refused', reason: 'missing-unicode-parameter-set', path: `${path}.metadata`
+    }
+    // A driver without .parameter_metadata yields no usable numeric set.
+    if (details.metadata === undefined) return missingSet
+    validateMetadata(details.metadata, `${path}.metadata`)
+    const accepts = (value: number, options: StudioParameterValue[]): boolean => options.some(option =>
+      option.constant === value || (option.range !== undefined && value >= option.range.min && value <= option.range.max))
+    const metadata = details.metadata as StudioBehaviorDetails['metadata']
+    return metadata.some(set => accepts(binding.param1, set.param1) && accepts(binding.param2, set.param2))
+      ? { status: 'accepted' } : missingSet
+  } catch (error) {
+    if (error instanceof SessionMappingError) return error.result
+    throw error
+  }
 }
