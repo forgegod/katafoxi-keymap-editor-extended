@@ -32,6 +32,8 @@ Transparent and None use the exact Miscellaneous Behaviors fragments `misc#trans
 
 `buildValidatedStudioSetLayerBinding` adds pure metadata acceptance to the lossless encoder without granting live-session authorization. Both uint32 cells must match the same advertised parameter set. Empty metadata refuses; empty cell options/nil allow only zero. Constants, nonnegative values within advertised ranges, actual firmware layer IDs and bounded plain keyboard/consumer HID usages are supported. Unknown/malformed metadata, excess/nested arguments and inferred modifier/signed encodings refuse rather than truncate or guess. The browser must supply fresh metadata, guard the live connection and verify acknowledgements/readback separately.
 
+`expandStudioUnicodeBinding` in `studio-unicode-binding.ts` expands source `&uc` parameters to exactly `{ param1, param2 }`, or returns null without modifying the input. Known single-token aliases use core's pinned Unicode pairs/mode indices; only `UC_SET_*` aliases produce the `0xffffff` mode sentinel. Explicit pairs require decimal/hex integer scalars (including Shift zero), excluding surrogates. Unknown aliases, one numeric cell, nested/excess arguments and picker-only glyph/U+ syntax refuse. Expansion does not resolve firmware behavior IDs, validate metadata, authorize writes or send RPCs; the existing numeric encoder and browser path remain separate.
+
 ## Work Guidance
 
 Add focused round-trip and locality tests for file transformations. Preserve unknown external binding parameters. ZMK macros are not C preprocessor aliases. Demo boards belong in fixtures.
@@ -71,6 +73,8 @@ Source-backed managed macro saves compare a present source fingerprint even when
 From repository root: pnpm --filter @keymap-editor/keymap-core test; pnpm --filter @keymap-editor/keymap-core lint.
 
 `src/studio-rpc-session.test.ts` uses synthetic decoded Studio fixtures for numeric/geometry preservation, unlock/missing-response gating, named refusals and lossless binding request encoding; it does not certify hardware or browser transport.
+
+`pnpm --filter @keymap-editor/keymap-core test -- src/studio-unicode-binding.test.ts` verifies pure Unicode parameter expansion and refusal, not firmware acceptance or USB transport.
 
 ## Child DOX Index
 
