@@ -7,7 +7,7 @@
       "png": "exports/CAP-001-firmware-keymap-editing.png",
       "viewport": {
         "width": 1440,
-        "height": 7500
+        "height": 8700
       }
     },
     {
@@ -17,7 +17,7 @@
       "png": "exports/CAP-002-keymap-sources-and-persistence.png",
       "viewport": {
         "width": 1440,
-        "height": 4900
+        "height": 6200
       }
     },
     {
