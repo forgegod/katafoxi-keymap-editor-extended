@@ -10,7 +10,7 @@
 | 1 | Map a fake Studio session into an editor selection | done (`pnpm --filter @keymap-editor/keymap-core test -- src/studio-rpc-session.test.ts` exit 0 @ 3981b9752b8cae6100f5cd885e8992bc87fa09aa) | `pnpm --filter @keymap-editor/keymap-core test -- src/studio-rpc-session.test.ts` exits 0 |
 | 2 | Connect USB from the source picker | done (`pnpm install --frozen-lockfile && pnpm --filter @keymap-editor/web test -- src/lib/usb-studio.test.ts` exit 0 @ 52b36c852eb52911c318fed4bfdb6e62f1614310) | `pnpm --filter @keymap-editor/web test -- src/lib/usb-studio.test.ts` exits 0 |
 | 3 | Write one accepted binding and save keyboard settings | done (`pnpm --filter @keymap-editor/web test -- src/lib/usb-studio-write.test.ts` exit 0 @ 9853849f8262a37a0322ac6e259895e420724612) | `pnpm --filter @keymap-editor/web test -- src/lib/usb-studio-write.test.ts` exits 0 |
-| 4 | Integrate current source records and visuals | pending | `pnpm records:check && pnpm wireframes:generate && pnpm wireframes:render && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test` exits 0 |
+| 4 | Integrate current source records and visuals | in-progress | `pnpm records:check && pnpm wireframes:generate && pnpm wireframes:render && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test` exits 0 |
 
 ## Phase 1 — Map a fake Studio session into an editor selection
 
