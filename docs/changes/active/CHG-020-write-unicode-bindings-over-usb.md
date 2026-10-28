@@ -11,7 +11,7 @@ Depends on CHG-019 for the USB session and on `forgegod/urob-zmk-unicode` CHG-00
 | --- | --- | --- | --- |
 | 1 | Expand unicode aliases to two integers | done (`pnpm --filter @keymap-editor/keymap-core test -- src/studio-unicode-binding.test.ts` exit 0 @ 1939dae2fbba9a5d108fd8afd66d5de2b65a5a12) | `pnpm --filter @keymap-editor/keymap-core test -- src/studio-unicode-binding.test.ts` exits 0 |
 | 2 | Refuse a write the advertised metadata cannot accept | done (`pnpm --filter @keymap-editor/keymap-core test -- src/studio-unicode-metadata.test.ts` exit 0 @ e71310ba7ce1f715cc18b2c482a71ebaa2ed01a6) | `pnpm --filter @keymap-editor/keymap-core test -- src/studio-unicode-metadata.test.ts` exits 0 |
-| 3 | Send an accepted unicode binding through the USB source | pending | `pnpm --filter @keymap-editor/web test -- src/lib/usb-unicode-write.test.ts` exits 0 |
+| 3 | Send an accepted unicode binding through the USB source | in-progress | `pnpm --filter @keymap-editor/web test -- src/lib/usb-unicode-write.test.ts` exits 0 |
 | 4 | Integrate the unicode USB record and visual | pending | `pnpm records:check && pnpm wireframes:generate && pnpm wireframes:render && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test` exits 0 |
 
 ## Phase 1 — Expand unicode aliases to two integers
