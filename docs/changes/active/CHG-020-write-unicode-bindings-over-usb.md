@@ -1,6 +1,6 @@
 # CHG-020 — Write unicode bindings over USB
 
-**Status:** planned
+**Status:** in-progress
 **External request:** Direct operator request: create the change records needed so this editor can change `&uc` keys over USB without flashing, after the keyboard's unicode behavior advertises parameters the existing Studio RPC will accept.
 **Impacts:** CAP-001
 **Baseline:** `ebc658622d3a5139bab9af0f71359e597ccee09e`
@@ -9,7 +9,7 @@ Depends on CHG-019 for the USB session and on `forgegod/urob-zmk-unicode` CHG-00
 
 | # | Phase | Status | Verification gate |
 | --- | --- | --- | --- |
-| 1 | Expand unicode aliases to two integers | pending | `pnpm --filter @keymap-editor/keymap-core test -- src/studio-unicode-binding.test.ts` exits 0 |
+| 1 | Expand unicode aliases to two integers | in-progress | `pnpm --filter @keymap-editor/keymap-core test -- src/studio-unicode-binding.test.ts` exits 0 |
 | 2 | Refuse a write the advertised metadata cannot accept | pending | `pnpm --filter @keymap-editor/keymap-core test -- src/studio-unicode-metadata.test.ts` exits 0 |
 | 3 | Send an accepted unicode binding through the USB source | pending | `pnpm --filter @keymap-editor/web test -- src/lib/usb-unicode-write.test.ts` exits 0 |
 | 4 | Integrate the unicode USB record and visual | pending | `pnpm records:check && pnpm wireframes:generate && pnpm wireframes:render && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test` exits 0 |
