@@ -1,6 +1,6 @@
 # CHG-020 — Write unicode bindings over USB
 
-**Status:** in-progress
+**Status:** done
 **External request:** Direct operator request: create the change records needed so this editor can change `&uc` keys over USB without flashing, after the keyboard's unicode behavior advertises parameters the existing Studio RPC will accept.
 **Impacts:** CAP-001
 **Baseline:** `ebc658622d3a5139bab9af0f71359e597ccee09e`
@@ -12,7 +12,7 @@ Depends on CHG-019 for the USB session and on `forgegod/urob-zmk-unicode` CHG-00
 | 1 | Expand unicode aliases to two integers | done (`pnpm --filter @keymap-editor/keymap-core test -- src/studio-unicode-binding.test.ts` exit 0 @ 1939dae2fbba9a5d108fd8afd66d5de2b65a5a12) | `pnpm --filter @keymap-editor/keymap-core test -- src/studio-unicode-binding.test.ts` exits 0 |
 | 2 | Refuse a write the advertised metadata cannot accept | done (`pnpm --filter @keymap-editor/keymap-core test -- src/studio-unicode-metadata.test.ts` exit 0 @ e71310ba7ce1f715cc18b2c482a71ebaa2ed01a6) | `pnpm --filter @keymap-editor/keymap-core test -- src/studio-unicode-metadata.test.ts` exits 0 |
 | 3 | Send an accepted unicode binding through the USB source | done (`pnpm --filter @keymap-editor/web test -- src/lib/usb-unicode-write.test.ts` exit 0 @ 0c349a499ade9e70be881953b1e4970f9e087453) | `pnpm --filter @keymap-editor/web test -- src/lib/usb-unicode-write.test.ts` exits 0 |
-| 4 | Integrate the unicode USB record and visual | in-progress | `pnpm records:check && pnpm wireframes:generate && pnpm wireframes:render && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test` exits 0 |
+| 4 | Integrate the unicode USB record and visual | done (`pnpm records:check && pnpm wireframes:generate && pnpm wireframes:render && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test` exit 0 @ dd6548bf45529cd84d86205834a32dd803f0b321) | `pnpm records:check && pnpm wireframes:generate && pnpm wireframes:render && pnpm --filter @keymap-editor/keymap-core test && pnpm --filter @keymap-editor/web test` exits 0 |
 
 ## Phase 1 — Expand unicode aliases to two integers
 
